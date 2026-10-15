@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.67",
   "backEnd": {
-    "hash": "385a47f651f8e0e17ab2c99c39903bf860fc3fa1891c0a82889f3b1d01bed2b7",
-    "declarationCount": 7334,
+    "hash": "707df4c467e550bba2b87a4f6263f8043a9a6ddc345868a3bfb9324743049239",
+    "declarationCount": 7354,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3535,6 +3535,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public long? MaxTokensPerRun { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public Type? MemoryType { get; internal set; }"
       },
       {
@@ -3600,6 +3604,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder Budget( NhAssistantAgentBudget perDay, int maxConcurrentRuns = 4, int maxRunsPerSubjectPerDay = 10)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder MaxTokensPerRun(long tokens) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -5631,6 +5639,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder AddSubjectBriefing<TProvider>() where TProvider : class, INhAssistantSubjectBriefingProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddTrigger<TEvent>(string triggerId, Action<NhAssistantTriggerBuilder<TEvent>> configure) where TEvent : class {"
       },
       {
@@ -6407,6 +6419,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string RunTokenLimit = \"assistant-run-token-limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string AgentNotConfigured = \"assistant-agent-not-configured\";"
       },
       {
@@ -7063,6 +7079,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public int MaxBriefingCharacters { get; set; } = 8_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public TimeSpan BriefingTimeout { get; set; } = TimeSpan.FromSeconds(5);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public sealed class NhAssistantDbContextOptions {"
       },
       {
@@ -7192,6 +7216,42 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantServiceRegistration.cs",
         "declaration": "public static bool IsInvocationGateDecorated(IServiceCollection services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
+        "declaration": "public interface INhAssistantSubjectBriefingProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
+        "declaration": "public sealed record NhAssistantBriefingContext( string AgentId, NhAiSubjectInfo Subject, string Purpose, IReadOnlyList<NhAssistantRuleInput> Inputs);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
+        "declaration": "public static class NhAssistantBriefingPurposes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
+        "declaration": "public const string Run = \"run\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
+        "declaration": "public const string Thread = \"thread\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
+        "declaration": "public const string Consultation = \"consultation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
+        "declaration": "public sealed record NhAssistantSubjectBriefing(IReadOnlyList<NhAssistantBriefingSection> Sections);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
+        "declaration": "public sealed record NhAssistantBriefingSection(string Title, string Text) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
+        "declaration": "public const int MaxTitleLength = 80;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
@@ -8402,6 +8462,10 @@
         "declaration": "public async Task<NhAiArtifact?> GetAsync(Guid artifactId, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantBriefingService.cs",
+        "declaration": "public async Task<string?> DescribeAsync( string agentId, NhAiSubjectInfo subject, string purpose, IReadOnlyList<NhAssistantRuleInput> inputs, string? rulesReason, int ruleProposals, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultations.cs",
         "declaration": "public bool MayOffer(string toolId, int maxDepth) {"
       },
@@ -8664,6 +8728,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public bool DelegatedOnly { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public long? TokenAllowance { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
@@ -9012,6 +9080,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public bool ToolCallLimitReached { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public long? TokenAllowance { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public bool RunTokenLimitReached { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public bool TokenAllowanceUsed => TokenAllowance is { } allowance && (long)InputTokens + OutputTokens >= allowance;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -32972,7 +33052,16 @@
       "NhAssistantAgentState",
       "NhAssistantAgentStateRequest",
       "NhAssistantAgentRunStates",
-      "MaxStateReasonCharacters"
+      "MaxStateReasonCharacters",
+      "INhAssistantSubjectBriefingProvider",
+      "NhAssistantBriefingContext",
+      "NhAssistantBriefingPurposes",
+      "NhAssistantSubjectBriefing",
+      "NhAssistantBriefingSection",
+      "AddSubjectBriefing",
+      "MaxBriefingCharacters",
+      "BriefingTimeout",
+      "MaxTokensPerRun"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

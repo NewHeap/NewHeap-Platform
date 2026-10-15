@@ -133,6 +133,13 @@ internal sealed record NhAssistantAgentTurnContext(
     /// proposal of a consultation executes.
     /// </summary>
     public bool DelegatedOnly { get; init; }
+
+    /// <summary>
+    /// The input and output tokens the turn may use before its run stops, from the agent's
+    /// <c>MaxTokensPerRun</c> less what earlier turns of the run used; <see langword="null"/>
+    /// without a ceiling.
+    /// </summary>
+    public long? TokenAllowance { get; init; }
 }
 
 /// <summary>

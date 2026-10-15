@@ -88,6 +88,7 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantAgentNotifier>();
         services.TryAddScoped<NhAssistantAgentEvents>();
         services.TryAddScoped<NhAssistantMemoryService>();
+        services.TryAddScoped<NhAssistantBriefingService>();
         services.TryAddScoped<NhAssistantRunSummaries>();
         services.TryAddScoped<NhAssistantArtifactStore>();
         services.TryAddScoped<NhAssistantProposalFeedbackStore>();

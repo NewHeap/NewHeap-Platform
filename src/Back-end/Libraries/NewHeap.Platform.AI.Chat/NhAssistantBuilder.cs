@@ -263,6 +263,18 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Registers the briefing of a subject type: a bounded sketch of the subject that every model
+    /// turn of an agent about it reads after its instructions. One provider per subject type; a
+    /// later registration for the same type replaces an earlier one.
+    /// </summary>
+    public NhAssistantBuilder AddSubjectBriefing<TProvider>()
+        where TProvider : class, INhAssistantSubjectBriefingProvider
+    {
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAssistantSubjectBriefingProvider, TProvider>());
+        return this;
+    }
+
+    /// <summary>
     /// Registers a trigger that starts an agent when the application publishes
     /// <typeparamref name="TEvent"/> through <c>INhAssistantAgentTriggers.PublishAsync</c>.
     /// </summary>

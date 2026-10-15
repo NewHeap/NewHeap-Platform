@@ -4255,5 +4255,27 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
     ]
+  },
+  {
+    "id": "SPM-285",
+    "title": "Agents start from a briefing of their subject and a run stops at its token ceiling",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantSubjectBriefingProvider with NhAssistantBriefingContext, NhAssistantBriefingPurposes, NhAssistantSubjectBriefing and NhAssistantBriefingSection; NhAssistantBuilder.AddSubjectBriefing; the <subject-briefing> block of headless runs, people's turns in a thread and consultations, with the rules' hand-over reason as its first section; NhAssistantLimits.MaxBriefingCharacters and BriefingTimeout; NhAssistantAgentRunBuilder.MaxTokensPerRun and NhAssistantAgentRunOptions.MaxTokensPerRun; the failure code assistant-run-token-limit with failure class budget and its text in the run timeline",
+    "outcome": "Every model turn about a project, of any agent, reads a briefing of the project after its instructions: its status and deadline with their dates, how many tasks are open with their titles, when the others were completed, and what the project closer's completion check finds, the same check its rules decide on. The intake reviewer answers a new project from that briefing without reading a task through a tool, and a participant who asks in the project's thread reads the same facts. A run that keeps calling tools stops before its next model call once it used its ceiling of 60,000 tokens: it fails with failure class budget and code `assistant-run-token-limit`, keeps what it did, and an approver may resume it with a new allowance. A briefing provider that fails or is slow leaves the turn without a briefing, and the turn goes on.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectBriefing.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantBriefingService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentBriefingTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/i18n/en.json"
+    ]
   }
 ] as const;

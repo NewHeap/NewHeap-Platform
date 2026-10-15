@@ -501,6 +501,12 @@ public static class NhAssistantErrorCodes
     /// A queued run did not start because its agent is paused; its events wait for the resume.
     /// </summary>
     public const string AgentPaused = "assistant-agent-paused";
+
+    /// <summary>
+    /// The run used its token ceiling (<c>MaxTokensPerRun</c>) and stopped before the next model
+    /// call. Its proposals stay; an approver may resume or restart it.
+    /// </summary>
+    public const string RunTokenLimit = "assistant-run-token-limit";
     public const string AgentNotConfigured = "assistant-agent-not-configured";
     public const string RunNotFound = "assistant-run-not-found";
     public const string RunNotRetryable = "assistant-run-not-retryable";

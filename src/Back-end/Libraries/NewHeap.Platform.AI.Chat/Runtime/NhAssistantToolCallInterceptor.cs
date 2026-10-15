@@ -73,6 +73,22 @@ internal sealed class NhAssistantTurnState
     public bool ToolCallLimitReached { get; set; }
 
     /// <summary>
+    /// The input and output tokens this turn may use before its run stops; <see langword="null"/>
+    /// without a ceiling.
+    /// </summary>
+    public long? TokenAllowance { get; init; }
+
+    /// <summary>
+    /// Set when the run's token ceiling ended the model loop before the next model call.
+    /// </summary>
+    public bool RunTokenLimitReached { get; set; }
+
+    /// <summary>
+    /// Whether the turn used its token allowance, so no further model call may start.
+    /// </summary>
+    public bool TokenAllowanceUsed => TokenAllowance is { } allowance && (long)InputTokens + OutputTokens >= allowance;
+
+    /// <summary>
     /// Set when the durable daily tool budget refused a tool call in this turn.
     /// </summary>
     public bool ToolBudgetExhausted { get; set; }
@@ -243,6 +259,14 @@ internal sealed class NhAssistantToolCallInterceptor(
         {
             context.Terminate = true;
             return Refusal(ToolsDisabledCode);
+        }
+        if (state.TokenAllowanceUsed)
+        {
+            // The result of this call would go to another model call, which the run's ceiling
+            // forbids; nothing runs, and the loop ends.
+            state.RunTokenLimitReached = true;
+            context.Terminate = true;
+            return Refusal(NhAssistantErrorCodes.RunTokenLimit);
         }
         if (state.Scope.Consultation is { MayPropose: false } && descriptor.Effect != NhAiToolEffect.ReadOnly)
         {

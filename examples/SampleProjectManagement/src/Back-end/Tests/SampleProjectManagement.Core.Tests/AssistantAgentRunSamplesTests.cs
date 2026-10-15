@@ -513,6 +513,69 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_intake_reviewer_starts_from_a_briefing_of_the_project_and_stops_at_its_token_ceiling()
+    {
+        // SPM-285
+        var project = await host.CreateProjectAsync("BRIEFING", ownerId: host.OwnerId, deadline: DateTimeOffset.UtcNow.AddDays(10));
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        var budget = await host.CreateTaskAsync(project, "Close the budget");
+        await host.CreateTaskAsync(project, "Hand over the documentation");
+        await host.DeliverAsync(await host.CompleteTaskByHandAsync(budget, host.ParticipantId));
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        var model = new NhAiScriptedChatClient()
+            .RespondWithText("One of two tasks is still open, so the intake is not complete.")
+            .RespondWithText("The documentation hand-over is still open.");
+        host.Model.Use(model);
+        try
+        {
+            // The reviewer's run starts from the project's briefing and reads no task through a tool.
+            var receipt = Assert.Single(await host.PublishProjectCreatedAsync(project, createdBy: host.OwnerId));
+            var conversationId = receipt.ConversationId!.Value;
+            var first = Assert.Single(await WaitForRunCountAsync(owner, conversationId, 1));
+            Assert.Equal(NhAssistantRunStatuses.Completed, first.Status);
+            Assert.Equal(0, first.ToolCalls);
+            var briefing = model.Requests[0].Messages
+                .Select(message => message.Text)
+                .Single(text => text.Contains("<subject-briefing>", StringComparison.Ordinal));
+            Assert.Contains("Status draft", briefing);
+            Assert.Contains("Deadline ", briefing);
+            Assert.Contains("1 of 2 tasks are open.", briefing);
+            Assert.Contains("- open: Hand over the documentation", briefing);
+            Assert.Contains(": Close the budget", briefing);
+            Assert.Contains("The project is not active, so the project closer leaves it alone.", briefing);
+
+            // A participant's question in the project's thread reads the same briefing.
+            await host.SendAsync(participant, conversationId, "What is still open?");
+            Assert.Contains(model.Requests[1].Messages, message => message.Text.Contains("1 of 2 tasks are open.", StringComparison.Ordinal));
+
+            // A run that keeps calling tools stops before its next model call once it used its
+            // ceiling of 60,000 tokens; an approver may resume it.
+            host.Model.Use(new FixedTokenChatClient(
+                new NhAiScriptedChatClient()
+                    .RespondWithFunctionCall("projects_draft_intake_note_v1", new { input = new { projectId = project } }, "call-note-1")
+                    .RespondWithFunctionCall("projects_draft_intake_note_v1", new { input = new { projectId = project } }, "call-note-2"),
+                tokensPerCall: 30_000));
+            var restart = await participant.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new NhAssistantStartAgentRequest(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type, project.ToString("D"), "Draft the intake note."),
+                Json);
+            Assert.Equal(HttpStatusCode.Accepted, restart.StatusCode);
+            var stopped = Assert.Single(await WaitForRunCountAsync(owner, conversationId, 2), run => run.Id != first.Id);
+            Assert.Equal(NhAssistantRunStatuses.Failed, stopped.Status);
+            Assert.Equal(NhAssistantRunFailureClasses.Budget, stopped.FailureClass);
+            Assert.Equal(NhAssistantErrorCodes.RunTokenLimit, stopped.FailureCode);
+            Assert.Equal(60_000, stopped.InputTokens + stopped.OutputTokens);
+            // The first call's tool ran; the second call's tool was refused at the ceiling.
+            Assert.Equal(1, stopped.ToolCalls);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
+    [Fact]
     public async Task A_participant_starts_the_status_advisor_which_uses_their_rights_and_waits_inline_for_their_approval()
     {
         // SPM-272 and SPM-273
@@ -1499,6 +1562,49 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
             ActiveDivisionId = DivisionId
         });
         dbContext.Set<NhDivisionUser>().Add(new NhDivisionUser { Id = Guid.NewGuid(), UserId = id, DivisionId = DivisionId });
+    }
+}
+
+/// <summary>
+/// SPM-285: plays a script and reports a fixed number of tokens for every model call, as a model
+/// with a large prompt would.
+/// </summary>
+public sealed class FixedTokenChatClient(NhAiScriptedChatClient script, int tokensPerCall) : IChatClient
+{
+    public Task<ChatResponse> GetResponseAsync(
+        IEnumerable<ChatMessage> messages,
+        ChatOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        return script.GetResponseAsync(messages, options, cancellationToken);
+    }
+
+    public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+        IEnumerable<ChatMessage> messages,
+        ChatOptions? options = null,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var update in script.GetStreamingResponseAsync(messages, options, cancellationToken))
+        {
+            foreach (var usage in update.Contents.OfType<UsageContent>())
+            {
+                usage.Details.InputTokenCount = tokensPerCall;
+                usage.Details.OutputTokenCount = 0;
+                usage.Details.TotalTokenCount = tokensPerCall;
+            }
+
+            yield return update;
+        }
+    }
+
+    public object? GetService(Type serviceType, object? serviceKey = null)
+    {
+        return script.GetService(serviceType, serviceKey);
+    }
+
+    public void Dispose()
+    {
+        script.Dispose();
     }
 }
 

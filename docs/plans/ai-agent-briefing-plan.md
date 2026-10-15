@@ -8,8 +8,36 @@ turn, and a token ceiling per run. It is phase A2 of the
 
 ## Status
 
-Decided and ready for implementation; nothing is implemented yet. The choices are part of the
-[decision record](#decision-record) and the [answered questions](#answered-questions).
+Implemented on 2026-10-15, with sample case SPM-285. The choices are part of the
+[decision record](#decision-record) and the [answered questions](#answered-questions). The consumer
+guide `ai-agent-runs` and the sample are authoritative from now on; the implementation deviates from
+the plan where [Implementation notes](#implementation-notes) says so.
+
+## Implementation notes
+
+- **Where briefings apply.** Headless runs (purpose `run`, with the run's inputs), people's turns
+  in a thread (`thread`) and consultations (`consultation`). A turn that continues after an inline
+  approval continues the earlier turn's messages and gets no new briefing; rule handlers get none.
+- **Format.** Each section is a `<section title="...">` element inside `<subject-briefing>`;
+  `<` and `>` in titles and texts become `‹` and `›`, control characters other than line breaks
+  become spaces. The bound counts the characters of titles and texts; a section that does not fit
+  ends the briefing, so a first section larger than the bound leaves only the note.
+- **Providers** are registered as an enumerable scoped service; a later registration for the same
+  subject type wins, as for subject access resolvers.
+- **The ceiling is an allowance per execution.** The run operation passes what is left of
+  `MaxTokensPerRun` to each turn; the interceptor refuses the next tool call once the turn used it,
+  which ends the model loop before the next model call, and no closing answer follows. Because the
+  allowance belongs to one execution of the run, a resumed run, or a run that continues after an
+  inline approval, starts with a new allowance.
+- **Waiting messages.** When the allowance is used after a completed turn and messages wait in the
+  thread, the run fails with `assistant-run-token-limit` instead of starting another turn; a resume
+  handles them.
+- **No text in a language.** The library has no server-side translations, so the thread message of
+  a run at its ceiling gets no note; the run timeline shows the failure code through
+  `nh-assistant.errors.assistant-run-token-limit`.
+- **The sample** briefs every agent about projects and sets the ceiling on the intake reviewer, not
+  on the project planner, which phase B introduces. The briefing reports the project closer's
+  completion check, which its rules use as well.
 
 ## Problem
 

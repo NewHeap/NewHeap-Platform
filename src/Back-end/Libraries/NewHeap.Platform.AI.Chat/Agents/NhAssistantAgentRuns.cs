@@ -94,6 +94,12 @@ public sealed class NhAssistantAgentRunOptions
     public NhAssistantAgentBudget? DailyBudget { get; internal set; }
 
     /// <summary>
+    /// The input and output tokens one run may use across its model calls; <see langword="null"/>
+    /// for no ceiling. Consultations of the agent use it for their one turn.
+    /// </summary>
+    public long? MaxTokensPerRun { get; internal set; }
+
+    /// <summary>
     /// The JSON schema type of the agent's subject memory, or <see langword="null"/> without memory.
     /// </summary>
     public Type? MemoryType { get; internal set; }
@@ -330,6 +336,20 @@ public sealed class NhAssistantAgentRunBuilder
         _options.DailyBudget = perDay;
         _options.MaxConcurrentRuns = maxConcurrentRuns;
         _options.MaxRunsPerSubjectPerDay = maxRunsPerSubjectPerDay;
+        return this;
+    }
+
+    /// <summary>
+    /// Stops a run once it used <paramref name="tokens"/> input and output tokens together, across
+    /// every model call of the run, including a rule run's model part. The ceiling is checked before
+    /// each next model call, so the last call can cross it by its own size; the run then fails with
+    /// <c>assistant-run-token-limit</c> and keeps its proposals, and an approver may resume it with
+    /// a new allowance. A consultation of the agent uses the same ceiling for its one turn.
+    /// </summary>
+    public NhAssistantAgentRunBuilder MaxTokensPerRun(long tokens)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(tokens, 1);
+        _options.MaxTokensPerRun = tokens;
         return this;
     }
 

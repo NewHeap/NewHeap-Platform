@@ -164,6 +164,17 @@ public sealed class NhAssistantLimits
     /// </summary>
     public TimeSpan RejectionContextWindow { get; set; } = TimeSpan.FromDays(30);
 
+    /// <summary>
+    /// The characters of titles and texts a subject briefing gives a model turn, at most 32,000.
+    /// Sections beyond it are left out with a note. The briefing counts against the turn's history.
+    /// </summary>
+    public int MaxBriefingCharacters { get; set; } = 8_000;
+
+    /// <summary>
+    /// How long a subject briefing provider may take; a slower one leaves the turn without a briefing.
+    /// </summary>
+    public TimeSpan BriefingTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
     internal void Validate()
     {
         if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
@@ -189,7 +200,10 @@ public sealed class NhAssistantLimits
             || MaxConsultationsPerActorPerDay < 1
             || MaxRejectionsInContext is < 0 or > 20
             || RejectionContextWindow < TimeSpan.FromDays(1)
-            || RejectionContextWindow > TimeSpan.FromDays(365))
+            || RejectionContextWindow > TimeSpan.FromDays(365)
+            || MaxBriefingCharacters is < 1 or > 32_000
+            || BriefingTimeout <= TimeSpan.Zero
+            || BriefingTimeout > TimeSpan.FromMinutes(1))
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }

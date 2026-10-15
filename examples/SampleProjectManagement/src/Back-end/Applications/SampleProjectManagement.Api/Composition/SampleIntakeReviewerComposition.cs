@@ -69,6 +69,8 @@ public static class SampleIntakeReviewerComposition
             // Project members see the project's agent threads; their project role decides whether
             // they read, take part or decide proposals.
             .AddSubjectType<ProjectSubjectAccessResolver>()
+            // SPM-285: every model turn about a project, of any agent, reads its briefing first.
+            .AddSubjectBriefing<ProjectBriefingProvider>()
             .AddApprovalPolicy(ApprovalPolicyId, policy => policy
                 .Mode(NhAiApprovalMode.Deferred)
                 .Lifetime(TimeSpan.FromDays(3))
@@ -108,6 +110,9 @@ public static class SampleIntakeReviewerComposition
                     NhAssistantAgentBudget.PerDay(toolCalls: 50, tokens: 200_000),
                     maxConcurrentRuns: 2,
                     maxRunsPerSubjectPerDay: 5)
+                // SPM-285: one run never spends more than this; a run that keeps calling tools stops
+                // before its next model call and an approver can resume it.
+                .MaxTokensPerRun(60_000)
                 // SPM-278: the project assistant may consult the reviewer about a project. A
                 // consultation uses the asking person's rights, never the grants above; project
                 // readers get an answer, participants may also leave proposals for the approvers.

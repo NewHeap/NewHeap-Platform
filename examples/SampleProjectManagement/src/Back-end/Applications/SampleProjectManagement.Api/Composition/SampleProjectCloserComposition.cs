@@ -100,33 +100,23 @@ public sealed class ProjectCloserRules(
             return NhAssistantRuleResult.Done(localizer["CloserNoTaskCompleted"].Value);
         }
 
-        var projectId = Guid.Parse(context.Subject.Subject.Id);
-        var status = await dbContext.Projects
-            .AsNoTracking()
-            .Where(project => project.Id == projectId)
-            .Select(project => (ProjectStatus?)project.Status)
-            .SingleOrDefaultAsync(cancellationToken);
-        if (status != ProjectStatus.Active)
+        // The same check as the project briefing reports to the model (SPM-285).
+        var check = await ProjectCompletionCheck.ReadAsync(dbContext, Guid.Parse(context.Subject.Subject.Id), cancellationToken);
+        if (check is not { IsActive: true })
         {
             return NhAssistantRuleResult.Done(localizer["CloserProjectNotActive"].Value);
         }
-
-        var tasks = await dbContext.ProjectTasks
-            .AsNoTracking()
-            .Where(task => task.ProjectId == projectId)
-            .Select(task => task.IsCompleted)
-            .ToListAsync(cancellationToken);
-        var open = tasks.Count(completed => !completed);
-        if (tasks.Count == 0 || open > 0)
+        if (!check.ReadyToComplete)
         {
-            return NhAssistantRuleResult.Done(localizer["CloserTasksOpen", open, tasks.Count].Value);
+            return NhAssistantRuleResult.Done(localizer["CloserTasksOpen", check.Open, check.Total].Value);
         }
 
+        var projectId = Guid.Parse(context.Subject.Subject.Id);
         var proposal = await context.ProposeAsync(
             ProjectAiTools.ChangeStatusToolId,
             new ProjectAiStatusChangeInput(projectId, ProjectStatus.Completed),
             // The platform asks once per supported culture, with that culture current.
-            _ => localizer["CloserReason", tasks.Count].Value,
+            _ => localizer["CloserReason", check.Total].Value,
             cancellationToken);
         return NhAssistantRuleResult.Done(proposal.Outcome switch
         {

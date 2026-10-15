@@ -299,6 +299,7 @@
       "assistant-agent-configured-off": "Deze agent is uitgeschakeld in de configuratie van de applicatie.",
       "assistant-agent-paused": "Deze agent is gepauzeerd; het verzoek wacht tot hij hervat wordt.",
       "assistant-agent-stopped": "Deze agent is gestopt.",
+      "assistant-run-token-limit": "Deze run is gestopt omdat hij zijn tokenbudget heeft bereikt. Wat hij al deed blijft staan; een goedkeurder kan hem hervatten.",
       "assistant-agent-not-configured": "Deze agent kan niet zelfstandig werken.",
       "assistant-run-not-found": "De run is niet gevonden.",
       "assistant-run-not-retryable": "Deze run kan niet opnieuw worden gestart.",

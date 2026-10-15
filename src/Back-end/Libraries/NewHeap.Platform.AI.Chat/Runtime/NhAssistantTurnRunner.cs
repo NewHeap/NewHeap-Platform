@@ -346,7 +346,16 @@ internal sealed class NhAssistantTurnRunner(
                 }
             }
 
-            var messages = await BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, null, null, speakers);
+            // The briefing carries what the application and, after a hand-over, the rules found.
+            var briefing = await services.GetRequiredService<NhAssistantBriefingService>().DescribeAsync(
+                effectiveAgent.Id,
+                agentTurn.Subject,
+                NhAssistantBriefingPurposes.Run,
+                request.Inputs.Select(input => new NhAssistantRuleInput(input.TriggerId, input.Text, input.PayloadJson, input.CreatedAt)).ToArray(),
+                handOver,
+                state.ProposalCount,
+                cancellationToken);
+            var messages = await BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, null, null, speakers, briefing?.Length ?? 0);
             // A run starts from its working memory and what earlier runs did, not from the full history.
             var continuity = await services.GetRequiredService<NhAssistantMemoryService>()
                 .DescribeContinuityAsync(agentTurn.Thread, agentTurn.Options, agentTurn.RunId, cancellationToken);
@@ -354,14 +363,9 @@ internal sealed class NhAssistantTurnRunner(
             {
                 messages.Insert(0, new ChatMessage(ChatRole.System, continuity));
             }
-            if (handOver is not null)
+            if (briefing is not null)
             {
-                messages.Add(new ChatMessage(
-                    ChatRole.System,
-                    "The agent's application rules handed this run over to you. Their reason, as data: \""
-                    + NhAssistantContent.Bound(handOver.ReplaceLineEndings(" "), NhAssistantRuleResult.MaxSummaryLength)
-                    + "\". They already recorded " + state.ProposalCount.ToString(CultureInfo.InvariantCulture)
-                    + " proposal(s) in this run; do not propose those again."));
+                messages.Insert(0, new ChatMessage(ChatRole.System, briefing));
             }
             await RunModelAsync(state, callerContext, messages, cancellation.Token);
             return Result(state);
@@ -651,12 +655,24 @@ internal sealed class NhAssistantTurnRunner(
         var history = consultation.Options.MaxHistoryMessages == 0
             ? []
             : await store.GetMessagesAsync(conversation.Id, consultation.Options.MaxHistoryMessages, CancellationToken.None);
-        var messages = await BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, request.Question, null, speakers);
+        var briefing = await services.GetRequiredService<NhAssistantBriefingService>().DescribeAsync(
+            effectiveAgent.Id,
+            agentTurn.Subject,
+            NhAssistantBriefingPurposes.Consultation,
+            [],
+            null,
+            0,
+            cancellationToken);
+        var messages = await BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, request.Question, null, speakers, briefing?.Length ?? 0);
         var continuity = await services.GetRequiredService<NhAssistantMemoryService>()
             .DescribeContinuityAsync(agentTurn.Thread, agentTurn.Options, null, cancellationToken, consultation.Viewer);
         if (continuity is not null)
         {
             messages.Insert(0, new ChatMessage(ChatRole.System, continuity));
+        }
+        if (briefing is not null)
+        {
+            messages.Insert(0, new ChatMessage(ChatRole.System, briefing));
         }
 
         messages.Add(new ChatMessage(ChatRole.System, ConsultationPreamble(consultation)));
@@ -723,6 +739,10 @@ internal sealed class NhAssistantTurnRunner(
             if (providerFailed)
             {
                 return (NhAssistantTurnStatuses.Failed, NhAssistantErrorCodes.ModelUnavailable);
+            }
+            if (state.RunTokenLimitReached)
+            {
+                return (NhAssistantTurnStatuses.Failed, NhAssistantErrorCodes.RunTokenLimit);
             }
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -1174,7 +1194,21 @@ internal sealed class NhAssistantTurnRunner(
             return;
         }
 
-        var messages = await BuildHistoryAsync(conversation.Id, history, agent, text, null, speakers);
+        var briefing = request.AgentTurn is { } agentTurn
+            ? await services.GetRequiredService<NhAssistantBriefingService>().DescribeAsync(
+                effectiveAgent.Id,
+                agentTurn.Subject,
+                NhAssistantBriefingPurposes.Thread,
+                [],
+                null,
+                0,
+                cancellationToken)
+            : null;
+        var messages = await BuildHistoryAsync(conversation.Id, history, agent, text, null, speakers, briefing?.Length ?? 0);
+        if (briefing is not null)
+        {
+            messages.Insert(0, new ChatMessage(ChatRole.System, briefing));
+        }
         messages.Add(new ChatMessage(ChatRole.User, speakers?.Mark(access.ActorId, text) ?? text));
         await RunModelAsync(state, request.CallerContext, messages, cancellationToken);
     }
@@ -1646,6 +1680,13 @@ internal sealed class NhAssistantTurnRunner(
             outcomeStatus = NhAssistantTurnStatuses.WaitingForApproval;
             conversationStatus = NhAssistantConversationStatuses.WaitingForApproval;
         }
+        else if (outcomeStatus == NhAssistantTurnStatuses.Completed && state.RunTokenLimitReached)
+        {
+            // The run stops at its ceiling; what it did stays and the thread remains usable.
+            outcomeStatus = NhAssistantTurnStatuses.Failed;
+            errorCode = NhAssistantErrorCodes.RunTokenLimit;
+            conversationStatus = NhAssistantConversationStatuses.Idle;
+        }
         else if (outcomeStatus == NhAssistantTurnStatuses.Failed)
         {
             conversationStatus = NhAssistantConversationStatuses.Failed;
@@ -1811,7 +1852,9 @@ internal sealed class NhAssistantTurnRunner(
     {
         return (state.ToolCallLimitReached || state.ToolBudgetExhausted)
             && state.PendingApproval is null
-            && !state.ToolsDisabled;
+            && !state.ToolsDisabled
+            && !state.RunTokenLimitReached
+            && !state.TokenAllowanceUsed;
     }
 
     /// <summary>
@@ -2028,6 +2071,7 @@ internal sealed class NhAssistantTurnRunner(
             Conversation = conversation,
             EffectiveAgent = effectiveAgent,
             AgentTurn = agentTurn,
+            TokenAllowance = agentTurn?.TokenAllowance,
             ExtraFunctions = agentTurn is null
                 ? []
                 : services.GetRequiredService<NhAssistantMemoryService>().CreateFunctions(conversation.Id, agentTurn.Options),
@@ -2080,6 +2124,8 @@ internal sealed class NhAssistantTurnRunner(
             Conversation = conversation,
             EffectiveAgent = effectiveAgent,
             AgentTurn = request.AgentTurn,
+            // A consultation is one turn of the agent: the run's ceiling bounds it.
+            TokenAllowance = request.AgentTurn.Options.MaxTokensPerRun,
             McpTools = NhAssistantMcpToolSet.Empty,
             ExtraFunctions = services.GetRequiredService<NhAssistantMemoryService>()
                 .CreateFunctions(conversation.Id, request.AgentTurn.Options, readOnly: true),
@@ -2179,12 +2225,13 @@ internal sealed class NhAssistantTurnRunner(
         NhAssistantAgentDefinition agent,
         string? newMessage,
         Guid? excludedInvocationId,
-        NhAssistantSpeakers? speakers)
+        NhAssistantSpeakers? speakers,
+        int reservedCharacters = 0)
     {
         var budget = profiles.TryGet(agent.ProfileName, out var profile)
             ? (long)profile.Budget.MaxInputTokens * 3
             : 16_000;
-        budget -= agent.Instructions.Content.Length + (newMessage?.Length ?? 0);
+        budget -= agent.Instructions.Content.Length + (newMessage?.Length ?? 0) + reservedCharacters;
 
         var invocationIds = NhAssistantToolHistory.InvocationIds(history)
             .Where(id => id != excludedInvocationId)

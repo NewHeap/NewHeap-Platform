@@ -306,8 +306,11 @@ internal sealed class NhAssistantAgentRunOperation(
         await runs.TrySetRunStatusAsync(run.Id, StartableStatuses, NhAssistantRunStatuses.Running, cancellationToken);
         await workUpdates.PublishAsync(run.ConversationId, NhAssistantAgentWorkReasons.Run, runId: run.Id, cancellationToken: CancellationToken.None);
 
-        var result = await ContinueWaitingTurnAsync(agentTurn, context, cancellationToken)
-            ?? await RunTurnAsync(run, agentTurn, cancellationToken);
+        // The token ceiling bounds this execution of the run: a resumed run gets a new allowance.
+        var used = 0L;
+        var result = await ContinueWaitingTurnAsync(WithAllowance(agentTurn, used), context, cancellationToken)
+            ?? await RunTurnAsync(run, WithAllowance(agentTurn, used), cancellationToken);
+        used += result.InputTokens + result.OutputTokens;
 
         // Messages that arrived while the run worked get further turns, a bounded number of times;
         // after a pause they wait for the resume instead.
@@ -317,11 +320,30 @@ internal sealed class NhAssistantAgentRunOperation(
                && await runs.CountWaitingInputsAsync(run.ConversationId, cancellationToken) > 0
                && await agents.FindRunStateAsync(agentId, cancellationToken) == NhAssistantAgentRunStates.Active)
         {
-            result = await RunTurnAsync(run, agentTurn, cancellationToken);
+            if (WithAllowance(agentTurn, used).TokenAllowance <= 0)
+            {
+                // The ceiling is used; the waiting messages stay for a resume of the run.
+                result = NhAssistantAgentTurnResult.Failed(NhAssistantErrorCodes.RunTokenLimit);
+                break;
+            }
+
+            result = await RunTurnAsync(run, WithAllowance(agentTurn, used), cancellationToken);
+            used += result.InputTokens + result.OutputTokens;
             turnCount++;
         }
 
         return await CompleteAsync(run, agentTurn, result, context, cancellationToken);
+    }
+
+    /// <summary>
+    /// The turn context with what is left of the agent's token ceiling after
+    /// <paramref name="used"/> tokens of this execution.
+    /// </summary>
+    private static NhAssistantAgentTurnContext WithAllowance(NhAssistantAgentTurnContext agentTurn, long used)
+    {
+        return agentTurn.Options.MaxTokensPerRun is { } ceiling
+            ? agentTurn with { TokenAllowance = ceiling - used }
+            : agentTurn;
     }
 
     private async Task<NhAssistantAgentTurnResult> RunTurnAsync(
@@ -503,7 +525,7 @@ internal sealed class NhAssistantAgentRunOperation(
         return errorCode switch
         {
             NhAssistantErrorCodes.ModelUnavailable or NhAssistantErrorCodes.TurnTimeout => NhAssistantRunFailureClasses.Transient,
-            NhAssistantErrorCodes.BudgetExhausted => NhAssistantRunFailureClasses.Budget,
+            NhAssistantErrorCodes.BudgetExhausted or NhAssistantErrorCodes.RunTokenLimit => NhAssistantRunFailureClasses.Budget,
             NhAssistantErrorCodes.AgentDisabled
                 or NhAssistantErrorCodes.AgentForbidden
                 or NhAssistantErrorCodes.AgentStopped

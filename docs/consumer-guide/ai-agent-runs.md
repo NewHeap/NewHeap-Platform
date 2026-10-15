@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, and pause, stop and resume agents from code and the administration.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, and brief agents about their subject within a token ceiling per run.
 
 ## Preferred approach
 
@@ -156,6 +156,24 @@ escalations, unknown outcomes and failed runs through Web Push and every
 recipients from the subject's member snapshot, by default its approvers. Triggers,
 ended runs, executions, resolutions, pauses, stops and resumes are content-free business
 audit events; the reason of a state change stays with the state.
+
+Brief the model about its subject with `AddSubjectBriefing<TProvider>()`, one
+`INhAssistantSubjectBriefingProvider` per subject type. Every model turn about the subject reads
+the briefing after its instructions, as data: headless runs (with the run's events as
+`Inputs`), people's turns in the thread and consultations; rule handlers read data themselves and
+get none. Return a few `NhAssistantBriefingSection`s with facts and their dates, most important
+first, from the same domain checks the agent's rules use, so rules signal and the model decides;
+a rule run that hands over gives the model its reason as the briefing's first section. Briefings
+are bounded by `MaxBriefingCharacters` (8,000, at most 32,000) at section boundaries, count
+against the turn's history, and a provider that throws or takes longer than `BriefingTimeout`
+leaves the turn without one. Briefings reach the model provider: include only what every reader of
+the thread may see and what the agent's data classification allows.
+
+Bound the cost of one run with `MaxTokensPerRun(tokens)`: input and output tokens of every model
+call of the run, checked before each next model call. A run at its ceiling fails with failure
+class `budget` and `assistant-run-token-limit`, keeps its proposals and gets a new allowance when
+an approver resumes it; a consultation uses the same ceiling for its one turn. There is no ceiling
+by default; set one for every agent that runs on events.
 
 Give an agent continuity with `Memory<TMemory>(schemaVersion)`: the model reads and
 changes a working memory per thread through the internal `memory_get` and
@@ -305,6 +323,9 @@ profile and instructions that answer questions about the rules' proposals from t
 - Stopping an agent by editing its definition or sending `isEnabled`; pause or stop it with
   `INhAssistantAgentControl` or `POST admin/agents/{id}/state`.
 - Stopping an agent for an import or a migration that should lose no events; pause it.
+- Letting the model read a subject's basic facts through tool calls in every run; brief it.
+- Putting judgements, instructions or data that not every reader of the thread may see in a
+  briefing.
 
 - Granting a tool to an agent without `AllowAgentGrant` on the tool, or adding
   `AllowAgentGrant` to tools that do not need it.
@@ -433,7 +454,12 @@ executions that the resume queues, consultations included, behind more than a ba
 executions; assert that the version is unchanged, that editing and reset keep the state, that a
 code-disabled agent reads `configured-off` and refuses to resume, that a stopped agent and a `When`
 filter evaluate no further lambda and that the global switch stops triggers, schedules, runs and
-execution queuing, on both providers. SPM-268 to SPM-280 and SPM-282 to SPM-284 are the executable
+execution queuing, on both providers. Assert that a headless run, a consultation and a person's
+turn in the thread read the briefing once, before the continuity, with markup neutralized; that a
+rule run that hands over passes its reason inside it; that a briefing over its bound is cut at a
+section boundary with a note and that a throwing or slow provider leaves the turn without one; and
+that a run at its ceiling fails with `assistant-run-token-limit`, keeps its proposals and finishes
+after a resume, on both providers. SPM-268 to SPM-280 and SPM-282 to SPM-285 are the executable
 references.
 
 ## Executable evidence
@@ -518,3 +544,8 @@ references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Models/OperationsSampleModels.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Models/OperationsSampleModels.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+- SPM-285 — Agents start from a briefing of their subject and a run stops at its token ceiling
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectBriefing.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectBriefing.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)

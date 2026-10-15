@@ -51,6 +51,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-agent-stopped',
   'assistant-agent-paused',
   'assistant-agent-configured-off',
+  'assistant-run-token-limit',
   'assistant-agent-not-configured',
   'assistant-run-not-found',
   'assistant-run-not-retryable',

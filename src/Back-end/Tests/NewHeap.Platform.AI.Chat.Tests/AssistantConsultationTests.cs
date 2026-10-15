@@ -95,6 +95,37 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_consultation_reads_the_subject_briefing_before_the_agents_memory(AssistantTestProvider provider)
+    {
+        var target = new NhAiScriptedChatClient().RespondWithText("Two tasks are open.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "What is open?" } }, "call-1")
+            .RespondWithText("Two tasks are open.");
+        await using var host = await CreateHostAsync(provider, target, asker, configure: services =>
+        {
+            services.AddSingleton(new TestBriefings
+            {
+                Briefing = _ => new NhAssistantSubjectBriefing([new NhAssistantBriefingSection("Open tasks", "2 open tasks.")])
+            });
+            services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAssistantSubjectBriefingProvider, TestBriefingProvider>());
+        });
+        await StartThreadAsync(host, ProjectId);
+        var conversation = await host.CreateConversationAsync(Member, AskingAgentId);
+
+        await host.SendAsync(conversation.Id, "What is open in the project?", Member);
+
+        var context = Assert.Single(host.Services.GetRequiredService<TestBriefings>().Contexts);
+        Assert.Equal(NhAssistantBriefingPurposes.Consultation, context.Purpose);
+        Assert.Empty(context.Inputs);
+        var messages = target.Requests.Single().Messages;
+        Assert.Contains("<section title=\"Open tasks\">", messages[0].Text);
+        Assert.Equal(ChatRole.System, messages[0].Role);
+        Assert.Single(messages, message => message.Text.Contains("<subject-briefing>", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Someone_without_a_role_on_the_subject_is_refused_as_for_an_unknown_subject(AssistantTestProvider provider)
     {
         var target = new NhAiScriptedChatClient();
