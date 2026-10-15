@@ -2186,7 +2186,9 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhPlatformModuleRegistrationTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserManagerRetentionTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhActorTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPlatformActorTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPlatformActorTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerTransactionTests.cs"
     ],
     "SPM-282": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalGuards.cs",

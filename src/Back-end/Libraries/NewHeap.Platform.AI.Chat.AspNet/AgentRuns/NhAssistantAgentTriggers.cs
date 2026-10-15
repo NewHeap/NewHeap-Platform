@@ -4,6 +4,9 @@ using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
+using NewHeap.Platform.AspNet.Common.DAL;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.Common.Models;
 
@@ -11,17 +14,19 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
 /// Starts agents from application events and from people. Publish an event inside the
-/// transaction of the domain change: the background operation joins the transaction, so a
-/// rollback never starts a run.
+/// transaction of the domain change, on the context that holds the background operations: the
+/// trigger is then recorded as a background operation that fires once the transaction committed,
+/// so a rollback leaves nothing behind and a committed change always reaches its agent. Published
+/// after the commit, a trigger fires at once.
 /// </summary>
 public interface INhAssistantAgentTriggers
 {
     /// <summary>
     /// Fires every trigger registered for <typeparamref name="TEvent"/>, and queues the proposal
     /// revalidations registered for it with <c>AddProposalRevalidation</c> when an agent has an open
-    /// proposal about the event's subject or objects. The revalidation is a background operation,
-    /// so published inside the application's transaction it runs only once that transaction
-    /// committed.
+    /// proposal about the event's subject or objects. Inside the application's transaction each
+    /// trigger and revalidation is a background operation that runs only once that transaction
+    /// committed, and the receipts read <see cref="NhAssistantTriggerOutcomes.Deferred"/>.
     /// </summary>
     Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync<TEvent>(
         TEvent evt,
@@ -30,7 +35,8 @@ public interface INhAssistantAgentTriggers
 
     /// <summary>
     /// Starts an agent on a subject for a person, who becomes the run's initiator. The caller must
-    /// already have checked that the person may start the agent.
+    /// already have checked that the person may start the agent. Inside the application's
+    /// transaction the start is deferred until the commit, as in <see cref="PublishAsync{TEvent}"/>.
     /// </summary>
     Task<NhAssistantTriggerReceipt> StartAsync(
         string agentId,
@@ -43,7 +49,7 @@ public interface INhAssistantAgentTriggers
 /// <param name="TriggerId">The trigger that fired.</param>
 /// <param name="Outcome">One of <see cref="NhAssistantTriggerOutcomes"/>.</param>
 /// <param name="RunId">The run that received the event, when there is one.</param>
-/// <param name="ConversationId">The agent thread.</param>
+/// <param name="ConversationId">The agent thread; <see langword="null"/> for a deferred trigger.</param>
 /// <param name="ReasonCode">Why the trigger was rejected, ignored or deduplicated.</param>
 public sealed record NhAssistantTriggerReceipt(
     string TriggerId,
@@ -61,6 +67,12 @@ public static class NhAssistantTriggerOutcomes
     public const string Ignored = "ignored";
     public const string Deduplicated = "deduplicated";
     public const string Rejected = "rejected";
+
+    /// <summary>
+    /// Published inside the application's transaction: the trigger fires once the transaction
+    /// committed, and not at all after a rollback. The receipt names no run or thread yet.
+    /// </summary>
+    public const string Deferred = "deferred";
 }
 
 public static class NhAssistantTriggerReasons
@@ -84,6 +96,12 @@ internal sealed record NhAssistantTriggerFire(
     /// The payload the trigger stores with the event for the agent's rule handler, as JSON.
     /// </summary>
     public string? PayloadJson { get; init; }
+
+    /// <summary>
+    /// The id of the input this fire writes. A deferred fire carries it, so a retried operation
+    /// finds the input it wrote and fires only once.
+    /// </summary>
+    public Guid? InputId { get; init; }
 }
 
 internal sealed class NhAssistantAgentTriggers(
@@ -125,7 +143,7 @@ internal sealed class NhAssistantAgentTriggers(
             {
                 PayloadJson = PayloadOf(trigger, evt)
             };
-            receipts.Add(await FireAsync(fire, cancellationToken));
+            receipts.Add(await FireOrDeferAsync(fire, cancellationToken));
         }
 
         return receipts;
@@ -207,20 +225,41 @@ internal sealed class NhAssistantAgentTriggers(
         string? message,
         CancellationToken cancellationToken = default)
     {
+        return FireOrDeferAsync(Manual(agentId, subject, initiatorActorId, message), cancellationToken);
+    }
+
+    /// <summary>
+    /// Starts an agent for a person at once, for the assistant's own endpoints, whose callers need
+    /// the run and its thread even when the application wraps the request in a transaction.
+    /// </summary>
+    internal Task<NhAssistantTriggerReceipt> StartNowAsync(
+        string agentId,
+        NhAiSubjectRef subject,
+        string initiatorActorId,
+        string? message,
+        CancellationToken cancellationToken)
+    {
+        return FireAsync(Manual(agentId, subject, initiatorActorId, message), cancellationToken);
+    }
+
+    private static NhAssistantTriggerFire Manual(
+        string agentId,
+        NhAiSubjectRef subject,
+        string initiatorActorId,
+        string? message)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentNullException.ThrowIfNull(subject);
         ArgumentException.ThrowIfNullOrWhiteSpace(initiatorActorId);
-        return FireAsync(
-            new NhAssistantTriggerFire(
-                NhAssistantTriggerIds.Manual,
-                agentId,
-                subject,
-                initiatorActorId,
-                string.IsNullOrWhiteSpace(message) ? "Start working on this subject." : message.Trim(),
-                null,
-                NhAssistantTriggerConflict.Queue,
-                TimeSpan.Zero),
-            cancellationToken);
+        return new NhAssistantTriggerFire(
+            NhAssistantTriggerIds.Manual,
+            agentId,
+            subject,
+            initiatorActorId,
+            string.IsNullOrWhiteSpace(message) ? "Start working on this subject." : message.Trim(),
+            null,
+            NhAssistantTriggerConflict.Queue,
+            TimeSpan.Zero);
     }
 
     /// <summary>
@@ -291,6 +330,20 @@ internal sealed class NhAssistantAgentTriggers(
             trigger.Debounce);
     }
 
+    /// <summary>
+    /// Fires a trigger the application published: inside the application's transaction it is
+    /// deferred until the commit, otherwise it fires at once. The assistant's own endpoints, jobs
+    /// and tools fire at once, because their callers need the run.
+    /// </summary>
+    private Task<NhAssistantTriggerReceipt> FireOrDeferAsync(
+        NhAssistantTriggerFire fire,
+        CancellationToken cancellationToken)
+    {
+        return InApplicationTransaction()
+            ? DeferAsync(fire, cancellationToken)
+            : FireAsync(fire, cancellationToken);
+    }
+
     internal async Task<NhAssistantTriggerReceipt> FireAsync(
         NhAssistantTriggerFire fire,
         CancellationToken cancellationToken)
@@ -311,6 +364,137 @@ internal sealed class NhAssistantAgentTriggers(
             accepted,
             cancellationToken);
         return receipt;
+    }
+
+    /// <summary>
+    /// Fires a trigger that was published inside the application's transaction, now that the
+    /// transaction committed. A retried operation finds the input it already wrote and stops.
+    /// </summary>
+    internal async Task<NhAssistantTriggerReceipt> FireDeferredAsync(
+        NhAssistantFireTriggerRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (await runs.QueuedInputExistsAsync(request.InputId, cancellationToken))
+        {
+            return new NhAssistantTriggerReceipt(
+                request.TriggerId,
+                NhAssistantTriggerOutcomes.Deduplicated,
+                null,
+                null,
+                NhAssistantTriggerReasons.Deduplicated);
+        }
+
+        return await FireAsync(
+            new NhAssistantTriggerFire(
+                request.TriggerId,
+                request.AgentId,
+                request.Subject,
+                request.InitiatorActorId,
+                request.Message,
+                request.EventKey,
+                request.Conflict,
+                request.Debounce)
+            {
+                PayloadJson = request.PayloadJson,
+                InputId = request.InputId
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Queues a run again whose background operation never committed, for example because the
+    /// process stopped between writing the run and enqueuing its operation. Returns
+    /// <see langword="false"/> when its thread, agent or subject is gone or the agent is disabled.
+    /// </summary>
+    internal async Task<bool> RequeueOrphanAsync(AssistantRun run, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+        var thread = await runs.FindThreadByConversationAsync(run.ConversationId, cancellationToken);
+        if (thread is null
+            || !registration.AgentRuns.TryGetValue(thread.AgentId, out var options)
+            || !options.Enabled)
+        {
+            return false;
+        }
+
+        var agent = await agents.FindAsync(thread.AgentId, includeDisabled: false, cancellationToken);
+        var subject = agent is null
+            ? null
+            : await subjects.DescribeAsync(new NhAiSubjectRef(thread.SubjectType, thread.SubjectId), cancellationToken);
+        if (agent is null || subject is null)
+        {
+            return false;
+        }
+
+        var enqueued = await EnqueueRunAsync(run.Id, thread, agent, subject, run.AccountableOwnerId, null, cancellationToken);
+        if (!enqueued.Success)
+        {
+            return false;
+        }
+
+        await runs.SetRunAttemptAsync(run.Id, run.Attempt, enqueued.Data!.Id, cancellationToken);
+        logger.LogWarning(
+            "Run {RunId} of agent {AgentId} had no background operation and was queued again.",
+            run.Id,
+            thread.AgentId);
+        return true;
+    }
+
+    /// <summary>
+    /// Records a fire published inside the application's transaction as a background operation in
+    /// that transaction. Nothing is written to the assistant's own tables before the commit.
+    /// </summary>
+    private async Task<NhAssistantTriggerReceipt> DeferAsync(
+        NhAssistantTriggerFire fire,
+        CancellationToken cancellationToken)
+    {
+        var inputId = Guid.NewGuid();
+        var message = fire.Message.Length > registration.Limits.MaxMessageChars
+            ? fire.Message[..registration.Limits.MaxMessageChars]
+            : fire.Message;
+        var enqueued = await Operations.EnqueueAsync(
+            new NhAssistantFireTriggerRequest(
+                inputId,
+                fire.TriggerId,
+                fire.AgentId,
+                fire.Subject,
+                fire.InitiatorActorId,
+                message,
+                fire.EventKey,
+                fire.Conflict,
+                fire.Debounce,
+                fire.PayloadJson),
+            new NhBackgroundOperationEnqueueOptions
+            {
+                OwnerAgentKey = NhAssistantProposalInvalidation.SystemActorId,
+                IdempotencyKey = inputId.ToString("N"),
+                // The fires of one agent and subject run one at a time, in the order of publishing.
+                ConcurrencyKey = $"agent-trigger:{fire.AgentId}:{fire.Subject.Type}:{fire.Subject.Id}",
+                ConflictBehavior = NhBackgroundOperationConflictBehavior.Queue,
+                DomainObjectType = fire.Subject.Type,
+                DomainObjectId = fire.Subject.Id
+            },
+            cancellationToken);
+        if (!enqueued.Success)
+        {
+            logger.LogWarning(
+                "Trigger {TriggerId} for agent {AgentId} could not be deferred until the commit.",
+                fire.TriggerId,
+                fire.AgentId);
+            return Rejected(fire, null, NhAssistantRunStore.OrphanedRunCode);
+        }
+
+        return new NhAssistantTriggerReceipt(fire.TriggerId, NhAssistantTriggerOutcomes.Deferred, null, null, null);
+    }
+
+    /// <summary>
+    /// Whether the caller works inside the application's transaction: the one on the context that
+    /// holds the background operations, which a run's operation would join.
+    /// </summary>
+    private bool InApplicationTransaction()
+    {
+        var operations = services.GetService<IRepository<NhBackgroundOperation>>();
+        return operations?.Context.Database.CurrentTransaction is not null;
     }
 
     private async Task<NhAssistantTriggerReceipt> FireCoreAsync(
@@ -425,26 +609,10 @@ internal sealed class NhAssistantAgentTriggers(
         await runs.AddRunAsync(run, cancellationToken);
         await runs.AddQueuedInputAsync(input, cancellationToken);
 
-        var owner = OwnerActor(thread, accountable.Data!, agent.Definition);
         var notBefore = fire.Conflict == NhAssistantTriggerConflict.Coalesce && fire.Debounce > TimeSpan.Zero
             ? DateTimeOffset.UtcNow.Add(fire.Debounce)
             : (DateTimeOffset?)null;
-        var enqueued = await Operations.EnqueueAsync(
-            new NhAssistantAgentRunRequest(run.Id),
-            new NhBackgroundOperationEnqueueOptions
-            {
-                OwnerUserId = owner.UserId,
-                OwnerAgentKey = owner.Key,
-                DivisionId = subject.DivisionId,
-                IdempotencyKey = run.Id.ToString("N"),
-                ConcurrencyKey = $"agent:{fire.AgentId}:subject:{subject.ScopeKey}:{subject.Subject.Type}:{subject.Subject.Id}",
-                ConflictBehavior = NhBackgroundOperationConflictBehavior.Queue,
-                DomainObjectType = subject.Subject.Type,
-                DomainObjectId = subject.Subject.Id,
-                CorrelationId = run.Id.ToString("N"),
-                NotBefore = notBefore
-            },
-            cancellationToken);
+        var enqueued = await EnqueueRunAsync(run.Id, thread, agent, subject, accountable.Data!, notBefore, cancellationToken);
         if (!enqueued.Success)
         {
             logger.LogWarning(
@@ -467,6 +635,38 @@ internal sealed class NhAssistantAgentTriggers(
             ? NhAssistantTriggerOutcomes.Superseded
             : active is null ? NhAssistantTriggerOutcomes.Started : NhAssistantTriggerOutcomes.Queued;
         return new NhAssistantTriggerReceipt(fire.TriggerId, outcome, run.Id, conversationId, null);
+    }
+
+    /// <summary>
+    /// Enqueues the background operation of a run, owned by the agent or its accountable user and
+    /// serialized per agent and subject.
+    /// </summary>
+    private Task<TaskResult<NhBackgroundOperationViewModel>> EnqueueRunAsync(
+        Guid runId,
+        AssistantThread thread,
+        NhAssistantAgent agent,
+        NhAiSubjectInfo subject,
+        string accountableOwnerId,
+        DateTimeOffset? notBefore,
+        CancellationToken cancellationToken)
+    {
+        var owner = OwnerActor(thread, accountableOwnerId, agent.Definition);
+        return Operations.EnqueueAsync(
+            new NhAssistantAgentRunRequest(runId),
+            new NhBackgroundOperationEnqueueOptions
+            {
+                OwnerUserId = owner.UserId,
+                OwnerAgentKey = owner.Key,
+                DivisionId = subject.DivisionId,
+                IdempotencyKey = runId.ToString("N"),
+                ConcurrencyKey = $"agent:{agent.Id}:subject:{subject.ScopeKey}:{subject.Subject.Type}:{subject.Subject.Id}",
+                ConflictBehavior = NhBackgroundOperationConflictBehavior.Queue,
+                DomainObjectType = subject.Subject.Type,
+                DomainObjectId = subject.Subject.Id,
+                CorrelationId = runId.ToString("N"),
+                NotBefore = notBefore
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -497,7 +697,7 @@ internal sealed class NhAssistantAgentTriggers(
             : fire.Message;
         return new AssistantQueuedInput
         {
-            Id = Guid.NewGuid(),
+            Id = fire.InputId ?? Guid.NewGuid(),
             ConversationId = conversationId,
             Kind = personal ? NhAssistantQueuedInputKinds.Message : NhAssistantQueuedInputKinds.Event,
             AuthorActorId = personal ? fire.InitiatorActorId : null,

@@ -725,6 +725,15 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Whether the input with <paramref name="inputId"/> was written, consumed or not.
+    /// </summary>
+    public async Task<bool> QueuedInputExistsAsync(Guid inputId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.QueuedInputs.AnyAsync(input => input.Id == inputId, cancellationToken);
+    }
+
     public async Task<int> CountWaitingInputsAsync(Guid conversationId, CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();

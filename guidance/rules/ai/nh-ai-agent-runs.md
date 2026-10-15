@@ -97,9 +97,20 @@ snapshot that listings and notifications use. Call
 `INhAiSubjectAccess.RefreshAsync` after the people on a subject change.
 
 Start agents from application events with `AddTrigger<TEvent>` and
-`INhAssistantAgentTriggers.PublishAsync`. Prefer publishing from the outbox
-consumer that runs after the domain transaction committed, and set `Dedupe` to
-the event id so an at-least-once delivery starts one run. Choose
+`INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
+changed row and its version, so an at-least-once delivery starts one run. Publish
+either inside the domain transaction or after the commit. Inside the transaction of
+the context that holds the background operations, `PublishAsync` and `StartAsync`
+write nothing to the assistant's tables: each trigger becomes a background operation
+in that transaction (`NhAssistantAgentRunOperationTypes.FireTrigger`) that fires once
+the transaction committed, so a rollback leaves no thread, run or input behind, a
+committed change always reaches its agent, and the receipt reads `deferred`
+(`NhAssistantTriggerOutcomes.Deferred`) without a run or thread; look the thread up
+after the commit when you need it. After the commit, for example from an outbox
+consumer, a trigger fires at once and the receipt names the run. Deferred triggers
+of one agent and subject fire in publishing order, and a retried operation fires
+once. The assistant's own endpoints, schedules, webhooks and follow-ups always fire
+at once. Maintenance queues a run again whose operation never committed. Choose
 `NhAssistantTriggerConflict` for events that arrive while a run is active:
 coalesce, queue, supersede or ignore. Bound agents with `Budget`, `Retry`,
 `Enabled` and `Shadow` for evaluation on real events; shadow threads are visible to
@@ -279,8 +290,11 @@ profile and instructions that answer questions about the rules' proposals from t
 - Deriving who may decide a thread's proposal in the client from the subject role alone;
   four-eyes and the tool's approve policy are part of `thread.decisions`.
 - Authorizing thread access from the member snapshot instead of the resolver.
-- Publishing triggers before the domain transaction commits without accepting
-  that run rows of a rolled-back transaction are cleaned up later.
+- Publishing triggers inside a transaction on a DbContext that does not hold the
+  background operations, or inside an ambient `TransactionScope`, which the
+  background operations do not support; the platform cannot defer such a trigger.
+- Reading the run or thread from the receipt of a trigger published inside a
+  transaction; it reads `deferred` until the commit.
 - Treating `execution-unknown` as failed and executing a non-idempotent tool
   again automatically.
 - Accepting unsigned webhook calls, sharing one secret between triggers, or passing
@@ -376,7 +390,13 @@ twice from rules and from a model and assert one proposal and the deduplication 
 the same objects with other arguments and assert the replacement, `Skip`, `Allow` and that an
 approved proposal stays; reject a proposal and assert that it is refused within the cooldown and
 accepted after it; assert that a tool without approval or outside the agent's selectors is refused
-and that the kill switch and shadow mode apply to rule runs, on both providers. Read a proposal by
+and that the kill switch and shadow mode apply to rule runs, on both providers. Publish inside an
+application transaction with the background operations in the application's own context and
+assert that a rollback leaves no thread, run, input or operation, that a retried commit with the
+same dedupe key starts one run with only its input after the commit, that publications of one
+transaction coalesce, that publishing after the commit is unchanged, that a retried deferred
+operation fires once and that maintenance queues a run again that lost its operation, on both
+providers. Read a proposal by
 id in every status and assert its fields and the live decision right of an approver, the initiator
 under four eyes and a reader; assert 404 without a role, for another tenant and for a hidden agent,
 that a lookup returns only visible proposals in request order and refuses more than 100 ids, and

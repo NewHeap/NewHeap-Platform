@@ -41,13 +41,16 @@ public sealed class PartnerPortalSamplesTests(PartnerPortalSampleHost host) : IC
         await host.AddProjectAsync(project, "PARTNER-1");
         await host.AddProjectAsync(withdrawn, "PARTNER-2");
 
-        // The run's background operation joins the portal's transaction: a rolled-back submission
-        // leaves no operation behind. (The assistant's own run row is cleaned up by its maintenance.)
-        await host.SubmitAsync(withdrawn, commit: false);
+        // The submission and its event share the portal's transaction. Inside it the trigger is only
+        // a background operation of the portal: a rolled-back submission leaves nothing behind, in
+        // the portal or in the assistant, and a committed one starts the agent after the commit.
+        var rolledBack = Assert.Single(await host.SubmitAsync(withdrawn, commit: false));
+        Assert.Equal(NhAssistantTriggerOutcomes.Deferred, rolledBack.Outcome);
         var receipt = Assert.Single(await host.SubmitAsync(project, commit: true));
-        Assert.Equal(NhAssistantTriggerOutcomes.Started, receipt.Outcome);
-        var conversationId = receipt.ConversationId!.Value;
+        Assert.Equal(NhAssistantTriggerOutcomes.Deferred, receipt.Outcome);
+        Assert.Null(receipt.ConversationId);
         using var approver = host.CreateClient(host.ApproverId.ToString());
+        var conversationId = await WaitForThreadAsync(approver, project);
 
         var proposal = await WaitForProposalAsync(approver, conversationId, NhAssistantApprovalStatuses.Pending);
         Assert.Equal(ProjectAiTools.ChangeStatusToolId, proposal.ToolId);
@@ -58,6 +61,10 @@ public sealed class PartnerPortalSamplesTests(PartnerPortalSampleHost host) : IC
         Assert.Equal(NhBackgroundOperationOwnerKind.Agent, runOperation.OwnerKind);
         Assert.Equal(1, await host.CountRunOperationsAsync(project));
         Assert.Equal(0, await host.CountRunOperationsAsync(withdrawn));
+        var withdrawnThread = await approver.GetFromJsonAsync<NhAssistantThreadLookupDto>(
+            $"/api/assistant/threads?agentId={PartnerPortalSampleHost.AgentId}&subjectType={PartnerProjects.Type}&subjectId={withdrawn:D}",
+            Json);
+        Assert.Null(withdrawnThread!.Thread);
 
         // The approver hears about it in the portal's own inbox, in the language the portal knows for them.
         var inbox = await host.WaitForNotificationAsync(host.ApproverId);
@@ -74,6 +81,28 @@ public sealed class PartnerPortalSamplesTests(PartnerPortalSampleHost host) : IC
 
         // NewHeap Identity is not part of this host.
         Assert.Null(host.Services.GetService<INhIdentityDbContext>());
+    }
+
+    /// <summary>
+    /// The thread the agent works in once the submission committed and its trigger fired.
+    /// </summary>
+    private static async Task<Guid> WaitForThreadAsync(HttpClient client, Guid projectId)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var lookup = await client.GetFromJsonAsync<NhAssistantThreadLookupDto>(
+                $"/api/assistant/threads?agentId={PartnerPortalSampleHost.AgentId}&subjectType={PartnerProjects.Type}&subjectId={projectId:D}",
+                Json);
+            if (lookup?.Thread is { } thread)
+            {
+                return thread.ConversationId;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        }
+
+        throw new TimeoutException($"No thread was created for partner project {projectId}.");
     }
 
     private static async Task<NhAssistantProposalDto> WaitForProposalAsync(

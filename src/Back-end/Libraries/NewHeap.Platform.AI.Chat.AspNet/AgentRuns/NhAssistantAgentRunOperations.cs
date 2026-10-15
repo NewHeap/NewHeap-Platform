@@ -39,12 +39,30 @@ public sealed record NhAssistantRevalidateProposalsRequest(
     IReadOnlyList<NhAiProposalKey> Keys,
     string? ScopeKey);
 
+/// <summary>
+/// A trigger published inside the application's transaction. The operation commits or rolls back
+/// with that transaction and fires the trigger after the commit.
+/// </summary>
+/// <param name="InputId">The id of the input the trigger writes, so a retry fires only once.</param>
+public sealed record NhAssistantFireTriggerRequest(
+    Guid InputId,
+    string TriggerId,
+    string AgentId,
+    NhAiSubjectRef Subject,
+    string? InitiatorActorId,
+    string Message,
+    string? EventKey,
+    NhAssistantTriggerConflict Conflict,
+    TimeSpan Debounce,
+    string? PayloadJson);
+
 public static class NhAssistantAgentRunOperationTypes
 {
     public const string Run = "nh-ai-agent-run";
     public const string ExecuteProposal = "nh-ai-execute-proposal";
     public const string ExecuteProposalOnce = "nh-ai-execute-proposal-once";
     public const string RevalidateProposals = "nh-ai-revalidate-proposals";
+    public const string FireTrigger = "nh-ai-fire-trigger";
 
     public static bool IsAgentOperation(string operationType)
     {
@@ -84,6 +102,12 @@ public static class NhAssistantBackgroundOperationBuilderExtensions
             NhAssistantAgentRunOperationTypes.RevalidateProposals,
             operation => operation
                 .WithRetry(2)
+                .WithSoftTimeout(TimeSpan.FromMinutes(2))
+                .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
+        operations.Add<NhAssistantFireTriggerRequest, NhAssistantFireTriggerOperation>(
+            NhAssistantAgentRunOperationTypes.FireTrigger,
+            operation => operation
+                .WithRetry(3)
                 .WithSoftTimeout(TimeSpan.FromMinutes(2))
                 .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
         return operations;
@@ -837,6 +861,24 @@ internal sealed class NhAssistantRevalidateProposalsOperation(INhAssistantPropos
             await revalidation.RevalidateKeysAsync(keys, request.ScopeKey, cancellationToken);
         }
 
+        return TaskResult.Succeeded();
+    }
+}
+
+/// <summary>
+/// Fires a trigger once the application's transaction that published it committed, through the
+/// same path as a trigger published after the commit.
+/// </summary>
+internal sealed class NhAssistantFireTriggerOperation(NhAssistantAgentTriggers triggers)
+    : INhBackgroundOperationHandler<NhAssistantFireTriggerRequest>
+{
+    public async Task<TaskResult> ExecuteAsync(
+        NhAssistantFireTriggerRequest request,
+        INhBackgroundOperationContext context,
+        CancellationToken cancellationToken)
+    {
+        // Rejections are outcomes of the trigger, audited like any other; they are no failure.
+        await triggers.FireDeferredAsync(request, cancellationToken);
         return TaskResult.Succeeded();
     }
 }

@@ -109,7 +109,7 @@ internal sealed class NhAssistantRunMaintenance(
         if (operations is not null)
         {
             await DetectInterruptedExecutionsAsync(runs, operations, notifier, events, workUpdates, cancellationToken);
-            await CancelOrphanedRunsAsync(runs, operations, cancellationToken);
+            await RecoverOrphanedRunsAsync(runs, operations, services.GetRequiredService<NhAssistantAgentTriggers>(), cancellationToken);
         }
     }
 
@@ -332,9 +332,15 @@ internal sealed class NhAssistantRunMaintenance(
         }
     }
 
-    private static async Task CancelOrphanedRunsAsync(
+    /// <summary>
+    /// Queues a run again whose background operation never committed, because the process stopped
+    /// between writing the run and enqueuing its operation; its input is committed. A run whose
+    /// thread, agent or subject is gone is cancelled.
+    /// </summary>
+    private static async Task RecoverOrphanedRunsAsync(
         NhAssistantRunStore runs,
         IRepository<NhBackgroundOperation> operations,
+        NhAssistantAgentTriggers triggers,
         CancellationToken cancellationToken)
     {
         var stale = await runs.GetStaleQueuedRunsAsync(DateTimeOffset.UtcNow.AddMinutes(-10), BatchSize, cancellationToken);
@@ -359,7 +365,11 @@ internal sealed class NhAssistantRunMaintenance(
                 continue;
             }
 
-            // The operation never committed: the application's transaction rolled back.
+            if (await triggers.RequeueOrphanAsync(run, cancellationToken))
+            {
+                continue;
+            }
+
             await runs.TrySetRunStatusAsync(
                 run.Id,
                 [NhAssistantRunStatuses.Queued],

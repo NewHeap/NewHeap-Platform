@@ -186,7 +186,7 @@ internal static class NhAssistantAgentRunEndpoints
         NhAssistantSubjectAccessService subjects,
         NhAssistantAgentAccess agentAccess,
         NhAssistantAgentCatalog agents,
-        INhAssistantAgentTriggers triggers)
+        NhAssistantAgentTriggers triggers)
     {
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
         if (!caller.Success)
@@ -217,7 +217,7 @@ internal static class NhAssistantAgentRunEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
         }
 
-        var receipt = await triggers.StartAsync(request.AgentId!, subject!, caller.Data.ActorId, request.Message, cancellationToken);
+        var receipt = await triggers.StartNowAsync(request.AgentId!, subject!, caller.Data.ActorId, request.Message, cancellationToken);
         return Receipt(receipt);
     }
 
@@ -466,7 +466,7 @@ internal static class NhAssistantAgentRunEndpoints
         HttpContext httpContext,
         NhAssistantThreadService threads,
         NhAssistantRunStore runs,
-        INhAssistantAgentTriggers triggers)
+        NhAssistantAgentTriggers triggers)
     {
         var request = await NhAssistantEndpointRouteBuilderExtensions.ReadBodyAsync(
             httpContext,
@@ -495,7 +495,7 @@ internal static class NhAssistantAgentRunEndpoints
         var thread = access.Access!.Thread;
         if (mode == "restart")
         {
-            var restarted = await triggers.StartAsync(
+            var restarted = await triggers.StartNowAsync(
                 thread.AgentId,
                 new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
                 access.ActorId!,
