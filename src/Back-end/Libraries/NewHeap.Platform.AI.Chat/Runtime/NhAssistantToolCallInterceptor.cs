@@ -532,8 +532,8 @@ internal sealed class NhAssistantToolCallInterceptor(
             row.GrantSource = execution.Call.AuditRecords[^1].GrantSource;
         }
         if (succeeded
-            && row.GrantSource == NhAiGrantSource.Agent
-            && execution.Call.Descriptor.Effect == NhAiToolEffect.ReadOnly
+            && (row.GrantSource == NhAiGrantSource.DelegatedRead
+                || (row.GrantSource == NhAiGrantSource.Agent && execution.Call.Descriptor.Effect == NhAiToolEffect.ReadOnly))
             && state.AgentTurn?.Options.ElevatedReads == NhAiElevatedReads.Restricted)
         {
             state.UsedRestrictedResults = true;
@@ -544,9 +544,9 @@ internal sealed class NhAssistantToolCallInterceptor(
         }
 
         await store.UpdateToolInvocationAsync(row, cancellationToken);
-        // A result of the agent's own grant is shielded per viewer; live events carry none of it, and
-        // viewers read the thread again to see what they may.
-        var shielded = row.GrantSource == NhAiGrantSource.Agent;
+        // A result of the agent's own grant or of a delegated read is shielded per viewer; live events
+        // carry none of it, and viewers read the thread again to see what they may.
+        var shielded = row.GrantSource is NhAiGrantSource.Agent or NhAiGrantSource.DelegatedRead;
         await state.EmitAsync(new NhAssistantToolCompletedEvent(
             row.Id,
             row.Status,

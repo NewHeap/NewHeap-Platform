@@ -134,6 +134,27 @@ unlike `ConfigureAgent`.
 | `NhAssistantAuditEvent` gains `ApplicationMapHash`. | None; audit sinks may record it. |
 | Startup fails when a gateway `Relate` or `IgnoreRelation` names an unknown resource or filter field. | None until you add explicit relations. |
 
+## NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.AspNet.Mvc and NewHeap.Platform.AI.Chat: gateway reads in headless runs
+
+A headless agent run can read through the API bridge gateway with the rights of the person it
+works for. `AddNewHeapPlatformAIDelegatedReads()` issues a short-lived JWT of the host's own bearer
+scheme per call: the built-in issuer uses `INhAuthenticationService.CreateToken` with the person's
+claims and security stamp, other hosts supply `INhAiDelegatedReadCredentialIssuer` with
+`UseIssuer<T>()`. The library restricts such a token in the `OnTokenValidated` of every JWT bearer scheme to
+`GET` calls of gateway resources with the matching `X-NewHeap-AI-Invocation` header; every other request
+with it fails authentication. Agents opt in with `AllowGatewayReads()` on `ConfigureAgent` and
+select the gateway's tools; they need an accountable person or service account. Their runs are
+offered the four gateway tools only, discovery and the gateway authorize with the person's token,
+calls record the new grant source `DelegatedRead` (`delegated-read` in the API and the chat's tool
+card), and readers without the read resource's policies see the result shielded. A security
+review of the credential and its restriction precedes the release.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAiGrantSource` gains `DelegatedRead`; tool calls report `delegated-read`. | Handle the new value where you map grant sources. |
+| `NhAiMvcBridgeDefaults.InvocationHeaderName` is now defined by `NhAiDelegatedReadDefaults.InvocationHeaderName`. | None; the value is unchanged. |
+| The chat's shielded-result text no longer says the agent used its own rights. | Update overridden translations of `nh-assistant.tool-call.restricted`. |
+
 ## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.AspNet.Common and NewHeap.Platform.AI.Chat: retrieved context in agent turns
 
 Registered context sources reach agent turns:

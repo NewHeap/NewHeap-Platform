@@ -50,6 +50,11 @@ public static class NhAiMvcBridgeServiceCollectionExtensions
             provider.GetRequiredService<INhAiBridgeConventions>()));
         services.AddSingleton<INhAiToolCatalog>(provider => provider.GetRequiredService<NhAiMvcBridgeToolCatalog>());
         services.Replace(ServiceDescriptor.Scoped<INhAiToolDiscoveryPolicy, NhAiMvcBridgeDiscoveryPolicy>());
+        if (options.Gateway is not null)
+        {
+            // Headless runs may read through the gateway with a delegated read credential.
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiDelegatedReadSurface, NhAiMvcBridgeReadSurface>());
+        }
         services.TryAddScoped<INhAiMvcBridgeExecutor, NhAiMvcBridgeExecutor>();
         services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
             .ConfigureHttpClient(client => client.Timeout = Timeout.InfiniteTimeSpan)

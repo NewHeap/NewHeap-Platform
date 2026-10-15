@@ -258,8 +258,17 @@ public class AssistantSampleHost : IAsyncLifetime
         _app.UseAuthentication();
         _app.UseAuthorization();
         _app.MapSampleAssistant();
+        MapEndpoints(_app);
         await _app.StartAsync();
         _baseAddress = new Uri(_app.Urls.First());
+    }
+
+    /// <summary>The address the host listens on.</summary>
+    public Uri BaseAddress => _baseAddress!;
+
+    /// <summary>Maps endpoints after the assistant's, such as the API's controllers.</summary>
+    protected virtual void MapEndpoints(WebApplication app)
+    {
     }
 
     /// <summary>

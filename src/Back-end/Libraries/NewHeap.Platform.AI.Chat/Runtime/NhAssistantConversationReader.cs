@@ -158,7 +158,8 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             NhAssistantContent.ResultPreview(invocation.ResultJson, invocation.DataClassification),
             invocation.ResultCode)
         {
-            GrantSource = invocation.GrantSource
+            GrantSource = invocation.GrantSource,
+            ArgumentsJson = invocation.ArgumentsJson
         };
     }
 

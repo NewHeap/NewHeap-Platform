@@ -4,11 +4,14 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Resources;
 using System.Text.Json;
+using Microsoft.AspNetCore.Identity;
+using System.Security.Claims;
 using Hangfire;
 using Hangfire.InMemory;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -20,9 +23,14 @@ using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.Options;
+using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AI;
+using SampleProjectManagement.Api.Controllers;
+using NewHeap.Platform.Common.Identity.Claims;
+using NewHeap.Platform.AI.AspNet.Mvc;
+using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.Common.Events;
 using NewHeap.Platform.Common.Models;
@@ -1139,6 +1147,120 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_project_planner_reads_the_tasks_of_a_project_through_the_gateway_with_the_owners_rights()
+    {
+        // SPM-290
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        var owner = await host.CreateProjectReaderAsync();
+        var project = await host.CreateProjectAsync("GATEWAY", ownerId: owner, status: ProjectStatus.Active, deadline: DateTimeOffset.UtcNow.AddDays(2));
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        await host.CreateTaskAsync(project, "Migrate the customer data");
+        await host.CreateTaskAsync(project, "Rehearse the cutover");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var projectText = project.ToString("D");
+        var triage = new NhAiScriptedChatClient()
+            .RespondWithText("""{"skill":"deadline-risk","reason":"Two tasks are open two days before the deadline."}""");
+        var deadline = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("sample-api-gateway_query_v1", new
+            {
+                input = new
+                {
+                    resource = "project-task",
+                    filter = new[] { new { key = "projectId", @operator = "==", value = projectText } }
+                }
+            }, "call-tasks")
+            .RespondWithText("Both open tasks fit in the two days left, so the project holds.");
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You route the work of an assistant agent")
+                && RoutingChatClient.Mentions(messages, options, projectText)
+                && !RoutingChatClient.Mentions(messages, options, VariantDeadlineSkill), triage),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "## Skill: deadline-risk")
+                && RoutingChatClient.Mentions(messages, options, projectText), deadline)));
+        try
+        {
+            // The approver asks for a deadline check; the run works in the background for the owner.
+            var asked = await colleague.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new NhAssistantStartAgentRequest(planner, ProjectSubjects.Type, projectText, $"Check the deadline of project {projectText}."),
+                Json);
+            Assert.Equal(HttpStatusCode.Accepted, asked.StatusCode);
+            var conversationId = await WaitForThreadAsync(colleague, project, planner);
+            var run = await WaitForRunAsync(colleague, conversationId, NhAssistantRunStatuses.Completed);
+            Assert.Equal(SampleProjectPlannerComposition.DeadlineRiskSkill, run.Skill);
+
+            // The skill's model is offered the gateway's read tools and never the API's own actions.
+            var tools = deadline.Requests[0].Options!.Tools!.Select(tool => tool.Name).ToArray();
+            Assert.Contains("sample-api-gateway_query_v1", tools);
+            Assert.Contains("projects_change_status_v1", tools);
+            Assert.DoesNotContain(tools, name => name.StartsWith("sample-api_", StringComparison.Ordinal));
+            // The query ran through the task controller with the owner's credential.
+            var read = deadline.FunctionResults.Single().Result?.ToString();
+            Assert.Contains("Migrate the customer data", read);
+            Assert.Contains("Rehearse the cutover", read);
+
+            // People on the project see that the planner read for the owner; the result only with the
+            // policy of the task resource.
+            var hidden = ToolCall(await ReadConversationAsync(colleague, conversationId), "sample-api-gateway.query");
+            Assert.Equal("delegated-read", hidden.GrantSource);
+            Assert.True(hidden.Restricted);
+            Assert.Null(hidden.ResultPreview);
+            using var reader = host.CreateClient(host.ColleagueId.ToString(), false, "app.project.view");
+            var shown = ToolCall(await ReadConversationAsync(reader, conversationId), "sample-api-gateway.query");
+            Assert.False(shown.Restricted);
+            Assert.Contains("Migrate the customer data", shown.ResultPreview);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+
+        // The owner's credential from the built-in issuer reads only GET calls of the gateway with its
+        // invocation header: a write, an endpoint outside the gateway and a call without the header fail.
+        var invocation = Guid.NewGuid();
+        string token;
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var issued = await scope.ServiceProvider.GetRequiredService<INhAiDelegatedReadCredentialIssuer>().IssueAsync(
+                new NhAiDelegatedReadRequest(
+                    owner.ToString(),
+                    null,
+                    invocation,
+                    NhAiDelegatedReadDefaults.DefaultLifetime,
+                    [new Claim(NhAiDelegatedReadDefaults.ClaimType, invocation.ToString("D"))]),
+                CancellationToken.None);
+            Assert.True(issued.Success);
+            token = issued.Data!.BearerToken;
+        }
+        using var api = host.CreateAnonymousClient();
+        Assert.Equal(HttpStatusCode.OK, await SendWithTokenAsync(api, HttpMethod.Get, $"/project-tasks?projectId={projectText}", token, invocation));
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendWithTokenAsync(api, HttpMethod.Post, "/project-tasks", token, invocation));
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendWithTokenAsync(api, HttpMethod.Get, "/project-members", token, invocation));
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendWithTokenAsync(api, HttpMethod.Get, $"/project-tasks?projectId={projectText}", token, null));
+    }
+
+    private static NhAssistantToolCallPartDto ToolCall(NhAssistantConversationDto conversation, string toolId)
+    {
+        return Assert.Single(conversation.Messages.SelectMany(message => message.Parts).OfType<NhAssistantToolCallPartDto>(), part => part.ToolId == toolId);
+    }
+
+    private static async Task<HttpStatusCode> SendWithTokenAsync(HttpClient client, HttpMethod method, string path, string token, Guid? invocation)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        if (invocation is { } id)
+        {
+            request.Headers.Add(NhAiDelegatedReadDefaults.InvocationHeaderName, id.ToString("D"));
+        }
+        if (method == HttpMethod.Post)
+        {
+            request.Content = JsonContent.Create(new { title = "Written with a read credential" });
+        }
+        using var response = await client.SendAsync(request);
+        return response.StatusCode;
+    }
+
+    [Fact]
     public async Task An_approver_explains_a_rejection_that_the_next_run_and_the_administrators_report_see()
     {
         // SPM-279
@@ -1593,6 +1715,27 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         settings["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = JwtIssuer;
         settings["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = JwtKey;
         settings[SampleIntakeReviewerComposition.ReviewBoardSecretKey] = ReviewBoardSecret;
+        // SPM-290: the bridge calls this host itself; the handler below sends it to the real port.
+        settings[SampleAiBridgeComposition.SelfBaseUrlKey] = "http://sample.test/";
+    }
+
+    protected override void ConfigureAuthorization(Microsoft.AspNetCore.Authorization.AuthorizationOptions options)
+    {
+        base.ConfigureAuthorization(options);
+        // The API's controller policies follow the permission claims, as in Program.cs. Tokens of the
+        // NewHeap identity carry them as NhPlatformClaimTypes.Permission, the test sign-in as "permission".
+        options.AddPolicy("app.project.view", policy => policy.RequireAssertion(context => HasPermission(context.User, "app.project.view")));
+        options.AddPolicy("app.project.manage", policy => policy.RequireAssertion(context => HasPermission(context.User, "app.project.manage")));
+    }
+
+    private static bool HasPermission(ClaimsPrincipal user, string permission)
+    {
+        return user.HasClaim(NhPlatformClaimTypes.Permission, permission) || user.HasClaim("permission", permission);
+    }
+
+    protected override void MapEndpoints(WebApplication app)
+    {
+        app.MapControllers();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -1605,6 +1748,7 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = JwtIssuer,
+                ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:ValidAudience"] = JwtIssuer,
                 ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = JwtKey
             })
             .Build();
@@ -1632,6 +1776,8 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
                 NhDivisionMutateModel,
                 NhDivisionUserService,
                 NhDivisionUserMutateModel>(platformOptions)
+            // SPM-290: the built-in delegated read issuer creates tokens with the authentication service.
+            .AddAuthentication<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>(_ => { })
             .WithIdentityEntityFramework(options => options.UseNewHeapPostgreSql(ConnectionString))
             .WithIdentity()
             .WithDbLogService(_ => { })
@@ -1673,6 +1819,41 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         services.AddScoped<SampleAgentMaintenanceService>();
         services.AddSingleton(Substitute.For<INhEventPublisher>());
         services.AddSingleton<SampleEventLog>();
+        // SPM-290: the planner reads the project's tasks through the gateway over this host's own
+        // HTTP pipeline, with a delegated read credential from the built-in issuer.
+        // Only the API's project controllers: the bridge's resources and one controller outside it.
+        services.AddControllers()
+            .AddApplicationPart(typeof(ProjectController).Assembly)
+            .ConfigureApplicationPartManager(manager =>
+            {
+                manager.FeatureProviders.Remove(manager.FeatureProviders.OfType<ControllerFeatureProvider>().Single());
+                manager.FeatureProviders.Add(new SelectedControllers(
+                    typeof(ProjectController),
+                    typeof(ProjectTaskController),
+                    typeof(ProjectMemberController)));
+            });
+        services.AddSampleAiBridge();
+        services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new SelfHttpHandler(this));
+        services.AddNewHeapPlatformAIDelegatedReads();
+    }
+
+    private sealed class SelectedControllers(params Type[] controllers) : ControllerFeatureProvider
+    {
+        protected override bool IsController(System.Reflection.TypeInfo typeInfo)
+        {
+            return controllers.Contains(typeInfo.AsType());
+        }
+    }
+
+    /// <summary>Sends the bridge's self-HTTP calls to the port this host listens on.</summary>
+    private sealed class SelfHttpHandler(AssistantAgentRunSampleHost host) : DelegatingHandler(new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false })
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            request.RequestUri = new Uri(host.BaseAddress, request.RequestUri!.PathAndQuery);
+            return base.SendAsync(request, cancellationToken);
+        }
     }
 
     protected override void ConfigureAssistant(IServiceCollection services)
@@ -1710,6 +1891,29 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         }
 
         throw new TimeoutException($"Operation {operationId} stayed {current} instead of {status}.");
+    }
+
+    /// <summary>
+    /// SPM-290: a person of the division who may read projects and their tasks, with a security stamp
+    /// so the NewHeap authentication service can issue their tokens.
+    /// </summary>
+    public async Task<Guid> CreateProjectReaderAsync()
+    {
+        var id = Guid.NewGuid();
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+            AddUser(dbContext, id, $"reader-{id:N}@sample.localhost");
+            await dbContext.SaveChangesAsync();
+        }
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
+            var user = (await users.FindByIdAsync(id.ToString()))!;
+            await users.UpdateSecurityStampAsync(user);
+            await users.AddClaimAsync(user, new Claim(NhPlatformClaimTypes.Permission, "app.project.view"));
+        }
+        return id;
     }
 
     public async Task<Guid> CreateProjectAsync(

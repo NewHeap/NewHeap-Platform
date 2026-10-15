@@ -214,7 +214,7 @@ internal static class NhAssistantDtoMapper
                 tool.ResultPreview,
                 tool.ResultCode)
             {
-                GrantSource = tool.GrantSource == NhAiGrantSource.None ? null : tool.GrantSource.ToString().ToLowerInvariant(),
+                GrantSource = tool.GrantSource == NhAiGrantSource.None ? null : NhAssistantGrantSources.Name(tool.GrantSource),
                 Restricted = tool.Restricted
             },
             NhAssistantApprovalView approval => new NhAssistantApprovalPartDto(
@@ -236,5 +236,19 @@ internal static class NhAssistantDtoMapper
             },
             _ => throw new InvalidOperationException($"Unknown assistant message part '{part.GetType().Name}'.")
         };
+    }
+}
+
+/// <summary>
+/// The names of grant sources in the API: <c>none</c>, <c>agent</c>, <c>delegated</c> and
+/// <c>delegated-read</c>.
+/// </summary>
+internal static class NhAssistantGrantSources
+{
+    public static string Name(NhAiGrantSource grantSource)
+    {
+        return grantSource == NhAiGrantSource.DelegatedRead
+            ? "delegated-read"
+            : grantSource.ToString().ToLowerInvariant();
     }
 }

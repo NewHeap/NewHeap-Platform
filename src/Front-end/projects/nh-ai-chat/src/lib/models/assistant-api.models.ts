@@ -172,9 +172,12 @@ export interface ToolCallPart {
   argumentsPreview: string | null;
   resultPreview: string | null;
   resultCode: string | null;
-  /** `delegated` or `agent` when an agent used rights beyond the caller's own. */
-  grantSource?: 'delegated' | 'agent' | null;
-  /** The result came from the agent's own grant and is shielded from this viewer. */
+  /**
+   * `delegated`, `agent` or `delegated-read` when an agent used rights beyond the caller's own:
+   * the initiator's, its own grant, or the accountable person's through a gateway read.
+   */
+  grantSource?: 'delegated' | 'agent' | 'delegated-read' | null;
+  /** The result came from rights this viewer does not have and is shielded from them. */
   restricted?: boolean;
 }
 

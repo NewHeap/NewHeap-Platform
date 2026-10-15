@@ -161,9 +161,16 @@ internal sealed record NhAssistantToolCallPartView(
     public NhAiGrantSource GrantSource { get; init; }
 
     /// <summary>
-    /// The result came from the agent's own grant and the viewer may not see it.
+    /// The result came from the agent's own grant or a delegated read and the viewer may not see it.
     /// </summary>
     public bool Restricted { get; init; }
+
+    /// <summary>
+    /// The stored arguments, which decide whose policies a delegated read's result needs. Never sent
+    /// to clients.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? ArgumentsJson { get; init; }
 }
 
 internal sealed record NhAssistantApprovalView(

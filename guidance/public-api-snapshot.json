@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.67",
   "backEnd": {
-    "hash": "46d62749419d58c082b6fcfc8859bc7ed8349154b8f9d75d948a7b82a3608be8",
-    "declarationCount": 7702,
+    "hash": "e463a98e62b162b6b55763694304831b777a60f78e6021a24ca17aec1eac4666",
+    "declarationCount": 7743,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -340,6 +340,118 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiCallerCredentials.cs",
         "declaration": "public async ValueTask<string?> GetBearerTokenAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public interface INhAiDelegatedReadCredentialIssuer {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public sealed record NhAiDelegatedReadRequest( string PersonActorId, string? DivisionId, Guid InvocationId, TimeSpan Lifetime, IReadOnlyList<Claim> Claims);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public sealed record NhAiDelegatedReadCredential(string BearerToken, DateTimeOffset ExpiresAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static class NhAiDelegatedReadDefaults {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public const string ClaimType = \"nh-ai-delegated-read\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public const string InvocationHeaderName = \"X-NewHeap-AI-Invocation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static readonly TimeSpan DefaultLifetime = TimeSpan.FromSeconds(60);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static readonly TimeSpan MaxLifetime = TimeSpan.FromMinutes(5);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public interface INhAiDelegatedReadSurface {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public sealed class NhAiDelegatedReadsBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public NhAiDelegatedReadsBuilder UseIssuer<TIssuer>() where TIssuer : class, INhAiDelegatedReadCredentialIssuer {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public NhAiDelegatedReadsBuilder Lifetime(TimeSpan lifetime) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public NhAiDelegatedReadsBuilder UseScheme(string scheme) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public Type IssuerType { get; set; } = typeof(NhAiNewHeapDelegatedReadCredentialIssuer);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public TimeSpan Lifetime { get; set; } = NhAiDelegatedReadDefaults.DefaultLifetime;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public string Scheme { get; set; } = JwtBearerDefaults.AuthenticationScheme;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public Func<TokenValidatedContext, Task>? AppliedRestriction { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static class NhAiDelegatedReadServiceCollectionExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static IServiceCollection AddNewHeapPlatformAIDelegatedReads( this IServiceCollection services, Action<NhAiDelegatedReadsBuilder>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public async ValueTask<TaskResult<NhAiDelegatedReadCredential>> IssueAsync( NhAiDelegatedReadRequest request, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public const string UnavailableCode = \"ai-delegated-read-unavailable\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static bool IsInternal(HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static TaskResult<NhAiDelegatedReadCredential> Unavailable() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public async ValueTask<TaskResult<NhAiDelegatedReadCredential>> IssueAsync( NhAiAgentInvocationScope scope, Guid invocationId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public async ValueTask<ClaimsPrincipal?> AuthenticateAsync( NhAiAgentInvocationScope scope, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public void PostConfigure(string? name, JwtBearerOptions jwt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public async Task StartAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeActionInfo.cs",
@@ -870,6 +982,38 @@
         "declaration": "protected virtual JsonNode CreateTypeSchema(Type type, string pointer) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public bool IsReadTool(NhAiToolDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public bool IsReadEndpoint(Endpoint endpoint) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public IReadOnlyList<string>? ResultPolicies(string toolId, string? argumentsJson) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public static bool IsActive => Active.Value;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public static IDisposable Begin() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public static async ValueTask<ClaimsPrincipal?> CurrentAsync( IServiceProvider services, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public static async ValueTask<bool> IsUnauthenticatedAsync( IServiceProvider services, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
         "declaration": "public sealed class NhAiMvcBridgeDiscoveryPolicy : INhAiToolDiscoveryPolicy {"
       },
@@ -903,7 +1047,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeExecutor.cs",
-        "declaration": "public const string InvocationHeaderName = \"X-NewHeap-AI-Invocation\";"
+        "declaration": "public const string InvocationHeaderName = NhAiDelegatedReadDefaults.InvocationHeaderName;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeExecutor.cs",
@@ -2155,7 +2299,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
-        "declaration": "public async ValueTask<bool> MayViewAsync(NhAiGrantSource grantSource, string toolId, CancellationToken cancellationToken) {"
+        "declaration": "public async ValueTask<bool> MayViewAsync( NhAiGrantSource grantSource, string toolId, string? argumentsJson, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantHandOffs.cs",
@@ -2223,7 +2367,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRestrictedResults.cs",
-        "declaration": "public async Task<bool> MayViewAsync(NhAiGrantSource grantSource, string toolId) {"
+        "declaration": "public async Task<bool> MayViewAsync(NhAiGrantSource grantSource, string toolId, string? argumentsJson) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunCancellation.cs",
@@ -2828,6 +2972,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
         "declaration": "public static NhAssistantMessagePartDto ToDto(NhAssistantPartView part) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+        "declaration": "public static string Name(NhAiGrantSource grantSource) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServiceCollectionExtensions.cs",
@@ -4051,6 +4199,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public bool AllowGatewayReads { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public string? ApprovalPolicyId { get; internal set; }"
       },
       {
@@ -4152,6 +4304,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder ElevatedReads(NhAiElevatedReads elevatedReads) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder AllowGatewayReads(bool enabled = true)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -10695,6 +10851,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "[System.Text.Json.Serialization.JsonIgnore] public string? ArgumentsJson { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
         "declaration": "public string? StaleKind { get; init; }"
       },
       {
@@ -11268,6 +11428,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
         "declaration": "public bool RequireApprovalForEffects { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public bool AllowGatewayReads { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
@@ -34488,7 +34652,8 @@
       "NhAssistantReplayDto",
       "NhAssistantReplayStatuses",
       "NhAssistantEvaluationLimits",
-      "INhAiAgentInvocationContextFactory"
+      "INhAiAgentInvocationContextFactory",
+      "AllowGatewayReads"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
@@ -34534,7 +34699,14 @@
       "INhAiApplicationMapSource",
       "NhAiApplicationMapEntry",
       "NhAiApplicationMapRelation",
-      "AddApplicationMapSource"
+      "AddApplicationMapSource",
+      "AddNewHeapPlatformAIDelegatedReads",
+      "NhAiDelegatedReadsBuilder",
+      "INhAiDelegatedReadCredentialIssuer",
+      "NhAiDelegatedReadRequest",
+      "NhAiDelegatedReadCredential",
+      "NhAiDelegatedReadDefaults",
+      "INhAiDelegatedReadSurface"
     ],
     "nh-ai-aspnet-context": [
       "INhAiAuthenticatedInvocationContextResolver",

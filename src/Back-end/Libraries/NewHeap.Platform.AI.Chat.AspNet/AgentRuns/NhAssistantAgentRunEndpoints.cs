@@ -433,7 +433,7 @@ internal static class NhAssistantAgentRunEndpoints
             return true;
         }
 
-        return await shield.MayViewAsync(invocation.GrantSource, invocation.ToolId);
+        return await shield.MayViewAsync(invocation.GrantSource, invocation.ToolId, invocation.ArgumentsJson);
     }
 
     private static async Task<IResult> CancelRunAsync(

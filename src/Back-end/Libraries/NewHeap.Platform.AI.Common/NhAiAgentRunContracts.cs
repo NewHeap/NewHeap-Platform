@@ -23,7 +23,13 @@ public enum NhAiGrantSource
     /// <summary>
     /// The initiator's own rights allowed the tool.
     /// </summary>
-    Delegated = 2
+    Delegated = 2,
+
+    /// <summary>
+    /// A read of the API bridge gateway in a headless run, with the rights of the run's accountable
+    /// person through a short-lived delegated read credential.
+    /// </summary>
+    DelegatedRead = 3
 }
 
 /// <summary>
@@ -809,6 +815,13 @@ public sealed record NhAiAgentInvocationScope(
     /// agent runs in such a scope, so it can only propose.
     /// </summary>
     public bool RequireApprovalForEffects { get; init; }
+
+    /// <summary>
+    /// The API bridge gateway's reads may run in this headless turn with the rights of
+    /// <see cref="AccountableOwnerId"/>, through a short-lived delegated read credential. Set only
+    /// for agents that allow gateway reads and answer to a person or technical account.
+    /// </summary>
+    public bool AllowGatewayReads { get; init; }
 
     public int? RunAttemptNumber { get; init; }
     public string? CorrelationId { get; init; }

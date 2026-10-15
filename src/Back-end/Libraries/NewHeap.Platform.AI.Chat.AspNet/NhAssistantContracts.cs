@@ -265,8 +265,8 @@ public sealed record NhAssistantToolCallPartDto(
     string? ResultCode) : NhAssistantMessagePartDto
 {
     /// <summary>
-    /// <c>delegated</c> or <c>agent</c> when an agent used rights beyond the caller's own;
-    /// <see langword="null"/> otherwise.
+    /// <c>delegated</c>, <c>agent</c> or <c>delegated-read</c> when an agent used rights beyond the
+    /// caller's own; <see langword="null"/> otherwise.
     /// </summary>
     public string? GrantSource { get; init; }
 

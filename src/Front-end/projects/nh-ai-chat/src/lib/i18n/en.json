@@ -122,10 +122,12 @@
       "grant-source": {
         "delegated": "On behalf of the initiator",
         "agent": "Agent rights",
+        "delegated-read": "Read for the accountable person",
         "delegated-hint": "The agent used the rights of the person who started it.",
-        "agent-hint": "The agent used a right it was granted itself, beyond the rights of the people involved."
+        "agent-hint": "The agent used a right it was granted itself, beyond the rights of the people involved.",
+        "delegated-read-hint": "The agent read this through the application's data gateway with the rights of the person it works for."
       },
-      "restricted": "Shielded: the agent obtained this with its own rights, which you do not have."
+      "restricted": "Shielded: the agent obtained this with rights you do not have."
     },
     "tool-group": {
       "running": "Calling {{name}}…",

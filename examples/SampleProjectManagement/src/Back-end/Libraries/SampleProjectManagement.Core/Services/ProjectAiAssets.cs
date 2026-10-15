@@ -124,9 +124,10 @@ public static class ProjectAiAssets
     public static NhAiTextAsset ProjectPlannerDeadlineRiskInstructions { get; } =
         NhAiTextAssetFactory.Create(
             "project-planner-deadline-risk",
-            1,
+            2,
             """
             Judge from the briefing whether the project will miss its deadline: compare the open tasks with the days left.
+            When you can read the project's open tasks through the data gateway's query tool, do so before you judge.
             When it will, propose status onhold with the status tool and say why in one sentence.
             When it will not, propose nothing and say so.
             """,
@@ -135,8 +136,8 @@ public static class ProjectAiAssets
             NhAiContextTrust.TrustedApplication,
             NhAiModelCapability.FunctionCalling,
             [],
-            "project-planner-deadline-risk-v1",
+            "project-planner-deadline-risk-v2",
             NhAiDataClassification.Internal,
             NhAiRetentionCategory.Evaluation,
-            "sample-project-planner-deadline-risk-v1");
+            "sample-project-planner-deadline-risk-v2");
 }

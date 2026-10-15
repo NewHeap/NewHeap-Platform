@@ -23,6 +23,10 @@ namespace SampleProjectManagement.Api.Composition;
 /// SPM-287: when the follow-up finds every task of a project with a deadline completed, its rules
 /// hand the project to the project closer instead of proposing the closer's work themselves. The
 /// closer answers in its own thread; the planner hears back how it ended, with the closer's summary.
+/// SPM-290: the planner works for the project's owner and reads the project's data through the API
+/// bridge gateway in its headless runs, with the owner's rights: every call gets a short-lived
+/// delegated read credential of the owner, which this API's own bearer scheme validates and the
+/// library restricts to the gateway's GET calls.
 /// </summary>
 public static class SampleProjectPlannerComposition
 {
@@ -53,12 +57,15 @@ public static class SampleProjectPlannerComposition
                 DescriptionKey: "nh-assistant.agents.sample-project-planner.description",
                 ProfileName: SampleAssistantComposition.ProfileName,
                 Instructions: ProjectAiAssets.ProjectPlannerInstructions,
-                ToolSelectors: [ProjectAiTools.ChangeStatusToolId],
+                // SPM-290: the second key of gateway reads; AllowGatewayReads below is the first.
+                ToolSelectors: [ProjectAiTools.ChangeStatusToolId, SampleAiBridgeComposition.GatewayToolSetId + ".*"],
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: SampleAssistantComposition.AccessPolicy))
             .ConfigureAgent(AgentId, agent => agent
                 .Grant(ProjectAiTools.ChangeStatusToolId)
                 .TriggerOnly()
+                .Accountability(NhAiAgentAccountability.SubjectResponsible)
+                .AllowGatewayReads()
                 .UseApprovalPolicy(SampleIntakeReviewerComposition.ApprovalPolicyId)
                 .Budget(
                     NhAssistantAgentBudget.PerDay(toolCalls: 100, tokens: 300_000),
@@ -72,7 +79,7 @@ public static class SampleProjectPlannerComposition
                 .Skill(DeadlineRiskSkill, skill => skill
                     .Description("Judges whether an active project will miss its deadline and proposes to put it on hold.")
                     .Instructions(ProjectAiAssets.ProjectPlannerDeadlineRiskInstructions)
-                    .Tools(ProjectAiTools.ChangeStatusToolId)
+                    .Tools(ProjectAiTools.ChangeStatusToolId, SampleAiBridgeComposition.GatewayToolSetId + ".*")
                     .MaxTokensPerRun(30_000)
                     .Budget(NhAssistantAgentBudget.PerDay(toolCalls: 20, tokens: 100_000))))
             .AddTrigger<ProjectTaskUpdatedEvent>(TaskTriggerId, trigger => trigger

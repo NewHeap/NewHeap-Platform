@@ -18,6 +18,9 @@
     <PackageReference Include="ModelContextProtocol" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Mvc" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\NewHeap.Platform.AI.Common\NewHeap.Platform.AI.Common.csproj" />
     <ProjectReference Include="..\NewHeap.Platform.AI.Mcp\NewHeap.Platform.AI.Mcp.csproj" />
     <ProjectReference Include="..\NewHeap.Platform.AspNet.Common\NewHeap.Platform.AspNet.Common.csproj" />

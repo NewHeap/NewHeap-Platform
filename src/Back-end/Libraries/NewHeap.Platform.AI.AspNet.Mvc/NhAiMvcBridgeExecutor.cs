@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 using NewHeap.Platform.Common.Models;
@@ -32,7 +33,7 @@ public static class NhAiMvcBridgeDefaults
     public const string HttpClientName = "newheap-ai-bridge";
 
     /// <summary>The correlation header carrying the invocation id.</summary>
-    public const string InvocationHeaderName = "X-NewHeap-AI-Invocation";
+    public const string InvocationHeaderName = NhAiDelegatedReadDefaults.InvocationHeaderName;
 
     public const string IdempotencyKeyHeaderName = "Idempotency-Key";
 
@@ -58,6 +59,7 @@ internal sealed partial class NhAiMvcBridgeExecutor(
     NhAiMvcBridgeRuntimeSettings settings,
     INhAiCallerCredentialAccessor credentialAccessor,
     IHttpContextAccessor httpContextAccessor,
+    NhAiMvcBridgeToolCatalog catalog,
     ILogger<NhAiMvcBridgeExecutor> logger) : INhAiMvcBridgeExecutor, INhAiMvcBridgeShapingExecutor
 {
     private static readonly JsonSerializerOptions MeasureOptions = new(JsonSerializerDefaults.Web);
@@ -120,7 +122,14 @@ internal sealed partial class NhAiMvcBridgeExecutor(
             return TaskResult<NhAiBridgeResponse>.Failed(NhAiBridgeFailureCodes.Validation, exception.Message);
         }
 
-        using var message = await CreateMessageAsync(request, descriptor, context, cancellationToken);
+        var credential = await ResolveCredentialAsync(request, action, context, cancellationToken);
+        if (credential.FailureCode is { } credentialFailure)
+        {
+            LogCredentialRefused(logger, descriptor.Id, context.InvocationId, credentialFailure);
+            return TaskResult<NhAiBridgeResponse>.Failed(credentialFailure, FailureMessage(credentialFailure));
+        }
+
+        using var message = CreateMessage(request, descriptor, context, credential.Token);
         var client = httpClientFactory.CreateClient(NhAiMvcBridgeDefaults.HttpClientName);
         HttpResponseMessage response;
         try
@@ -265,11 +274,44 @@ internal sealed partial class NhAiMvcBridgeExecutor(
         }
     }
 
-    private async Task<HttpRequestMessage> CreateMessageAsync(
+    /// <summary>
+    /// The bearer token of the call: the caller's own, or for a delegated read of a headless run a
+    /// credential of the accountable person issued for this invocation. A delegated read reaches
+    /// only the <c>GET</c> actions of gateway resources; anything else fails before a request is sent.
+    /// </summary>
+    private async ValueTask<(string? Token, string? FailureCode)> ResolveCredentialAsync(
+        NhAiBridgeHttpRequest request,
+        NhAiBridgeActionInfo action,
+        NhAiInvocationContext context,
+        CancellationToken cancellationToken)
+    {
+        if (context.GrantSource != NhAiGrantSource.DelegatedRead)
+        {
+            return (await credentialAccessor.GetBearerTokenAsync(cancellationToken), null);
+        }
+        if (NhAiAgentInvocationScopes.Current is not { AllowGatewayReads: true } scope
+            || !HttpMethods.IsGet(request.Method)
+            || !catalog.IsGatewayRead(action.ActionDescriptor))
+        {
+            return (null, NhAiBridgeFailureCodes.Forbidden);
+        }
+
+        var reads = requestServices.GetService<NhAiDelegatedReadService>();
+        if (reads is null)
+        {
+            return (null, NhAiBridgeFailureCodes.Unauthenticated);
+        }
+        var issued = await reads.IssueAsync(scope, context.InvocationId, cancellationToken);
+        return issued.Success
+            ? (issued.Data!.BearerToken, null)
+            : (null, NhAiBridgeFailureCodes.Unauthenticated);
+    }
+
+    private HttpRequestMessage CreateMessage(
         NhAiBridgeHttpRequest request,
         NhAiToolDescriptor descriptor,
         NhAiInvocationContext context,
-        CancellationToken cancellationToken)
+        string? token)
     {
         var baseUrl = settings.SelfBaseUrl!.EndsWith('/') ? settings.SelfBaseUrl : settings.SelfBaseUrl + "/";
         var message = new HttpRequestMessage(
@@ -277,7 +319,6 @@ internal sealed partial class NhAiMvcBridgeExecutor(
             new Uri(new Uri(baseUrl, UriKind.Absolute), request.BuildRelativeUri()));
         message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        var token = await credentialAccessor.GetBearerTokenAsync(cancellationToken);
         if (!string.IsNullOrWhiteSpace(token))
         {
             message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -515,4 +556,7 @@ internal sealed partial class NhAiMvcBridgeExecutor(
 
     [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "AI bridge tool {ToolId} rejected its input for invocation {InvocationId}.")]
     private static partial void LogInputRejected(ILogger logger, string toolId, Guid invocationId);
+
+    [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "AI bridge tool {ToolId} got no credential for invocation {InvocationId} ({FailureCode}).")]
+    private static partial void LogCredentialRefused(ILogger logger, string toolId, Guid invocationId, string failureCode);
 }

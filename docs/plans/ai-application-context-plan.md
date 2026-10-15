@@ -10,8 +10,9 @@ later plan; this one prepares its place. It was checked against `feature/ai-agen
 
 ## Status
 
-Parts 1 (application map, SPM-289) and 3 (retrieved context, SPM-291) are implemented; part 2
-is not yet. The choices are part
+All three parts are implemented: the application map (SPM-289), gateway reads in headless runs
+(SPM-290) and retrieved context (SPM-291). The security review of the delegated read credential
+and its restriction, which precedes the release, is still open. The choices are part
 of the [decision record](#decision-record) and the [answered questions](#answered-questions); the
 implementation deviates from the plan where [Implementation notes](#implementation-notes) says so.
 
@@ -41,6 +42,30 @@ implementation deviates from the plan where [Implementation notes](#implementati
   id; the context hash also reaches tool audit events as `RetrievedContextHash`. The formatter's
   data gains `effectiveAt` per item.
 - **Resumed turns.** A turn that continues after an approval decision does not retrieve again.
+- **Gateway read discovery.** Tool discovery in agent turns runs through the invocation gate, not
+  the bridge's discovery policy. The gate allows the four gateway tools with the new grant source
+  `DelegatedRead` in a scope that allows gateway reads, and a resource's `GET` action only while a
+  gateway tool executes it, so the run is never offered the resource actions. The gateway's tools
+  and the map authorize with the principal of an authenticated credential, as planned.
+- **Where gateway reads apply.** Headless turns of agents with `AllowGatewayReads` that answer to a
+  person or service account; consultations and turns inside a person's request read with that
+  person's own rights. Startup also fails without a registered gateway.
+- **Shielding.** A delegated read's result needs the policies of the resource operation it read,
+  taken from the call's stored arguments; `search-resources` needs every resource's policies, and
+  unknown arguments shield the result. Such a run counts as one that used restricted results.
+- **Credential failures.** A credential that cannot be issued or is rejected while the gateway
+  authorizes becomes `api-bridge-unauthenticated` before any request; a delegated call outside the
+  gateway's `GET` actions becomes `api-bridge-forbidden` without a request. A request without a
+  known endpoint fails authentication; the application then answers it as anonymous.
+- **Built-in issuer.** It takes the person's valid claims from `INhUserManager` and needs their
+  security stamp. It ignores the request's division, which reaches the call through trusted
+  query bindings.
+- **Every JWT bearer scheme.** The restriction applies to all JWT bearer schemes of the host, so
+  another scheme that trusts the same key cannot accept the token either; the configured scheme
+  authenticates it. The library authenticates a credential for discovery in a service scope of
+  its own, because authentication handlers cache their result per scope.
+- **Startup checks.** The scheme must be a JWT bearer scheme without `EventsType`, and the
+  restriction must still be its `OnTokenValidated` after all configuration.
 
 ## Problem
 

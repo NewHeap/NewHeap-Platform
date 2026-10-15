@@ -1,0 +1,226 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
+using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
+using NewHeap.Platform.AI.Chat.Runtime;
+using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
+using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Common.Models;
+using Xunit;
+
+namespace NewHeap.Platform.AI.Chat.Tests;
+
+/// <summary>
+/// Gateway reads in headless runs, as the assistant sees them: only agents that allow them and
+/// answer to an account read with that account's rights, and thread readers without the read
+/// resource's policies see that the read happened but not what it returned. The bridge itself is
+/// replaced by a read surface over the test catalog's search tool.
+/// </summary>
+[Collection(AssistantDatabaseCollection.Name)]
+public sealed class AssistantGatewayReadTests(AssistantDatabaseFixture database)
+{
+    private const string AgentId = "project-assistant";
+    private const string ReadPolicy = "test-gateway-read";
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_headless_run_reads_with_the_accountable_account_and_shields_the_result_from_other_readers(AssistantTestProvider provider)
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap" } }, "call-1")
+            .RespondWithText("Read the roadmap.");
+        await using var host = await CreateHostAsync(provider, model, agent => agent.AllowGatewayReads());
+        var started = await StartAsync(host);
+
+        var result = await RunTurnAsync(host, started);
+
+        Assert.True(result.UsedRestrictedResults);
+        await using var scope = host.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var conversationId = started.ConversationId!.Value;
+        var threadAccess = (await services.GetRequiredService<NhAssistantThreadService>()
+            .ResolveAccessAsync(conversationId, "member-1", null, CancellationToken.None))!;
+        var conversation = (await services.GetRequiredService<INhAssistantStore>()
+            .FindShareableConversationAsync(conversationId, CancellationToken.None))!;
+        var view = await services.GetRequiredService<NhAssistantConversationReader>().CreateViewAsync(conversation, CancellationToken.None);
+        var reader = new DefaultHttpContext { RequestServices = services, User = Person("member-1", "project.read") };
+        var colleague = new DefaultHttpContext { RequestServices = services, User = Person("member-1") };
+
+        var visible = Tools(await NhAssistantRestrictedResults.ApplyAsync(view, reader, threadAccess));
+        var shielded = Tools(await NhAssistantRestrictedResults.ApplyAsync(view, colleague, threadAccess));
+
+        var read = Assert.Single(visible);
+        Assert.Equal(NhAiGrantSource.DelegatedRead, read.GrantSource);
+        Assert.False(read.Restricted);
+        Assert.NotNull(read.ResultPreview);
+        Assert.True(Assert.Single(shielded).Restricted);
+        Assert.Null(shielded[0].ResultPreview);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Without_the_opt_in_the_run_reads_with_its_grant_as_before(AssistantTestProvider provider)
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap" } }, "call-1")
+            .RespondWithText("Read the roadmap.");
+        await using var host = await CreateHostAsync(provider, model, agent => agent.Grant("projects.*"));
+        var started = await StartAsync(host);
+
+        await RunTurnAsync(host, started);
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var conversation = (await services.GetRequiredService<INhAssistantStore>()
+            .FindShareableConversationAsync(started.ConversationId!.Value, CancellationToken.None))!;
+        var view = await services.GetRequiredService<NhAssistantConversationReader>().CreateViewAsync(conversation, CancellationToken.None);
+        Assert.Equal(NhAiGrantSource.Agent, Assert.Single(Tools(view)).GrantSource);
+    }
+
+    [Fact]
+    public async Task Startup_fails_for_an_agent_that_answers_to_itself_or_without_an_issuer()
+    {
+        await using (var selfAccountable = await CreateHostAsync(
+            AssistantTestProvider.PostgreSql,
+            new NhAiScriptedChatClient(),
+            agent => agent.Accountability(NhAiAgentAccountability.Agent).AllowGatewayReads()))
+        {
+            var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => StartValidatorAsync(selfAccountable));
+            Assert.Contains("answers to itself", failure.Message);
+        }
+
+        await using (var withoutIssuer = await CreateHostAsync(
+            AssistantTestProvider.PostgreSql,
+            new NhAiScriptedChatClient(),
+            agent => agent.AllowGatewayReads(),
+            issuer: false))
+        {
+            var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => StartValidatorAsync(withoutIssuer));
+            Assert.Contains("AddNewHeapPlatformAIDelegatedReads", failure.Message);
+        }
+    }
+
+    private static Task StartValidatorAsync(AssistantTestHost host)
+    {
+        return host.Services.GetServices<IHostedService>().OfType<NhAssistantStartupValidator>().Single().StartAsync(CancellationToken.None);
+    }
+
+    private static NhAssistantToolCallPartView[] Tools(NhAssistantConversationView view)
+    {
+        return view.Messages.SelectMany(message => message.Parts).OfType<NhAssistantToolCallPartView>().ToArray();
+    }
+
+    private static ClaimsPrincipal Person(string actorId, params string[] permissions)
+    {
+        return new ClaimsPrincipal(new ClaimsIdentity(
+            permissions.Select(permission => new Claim("permission", permission)).Prepend(new Claim(ClaimTypes.NameIdentifier, actorId)),
+            "test"));
+    }
+
+    private async Task<AssistantTestHost> CreateHostAsync(
+        AssistantTestProvider provider,
+        NhAiScriptedChatClient model,
+        Action<NhAssistantAgentRunBuilder> configureAgent,
+        bool issuer = true)
+    {
+        return await AssistantTestHost.CreateAsync(
+            database,
+            provider,
+            model,
+            configure: services =>
+            {
+                services.AddSingleton(new TestSubjects());
+                services.AddSingleton<RecordingOperations>();
+                services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
+                services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, TestPrincipalFactory>());
+                services.AddSingleton<INhAiDelegatedReadSurface, TestReadSurface>();
+                if (issuer)
+                {
+                    services.AddScoped<INhAiDelegatedReadCredentialIssuer, TestNoCredentialIssuer>();
+                }
+                services.AddAuthorization(options =>
+                    options.AddPolicy(ReadPolicy, policy => policy.RequireClaim("permission", "project.read")));
+            },
+            assistantBuilder: assistant => assistant
+                .AddSubjectType<TestSubjectResolver>()
+                .ConfigureAgent(AgentId, agent =>
+                {
+                    agent.ServiceAccount("service-1");
+                    configureAgent(agent);
+                })
+                .AddTrigger<ProjectChanged>("project-changed", trigger => trigger
+                    .StartAgent(AgentId)
+                    .Subject(evt => new NhAiSubjectRef("project", evt.ProjectId.ToString("N")))
+                    .Message(evt => "The project changed: " + evt.Change)
+                    .Dedupe(evt => evt.EventId.ToString("N"))
+                    .OnBusy(NhAssistantTriggerConflict.Queue)));
+    }
+
+    private static async Task<NhAssistantTriggerReceipt> StartAsync(AssistantTestHost host)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var receipt = Assert.Single(await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>()
+            .PublishAsync(new ProjectChanged(Guid.NewGuid(), Guid.NewGuid(), "created")));
+        Assert.NotNull(receipt.RunId);
+        return receipt;
+    }
+
+    private static async Task<NhAssistantAgentTurnResult> RunTurnAsync(AssistantTestHost host, NhAssistantTriggerReceipt receipt)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var runs = services.GetRequiredService<NhAssistantRunStore>();
+        var thread = (await runs.FindThreadByConversationAsync(receipt.ConversationId!.Value, CancellationToken.None))!;
+        var run = (await runs.FindRunAsync(receipt.RunId!.Value, CancellationToken.None))!;
+        var subject = (await services.GetRequiredService<NhAssistantSubjectAccessService>()
+            .DescribeAsync(new NhAiSubjectRef(thread.SubjectType, thread.SubjectId), CancellationToken.None))!;
+        var options = services.GetRequiredService<NhAssistantRegistrationState>().AgentRuns[AgentId];
+        var result = await services.GetRequiredService<INhAssistantTurnRunner>().RunAgentTurnAsync(
+            new NhAssistantAgentTurnRequest(
+                new NhAssistantAgentTurnContext(thread, subject, options, run.Id, run.TriggerId, null, thread.AccountableOwnerId, IsRequestTurn: false),
+                [new NhAssistantAgentTurnInput(Guid.NewGuid(), null, run.TriggerId, "Read the roadmap.")]),
+            CancellationToken.None);
+        Assert.Equal(NhAssistantTurnStatuses.Completed, result.Outcome);
+        return result;
+    }
+}
+
+/// <summary>
+/// Treats the test catalog's search as a gateway read whose results need <c>project.read</c>.
+/// </summary>
+public sealed class TestReadSurface : INhAiDelegatedReadSurface
+{
+    public bool IsReadTool(NhAiToolDescriptor descriptor)
+    {
+        return descriptor.Id == "projects.search";
+    }
+
+    public bool IsReadEndpoint(Endpoint endpoint)
+    {
+        return false;
+    }
+
+    public IReadOnlyList<string>? ResultPolicies(string toolId, string? argumentsJson)
+    {
+        return toolId == "projects.search" ? ["test-gateway-read"] : null;
+    }
+}
+
+/// <summary>An issuer that is never asked: the test search makes no HTTP call.</summary>
+public sealed class TestNoCredentialIssuer : INhAiDelegatedReadCredentialIssuer
+{
+    public ValueTask<TaskResult<NhAiDelegatedReadCredential>> IssueAsync(
+        NhAiDelegatedReadRequest request,
+        CancellationToken cancellationToken)
+    {
+        return ValueTask.FromResult(TaskResult<NhAiDelegatedReadCredential>.Failed("unused", "Not used."));
+    }
+}

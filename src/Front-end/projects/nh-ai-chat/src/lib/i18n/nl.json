@@ -122,10 +122,12 @@
       "grant-source": {
         "delegated": "Namens de starter",
         "agent": "Agentrechten",
+        "delegated-read": "Gelezen voor de verantwoordelijke",
         "delegated-hint": "De agent gebruikte de rechten van de persoon die hem startte.",
-        "agent-hint": "De agent gebruikte een recht dat hij zelf heeft gekregen, boven de rechten van de betrokkenen uit."
+        "agent-hint": "De agent gebruikte een recht dat hij zelf heeft gekregen, boven de rechten van de betrokkenen uit.",
+        "delegated-read-hint": "De agent las dit via de datagateway van de applicatie met de rechten van de persoon voor wie hij werkt."
       },
-      "restricted": "Afgeschermd: de agent kreeg dit met eigen rechten, die jij niet hebt."
+      "restricted": "Afgeschermd: de agent kreeg dit met rechten die jij niet hebt."
     },
     "tool-group": {
       "running": "Roept {{name}} aan…",

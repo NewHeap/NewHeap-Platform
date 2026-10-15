@@ -604,7 +604,7 @@ internal static class NhAssistantAgentRunDtoMapper
             approval.Status,
             approval.Mode,
             approval.PolicyId,
-            approval.GrantSource.ToString().ToLowerInvariant(),
+            NhAssistantGrantSources.Name(approval.GrantSource),
             approval.CreatedAt,
             approval.ExpiresAt,
             approval.InitiatorActorId,

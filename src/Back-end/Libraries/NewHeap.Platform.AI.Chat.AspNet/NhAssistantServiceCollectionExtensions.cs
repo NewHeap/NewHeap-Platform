@@ -236,6 +236,26 @@ internal sealed class NhAssistantStartupValidator(
             {
                 throw new InvalidOperationException($"Agent '{agentId}' has a triage but no skills.");
             }
+            if (runOptions.AllowGatewayReads)
+            {
+                // Gateway reads use a person's rights: the agent must answer to one, and the host must
+                // be able to issue that person's delegated read credential.
+                if (runOptions.Accountability == NhAiAgentAccountability.Agent)
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' allows gateway reads but answers to itself; choose an accountable person or technical account.");
+                }
+                if (provider.GetService<INhAiDelegatedReadCredentialIssuer>() is null)
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' allows gateway reads, but no delegated read issuer is registered. Call AddNewHeapPlatformAIDelegatedReads.");
+                }
+                if (!provider.GetServices<INhAiDelegatedReadSurface>().Any())
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' allows gateway reads, but no API bridge gateway is registered. Call EnableGateway on AddNewHeapPlatformAIMvcBridge.");
+                }
+            }
         }
         if (state.AgentRuns.Count > 0)
         {

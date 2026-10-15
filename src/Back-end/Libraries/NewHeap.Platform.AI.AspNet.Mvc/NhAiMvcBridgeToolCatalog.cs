@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.Extensions.AI;
 
@@ -48,6 +50,20 @@ public sealed class NhAiMvcBridgeToolCatalog : INhAiAttestedToolCatalog
 
     /// <summary>The gateway model, or <see langword="null"/> when the gateway is not enabled.</summary>
     internal NhAiMvcBridgeGatewayModel? Gateway => _model.Value.Gateway;
+
+    /// <summary>
+    /// Whether <paramref name="action"/> is the <c>GET</c> action of a gateway resource operation.
+    /// </summary>
+    internal bool IsGatewayRead(ControllerActionDescriptor action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return _model.Value.Gateway is { } gateway
+            && gateway.Resources.Values
+                .SelectMany(resource => resource.Operations)
+                .Any(operation => HttpMethods.IsGet(operation.Action.HttpMethod)
+                    && operation.Action.ActionDescriptor.ControllerTypeInfo == action.ControllerTypeInfo
+                    && operation.Action.ActionDescriptor.MethodInfo == action.MethodInfo);
+    }
 
     /// <summary>The gateway resource names, or empty when the gateway is not enabled.</summary>
     public IReadOnlyCollection<string> GatewayResources =>

@@ -4,8 +4,8 @@ title: "Expose authorized MVC actions as governed AI tools"
 area: backend
 reference: ai-api-bridge
 summary: "Publish existing controller actions as governed NewHeap tools that run through the shared invoker and the application's own HTTP pipeline as the calling user, with the controller authorization as the boundary."
-sample-cases: ["SPM-242", "SPM-243", "SPM-244", "SPM-255", "SPM-289"]
-public-symbols: ["AddNewHeapPlatformAIMvcBridge", "INhAiAttestedToolCatalog", "INhAiBridgeConventions", "INhAiBridgeCollectionContractProvider", "NhAiBridgeCollectionContract", "NhAiNewHeapCollectionContractProvider", "INhAiBridgeBodySerializer", "NhAiMvcNewtonsoftJsonBodySerializer", "INhAiBridgeTrustedQueryBindingProvider", "NhAiBridgeTrustedQueryBinding", "NhAiBridgeTrustedQueryBindingKind", "INhAiCallerCredentialAccessor", "INhAiMvcBridgeExecutor", "NhAiBridgeActionInfo", "NhAiBridgeFailureCodes", "NhAiBridgeHttpRequest", "NhAiBridgeInputException", "NhAiBridgeResponse", "NhAiBridgeToolAttribute", "NhAiMvcBridgeBuilder", "NhAiMvcBridgeDefaultConventions", "NhAiMvcBridgeDefaults", "NhAiMvcBridgeDiscoveryPolicy", "NhAiMvcBridgeToolCatalog", "NhAiMvcBridgeToolDefaults", "NhAiToolCatalogAttestation", "NhAiMvcBridgeGatewayBuilder", "NhAiMvcBridgeGatewayOptions", "NhAiBridgeQueryDescription", "NhAiBridgeFilterField", "NhAiBridgeResultField", "INhAiBridgeResourceDescriber", "NhAiBridgeResourceDescription", "NhAiBridgeResourceSummary", "NhAiBridgeResourcePresentationOptions", "NhAiBridgeResourcePresentation", "NhAiBridgeResultShaping", "NhAiBridgeTruncation", "Relate", "IgnoreRelation", "INhAiApplicationMapSource", "NhAiApplicationMapEntry", "NhAiApplicationMapRelation", "AddApplicationMapSource"]
+sample-cases: ["SPM-242", "SPM-243", "SPM-244", "SPM-255", "SPM-289", "SPM-290"]
+public-symbols: ["AddNewHeapPlatformAIMvcBridge", "INhAiAttestedToolCatalog", "INhAiBridgeConventions", "INhAiBridgeCollectionContractProvider", "NhAiBridgeCollectionContract", "NhAiNewHeapCollectionContractProvider", "INhAiBridgeBodySerializer", "NhAiMvcNewtonsoftJsonBodySerializer", "INhAiBridgeTrustedQueryBindingProvider", "NhAiBridgeTrustedQueryBinding", "NhAiBridgeTrustedQueryBindingKind", "INhAiCallerCredentialAccessor", "INhAiMvcBridgeExecutor", "NhAiBridgeActionInfo", "NhAiBridgeFailureCodes", "NhAiBridgeHttpRequest", "NhAiBridgeInputException", "NhAiBridgeResponse", "NhAiBridgeToolAttribute", "NhAiMvcBridgeBuilder", "NhAiMvcBridgeDefaultConventions", "NhAiMvcBridgeDefaults", "NhAiMvcBridgeDiscoveryPolicy", "NhAiMvcBridgeToolCatalog", "NhAiMvcBridgeToolDefaults", "NhAiToolCatalogAttestation", "NhAiMvcBridgeGatewayBuilder", "NhAiMvcBridgeGatewayOptions", "NhAiBridgeQueryDescription", "NhAiBridgeFilterField", "NhAiBridgeResultField", "INhAiBridgeResourceDescriber", "NhAiBridgeResourceDescription", "NhAiBridgeResourceSummary", "NhAiBridgeResourcePresentationOptions", "NhAiBridgeResourcePresentation", "NhAiBridgeResultShaping", "NhAiBridgeTruncation", "Relate", "IgnoreRelation", "INhAiApplicationMapSource", "NhAiApplicationMapEntry", "NhAiApplicationMapRelation", "AddApplicationMapSource", "AddNewHeapPlatformAIDelegatedReads", "NhAiDelegatedReadsBuilder", "INhAiDelegatedReadCredentialIssuer", "NhAiDelegatedReadRequest", "NhAiDelegatedReadCredential", "NhAiDelegatedReadDefaults", "INhAiDelegatedReadSurface"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -159,7 +159,42 @@ product boundary.
 
 Bridge tools forward the caller's own HTTP credentials, so they are not offered in
 headless agent runs, which have no caller. Give an agent that must act on its own a
-curated generated tool that opts in with `AllowAgentGrant`.
+curated generated tool that opts in with `AllowAgentGrant`. The gateway's four read tools
+are the exception, with the two keys below.
+
+## Gateway reads in headless runs
+
+A headless run can read through the gateway with the rights of the person the agent works
+for. Register the credential with `AddNewHeapPlatformAIDelegatedReads()` after the bridge;
+hosts on the NewHeap identity use the built-in issuer, which creates the token with
+`INhAuthenticationService.CreateToken` from the person's valid claims and security stamp,
+so the existing session validation rejects a removed or changed person. Other hosts supply
+`INhAiDelegatedReadCredentialIssuer` with `UseIssuer<T>()`; the token must be accepted by the
+host's JWT bearer scheme (`UseScheme`, `Bearer` by default) and carry the claims of
+`NhAiDelegatedReadRequest.Claims`. Every call gets its own token, bound to the invocation and
+valid for `Lifetime` (60 seconds by default, at most 5 minutes); it never reaches the
+invocation context, audit records or logs.
+
+The library restricts such a token in the `OnTokenValidated` of every JWT bearer scheme, so
+another scheme that trusts the same key cannot accept it either: it authenticates only a `GET`
+request to the action of a gateway resource that carries the matching `X-NewHeap-AI-Invocation`
+header. Every other request with it fails authentication, including
+writes, other controllers, the assistant's endpoints, `/mcp`, minimal APIs and a request whose
+endpoint is unknown at authentication time; tokens without the
+`NhAiDelegatedReadDefaults.ClaimType` claim are not affected. Startup fails when the scheme is
+not a JWT bearer scheme, resolves its events from `EventsType`, or replaced the restriction
+afterwards. Discovery and the gateway's `search-resources`, `describe-resource`, map, `query`
+and `get` authorize with the person as the host's scheme authenticates a token, including
+claims transformation, so they show exactly what the calls can read.
+
+The agent opts in with `AllowGatewayReads()` and its tool selectors must select the gateway's
+tools. The run is offered the four gateway tools only, never the resource actions; calls carry
+grant source `DelegatedRead`, and the subject's division reaches trusted query bindings as in a
+person's turn. A token that cannot be issued, or that the scheme rejects, becomes
+`api-bridge-unauthenticated`; a non-`GET` or non-gateway call with grant source `DelegatedRead`
+fails with `api-bridge-forbidden` before a request is sent. Thread readers see such a result
+only when they satisfy the policies of the resource operation it read (every resource's for
+`search-resources`); others see `restricted`.
 
 ## Avoid
 
@@ -178,6 +213,10 @@ curated generated tool that opts in with `AllowAgentGrant`.
 - Hand-building a runtime catalog for MCP export without implementing `INhAiAttestedToolCatalog` and passing attestation.
 - Writing the application's entities and their relations into the application context by hand;
   the application map lists them from the gateway and stays current.
+- Issuing delegated read tokens that live longer than the call, lack the marker claim, or are
+  accepted by another scheme without the restriction.
+- Giving a headless agent gateway reads to work around a missing curated tool for a write;
+  the gateway only reads.
 
 ## Verification
 
@@ -206,3 +245,10 @@ exported through MCP. SPM-242, SPM-243, SPM-244 and SPM-255 are the executable
 references.
 
 For the application map, assert that the gateway source lists exactly the resources a person may use with derived, added and ignored relations and the gateway tools that read them, and that a relation to an unknown resource or filter field fails at startup (SPM-289).
+
+For gateway reads in headless runs, assert that a delegated read token authenticates a
+gateway `GET` with its invocation header and fails without or with another header, as a write,
+outside the gateway and after it expired; that a run with both keys is offered the four gateway
+tools and no resource action, reads with the person's rights and the built-in or a custom
+issuer, and gets `api-bridge-unauthenticated` without a credential; and that readers without
+the resource's policies see the result shielded (SPM-290).

@@ -93,13 +93,16 @@ internal sealed class NhAiUserManagerPrincipalFactory(IServiceProvider services)
 /// <item>Otherwise a code grant of the agent registration allows it, provided the tool opts in
 /// through <see cref="NhAiToolAttribute.AllowAgentGrant"/> (<see cref="NhAiGrantSource.Agent"/>).</item>
 /// </list>
+/// A gateway read in a scope that allows gateway reads is allowed first, with the accountable
+/// person's rights (<see cref="NhAiGrantSource.DelegatedRead"/>).
 /// </summary>
 internal sealed class NhAiAgentInvocationGate(
     NhAiAspNetToolInvocationGate requestGate,
     IHttpContextAccessor httpContextAccessor,
     IAuthorizationService authorizationService,
     INhAiPrincipalFactory principalFactory,
-    NhAiAspNetRegistrationState state) : INhAiToolInvocationGate, INhAiAgentToolAuthorizer
+    NhAiAspNetRegistrationState state,
+    IEnumerable<INhAiDelegatedReadSurface> readSurfaces) : INhAiToolInvocationGate, INhAiAgentToolAuthorizer
 {
     public async ValueTask<TaskResult<NhAiInvocationContext>> AuthorizeAsync(
         NhAiToolDescriptor descriptor,
@@ -143,6 +146,17 @@ internal sealed class NhAiAgentInvocationGate(
             return AgentToolDecision.Denied(
                 NhAiAgentFailureCodes.NotAgentExposed,
                 "The AI tool is not exposed to agents.");
+        }
+
+        // A gateway read in a headless run reads with the accountable person's rights through a
+        // delegated read credential; the bridge's controller decides, as in the person's own turn.
+        if (scope.AllowGatewayReads
+            && descriptor.Effect == NhAiToolEffect.ReadOnly
+            && readSurfaces.Any(surface => surface.IsReadTool(descriptor)))
+        {
+            return AgentToolDecision.Allowed(
+                NhAiGrantSource.DelegatedRead,
+                new HashSet<string>(descriptor.RequiredCapabilities, StringComparer.Ordinal));
         }
 
         var resource = NhAiSubjectAuthorizationResource.From(scope.Subject, scope.Purpose);

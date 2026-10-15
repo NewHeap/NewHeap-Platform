@@ -992,6 +992,12 @@ internal sealed partial class NhAssistantTurnRunner(
             ElevatedReads = agentTurn.Options.ElevatedReads,
             // A consultation and the agent's rules only propose: nothing changes without approval.
             RequireApprovalForEffects = consultation is not null || state.RuleTurn,
+            // Gateway reads with the accountable person's credential, in headless turns only: a
+            // consultation and a turn inside a person's request read with that person's own rights.
+            AllowGatewayReads = agentTurn.Options.AllowGatewayReads
+                && consultation is null
+                && !agentTurn.IsRequestTurn
+                && agentTurn.Options.Accountability != NhAiAgentAccountability.Agent,
             RunAttemptNumber = agentTurn.Attempt,
             CorrelationId = agentTurn.RunId?.ToString("N") ?? state.Scope.TurnId.ToString(),
             Deadline = state.Scope.Deadline,

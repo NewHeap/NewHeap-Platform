@@ -24,7 +24,7 @@ export type AgentProposalStatus =
   | 'resolved'
   | 'shadow';
 
-export type AgentGrantSource = 'none' | 'delegated' | 'agent';
+export type AgentGrantSource = 'none' | 'delegated' | 'agent' | 'delegated-read';
 
 /**
  * How a run worked: `model` through the language model, `rule` through the agent's rules without a

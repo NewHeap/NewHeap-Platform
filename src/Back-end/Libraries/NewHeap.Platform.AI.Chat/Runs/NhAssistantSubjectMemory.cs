@@ -352,7 +352,7 @@ internal sealed class NhAssistantMemoryService(
             return true;
         }
 
-        return await viewer.MayViewAsync(invocation.GrantSource, invocation.ToolId, cancellationToken);
+        return await viewer.MayViewAsync(invocation.GrantSource, invocation.ToolId, invocation.ArgumentsJson, cancellationToken);
     }
 
     /// <summary>

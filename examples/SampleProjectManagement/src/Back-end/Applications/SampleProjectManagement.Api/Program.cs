@@ -318,6 +318,9 @@ builder.Services.AddNewHeapPlatformAIAspNet(ai => ai
         ProjectAiTools.ManageCapability,
         "app.active-division.project.manage"));
 builder.Services.AddSampleAiBridge();
+// SPM-290: the project planner reads through the gateway in headless runs with the project owner's
+// rights; the built-in issuer creates the owner's short-lived token with the NewHeap authentication service.
+builder.Services.AddNewHeapPlatformAIDelegatedReads();
 builder.Services.AddSampleAssistant(builder.Environment, builder.Configuration);
 builder.Services.AddSampleIntakeReviewer();
 builder.Services.AddSampleStatusAdvisor();

@@ -4360,6 +4360,24 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     ]
   },
   {
+    "id": "SPM-290",
+    "title": "The project planner reads a project's tasks through the gateway with the owner's rights",
+    "category": "AI tools and generated catalogs",
+    "surface": "AddNewHeapPlatformAIDelegatedReads with NhAiDelegatedReadsBuilder (UseIssuer, Lifetime, UseScheme), the built-in issuer and INhAiDelegatedReadCredentialIssuer with NhAiDelegatedReadRequest, NhAiDelegatedReadCredential and NhAiDelegatedReadDefaults; the restriction of the host's JWT bearer scheme to gateway GET calls with the X-NewHeap-AI-Invocation header; INhAiDelegatedReadSurface; NhAssistantAgentRunBuilder.AllowGatewayReads and NhAssistantAgentRunOptions.AllowGatewayReads; NhAiAgentInvocationScope.AllowGatewayReads; NhAiGrantSource.DelegatedRead and the delegated-read grant source of tool calls; api-bridge-unauthenticated and api-bridge-forbidden",
+    "outcome": "The project planner works for the project's owner and allows gateway reads. When the approver asks for a deadline check, triage sends it to the deadline-risk skill, whose model is offered the gateway's four read tools next to the status tool and none of the API's own actions. Its query reads the project's tasks through the task controller with a short-lived token of the owner from the built-in issuer, which this API's own bearer scheme validates. The approver sees that the planner read for the owner, and the result only with the permission to read projects. The owner's token is refused for a write, for a controller outside the gateway and without its invocation header.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRestrictedResults.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDelegatedReadTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantGatewayReadTests.cs"
+    ]
+  },
+  {
     "id": "SPM-291",
     "title": "The project assistant answers with the project descriptions that match the question",
     "category": "AI tools and generated catalogs",

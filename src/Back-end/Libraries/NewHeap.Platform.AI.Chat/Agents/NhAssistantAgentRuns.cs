@@ -66,6 +66,12 @@ public sealed class NhAssistantAgentRunOptions
     public NhAiElevatedReads ElevatedReads { get; internal set; } = NhAiElevatedReads.Restricted;
 
     /// <summary>
+    /// Headless runs may read through the API bridge gateway with the accountable person's rights.
+    /// The agent's tool selectors must select the gateway's tools as well.
+    /// </summary>
+    public bool AllowGatewayReads { get; internal set; }
+
+    /// <summary>
     /// The approval policy of the agent, used when no tool or trigger policy is more specific.
     /// </summary>
     public string? ApprovalPolicyId { get; internal set; }
@@ -351,6 +357,20 @@ public sealed class NhAssistantAgentRunBuilder
     public NhAssistantAgentRunBuilder ElevatedReads(NhAiElevatedReads elevatedReads)
     {
         _options.ElevatedReads = elevatedReads;
+        return this;
+    }
+
+    /// <summary>
+    /// Lets headless runs read through the API bridge gateway's four read tools with the rights of
+    /// the run's accountable person: each call gets a short-lived delegated read credential that the
+    /// host's own bearer scheme validates and the library restricts to <c>GET</c> calls of gateway
+    /// resources. The second key is the agent's tool selectors, which must select the gateway's
+    /// tools. Requires <c>AddNewHeapPlatformAIDelegatedReads</c> and an accountable person or
+    /// technical account; results are shielded from thread readers without the resource's policies.
+    /// </summary>
+    public NhAssistantAgentRunBuilder AllowGatewayReads(bool enabled = true)
+    {
+        _options.AllowGatewayReads = enabled;
         return this;
     }
 

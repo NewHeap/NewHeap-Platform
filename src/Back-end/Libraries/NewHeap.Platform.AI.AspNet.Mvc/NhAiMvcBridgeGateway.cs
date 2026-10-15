@@ -760,7 +760,10 @@ internal static class NhAiMvcBridgeGatewayFunctions
         return await invoker.InvokeAsync(
             descriptor,
             input,
-            (_, invocationCancellationToken) => handler(gateway, services, input, invocationCancellationToken),
+            async (_, invocationCancellationToken) =>
+                await NhAiMvcBridgeUsers.IsUnauthenticatedAsync(services, invocationCancellationToken)
+                    ? Unauthenticated<JsonElement?>()
+                    : await handler(gateway, services, input, invocationCancellationToken),
             cancellationToken);
     }
 
@@ -841,6 +844,10 @@ internal static class NhAiMvcBridgeGatewayFunctions
         JsonElement input,
         CancellationToken cancellationToken)
     {
+        if (await NhAiMvcBridgeUsers.IsUnauthenticatedAsync(services, cancellationToken))
+        {
+            return await RefuseAsync(gatewayDescriptor, services, input, Unauthenticated<NhAiBridgeResponse>(), cancellationToken);
+        }
         var resource = await ResolveAsync(gateway, services, input, NhAiMvcBridgeGatewayKinds.Query, cancellationToken);
         var operation = resource?.Find(NhAiMvcBridgeGatewayKinds.Query);
         if (operation is null)
@@ -873,6 +880,7 @@ internal static class NhAiMvcBridgeGatewayFunctions
             description.ResultFields,
             gateway.MaxResponseBytes,
             ReadItemsPerPage(input));
+        using var call = NhAiMvcBridgeGatewayCall.Begin();
         return await NhAiMvcBridgeFunctionFactory.InvokeAsync(
             operation.Descriptor,
             operation.Action,
@@ -893,6 +901,10 @@ internal static class NhAiMvcBridgeGatewayFunctions
         JsonElement input,
         CancellationToken cancellationToken)
     {
+        if (await NhAiMvcBridgeUsers.IsUnauthenticatedAsync(services, cancellationToken))
+        {
+            return await RefuseAsync(gatewayDescriptor, services, input, Unauthenticated<NhAiBridgeResponse>(), cancellationToken);
+        }
         var resource = await ResolveAsync(gateway, services, input, NhAiMvcBridgeGatewayKinds.Get, cancellationToken);
         var operation = resource?.Find(NhAiMvcBridgeGatewayKinds.Get);
         if (operation is null)
@@ -916,6 +928,7 @@ internal static class NhAiMvcBridgeGatewayFunctions
             description.ResultFields,
             gateway.MaxResponseBytes,
             null);
+        using var call = NhAiMvcBridgeGatewayCall.Begin();
         return await NhAiMvcBridgeFunctionFactory.InvokeAsync(
             operation.Descriptor,
             operation.Action,
@@ -973,7 +986,7 @@ internal static class NhAiMvcBridgeGatewayFunctions
             return null;
         }
 
-        var user = services.GetRequiredService<IHttpContextAccessor>().HttpContext?.User;
+        var user = await NhAiMvcBridgeUsers.CurrentAsync(services, cancellationToken);
         var authorization = services.GetRequiredService<IAuthorizationService>();
         if (kind is null)
         {
@@ -1025,7 +1038,7 @@ internal static class NhAiMvcBridgeGatewayFunctions
         IServiceProvider services,
         CancellationToken cancellationToken)
     {
-        var user = services.GetRequiredService<IHttpContextAccessor>().HttpContext?.User;
+        var user = await NhAiMvcBridgeUsers.CurrentAsync(services, cancellationToken);
         var authorization = services.GetRequiredService<IAuthorizationService>();
         var available = new List<NhAiBridgeGatewayResource>();
         foreach (var resource in gateway.Resources.Values.OrderBy(item => item.Resource, StringComparer.Ordinal))
@@ -1234,17 +1247,39 @@ internal static class NhAiMvcBridgeGatewayFunctions
     /// Reports an unknown or unavailable resource through the shared invoker under the gateway
     /// tool, so it is audited and carries its stable code, without touching any bridge tool.
     /// </summary>
-    private static async Task<TaskResult<NhAiBridgeResponse>> UnavailableAsync(
+    private static Task<TaskResult<NhAiBridgeResponse>> UnavailableAsync(
         NhAiToolDescriptor gatewayDescriptor,
         IServiceProvider services,
         JsonElement input,
         CancellationToken cancellationToken)
     {
+        return RefuseAsync(gatewayDescriptor, services, input, Unavailable<NhAiBridgeResponse>(), cancellationToken);
+    }
+
+    /// <summary>Returns a refusal through the shared invoker, so it is audited as a gateway call.</summary>
+    private static async Task<TaskResult<NhAiBridgeResponse>> RefuseAsync(
+        NhAiToolDescriptor gatewayDescriptor,
+        IServiceProvider services,
+        JsonElement input,
+        TaskResult<NhAiBridgeResponse> refusal,
+        CancellationToken cancellationToken)
+    {
         return await services.GetRequiredService<INhAiToolInvoker>().InvokeAsync(
             gatewayDescriptor,
             input,
-            (_, _) => Task.FromResult(Unavailable<NhAiBridgeResponse>()),
+            (_, _) => Task.FromResult(refusal),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// A headless run got no delegated read credential for its accountable person: the issuer
+    /// refused, or the host's scheme rejected the credential, for example of a removed person.
+    /// </summary>
+    private static TaskResult<T> Unauthenticated<T>()
+    {
+        return TaskResult<T>.Failed(
+            NhAiBridgeFailureCodes.Unauthenticated,
+            "No read credential could be issued for the person the agent works for.");
     }
 
     private static TaskResult<T> Invalid<T>(string message)
