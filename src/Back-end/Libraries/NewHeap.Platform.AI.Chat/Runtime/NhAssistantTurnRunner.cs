@@ -2008,7 +2008,8 @@ internal sealed partial class NhAssistantTurnRunner(
         // level. The assistant pipeline gets no logger factory so conversation content never reaches logs.
         var agentServices = new NhAssistantContentSafeServiceProvider(services);
         var selectors = await SelectToolsAsync(agent, context, state.Scope.Consultation, cancellationToken);
-        var prompt = state.Scope.Prompt!;
+        var prompt = await WithApplicationMapAsync(state, state.Scope.Prompt!, context, selectors, cancellationToken);
+        state.Scope.Prompt = prompt;
         if (prompt.Instructions.Length > NhAssistantPromptComposer.MaxInstructionsLength)
         {
             state.InstructionsTooLong = true;
@@ -2044,6 +2045,37 @@ internal sealed partial class NhAssistantTurnRunner(
             .AsBuilder()
             .Use(interceptor.InvokeAsync)
             .Build(agentServices);
+    }
+
+    /// <summary>
+    /// Adds the application map to the turn of an agent that uses it: the entries the acting person
+    /// may read whose tools the turn offers, read once per turn. Without such entries the turn has no map.
+    /// </summary>
+    private async Task<NhAssistantComposedPrompt> WithApplicationMapAsync(
+        NhAssistantTurnState state,
+        NhAssistantComposedPrompt prompt,
+        NhAiInvocationContext context,
+        IReadOnlyList<string> offeredTools,
+        CancellationToken cancellationToken)
+    {
+        if (!registration.AgentContexts.TryGetValue(state.Scope.Agent.Id, out var options) || !options.UseApplicationMap)
+        {
+            return prompt;
+        }
+
+        state.ApplicationMapEntries ??= await services.GetRequiredService<NhAssistantApplicationMapService>()
+            .LoadAsync(context, cancellationToken);
+        var offered = offeredTools.ToHashSet(StringComparer.Ordinal);
+        var entries = state.ApplicationMapEntries
+            .Where(entry => entry.ToolIds.Count == 0 || entry.ToolIds.Any(offered.Contains))
+            .ToArray();
+        if (entries.Length == 0)
+        {
+            return prompt with { ApplicationMap = string.Empty, ApplicationMapHash = null };
+        }
+
+        var map = NhAssistantApplicationMapService.Format(entries, registration.Limits.MaxApplicationMapCharacters, state.Language);
+        return prompt with { ApplicationMap = map, ApplicationMapHash = NhAssistantAgentCatalog.ComputeHash(map) };
     }
 
     private static NhAiInvocationContext CreateAgentInvocationContext(NhAssistantTurnState state, NhAiInvocationContext callerContext)

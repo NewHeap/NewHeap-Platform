@@ -181,6 +181,47 @@ public sealed class AssistantEndToEndSamplesTests(AssistantEndToEndHost host) : 
         host.AssertContentFree(SearchMarker, UserTextMarker);
     }
 
+    [Fact]
+    public async Task SPM_289_the_project_assistant_reads_the_application_map_and_queries_the_tasks_of_a_project_at_once()
+    {
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("sample-api-gateway_query_v1", new
+            {
+                input = new
+                {
+                    resource = "project-task",
+                    filter = new[]
+                    {
+                        new { key = "projectId", @operator = "==", value = projectId.ToString() },
+                        new { key = "isCompleted", @operator = "==", value = "false" }
+                    }
+                }
+            })
+            .RespondWithText("One task of the project is still open after its deadline.");
+        host.Model.Use(model);
+        using var viewer = host.CreateClient(Viewer, false, ViewerPermissions);
+        var conversationId = await host.CreateConversationAsync(viewer);
+        var bridgeCallsBefore = host.BridgeRequests.Count;
+
+        var events = await host.SendAsync(viewer, conversationId, "Which tasks of this project are overdue? " + UserTextMarker);
+
+        // The map after the instructions lists the readable resources and how tasks relate to projects.
+        var instructions = model.Requests[0].Options!.Instructions!;
+        var map = instructions[instructions.IndexOf("<application-map>", StringComparison.Ordinal)..instructions.IndexOf("</application-map>", StringComparison.Ordinal)];
+        Assert.Contains("- project (", map);
+        Assert.Contains("- project-task (", map);
+        Assert.Contains("Relations: projectId → project.", map);
+        Assert.True(instructions.IndexOf("# Application map", StringComparison.Ordinal) < instructions.IndexOf("# Situation", StringComparison.Ordinal));
+        // One query, no search for resources first.
+        Assert.Equal([("sample-api-gateway.query", "succeeded")], ToolOutcomes(events));
+        var call = Assert.Single(host.BridgeRequests.Skip(bridgeCallsBefore));
+        Assert.Equal(HttpMethod.Get, call.Method);
+        Assert.Equal("/project-tasks", call.Path);
+        Assert.Contains(host.AuditEvents, evt => evt.Kind == NhAssistantAuditEventKind.ToolInvoked && evt.ApplicationMapHash is not null);
+        host.AssertContentFree(UserTextMarker, AssistantEndToEndHost.BridgeResultMarker);
+    }
+
     /// <summary>
     /// Pairs every <c>tool.started</c> (tool id) with its <c>tool.completed</c> (status) by invocation id.
     /// </summary>

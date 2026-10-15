@@ -4340,5 +4340,23 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-evaluation.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
     ]
+  },
+  {
+    "id": "SPM-289",
+    "title": "The project assistant reads a generated map of the application's data",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAiApplicationMapSource with NhAiApplicationMapEntry and NhAiApplicationMapRelation; NhAiBuilder.AddApplicationMapSource; the gateway's map source with NhAiMvcBridgeGatewayBuilder.Relate and IgnoreRelation and the <resource>Id relation convention; NhAssistantBuilder.ConfigureAgentContext with NhAssistantAgentContextBuilder.UseApplicationMap and NhAssistantAgentContextOptions; NhAssistantLimits.MaxApplicationMapCharacters and ApplicationMapTimeout; the # Application map block; NhAssistantAuditEvent.ApplicationMapHash",
+    "outcome": "The project assistant uses the application map and the gateway's four read tools. Every turn starts with a generated map after its instructions: the resources the person may read, projects and project tasks, with their titles, operations and the relation from a task's projectId to its project, marked as data. Asked which tasks of a project are overdue, the assistant queries the project's open tasks with one gateway call, without searching for resources first. The map lists only resources the turn's tools can read, is bounded, is not part of the prompt hash, and its hash reaches the audit.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiApplicationMap.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeApplicationMap.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantApplicationMap.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeApplicationMapTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApplicationMapTests.cs"
+    ]
   }
 ] as const;

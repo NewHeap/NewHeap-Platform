@@ -62,7 +62,8 @@ the plan where [Implementation notes](#implementation-notes) says so.
 
 ## Non-goals
 
-- Retrieval or embeddings; the application decides what the sketch contains.
+- Retrieval or embeddings; the application decides what the sketch contains. Retrieved context in
+  turns is part of the [application context plan](ai-application-context-plan.md).
 - Storing briefings; they are built per turn and not persisted.
 - Ceilings per skill; phase B adds them on top of the agent's ceiling.
 

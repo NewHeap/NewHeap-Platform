@@ -46,6 +46,9 @@ public sealed class NhAiMvcBridgeToolCatalog : INhAiAttestedToolCatalog
             .ToArray();
     }
 
+    /// <summary>The gateway model, or <see langword="null"/> when the gateway is not enabled.</summary>
+    internal NhAiMvcBridgeGatewayModel? Gateway => _model.Value.Gateway;
+
     /// <summary>The gateway resource names, or empty when the gateway is not enabled.</summary>
     public IReadOnlyCollection<string> GatewayResources =>
         (IReadOnlyCollection<string>?)_model.Value.Gateway?.Resources.Keys ?? [];

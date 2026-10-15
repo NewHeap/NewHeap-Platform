@@ -244,6 +244,19 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Configures what every turn of a code agent starts with beyond its instructions, such as the
+    /// application map. Unlike <see cref="ConfigureAgent"/> it does not make the agent run on its own,
+    /// so it applies to chat agents as well as to agents with runs.
+    /// </summary>
+    public NhAssistantBuilder ConfigureAgentContext(string agentId, Action<NhAssistantAgentContextBuilder> configure)
+    {
+        NhAssistantNames.ValidateSegment(agentId, nameof(agentId));
+        ArgumentNullException.ThrowIfNull(configure);
+        configure(new NhAssistantAgentContextBuilder(_state.GetOrAddAgentContext(agentId)));
+        return this;
+    }
+
+    /// <summary>
     /// Registers a named approval policy that agents, tools and triggers can reference.
     /// </summary>
     public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure)
@@ -462,6 +475,7 @@ internal sealed class NhAssistantRegistrationState
 {
     private readonly Dictionary<string, NhAssistantAgentDefinition> _agents = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantAgentRunOptions> _agentRuns = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantAgentContextOptions> _agentContexts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAiApprovalPolicy> _approvalPolicies = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantTriggerDefinition> _triggers = new(StringComparer.Ordinal);
     private readonly List<Runs.NhAssistantProposalGuardRegistration> _proposalGuards = [];
@@ -486,6 +500,19 @@ internal sealed class NhAssistantRegistrationState
     public IReadOnlyCollection<NhAssistantAgentDefinition> Agents => _agents.Values;
 
     public IReadOnlyDictionary<string, NhAssistantAgentRunOptions> AgentRuns => _agentRuns;
+
+    public IReadOnlyDictionary<string, NhAssistantAgentContextOptions> AgentContexts => _agentContexts;
+
+    public NhAssistantAgentContextOptions GetOrAddAgentContext(string agentId)
+    {
+        if (!_agentContexts.TryGetValue(agentId, out var options))
+        {
+            options = new NhAssistantAgentContextOptions(agentId);
+            _agentContexts.Add(agentId, options);
+        }
+
+        return options;
+    }
 
     public IReadOnlyDictionary<string, NhAiApprovalPolicy> ApprovalPolicies => _approvalPolicies;
 
@@ -624,6 +651,12 @@ internal sealed class NhAssistantRegistrationState
                     }
                 }
             }
+        }
+
+        foreach (var agentId in _agentContexts.Keys.Where(agentId => !_agents.ContainsKey(agentId)))
+        {
+            throw new InvalidOperationException(
+                $"ConfigureAgentContext references agent '{agentId}', which is not added with AddAgent.");
         }
 
         foreach (var trigger in _triggers.Values)

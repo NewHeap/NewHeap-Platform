@@ -284,7 +284,8 @@
     "SPM-285",
     "SPM-286",
     "SPM-287",
-    "SPM-288"
+    "SPM-288",
+    "SPM-289"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2308,6 +2309,16 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentEvaluationTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-evaluation.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
+    ],
+    "SPM-289": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiApplicationMap.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeApplicationMap.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantApplicationMap.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeApplicationMapTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApplicationMapTests.cs"
     ]
   }
 }

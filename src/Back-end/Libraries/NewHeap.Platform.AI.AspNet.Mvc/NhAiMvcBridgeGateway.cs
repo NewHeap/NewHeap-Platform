@@ -38,6 +38,12 @@ public sealed class NhAiMvcBridgeGatewayOptions
     public const int DefaultMaxResponseBytes = 4 * 1024 * 1024;
 
     internal List<string> RedactedResultFields { get; } = [];
+
+    /// <summary>Relations added with <see cref="NhAiMvcBridgeGatewayBuilder.Relate"/>.</summary>
+    internal List<(string Resource, string Field, string Target)> AddedRelations { get; } = [];
+
+    /// <summary>Relations removed with <see cref="NhAiMvcBridgeGatewayBuilder.IgnoreRelation"/>.</summary>
+    internal List<(string Resource, string Field)> IgnoredRelations { get; } = [];
 }
 
 /// <summary>
@@ -104,6 +110,33 @@ public sealed class NhAiMvcBridgeGatewayBuilder
         ArgumentOutOfRangeException.ThrowIfLessThan(maxResponseBytes, 1024);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(maxResponseBytes, NhAiMvcBridgeDefaults.MaxCountedResponseBytes);
         _options.MaxResponseBytes = maxResponseBytes;
+        return this;
+    }
+
+    /// <summary>
+    /// Declares that filter field <paramref name="field"/> of <paramref name="resource"/> holds the
+    /// id of <paramref name="targetResource"/>, for the application map. Fields named
+    /// <c>&lt;resource&gt;Id</c> after another resource relate by convention; use this for the others.
+    /// Startup fails when a resource or the filter field does not exist.
+    /// </summary>
+    public NhAiMvcBridgeGatewayBuilder Relate(string resource, string field, string targetResource)
+    {
+        NhAiMvcBridgeNames.ValidateSegment(resource, nameof(resource));
+        ArgumentException.ThrowIfNullOrWhiteSpace(field);
+        NhAiMvcBridgeNames.ValidateSegment(targetResource, nameof(targetResource));
+        _options.AddedRelations.Add((resource, field.Trim(), targetResource));
+        return this;
+    }
+
+    /// <summary>
+    /// Removes a relation the <c>&lt;resource&gt;Id</c> convention derived wrongly from the
+    /// application map. Startup fails when the resource or the filter field does not exist.
+    /// </summary>
+    public NhAiMvcBridgeGatewayBuilder IgnoreRelation(string resource, string field)
+    {
+        NhAiMvcBridgeNames.ValidateSegment(resource, nameof(resource));
+        ArgumentException.ThrowIfNullOrWhiteSpace(field);
+        _options.IgnoredRelations.Add((resource, field.Trim()));
         return this;
     }
 
@@ -242,6 +275,9 @@ internal sealed record NhAiBridgeGatewayResource(
     {
         return Operations.FirstOrDefault(operation => string.Equals(operation.Kind, kind, StringComparison.Ordinal));
     }
+
+    /// <summary>The filter fields that hold the ids of other resources.</summary>
+    public IReadOnlyList<NhAiApplicationMapRelation> Relations { get; init; } = [];
 }
 
 /// <summary>The gateway tools and their resources, built once with the bridge catalog.</summary>
@@ -252,7 +288,17 @@ internal sealed record NhAiMvcBridgeGatewayModel(
     IReadOnlyList<NhAiToolDescriptor> Descriptors,
     Type? ResourceDescriberType,
     NhAiBridgeResultRedaction Redaction,
-    int MaxResponseBytes);
+    int MaxResponseBytes)
+{
+    /// <summary>The relations the <c>&lt;resource&gt;Id</c> convention derived.</summary>
+    public int DerivedRelations { get; init; }
+
+    /// <summary>The gateway tool id of an operation kind, such as <c>query</c>.</summary>
+    public string? ToolIdOf(string kind)
+    {
+        return ToolKinds.FirstOrDefault(item => string.Equals(item.Value, kind, StringComparison.Ordinal)).Key;
+    }
+}
 
 internal static class NhAiMvcBridgeGatewayKinds
 {
@@ -301,6 +347,7 @@ internal static class NhAiMvcBridgeGatewayBuilderLogic
         }
 
         var resources = BuildResources(bridgeDescriptors, actions, conventions);
+        var derivedRelations = ApplyRelations(resources, gatewayOptions);
         var resourceMaterial = string.Join(
             "\n",
             resources.Values
@@ -356,7 +403,92 @@ internal static class NhAiMvcBridgeGatewayBuilderLogic
             descriptors,
             gatewayOptions.ResourceDescriberType,
             new NhAiBridgeResultRedaction(gatewayOptions.RedactedResultFieldPatterns.ToArray()),
-            gatewayOptions.MaxResponseBytes);
+            gatewayOptions.MaxResponseBytes)
+        {
+            DerivedRelations = derivedRelations
+        };
+    }
+
+    /// <summary>
+    /// Adds the relations of every resource: a filter field <c>&lt;resource&gt;Id</c> whose prefix
+    /// names another resource relates by convention, then the explicit <c>IgnoreRelation</c> and
+    /// <c>Relate</c> calls apply. Returns how many the convention derived. An explicit relation to
+    /// an unknown resource or filter field fails; without published resources, such as with the
+    /// bridge disabled, nothing is checked.
+    /// </summary>
+    private static int ApplyRelations(
+        Dictionary<string, NhAiBridgeGatewayResource> resources,
+        NhAiMvcBridgeGatewayOptions gatewayOptions)
+    {
+        if (resources.Count == 0)
+        {
+            return 0;
+        }
+
+        var relations = new Dictionary<string, List<NhAiApplicationMapRelation>>(StringComparer.Ordinal);
+        var derived = 0;
+        foreach (var resource in resources.Values)
+        {
+            var list = new List<NhAiApplicationMapRelation>();
+            foreach (var field in FilterFieldsOf(resource))
+            {
+                if (field.Length > 2
+                    && field.EndsWith("Id", StringComparison.Ordinal)
+                    && NhAiMvcBridgeNames.ToKebabCase(field[..^2]) is var target
+                    && !string.Equals(target, resource.Resource, StringComparison.Ordinal)
+                    && resources.ContainsKey(target))
+                {
+                    list.Add(new NhAiApplicationMapRelation(field, target));
+                    derived++;
+                }
+            }
+            relations.Add(resource.Resource, list);
+        }
+
+        foreach (var (resource, field) in gatewayOptions.IgnoredRelations)
+        {
+            var key = RequireFilterField(resources, resource, field, "IgnoreRelation");
+            relations[resource].RemoveAll(relation => string.Equals(relation.Field, key, StringComparison.Ordinal));
+        }
+        foreach (var (resource, field, target) in gatewayOptions.AddedRelations)
+        {
+            var key = RequireFilterField(resources, resource, field, "Relate");
+            if (!resources.ContainsKey(target))
+            {
+                throw new InvalidOperationException(
+                    $"The API bridge gateway relation Relate(\"{resource}\", \"{field}\", \"{target}\") names resource '{target}', which the gateway does not publish.");
+            }
+            relations[resource].RemoveAll(relation => string.Equals(relation.Field, key, StringComparison.Ordinal));
+            relations[resource].Add(new NhAiApplicationMapRelation(key, target));
+        }
+
+        foreach (var (name, list) in relations)
+        {
+            resources[name] = resources[name] with { Relations = list.ToArray() };
+        }
+        return derived;
+    }
+
+    private static IEnumerable<string> FilterFieldsOf(NhAiBridgeGatewayResource resource)
+    {
+        return resource.Find(NhAiMvcBridgeGatewayKinds.Query)?.Query.FilterFields.Select(field => field.Key) ?? [];
+    }
+
+    private static string RequireFilterField(
+        Dictionary<string, NhAiBridgeGatewayResource> resources,
+        string resource,
+        string field,
+        string call)
+    {
+        if (!resources.TryGetValue(resource, out var published))
+        {
+            throw new InvalidOperationException(
+                $"The API bridge gateway relation {call}(\"{resource}\", \"{field}\") names resource '{resource}', which the gateway does not publish.");
+        }
+
+        return FilterFieldsOf(published).FirstOrDefault(key => string.Equals(key, field, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException(
+                $"The API bridge gateway relation {call}(\"{resource}\", \"{field}\") names field '{field}', which is no filter field of '{resource}'.");
     }
 
     private static Dictionary<string, NhAiBridgeGatewayResource> BuildResources(
@@ -855,6 +987,37 @@ internal static class NhAiMvcBridgeGatewayFunctions
             && await NhAiMvcBridgeUserAuthorization.CanUseAsync(user, operation.Descriptor, authorization, cancellationToken)
                 ? resource
                 : null;
+    }
+
+    /// <summary>
+    /// The application map of the gateway: the resources the current user may use, in the order of
+    /// their names, with their localized titles and summaries, the operations the user may call,
+    /// the relations to other resources the user may use and the gateway tools that read them.
+    /// </summary>
+    public static async Task<IReadOnlyList<NhAiApplicationMapEntry>> MapAsync(
+        NhAiMvcBridgeGatewayModel gateway,
+        IServiceProvider services,
+        CancellationToken cancellationToken)
+    {
+        var available = await AvailableResourcesAsync(gateway, services, cancellationToken);
+        var names = available.Select(resource => resource.Resource).ToHashSet(StringComparer.Ordinal);
+        return available
+            .Select(resource =>
+            {
+                var description = Describe(resource, services, gateway);
+                var kinds = resource.Operations.Select(operation => operation.Kind).ToArray();
+                return new NhAiApplicationMapEntry(resource.Resource, description.Title, description.Description, kinds)
+                {
+                    Relations = gateway.Resources[resource.Resource].Relations
+                        .Where(relation => names.Contains(relation.Resource))
+                        .ToArray(),
+                    ToolIds = kinds
+                        .Select(gateway.ToolIdOf)
+                        .OfType<string>()
+                        .ToArray()
+                };
+            })
+            .ToArray();
     }
 
     private static async Task<IReadOnlyList<NhAiBridgeGatewayResource>> AvailableResourcesAsync(

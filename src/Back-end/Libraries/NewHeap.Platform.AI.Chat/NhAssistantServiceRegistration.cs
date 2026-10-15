@@ -82,6 +82,7 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantRunStore>();
         services.TryAddScoped<NhAssistantHandOffStore>();
         services.TryAddScoped<NhAssistantEvaluationStore>();
+        services.TryAddScoped<Runtime.NhAssistantApplicationMapService>();
         services.TryAddScoped<NhAssistantSubjectAccessService>();
         services.TryAddScoped<INhAiSubjectAccess>(provider => provider.GetRequiredService<NhAssistantSubjectAccessService>());
         services.TryAddScoped<NhAssistantThreadService>();

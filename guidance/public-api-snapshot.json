@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.67",
   "backEnd": {
-    "hash": "a862e2bc3a2988511f2abb93bdc65d6fd5964600b773fc0bed5e738b9a6978c8",
-    "declarationCount": 7650,
+    "hash": "f09e31b4bb862b8a5d4dd2d09d11fc79bf90733b24d3e30df78207448f9a26f3",
+    "declarationCount": 7679,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -782,6 +782,10 @@
         "declaration": "public string? GetSummary(MethodInfo method) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeApplicationMap.cs",
+        "declaration": "public async ValueTask<IReadOnlyList<NhAiApplicationMapEntry>> GetEntriesAsync( NhAiInvocationContext context, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeCatalogBuilder.cs",
         "declaration": "public const string OutputSchemaJson ="
       },
@@ -991,6 +995,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public NhAiMvcBridgeGatewayBuilder Relate(string resource, string field, string targetResource) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public NhAiMvcBridgeGatewayBuilder IgnoreRelation(string resource, string field) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
         "declaration": "public NhAiMvcBridgeGatewayBuilder UseResourceDescriber<TDescriber>() where TDescriber : class, INhAiBridgeResourceDescriber {"
       },
       {
@@ -1103,6 +1115,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public IReadOnlyList<NhAiApplicationMapRelation> Relations { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public int DerivedRelations { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public string? ToolIdOf(string kind) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
         "declaration": "public const string SearchResources = \"search-resources\";"
       },
       {
@@ -1136,6 +1160,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
         "declaration": "public static AIFunction Create( NhAiToolDescriptor descriptor, NhAiMvcBridgeGatewayModel gateway, IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public static async Task<IReadOnlyList<NhAiApplicationMapEntry>> MapAsync( NhAiMvcBridgeGatewayModel gateway, IServiceProvider services, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
@@ -3700,6 +3728,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
         "declaration": "public sealed record NhAssistantAgentRequestReceipt(string Outcome, Guid? RunId, Guid? ThreadId);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public sealed class NhAssistantAgentContextOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public string AgentId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public bool UseApplicationMap { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public sealed class NhAssistantAgentContextBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public NhAssistantAgentContextBuilder UseApplicationMap() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentDefinition.cs",
@@ -6483,6 +6531,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder ConfigureAgentContext(string agentId, Action<NhAssistantAgentContextBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure) {"
       },
       {
@@ -6576,6 +6628,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public IReadOnlyDictionary<string, NhAssistantAgentRunOptions> AgentRuns => _agentRuns;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public IReadOnlyDictionary<string, NhAssistantAgentContextOptions> AgentContexts => _agentContexts;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantAgentContextOptions GetOrAddAgentContext(string agentId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -7787,6 +7847,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? ApplicationMapHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public Guid? RunId { get; init; }"
       },
       {
@@ -8004,6 +8068,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public TimeSpan BriefingTimeout { get; set; } = TimeSpan.FromSeconds(5);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public int MaxApplicationMapCharacters { get; set; } = 4_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public TimeSpan ApplicationMapTimeout { get; set; } = TimeSpan.FromSeconds(2);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
@@ -9327,7 +9399,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
-        "declaration": "public string ModelInstructions => TurnData.Length == 0 ? Instructions : Instructions + \"\\n\\n\" + TurnData;"
+        "declaration": "public string ApplicationMap { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public string? ApplicationMapHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public string ModelInstructions => string.Join( \"\\n\\n\", new[] { Instructions, ApplicationMap, TurnData }.Where(part => part.Length > 0));"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
@@ -9910,6 +9990,14 @@
         "declaration": "public volatile bool Cancelled;"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantApplicationMap.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAiApplicationMapEntry>> LoadAsync( NhAiInvocationContext context, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantApplicationMap.cs",
+        "declaration": "public static string Format(IReadOnlyList<NhAiApplicationMapEntry> entries, int maxCharacters, string language) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
         "declaration": "public const string TextType = \"text\";"
       },
@@ -10172,6 +10260,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public NhAssistantMcpToolSet? McpTools { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public IReadOnlyList<NhAiApplicationMapEntry>? ApplicationMapEntries { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -11176,6 +11268,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
         "declaration": "public interface INhAiAgentToolAuthorizer {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiApplicationMap.cs",
+        "declaration": "public interface INhAiApplicationMapSource {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiApplicationMap.cs",
+        "declaration": "public sealed record NhAiApplicationMapEntry( string Resource, string Title, string Summary, IReadOnlyList<string> Operations) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiApplicationMap.cs",
+        "declaration": "public IReadOnlyList<NhAiApplicationMapRelation> Relations { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiApplicationMap.cs",
+        "declaration": "public IReadOnlyList<string> ToolIds { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiApplicationMap.cs",
+        "declaration": "public sealed record NhAiApplicationMapRelation(string Field, string Resource);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
@@ -12596,6 +12708,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
         "declaration": "public NhAiBuilder AddUsageSink<TSink>() where TSink : class, INhAiUsageSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddApplicationMapSource<TSource>() where TSource : class, INhAiApplicationMapSource {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
@@ -34319,7 +34435,13 @@
       "NhAiBridgeResourcePresentationOptions",
       "NhAiBridgeResourcePresentation",
       "NhAiBridgeResultShaping",
-      "NhAiBridgeTruncation"
+      "NhAiBridgeTruncation",
+      "Relate",
+      "IgnoreRelation",
+      "INhAiApplicationMapSource",
+      "NhAiApplicationMapEntry",
+      "NhAiApplicationMapRelation",
+      "AddApplicationMapSource"
     ],
     "nh-ai-aspnet-context": [
       "INhAiAuthenticatedInvocationContextResolver",
@@ -34387,7 +34509,13 @@
       "NhAssistantConversationSnapshotRequest",
       "NhAssistantConversationSnapshot",
       "NhAssistantSnapshotMessage",
-      "NhAssistantSnapshotCodes"
+      "NhAssistantSnapshotCodes",
+      "ConfigureAgentContext",
+      "NhAssistantAgentContextBuilder",
+      "NhAssistantAgentContextOptions",
+      "UseApplicationMap",
+      "MaxApplicationMapCharacters",
+      "ApplicationMapTimeout"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",

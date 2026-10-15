@@ -4,8 +4,8 @@ title: "Expose authorized MVC actions as governed AI tools"
 area: backend
 reference: ai-api-bridge
 summary: "Publish existing controller actions as governed NewHeap tools that run through the shared invoker and the application's own HTTP pipeline as the calling user, with the controller authorization as the boundary."
-sample-cases: ["SPM-242", "SPM-243", "SPM-244", "SPM-255"]
-public-symbols: ["AddNewHeapPlatformAIMvcBridge", "INhAiAttestedToolCatalog", "INhAiBridgeConventions", "INhAiBridgeCollectionContractProvider", "NhAiBridgeCollectionContract", "NhAiNewHeapCollectionContractProvider", "INhAiBridgeBodySerializer", "NhAiMvcNewtonsoftJsonBodySerializer", "INhAiBridgeTrustedQueryBindingProvider", "NhAiBridgeTrustedQueryBinding", "NhAiBridgeTrustedQueryBindingKind", "INhAiCallerCredentialAccessor", "INhAiMvcBridgeExecutor", "NhAiBridgeActionInfo", "NhAiBridgeFailureCodes", "NhAiBridgeHttpRequest", "NhAiBridgeInputException", "NhAiBridgeResponse", "NhAiBridgeToolAttribute", "NhAiMvcBridgeBuilder", "NhAiMvcBridgeDefaultConventions", "NhAiMvcBridgeDefaults", "NhAiMvcBridgeDiscoveryPolicy", "NhAiMvcBridgeToolCatalog", "NhAiMvcBridgeToolDefaults", "NhAiToolCatalogAttestation", "NhAiMvcBridgeGatewayBuilder", "NhAiMvcBridgeGatewayOptions", "NhAiBridgeQueryDescription", "NhAiBridgeFilterField", "NhAiBridgeResultField", "INhAiBridgeResourceDescriber", "NhAiBridgeResourceDescription", "NhAiBridgeResourceSummary", "NhAiBridgeResourcePresentationOptions", "NhAiBridgeResourcePresentation", "NhAiBridgeResultShaping", "NhAiBridgeTruncation"]
+sample-cases: ["SPM-242", "SPM-243", "SPM-244", "SPM-255", "SPM-289"]
+public-symbols: ["AddNewHeapPlatformAIMvcBridge", "INhAiAttestedToolCatalog", "INhAiBridgeConventions", "INhAiBridgeCollectionContractProvider", "NhAiBridgeCollectionContract", "NhAiNewHeapCollectionContractProvider", "INhAiBridgeBodySerializer", "NhAiMvcNewtonsoftJsonBodySerializer", "INhAiBridgeTrustedQueryBindingProvider", "NhAiBridgeTrustedQueryBinding", "NhAiBridgeTrustedQueryBindingKind", "INhAiCallerCredentialAccessor", "INhAiMvcBridgeExecutor", "NhAiBridgeActionInfo", "NhAiBridgeFailureCodes", "NhAiBridgeHttpRequest", "NhAiBridgeInputException", "NhAiBridgeResponse", "NhAiBridgeToolAttribute", "NhAiMvcBridgeBuilder", "NhAiMvcBridgeDefaultConventions", "NhAiMvcBridgeDefaults", "NhAiMvcBridgeDiscoveryPolicy", "NhAiMvcBridgeToolCatalog", "NhAiMvcBridgeToolDefaults", "NhAiToolCatalogAttestation", "NhAiMvcBridgeGatewayBuilder", "NhAiMvcBridgeGatewayOptions", "NhAiBridgeQueryDescription", "NhAiBridgeFilterField", "NhAiBridgeResultField", "INhAiBridgeResourceDescriber", "NhAiBridgeResourceDescription", "NhAiBridgeResourceSummary", "NhAiBridgeResourcePresentationOptions", "NhAiBridgeResourcePresentation", "NhAiBridgeResultShaping", "NhAiBridgeTruncation", "Relate", "IgnoreRelation", "INhAiApplicationMapSource", "NhAiApplicationMapEntry", "NhAiApplicationMapRelation", "AddApplicationMapSource"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -140,6 +140,16 @@ and `get` results; redacted fields disappear from `describe-resource` and are
 rejected in `fields`, filters and ordering. Redaction applies to the gateway only,
 so do not also expose the direct bridge tools of those resources to the model.
 
+The gateway is also the application map's source (`INhAiApplicationMapSource`): for
+an agent that uses the map, it lists the resources the acting person may use, with their
+localized titles and summaries, operations and relations, so the model queries without
+searching first. A filter field `<resource>Id` whose prefix names another resource relates
+to it by convention (`project-task.projectId → project`). Add the relations the convention
+misses with `Relate("project-task", "reviewer", "user")` and remove a wrong one with
+`IgnoreRelation(resource, field)`; startup fails on an unknown resource or filter field and
+logs how many relations the convention derived. Applications may add their own map sources
+with `AddApplicationMapSource<T>()`.
+
 Prefer a curated generated tool when an operation spans several endpoints, needs
 a domain-specific approval summary or verifier, is destructive, returns data that
 must be reshaped or redacted for a model, or is a high-volume workflow that
@@ -166,6 +176,8 @@ curated generated tool that opts in with `AllowAgentGrant`.
 - Letting the model page through full nested list items to count or scan them; use `countOnly`, `fields` or the default compaction.
 - Relying on prompt instructions to hide personal data such as colleagues' e-mail addresses; redact them with `RedactResultFields`.
 - Hand-building a runtime catalog for MCP export without implementing `INhAiAttestedToolCatalog` and passing attestation.
+- Writing the application's entities and their relations into the application context by hand;
+  the application map lists them from the gateway and stays current.
 
 ## Verification
 
@@ -192,3 +204,5 @@ resource metadata validates at startup,
 export names stay deterministic and bounded, and that the gateway tools are
 exported through MCP. SPM-242, SPM-243, SPM-244 and SPM-255 are the executable
 references.
+
+For the application map, assert that the gateway source lists exactly the resources a person may use with derived, added and ignored relations and the gateway tools that read them, and that a relation to an unknown resource or filter field fails at startup (SPM-289).

@@ -28,6 +28,10 @@ plans hold the decisions, the answered questions and the implementation notes.
 | C | [Hand-offs between agents](ai-agent-handoff-plan.md) | SPM-287 |
 | D | [Agent evaluation](ai-agent-evaluation-plan.md) | SPM-288 |
 
+What agents know about the application around their subject, such as a generated map of readable
+data, gateway reads in headless runs and retrieved context, is planned separately in the
+[application context plan](ai-application-context-plan.md) (SPM-289 to SPM-291).
+
 ## The role, end to end
 
 1. **Filter.** A trigger decides whether an event concerns the role at all (`When`), before

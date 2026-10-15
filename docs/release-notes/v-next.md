@@ -114,6 +114,26 @@ most 500 runs with one replay per variant, until the variant's state, budget or 
 | `NhAssistantAdminAgentDto` and `NhAssistantAgentState` gain `ShadowOf`; `NhAssistantAuditEventKind` gains `AdminAgentEvaluationExported` and `AdminAgentReplayStarted`. | None; audit sinks may record the new kinds. |
 | A shadow variant receives its live agent's triggers. | None for agents without `ShadowOf`. |
 
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.AspNet.Mvc and NewHeap.Platform.AI.Chat: application map
+
+An agent can start every turn with a generated map of the data the acting person may read:
+`ConfigureAgentContext(agentId, context => context.UseApplicationMap())`. The `# Application map`
+block follows the instructions and precedes the situation data, lists one line per resource with
+its title, summary, operations and relations, and only resources that a tool the turn offers can
+read. It is data, not instructions, is bounded by `NhAssistantLimits.MaxApplicationMapCharacters`
+(4,000) with a note to use `search-resources`, is read once per turn within
+`ApplicationMapTimeout` (2 seconds), and is not part of the prompt hash; tool audit events carry
+`ApplicationMapHash`. The API bridge gateway is a map source (`INhAiApplicationMapSource`) with the
+resources the person may use and relations by the `<resource>Id` convention, adjusted with
+`Relate` and `IgnoreRelation` on the gateway builder; applications add sources with
+`AddApplicationMapSource<T>()`. `ConfigureAgentContext` does not make an agent run on its own,
+unlike `ConfigureAgent`.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantAuditEvent` gains `ApplicationMapHash`. | None; audit sinks may record it. |
+| Startup fails when a gateway `Relate` or `IgnoreRelation` names an unknown resource or filter field. | None until you add explicit relations. |
+
 ## @newheap/platform-ai-chat: agent state in the administration
 
 The agent list shows each agent's state, "Active", "Paused", "Stopped" or "Off in configuration"

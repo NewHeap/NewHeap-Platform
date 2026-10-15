@@ -48,6 +48,12 @@ internal sealed class NhAssistantTurnState
     public NhAssistantMcpToolSet? McpTools { get; set; }
 
     /// <summary>
+    /// The application map entries the acting person may read, loaded once per turn of an agent that
+    /// uses the map.
+    /// </summary>
+    public IReadOnlyList<NhAiApplicationMapEntry>? ApplicationMapEntries { get; set; }
+
+    /// <summary>
     /// Assistant functions of an agent turn next to its tools, such as the working memory.
     /// </summary>
     public IReadOnlyList<AIFunction> ExtraFunctions { get; set; } = [];

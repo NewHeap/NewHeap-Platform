@@ -133,11 +133,16 @@ public static class SampleAssistantComposition
                 [
                     "projects.*",
                     SampleAiBridgeComposition.ToolSetId + ".*",
+                    // SPM-289: the gateway's four reads, which the application map points at.
+                    SampleAiBridgeComposition.GatewayToolSetId + ".*",
                     NhAssistantConsultationTools.ConsultToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
                     NhAssistantConsultationTools.RequestToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type)
                 ],
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: AccessPolicy))
+            // SPM-289: every turn starts with the map of the data the person may read, generated from
+            // the gateway's resources, so the model queries tasks of a project without searching first.
+            .ConfigureAgentContext(AgentId, context => context.UseApplicationMap())
             .AddBusinessAuditSink<SampleAssistantAuditSink>()
             // Owners share conversations through an invitation link or invite colleagues of
             // their division directly; colleagues continue with their own permissions.

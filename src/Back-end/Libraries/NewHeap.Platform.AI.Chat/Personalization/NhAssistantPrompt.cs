@@ -62,9 +62,24 @@ internal sealed record NhAssistantComposedPrompt(
     public bool HadPageContext { get; init; }
 
     /// <summary>
-    /// The text the model receives: the hashed instructions followed by the turn data blocks.
+    /// The "Application map" block of an agent that uses it, between the instructions and the turn
+    /// data: it changes only with a release or the person's permissions, so providers that cache
+    /// prompt prefixes reuse it. Not part of <see cref="PromptHash"/> or the approval binding.
     /// </summary>
-    public string ModelInstructions => TurnData.Length == 0 ? Instructions : Instructions + "\n\n" + TurnData;
+    public string ApplicationMap { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The content hash of <see cref="ApplicationMap"/>, for the turn's telemetry.
+    /// </summary>
+    public string? ApplicationMapHash { get; init; }
+
+    /// <summary>
+    /// The text the model receives: the hashed instructions followed by the application map and the
+    /// turn data blocks.
+    /// </summary>
+    public string ModelInstructions => string.Join(
+        "\n\n",
+        new[] { Instructions, ApplicationMap, TurnData }.Where(part => part.Length > 0));
 }
 
 /// <summary>

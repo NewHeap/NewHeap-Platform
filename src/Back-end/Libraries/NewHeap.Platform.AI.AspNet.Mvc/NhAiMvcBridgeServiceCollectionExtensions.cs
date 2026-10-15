@@ -104,6 +104,10 @@ internal sealed partial class NhAiMvcBridgeStartupValidator(
 
         NhAiToolCatalogAttestation.Validate(catalog, services);
         LogCatalogPublished(logger, options.ToolSetId!, catalog.Descriptors.Count);
+        if (catalog.Gateway is { } gateway)
+        {
+            LogRelationsDerived(logger, gateway.ToolSetId, gateway.DerivedRelations);
+        }
         return Task.CompletedTask;
     }
 
@@ -114,4 +118,7 @@ internal sealed partial class NhAiMvcBridgeStartupValidator(
 
     [LoggerMessage(EventId = 10, Level = LogLevel.Information, Message = "AI API bridge '{ToolSetId}' published {ToolCount} tools.")]
     private static partial void LogCatalogPublished(ILogger logger, string toolSetId, int toolCount);
+
+    [LoggerMessage(EventId = 11, Level = LogLevel.Information, Message = "AI API bridge gateway '{ToolSetId}' derived {RelationCount} relations between its resources.")]
+    private static partial void LogRelationsDerived(ILogger logger, string toolSetId, int relationCount);
 }

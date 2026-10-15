@@ -232,6 +232,11 @@ public sealed record NhAssistantAuditEvent(
     public bool? HadPageContext { get; init; }
 
     /// <summary>
+    /// Hash of the application map the turn read, never its text.
+    /// </summary>
+    public string? ApplicationMapHash { get; init; }
+
+    /// <summary>
     /// The agent run the event belongs to, for events of an agent thread.
     /// </summary>
     public Guid? RunId { get; init; }

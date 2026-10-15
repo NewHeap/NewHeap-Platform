@@ -4,8 +4,8 @@ title: "Add a governed assistant with durable conversations and in-chat approval
 area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278"]
-public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes"]
+sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289"]
+public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -177,6 +177,23 @@ prompt hash or the approval binding, so another moment or page never invalidates
 pending approval. Audit events carry only `ContextFactCount`, `PageEntityCount` and
 `HadPageContext`.
 
+## Application map
+
+Tell the model which data exists and how it relates, instead of letting it search first:
+`ConfigureAgentContext(agentId, context => context.UseApplicationMap())`. Unlike
+`ConfigureAgent`, it does not make the agent run on its own, so chat agents use it too. Every
+turn of the agent then reads an `# Application map` block after the instructions and before
+the situation data: one line per resource the acting person may read, with its title,
+summary, operations and relations, from the API bridge gateway and the sources added with
+`AddApplicationMapSource<T>()`. A resource is listed only when the turn offers a tool that
+reads it, such as the gateway's `query` or `get`, so it never points at data the turn cannot
+read. The map is marked as data, cut off at `MaxApplicationMapCharacters` (4,000, at most
+16,000) with a note to use `search-resources`, read once per turn, and left out when a
+source fails or exceeds `ApplicationMapTimeout` (2 seconds). It is not part of the prompt
+hash or the approval binding; tool audit events carry its `ApplicationMapHash`. Keep the
+application context for the domain's terms, processes and priorities; the map lists the
+entities and stays current with every release and permission.
+
 ## Sharing, live updates and notifications
 
 A conversation keeps exactly one owner. The owner shares it with `POST
@@ -285,6 +302,7 @@ or output of the running turn, also not text written before an approval pause.
   http, link-local or metadata addresses for MCP servers.
 - Putting permissions, approval rules or scope decisions in the application context or
   the preferences; they explain the domain and shape style only.
+- Listing the application's entities in the application context; use the application map.
 - Deciding access from page context or provider facts. Entity ids on the user's screen are
   search hints; authorization and division scope stay with the tools and the gate.
 - Putting secrets, tokens or model input into provider facts.
@@ -340,3 +358,5 @@ same tool under another server id or URL receives nothing, an approved call carr
 approval, and the snapshot refuses another person, another invocation or run, a stale
 turn and calls outside a tool call while leaving out output of the running turn and
 reporting cut text as omitted bytes (SPM-266).
+
+For the application map, assert that an agent with `UseApplicationMap` reads the entries of the tools its turn offers between the instructions and the situation, in order and within the bound, that a changed map changes its hash but not the prompt, that agents without it and a failing source leave the turn without it, and that the sample's assistant queries the tasks of a project with one gateway call (SPM-289).

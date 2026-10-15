@@ -181,6 +181,18 @@ public sealed class NhAssistantLimits
     /// </summary>
     public TimeSpan BriefingTimeout { get; set; } = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// The characters of the application map a turn reads, at most 16,000. Resources beyond it are
+    /// left out with a note to use <c>search-resources</c>.
+    /// </summary>
+    public int MaxApplicationMapCharacters { get; set; } = 4_000;
+
+    /// <summary>
+    /// How long the application map sources may take together; slower ones leave the turn without
+    /// the map.
+    /// </summary>
+    public TimeSpan ApplicationMapTimeout { get; set; } = TimeSpan.FromSeconds(2);
+
     internal void Validate()
     {
         if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
@@ -210,7 +222,10 @@ public sealed class NhAssistantLimits
             || RejectionContextWindow > TimeSpan.FromDays(365)
             || MaxBriefingCharacters is < 1 or > 32_000
             || BriefingTimeout <= TimeSpan.Zero
-            || BriefingTimeout > TimeSpan.FromMinutes(1))
+            || BriefingTimeout > TimeSpan.FromMinutes(1)
+            || MaxApplicationMapCharacters is < 500 or > 16_000
+            || ApplicationMapTimeout <= TimeSpan.Zero
+            || ApplicationMapTimeout > TimeSpan.FromSeconds(30))
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }

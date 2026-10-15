@@ -233,6 +233,18 @@ public sealed class NhAiBuilder
         return this;
     }
 
+    /// <summary>
+    /// Adds a source of the application map that agents with <c>UseApplicationMap()</c> read at the
+    /// start of a turn. The API bridge gateway registers its own.
+    /// </summary>
+    public NhAiBuilder AddApplicationMapSource<TSource>()
+        where TSource : class, INhAiApplicationMapSource
+    {
+        _services.TryAddEnumerable(
+            ServiceDescriptor.Scoped<INhAiApplicationMapSource, TSource>());
+        return this;
+    }
+
     public NhAiBuilder AddContextSource<TSource>()
         where TSource : class, INhAiContextSource
     {
