@@ -284,6 +284,38 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(requestBodies('POST', 'admin/agents/projects/reset').length).toBe(1);
   });
 
+  it('lists the skills of an agent with their usage and stops one of them', async () => {
+    const script = scenario();
+    script.admin!.agents![0] = {
+      ...script.admin!.agents![0],
+      skills: [
+        { skillId: 'task-follow-up', description: 'Follows up tasks by rule.' },
+        { skillId: 'deadline-risk', description: 'Judges deadline risks.' }
+      ]
+    };
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const skill = () => element.querySelector('[data-skill="deadline-risk"]')!;
+
+    expect(element.querySelectorAll('li.skill').length).toBe(2);
+    expect(skill().textContent).toContain('Judges deadline risks.');
+    expect(skill().textContent).toContain('Today 0 tool calls, 0 tokens');
+    expect(skill().textContent).toContain('Active');
+
+    (skill().querySelector('button.danger') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(element.textContent).toContain('The runs of the skill deadline-risk are cancelled');
+    type(element, 'input[id$="-reason"]', 'Wrong risks');
+    button(element, 'Confirm stop').click();
+    await settle(fixture);
+
+    expect(requestBodies('POST', 'admin/agents/projects/skills/deadline-risk/state')).toEqual([{ state: 'stopped', reason: 'Wrong risks' }]);
+    expect(skill().textContent).toContain('Stopped');
+    expect(skill().textContent).toContain('Reason: Wrong risks');
+    expect(element.querySelector('[data-skill="task-follow-up"]')?.textContent).toContain('Active');
+    expect(element.querySelector('.card .card-header')?.textContent).toContain('Active');
+  });
+
   it('pauses with a reason, stops and resumes an agent from the list', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);

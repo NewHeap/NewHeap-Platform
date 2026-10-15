@@ -124,10 +124,59 @@
                 }
               }
             </div>
+            @if (agent.skills?.length) {
+              <ul class="skills" [attr.aria-label]="'nh-assistant.admin.agents.skills.title' | translate">
+                @for (skill of agent.skills; track skill.skillId) {
+                  <li class="skill" [attr.data-skill]="skill.skillId">
+                    <div class="card-header">
+                      <span class="mono">{{ skill.skillId }}</span>
+                      <span
+                        class="badge"
+                        [class.success]="skill.runState === 'active'"
+                        [class.warning]="skill.runState === 'paused'"
+                        [class.danger]="skill.runState === 'stopped'">{{ 'nh-assistant.admin.agents.state.' + skill.runState | translate }}</span>
+                    </div>
+                    <p class="muted">{{ skill.description }}</p>
+                    <div class="meta">
+                      <span>{{ 'nh-assistant.admin.agents.skills.usage' | translate: { calls: skill.toolCallsToday, tokens: skill.tokensToday } }}</span>
+                      @if (skill.dailyToolCalls !== null) {
+                        <span>{{ 'nh-assistant.admin.agents.skills.budget' | translate: { calls: skill.dailyToolCalls, tokens: skill.dailyTokens } }}</span>
+                      }
+                      @if (skill.runState === 'paused') {
+                        <span>{{ 'nh-assistant.admin.agents.state.waiting' | translate: { count: skill.waitingInputs } }}</span>
+                      }
+                      @if (skill.reason) {
+                        <span>{{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: skill.reason } }}</span>
+                      }
+                    </div>
+                    @if (agent.runState !== 'configured-off') {
+                      <div class="card-actions">
+                        @for (action of skillActions(skill); track action) {
+                          <button
+                            type="button"
+                            [class.secondary]="action !== 'stopped'"
+                            [class.danger]="action === 'stopped'"
+                            [attr.aria-label]="('nh-assistant.admin.agents.state.action.' + action | translate) + ' ' + skill.skillId"
+                            [attr.aria-expanded]="isChangingState(agent.id, action, skill.skillId)"
+                            [disabled]="busyAgentId() !== null"
+                            (click)="askState(agent, action, skill)">
+                            {{ 'nh-assistant.admin.agents.state.action.' + action | translate }}
+                          </button>
+                        }
+                      </div>
+                    }
+                  </li>
+                }
+              </ul>
+            }
             @if (changingState(); as change) {
               @if (change.agentId === agent.id) {
                 <form class="stack" (submit)="$event.preventDefault(); applyState(agent)">
-                  <p class="muted">{{ 'nh-assistant.admin.agents.state.explain.' + change.state | translate }}</p>
+                  @if (change.skillId) {
+                    <p class="muted">{{ 'nh-assistant.admin.agents.skills.explain.' + change.state | translate: { skill: change.skillId } }}</p>
+                  } @else {
+                    <p class="muted">{{ 'nh-assistant.admin.agents.state.explain.' + change.state | translate }}</p>
+                  }
                   <div class="field">
                     <label [for]="id + '-' + agent.id + '-reason'">{{ 'nh-assistant.admin.agents.state.reason-label' | translate }}</label>
                     <input

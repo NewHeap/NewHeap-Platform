@@ -169,7 +169,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         var code = list.EnumerateArray().Single(agent => agent.GetProperty("id").GetString() == "project-assistant");
         AssertNames(code, "id", "displayName", "description", "instructions", "toolSelectors", "mcpServerIds", "requiredPolicy",
             "autonomy", "isEnabled", "version", "source", "isOverridden", "instructionsHash", "updatedAt",
-            "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs");
+            "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills");
         Assert.Equal("active", code.GetProperty("runState").GetString());
         Assert.Equal("code", code.GetProperty("source").GetString());
         Assert.Equal("execute", code.GetProperty("autonomy").GetString());
@@ -233,7 +233,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         using var released = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = false }));
         var active = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
 
-        AssertNames(initial, "agentId", "runState", "active", "changedAt", "changedBy", "reason", "waitingInputs", "cancelledRuns", "startedRuns");
+        AssertNames(initial, "agentId", "runState", "active", "changedAt", "changedBy", "reason", "waitingInputs", "cancelledRuns", "startedRuns", "skills");
         Assert.Equal("active", initial.GetProperty("runState").GetString());
         Assert.True(initial.GetProperty("active").GetBoolean());
         Assert.Equal(HttpStatusCode.OK, paused.StatusCode);

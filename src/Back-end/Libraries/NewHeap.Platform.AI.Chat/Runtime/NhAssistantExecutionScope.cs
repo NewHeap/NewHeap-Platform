@@ -14,7 +14,11 @@ internal sealed class NhAssistantTurnScope
 
     public required Guid TurnId { get; init; }
 
-    public required NhAssistantAgentDefinition Agent { get; init; }
+    /// <summary>
+    /// The agent as it works in this turn: with the instructions, tools and profile of the skill it
+    /// works in, if any.
+    /// </summary>
+    public required NhAssistantAgentDefinition Agent { get; set; }
 
     /// <summary>
     /// The accountable human actor who started the turn: the conversation owner or, in a shared
@@ -34,11 +38,11 @@ internal sealed class NhAssistantTurnScope
     /// </summary>
     public required string AccountableOwnerId { get; init; }
 
-    public required string ModelProfileName { get; init; }
+    public required string ModelProfileName { get; set; }
 
-    public required string PromptVersion { get; init; }
+    public required string PromptVersion { get; set; }
 
-    public required string PromptHash { get; init; }
+    public required string PromptHash { get; set; }
 
     public required DateTimeOffset Deadline { get; init; }
 
@@ -47,7 +51,7 @@ internal sealed class NhAssistantTurnScope
     /// <summary>
     /// The composed instructions of the turn and their content-free identity.
     /// </summary>
-    public NhAssistantComposedPrompt? Prompt { get; init; }
+    public NhAssistantComposedPrompt? Prompt { get; set; }
 
     /// <summary>
     /// Set when the turn answers a consultation: the consulted agent then works with the asker's

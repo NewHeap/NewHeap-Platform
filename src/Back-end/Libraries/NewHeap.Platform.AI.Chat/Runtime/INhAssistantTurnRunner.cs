@@ -135,11 +135,17 @@ internal sealed record NhAssistantAgentTurnContext(
     public bool DelegatedOnly { get; init; }
 
     /// <summary>
-    /// The input and output tokens the turn may use before its run stops, from the agent's
-    /// <c>MaxTokensPerRun</c> less what earlier turns of the run used; <see langword="null"/>
-    /// without a ceiling.
+    /// The tokens earlier turns of the same execution of the run used; <see langword="null"/> for a
+    /// turn outside a run, which has no token ceiling.
     /// </summary>
-    public long? TokenAllowance { get; init; }
+    public long? RunTokensUsed { get; init; }
+
+    /// <summary>
+    /// The skill the run works in at the start of the turn, and who chose it.
+    /// </summary>
+    public string? SkillId { get; init; }
+
+    public string? SkillChosenBy { get; init; }
 }
 
 /// <summary>
@@ -181,6 +187,11 @@ internal sealed record NhAssistantAgentTurnResult(
     /// How the turn worked: one of the values in <see cref="NhAssistantRunKinds"/>.
     /// </summary>
     public string Kind { get; init; } = NhAssistantRunKinds.Model;
+
+    /// <summary>
+    /// The skill the turn ended in; <see langword="null"/> for the agent's own tools.
+    /// </summary>
+    public string? SkillId { get; init; }
 
     public const string Busy = "busy";
 

@@ -31,6 +31,14 @@
             <span class="badge" [attr.data-kind]="run.kind">{{ 'nh-assistant.agent-runs.run.kind.' + run.kind | translate }}</span>
           }
           <span class="mono muted">{{ 'nh-assistant.agent-runs.run.trigger' | translate: { trigger: run.triggerId } }}</span>
+          @if (run.skill) {
+            <span class="badge" [attr.data-skill]="run.skill">
+              {{ 'nh-assistant.agent-runs.run.skill' | translate: { skill: run.skill } }}
+              @if (run.skillChosenBy) {
+                · {{ 'nh-assistant.agent-runs.run.skill-chosen-by.' + run.skillChosenBy | translate }}
+              }
+            </span>
+          }
         </div>
         <div class="meta">
           <span>{{ 'nh-assistant.agent-runs.run.tool-calls' | translate: { count: run.toolCalls } }}</span>

@@ -551,6 +551,10 @@
       "sample-project-closer": {
         "name": "Project closer",
         "description": "Proposes by fixed rules to complete an active project once all its tasks are completed."
+      },
+      "sample-project-planner": {
+        "name": "Project planner",
+        "description": "Follows up completed tasks by rule and judges deadline risks with a model."
       }
     }
   },

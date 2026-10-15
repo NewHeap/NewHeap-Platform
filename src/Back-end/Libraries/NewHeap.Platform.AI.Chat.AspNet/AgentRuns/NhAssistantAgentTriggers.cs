@@ -128,6 +128,11 @@ internal sealed record NhAssistantTriggerFire(
     /// own, and its run claims the waiting ones.
     /// </summary>
     public bool Resume { get; init; }
+
+    /// <summary>
+    /// The skill the trigger names; <see langword="null"/> lets the agent's rules or triage choose.
+    /// </summary>
+    public string? SkillId { get; init; }
 }
 
 internal sealed class NhAssistantAgentTriggers(
@@ -138,6 +143,7 @@ internal sealed class NhAssistantAgentTriggers(
     NhAssistantRunStore runs,
     NhAssistantAgentEvents events,
     IOptionsMonitor<NhAssistantOptions> assistantOptions,
+    NhAssistantAdminStore admin,
     IServiceProvider services,
     ILogger<NhAssistantAgentTriggers> logger) : INhAssistantAgentTriggers
 {
@@ -195,7 +201,8 @@ internal sealed class NhAssistantAgentTriggers(
                 trigger.Conflict,
                 trigger.Debounce)
             {
-                PayloadJson = PayloadOf(trigger, evt)
+                PayloadJson = PayloadOf(trigger, evt),
+                SkillId = trigger.SkillId
             };
             receipts.Add(await FireOrDeferAsync(fire, cancellationToken));
         }
@@ -323,6 +330,15 @@ internal sealed class NhAssistantAgentTriggers(
     }
 
     /// <summary>
+    /// The stored state of one skill of an agent: active without a row.
+    /// </summary>
+    internal async Task<string> SkillStateAsync(string agentId, string skillId, CancellationToken cancellationToken)
+    {
+        var states = await admin.GetSkillStatesAsync(agentId, cancellationToken);
+        return states.TryGetValue(skillId, out var row) ? row.RunState : NhAssistantAgentRunStates.Active;
+    }
+
+    /// <summary>
     /// The receipt of a trigger that ends before its subject, message or payload lambdas run: its
     /// agent takes no triggers, audited once per agent in <paramref name="refusals"/>, or its
     /// <c>When</c> filter refuses the event, which is not audited. <see langword="null"/> when the
@@ -348,6 +364,13 @@ internal sealed class NhAssistantAgentTriggers(
             }
         }
 
+        if (refusal is null && trigger.SkillId is { } skillId
+            && await SkillStateAsync(trigger.AgentId, skillId, cancellationToken) == NhAssistantAgentRunStates.Stopped)
+        {
+            // A stopped skill evaluates none of its triggers' lambdas either.
+            refusal = NhAssistantErrorCodes.SkillStopped;
+            await events.TriggerAsync(trigger.AgentId, null, trigger.Id, null, null, null, refusal, accepted: false, cancellationToken, skillId);
+        }
         if (refusal is not null)
         {
             logger.LogInformation(
@@ -373,12 +396,19 @@ internal sealed class NhAssistantAgentTriggers(
     /// with the trigger and initiator of the thread's oldest waiting input; the run claims them all.
     /// Threads whose subject is gone drop their inputs. Returns the runs it started.
     /// </summary>
-    internal async Task<int> ResumeWaitingAsync(string agentId, CancellationToken cancellationToken)
+    internal async Task<int> ResumeWaitingAsync(string agentId, CancellationToken cancellationToken, string? onlySkill = null)
     {
+        // Events of skills that are still paused or stopped keep waiting.
+        var held = onlySkill is null
+            ? (await admin.GetSkillStatesAsync(agentId, cancellationToken)).Values
+                .Where(row => row.RunState != NhAssistantAgentRunStates.Active)
+                .Select(row => row.SkillId)
+                .ToArray()
+            : [];
         var started = 0;
         while (true)
         {
-            var waiting = await runs.GetUnclaimedWaitingInputsAsync(agentId, ResumeBatchSize, cancellationToken);
+            var waiting = await runs.GetUnclaimedWaitingInputsAsync(agentId, ResumeBatchSize, cancellationToken, held, onlySkill);
             var progress = 0;
             foreach (var (thread, input) in waiting)
             {
@@ -393,7 +423,8 @@ internal sealed class NhAssistantAgentTriggers(
                         NhAssistantTriggerConflict.Queue,
                         TimeSpan.Zero)
                     {
-                        Resume = true
+                        Resume = true,
+                        SkillId = input.SkillId
                     },
                     cancellationToken);
                 if (receipt.Outcome is NhAssistantTriggerOutcomes.Started or NhAssistantTriggerOutcomes.Queued)
@@ -519,7 +550,10 @@ internal sealed class NhAssistantAgentTriggers(
             trigger.Message(evt),
             trigger.Dedupe(evt),
             trigger.Conflict,
-            trigger.Debounce);
+            trigger.Debounce)
+        {
+            SkillId = trigger.SkillId
+        };
     }
 
     /// <summary>
@@ -555,7 +589,8 @@ internal sealed class NhAssistantAgentTriggers(
             fire.InitiatorActorId,
             accepted ? receipt.Outcome : receipt.ReasonCode ?? receipt.Outcome,
             accepted,
-            cancellationToken);
+            cancellationToken,
+            fire.SkillId);
         return receipt;
     }
 
@@ -589,7 +624,8 @@ internal sealed class NhAssistantAgentTriggers(
                 request.Debounce)
             {
                 PayloadJson = request.PayloadJson,
-                InputId = request.InputId
+                InputId = request.InputId,
+                SkillId = registration.Triggers.TryGetValue(request.TriggerId, out var trigger) ? trigger.SkillId : null
             },
             cancellationToken);
     }
@@ -717,7 +753,15 @@ internal sealed class NhAssistantAgentTriggers(
             return Rejected(fire, null, NhAssistantErrorCodes.AgentStopped);
         }
 
-        var paused = agent.RunState == NhAssistantAgentRunStates.Paused && !fire.Resume;
+        var skillState = fire.SkillId is { } skillId ? await SkillStateAsync(fire.AgentId, skillId, cancellationToken) : null;
+        if (skillState == NhAssistantAgentRunStates.Stopped)
+        {
+            return Rejected(fire, null, NhAssistantErrorCodes.SkillStopped);
+        }
+
+        // A paused agent or a paused skill lets the event wait.
+        var paused = (agent.RunState == NhAssistantAgentRunStates.Paused || skillState == NhAssistantAgentRunStates.Paused)
+            && !fire.Resume;
 
         var subject = await subjects.DescribeAsync(fire.Subject, cancellationToken);
         if (subject is null)
@@ -761,7 +805,8 @@ internal sealed class NhAssistantAgentTriggers(
             }
         }
 
-        var queued = await runs.FindQueuedRunAsync(conversationId, cancellationToken);
+        // Events join a queued run of the same skill only.
+        var queued = await runs.FindQueuedRunAsync(conversationId, cancellationToken, fire.SkillId);
         var active = await runs.FindActiveRunAsync(conversationId, cancellationToken);
         if (paused)
         {
@@ -782,7 +827,7 @@ internal sealed class NhAssistantAgentTriggers(
                 NhAssistantTriggerOutcomes.Waiting,
                 null,
                 conversationId,
-                NhAssistantErrorCodes.AgentPaused);
+                agent.RunState == NhAssistantAgentRunStates.Paused ? NhAssistantErrorCodes.AgentPaused : NhAssistantErrorCodes.SkillPaused);
         }
         if (fire.Resume && queued is not null)
         {
@@ -845,6 +890,8 @@ internal sealed class NhAssistantAgentTriggers(
             Status = NhAssistantRunStatuses.Queued,
             AgentVersion = agent.Definition.Version,
             Shadow = options.Shadow,
+            SkillId = fire.SkillId,
+            SkillChosenBy = fire.SkillId is null ? null : NhAssistantSkillChoosers.Trigger,
             CreatedAt = DateTimeOffset.UtcNow,
             ConcurrencyStamp = Guid.NewGuid()
         };
@@ -951,6 +998,7 @@ internal sealed class NhAssistantAgentTriggers(
             PayloadJson = fire.PayloadJson,
             EventKey = fire.EventKey,
             InitiatorActorId = fire.InitiatorActorId,
+            SkillId = fire.SkillId,
             CreatedAt = DateTimeOffset.UtcNow
         };
     }

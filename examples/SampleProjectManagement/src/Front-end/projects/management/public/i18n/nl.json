@@ -551,6 +551,10 @@
       "sample-project-closer": {
         "name": "Projectafsluiter",
         "description": "Stelt volgens vaste regels voor een actief project te voltooien zodra alle taken zijn afgerond."
+      },
+      "sample-project-planner": {
+        "name": "Projectplanner",
+        "description": "Volgt afgeronde taken op volgens regels en beoordeelt deadlinerisico's met een model."
       }
     }
   },

@@ -300,6 +300,11 @@
       "assistant-agent-paused": "Deze agent is gepauzeerd; het verzoek wacht tot hij hervat wordt.",
       "assistant-agent-stopped": "Deze agent is gestopt.",
       "assistant-run-token-limit": "Deze run is gestopt omdat hij zijn tokenbudget heeft bereikt. Wat hij al deed blijft staan; een goedkeurder kan hem hervatten.",
+      "assistant-skill-stopped": "Deze vaardigheid van de agent is gestopt.",
+      "assistant-skill-paused": "Deze vaardigheid van de agent is gepauzeerd; haar gebeurtenissen wachten tot ze hervat wordt.",
+      "assistant-skill-not-found": "De agent heeft deze vaardigheid niet.",
+      "assistant-skill-not-available": "Die vaardigheid is nu niet beschikbaar.",
+      "assistant-skill-switch-limit": "De run is al zo vaak van vaardigheid gewisseld als mag.",
       "assistant-agent-not-configured": "Deze agent kan niet zelfstandig werken.",
       "assistant-run-not-found": "De run is niet gevonden.",
       "assistant-run-not-retryable": "Deze run kan niet opnieuw worden gestart.",
@@ -471,6 +476,16 @@
             "active": "Hervatten bevestigen",
             "paused": "Pauze bevestigen",
             "stopped": "Stop bevestigen"
+          }
+        },
+        "skills": {
+          "title": "Vaardigheden",
+          "usage": "Vandaag {{calls}} toolaanroepen, {{tokens}} tokens",
+          "budget": "Budget per dag: {{calls}} toolaanroepen, {{tokens}} tokens",
+          "explain": {
+            "active": "De vaardigheid {{skill}} werkt weer. Elk onderwerp met gebeurtenissen die erop wachten krijgt één run.",
+            "paused": "De vaardigheid {{skill}} start geen nieuwe runs: haar gebeurtenissen wachten, triage kiest haar niet meer en lopend werk wordt afgemaakt. De andere vaardigheden werken door.",
+            "stopped": "De runs van de vaardigheid {{skill}} worden geannuleerd en haar wachtende gebeurtenissen vervallen; haar triggers worden geweigerd. De andere vaardigheden werken door."
           }
         }
       },
@@ -803,6 +818,13 @@
           "rule-then-model": "Regel, daarna het model"
         },
         "trigger": "Aanleiding: {{trigger}}",
+        "skill": "Vaardigheid: {{skill}}",
+        "skill-chosen-by": {
+          "trigger": "door de trigger",
+          "rules": "door de regels",
+          "triage": "door triage",
+          "model": "door het model"
+        },
         "tool-calls": "{{count}} tool-aanroepen",
         "tokens": "{{count}} tokens",
         "proposals": "{{count}} voorstellen",

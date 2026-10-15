@@ -8,6 +8,7 @@ import {
   AgentFeedbackList,
   AgentFeedbackListFilter,
   AgentFeedbackSummary,
+  AgentSkillState,
   AgentState,
   ApplicationContext,
   ApplicationContextVersion,
@@ -90,6 +91,16 @@ export class NhAssistantAdminApiService {
    */
   setAgentState(agentId: string, request: SetAgentStateRequest): Observable<AgentState> {
     return this.request<AgentState>('POST', `admin/agents/${encodeURIComponent(agentId)}/state`, request);
+  }
+
+  /**
+   * Pauses, stops or resumes one skill of an agent; its other skills keep working.
+   */
+  setSkillState(agentId: string, skillId: string, request: SetAgentStateRequest): Observable<AgentSkillState> {
+    return this.request<AgentSkillState>(
+      'POST',
+      `admin/agents/${encodeURIComponent(agentId)}/skills/${encodeURIComponent(skillId)}/state`,
+      request);
   }
 
   /** Deletes an admin agent. Code agents cannot be deleted; stop them instead. */

@@ -507,6 +507,31 @@ public static class NhAssistantErrorCodes
     /// call. Its proposals stay; an approver may resume or restart it.
     /// </summary>
     public const string RunTokenLimit = "assistant-run-token-limit";
+
+    /// <summary>
+    /// The skill is stopped: triggers that name it are refused and runs routed to it end.
+    /// </summary>
+    public const string SkillStopped = "assistant-skill-stopped";
+
+    /// <summary>
+    /// The skill is paused: the run's events wait for it to resume.
+    /// </summary>
+    public const string SkillPaused = "assistant-skill-paused";
+
+    /// <summary>
+    /// The agent declares no skill with this id.
+    /// </summary>
+    public const string SkillNotFound = "assistant-skill-not-found";
+
+    /// <summary>
+    /// <c>use_skill</c> named a skill that is not active or is the current one.
+    /// </summary>
+    public const string SkillNotAvailable = "assistant-skill-not-available";
+
+    /// <summary>
+    /// A run or turn already switched skills as often as allowed.
+    /// </summary>
+    public const string SkillSwitchLimit = "assistant-skill-switch-limit";
     public const string AgentNotConfigured = "assistant-agent-not-configured";
     public const string RunNotFound = "assistant-run-not-found";
     public const string RunNotRetryable = "assistant-run-not-retryable";

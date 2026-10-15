@@ -1,6 +1,7 @@
 import {
   AdminAgent,
   AdminAgentInput,
+  AgentSkillState,
   AgentState,
   AgentSummary,
   ApplicationContext,
@@ -14,7 +15,7 @@ import {
   McpToolEffect,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
-import { NhAssistantMockRemoteTool, NhAssistantMockScenario } from './nh-assistant-mock.models';
+import { NhAssistantMockAdminAgent, NhAssistantMockRemoteTool, NhAssistantMockScenario } from './nh-assistant-mock.models';
 
 /** A mock response: status plus optional JSON body. */
 export interface NhAssistantMockResult {
@@ -72,10 +73,28 @@ export class NhAssistantMockAdmin {
 
     this.contextVersions.push({ version: 1, hash: hashText(admin.context ?? ''), updatedAt: now(), updatedBy: null, text: admin.context ?? '' });
 
-    const agents = admin.agents ?? scenario.agents.map(agent => ({ ...codeAgentFromSummary(agent), source: 'code' as const }));
-    for (const { source, ...input } of agents) {
+    const agents: NhAssistantMockAdminAgent[] = admin.agents
+      ?? scenario.agents.map(agent => ({ ...codeAgentFromSummary(agent), source: 'code' as const }));
+    for (const { source, skills, ...input } of agents) {
       this.agents.set(input.id, {
-        agent: this.toAgent(input, source, 1, false),
+        agent: {
+          ...this.toAgent(input, source, 1, false),
+          skills: (skills ?? []).map((skill): AgentSkillState => ({
+            skillId: skill.skillId,
+            description: skill.description,
+            runState: 'active' as const,
+            changedAt: null,
+            changedBy: null,
+            reason: null,
+            waitingInputs: 0,
+            toolCallsToday: 0,
+            tokensToday: 0,
+            dailyToolCalls: null,
+            dailyTokens: null,
+            cancelledRuns: 0,
+            startedRuns: 0
+          }))
+        },
         codeDefinition: source === 'code' ? structuredClone(input) : null
       });
     }
@@ -167,6 +186,9 @@ export class NhAssistantMockAdmin {
       case 'agents':
         if (id !== undefined && action === 'feedback') {
           return this.agentFeedback(method, id, child, segments.length);
+        }
+        if (id !== undefined && action === 'skills' && child !== undefined && segments[5] === 'state' && segments.length === 6) {
+          return this.skillStateEndpoint(method, id, child, body);
         }
         return this.agentsEndpoint(method, id, action, body, segments.length);
       case 'mcp-servers':
@@ -294,6 +316,31 @@ export class NhAssistantMockAdmin {
     }
 
     return { status: 405 };
+  }
+
+  /**
+   * `POST admin/agents/{id}/skills/{skillId}/state`: the skill's state, next to the agent's.
+   */
+  private skillStateEndpoint(method: string, agentId: string, skillId: string, body: unknown): NhAssistantMockResult {
+    const stored = this.agents.get(agentId);
+    const skill = stored?.agent.skills?.find(item => item.skillId === skillId);
+    if (!stored || !skill) {
+      return failure(404, 'assistant-skill-not-found');
+    }
+    if (method !== 'POST') {
+      return { status: 405 };
+    }
+
+    const request = body as { state?: unknown; reason?: unknown } | undefined;
+    if (request?.state !== 'active' && request?.state !== 'paused' && request?.state !== 'stopped') {
+      return validationFailure();
+    }
+    const reason = typeof request.reason === 'string' && request.reason.trim().length > 0 ? request.reason.trim() : null;
+    const changed: AgentSkillState = skill.runState === request.state
+      ? skill
+      : { ...skill, runState: request.state, changedAt: this.now(), changedBy: 'current-user', reason };
+    stored.agent = { ...stored.agent, skills: stored.agent.skills!.map(item => item.skillId === skillId ? changed : item) };
+    return { status: 200, body: changed };
   }
 
   /**
@@ -586,7 +633,8 @@ export class NhAssistantMockAdmin {
       stateChangedAt: previous?.stateChangedAt ?? null,
       stateChangedBy: previous?.stateChangedBy ?? null,
       stateReason: previous?.stateReason ?? null,
-      waitingInputs: previous?.waitingInputs ?? 0
+      waitingInputs: previous?.waitingInputs ?? 0,
+      skills: previous?.skills ?? []
     };
   }
 
@@ -624,7 +672,8 @@ function toAgentState(agent: AdminAgent): AgentState {
     reason: agent.stateReason,
     waitingInputs: agent.waitingInputs,
     cancelledRuns: 0,
-    startedRuns: 0
+    startedRuns: 0,
+    skills: agent.skills ?? []
   };
 }
 

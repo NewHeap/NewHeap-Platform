@@ -36,6 +36,12 @@ public sealed class NhAssistantAgentRunOptions
 {
     private readonly List<NhAiAgentGrant> _grants = [];
     private readonly Dictionary<string, string> _toolApprovalPolicies = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantSkillOptions> _skills = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The most skills one agent declares.
+    /// </summary>
+    public const int MaxSkills = 20;
     private readonly List<NhAssistantConsultationOptions> _consultations = [];
 
     internal NhAssistantAgentRunOptions(string agentId)
@@ -98,6 +104,43 @@ public sealed class NhAssistantAgentRunOptions
     /// for no ceiling. Consultations of the agent use it for their one turn.
     /// </summary>
     public long? MaxTokensPerRun { get; internal set; }
+
+    /// <summary>
+    /// The skills of the agent by id; empty for an agent without skills.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantSkillOptions> Skills => _skills;
+
+    /// <summary>
+    /// The model profile that chooses the skill of a run no trigger or rule routed;
+    /// <see langword="null"/> without model triage.
+    /// </summary>
+    public string? TriageProfileName { get; internal set; }
+
+    internal NhAssistantSkillOptions AddSkill(string skillId)
+    {
+        if (_skills.ContainsKey(skillId))
+        {
+            throw new InvalidOperationException($"Agent '{AgentId}' already has skill '{skillId}'.");
+        }
+        if (_skills.Count >= MaxSkills)
+        {
+            throw new InvalidOperationException($"An agent has at most {MaxSkills} skills.");
+        }
+
+        var skill = new NhAssistantSkillOptions(AgentId, skillId);
+        _skills.Add(skillId, skill);
+        return skill;
+    }
+
+    /// <summary>
+    /// The approval policy of a tool in a skill: the skill's own, then the agent's.
+    /// </summary>
+    internal string? FindApprovalPolicy(string toolId, string? skillId)
+    {
+        return skillId is not null && _skills.TryGetValue(skillId, out var skill) && skill.ApprovalPolicyId is { } policy
+            ? policy
+            : FindApprovalPolicy(toolId);
+    }
 
     /// <summary>
     /// The JSON schema type of the agent's subject memory, or <see langword="null"/> without memory.
@@ -340,6 +383,52 @@ public sealed class NhAssistantAgentRunBuilder
     }
 
     /// <summary>
+    /// Declares a skill: a part of the agent's role with its own description, instructions, tools,
+    /// model profile or rules, budget, token ceiling, approval policy and state. A run works in one
+    /// skill at a time, chosen by its trigger (<c>.Skill(id)</c>), the agent's rules
+    /// (<c>NhAssistantRuleResult.UseSkill</c>) or model triage (<see cref="Triage"/>); the model can
+    /// switch with <c>use_skill</c>. Agents without skills work as before.
+    /// </summary>
+    public NhAssistantAgentRunBuilder Skill(string skillId, Action<NhAssistantSkillBuilder> configure)
+    {
+        if (!NhAiSubjectRef.IsValidType(skillId))
+        {
+            throw new ArgumentException("A skill id is a dash-case identifier.", nameof(skillId));
+        }
+        ArgumentNullException.ThrowIfNull(configure);
+        var skill = _options.AddSkill(skillId);
+        configure(new NhAssistantSkillBuilder(skill));
+        if (skill.Description.Length == 0)
+        {
+            throw new InvalidOperationException($"Skill '{skillId}' of agent '{_options.AgentId}' needs a Description.");
+        }
+        if (skill.RuleHandlerType is not null && skill.ProfileName is not null)
+        {
+            throw new InvalidOperationException(
+                $"Skill '{skillId}' of agent '{_options.AgentId}' uses rules or a model profile, not both.");
+        }
+
+        return this;
+    }
+
+    /// <summary>
+    /// Lets a cheap model choose the skill of a run that neither its trigger nor the agent's rules
+    /// routed, or end it with nothing to do. The triage call reads the briefing, the run's events and
+    /// the catalog of active skills and answers with structured output.
+    /// </summary>
+    public NhAssistantAgentRunBuilder Triage(Action<NhAssistantTriageBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        configure(new NhAssistantTriageBuilder(_options));
+        if (_options.TriageProfileName is null)
+        {
+            throw new InvalidOperationException($"The triage of agent '{_options.AgentId}' needs UseProfile.");
+        }
+
+        return this;
+    }
+
+    /// <summary>
     /// Stops a run once it used <paramref name="tokens"/> input and output tokens together, across
     /// every model call of the run, including a rule run's model part. The ceiling is checked before
     /// each next model call, so the last call can cross it by its own size; the run then fails with
@@ -483,6 +572,12 @@ internal sealed class NhAssistantTriggerDefinition
     public string? ApprovalPolicyId { get; init; }
 
     /// <summary>
+    /// The skill of the agent the trigger's runs work in; <see langword="null"/> lets the agent's
+    /// rules or triage choose.
+    /// </summary>
+    public string? SkillId { get; init; }
+
+    /// <summary>
     /// The cron expression of a schedule, in <see cref="TimeZone"/>.
     /// </summary>
     public string? Cron { get; init; }
@@ -543,6 +638,7 @@ public sealed class NhAssistantScheduleBuilder
     private int _maxSubjectsPerTick = 100;
     private NhAssistantTriggerConflict _conflict = NhAssistantTriggerConflict.Ignore;
     private string? _approvalPolicyId;
+    private string? _skillId;
     private bool _useModel;
 
     internal NhAssistantScheduleBuilder()
@@ -622,6 +718,20 @@ public sealed class NhAssistantScheduleBuilder
         return this;
     }
 
+    /// <summary>
+    /// Runs the trigger's runs in one skill of the agent.
+    /// </summary>
+    public NhAssistantScheduleBuilder Skill(string skillId)
+    {
+        if (!NhAiSubjectRef.IsValidType(skillId))
+        {
+            throw new ArgumentException("A skill id is a dash-case identifier.", nameof(skillId));
+        }
+
+        _skillId = skillId;
+        return this;
+    }
+
     public NhAssistantScheduleBuilder UseApprovalPolicy(string policyId)
     {
         if (!NhAiSubjectRef.IsValidType(policyId))
@@ -653,6 +763,7 @@ public sealed class NhAssistantScheduleBuilder
             Conflict = _conflict,
             Debounce = TimeSpan.Zero,
             ApprovalPolicyId = _approvalPolicyId,
+            SkillId = _skillId,
             Cron = _cron,
             TimeZone = _timeZone,
             ScheduledSubjects = _subjects,
@@ -680,6 +791,7 @@ public sealed class NhAssistantWebhookBuilder
     private NhAssistantTriggerConflict _conflict = NhAssistantTriggerConflict.Coalesce;
     private TimeSpan _debounce = TimeSpan.FromMinutes(2);
     private string? _approvalPolicyId;
+    private string? _skillId;
     private bool _useModel;
 
     internal NhAssistantWebhookBuilder()
@@ -750,6 +862,20 @@ public sealed class NhAssistantWebhookBuilder
         return this;
     }
 
+    /// <summary>
+    /// Runs the trigger's runs in one skill of the agent.
+    /// </summary>
+    public NhAssistantWebhookBuilder Skill(string skillId)
+    {
+        if (!NhAiSubjectRef.IsValidType(skillId))
+        {
+            throw new ArgumentException("A skill id is a dash-case identifier.", nameof(skillId));
+        }
+
+        _skillId = skillId;
+        return this;
+    }
+
     public NhAssistantWebhookBuilder UseApprovalPolicy(string policyId)
     {
         if (!NhAiSubjectRef.IsValidType(policyId))
@@ -785,6 +911,7 @@ public sealed class NhAssistantWebhookBuilder
             Conflict = _conflict,
             Debounce = _debounce,
             ApprovalPolicyId = _approvalPolicyId,
+            SkillId = _skillId,
             WebhookSecret = _secret,
             WebhookSubject = evt => subject(evt),
             UseModel = _useModel
@@ -807,6 +934,7 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
     private NhAssistantTriggerConflict _conflict = NhAssistantTriggerConflict.Coalesce;
     private TimeSpan _debounce = TimeSpan.FromMinutes(2);
     private string? _approvalPolicyId;
+    private string? _skillId;
     private bool _useModel;
     private Func<TEvent, object?>? _payload;
 
@@ -899,6 +1027,20 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
         return this;
     }
 
+    /// <summary>
+    /// Runs the trigger's runs in one skill of the agent.
+    /// </summary>
+    public NhAssistantTriggerBuilder<TEvent> Skill(string skillId)
+    {
+        if (!NhAiSubjectRef.IsValidType(skillId))
+        {
+            throw new ArgumentException("A skill id is a dash-case identifier.", nameof(skillId));
+        }
+
+        _skillId = skillId;
+        return this;
+    }
+
     public NhAssistantTriggerBuilder<TEvent> UseApprovalPolicy(string policyId)
     {
         if (!NhAiSubjectRef.IsValidType(policyId))
@@ -937,6 +1079,7 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
             Conflict = _conflict,
             Debounce = _debounce,
             ApprovalPolicyId = _approvalPolicyId,
+            SkillId = _skillId,
             UseModel = _useModel,
             Payload = payload is null ? null : evt => payload((TEvent)evt)
         };

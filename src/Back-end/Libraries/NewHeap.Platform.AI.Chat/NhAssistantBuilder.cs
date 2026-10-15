@@ -235,6 +235,10 @@ public sealed class NhAssistantBuilder
         {
             Services.TryAddScoped(ruleHandler);
         }
+        foreach (var skillHandler in options.Skills.Values.Select(skill => skill.RuleHandlerType).OfType<Type>())
+        {
+            Services.TryAddScoped(skillHandler);
+        }
 
         return this;
     }
@@ -575,6 +579,23 @@ internal sealed class NhAssistantRegistrationState
             {
                 ValidatePolicyReference(policyId, $"agent '{agentId}'");
             }
+
+            var agent = _agents[agentId];
+            foreach (var skill in options.Skills.Values)
+            {
+                if (skill.ApprovalPolicyId is { } skillPolicy)
+                {
+                    ValidatePolicyReference(skillPolicy, $"skill '{skill.Id}' of agent '{agentId}'");
+                }
+                foreach (var selector in skill.ToolSelectors)
+                {
+                    if (!agent.ToolSelectors.Any(agentSelector => Covers(agentSelector, selector)))
+                    {
+                        throw new InvalidOperationException(
+                            $"Skill '{skill.Id}' of agent '{agentId}' selects '{selector}', which the agent's own tool selectors do not cover.");
+                    }
+                }
+            }
         }
 
         foreach (var trigger in _triggers.Values)
@@ -589,12 +610,32 @@ internal sealed class NhAssistantRegistrationState
             {
                 ValidatePolicyReference(trigger.ApprovalPolicyId, $"trigger '{trigger.Id}'");
             }
+            if (trigger.SkillId is { } skillId && !_agentRuns[trigger.AgentId].Skills.ContainsKey(skillId))
+            {
+                throw new InvalidOperationException(
+                    $"Trigger '{trigger.Id}' runs skill '{skillId}', which agent '{trigger.AgentId}' does not declare.");
+            }
         }
 
         foreach (var policy in _approvalPolicies.Values.Where(policy => policy.EscalationPolicyId is not null))
         {
             ValidatePolicyReference(policy.EscalationPolicyId!, $"approval policy '{policy.Id}'");
         }
+    }
+
+    /// <summary>
+    /// Whether the agent's selector covers a skill's selector: the same tool, or a prefix selector
+    /// that includes it.
+    /// </summary>
+    private static bool Covers(string agentSelector, string skillSelector)
+    {
+        if (string.Equals(agentSelector, skillSelector, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return agentSelector.EndsWith(".*", StringComparison.Ordinal)
+            && skillSelector.StartsWith(agentSelector[..^1], StringComparison.Ordinal);
     }
 
     private void ValidatePolicyReference(string policyId, string owner)

@@ -129,7 +129,8 @@ internal sealed class NhAssistantAgentEvents(
         string? initiatorActorId,
         string outcome,
         bool accepted,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? skillId = null)
     {
         return RecordAsync(
             new NhAssistantAuditEvent(
@@ -146,7 +147,8 @@ internal sealed class NhAssistantAgentEvents(
                 TriggerId = triggerId,
                 SubjectType = subject?.Type,
                 SubjectId = subject?.Id,
-                InitiatorActorId = initiatorActorId
+                InitiatorActorId = initiatorActorId,
+                SkillId = skillId
             },
             cancellationToken);
     }
@@ -168,7 +170,8 @@ internal sealed class NhAssistantAgentEvents(
                 TriggerId = run.TriggerId,
                 SubjectType = thread.SubjectType,
                 SubjectId = thread.SubjectId,
-                InitiatorActorId = run.InitiatorActorId
+                InitiatorActorId = run.InitiatorActorId,
+                SkillId = run.SkillId
             },
             cancellationToken);
     }
@@ -376,7 +379,8 @@ internal sealed class NhAssistantAgentEvents(
         string actorId,
         string runState,
         int count,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? skillId = null)
     {
         var number = count.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var (kind, resultCode) = runState switch
@@ -389,7 +393,8 @@ internal sealed class NhAssistantAgentEvents(
             new NhAssistantAuditEvent(kind, Guid.Empty, Guid.Empty, actorId, agentId, 0, DateTimeOffset.UtcNow)
             {
                 ObjectId = agentId,
-                ResultCode = resultCode
+                ResultCode = resultCode,
+                SkillId = skillId
             },
             cancellationToken);
     }

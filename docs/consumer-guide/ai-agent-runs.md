@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, and brief agents about their subject within a token ceiling per run.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, and let one agent act as a role with skills.
 
 ## Preferred approach
 
@@ -175,6 +175,19 @@ class `budget` and `assistant-run-token-limit`, keeps its proposals and gets a n
 an approver resumes it; a consultation uses the same ceiling for its one turn. There is no ceiling
 by default; set one for every agent that runs on events.
 
+Give one agent a broad role with skills instead of many tools on every call: `Skill(id, skill =>
+...)` declares a part of the role with its own `Description`, rules (`UseRuleHandler`) or model
+profile (`UseProfile`), `Instructions` after the agent's, `Tools` within the agent's selectors,
+`MaxTokensPerRun`, daily `Budget` and `UseApprovalPolicy`; it shares the agent's identity, grants,
+thread, memory and briefing. A run works in one skill, chosen in this order: the trigger
+(`.Skill(id)`), the agent's rules (`NhAssistantRuleResult.UseSkill(id, reason)`), model triage
+(`Triage(triage => triage.UseProfile(...))`, one tool-free call that may also end the run with
+nothing to do) or none. The model sees only the skill's tools and can switch with `use_skill` at
+most twice; people's turns start without a skill and load one the same way. Pause, stop and resume
+a single skill with `PauseSkillAsync`, `StopSkillAsync` and `ResumeSkillAsync`; the agent's state
+covers all its skills. Start with a trigger per skill and add triage only for events rules cannot
+route; keep separate roles separate agents.
+
 Give an agent continuity with `Memory<TMemory>(schemaVersion)`: the model reads and
 changes a working memory per thread through the internal `memory_get` and
 `memory_update` functions with JSON Merge Patch. Every version must deserialize into
@@ -324,6 +337,9 @@ profile and instructions that answer questions about the rules' proposals from t
   `INhAssistantAgentControl` or `POST admin/agents/{id}/state`.
 - Stopping an agent for an import or a migration that should lose no events; pause it.
 - Letting the model read a subject's basic facts through tool calls in every run; brief it.
+- Splitting one role into several agents with their own threads only to give its tasks separate
+  tools, models or budgets; declare skills. Use separate agents for separate roles.
+- Model triage for events a trigger or rule can route.
 - Putting judgements, instructions or data that not every reader of the thread may see in a
   briefing.
 
@@ -459,8 +475,13 @@ turn in the thread read the briefing once, before the continuity, with markup ne
 rule run that hands over passes its reason inside it; that a briefing over its bound is cut at a
 section boundary with a note and that a throwing or slow provider leaves the turn without one; and
 that a run at its ceiling fails with `assistant-run-token-limit`, keeps its proposals and finishes
-after a resume, on both providers. SPM-268 to SPM-280 and SPM-282 to SPM-285 are the executable
-references.
+after a resume, on both providers. Assert that a trigger with a skill runs that skill and records
+it, that rules and triage route to a skill with only its tools, instructions and profile, that
+triage can end a run with nothing to do, that `use_skill` switches at most twice and that a person's
+turn starts without a skill, that a stopped skill refuses its triggers before any lambda while the
+other skills work, that a paused skill lets its events wait and resumes one run per thread, and that
+a skill's budget stops its runs, on both providers. SPM-268 to SPM-280 and SPM-282 to SPM-286 are
+the executable references.
 
 ## Executable evidence
 
@@ -549,3 +570,8 @@ references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+- SPM-286 — One agent acts as a role with skills that triage, rules and the model choose
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)

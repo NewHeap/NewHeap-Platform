@@ -264,7 +264,9 @@ internal sealed class NhAssistantAgentRunOperation(
         var agentTurn = created.Data! with
         {
             Attempt = context.AttemptNumber,
-            FencingToken = context.FencingToken.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            FencingToken = context.FencingToken.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            SkillId = run.SkillId,
+            SkillChosenBy = run.SkillChosenBy
         };
         var thread = agentTurn.Thread;
         if (await RefusalAsync(run, agentTurn, cancellationToken) is { } refusal)
@@ -302,33 +304,51 @@ internal sealed class NhAssistantAgentRunOperation(
             }
         }
 
+        // A run its trigger put in a skill checks the skill's own budget as well; rules and triage
+        // check it when they choose a skill.
+        if (run.SkillId is { } skillId
+            && agentTurn.Options.Skills.TryGetValue(skillId, out var skill)
+            && skill.DailyBudget is { } skillBudget)
+        {
+            var dayStart = new DateTimeOffset(DateTimeOffset.UtcNow.UtcDateTime.Date, TimeSpan.Zero);
+            var usage = await runs.GetSkillUsageSinceAsync(agentId, skillId, agentTurn.Thread.ScopeKey, dayStart, cancellationToken);
+            if (usage.ToolCalls >= skillBudget.ToolCalls || usage.Tokens >= skillBudget.Tokens)
+            {
+                await FailAsync(run, thread, NhAssistantRunFailureClasses.Budget, NhAssistantErrorCodes.BudgetExhausted);
+                return TaskResult.Failed(NhAssistantErrorCodes.BudgetExhausted, "assistant.skill-budget-exhausted");
+            }
+        }
+
         await runs.SetRunAttemptAsync(run.Id, context.AttemptNumber, context.OperationId, cancellationToken);
         await runs.TrySetRunStatusAsync(run.Id, StartableStatuses, NhAssistantRunStatuses.Running, cancellationToken);
         await workUpdates.PublishAsync(run.ConversationId, NhAssistantAgentWorkReasons.Run, runId: run.Id, cancellationToken: CancellationToken.None);
 
         // The token ceiling bounds this execution of the run: a resumed run gets a new allowance.
+        // The ceiling is the one of the skill the run works in, otherwise the agent's.
         var used = 0L;
-        var result = await ContinueWaitingTurnAsync(WithAllowance(agentTurn, used), context, cancellationToken)
-            ?? await RunTurnAsync(run, WithAllowance(agentTurn, used), cancellationToken);
+        var result = await ContinueWaitingTurnAsync(agentTurn with { RunTokensUsed = used }, context, cancellationToken)
+            ?? await RunTurnAsync(run, agentTurn with { RunTokensUsed = used }, cancellationToken);
         used += result.InputTokens + result.OutputTokens;
+        agentTurn = WithSkill(agentTurn, result);
 
         // Messages that arrived while the run worked get further turns, a bounded number of times;
         // after a pause they wait for the resume instead.
         var turnCount = 1;
         while (result.Outcome == NhAssistantTurnStatuses.Completed
                && turnCount < MaxTurnsPerRun
-               && await runs.CountWaitingInputsAsync(run.ConversationId, cancellationToken) > 0
+               && await runs.CountWaitingInputsAsync(run.ConversationId, cancellationToken, agentTurn.SkillId ?? string.Empty) > 0
                && await agents.FindRunStateAsync(agentId, cancellationToken) == NhAssistantAgentRunStates.Active)
         {
-            if (WithAllowance(agentTurn, used).TokenAllowance <= 0)
+            if (CeilingOf(agentTurn) is { } ceiling && used >= ceiling)
             {
                 // The ceiling is used; the waiting messages stay for a resume of the run.
                 result = NhAssistantAgentTurnResult.Failed(NhAssistantErrorCodes.RunTokenLimit);
                 break;
             }
 
-            result = await RunTurnAsync(run, WithAllowance(agentTurn, used), cancellationToken);
+            result = await RunTurnAsync(run, agentTurn with { RunTokensUsed = used }, cancellationToken);
             used += result.InputTokens + result.OutputTokens;
+            agentTurn = WithSkill(agentTurn, result);
             turnCount++;
         }
 
@@ -336,14 +356,20 @@ internal sealed class NhAssistantAgentRunOperation(
     }
 
     /// <summary>
-    /// The turn context with what is left of the agent's token ceiling after
-    /// <paramref name="used"/> tokens of this execution.
+    /// The turn context of the next turn of a run: in the skill the last turn ended in.
     /// </summary>
-    private static NhAssistantAgentTurnContext WithAllowance(NhAssistantAgentTurnContext agentTurn, long used)
+    private static NhAssistantAgentTurnContext WithSkill(NhAssistantAgentTurnContext agentTurn, NhAssistantAgentTurnResult result)
     {
-        return agentTurn.Options.MaxTokensPerRun is { } ceiling
-            ? agentTurn with { TokenAllowance = ceiling - used }
-            : agentTurn;
+        return result.SkillId == agentTurn.SkillId
+            ? agentTurn
+            : agentTurn with { SkillId = result.SkillId, SkillChosenBy = result.SkillId is null ? null : agentTurn.SkillChosenBy ?? NhAssistantSkillChoosers.Model };
+    }
+
+    private static long? CeilingOf(NhAssistantAgentTurnContext agentTurn)
+    {
+        return agentTurn.SkillId is { } skillId && agentTurn.Options.Skills.TryGetValue(skillId, out var skill) && skill.MaxTokensPerRun is { } skillCeiling
+            ? skillCeiling
+            : agentTurn.Options.MaxTokensPerRun;
     }
 
     private async Task<NhAssistantAgentTurnResult> RunTurnAsync(
@@ -353,7 +379,7 @@ internal sealed class NhAssistantAgentRunOperation(
     {
         // The run owns every input it claimed; inputs already written by an earlier attempt are
         // skipped when the turn appends them.
-        var inputs = await runs.ClaimQueuedInputsAsync(run.ConversationId, run.Id, cancellationToken);
+        var inputs = await runs.ClaimQueuedInputsAsync(run.ConversationId, run.Id, cancellationToken, agentTurn.SkillId);
         var result = await runner.RunAgentTurnAsync(
             new NhAssistantAgentTurnRequest(agentTurn, inputs.Select(ToInput).ToArray()),
             cancellationToken);
@@ -490,7 +516,8 @@ internal sealed class NhAssistantAgentRunOperation(
                 return TaskResult.Succeeded();
 
             case NhAssistantTurnStatuses.Cancelled:
-                await EndAsync(run, agentTurn.Thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Cancelled, null);
+                // A run routed to a paused or stopped skill ends cancelled with that code.
+                await EndAsync(run, agentTurn.Thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Cancelled, result.ErrorCode);
                 return TaskResult.Succeeded();
 
             default:
@@ -532,7 +559,9 @@ internal sealed class NhAssistantAgentRunOperation(
                 or NhAssistantErrorCodes.AgentPaused
                 or NhAssistantErrorCodes.AgentConfiguredOff
                 or NhAssistantErrorCodes.Disabled => NhAssistantRunFailureClasses.Policy,
-            NhAssistantErrorCodes.SubjectNotFound or NhAssistantErrorCodes.AgentNotConfigured => NhAssistantRunFailureClasses.Validation,
+            NhAssistantErrorCodes.SubjectNotFound
+                or NhAssistantErrorCodes.AgentNotConfigured
+                or NhAssistantErrorCodes.SkillNotFound => NhAssistantRunFailureClasses.Validation,
             NhAssistantErrorCodes.ProposalStale => NhAssistantRunFailureClasses.Stale,
             _ => NhAssistantRunFailureClasses.Internal
         };
@@ -575,6 +604,8 @@ internal sealed class NhAssistantAgentRunOperation(
             failureCode);
         if (ended && thread is not null)
         {
+            // The skill may have changed while the run worked.
+            run = await runs.FindRunAsync(run.Id, CancellationToken.None) ?? run;
             // The next runs of the thread start from this summary instead of the full history.
             await summaries.WriteAsync(run, failureCode is null ? status : status + " (" + failureCode + ")", turnId, CancellationToken.None);
             await events.RunEndedAsync(thread, run, status, failureCode, CancellationToken.None);

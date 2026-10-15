@@ -57,6 +57,38 @@ public interface INhAssistantAgentControl
         string actorId,
         string? reason = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pauses one skill of an agent: triggers that name it let their events wait, triage and
+    /// <c>use_skill</c> no longer offer it, and its running runs finish.
+    /// </summary>
+    Task<TaskResult<NhAssistantSkillState>> PauseSkillAsync(
+        string agentId,
+        string skillId,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stops one skill of an agent: triggers that name it are refused, its active runs cancelled and
+    /// its waiting events dropped. The agent's other skills keep working.
+    /// </summary>
+    Task<TaskResult<NhAssistantSkillState>> StopSkillAsync(
+        string agentId,
+        string skillId,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resumes one skill; every thread with events waiting for it gets one run in it.
+    /// </summary>
+    Task<TaskResult<NhAssistantSkillState>> ResumeSkillAsync(
+        string agentId,
+        string skillId,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
 }
 
 /// <param name="RunState">One of <see cref="NhAssistantAgentRunStates"/>: <c>active</c>,
@@ -77,6 +109,36 @@ public sealed record NhAssistantAgentState(
     string? ChangedBy,
     string? Reason,
     int WaitingInputs,
+    int CancelledRuns,
+    int StartedRuns)
+{
+    /// <summary>
+    /// The agent's skills with their own states; empty for an agent without skills. The agent's
+    /// state covers all of them.
+    /// </summary>
+    public IReadOnlyList<NhAssistantSkillState> Skills { get; init; } = [];
+}
+
+/// <param name="RunState"><c>active</c>, <c>paused</c> or <c>stopped</c>.</param>
+/// <param name="WaitingInputs">The events that wait for the skill while it is paused.</param>
+/// <param name="ToolCallsToday">The tool calls of the skill's runs today, in every scope.</param>
+/// <param name="TokensToday">The model tokens of the skill's runs today, in every scope.</param>
+/// <param name="DailyToolCalls">The skill's daily tool-call budget per scope, if it has one.</param>
+/// <param name="DailyTokens">The skill's daily token budget per scope, if it has one.</param>
+/// <param name="CancelledRuns">The runs this call cancelled by stopping the skill; 0 otherwise.</param>
+/// <param name="StartedRuns">The runs this call started by resuming the skill; 0 otherwise.</param>
+public sealed record NhAssistantSkillState(
+    string SkillId,
+    string Description,
+    string RunState,
+    DateTimeOffset? ChangedAt,
+    string? ChangedBy,
+    string? Reason,
+    int WaitingInputs,
+    int ToolCallsToday,
+    long TokensToday,
+    int? DailyToolCalls,
+    long? DailyTokens,
     int CancelledRuns,
     int StartedRuns);
 
@@ -139,6 +201,154 @@ internal sealed class NhAssistantAgentControl(
         CancellationToken cancellationToken = default)
     {
         return ChangeAsync(agentId, NhAssistantAgentRunStates.Active, actorId, reason, cancellationToken);
+    }
+
+    public Task<TaskResult<NhAssistantSkillState>> PauseSkillAsync(
+        string agentId,
+        string skillId,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ChangeSkillAsync(agentId, skillId, NhAssistantAgentRunStates.Paused, actorId, reason, cancellationToken);
+    }
+
+    public Task<TaskResult<NhAssistantSkillState>> StopSkillAsync(
+        string agentId,
+        string skillId,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ChangeSkillAsync(agentId, skillId, NhAssistantAgentRunStates.Stopped, actorId, reason, cancellationToken);
+    }
+
+    public Task<TaskResult<NhAssistantSkillState>> ResumeSkillAsync(
+        string agentId,
+        string skillId,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ChangeSkillAsync(agentId, skillId, NhAssistantAgentRunStates.Active, actorId, reason, cancellationToken);
+    }
+
+    private async Task<TaskResult<NhAssistantSkillState>> ChangeSkillAsync(
+        string agentId,
+        string skillId,
+        string target,
+        string actorId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(skillId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        if (actorId.Length > MaxActorIdLength)
+        {
+            throw new ArgumentOutOfRangeException(nameof(actorId), $"An actor id has at most {MaxActorIdLength} characters.");
+        }
+
+        reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        if (reason?.Length > NhAssistantLimits.MaxStateReasonCharacters)
+        {
+            return TaskResult<NhAssistantSkillState>.Failed(
+                NhAssistantValidationErrors.Failed("reason", NhAssistantFieldErrors.TooLong));
+        }
+
+        var agent = await agents.FindAsync(agentId, includeDisabled: true, cancellationToken);
+        if (agent is null)
+        {
+            return TaskResult<NhAssistantSkillState>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
+        }
+        if (!registration.AgentRuns.TryGetValue(agentId, out var options) || !options.Skills.TryGetValue(skillId, out var skill))
+        {
+            return TaskResult<NhAssistantSkillState>.Failed(NhAssistantErrorCodes.SkillNotFound, "The agent declares no such skill.");
+        }
+
+        var stored = await store.GetSkillStatesAsync(agentId, cancellationToken);
+        var current = stored.TryGetValue(skillId, out var row) ? row.RunState : NhAssistantAgentRunStates.Active;
+        var cancelled = 0;
+        var started = 0;
+        if (current != target)
+        {
+            await store.SetSkillStateAsync(agentId, skillId, target, actorId, reason, cancellationToken);
+            if (target == NhAssistantAgentRunStates.Stopped)
+            {
+                foreach (var run in await runs.GetActiveRunsAsync(agentId, cancellationToken, skillId))
+                {
+                    var thread = await runs.FindThreadByConversationAsync(run.ConversationId, cancellationToken);
+                    var owner = thread is null
+                        ? NhBackgroundOperationActor.ForAgent(agent.Definition.ActorId)
+                        : NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId, agent.Definition);
+                    await cancellation.CancelAsync(run, actorId, owner, cancellationToken);
+                    cancelled++;
+                }
+
+                await runs.DiscardSkillWaitingInputsAsync(agentId, skillId, cancellationToken);
+            }
+            else if (target == NhAssistantAgentRunStates.Active && agent.RunState == NhAssistantAgentRunStates.Active)
+            {
+                started = await triggers.ResumeWaitingAsync(agentId, cancellationToken, skillId);
+            }
+
+            await events.AgentStateChangedAsync(
+                agentId,
+                actorId,
+                target,
+                target == NhAssistantAgentRunStates.Stopped ? cancelled : started,
+                cancellationToken,
+                skillId);
+        }
+
+        var states = await SkillStatesAsync(agentId, options, cancellationToken);
+        return TaskResult<NhAssistantSkillState>.Succeeded(states.Single(state => state.SkillId == skill.Id) with
+        {
+            CancelledRuns = cancelled,
+            StartedRuns = started
+        });
+    }
+
+    /// <summary>
+    /// The skills of an agent with their states and today's usage.
+    /// </summary>
+    private async Task<IReadOnlyList<NhAssistantSkillState>> SkillStatesAsync(
+        string agentId,
+        NhAssistantAgentRunOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (options.Skills.Count == 0)
+        {
+            return [];
+        }
+
+        var stored = await store.GetSkillStatesAsync(agentId, cancellationToken);
+        var dayStart = new DateTimeOffset(DateTimeOffset.UtcNow.UtcDateTime.Date, TimeSpan.Zero);
+        var states = new List<NhAssistantSkillState>(options.Skills.Count);
+        foreach (var skill in options.Skills.Values)
+        {
+            stored.TryGetValue(skill.Id, out var row);
+            var runState = row?.RunState ?? NhAssistantAgentRunStates.Active;
+            var usage = await runs.GetSkillUsageSinceAsync(agentId, skill.Id, null, dayStart, cancellationToken);
+            states.Add(new NhAssistantSkillState(
+                skill.Id,
+                skill.Description,
+                runState,
+                row?.StateChangedAt,
+                row?.StateChangedBy,
+                row?.StateReason,
+                runState == NhAssistantAgentRunStates.Paused
+                    ? await runs.CountSkillWaitingInputsAsync(agentId, skill.Id, cancellationToken)
+                    : 0,
+                usage.ToolCalls,
+                usage.Tokens,
+                skill.DailyBudget?.ToolCalls,
+                skill.DailyBudget?.Tokens,
+                0,
+                0));
+        }
+
+        return states;
     }
 
     /// <summary>
@@ -263,6 +473,11 @@ internal sealed class NhAssistantAgentControl(
             agent.StateReason,
             waiting,
             cancelled,
-            started);
+            started)
+        {
+            Skills = registration.AgentRuns.TryGetValue(agent.Id, out var runOptions)
+                ? await SkillStatesAsync(agent.Id, runOptions, cancellationToken)
+                : []
+        };
     }
 }

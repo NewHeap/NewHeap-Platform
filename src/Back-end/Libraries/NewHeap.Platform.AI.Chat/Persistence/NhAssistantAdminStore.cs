@@ -170,6 +170,50 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
     }
 
     /// <summary>
+    /// The stored states of the agent's skills that are not active, by skill id.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, AssistantAgentSkillState>> GetSkillStatesAsync(
+        string agentId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.AgentSkillStates
+            .AsNoTracking()
+            .Where(skill => skill.AgentId == agentId)
+            .ToDictionaryAsync(skill => skill.SkillId, StringComparer.Ordinal, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sets the state of one skill and returns the state it had before.
+    /// </summary>
+    public async Task<string> SetSkillStateAsync(
+        string agentId,
+        string skillId,
+        string runState,
+        string actorId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var row = await context.AgentSkillStates.SingleOrDefaultAsync(
+            skill => skill.AgentId == agentId && skill.SkillId == skillId,
+            cancellationToken);
+        var previous = row?.RunState ?? NhAssistantAgentRunStates.Active;
+        if (row is null)
+        {
+            row = new AssistantAgentSkillState { AgentId = agentId, SkillId = skillId };
+            context.AgentSkillStates.Add(row);
+        }
+
+        row.RunState = runState;
+        row.StateChangedAt = DateTimeOffset.UtcNow;
+        row.StateChangedBy = actorId;
+        row.StateReason = reason;
+        await context.SaveChangesAsync(cancellationToken);
+        return previous;
+    }
+
+    /// <summary>
     /// The stored run state of an agent, or <see langword="null"/> when it does not exist.
     /// </summary>
     public async Task<string?> FindAgentRunStateAsync(string id, CancellationToken cancellationToken)

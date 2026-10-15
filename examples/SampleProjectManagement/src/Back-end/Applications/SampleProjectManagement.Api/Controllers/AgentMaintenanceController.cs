@@ -70,6 +70,46 @@ public sealed class AgentMaintenanceController(SampleAgentMaintenanceService mai
         return ChangeAsync(agentId, SampleAgentStateChange.Resume, model, cancellationToken);
     }
 
+    [HttpPost("{agentId}/skills/{skillId}/{change}")]
+    [EndpointSummary("Pause, stop or resume one skill of an agent")]
+    [EndpointDescription("change is pause, stop or resume. The agent's other skills keep working; a stopped skill refuses its triggers and triage no longer chooses it.")]
+    [ProducesResponseType<NhAssistantSkillState>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ChangeSkill(
+        string agentId,
+        string skillId,
+        string change,
+        [FromBody] AgentStateChangeMutateModel model,
+        CancellationToken cancellationToken)
+    {
+        if (HttpContext.GetUserId() is not { } operatorId)
+        {
+            return Unauthorized();
+        }
+        SampleAgentStateChange? parsed = change switch
+        {
+            "pause" => SampleAgentStateChange.Pause,
+            "stop" => SampleAgentStateChange.Stop,
+            "resume" => SampleAgentStateChange.Resume,
+            _ => null
+        };
+        if (parsed is not { } value)
+        {
+            return NotFound();
+        }
+
+        var result = await maintenance.ChangeSkillAsync(agentId, skillId, value, operatorId, model.Reason, cancellationToken);
+        if (result is null || result.GetResultItems().Any(item => item.Name == NhAssistantErrorCodes.SkillNotFound))
+        {
+            return NotFound();
+        }
+
+        return result.Success ? Ok(result.Data) : BadRequest();
+    }
+
     private async Task<IActionResult> ChangeAsync(
         string agentId,
         SampleAgentStateChange change,

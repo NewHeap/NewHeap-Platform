@@ -86,6 +86,16 @@ public sealed class AssistantRun
 
     public string? FailureCode { get; set; }
 
+    /// <summary>
+    /// The skill of the agent the run works in; <see langword="null"/> for the agent's own tools.
+    /// </summary>
+    public string? SkillId { get; set; }
+
+    /// <summary>
+    /// Who chose the skill: one of the values in <see cref="NhAssistantSkillChoosers"/>.
+    /// </summary>
+    public string? SkillChosenBy { get; set; }
+
     public int AgentVersion { get; set; }
 
     /// <summary>
@@ -219,6 +229,11 @@ public sealed class AssistantQueuedInput
     /// its agent resumes has the same initiator as a run started at once.
     /// </summary>
     public string? InitiatorActorId { get; set; }
+
+    /// <summary>
+    /// The skill the trigger named; only a run of that skill, or a resume of it, claims the input.
+    /// </summary>
+    public string? SkillId { get; set; }
 
     public string? ClientMessageId { get; set; }
 

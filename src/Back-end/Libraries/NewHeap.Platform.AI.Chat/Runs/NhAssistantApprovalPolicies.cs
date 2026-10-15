@@ -5,7 +5,7 @@ namespace NewHeap.Platform.AI.Chat.Runs;
 
 /// <summary>
 /// Finds the approval policy of a proposal. The most specific reference wins: the trigger of the
-/// run, then the tool within the agent, then the agent. Without a reference, chat turns use the
+/// run, then the skill the run works in, then the tool within the agent, then the agent. Without a reference, chat turns use the
 /// chat default and runs use the trigger default.
 /// </summary>
 internal sealed class NhAssistantApprovalPolicies(NhAssistantRegistrationState registration)
@@ -14,7 +14,8 @@ internal sealed class NhAssistantApprovalPolicies(NhAssistantRegistrationState r
         string agentId,
         string toolId,
         string? triggerId,
-        bool isRun)
+        bool isRun,
+        string? skillId = null)
     {
         if (isRun
             && triggerId is not null
@@ -25,7 +26,7 @@ internal sealed class NhAssistantApprovalPolicies(NhAssistantRegistrationState r
         }
 
         if (registration.AgentRuns.TryGetValue(agentId, out var options)
-            && options.FindApprovalPolicy(toolId) is { } agentPolicy)
+            && options.FindApprovalPolicy(toolId, skillId) is { } agentPolicy)
         {
             return Get(agentPolicy);
         }

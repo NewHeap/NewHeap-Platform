@@ -39,6 +39,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantAgentMcpServer> AgentMcpServers => Set<AssistantAgentMcpServer>();
 
+    public DbSet<AssistantAgentSkillState> AgentSkillStates => Set<AssistantAgentSkillState>();
+
     public DbSet<AssistantApplicationContext> ApplicationContexts => Set<AssistantApplicationContext>();
 
     public DbSet<AssistantMcpServer> McpServers => Set<AssistantMcpServer>();
@@ -282,6 +284,8 @@ public sealed class NhAssistantDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(NhAssistantRunKinds.Model);
             run.Property(item => item.CancelledByActorId).HasMaxLength(256);
+            run.Property(item => item.SkillId).HasMaxLength(64);
+            run.Property(item => item.SkillChosenBy).HasMaxLength(16);
             run.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             run.HasIndex(item => new { item.ConversationId, item.CreatedAt });
             run.HasIndex(item => new { item.Status, item.CreatedAt });
@@ -304,6 +308,7 @@ public sealed class NhAssistantDbContext : DbContext
             input.Property(item => item.PayloadJson).HasMaxLength(NhAssistantLimits.MaxInputPayloadCharacters);
             input.Property(item => item.EventKey).HasMaxLength(256);
             input.Property(item => item.InitiatorActorId).HasMaxLength(256);
+            input.Property(item => item.SkillId).HasMaxLength(64);
             input.Property(item => item.ClientMessageId).HasMaxLength(128);
             input.HasIndex(item => new { item.ConversationId, item.ConsumedAt, item.CreatedAt });
             input.HasOne<AssistantConversation>()
@@ -460,6 +465,21 @@ public sealed class NhAssistantDbContext : DbContext
             server.HasMany(item => item.Tools)
                 .WithOne()
                 .HasForeignKey(item => item.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAgentSkillState>(skill =>
+        {
+            skill.ToTable("AssistantAgentSkillState");
+            skill.HasKey(item => new { item.AgentId, item.SkillId });
+            skill.Property(item => item.AgentId).HasMaxLength(128);
+            skill.Property(item => item.SkillId).HasMaxLength(64);
+            skill.Property(item => item.RunState).HasMaxLength(16).IsRequired();
+            skill.Property(item => item.StateChangedBy).HasMaxLength(256);
+            skill.Property(item => item.StateReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            skill.HasOne<AssistantAgent>()
+                .WithMany()
+                .HasForeignKey(item => item.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

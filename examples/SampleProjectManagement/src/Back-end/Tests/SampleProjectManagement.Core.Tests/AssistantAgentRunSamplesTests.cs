@@ -576,6 +576,103 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_project_planner_follows_up_tasks_by_rule_and_triage_sends_its_deadline_check_to_a_skill()
+    {
+        // SPM-286
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        var project = await host.CreateProjectAsync("PLANNER", ownerId: host.OwnerId, status: ProjectStatus.Active, deadline: DateTimeOffset.UtcNow.AddDays(3));
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var plan = await host.CreateTaskAsync(project, "Plan the release");
+        var notes = await host.CreateTaskAsync(project, "Write the release notes");
+        await host.CreateTaskAsync(project, "Train the support desk");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var projectText = project.ToString("D");
+        var triage = new NhAiScriptedChatClient()
+            .RespondWithText("""{"skill":"deadline-risk","reason":"Two of three tasks are open three days before the deadline."}""")
+            .RespondWithText("""{"skill":null,"reason":"The deadline check needs no skill that is available."}""");
+        var deadline = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = project, status = "OnHold" } }, "call-hold")
+            .RespondWithText("The project will miss its deadline; I proposed to put it on hold.");
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You route the work of an assistant agent")
+                && RoutingChatClient.Mentions(messages, options, projectText), triage),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "## Skill: deadline-risk")
+                && RoutingChatClient.Mentions(messages, options, projectText), deadline)));
+        try
+        {
+            // A completed task starts the follow-up skill through its trigger; its rules answer
+            // without a model.
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(plan, host.ParticipantId));
+            var conversationId = await WaitForThreadAsync(colleague, project, planner);
+            var followUp = Assert.Single(await WaitForRunCountAsync(colleague, conversationId, 1));
+            Assert.Equal(NhAssistantRunStatuses.Completed, followUp.Status);
+            Assert.Equal(SampleProjectPlannerComposition.TaskFollowUpSkill, followUp.Skill);
+            Assert.Equal(NhAssistantSkillChoosers.Trigger, followUp.SkillChosenBy);
+            Assert.Equal(NhAssistantRunKinds.Rule, followUp.Kind);
+            Assert.Equal(0, followUp.InputTokens + followUp.OutputTokens);
+
+            // The daily deadline check names no skill: triage sends it to the deadline skill, whose
+            // model sees only the status tool and proposes to put the project on hold.
+            host.Services.GetRequiredService<IRecurringJobManager>()
+                .Trigger("nh-assistant-trigger-" + SampleProjectPlannerComposition.DeadlineCheckTriggerId);
+            var proposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending);
+            Assert.Equal(ProjectAiTools.ChangeStatusToolId, proposal.ToolId);
+            var risk = Assert.Single(await WaitForRunCountAsync(colleague, conversationId, 2), run => run.Id == proposal.RunId);
+            Assert.Equal(SampleProjectPlannerComposition.DeadlineRiskSkill, risk.Skill);
+            Assert.Equal(NhAssistantSkillChoosers.Triage, risk.SkillChosenBy);
+            var routed = triage.Requests[0];
+            Assert.Contains(routed.Messages, message => message.Text.Contains("- deadline-risk:", StringComparison.Ordinal));
+            Assert.Contains(routed.Messages, message => message.Text.Contains("2 of 3 tasks are open.", StringComparison.Ordinal));
+            var tools = deadline.Requests[0].Options?.Tools?.Select(tool => tool.Name).ToArray() ?? [];
+            Assert.Contains("projects_change_status_v1", tools);
+            Assert.DoesNotContain(tools, name => name.Contains("intake", StringComparison.Ordinal));
+
+            // Stopping the deadline skill keeps the task follow-up working, and triage no longer
+            // offers the stopped skill: the next check ends with nothing to do.
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var stopped = await scope.ServiceProvider.GetRequiredService<SampleAgentMaintenanceService>().ChangeSkillAsync(
+                    planner,
+                    SampleProjectPlannerComposition.DeadlineRiskSkill,
+                    SampleAgentStateChange.Stop,
+                    host.OwnerId,
+                    "Too many holds",
+                    CancellationToken.None);
+                Assert.Equal(NhAssistantAgentRunStates.Stopped, stopped!.Data!.RunState);
+            }
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(notes, host.ParticipantId));
+            var afterStop = await WaitForRunCountAsync(colleague, conversationId, 3);
+            Assert.Equal(2, afterStop.Count(run => run.Skill == SampleProjectPlannerComposition.TaskFollowUpSkill && run.Status == NhAssistantRunStatuses.Completed));
+            // A tick of the schedule runs once per minute, so the approver asks for the next check.
+            var asked = await colleague.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new NhAssistantStartAgentRequest(planner, ProjectSubjects.Type, projectText, $"Check the deadline of project {projectText} again."),
+                Json);
+            Assert.Equal(HttpStatusCode.Accepted, asked.StatusCode);
+            var quiet = Assert.Single(await WaitForRunCountAsync(colleague, conversationId, 4), run => afterStop.All(earlier => earlier.Id != run.Id));
+            Assert.Equal(NhAssistantRunStatuses.Completed, quiet.Status);
+            Assert.Null(quiet.Skill);
+            Assert.Contains("needs no skill that is available", quiet.Summary);
+            Assert.DoesNotContain(triage.Requests[1].Messages, message => message.Text.Contains("- deadline-risk:", StringComparison.Ordinal));
+            // The deadline skill's model worked in one run only: its proposal and its answer.
+            Assert.Equal(2, deadline.Requests.Count);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+            await using var scope = host.Services.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<SampleAgentMaintenanceService>().ChangeSkillAsync(
+                planner,
+                SampleProjectPlannerComposition.DeadlineRiskSkill,
+                SampleAgentStateChange.Resume,
+                host.OwnerId,
+                null,
+                CancellationToken.None);
+        }
+    }
+
+    [Fact]
     public async Task A_participant_starts_the_status_advisor_which_uses_their_rights_and_waits_inline_for_their_approval()
     {
         // SPM-272 and SPM-273
@@ -1359,6 +1456,7 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         services.AddSampleIntakeReviewer();
         services.AddSampleStatusAdvisor();
         services.AddSampleProjectCloser();
+        services.AddSampleProjectPlanner();
     }
 
     public async Task WaitForOperationAsync(Guid operationId, NhBackgroundOperationStatus status)

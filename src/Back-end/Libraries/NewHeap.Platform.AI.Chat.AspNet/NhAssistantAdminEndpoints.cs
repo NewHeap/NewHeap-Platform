@@ -109,6 +109,13 @@ internal static class NhAssistantAdminEndpoints
             .WithDescription("Returns active, paused, stopped or configured-off, who changed it when and why, and the inputs that wait while the agent is paused.")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapPost("agents/{id}/skills/{skillId}/state", SetSkillStateAsync)
+            .WithName("NhAssistantAdminSetSkillState")
+            .WithSummary("Pause, stop or resume one skill of an agent")
+            .WithDescription("paused: triggers that name the skill let their events wait and triage no longer offers it. stopped: its active runs are cancelled and its waiting events dropped. active: resumes it with one run per thread with waiting events. The agent's other skills keep working; the agent's own state covers all skills.")
+            .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantSkillState>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapPost("agents/{id}/state", SetAgentStateAsync)
             .WithName("NhAssistantAdminSetAgentState")
             .WithSummary("Pause, stop or resume an agent")
@@ -403,6 +410,41 @@ internal static class NhAssistantAdminEndpoints
             : Json(state, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentState);
     }
 
+    private static async Task<IResult> SetSkillStateAsync(string id, string skillId, HttpContext httpContext)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var body = await ReadAsync(
+            httpContext,
+            AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentStateRequest);
+        if (body is null)
+        {
+            return Validation();
+        }
+        if (body.State is null)
+        {
+            return MissingField("state");
+        }
+        if (!NhAssistantAgentRunStates.IsStored(body.State))
+        {
+            return Failure(NhAssistantValidationErrors.Failed("state", NhAssistantFieldErrors.Invalid));
+        }
+
+        var control = httpContext.RequestServices.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
+        var result = body.State switch
+        {
+            NhAssistantAgentRunStates.Paused => await control.PauseSkillAsync(id, skillId, actor, body.Reason, httpContext.RequestAborted),
+            NhAssistantAgentRunStates.Stopped => await control.StopSkillAsync(id, skillId, actor, body.Reason, httpContext.RequestAborted),
+            _ => await control.ResumeSkillAsync(id, skillId, actor, body.Reason, httpContext.RequestAborted)
+        };
+        return result.Success
+            ? Json(result.Data!, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSkillState)
+            : Failure(result);
+    }
+
     private static async Task<IResult> SetAgentStateAsync(string id, HttpContext httpContext)
     {
         var actor = await ActorAsync(httpContext);
@@ -681,7 +723,10 @@ internal static class NhAssistantAdminEndpoints
             state.ChangedAt,
             state.ChangedBy,
             state.Reason,
-            state.WaitingInputs);
+            state.WaitingInputs)
+        {
+            Skills = state.Skills
+        };
     }
 
     private static NhAssistantMcpServerDto ToDto(AssistantMcpServer server, IReadOnlyList<string> agentIds)
@@ -771,6 +816,7 @@ internal static class NhAssistantAdminEndpoints
         var status = code switch
         {
             NhAssistantErrorCodes.AgentNotFound
+                or NhAssistantErrorCodes.SkillNotFound
                 or NhAssistantAdminErrorCodes.NotFound
                 or NhAssistantAdminErrorCodes.ContextNotFound
                 or NhAssistantAdminErrorCodes.McpServerNotFound

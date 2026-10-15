@@ -15,6 +15,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { Observable, Subscription, forkJoin } from 'rxjs';
 import {
   AdminAgent,
+  AgentSkillState,
   AgentState,
   McpServer,
   NhAssistantAdminApiService,
@@ -80,8 +81,8 @@ export class NhAssistantAdminAgentsComponent {
   readonly reporting = signal<AdminAgent | null>(null);
   readonly confirming = signal<{ agentId: string; action: 'delete' | 'reset' } | null>(null);
   readonly busyAgentId = signal<string | null>(null);
-  /** The state change whose reason is being entered. */
-  readonly changingState = signal<{ agentId: string; state: AgentStateAction } | null>(null);
+  /** The state change whose reason is being entered, of the agent or one of its skills. */
+  readonly changingState = signal<{ agentId: string; skillId?: string; state: AgentStateAction } | null>(null);
   readonly stateReason = signal('');
   readonly maxReason = maxStateReason;
   readonly error = signal<NhAssistantError | null>(null);
@@ -167,18 +168,30 @@ export class NhAssistantAdminAgentsComponent {
     }
   }
 
-  /** Opens the reason form of a state change. */
-  askState(agent: AdminAgent, state: AgentStateAction): void {
+  /** The state changes a skill allows. */
+  skillActions(skill: AgentSkillState): AgentStateAction[] {
+    switch (skill.runState) {
+      case 'active':
+        return ['paused', 'stopped'];
+      case 'paused':
+        return ['active', 'stopped'];
+      default:
+        return ['active'];
+    }
+  }
+
+  /** Opens the reason form of a state change of the agent or, with a skill, of that skill. */
+  askState(agent: AdminAgent, state: AgentStateAction, skill?: AgentSkillState): void {
     this.confirming.set(null);
     this.error.set(null);
     this.stateReason.set('');
-    this.changingState.set({ agentId: agent.id, state });
+    this.changingState.set({ agentId: agent.id, skillId: skill?.skillId, state });
     afterNextRender(() => this.reasonInput()?.nativeElement.focus(), { injector: this.injector });
   }
 
-  isChangingState(agentId: string, state: AgentStateAction): boolean {
+  isChangingState(agentId: string, state: AgentStateAction, skillId?: string): boolean {
     const change = this.changingState();
-    return change?.agentId === agentId && change.state === state;
+    return change?.agentId === agentId && change.state === state && change.skillId === skillId;
   }
 
   applyState(agent: AdminAgent): void {
@@ -188,9 +201,18 @@ export class NhAssistantAdminAgentsComponent {
     }
 
     const reason = this.stateReason().trim();
+    const request = { state: change.state, reason: reason.length > 0 ? reason : null };
+    if (change.skillId !== undefined) {
+      this.run(
+        agent.id,
+        this.admin.setSkillState(agent.id, change.skillId, request),
+        skill => this.replace(withSkill(agent, skill)));
+      return;
+    }
+
     this.run(
       agent.id,
-      this.admin.setAgentState(agent.id, { state: change.state, reason: reason.length > 0 ? reason : null }),
+      this.admin.setAgentState(agent.id, request),
       state => this.replace(withState(agent, state)));
   }
 
@@ -255,6 +277,14 @@ function withState(agent: AdminAgent, state: AgentState): AdminAgent {
     stateChangedAt: state.changedAt,
     stateChangedBy: state.changedBy,
     stateReason: state.reason,
-    waitingInputs: state.waitingInputs
+    waitingInputs: state.waitingInputs,
+    skills: state.skills ?? agent.skills
+  };
+}
+
+function withSkill(agent: AdminAgent, skill: AgentSkillState): AdminAgent {
+  return {
+    ...agent,
+    skills: (agent.skills ?? []).map(item => item.skillId === skill.skillId ? skill : item)
   };
 }

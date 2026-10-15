@@ -46,6 +46,26 @@ its proposals and gets a new allowance when it is resumed.
 | A run that hits `MaxTokensPerRun` ends `failed` with `assistant-run-token-limit`; no ceiling is set by default. | Set a ceiling per agent that runs on events, and handle the code where failed runs are shown. |
 | No migration. | None. |
 
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: agent skills
+
+`ConfigureAgent(...).Skill(id, skill => ...)` gives one agent skills: parts of its role with their own
+description, rules or model profile, instructions, tools within the agent's, token ceiling, daily
+budget, approval policy and state, sharing the agent's identity, grants, thread, memory and
+briefing. A run works in one skill, chosen by its trigger (`.Skill(id)` on event, scheduled and
+webhook triggers), the agent's rules (`NhAssistantRuleResult.UseSkill`) or model triage
+(`Triage(...)`, which may also end the run with nothing to do); the model sees only that skill's
+tools and switches with the internal function `use_skill` at most twice, and people's turns start
+without a skill. Runs record the skill and who chose it (`skill` and `skillChosenBy` on runs, the
+skill on trigger and run audit events). `INhAssistantAgentControl` pauses, stops and resumes single
+skills, `POST admin/agents/{id}/skills/{skillId}/state` does the same, and the agent's state lists
+its skills with their states and today's usage. Agents without skills work as before.
+
+| Breaking change | Required action |
+|---|---|
+| Migration `AgentSkills` adds `SkillId` and `SkillChosenBy` to `AssistantRun`, `SkillId` to `AssistantQueuedInput` and the table `AssistantAgentSkillState`. | Apply the migration. |
+| `NhAssistantAgentState` and `NhAssistantAdminAgentDto` gain `Skills`; `NhAssistantRunDto` gains `Skill` and `SkillChosenBy`; `NhAssistantAuditEvent` gains `SkillId`. | None; audit sinks may record the skill. |
+| An event joins only a queued run of the same skill, and a run claims only the inputs without a skill and those of its own skill. | None for agents without skills. |
+
 ## @newheap/platform-ai-chat: agent state in the administration
 
 The agent list shows each agent's state, "Active", "Paused", "Stopped" or "Off in configuration"
@@ -53,9 +73,12 @@ The agent list shows each agent's state, "Active", "Paused", "Stopped" or "Off i
 why, and the events that wait while it is paused. Pause, Stop and Resume ask for an optional reason
 and explain what they do. The agent editor no longer has an enabled checkbox, and resetting a code
 agent says that the state stays as it is. `NhAssistantAdminApiService` gains `getAgentState` and
-`setAgentState`, and the mock backend of `@newheap/platform-ai-chat/testing` serves them.
+`setAgentState`, and the mock backend of `@newheap/platform-ai-chat/testing` serves them. An agent
+with skills lists them with their state, today's usage and budget, with pause, stop and resume per
+skill (`setSkillState`); the run timeline shows the skill of a run and who chose it. `AgentRun`
+gains `skill` and `skillChosenBy`, `AdminAgent` and `AgentState` gain `skills`.
 
 | Breaking change | Required action |
 |---|---|
 | `AdminAgentInput.isEnabled` is optional and deprecated; the server ignores it. `AdminAgent` gains `runState`, `stateChangedAt`, `stateChangedBy`, `stateReason` and `waitingInputs`. | Stop sending `isEnabled`; change the state with `setAgentState`. |
-| New translation keys `nh-assistant.admin.agents.state.*`, `nh-assistant.admin.agents.reset-keeps-state`, `nh-assistant.admin.agent-editor.state-hint` and `nh-assistant.errors.assistant-agent-stopped`, `assistant-agent-paused`, `assistant-agent-configured-off` and `assistant-run-token-limit`; `nh-assistant.admin.agent-editor.enabled` is removed. The run timeline shows a run stopped at its token ceiling with that text. | Applications with their own translation files add and remove them. |
+| New translation keys `nh-assistant.admin.agents.state.*`, `nh-assistant.admin.agents.reset-keeps-state`, `nh-assistant.admin.agent-editor.state-hint` and `nh-assistant.errors.assistant-agent-stopped`, `assistant-agent-paused`, `assistant-agent-configured-off`, `assistant-run-token-limit` and `assistant-skill-*`, `nh-assistant.admin.agents.skills.*` and `nh-assistant.agent-runs.run.skill` and `skill-chosen-by.*`; `nh-assistant.admin.agent-editor.enabled` is removed. The run timeline shows a run stopped at its token ceiling with that text. | Applications with their own translation files add and remove them. |

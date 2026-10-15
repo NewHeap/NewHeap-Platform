@@ -73,10 +73,54 @@ internal sealed class NhAssistantTurnState
     public bool ToolCallLimitReached { get; set; }
 
     /// <summary>
-    /// The input and output tokens this turn may use before its run stops; <see langword="null"/>
-    /// without a ceiling.
+    /// The token ceiling of the run in the skill it works in; <see langword="null"/> without one or
+    /// outside a run. A skill switch changes it.
     /// </summary>
-    public long? TokenAllowance { get; init; }
+    public long? TokenCeiling { get; set; }
+
+    /// <summary>
+    /// The tokens earlier turns of the same execution of the run used.
+    /// </summary>
+    public long TokensBefore { get; init; }
+
+    /// <summary>
+    /// The skill the turn works in; <see langword="null"/> for the agent's own tools.
+    /// </summary>
+    public NhAssistantSkillOptions? Skill { get; set; }
+
+    /// <summary>
+    /// Who chose <see cref="Skill"/>: one of <see cref="NhAssistantSkillChoosers"/>.
+    /// </summary>
+    public string? SkillChosenBy { get; set; }
+
+    /// <summary>
+    /// The active skills of the agent when the turn started.
+    /// </summary>
+    public IReadOnlyList<NhAssistantSkillOptions> ActiveSkills { get; set; } = [];
+
+    /// <summary>
+    /// The stored states of the agent's skills that are not active.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> SkillStates { get; set; } = new Dictionary<string, string>();
+
+    public int SkillSwitches { get; set; }
+
+    /// <summary>
+    /// Set by <c>use_skill</c>: the skill the model continues in once the current loop ended.
+    /// </summary>
+    public NhAssistantSkillOptions? RequestedSkill { get; set; }
+
+    public string? RequestedSkillReason { get; set; }
+
+    /// <summary>
+    /// The language, client context and speakers the prompt was composed with, to compose it again
+    /// for a skill.
+    /// </summary>
+    public string Language { get; init; } = "en";
+
+    public NhAssistantClientContext? ClientContext { get; init; }
+
+    public Collaboration.NhAssistantSpeakers? Speakers { get; init; }
 
     /// <summary>
     /// Set when the run's token ceiling ended the model loop before the next model call.
@@ -86,7 +130,7 @@ internal sealed class NhAssistantTurnState
     /// <summary>
     /// Whether the turn used its token allowance, so no further model call may start.
     /// </summary>
-    public bool TokenAllowanceUsed => TokenAllowance is { } allowance && (long)InputTokens + OutputTokens >= allowance;
+    public bool TokenAllowanceUsed => TokenCeiling is { } ceiling && TokensBefore + InputTokens + OutputTokens >= ceiling;
 
     /// <summary>
     /// Set when the durable daily tool budget refused a tool call in this turn.
@@ -110,6 +154,11 @@ internal sealed class NhAssistantTurnState
     /// The agent's rules handed the turn over to the model.
     /// </summary>
     public bool HandedOver { get; set; }
+
+    /// <summary>
+    /// The agent's or a skill's rules ran in this turn.
+    /// </summary>
+    public bool RulesRan { get; set; }
 
     /// <summary>
     /// Why the agent's rules made each proposal of the turn, in the run's culture.
@@ -328,6 +377,11 @@ internal sealed class NhAssistantToolCallInterceptor(
         }
 
         await CompleteToolCallAsync(row, execution, cancellationToken);
+        if (state.RequestedSkill is not null)
+        {
+            // use_skill: the loop ends here and the turn continues in the chosen skill.
+            context.Terminate = true;
+        }
         if (state.Scope.BudgetExhausted)
         {
             // A reservation inside a tool call is a tool-budget reservation.
@@ -596,7 +650,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         var consultation = state.Scope.Consultation;
         var policy = agentTurn is not null && approvalPolicies is not null
             ? consultation is null
-                ? approvalPolicies.Resolve(agentTurn.Thread.AgentId, descriptor.Id, agentTurn.TriggerId, agentTurn.RunId is not null)
+                ? approvalPolicies.Resolve(agentTurn.Thread.AgentId, descriptor.Id, agentTurn.TriggerId, agentTurn.RunId is not null, state.Skill?.Id)
                 // A consultation answers now and cannot wait: its proposals always wait for the
                 // subject's approvers, under the agent's policy or the trigger default.
                 : approvalPolicies.Resolve(agentTurn.Thread.AgentId, descriptor.Id, null, isRun: true) with

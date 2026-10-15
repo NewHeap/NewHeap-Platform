@@ -54,6 +54,7 @@ describe('NhAssistantAdminApiService', () => {
       [() => firstValueFrom(admin.resetAgent('agent-1')), 'POST', 'admin/agents/agent-1/reset'],
       [() => firstValueFrom(admin.getAgentState('agent 1')), 'GET', 'admin/agents/agent%201/state'],
       [() => firstValueFrom(admin.setAgentState('agent-1', { state: 'paused', reason: 'Import' })), 'POST', 'admin/agents/agent-1/state'],
+      [() => firstValueFrom(admin.setSkillState('agent-1', 'deadline-risk', { state: 'stopped' })), 'POST', 'admin/agents/agent-1/skills/deadline-risk/state'],
       [() => firstValueFrom(admin.deleteAgent('agent-1'), { defaultValue: undefined }), 'DELETE', 'admin/agents/agent-1'],
       [() => firstValueFrom(admin.getMcpServers()), 'GET', 'admin/mcp-servers'],
       [() => firstValueFrom(admin.createMcpServer(server)), 'POST', 'admin/mcp-servers'],

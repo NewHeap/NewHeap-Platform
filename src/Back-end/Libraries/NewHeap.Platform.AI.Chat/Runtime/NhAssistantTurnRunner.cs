@@ -22,7 +22,7 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 /// runs the agent through the NewHeap Agent Framework adapter, intercepts governed tool calls,
 /// pauses for approval and resumes with the human decision. It logs identifiers and counts only.
 /// </summary>
-internal sealed class NhAssistantTurnRunner(
+internal sealed partial class NhAssistantTurnRunner(
     IServiceProvider services,
     INhAssistantStore store,
     NhAssistantAgentCatalog agents,
@@ -336,25 +336,101 @@ internal sealed class NhAssistantTurnRunner(
                 return Result(state);
             }
 
-            string? handOver = null;
-            if (UsesRules(agentTurn))
+            // The skill of the run comes from its trigger, the agent's rules or model triage, in
+            // that order; without one the agent works with its own tools.
+            await PrepareSkillsAsync(state, cancellationToken);
+            var options = agentTurn.Options;
+            var briefings = services.GetRequiredService<NhAssistantBriefingService>();
+            var ruleInputs = request.Inputs
+                .Select(input => new NhAssistantRuleInput(input.TriggerId, input.Text, input.PayloadJson, input.CreatedAt))
+                .ToArray();
+            NhAssistantBriefingSection? routing = null;
+            if (agentTurn.SkillId is { } runSkill && options.Skills.TryGetValue(runSkill, out var triggered))
             {
-                handOver = await RunRulesAsync(state, callerContext, request.Inputs, cancellation.Token);
-                if (handOver is null)
+                await EnterSkillAsync(state, triggered, agentTurn.SkillChosenBy ?? NhAssistantSkillChoosers.Trigger, callerContext, record: false, cancellationToken);
+            }
+            else if (UsesRules(agentTurn))
+            {
+                var ruled = await RunRulesAsync(state, callerContext, request.Inputs, options.RuleHandlerType!, cancellation.Token);
+                if (ruled is null)
                 {
                     return Result(state);
                 }
+                if (ruled.UsesSkill)
+                {
+                    if (await RouteAsync(state, callerContext, ruled.SkillId!, NhAssistantSkillChoosers.Rules, cancellationToken))
+                    {
+                        return Result(state);
+                    }
+                    routing = NhAssistantBriefingService.SkillSection(state.Skill!, NhAssistantSkillChoosers.Rules, ruled.HandOverReason);
+                }
+                else
+                {
+                    routing = NhAssistantBriefingService.RulesSection(ruled.HandOverReason!, state.ProposalCount);
+                }
             }
 
-            // The briefing carries what the application and, after a hand-over, the rules found.
-            var briefing = await services.GetRequiredService<NhAssistantBriefingService>().DescribeAsync(
-                effectiveAgent.Id,
-                agentTurn.Subject,
-                NhAssistantBriefingPurposes.Run,
-                request.Inputs.Select(input => new NhAssistantRuleInput(input.TriggerId, input.Text, input.PayloadJson, input.CreatedAt)).ToArray(),
-                handOver,
-                state.ProposalCount,
-                cancellationToken);
+            IReadOnlyList<NhAssistantBriefingSection>? sections = null;
+            if (state.Skill is null
+                && routing is null
+                && !agentTurn.IsRequestTurn
+                && options.TriageProfileName is not null
+                && state.ActiveSkills.Count > 0)
+            {
+                sections = await briefings.CollectAsync(effectiveAgent.Id, agentTurn.Subject, NhAssistantBriefingPurposes.Run, ruleInputs, cancellationToken);
+                var decision = await TriageAsync(state, callerContext, sections, request.Inputs, cancellation.Token);
+                if (decision.NothingToDo)
+                {
+                    // Nothing to do: the run ends completed with the triage's reason as its message.
+                    await EndRoutedRunAsync(state, NhAssistantTurnStatuses.Completed, decision.Reason, null);
+                    return Result(state);
+                }
+                if (decision.Skill is { } chosen)
+                {
+                    if (await RouteAsync(state, callerContext, chosen.Id, NhAssistantSkillChoosers.Triage, cancellationToken))
+                    {
+                        return Result(state);
+                    }
+                    routing = NhAssistantBriefingService.SkillSection(chosen, NhAssistantSkillChoosers.Triage, decision.Reason);
+                }
+            }
+
+            // A skill that works by rules runs them; they end the run, route to a model skill or hand
+            // over to the agent's own model.
+            if (state.Skill is { RuleHandlerType: { } skillRules })
+            {
+                var ruled = await RunRulesAsync(state, callerContext, request.Inputs, skillRules, cancellation.Token);
+                if (ruled is null)
+                {
+                    return Result(state);
+                }
+                if (ruled.UsesSkill
+                    && options.Skills.TryGetValue(ruled.SkillId!, out var next)
+                    && next.RuleHandlerType is null
+                    && next != state.Skill)
+                {
+                    if (await RouteAsync(state, callerContext, next.Id, NhAssistantSkillChoosers.Rules, cancellationToken))
+                    {
+                        return Result(state);
+                    }
+                    routing = NhAssistantBriefingService.SkillSection(next, NhAssistantSkillChoosers.Rules, ruled.HandOverReason);
+                }
+                else
+                {
+                    await EnterSkillAsync(state, null, null, callerContext, record: false, cancellationToken);
+                    routing = NhAssistantBriefingService.RulesSection(ruled.HandOverReason!, state.ProposalCount);
+                }
+            }
+            else if (state.Skill is { } working && routing is null)
+            {
+                routing = NhAssistantBriefingService.SkillSection(working, state.SkillChosenBy ?? NhAssistantSkillChoosers.Trigger, null);
+            }
+
+            state.HandedOver = state.RulesRan;
+            state.RuleTurn = false;
+            // The briefing carries what the application found and why the run works where it does.
+            sections ??= await briefings.CollectAsync(effectiveAgent.Id, agentTurn.Subject, NhAssistantBriefingPurposes.Run, ruleInputs, cancellationToken);
+            var briefing = briefings.Compose(sections, routing);
             var messages = await BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, null, null, speakers, briefing?.Length ?? 0);
             // A run starts from its working memory and what earlier runs did, not from the full history.
             var continuity = await services.GetRequiredService<NhAssistantMemoryService>()
@@ -441,6 +517,12 @@ internal sealed class NhAssistantTurnRunner(
                 DiscardEvents(),
                 agentTurn);
             var interceptor = CreateInterceptor(state);
+            await PrepareSkillsAsync(state, cancellationToken);
+            if (agentTurn.SkillId is { } runSkill && agentTurn.Options.Skills.TryGetValue(runSkill, out var skill))
+            {
+                // The run continues in the skill it waited in.
+                await EnterSkillAsync(state, skill, agentTurn.SkillChosenBy, callerContext, record: false, cancellationToken);
+            }
             await state.EmitAsync(new NhAssistantTurnStartedEvent(approval.TurnId, state.UserMessageId, state.AssistantMessageId));
 
             var invocation = await store.FindToolInvocationAsync(approval.ToolInvocationId, CancellationToken.None)
@@ -896,7 +978,8 @@ internal sealed class NhAssistantTurnRunner(
             state.OutputTokens,
             state.ProposalCount)
         {
-            Kind = state.Kind
+            Kind = state.Kind,
+            SkillId = state.Skill?.Id
         };
     }
 
@@ -916,14 +999,15 @@ internal sealed class NhAssistantTurnRunner(
     /// interceptor as a model's tool call, with approval required for every effect. Returns the
     /// hand-over reason when the model continues, or <see langword="null"/> when the turn ended.
     /// </summary>
-    private async Task<string?> RunRulesAsync(
+    private async Task<NhAssistantRuleResult?> RunRulesAsync(
         NhAssistantTurnState state,
         NhAiInvocationContext callerContext,
         IReadOnlyList<NhAssistantAgentTurnInput> inputs,
+        Type handlerType,
         CancellationToken cancellationToken)
     {
-        var agentTurn = state.AgentTurn!;
         state.RuleTurn = true;
+        state.RulesRan = true;
         var interceptor = CreateInterceptor(state);
         var outcomeStatus = NhAssistantTurnStatuses.Completed;
         string? errorCode = null;
@@ -936,7 +1020,7 @@ internal sealed class NhAssistantTurnRunner(
             using var agentScope = BeginAgentScope(state);
             var tools = await RuleToolsAsync(state, callerContext, interceptor, timeout.Token);
             var context = await CreateRuleContextAsync(state, inputs, interceptor, tools, timeout.Token);
-            var handler = (INhAssistantAgentRuleHandler)services.GetRequiredService(agentTurn.Options.RuleHandlerType!);
+            var handler = (INhAssistantAgentRuleHandler)services.GetRequiredService(handlerType);
             result = await handler.RunAsync(context, timeout.Token);
         }
         catch (OperationCanceledException)
@@ -965,11 +1049,11 @@ internal sealed class NhAssistantTurnRunner(
         }
 
         await interceptor.FlushAsync(CancellationToken.None);
-        if (outcomeStatus == NhAssistantTurnStatuses.Completed && result is { HandsOver: true })
+        if (outcomeStatus == NhAssistantTurnStatuses.Completed && result is { HandsOver: true } or { UsesSkill: true })
         {
+            // The run goes on: in the agent's model or in the skill the rules chose.
             state.RuleTurn = false;
-            state.HandedOver = true;
-            return result.HandOverReason;
+            return result;
         }
 
         if (outcomeStatus == NhAssistantTurnStatuses.Completed && result?.Summary is { } summary)
@@ -1194,6 +1278,8 @@ internal sealed class NhAssistantTurnRunner(
             return;
         }
 
+        // A person's turn starts without a skill; use_skill loads one when the question needs it.
+        await PrepareSkillsAsync(state, cancellationToken);
         var briefing = request.AgentTurn is { } agentTurn
             ? await services.GetRequiredService<NhAssistantBriefingService>().DescribeAsync(
                 effectiveAgent.Id,
@@ -1608,13 +1694,38 @@ internal sealed class NhAssistantTurnRunner(
                     McpRunOptions(state),
                     updates,
                     timeout.Token);
+                var conversation = messages;
+                while (!providerFailed && state.RequestedSkill is { } next)
+                {
+                    // use_skill: the same turn continues in the chosen skill, with the messages so far.
+                    conversation = [.. conversation, .. updates.ToAgentResponse().Messages];
+                    var why = state.RequestedSkillReason;
+                    state.RequestedSkill = null;
+                    state.RequestedSkillReason = null;
+                    await EnterSkillAsync(state, next, NhAssistantSkillChoosers.Model, callerContext, record: true, timeout.Token);
+                    conversation.Add(new ChatMessage(
+                        ChatRole.System,
+                        "You now work in skill '" + next.Id + "': " + next.Description
+                        + (string.IsNullOrWhiteSpace(why) ? string.Empty : " You chose it because: " + NhAssistantContent.Bound(why.ReplaceLineEndings(" "), 500))
+                        + " Continue the task with its tools."));
+                    var switched = await CreateAgentAsync(state, callerContext, interceptor, timeout.Token);
+                    if (switched is null)
+                    {
+                        providerFailed = true;
+                        break;
+                    }
+
+                    updates = [];
+                    providerFailed = await StreamModelAsync(state, switched, conversation, McpRunOptions(state), updates, timeout.Token);
+                    agent = switched;
+                }
                 if (!providerFailed && NeedsClosingAnswer(state))
                 {
                     // The tool loop ended at a limit before the model answered. One tool-free call turns
                     // the gathered results into an answer instead of ending the turn silently.
                     state.ToolsDisabled = true;
                     await SeparateClosingTextAsync(state);
-                    var closing = new List<ChatMessage>(messages);
+                    var closing = new List<ChatMessage>(conversation);
                     closing.AddRange(updates.ToAgentResponse().Messages);
                     closing.Add(new ChatMessage(ChatRole.System, NhAssistantToolHistory.ClosingInstruction));
                     providerFailed = await StreamModelAsync(
@@ -2071,7 +2182,14 @@ internal sealed class NhAssistantTurnRunner(
             Conversation = conversation,
             EffectiveAgent = effectiveAgent,
             AgentTurn = agentTurn,
-            TokenAllowance = agentTurn?.TokenAllowance,
+            Language = language,
+            ClientContext = clientContext,
+            Speakers = speakers,
+            TokensBefore = agentTurn?.RunTokensUsed ?? 0,
+            // A run's ceiling follows the skill it works in; turns outside a run have none.
+            TokenCeiling = agentTurn is { RunId: not null, IsRequestTurn: false, RunTokensUsed: not null }
+                ? agentTurn.Options.MaxTokensPerRun
+                : null,
             ExtraFunctions = agentTurn is null
                 ? []
                 : services.GetRequiredService<NhAssistantMemoryService>().CreateFunctions(conversation.Id, agentTurn.Options),
@@ -2125,7 +2243,9 @@ internal sealed class NhAssistantTurnRunner(
             EffectiveAgent = effectiveAgent,
             AgentTurn = request.AgentTurn,
             // A consultation is one turn of the agent: the run's ceiling bounds it.
-            TokenAllowance = request.AgentTurn.Options.MaxTokensPerRun,
+            TokenCeiling = request.AgentTurn.Options.MaxTokensPerRun,
+            Language = request.Language,
+            Speakers = speakers,
             McpTools = NhAssistantMcpToolSet.Empty,
             ExtraFunctions = services.GetRequiredService<NhAssistantMemoryService>()
                 .CreateFunctions(conversation.Id, request.AgentTurn.Options, readOnly: true),

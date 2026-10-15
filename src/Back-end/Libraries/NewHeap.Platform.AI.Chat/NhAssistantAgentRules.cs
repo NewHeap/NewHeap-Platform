@@ -23,11 +23,19 @@ public sealed class NhAssistantRuleResult
     /// <summary>The longest summary a rule run writes into the thread.</summary>
     public const int MaxSummaryLength = 2_000;
 
-    private NhAssistantRuleResult(string? summary, string? handOverReason)
+    private NhAssistantRuleResult(string? summary, string? handOverReason, string? skillId = null)
     {
         Summary = summary;
         HandOverReason = handOverReason;
+        SkillId = skillId;
     }
+
+    /// <summary>
+    /// The skill the rules route the run to; <see langword="null"/> otherwise.
+    /// </summary>
+    public string? SkillId { get; }
+
+    public bool UsesSkill => SkillId is not null;
 
     /// <summary>
     /// What the rules did, written to the thread as the agent's message and kept as the run summary.
@@ -69,6 +77,26 @@ public sealed class NhAssistantRuleResult
         }
 
         return new NhAssistantRuleResult(null, reason.Trim());
+    }
+
+    /// <summary>
+    /// Continues the same run in one of the agent's skills, with <paramref name="reason"/> as the
+    /// first section of its briefing. Proposals the rules already made stay. A skill that is paused
+    /// lets the run's events wait for it; a stopped skill ends the run.
+    /// </summary>
+    public static NhAssistantRuleResult UseSkill(string skillId, string reason)
+    {
+        if (!NhAiSubjectRef.IsValidType(skillId))
+        {
+            throw new ArgumentException("A skill id is a dash-case identifier.", nameof(skillId));
+        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        if (reason.Length > MaxSummaryLength)
+        {
+            throw new ArgumentException($"A routing reason has at most {MaxSummaryLength} characters.", nameof(reason));
+        }
+
+        return new NhAssistantRuleResult(null, reason.Trim(), skillId);
     }
 }
 

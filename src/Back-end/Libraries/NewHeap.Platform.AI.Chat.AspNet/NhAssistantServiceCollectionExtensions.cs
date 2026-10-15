@@ -198,6 +198,30 @@ internal sealed class NhAssistantStartupValidator(
             cancellationToken);
 
         state.ValidateAgentRuns();
+        foreach (var (agentId, runOptions) in state.AgentRuns)
+        {
+            // A skill's own profile does what the agent's does; triage only needs chat.
+            foreach (var skill in runOptions.Skills.Values.Where(skill => skill.ProfileName is not null))
+            {
+                if (!profiles.TryGet(skill.ProfileName!, out var profile)
+                    || (profile.Capabilities & (NhAiModelCapability.Chat | NhAiModelCapability.FunctionCalling | NhAiModelCapability.Streaming))
+                        != (NhAiModelCapability.Chat | NhAiModelCapability.FunctionCalling | NhAiModelCapability.Streaming))
+                {
+                    throw new InvalidOperationException(
+                        $"Skill '{skill.Id}' of agent '{agentId}' references chat profile '{skill.ProfileName}', which is not registered with chat, function calling and streaming.");
+                }
+            }
+            if (runOptions.TriageProfileName is { } triage
+                && (!profiles.TryGet(triage, out var triageProfile) || (triageProfile.Capabilities & NhAiModelCapability.Chat) == 0))
+            {
+                throw new InvalidOperationException(
+                    $"The triage of agent '{agentId}' references chat profile '{triage}', which is not registered with chat.");
+            }
+            if (runOptions.TriageProfileName is not null && runOptions.Skills.Count == 0)
+            {
+                throw new InvalidOperationException($"Agent '{agentId}' has a triage but no skills.");
+            }
+        }
         if (state.AgentRuns.Count > 0)
         {
             var operations = provider.GetService<NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.NhBackgroundOperationRegistry>();

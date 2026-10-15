@@ -707,6 +707,22 @@ describe('agent-run components', () => {
       expect(headers[2]).not.toContain('run.kind');
       expect(headers[3]).not.toContain('run.kind');
     });
+
+    it('shows the skill a run worked in and who chose it', () => {
+      api.getRuns.and.returnValue(of({
+        items: [{ ...run('run-1', 'rule-then-model'), skill: 'deadline-risk', skillChosenBy: 'triage' as const }, run('run-2', 'model')],
+        total: 2
+      }));
+      const fixture = TestBed.createComponent(NhAssistantRunTimelineComponent);
+      fixture.componentRef.setInput('conversationId', 'conversation-1');
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      const skill = element.querySelector('[data-skill="deadline-risk"]');
+      expect(skill?.textContent).toContain('nh-assistant.agent-runs.run.skill');
+      expect(skill?.textContent).toContain('nh-assistant.agent-runs.run.skill-chosen-by.triage');
+      expect(element.querySelectorAll('[data-skill]').length).toBe(1);
+    });
   });
 
   describe('nh-assistant-agent-consultations', () => {

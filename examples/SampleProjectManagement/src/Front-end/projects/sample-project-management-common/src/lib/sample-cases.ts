@@ -4277,5 +4277,28 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/i18n/en.json"
     ]
+  },
+  {
+    "id": "SPM-286",
+    "title": "One agent acts as a role with skills that triage, rules and the model choose",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantAgentRunBuilder.Skill with NhAssistantSkillBuilder (Description, UseRuleHandler, UseProfile, Instructions, Tools, MaxTokensPerRun, Budget, UseApprovalPolicy) and NhAssistantSkillOptions; Triage with NhAssistantTriageBuilder; Skill(id) on event, scheduled and webhook triggers; NhAssistantRuleResult.UseSkill; the use_skill function; NhAssistantSkillChoosers; skill and skillChosenBy on NhAssistantRunDto; INhAssistantAgentControl.PauseSkillAsync, StopSkillAsync and ResumeSkillAsync with NhAssistantSkillState and NhAssistantAgentState.Skills; POST admin/agents/{id}/skills/{skillId}/state and skills on NhAssistantAdminAgentDto; assistant-skill-stopped, assistant-skill-paused, assistant-skill-not-found, assistant-skill-not-available and assistant-skill-switch-limit; NhAssistantAuditEvent.SkillId; the AgentSkills migrations for SQL Server and PostgreSQL; the skill in NhAssistantRunTimelineComponent and the skills of an agent with their state, usage and actions in NhAssistantAdminAgentsComponent, with NhAssistantAdminApiService.setSkillState",
+    "outcome": "The project planner is one agent with two skills. Each completed task starts its task follow-up skill through the trigger that names it; the skill's rules say how many tasks are left and which comes next, without a model or tokens. The daily deadline check names no skill: a triage call to a small profile reads the project's briefing and the catalog of active skills and sends the check to the deadline-risk skill, whose model works with its own instructions and only the status tool and proposes to put the project on hold for the project's approver. Every run records its skill and who chose it. An operator stops the deadline-risk skill from the maintenance page: the task follow-up keeps working, triage no longer offers the stopped skill, and the next check ends with nothing to do and the triage's reason as the run's summary. In the administration the planner lists its skills with their state, today's usage and budget, and offers pause, stop and resume per skill; the run timeline shows a run's skill and who chose it.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentSkillTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-timeline.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
+    ]
   }
 ] as const;

@@ -532,7 +532,13 @@ public sealed record NhAssistantAdminAgentDto(
     DateTimeOffset? StateChangedAt = null,
     string? StateChangedBy = null,
     string? StateReason = null,
-    int WaitingInputs = 0);
+    int WaitingInputs = 0)
+{
+    /// <summary>
+    /// The agent's skills with their states and today's usage; empty for an agent without skills.
+    /// </summary>
+    public IReadOnlyList<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantSkillState> Skills { get; init; } = [];
+}
 
 /// <summary>
 /// MCP server input. <see cref="Secret"/>: omitted or null keeps the stored secret, an empty

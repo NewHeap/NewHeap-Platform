@@ -221,14 +221,61 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         return await context.Runs.AsNoTracking().SingleOrDefaultAsync(run => run.Id == runId, cancellationToken);
     }
 
-    public async Task<AssistantRun?> FindQueuedRunAsync(Guid conversationId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The oldest queued run of the thread in <paramref name="skillId"/>; a run that the agent's
+    /// rules or triage will route has none.
+    /// </summary>
+    public async Task<AssistantRun?> FindQueuedRunAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken,
+        string? skillId = null)
     {
         await using var context = contextFactory.CreateDbContext();
         return await context.Runs
             .AsNoTracking()
-            .Where(run => run.ConversationId == conversationId && run.Status == NhAssistantRunStatuses.Queued)
+            .Where(run => run.ConversationId == conversationId
+                && run.Status == NhAssistantRunStatuses.Queued
+                && run.SkillId == skillId)
             .OrderBy(run => run.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Records the skill a run works in and who chose it.
+    /// </summary>
+    public async Task SetRunSkillAsync(Guid runId, string skillId, string chosenBy, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await context.Runs
+            .Where(run => run.Id == runId)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(run => run.SkillId, skillId)
+                    .SetProperty(run => run.SkillChosenBy, chosenBy),
+                cancellationToken);
+    }
+
+    /// <summary>
+    /// The tool calls and model tokens of one skill's runs in one scope since <paramref name="since"/>.
+    /// </summary>
+    public async Task<(int ToolCalls, long Tokens)> GetSkillUsageSinceAsync(
+        string agentId,
+        string skillId,
+        string? scopeKey,
+        DateTimeOffset since,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var runsOfSkill = context.Runs
+            .Where(run => run.CreatedAt >= since && run.SkillId == skillId)
+            .Join(
+                context.Threads.Where(thread => thread.AgentId == agentId && (scopeKey == null || thread.ScopeKey == scopeKey)),
+                run => run.ConversationId,
+                thread => thread.ConversationId,
+                (run, _) => run);
+        var toolCalls = await runsOfSkill.SumAsync(run => run.ToolCalls, cancellationToken);
+        var tokens = await runsOfSkill.SumAsync(run => run.InputTokens + run.OutputTokens, cancellationToken);
+        return (toolCalls, tokens);
     }
 
     public async Task<AssistantRun?> FindRunByEventKeyAsync(
@@ -547,12 +594,15 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .CountAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<AssistantRun>> GetActiveRunsAsync(string agentId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<AssistantRun>> GetActiveRunsAsync(
+        string agentId,
+        CancellationToken cancellationToken,
+        string? skillId = null)
     {
         await using var context = contextFactory.CreateDbContext();
         return await context.Runs
             .AsNoTracking()
-            .Where(run => ActiveRunStatuses.Contains(run.Status))
+            .Where(run => ActiveRunStatuses.Contains(run.Status) && (skillId == null || run.SkillId == skillId))
             .Join(
                 context.Threads.Where(thread => thread.AgentId == agentId),
                 run => run.ConversationId,
@@ -765,12 +815,16 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     public async Task<IReadOnlyList<AssistantQueuedInput>> ClaimQueuedInputsAsync(
         Guid conversationId,
         Guid runId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? skillId = null)
     {
         await using var context = contextFactory.CreateDbContext();
         var now = DateTimeOffset.UtcNow;
+        // A run claims the inputs without a skill and those of its own skill.
         await context.QueuedInputs
-            .Where(input => input.ConversationId == conversationId && input.ConsumedAt == null)
+            .Where(input => input.ConversationId == conversationId
+                && input.ConsumedAt == null
+                && (input.SkillId == null || input.SkillId == skillId))
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(input => input.ConsumedByRunId, runId)
@@ -835,31 +889,39 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     public async Task<IReadOnlyList<(AssistantThread Thread, AssistantQueuedInput Input)>> GetUnclaimedWaitingInputsAsync(
         string agentId,
         int maximum,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyCollection<string>? heldSkills = null,
+        string? onlySkill = null)
     {
         await using var context = contextFactory.CreateDbContext();
-        var threads = await context.QueuedInputs
+        var held = (heldSkills ?? []).ToArray();
+        // One group per thread and skill; a queued run of the same skill claims its inputs itself.
+        var groups = await context.QueuedInputs
             .Where(input => input.ConsumedAt == null
+                && (input.SkillId == null || !held.Contains(input.SkillId))
+                && (onlySkill == null || input.SkillId == onlySkill)
                 && !context.Runs.Any(run => run.ConversationId == input.ConversationId
-                    && run.Status == NhAssistantRunStatuses.Queued))
+                    && run.Status == NhAssistantRunStatuses.Queued
+                    && run.SkillId == input.SkillId))
             .Join(
                 context.Threads.Where(thread => thread.AgentId == agentId),
                 input => input.ConversationId,
                 thread => thread.ConversationId,
                 (input, _) => input)
-            .GroupBy(input => input.ConversationId)
-            .Select(group => new { ConversationId = group.Key, Oldest = group.Min(input => input.CreatedAt) })
+            .GroupBy(input => new { input.ConversationId, input.SkillId })
+            .Select(group => new { group.Key.ConversationId, group.Key.SkillId, Oldest = group.Min(input => input.CreatedAt) })
             .OrderBy(item => item.Oldest)
             .Take(maximum)
-            .Select(item => item.ConversationId)
             .ToListAsync(cancellationToken);
-        var result = new List<(AssistantThread Thread, AssistantQueuedInput Input)>(threads.Count);
-        foreach (var conversationId in threads)
+        var result = new List<(AssistantThread Thread, AssistantQueuedInput Input)>(groups.Count);
+        foreach (var group in groups)
         {
+            var conversationId = group.ConversationId;
+            var skillId = group.SkillId;
             var thread = await context.Threads.AsNoTracking()
                 .SingleOrDefaultAsync(item => item.ConversationId == conversationId, cancellationToken);
             var input = await context.QueuedInputs.AsNoTracking()
-                .Where(item => item.ConversationId == conversationId && item.ConsumedAt == null)
+                .Where(item => item.ConversationId == conversationId && item.ConsumedAt == null && item.SkillId == skillId)
                 .OrderBy(item => item.CreatedAt)
                 .ThenBy(item => item.Id)
                 .FirstOrDefaultAsync(cancellationToken);
@@ -898,12 +960,69 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ExecuteUpdateAsync(setters => setters.SetProperty(input => input.ConsumedAt, now), cancellationToken);
     }
 
-    public async Task<int> CountWaitingInputsAsync(Guid conversationId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The waiting inputs of a thread, or with <paramref name="claimableBySkill"/> those a run in
+    /// that skill (or without one, for the empty string) would claim.
+    /// </summary>
+    public async Task<int> CountWaitingInputsAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken,
+        string? claimableBySkill = null)
     {
         await using var context = contextFactory.CreateDbContext();
+        var skill = claimableBySkill is { Length: > 0 } ? claimableBySkill : null;
         return await context.QueuedInputs.CountAsync(
-            input => input.ConversationId == conversationId && input.ConsumedAt == null,
+            input => input.ConversationId == conversationId
+                && input.ConsumedAt == null
+                && (claimableBySkill == null || input.SkillId == null || input.SkillId == skill),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Ends the waiting inputs of one skill of an agent without a run, for a stop of the skill.
+    /// </summary>
+    public async Task<int> DiscardSkillWaitingInputsAsync(string agentId, string skillId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        return await context.QueuedInputs
+            .Where(input => input.ConsumedAt == null
+                && input.SkillId == skillId
+                && context.Threads.Any(thread => thread.ConversationId == input.ConversationId && thread.AgentId == agentId))
+            .ExecuteUpdateAsync(setters => setters.SetProperty(input => input.ConsumedAt, now), cancellationToken);
+    }
+
+    /// <summary>
+    /// Gives the inputs a run claimed back to the thread as waiting inputs of
+    /// <paramref name="skillId"/>, when the run's rules routed it to a paused skill.
+    /// </summary>
+    public async Task ReleaseInputsToSkillAsync(Guid runId, string skillId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await context.QueuedInputs
+            .Where(input => input.ConsumedByRunId == runId)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(input => input.ConsumedByRunId, (Guid?)null)
+                    .SetProperty(input => input.ConsumedAt, (DateTimeOffset?)null)
+                    .SetProperty(input => input.SkillId, skillId),
+                cancellationToken);
+    }
+
+    /// <summary>
+    /// The waiting inputs of one skill of an agent.
+    /// </summary>
+    public async Task<int> CountSkillWaitingInputsAsync(string agentId, string skillId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.QueuedInputs
+            .Where(input => input.ConsumedAt == null && input.SkillId == skillId)
+            .Join(
+                context.Threads.Where(thread => thread.AgentId == agentId),
+                input => input.ConversationId,
+                thread => thread.ConversationId,
+                (input, _) => input.Id)
+            .CountAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<AssistantApproval>> GetThreadApprovalsAsync(

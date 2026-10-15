@@ -9,8 +9,44 @@ It was checked against `main` at `9ab24f20` on 2026-10-15.
 
 ## Status
 
-Decided and ready for implementation; nothing is implemented yet. The choices are part of the
-[decision record](#decision-record) and the [answered questions](#answered-questions).
+Implemented on 2026-10-15, with sample case SPM-286. The choices are part of the
+[decision record](#decision-record) and the [answered questions](#answered-questions). The consumer
+guide `ai-agent-runs` and the sample are authoritative from now on; the implementation deviates from
+the plan where [Implementation notes](#implementation-notes) says so.
+
+## Implementation notes
+
+- **Routing order in practice.** A trigger's skill wins. Without one, the agent's rule handler runs
+  first; `HandOver` means the agent's own model (no triage), `UseSkill` routes. Model triage runs
+  only when neither decided, not for request turns, and only offers active skills. A skill with
+  rules runs them after routing; its `HandOver` continues in the agent's own model and its
+  `UseSkill` may route once more to a model skill.
+- **Triage** is one tool-free call to the triage profile with the briefing, the run's events and the
+  catalog, asking for `{"skill": ..., "reason": ...}`; structured output is requested when the
+  profile declares it. An answer that is not usable leaves the run without a skill. "Nothing to do"
+  ends the run completed with the reason as the agent's message, which becomes the run's summary.
+  A triage profile needs chat only.
+- **`use_skill`** is an internal function next to the working memory. Calling it ends the model loop;
+  the same turn continues with the chosen skill's agent, the messages so far and a system note.
+  After two switches it is no longer offered. MCP tools assigned to the agent stay available in
+  every skill.
+- **Skill states** have the A1 meanings for triggers that name the skill. Rules that route to a
+  paused skill give the run's inputs back as waiting inputs of that skill and end the run cancelled
+  with `assistant-skill-paused`; a stopped skill ends it with `assistant-skill-stopped`. A stopped
+  skill refuses its triggers before their filter runs, so every publish of their event type is
+  answered and audited once.
+- **Inputs and coalescing.** Inputs carry the skill their trigger named; an event joins only a
+  queued run of the same skill, a run claims inputs without a skill and those of its own skill, and
+  a resume of a skill starts runs for its waiting inputs only.
+- **Budgets.** A run its trigger put in a skill checks the skill's daily budget at the start; rules,
+  triage and `use_skill` check it when they choose the skill. Usage per skill is the sum of the runs
+  that ended in it; the administration shows today's usage across scopes, while budgets apply per
+  scope.
+- **Held executions** are not tied to skills: stopping a skill cancels its runs and drops its waiting
+  events but leaves approved proposals to execute.
+- **The sample** introduces the project planner here, with a task follow-up skill by rules and a
+  deadline-risk skill with triage on a daily deadline check. Because a schedule tick runs once per
+  minute, the sample's second check is a manual start by the approver.
 
 ## Problem
 

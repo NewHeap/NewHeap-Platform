@@ -21,7 +21,8 @@ public sealed class SampleAgentMaintenanceService(INhAssistantAgentControl agent
     [
         SampleIntakeReviewerComposition.AgentId,
         SampleStatusAdvisorComposition.AgentId,
-        SampleProjectCloserComposition.AgentId
+        SampleProjectCloserComposition.AgentId,
+        SampleProjectPlannerComposition.AgentId
     ];
 
     public async Task<IReadOnlyList<NhAssistantAgentState>> ListAsync(CancellationToken cancellationToken)
@@ -60,6 +61,32 @@ public sealed class SampleAgentMaintenanceService(INhAssistantAgentControl agent
             SampleAgentStateChange.Pause => await agents.PauseAsync(agentId, actorId, reason, cancellationToken),
             SampleAgentStateChange.Stop => await agents.StopAsync(agentId, actorId, reason, cancellationToken),
             _ => await agents.ResumeAsync(agentId, actorId, reason, cancellationToken)
+        };
+    }
+
+    /// <summary>
+    /// SPM-286: pauses, stops or resumes one skill of one of the sample's agents; its other skills
+    /// keep working. Returns <see langword="null"/> for an agent the page does not offer.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantSkillState>?> ChangeSkillAsync(
+        string agentId,
+        string skillId,
+        SampleAgentStateChange change,
+        Guid operatorId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        if (!AgentIds.Contains(agentId, StringComparer.Ordinal))
+        {
+            return null;
+        }
+
+        var actorId = operatorId.ToString("D");
+        return change switch
+        {
+            SampleAgentStateChange.Pause => await agents.PauseSkillAsync(agentId, skillId, actorId, reason, cancellationToken),
+            SampleAgentStateChange.Stop => await agents.StopSkillAsync(agentId, skillId, actorId, reason, cancellationToken),
+            _ => await agents.ResumeSkillAsync(agentId, skillId, actorId, reason, cancellationToken)
         };
     }
 }

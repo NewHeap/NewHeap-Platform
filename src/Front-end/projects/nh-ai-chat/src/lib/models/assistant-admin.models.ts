@@ -94,6 +94,27 @@ export interface AdminAgent extends AdminAgentInput {
   stateReason: string | null;
   /** Events that wait while the agent is paused. */
   waitingInputs: number;
+  /** The agent's skills with their states and today's usage; missing or empty without skills. */
+  skills?: AgentSkillState[];
+}
+
+/** One skill of an agent with its own state and today's usage across scopes. */
+export interface AgentSkillState {
+  skillId: string;
+  description: string;
+  runState: 'active' | 'paused' | 'stopped';
+  changedAt: string | null;
+  changedBy: string | null;
+  reason: string | null;
+  /** Events that wait for the skill while it is paused. */
+  waitingInputs: number;
+  toolCallsToday: number;
+  tokensToday: number;
+  /** The skill's daily budget per scope, when it has one. */
+  dailyToolCalls: number | null;
+  dailyTokens: number | null;
+  cancelledRuns: number;
+  startedRuns: number;
 }
 
 /** Response of `GET` and `POST admin/agents/{id}/state`. */
@@ -110,6 +131,7 @@ export interface AgentState {
   cancelledRuns: number;
   /** The runs this change started for waiting events by resuming the agent. */
   startedRuns: number;
+  skills?: AgentSkillState[];
 }
 
 /** Body of `POST admin/agents/{id}/state`. `active` resumes the agent. */

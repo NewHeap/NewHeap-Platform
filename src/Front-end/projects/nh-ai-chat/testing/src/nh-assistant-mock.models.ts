@@ -113,6 +113,8 @@ export interface NhAssistantMockMcpServer extends McpServerInput {
 /** A preconfigured agent. Code agents default to the scenario's chat agents. */
 export interface NhAssistantMockAdminAgent extends AdminAgentInput {
   source: 'code' | 'admin';
+  /** The skills of a code agent, by id and description; they start active. */
+  skills?: { skillId: string; description: string }[];
 }
 
 /**

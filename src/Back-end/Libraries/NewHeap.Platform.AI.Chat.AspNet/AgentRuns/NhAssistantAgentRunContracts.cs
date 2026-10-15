@@ -87,6 +87,16 @@ public sealed record NhAssistantRunDto(
     /// the agent's rules handed it over (see <see cref="NhAssistantRunKinds"/>).
     /// </summary>
     public string Kind { get; init; } = NhAssistantRunKinds.Model;
+
+    /// <summary>
+    /// The skill of the agent the run worked in; <see langword="null"/> for the agent's own tools.
+    /// </summary>
+    public string? Skill { get; init; }
+
+    /// <summary>
+    /// Who chose <see cref="Skill"/>: <c>trigger</c>, <c>rules</c>, <c>triage</c> or <c>model</c>.
+    /// </summary>
+    public string? SkillChosenBy { get; init; }
 }
 
 public sealed record NhAssistantRunListDto(
@@ -484,6 +494,7 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantKillSwitchDto))]
 [JsonSerializable(typeof(NhAssistantAgentState))]
 [JsonSerializable(typeof(NhAssistantAgentStateRequest))]
+[JsonSerializable(typeof(NhAssistantSkillState))]
 [JsonSerializable(typeof(NhAssistantStartAgentRequest))]
 [JsonSerializable(typeof(NhAssistantTriggerReceiptDto))]
 [JsonSerializable(typeof(NhAssistantRunDto))]
@@ -540,7 +551,9 @@ internal static class NhAssistantAgentRunDtoMapper
             run.EndedAt,
             run.BackgroundOperationId)
         {
-            Kind = run.Kind
+            Kind = run.Kind,
+            Skill = run.SkillId,
+            SkillChosenBy = run.SkillChosenBy
         };
     }
 

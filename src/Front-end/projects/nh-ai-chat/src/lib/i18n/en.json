@@ -300,6 +300,11 @@
       "assistant-agent-paused": "This agent is paused; the request waits until it resumes.",
       "assistant-agent-stopped": "This agent has been stopped.",
       "assistant-run-token-limit": "This run stopped because it reached its token budget. What it did so far stays; an approver can resume it.",
+      "assistant-skill-stopped": "This skill of the agent has been stopped.",
+      "assistant-skill-paused": "This skill of the agent is paused; its events wait until it resumes.",
+      "assistant-skill-not-found": "The agent has no such skill.",
+      "assistant-skill-not-available": "That skill is not available now.",
+      "assistant-skill-switch-limit": "The run already switched skills as often as allowed.",
       "assistant-agent-not-configured": "This agent cannot run on its own.",
       "assistant-run-not-found": "The run was not found.",
       "assistant-run-not-retryable": "This run cannot be retried.",
@@ -471,6 +476,16 @@
             "active": "Confirm resume",
             "paused": "Confirm pause",
             "stopped": "Confirm stop"
+          }
+        },
+        "skills": {
+          "title": "Skills",
+          "usage": "Today {{calls}} tool calls, {{tokens}} tokens",
+          "budget": "Budget per day: {{calls}} tool calls, {{tokens}} tokens",
+          "explain": {
+            "active": "The skill {{skill}} works again. Every subject with events waiting for it gets one run.",
+            "paused": "The skill {{skill}} starts no new runs: its events wait, triage no longer chooses it and running work finishes. The other skills keep working.",
+            "stopped": "The runs of the skill {{skill}} are cancelled and its waiting events dropped; its triggers are refused. The other skills keep working."
           }
         }
       },
@@ -803,6 +818,13 @@
           "rule-then-model": "Rule, then the model"
         },
         "trigger": "Trigger: {{trigger}}",
+        "skill": "Skill: {{skill}}",
+        "skill-chosen-by": {
+          "trigger": "by its trigger",
+          "rules": "by the rules",
+          "triage": "by triage",
+          "model": "by the model"
+        },
         "tool-calls": "{{count}} tool calls",
         "tokens": "{{count}} tokens",
         "proposals": "{{count}} proposals",

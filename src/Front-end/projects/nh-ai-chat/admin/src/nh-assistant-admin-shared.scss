@@ -249,3 +249,18 @@ textarea.large {
     overflow-wrap: anywhere;
   }
 }
+
+.skills {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.skill {
+  display: grid;
+  gap: 6px;
+  border-left: 3px solid var(--nha-border);
+  padding: 4px 0 4px 12px;
+}

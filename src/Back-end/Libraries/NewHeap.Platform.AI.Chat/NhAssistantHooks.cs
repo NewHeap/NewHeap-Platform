@@ -235,6 +235,11 @@ public sealed record NhAssistantAuditEvent(
     public string? ApprovalPolicyId { get; init; }
 
     /// <summary>
+    /// The skill of the agent a trigger, run or state change concerns.
+    /// </summary>
+    public string? SkillId { get; init; }
+
+    /// <summary>
     /// The consultation the event belongs to: the consultation itself, or a tool call or proposal of
     /// the consulted agent.
     /// </summary>

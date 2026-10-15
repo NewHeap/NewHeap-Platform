@@ -38,8 +38,17 @@ internal sealed class NhAssistantScheduledTriggerJob(
             return [];
         }
 
-        // Read before the subjects query: a tick of an agent that is not active comes back by itself.
-        if (await triggers.RefusalOfAsync(trigger.AgentId, refusePaused: true, cancellationToken) is { } refusal)
+        // Read before the subjects query: a tick of an agent or skill that is not active comes back
+        // by itself.
+        var refusal = await triggers.RefusalOfAsync(trigger.AgentId, refusePaused: true, cancellationToken);
+        if (refusal is null
+            && trigger.SkillId is { } skillId
+            && await triggers.SkillStateAsync(trigger.AgentId, skillId, cancellationToken) is var skillState
+            && skillState != NhAssistantAgentRunStates.Active)
+        {
+            refusal = skillState == NhAssistantAgentRunStates.Paused ? NhAssistantErrorCodes.SkillPaused : NhAssistantErrorCodes.SkillStopped;
+        }
+        if (refusal is not null)
         {
             logger.LogInformation(
                 "Scheduled trigger {TriggerId} skipped its tick ({Reason}).",

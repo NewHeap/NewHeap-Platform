@@ -178,3 +178,26 @@ public sealed class AssistantUserPreference
 
     public DateTimeOffset UpdatedAt { get; set; }
 }
+
+/// <summary>
+/// The run state of one skill of an agent, next to the agent's own state. A skill without a row is
+/// active.
+/// </summary>
+public sealed class AssistantAgentSkillState
+{
+    public string AgentId { get; set; } = string.Empty;
+
+    public string SkillId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// One of <see cref="NhAssistantAgentRunStates.Active"/>, <see cref="NhAssistantAgentRunStates.Paused"/>
+    /// or <see cref="NhAssistantAgentRunStates.Stopped"/>.
+    /// </summary>
+    public string RunState { get; set; } = NhAssistantAgentRunStates.Active;
+
+    public DateTimeOffset? StateChangedAt { get; set; }
+
+    public string? StateChangedBy { get; set; }
+
+    public string? StateReason { get; set; }
+}

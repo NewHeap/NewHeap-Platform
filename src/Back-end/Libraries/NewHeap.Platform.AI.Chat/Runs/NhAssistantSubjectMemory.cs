@@ -460,6 +460,15 @@ internal sealed class NhAssistantMemoryFunction(
 
     public static NhAiToolDescriptor UpdateDescriptor { get; } = Create("update", NhAiToolEffect.IdempotentMutation);
 
+    /// <summary>
+    /// <c>use_skill</c>: continues the turn in another skill of the agent.
+    /// </summary>
+    public static NhAiToolDescriptor UseSkillDescriptor { get; } = Create(
+        "assistant.use-skill",
+        "use_skill",
+        "Continues the work in another skill of the agent.",
+        NhAiToolEffect.ReadOnly);
+
     private readonly JsonElement _schema = JsonDocument.Parse(schema).RootElement.Clone();
 
     public NhAiToolDescriptor Descriptor { get; } = descriptor;
@@ -477,11 +486,15 @@ internal sealed class NhAssistantMemoryFunction(
 
     private static NhAiToolDescriptor Create(string operation, NhAiToolEffect effect)
     {
-        var id = "assistant.memory-" + operation;
+        return Create("assistant.memory-" + operation, "memory_" + operation, "Working memory of the agent about its subject.", effect);
+    }
+
+    private static NhAiToolDescriptor Create(string id, string exportName, string summary, NhAiToolEffect effect)
+    {
         return new NhAiToolDescriptor(
             id,
             1,
-            "Working memory of the agent about its subject.",
+            summary,
             typeof(JsonElement),
             typeof(JsonElement),
             effect,
@@ -489,7 +502,7 @@ internal sealed class NhAssistantMemoryFunction(
             false,
             [])
         {
-            ExportName = "memory_" + operation,
+            ExportName = exportName,
             CatalogId = "assistant",
             ContractHash = NhAiCanonicalJson.ComputeHash(id + "@1:" + effect),
             Approval = NhAiApprovalRequirement.NotRequired,

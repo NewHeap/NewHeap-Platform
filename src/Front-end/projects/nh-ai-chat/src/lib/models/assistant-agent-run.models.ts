@@ -32,6 +32,9 @@ export type AgentGrantSource = 'none' | 'delegated' | 'agent';
  */
 export type AgentRunKind = 'model' | 'rule' | 'rule-then-model';
 
+/** Who chose the skill a run worked in. */
+export type AgentSkillChooser = 'trigger' | 'rules' | 'triage' | 'model';
+
 export interface AgentRun {
   id: string;
   conversationId: string;
@@ -55,6 +58,9 @@ export interface AgentRun {
   backgroundOperationId: string | null;
   /** How the run worked. Missing on older servers, which only ran the model. */
   kind?: AgentRunKind;
+  /** The skill of the agent the run worked in; missing or null for the agent's own tools. */
+  skill?: string | null;
+  skillChosenBy?: AgentSkillChooser | null;
 }
 
 export interface AgentRunList {

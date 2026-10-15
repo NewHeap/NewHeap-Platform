@@ -16,6 +16,7 @@ internal sealed class NhAssistantBriefingService(
     ILogger<NhAssistantBriefingService> logger)
 {
     internal const string RulesTitle = "What the agent's rules found";
+    internal const string SkillTitle = "The skill of this run";
 
     private readonly IReadOnlyDictionary<string, INhAssistantSubjectBriefingProvider> _providers = providers
         .GroupBy(provider => provider.SubjectType, StringComparer.Ordinal)
@@ -35,25 +36,62 @@ internal sealed class NhAssistantBriefingService(
         int ruleProposals,
         CancellationToken cancellationToken)
     {
-        var sections = new List<NhAssistantBriefingSection>();
-        if (rulesReason is not null)
+        var sections = await CollectAsync(agentId, subject, purpose, inputs, cancellationToken);
+        return Compose(sections, rulesReason is null ? null : RulesSection(rulesReason, ruleProposals));
+    }
+
+    /// <summary>
+    /// The sections the subject's provider supplies, without the routing section.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantBriefingSection>> CollectAsync(
+        string agentId,
+        NhAiSubjectInfo subject,
+        string purpose,
+        IReadOnlyList<NhAssistantRuleInput> inputs,
+        CancellationToken cancellationToken)
+    {
+        return _providers.TryGetValue(subject.Subject.Type, out var provider)
+            && await GetAsync(provider, new NhAssistantBriefingContext(agentId, subject, purpose, inputs), cancellationToken) is { } briefing
+                ? briefing.Sections.Where(section => section is not null).ToArray()
+                : [];
+    }
+
+    /// <summary>
+    /// The briefing block of <paramref name="sections"/> with <paramref name="routing"/> first, so
+    /// the bound never cuts it, or <see langword="null"/> when there is nothing to brief.
+    /// </summary>
+    public string? Compose(IReadOnlyList<NhAssistantBriefingSection> sections, NhAssistantBriefingSection? routing)
+    {
+        var all = routing is null ? sections : [routing, .. sections];
+        return all.Count == 0 ? null : Format(all, registration.Limits.MaxBriefingCharacters);
+    }
+
+    /// <summary>
+    /// The section that tells the model why the agent's rules handed the run over.
+    /// </summary>
+    public static NhAssistantBriefingSection RulesSection(string reason, int ruleProposals)
+    {
+        return new NhAssistantBriefingSection(
+            RulesTitle,
+            "The agent's application rules handed this run over to you. Their reason: "
+            + NhAssistantContent.Bound(reason.ReplaceLineEndings(" "), NhAssistantRuleResult.MaxSummaryLength)
+            + "\nThey already recorded " + ruleProposals.ToString(CultureInfo.InvariantCulture)
+            + " proposal(s) in this run; do not propose those again.");
+    }
+
+    /// <summary>
+    /// The section that tells the model which skill it works in and why it was chosen.
+    /// </summary>
+    public static NhAssistantBriefingSection SkillSection(NhAssistantSkillOptions skill, string chosenBy, string? reason)
+    {
+        var text = "You work in skill '" + skill.Id + "': " + skill.Description;
+        if (!string.IsNullOrWhiteSpace(reason))
         {
-            // The rules' reason comes first, so the bound never cuts it.
-            sections.Add(new NhAssistantBriefingSection(
-                RulesTitle,
-                "The agent's application rules handed this run over to you. Their reason: "
-                + NhAssistantContent.Bound(rulesReason.ReplaceLineEndings(" "), NhAssistantRuleResult.MaxSummaryLength)
-                + "\nThey already recorded " + ruleProposals.ToString(CultureInfo.InvariantCulture)
-                + " proposal(s) in this run; do not propose those again."));
+            text += "\nThe " + (chosenBy == NhAssistantSkillChoosers.Triage ? "triage" : "agent's rules")
+                + " chose it because: " + NhAssistantContent.Bound(reason.ReplaceLineEndings(" "), NhAssistantRuleResult.MaxSummaryLength);
         }
 
-        if (_providers.TryGetValue(subject.Subject.Type, out var provider)
-            && await GetAsync(provider, new NhAssistantBriefingContext(agentId, subject, purpose, inputs), cancellationToken) is { } briefing)
-        {
-            sections.AddRange(briefing.Sections.Where(section => section is not null));
-        }
-
-        return sections.Count == 0 ? null : Format(sections, registration.Limits.MaxBriefingCharacters);
+        return new NhAssistantBriefingSection(SkillTitle, text);
     }
 
     private async Task<NhAssistantSubjectBriefing?> GetAsync(
