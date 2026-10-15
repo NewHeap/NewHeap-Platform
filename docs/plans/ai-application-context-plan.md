@@ -10,7 +10,8 @@ later plan; this one prepares its place. It was checked against `feature/ai-agen
 
 ## Status
 
-Part 1 (application map, SPM-289) is implemented; parts 2 and 3 are not yet. The choices are part
+Parts 1 (application map, SPM-289) and 3 (retrieved context, SPM-291) are implemented; part 2
+is not yet. The choices are part
 of the [decision record](#decision-record) and the [answered questions](#answered-questions); the
 implementation deviates from the plan where [Implementation notes](#implementation-notes) says so.
 
@@ -29,6 +30,17 @@ implementation deviates from the plan where [Implementation notes](#implementati
 - **Relations.** The convention reads the filter fields of a resource's `query`. `IgnoreRelation`
   is checked like `Relate`: both fail at startup on an unknown resource or filter field. Without
   published resources, such as with the bridge disabled, nothing is checked.
+- **Retrieved context opt-in.** Like the map, `UseRetrievedContext` is configured with
+  `ConfigureAgentContext` and works in chat turns, consultations and runs. A request reads only
+  the agent's sources through the new `NhAiContextRequest.SourceIds`.
+- **Agent context.** A headless run retrieves with the context that
+  `INhAiAgentInvocationContextFactory` creates: the agent actor, its accountable person, the run
+  and the subject, plus the subject's division through the ASP.NET integration, as the gate gives
+  the agent's tool calls.
+- **Trace and audit.** The trace sink writes the content-free trace to the log with the invocation
+  id; the context hash also reaches tool audit events as `RetrievedContextHash`. The formatter's
+  data gains `effectiveAt` per item.
+- **Resumed turns.** A turn that continues after an approval decision does not retrieve again.
 
 ## Problem
 

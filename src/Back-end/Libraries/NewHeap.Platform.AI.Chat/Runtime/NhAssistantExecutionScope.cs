@@ -77,7 +77,8 @@ internal sealed class NhAssistantTurnScope
                 ContextFactCount = Prompt.FactCount,
                 PageEntityCount = Prompt.PageEntityCount,
                 HadPageContext = Prompt.HadPageContext,
-                ApplicationMapHash = Prompt.ApplicationMapHash
+                ApplicationMapHash = Prompt.ApplicationMapHash,
+                RetrievedContextHash = Prompt.RetrievedContextHash
             };
     }
 

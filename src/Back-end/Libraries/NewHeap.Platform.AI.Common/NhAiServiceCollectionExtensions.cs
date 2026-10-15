@@ -38,6 +38,7 @@ public static class NhAiServiceCollectionExtensions
             services.TryAddScoped<INhAiContextConflictResolver, NhAiDeterministicContextConflictResolver>();
             services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAiContextTraceSink, NhAiNoOpContextTraceSink>());
             services.TryAddSingleton<INhAiContextFormatter, NhAiJsonContextFormatter>();
+            services.TryAddScoped<INhAiAgentInvocationContextFactory, NhAiAgentInvocationContextFactory>();
             services.TryAddSingleton<INhAiPromptAssembler, NhAiRoleSeparatedPromptAssembler>();
             services.TryAddScoped<INhAiIngestionPipeline, NhAiIngestionPipeline>();
             services.TryAddScoped<INhAiIngestionAuthorizationPolicy, NhAiDenyIngestionAuthorizationPolicy>();

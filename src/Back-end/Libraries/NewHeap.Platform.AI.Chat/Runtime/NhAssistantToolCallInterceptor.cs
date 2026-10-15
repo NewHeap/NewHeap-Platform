@@ -54,6 +54,11 @@ internal sealed class NhAssistantTurnState
     public IReadOnlyList<NhAiApplicationMapEntry>? ApplicationMapEntries { get; set; }
 
     /// <summary>
+    /// The retrieved context of the turn and its hash, retrieved once before the first model call.
+    /// </summary>
+    public (string Block, string Hash)? RetrievedContext { get; set; }
+
+    /// <summary>
     /// Assistant functions of an agent turn next to its tools, such as the working memory.
     /// </summary>
     public IReadOnlyList<AIFunction> ExtraFunctions { get; set; } = [];

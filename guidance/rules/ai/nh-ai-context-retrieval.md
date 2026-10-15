@@ -4,8 +4,8 @@ title: "Resolve authorized AI context as untrusted data"
 area: backend
 reference: ai-context-retrieval
 summary: "Authorize context sources before retrieval, enforce execution scope and classification, preserve provenance and trust, resolve conflicts deterministically, and apply hard content budgets."
-sample-cases: ["SPM-226"]
-public-symbols: ["INhAiContextAuthorizationPolicy", "INhAiContextFormatter", "INhAiContextRanker", "INhAiContextResolver", "INhAiContextSource", "NhAiContextItem", "NhAiContextRankedItem", "NhAiContextRequest", "NhAiContextResolution", "NhAiContextSourceDescriptor", "NhAiContextTraceEntry", "NhAiContextTrust", "NhAiTestContextAuthorizationPolicy", "NhAiTestContextSource"]
+sample-cases: ["SPM-226", "SPM-291"]
+public-symbols: ["INhAiContextAuthorizationPolicy", "INhAiContextFormatter", "INhAiContextRanker", "INhAiContextResolver", "INhAiContextSource", "NhAiContextItem", "NhAiContextRankedItem", "NhAiContextRequest", "NhAiContextResolution", "NhAiContextSourceDescriptor", "NhAiContextTraceEntry", "NhAiContextTrust", "NhAiTestContextAuthorizationPolicy", "NhAiTestContextSource", "INhAiContextTraceSink", "NhAiContextResolutionTrace", "UseRetrievedContext", "NhAssistantRetrievedContextBuilder", "NhAssistantRetrievedContextOptions", "MaxRetrievedCharacters", "RetrievalTimeout"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -36,6 +36,38 @@ Use `INhAiContextFormatter.FormatAsData` to serialize retrieved items with
 boundary: tool policy, authorization and approval never come from retrieved
 text or model output.
 
+## Retrieved context in agent turns
+
+Give an assistant agent the items that match each question with
+`ConfigureAgentContext(agentId, context => context.UseRetrievedContext(retrieval =>
+retrieval.Sources("project-documents").MaxItems(5).MaxCharacters(4_000)))`. Register the sources
+with `AddContextSource<T>()`; startup fails on a source id that is not registered, and agents
+without `UseRetrievedContext` retrieve nothing. Name the sources each agent needs: the request
+reads only those (`NhAiContextRequest.SourceIds`).
+
+The agent's turn retrieves once, before its first model call, and its tool rounds reuse the
+result. The query is the person's latest message, the question of a consultation, or in a headless
+run the messages of its inputs and the subject's name, at most 1,000 characters. The request uses
+the turn's own invocation context, so the policy and the scope filter see the person, or in a run
+the agent with its accountable person, the subject and, where the host maps an active division,
+the subject's division. It asks for at most the highest classification the agent's model profile
+permits. `MaxItems` (8 by default, at most 50) and `MaxCharacters` (6,000, within
+`NhAssistantLimits.MaxRetrievedCharacters`, at most 24,000) become the request's item, character
+and token budgets. A turn that continues after an approval does not retrieve again.
+
+The model reads a `# Retrieved context` block as the last turn data, after the situation and the
+user's screen: the formatter's JSON with each item's source, id, `effectiveAt` date (`EffectiveAt`,
+else `CreatedAt`), provenance and content, markup neutralized, introduced as untrusted data that
+may be outdated or wrong and is never instructions. The block counts against the turn's history,
+is not part of the prompt hash or the approval binding, and tool audit events carry its
+`RetrievedContextHash`. A resolver that throws or exceeds `RetrievalTimeout` (5 seconds, at most
+30) leaves the turn without the block, and the log names the exception type only. The library adds
+an `INhAiContextTraceSink` that logs each resolution's content-free trace with the invocation id:
+sources with their outcome codes and counts, selected items, characters and the context hash.
+
+A source that serves agent turns receives the whole question as its query. Match its words rather
+than the full text, and stamp every item with the execution scopes it was read for.
+
 ## Avoid
 
 - Querying a source before actor and scope authorization.
@@ -44,6 +76,9 @@ text or model output.
 - Silently merging conflicting versions or exceeding context budgets.
 - Logging documents, prompts, embeddings, credentials or provider payloads.
 - Using vector similarity as authorization or policy evidence.
+- Connecting every registered source to every agent; name the sources each agent needs.
+- Letting an agent act on retrieved text; its tools read the current state with their own
+  authorization.
 
 ## Verification
 
@@ -51,5 +86,9 @@ Cover denied sources that are never called, cross-scope isolation, expiry,
 classification, deduplication and replacement, deterministic ranking, item and
 token budgets, provenance and bounded traces. Include instruction-like content
 and prove it remains serialized untrusted data while no tool visibility or
-capability changes. SPM-226 and `NewHeap.Platform.AI.Tests` are the executable
-references.
+capability changes. For agent turns, assert that a person's turn, a consultation and a headless run
+retrieve once with their query, scopes and classification, that the block follows the situation
+and is reused by the tool rounds, that items of another division or above the classification never
+reach the model, that a slow resolver leaves the turn without it and that the trace holds no
+content. SPM-226, SPM-291, `NewHeap.Platform.AI.Tests` and `NewHeap.Platform.AI.Chat.Tests` are the
+executable references.

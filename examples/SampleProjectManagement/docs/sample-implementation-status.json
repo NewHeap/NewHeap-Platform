@@ -285,7 +285,8 @@
     "SPM-286",
     "SPM-287",
     "SPM-288",
-    "SPM-289"
+    "SPM-289",
+    "SPM-291"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2319,6 +2320,17 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantApplicationMap.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeApplicationMapTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApplicationMapTests.cs"
+    ],
+    "SPM-291": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiContextSource.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRetrievedContextTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiContextResolverTests.cs"
     ]
   }
 }

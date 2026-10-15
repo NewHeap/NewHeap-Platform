@@ -20,6 +20,7 @@ internal sealed class NhAiContextResolver(
         var trace = new List<NhAiContextTraceEntry>();
         var candidates = new List<NhAiContextItem>();
         foreach (var source in sources
+            .Where(item => request.SourceIds is null || request.SourceIds.Contains(item.Descriptor.Id, StringComparer.Ordinal))
             .OrderBy(item => item.Descriptor.Id, StringComparer.Ordinal)
             .Take(MaxSources))
         {

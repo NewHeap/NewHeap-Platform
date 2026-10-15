@@ -135,7 +135,7 @@ public sealed class AssistantAgentHandOffTests(AssistantDatabaseFixture database
         Assert.DoesNotContain("handoff_project-planner_project", offered);
         var handOffs = host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.AgentHandedOff).ToArray();
         Assert.Equal(
-            [NhAssistantHandOffOutcomes.Accepted, NhAssistantHandOffOutcomes.Deduplicated],
+            new string?[] { NhAssistantHandOffOutcomes.Accepted, NhAssistantHandOffOutcomes.Deduplicated },
             handOffs.Select(evt => evt.ResultCode).ToArray());
         Assert.Equal(handOffs[0].RunId, handOffs[1].RunId);
         var target = (await Runs(host).FindRunAsync(handOffs[0].RunId!.Value, CancellationToken.None))!;

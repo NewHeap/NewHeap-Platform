@@ -69,6 +69,7 @@ public static class NhAiAspNetServiceCollectionExtensions
                 provider.GetRequiredService<NhAiAgentInvocationGate>());
             services.AddScoped<INhAiAgentToolAuthorizer>(provider =>
                 provider.GetRequiredService<NhAiAgentInvocationGate>());
+            services.Replace(ServiceDescriptor.Scoped<INhAiAgentInvocationContextFactory, NhAiAspNetAgentInvocationContextFactory>());
             services.TryAddScoped<INhAiPrincipalFactory, NhAiUserManagerPrincipalFactory>();
             services.TryAddScoped<
                 INhAiAuthenticatedInvocationContextResolver,

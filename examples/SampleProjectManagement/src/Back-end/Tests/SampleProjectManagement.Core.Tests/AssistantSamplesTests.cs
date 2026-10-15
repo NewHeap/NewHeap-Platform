@@ -434,13 +434,24 @@ public sealed record SampleServerSentEvent(string Name, JsonElement Data);
 /// </summary>
 public sealed class FakeProjects : IProjectAiReadService, IProjectAiMutationService, IProjectAiContextService
 {
+    /// <summary>
+    /// The project descriptions per division that context searches return; empty unless a test sets them.
+    /// </summary>
+    public ConcurrentDictionary<Guid, IReadOnlyList<ProjectAiContextDocument>> ContextDocuments { get; } = new();
+
+    public ConcurrentQueue<(Guid DivisionId, string Query)> ContextSearches { get; } = new();
+
     public Task<IReadOnlyList<ProjectAiContextDocument>> SearchContextForAiAsync(
         Guid divisionId,
         string query,
         int limit,
         CancellationToken cancellationToken = default)
     {
-        return Task.FromResult<IReadOnlyList<ProjectAiContextDocument>>([]);
+        ContextSearches.Enqueue((divisionId, query));
+        IReadOnlyList<ProjectAiContextDocument> documents = ContextDocuments.TryGetValue(divisionId, out var stored)
+            ? stored.Take(limit).ToArray()
+            : [];
+        return Task.FromResult(documents);
     }
 
     private readonly ConcurrentDictionary<Guid, ProjectStatus> _statuses = new();

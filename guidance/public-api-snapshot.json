@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.67",
   "backEnd": {
-    "hash": "f09e31b4bb862b8a5d4dd2d09d11fc79bf90733b24d3e30df78207448f9a26f3",
-    "declarationCount": 7679,
+    "hash": "46d62749419d58c082b6fcfc8859bc7ed8349154b8f9d75d948a7b82a3608be8",
+    "declarationCount": 7702,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -84,6 +84,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
         "declaration": "public async ValueTask<NhAiGrantSource> AuthorizeAsync( NhAiToolDescriptor descriptor, NhAiAgentInvocationScope scope, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
+        "declaration": "public NhAiInvocationContext Create(NhAiAgentInvocationScope scope) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
@@ -3743,11 +3747,51 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public NhAssistantRetrievedContextOptions? RetrievedContext { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public sealed class NhAssistantRetrievedContextOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public IReadOnlyList<string> Sources => _sources;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public int MaxItems { get; internal set; } = 8;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public int MaxCharacters { get; internal set; } = 6_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public sealed class NhAssistantRetrievedContextBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public NhAssistantRetrievedContextBuilder Sources(params string[] sourceIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public NhAssistantRetrievedContextBuilder MaxItems(int maxItems) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public NhAssistantRetrievedContextBuilder MaxCharacters(int maxCharacters) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
         "declaration": "public sealed class NhAssistantAgentContextBuilder {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
         "declaration": "public NhAssistantAgentContextBuilder UseApplicationMap() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentContext.cs",
+        "declaration": "public NhAssistantAgentContextBuilder UseRetrievedContext(Action<NhAssistantRetrievedContextBuilder> configure) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentDefinition.cs",
@@ -7851,6 +7895,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? RetrievedContextHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public Guid? RunId { get; init; }"
       },
       {
@@ -8076,6 +8124,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public TimeSpan ApplicationMapTimeout { get; set; } = TimeSpan.FromSeconds(2);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public int MaxRetrievedCharacters { get; set; } = 6_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public TimeSpan RetrievalTimeout { get; set; } = TimeSpan.FromSeconds(5);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
@@ -9407,7 +9463,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
-        "declaration": "public string ModelInstructions => string.Join( \"\\n\\n\", new[] { Instructions, ApplicationMap, TurnData }.Where(part => part.Length > 0));"
+        "declaration": "public string RetrievedContext { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public string? RetrievedContextHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public string ModelInstructions => string.Join( \"\\n\\n\", new[] { Instructions, ApplicationMap, TurnData, RetrievedContext }.Where(part => part.Length > 0));"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
@@ -10230,6 +10294,18 @@
         "declaration": "public void Dispose() {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+        "declaration": "public async Task<(string Block, string Hash)?> RetrieveAsync( NhAssistantAgentDefinition agent, NhAiInvocationContext context, string? query, string language, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+        "declaration": "public static string? QueryOf(IEnumerable<string?> parts) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+        "declaration": "public ValueTask WriteAsync(NhAiContextResolutionTrace trace, CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public required NhAssistantTurnScope Scope { get; init; }"
       },
@@ -10264,6 +10340,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public IReadOnlyList<NhAiApplicationMapEntry>? ApplicationMapEntries { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public (string Block, string Hash)? RetrievedContext { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -11231,6 +11311,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public interface INhAiAgentInvocationContextFactory {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public NhAiInvocationContext Create(NhAiAgentInvocationScope scope) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
         "declaration": "public static class NhAiAgentInvocationScopes {"
       },
       {
@@ -11480,6 +11568,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
         "declaration": "public DateTimeOffset Now { get; init; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public IReadOnlyList<string>? SourceIds { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
@@ -34395,7 +34487,8 @@
       "NhAssistantReplayRequest",
       "NhAssistantReplayDto",
       "NhAssistantReplayStatuses",
-      "NhAssistantEvaluationLimits"
+      "NhAssistantEvaluationLimits",
+      "INhAiAgentInvocationContextFactory"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
@@ -34531,7 +34624,14 @@
       "NhAiContextTraceEntry",
       "NhAiContextTrust",
       "NhAiTestContextAuthorizationPolicy",
-      "NhAiTestContextSource"
+      "NhAiTestContextSource",
+      "INhAiContextTraceSink",
+      "NhAiContextResolutionTrace",
+      "UseRetrievedContext",
+      "NhAssistantRetrievedContextBuilder",
+      "NhAssistantRetrievedContextOptions",
+      "MaxRetrievedCharacters",
+      "RetrievalTimeout"
     ],
     "nh-ai-durable-runs": [
       "INhAiBackgroundOperationRunAdapter",

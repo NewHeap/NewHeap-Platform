@@ -823,6 +823,41 @@ public sealed record NhAiAgentInvocationScope(
 }
 
 /// <summary>
+/// Creates the invocation context of what an agent reads for itself outside a tool call, such as
+/// retrieved context: the agent actor, its accountable party, the run and the subject's execution
+/// scopes. The ASP.NET integration adds the subject's division as the host maps the active division.
+/// </summary>
+public interface INhAiAgentInvocationContextFactory
+{
+    NhAiInvocationContext Create(NhAiAgentInvocationScope scope);
+}
+
+/// <summary>
+/// The invocation context of an agent's own reads with the subject as its only execution scope.
+/// </summary>
+internal sealed class NhAiAgentInvocationContextFactory : INhAiAgentInvocationContextFactory
+{
+    public NhAiInvocationContext Create(NhAiAgentInvocationScope scope)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        return new NhAiInvocationContext(scope.AgentActorId, scope.Purpose, new Dictionary<string, string>(StringComparer.Ordinal))
+        {
+            ActorKind = NhAiActorKind.Agent,
+            AgentId = scope.AgentId,
+            AccountableOwnerId = scope.AccountableOwnerId,
+            TenantId = scope.Subject.TenantId,
+            RunId = scope.RunId,
+            CorrelationId = scope.CorrelationId ?? scope.RunId,
+            ExecutionScopes = [new NhAiExecutionScopeEntry(scope.Subject.Subject.Type, scope.Subject.Subject.Id, scope.Subject.DisplayName)],
+            ModelProfileName = scope.ModelProfileName,
+            PromptVersion = scope.PromptVersion,
+            PromptHash = scope.PromptHash,
+            Deadline = scope.Deadline
+        };
+    }
+}
+
+/// <summary>
 /// The ambient <see cref="NhAiAgentInvocationScope"/> of the current asynchronous flow.
 /// </summary>
 public static class NhAiAgentInvocationScopes

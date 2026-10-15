@@ -169,6 +169,16 @@ against the turn's history, and a provider that throws or takes longer than `Bri
 leaves the turn without one. Briefings reach the model provider: include only what every reader of
 the thread may see and what the agent's data classification allows.
 
+Retrieved context complements the briefing: the briefing is what the application decides matters
+about the subject, retrieved context is what matches the current inputs. An agent with
+`UseRetrievedContext` (see `nh-ai-context-retrieval`) retrieves in a headless run with the
+messages of its inputs and the subject's name, as the agent: context sources and their policy see
+the agent actor, its accountable person, the run and the subject's execution scope, and with the
+ASP.NET integration the subject's division where the host maps an active division, exactly as the
+agent's tool calls do. `INhAiAgentInvocationContextFactory` creates that context; replace it only
+to add execution scopes of your own. The same rule as for briefings applies: what a run retrieves
+may reach every reader of the thread through the model's text.
+
 Bound the cost of one run with `MaxTokensPerRun(tokens)`: input and output tokens of every model
 call of the run, checked before each next model call. A run at its ceiling fails with failure
 class `budget` and `assistant-run-token-limit`, keeps its proposals and gets a new allowance when
@@ -526,8 +536,9 @@ live agent once, notifies nobody and executes nothing while its own triggers wor
 evaluation pairs runs of the same event, counts agreed, live-only and variant-only proposals with the
 live decisions and holds no message or argument; and that a replay fires the recorded inputs oldest
 first, records the runs it replays, stops at the variant's budget and refuses a live agent and a
-second replay, on both providers. SPM-268 to SPM-280 and SPM-282 to SPM-288 are the executable
-references.
+second replay, on both providers. Assert that a headless run with retrieved context retrieves once
+with its inputs and subject, as the agent with the subject's scopes, on both providers. SPM-268 to
+SPM-280, SPM-282 to SPM-288 and SPM-291 are the executable references.
 
 ## Optional source evidence
 

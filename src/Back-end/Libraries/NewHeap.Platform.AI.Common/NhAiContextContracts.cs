@@ -25,6 +25,11 @@ public sealed record NhAiContextRequest(
     int MaxEstimatedTokens)
 {
     public DateTimeOffset Now { get; init; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// The sources to read, by descriptor id; <see langword="null"/> reads every registered source.
+    /// </summary>
+    public IReadOnlyList<string>? SourceIds { get; init; }
 }
 
 public sealed record NhAiContextItem(
@@ -248,6 +253,7 @@ internal sealed class NhAiJsonContextFormatter : INhAiContextFormatter
                 {
                     id = item.Item.Id,
                     source = item.Item.SourceId,
+                    effectiveAt = item.Item.EffectiveAt ?? item.Item.CreatedAt,
                     trust = item.Item.Trust.ToString(),
                     classification = item.Item.Classification.ToString(),
                     provenance = item.Item.ProvenanceReferences,

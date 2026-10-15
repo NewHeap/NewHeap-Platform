@@ -134,6 +134,28 @@ unlike `ConfigureAgent`.
 | `NhAssistantAuditEvent` gains `ApplicationMapHash`. | None; audit sinks may record it. |
 | Startup fails when a gateway `Relate` or `IgnoreRelation` names an unknown resource or filter field. | None until you add explicit relations. |
 
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.AspNet.Common and NewHeap.Platform.AI.Chat: retrieved context in agent turns
+
+Registered context sources reach agent turns:
+`ConfigureAgentContext(agentId, context => context.UseRetrievedContext(retrieval =>
+retrieval.Sources("project-documents")))`. Every turn of the agent retrieves once through
+`INhAiContextResolver`, with its authorization, scope filter, ranking and budgets: a person's turn
+with their latest message, a consultation with its question and a headless run with its inputs and
+the subject's name, as the agent with the subject's scopes and division. The `# Retrieved context`
+block is the last turn data, untrusted and outside the prompt hash, bounded by `MaxItems` (8) and
+`MaxCharacters` (6,000, within `NhAssistantLimits.MaxRetrievedCharacters`, at most 24,000); a
+resolver that fails or exceeds `RetrievalTimeout` (5 seconds) leaves the turn without it. Tool
+audit events carry `RetrievedContextHash`, and a library trace sink logs the content-free
+resolution trace. `NhAiContextRequest.SourceIds` limits a request to named sources, the data
+format gains each item's `effectiveAt`, and `INhAiAgentInvocationContextFactory` creates the
+context of an agent's own reads.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantAuditEvent` gains `RetrievedContextHash`. | None; audit sinks may record it. |
+| `INhAiContextFormatter`'s JSON gains `effectiveAt` per item. | None, unless you parse the formatted data. |
+| Startup fails when `UseRetrievedContext` names a source that is not registered. | Register the source with `AddContextSource<T>()`. |
+
 ## @newheap/platform-ai-chat: agent state in the administration
 
 The agent list shows each agent's state, "Active", "Paused", "Stopped" or "Off in configuration"

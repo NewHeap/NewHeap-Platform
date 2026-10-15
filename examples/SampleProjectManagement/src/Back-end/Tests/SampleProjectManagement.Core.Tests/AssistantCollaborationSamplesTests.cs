@@ -109,6 +109,11 @@ public class AssistantCollaborationSampleHost : AssistantSampleHost
 
     public Guid OutsiderId { get; } = Guid.NewGuid();
 
+    /// <summary>
+    /// The division of the outsider, next to the host's own division.
+    /// </summary>
+    public Guid OtherDivisionId { get; } = Guid.NewGuid();
+
     public override async ValueTask InitializeAsync()
     {
         await base.InitializeAsync();
@@ -116,13 +121,12 @@ public class AssistantCollaborationSampleHost : AssistantSampleHost
         var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
         await dbContext.Database.MigrateAsync();
 
-        var otherDivision = Guid.NewGuid();
         dbContext.Set<NhDivision>().AddRange(
             new NhDivision { Id = DivisionId, Name = "Assistant sample division", TimeZoneId = "Europe/Amsterdam" },
-            new NhDivision { Id = otherDivision, Name = "Other division", TimeZoneId = "Europe/Amsterdam" });
+            new NhDivision { Id = OtherDivisionId, Name = "Other division", TimeZoneId = "Europe/Amsterdam" });
         AddUser(dbContext, OwnerId, "owner@sample.localhost", DivisionId);
         AddUser(dbContext, ColleagueId, "colleague@sample.localhost", DivisionId);
-        AddUser(dbContext, OutsiderId, "outsider@sample.localhost", otherDivision);
+        AddUser(dbContext, OutsiderId, "outsider@sample.localhost", OtherDivisionId);
         await dbContext.SaveChangesAsync();
     }
 

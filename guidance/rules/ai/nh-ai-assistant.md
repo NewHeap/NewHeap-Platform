@@ -4,7 +4,7 @@ title: "Add a governed assistant with durable conversations and in-chat approval
 area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289"]
+sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291"]
 public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
@@ -194,6 +194,15 @@ hash or the approval binding; tool audit events carry its `ApplicationMapHash`. 
 application context for the domain's terms, processes and priorities; the map lists the
 entities and stays current with every release and permission.
 
+## Retrieved context
+
+Give an agent the documents that match each question with `UseRetrievedContext` on the same
+`ConfigureAgentContext` call, for example `context.UseApplicationMap().UseRetrievedContext(
+retrieval => retrieval.Sources("project-documents"))`. The `nh-ai-context-retrieval` rule covers
+the sources, their authorization, the query and the bounds. The `# Retrieved context` block is the
+last turn data, after the situation and the user's screen; like the map it is data outside the
+prompt hash and the approval binding, and tool audit events carry its `RetrievedContextHash`.
+
 ## Sharing, live updates and notifications
 
 A conversation keeps exactly one owner. The owner shares it with `POST
@@ -360,3 +369,7 @@ turn and calls outside a tool call while leaving out output of the running turn 
 reporting cut text as omitted bytes (SPM-266).
 
 For the application map, assert that an agent with `UseApplicationMap` reads the entries of the tools its turn offers between the instructions and the situation, in order and within the bound, that a changed map changes its hash but not the prompt, that agents without it and a failing source leave the turn without it, and that the sample's assistant queries the tasks of a project with one gateway call (SPM-289).
+
+For retrieved context, assert that the sample's assistant reads the project descriptions of the
+person's active division that match the question, after the situation, never those of another
+division, and that audit and logs carry its hash but not its content (SPM-291).

@@ -74,12 +74,23 @@ internal sealed record NhAssistantComposedPrompt(
     public string? ApplicationMapHash { get; init; }
 
     /// <summary>
-    /// The text the model receives: the hashed instructions followed by the application map and the
-    /// turn data blocks.
+    /// The "Retrieved context" block of an agent that retrieves: the last turn data block, because it
+    /// changes with every question. Not part of <see cref="PromptHash"/> or the approval binding.
+    /// </summary>
+    public string RetrievedContext { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The context hash of <see cref="RetrievedContext"/>, for the turn's telemetry.
+    /// </summary>
+    public string? RetrievedContextHash { get; init; }
+
+    /// <summary>
+    /// The text the model receives: the hashed instructions followed by the application map, the
+    /// turn data blocks and the retrieved context.
     /// </summary>
     public string ModelInstructions => string.Join(
         "\n\n",
-        new[] { Instructions, ApplicationMap, TurnData }.Where(part => part.Length > 0));
+        new[] { Instructions, ApplicationMap, TurnData, RetrievedContext }.Where(part => part.Length > 0));
 }
 
 /// <summary>

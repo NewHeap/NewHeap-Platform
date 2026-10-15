@@ -193,6 +193,17 @@ public sealed class NhAssistantLimits
     /// </summary>
     public TimeSpan ApplicationMapTimeout { get; set; } = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    /// The most characters of retrieved context a turn reads, at most 24,000; an agent's own bound
+    /// is cut to it.
+    /// </summary>
+    public int MaxRetrievedCharacters { get; set; } = 6_000;
+
+    /// <summary>
+    /// How long retrieval may take; a slower resolver leaves the turn without retrieved context.
+    /// </summary>
+    public TimeSpan RetrievalTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
     internal void Validate()
     {
         if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
@@ -225,7 +236,10 @@ public sealed class NhAssistantLimits
             || BriefingTimeout > TimeSpan.FromMinutes(1)
             || MaxApplicationMapCharacters is < 500 or > 16_000
             || ApplicationMapTimeout <= TimeSpan.Zero
-            || ApplicationMapTimeout > TimeSpan.FromSeconds(30))
+            || ApplicationMapTimeout > TimeSpan.FromSeconds(30)
+            || MaxRetrievedCharacters is < 500 or > 24_000
+            || RetrievalTimeout <= TimeSpan.Zero
+            || RetrievalTimeout > TimeSpan.FromSeconds(30))
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }

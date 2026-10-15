@@ -202,6 +202,17 @@ internal sealed class NhAssistantStartupValidator(
             cancellationToken);
 
         state.ValidateAgentRuns();
+        var sourceIds = provider.GetServices<INhAiContextSource>()
+            .Select(source => source.Descriptor.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var context in state.AgentContexts.Values.Where(context => context.RetrievedContext is not null))
+        {
+            foreach (var sourceId in context.RetrievedContext!.Sources.Where(sourceId => !sourceIds.Contains(sourceId)))
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{context.AgentId}' retrieves context from source '{sourceId}', which is not registered with AddContextSource.");
+            }
+        }
         foreach (var (agentId, runOptions) in state.AgentRuns)
         {
             // A skill's own profile does what the agent's does; triage only needs chat.

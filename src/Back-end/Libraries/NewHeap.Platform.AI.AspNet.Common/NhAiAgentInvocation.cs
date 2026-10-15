@@ -239,6 +239,15 @@ internal sealed class NhAiAgentInvocationGate(
         NhAiGrantSource grantSource,
         IReadOnlySet<string> capabilities)
     {
+        return CreateContext(state, scope, grantSource, capabilities);
+    }
+
+    internal static NhAiInvocationContext CreateContext(
+        NhAiAspNetRegistrationState state,
+        NhAiAgentInvocationScope scope,
+        NhAiGrantSource grantSource,
+        IReadOnlySet<string> capabilities)
+    {
         var scopeValues = new Dictionary<string, string>(StringComparer.Ordinal);
         var executionScopes = new List<NhAiExecutionScopeEntry>
         {
@@ -273,6 +282,20 @@ internal sealed class NhAiAgentInvocationGate(
             ApprovalId = scope.ApprovalId,
             GrantSource = grantSource
         };
+    }
+}
+
+/// <summary>
+/// The invocation context of an agent's own reads, with the subject and, when the host maps the
+/// active division, the subject's division, exactly as the agent's tool calls get it.
+/// </summary>
+internal sealed class NhAiAspNetAgentInvocationContextFactory(NhAiAspNetRegistrationState state)
+    : INhAiAgentInvocationContextFactory
+{
+    public NhAiInvocationContext Create(NhAiAgentInvocationScope scope)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        return NhAiAgentInvocationGate.CreateContext(state, scope, NhAiGrantSource.None, new HashSet<string>(StringComparer.Ordinal));
     }
 }
 

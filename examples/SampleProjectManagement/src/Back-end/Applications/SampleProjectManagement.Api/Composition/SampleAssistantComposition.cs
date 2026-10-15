@@ -142,7 +142,15 @@ public static class SampleAssistantComposition
                 RequiredPolicy: AccessPolicy))
             // SPM-289: every turn starts with the map of the data the person may read, generated from
             // the gateway's resources, so the model queries tasks of a project without searching first.
-            .ConfigureAgentContext(AgentId, context => context.UseApplicationMap())
+            // SPM-291: every turn also carries the project descriptions of the active division that
+            // match the question, read once through the project-documents source with its
+            // authorization and division scope.
+            .ConfigureAgentContext(AgentId, context => context
+                .UseApplicationMap()
+                .UseRetrievedContext(retrieval => retrieval
+                    .Sources(ProjectAiContextSource.SourceId)
+                    .MaxItems(5)
+                    .MaxCharacters(4_000)))
             .AddBusinessAuditSink<SampleAssistantAuditSink>()
             // Owners share conversations through an invitation link or invite colleagues of
             // their division directly; colleagues continue with their own permissions.

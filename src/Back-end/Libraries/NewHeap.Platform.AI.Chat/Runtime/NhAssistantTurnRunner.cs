@@ -431,7 +431,19 @@ internal sealed partial class NhAssistantTurnRunner(
             // The briefing carries what the application found and why the run works where it does.
             sections ??= await briefings.CollectAsync(effectiveAgent.Id, agentTurn.Subject, NhAssistantBriefingPurposes.Run, ruleInputs, cancellationToken);
             var briefing = briefings.Compose(sections, routing);
-            var messages = await BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, null, null, speakers, briefing?.Length ?? 0);
+            state.RetrievedContext = await RetrieveAsync(
+                state,
+                AgentContextOf(state),
+                NhAssistantRetrievalService.QueryOf(request.Inputs.Select(input => input.Text).Append(agentTurn.Subject.DisplayName)),
+                cancellationToken);
+            var messages = await BuildHistoryAsync(
+                conversation.Id,
+                history,
+                effectiveAgent.Definition,
+                null,
+                null,
+                speakers,
+                (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0));
             // A run starts from its working memory and what earlier runs did, not from the full history.
             var continuity = await services.GetRequiredService<NhAssistantMemoryService>()
                 .DescribeContinuityAsync(agentTurn.Thread, agentTurn.Options, agentTurn.RunId, cancellationToken);
@@ -745,7 +757,15 @@ internal sealed partial class NhAssistantTurnRunner(
             null,
             0,
             cancellationToken);
-        var messages = await BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, request.Question, null, speakers, briefing?.Length ?? 0);
+        state.RetrievedContext = await RetrieveAsync(state, AgentContextOf(state), request.Question, cancellationToken);
+        var messages = await BuildHistoryAsync(
+            conversation.Id,
+            history,
+            effectiveAgent.Definition,
+            request.Question,
+            null,
+            speakers,
+            (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0));
         var continuity = await services.GetRequiredService<NhAssistantMemoryService>()
             .DescribeContinuityAsync(agentTurn.Thread, agentTurn.Options, null, cancellationToken, consultation.Viewer);
         if (continuity is not null)
@@ -914,10 +934,37 @@ internal sealed partial class NhAssistantTurnRunner(
     }
 
     /// <summary>
+    /// Retrieves the turn's context once, for an agent that retrieves.
+    /// </summary>
+    private Task<(string Block, string Hash)?> RetrieveAsync(
+        NhAssistantTurnState state,
+        NhAiInvocationContext context,
+        string? query,
+        CancellationToken cancellationToken)
+    {
+        return services.GetRequiredService<NhAssistantRetrievalService>()
+            .RetrieveAsync(state.Scope.Agent, context, query, state.Language, cancellationToken);
+    }
+
+    /// <summary>
+    /// The invocation context of what the agent reads for itself in a run or consultation: the
+    /// agent, its accountable party and the subject with its division as the host maps it.
+    /// </summary>
+    private NhAiInvocationContext AgentContextOf(NhAssistantTurnState state)
+    {
+        return services.GetRequiredService<INhAiAgentInvocationContextFactory>().Create(CreateAgentScope(state)!);
+    }
+
+    /// <summary>
     /// Makes the agent side of a thread turn ambient, so tool discovery and the invocation gate
     /// apply the agent's grants and its initiator's rights. Returns <see langword="null"/> in a chat.
     /// </summary>
     private static IDisposable? BeginAgentScope(NhAssistantTurnState state)
+    {
+        return CreateAgentScope(state) is { } scope ? NhAiAgentInvocationScopes.Begin(scope) : null;
+    }
+
+    private static NhAiAgentInvocationScope? CreateAgentScope(NhAssistantTurnState state)
     {
         if (state.AgentTurn is not { } agentTurn)
         {
@@ -928,7 +975,7 @@ internal sealed partial class NhAssistantTurnRunner(
         // grants never apply there, and a consultation can only propose changes.
         var consultation = state.Scope.Consultation;
         var delegatedOnly = consultation is not null || agentTurn.DelegatedOnly;
-        return NhAiAgentInvocationScopes.Begin(new NhAiAgentInvocationScope(
+        return new NhAiAgentInvocationScope(
             agentTurn.Thread.AgentId,
             state.Scope.Agent.ActorId,
             state.Scope.Agent.Version,
@@ -952,7 +999,7 @@ internal sealed partial class NhAssistantTurnRunner(
             PromptVersion = state.Scope.PromptVersion,
             PromptHash = state.Scope.PromptHash,
             FencingToken = agentTurn.FencingToken
-        });
+        };
     }
 
     /// <summary>
@@ -1299,7 +1346,15 @@ internal sealed partial class NhAssistantTurnRunner(
                 0,
                 cancellationToken)
             : null;
-        var messages = await BuildHistoryAsync(conversation.Id, history, agent, text, null, speakers, briefing?.Length ?? 0);
+        state.RetrievedContext = await RetrieveAsync(state, request.CallerContext, text, cancellationToken);
+        var messages = await BuildHistoryAsync(
+            conversation.Id,
+            history,
+            agent,
+            text,
+            null,
+            speakers,
+            (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0));
         if (briefing is not null)
         {
             messages.Insert(0, new ChatMessage(ChatRole.System, briefing));
@@ -2009,6 +2064,9 @@ internal sealed partial class NhAssistantTurnRunner(
         var agentServices = new NhAssistantContentSafeServiceProvider(services);
         var selectors = await SelectToolsAsync(agent, context, state.Scope.Consultation, cancellationToken);
         var prompt = await WithApplicationMapAsync(state, state.Scope.Prompt!, context, selectors, cancellationToken);
+        prompt = state.RetrievedContext is { } retrieved
+            ? prompt with { RetrievedContext = retrieved.Block, RetrievedContextHash = retrieved.Hash }
+            : prompt;
         state.Scope.Prompt = prompt;
         if (prompt.Instructions.Length > NhAssistantPromptComposer.MaxInstructionsLength)
         {

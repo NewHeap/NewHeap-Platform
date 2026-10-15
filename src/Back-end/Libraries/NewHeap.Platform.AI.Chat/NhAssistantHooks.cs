@@ -237,6 +237,11 @@ public sealed record NhAssistantAuditEvent(
     public string? ApplicationMapHash { get; init; }
 
     /// <summary>
+    /// Context hash of the retrieved context the turn read, never its items.
+    /// </summary>
+    public string? RetrievedContextHash { get; init; }
+
+    /// <summary>
     /// The agent run the event belongs to, for events of an agent thread.
     /// </summary>
     public Guid? RunId { get; init; }

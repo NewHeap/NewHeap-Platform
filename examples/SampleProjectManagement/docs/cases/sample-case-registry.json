@@ -4419,6 +4419,25 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeApplicationMapTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApplicationMapTests.cs"
       ]
+    },
+    {
+      "id": "SPM-291",
+      "categoryId": "18",
+      "title": "The project assistant answers with the project descriptions that match the question",
+      "surface": "`NhAssistantAgentContextBuilder.UseRetrievedContext` with `NhAssistantRetrievedContextBuilder` (`Sources`, `MaxItems`, `MaxCharacters`) and `NhAssistantRetrievedContextOptions`; `NhAiContextRequest.SourceIds`; `NhAssistantLimits.MaxRetrievedCharacters` and `RetrievalTimeout`; `INhAiAgentInvocationContextFactory`; the `# Retrieved context` block with each item's `effectiveAt`; the library's `INhAiContextTraceSink`; `NhAssistantAuditEvent.RetrievedContextHash`",
+      "outcome": "The project assistant reads the sample's project-documents source in every turn. Asked what the roadmap says, the turn retrieves once with the question, in the person's active division: the source matches the question's words in project keys, names and descriptions, regardless of case, and never reads another division. The descriptions follow the situation as untrusted data with their source and date, the tool round reuses them, and audit and logs carry the context hash and a content-free trace, never the descriptions or the question.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiContextSource.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRetrievedContextTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiContextResolverTests.cs"
+      ]
     }
   ]
 }

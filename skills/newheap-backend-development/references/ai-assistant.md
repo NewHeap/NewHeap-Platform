@@ -196,6 +196,15 @@ hash or the approval binding; tool audit events carry its `ApplicationMapHash`. 
 application context for the domain's terms, processes and priorities; the map lists the
 entities and stays current with every release and permission.
 
+## Retrieved context
+
+Give an agent the documents that match each question with `UseRetrievedContext` on the same
+`ConfigureAgentContext` call, for example `context.UseApplicationMap().UseRetrievedContext(
+retrieval => retrieval.Sources("project-documents"))`. The `nh-ai-context-retrieval` rule covers
+the sources, their authorization, the query and the bounds. The `# Retrieved context` block is the
+last turn data, after the situation and the user's screen; like the map it is data outside the
+prompt hash and the approval binding, and tool audit events carry its `RetrievedContextHash`.
+
 ## Sharing, live updates and notifications
 
 A conversation keeps exactly one owner. The owner shares it with `POST
@@ -362,6 +371,10 @@ turn and calls outside a tool call while leaving out output of the running turn 
 reporting cut text as omitted bytes (SPM-266).
 
 For the application map, assert that an agent with `UseApplicationMap` reads the entries of the tools its turn offers between the instructions and the situation, in order and within the bound, that a changed map changes its hash but not the prompt, that agents without it and a failing source leave the turn without it, and that the sample's assistant queries the tasks of a project with one gateway call (SPM-289).
+
+For retrieved context, assert that the sample's assistant reads the project descriptions of the
+person's active division that match the question, after the situation, never those of another
+division, and that audit and logs carry its hash but not its content (SPM-291).
 
 ## Optional source evidence
 

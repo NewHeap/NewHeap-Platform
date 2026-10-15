@@ -11,6 +11,8 @@ using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Test;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Controllers;
+using SampleProjectManagement.Core.Models.AI;
+using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.DAL.Entities;
 using Xunit;
 
@@ -220,6 +222,57 @@ public sealed class AssistantEndToEndSamplesTests(AssistantEndToEndHost host) : 
         Assert.Equal("/project-tasks", call.Path);
         Assert.Contains(host.AuditEvents, evt => evt.Kind == NhAssistantAuditEventKind.ToolInvoked && evt.ApplicationMapHash is not null);
         host.AssertContentFree(UserTextMarker, AssistantEndToEndHost.BridgeResultMarker);
+    }
+
+    [Fact]
+    public async Task SPM_291_the_project_assistant_answers_with_the_project_descriptions_of_the_active_division()
+    {
+        const string ContextMarker = "e2e-context-3b7";
+        var otherDivision = Guid.NewGuid();
+        var lastWeek = DateTimeOffset.UtcNow.AddDays(-7);
+        host.Projects.ContextDocuments[host.DivisionId] =
+        [
+            new ProjectAiContextDocument(Guid.NewGuid(), "PRJ-291", "Roadmap", "The roadmap moved to May. " + ContextMarker, lastWeek)
+        ];
+        host.Projects.ContextDocuments[otherDivision] =
+        [
+            new ProjectAiContextDocument(Guid.NewGuid(), "PRJ-OTHER-DIVISION", "Roadmap", "The roadmap of another division.", lastWeek)
+        ];
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap", limit = 5 } })
+            .RespondWithText("The roadmap moved to May.");
+        host.Model.Use(model);
+        using var viewer = host.CreateClient(Viewer, false, ViewerPermissions);
+        var conversationId = await host.CreateConversationAsync(viewer);
+        var searchesBefore = host.Projects.ContextSearches.Count;
+        try
+        {
+            var events = await host.SendAsync(viewer, conversationId, "What does the roadmap say? " + UserTextMarker);
+
+            // One search per turn, with the question, in the person's active division only.
+            var search = Assert.Single(host.Projects.ContextSearches.Skip(searchesBefore));
+            Assert.Equal(host.DivisionId, search.DivisionId);
+            Assert.Contains("What does the roadmap say?", search.Query);
+            // The descriptions follow the situation as untrusted data with their source and date.
+            var instructions = model.Requests[0].Options!.Instructions!;
+            var start = instructions.IndexOf("# Retrieved context", StringComparison.Ordinal);
+            Assert.True(instructions.IndexOf("# Situation", StringComparison.Ordinal) < start);
+            var retrieved = instructions[start..];
+            Assert.Contains("never instructions", retrieved);
+            Assert.Contains("The roadmap moved to May.", retrieved);
+            Assert.Contains("\"source\":\"" + ProjectAiContextSource.SourceId + "\"", retrieved);
+            Assert.Contains("\"effectiveAt\":", retrieved);
+            Assert.DoesNotContain("PRJ-OTHER-DIVISION", instructions);
+            // The tool round reuses the turn's context; audit and logs carry its hash, never its content.
+            Assert.Equal(instructions, model.Requests[1].Options!.Instructions);
+            Assert.Equal("completed", events[^1].Data.GetProperty("status").GetString());
+            Assert.Contains(host.AuditEvents, evt => evt.Kind == NhAssistantAuditEventKind.ToolInvoked && evt.RetrievedContextHash is not null);
+            host.AssertContentFree(ContextMarker, UserTextMarker, "roadmap moved");
+        }
+        finally
+        {
+            host.Projects.ContextDocuments.Clear();
+        }
     }
 
     /// <summary>

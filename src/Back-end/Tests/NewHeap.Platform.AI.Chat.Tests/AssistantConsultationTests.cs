@@ -126,6 +126,45 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_consultation_retrieves_once_with_its_question_as_the_consulted_agent(AssistantTestProvider provider)
+    {
+        var target = new NhAiScriptedChatClient().RespondWithText("A note says the project is on track.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "What do the notes say?" } }, "call-1")
+            .RespondWithText("The notes say the project is on track.");
+        await using var host = await CreateHostAsync(
+            provider,
+            target,
+            asker,
+            configure: services =>
+            {
+                services.AddSingleton<TestDocuments>();
+                services.AddNewHeapPlatformAI(ai => ai
+                    .AddContextSource<TestDocumentSource>()
+                    .UseContextAuthorizationPolicy<TestDocumentPolicy>());
+            },
+            configureAssistant: assistant => assistant
+                .ConfigureAgentContext(TargetAgentId, context => context.UseRetrievedContext(retrieval => retrieval.Sources("test-documents"))));
+        await StartThreadAsync(host, ProjectId);
+        var conversation = await host.CreateConversationAsync(Member, AskingAgentId);
+
+        await host.SendAsync(conversation.Id, "What do the notes of the project say?", Member);
+
+        // Only the consulted agent retrieves, with the consultation's question, as the agent on the subject.
+        var request = Assert.Single(host.Services.GetRequiredService<TestDocuments>().Requests);
+        Assert.Equal("What do the notes say?", request.Query);
+        Assert.Equal(NhAiActorKind.Agent, request.InvocationContext.ActorKind);
+        Assert.Contains(request.InvocationContext.ExecutionScopes, scope => scope.Type == "project" && scope.Id == ProjectId);
+        var consultation = target.Requests.Single();
+        var system = string.Join('\n', consultation.Messages.Where(message => message.Role == ChatRole.System).Select(message => message.Text))
+            + consultation.Options?.Instructions;
+        Assert.Contains("<retrieved-context>", system);
+        Assert.Contains("A note about this project.", system);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Someone_without_a_role_on_the_subject_is_refused_as_for_an_unknown_subject(AssistantTestProvider provider)
     {
         var target = new NhAiScriptedChatClient();
@@ -420,7 +459,8 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
         NhAiScriptedChatClient asker,
         Action<NhAssistantLimits>? limits = null,
         Action<NhAssistantConsultationBuilder>? consult = null,
-        Action<IServiceCollection>? configure = null)
+        Action<IServiceCollection>? configure = null,
+        Action<NhAssistantBuilder>? configureAssistant = null)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -444,29 +484,33 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
                     .WithBudget(maxInputTokens: 8_192, maxOutputTokens: 1_024, maxCalls: 16)));
                 configure?.Invoke(services);
             },
-            assistantBuilder: assistant => assistant
-                .AddAgent(AssistantTestData.Agent(AskingAgentId) with
-                {
-                    ProfileName = "asking-chat",
-                    ToolSelectors = ["assistant.consult.*", "assistant.request.*"]
-                })
-                .AddSubjectType<TestSubjectResolver>()
-                .ConfigureAgent(TargetAgentId, agent => agent
-                    .Grant("projects.*")
-                    .Memory<TestMemory>(schemaVersion: 1)
-                    .AllowConsultation("project", builder =>
+            assistantBuilder: assistant =>
+            {
+                assistant
+                    .AddAgent(AssistantTestData.Agent(AskingAgentId) with
                     {
-                        builder
-                            .Description("Knows the intake review of a project.")
-                            .AllowRequests();
-                        consult?.Invoke(builder);
-                    }))
-                .AddTrigger<SubjectTouched>("subject-touched", trigger => trigger
-                    .StartAgent(TargetAgentId)
-                    .Subject(evt => new NhAiSubjectRef("project", evt.SubjectId))
-                    .Message(evt => "The project changed.")
-                    .Dedupe(evt => evt.EventId.ToString("N"))
-                    .OnBusy(NhAssistantTriggerConflict.Queue)));
+                        ProfileName = "asking-chat",
+                        ToolSelectors = ["assistant.consult.*", "assistant.request.*"]
+                    })
+                    .AddSubjectType<TestSubjectResolver>()
+                    .ConfigureAgent(TargetAgentId, agent => agent
+                        .Grant("projects.*")
+                        .Memory<TestMemory>(schemaVersion: 1)
+                        .AllowConsultation("project", builder =>
+                        {
+                            builder
+                                .Description("Knows the intake review of a project.")
+                                .AllowRequests();
+                            consult?.Invoke(builder);
+                        }))
+                    .AddTrigger<SubjectTouched>("subject-touched", trigger => trigger
+                        .StartAgent(TargetAgentId)
+                        .Subject(evt => new NhAiSubjectRef("project", evt.SubjectId))
+                        .Message(evt => "The project changed.")
+                        .Dedupe(evt => evt.EventId.ToString("N"))
+                        .OnBusy(NhAssistantTriggerConflict.Queue));
+                configureAssistant?.Invoke(assistant);
+            });
     }
 
     /// <summary>

@@ -396,15 +396,22 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
         CancellationToken cancellationToken = default)
     {
         var boundedLimit = Math.Clamp(limit, 1, 25);
-        var normalizedQuery = query.Trim();
-        return await _repository.GetAll()
+        // An assistant turn retrieves with the person's whole question, so a project matches when
+        // its key, name or description contains any of the question's words.
+        var terms = ContextSearchTerms(query);
+        var projects = _repository.GetAll()
             .AsNoTracking()
-            .Where(project => project.DivisionId == divisionId)
-            .Where(project => normalizedQuery == string.Empty
-                || project.Key.Contains(normalizedQuery)
-                || project.Name.Contains(normalizedQuery)
+            .Where(project => project.DivisionId == divisionId);
+        if (terms.Length > 0)
+        {
+            projects = projects.Where(project => terms.Any(term =>
+                project.Key.ToLower().Contains(term)
+                || project.Name.ToLower().Contains(term)
                 || (project.Description != null
-                    && project.Description.Contains(normalizedQuery)))
+                    && project.Description.ToLower().Contains(term))));
+        }
+
+        return await projects
             .OrderByDescending(project => project.LastModifiedDateTime)
             .ThenBy(project => project.Id)
             .Take(boundedLimit)
@@ -415,6 +422,20 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
                 project.Description,
                 project.LastModifiedDateTime))
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The distinct lower-case words of at least three letters or digits in a context query, at most eight.
+    /// </summary>
+    private static string[] ContextSearchTerms(string query)
+    {
+        return query
+            .Split(query.Where(character => !char.IsLetterOrDigit(character)).Distinct().ToArray(), StringSplitOptions.RemoveEmptyEntries)
+            .Where(term => term.Length >= 3)
+            .Select(term => term.ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .Take(8)
+            .ToArray();
     }
 
     public async Task<TaskResult<ProjectAiStatusChangeReport>> ChangeStatusForAiAsync(

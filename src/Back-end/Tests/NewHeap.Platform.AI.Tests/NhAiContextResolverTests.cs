@@ -122,6 +122,33 @@ public sealed class NhAiContextResolverTests
         Assert.Contains(injection, blocks[2].Content, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task A_request_reads_only_the_sources_it_names_and_the_data_carries_the_effective_date()
+    {
+        var named = NhAiTestContextSource.FromItems(
+            "project-documents",
+            CreateItem("named", "project-1", DivisionA, "roadmap of the named source"));
+        var other = NhAiTestContextSource.FromItems(
+            "other-documents",
+            CreateItem("other", "project-2", DivisionA, "roadmap of another source") with { SourceId = "other-documents" });
+        var services = new ServiceCollection();
+        services.AddSingleton<INhAiContextSource>(named);
+        services.AddSingleton<INhAiContextSource>(other);
+        services.AddSingleton<INhAiContextAuthorizationPolicy>(NhAiTestContextAuthorizationPolicy.Allowed());
+        services.AddNewHeapPlatformAI();
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var resolution = await scope.ServiceProvider
+            .GetRequiredService<INhAiContextResolver>()
+            .ResolveAsync(CreateRequest(DivisionA) with { SourceIds = ["project-documents"] });
+        var formatted = scope.ServiceProvider.GetRequiredService<INhAiContextFormatter>().FormatAsData(resolution);
+
+        Assert.Equal("named", Assert.Single(resolution.Items).Item.Id);
+        Assert.Equal(0, other.Calls);
+        Assert.Contains("\"effectiveAt\":\"2026-08-25T11:55:00+00:00\"", formatted, StringComparison.Ordinal);
+    }
+
     private static INhAiContextResolver CreateResolver(NhAiTestContextSource source)
     {
         var services = new ServiceCollection();

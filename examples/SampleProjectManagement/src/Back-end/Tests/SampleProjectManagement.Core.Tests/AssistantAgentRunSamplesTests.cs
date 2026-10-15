@@ -1117,6 +1117,28 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_project_documents_source_matches_the_words_of_a_question_in_the_active_division_only()
+    {
+        // SPM-291: the project assistant retrieves with the person's whole question, so the sample's
+        // source matches any of its words, regardless of case, and never reads another division.
+        var roadmap = await host.CreateProjectAsync("ROADMAP", ownerId: host.OwnerId);
+        var budget = await host.CreateProjectAsync("BUDGET", ownerId: host.OwnerId);
+        var elsewhere = await host.CreateProjectAsync("ROADMAP", ownerId: host.OutsiderId, divisionId: host.OtherDivisionId);
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var documents = await scope.ServiceProvider.GetRequiredService<ProjectService>().SearchContextForAiAsync(
+            host.DivisionId,
+            "What does the Roadmap say about May?",
+            25,
+            TestContext.Current.CancellationToken);
+
+        var found = documents.Select(document => document.ProjectId).ToArray();
+        Assert.Contains(roadmap, found);
+        Assert.DoesNotContain(budget, found);
+        Assert.DoesNotContain(elsewhere, found);
+    }
+
+    [Fact]
     public async Task An_approver_explains_a_rejection_that_the_next_run_and_the_administrators_report_see()
     {
         // SPM-279
@@ -1694,14 +1716,15 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         string key,
         Guid ownerId,
         ProjectStatus status = ProjectStatus.Draft,
-        DateTimeOffset? deadline = null)
+        DateTimeOffset? deadline = null,
+        Guid? divisionId = null)
     {
         await using var scope = Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
         var project = new Project
         {
             Id = Guid.NewGuid(),
-            DivisionId = DivisionId,
+            DivisionId = divisionId ?? DivisionId,
             OwnerUserId = ownerId,
             Key = key + "-" + Guid.NewGuid().ToString("N")[..6].ToUpperInvariant(),
             Name = key + " project",
