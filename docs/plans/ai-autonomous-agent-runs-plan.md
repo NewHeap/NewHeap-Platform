@@ -59,6 +59,8 @@ fixed rules without a model, and proposals that are never recorded twice, came w
 since the [proposal reads plan](ai-proposal-reads-plan.md), with SPM-282 extended. Triggers published
 inside the application's transaction fire after the commit since the
 [trigger transactions plan](ai-trigger-transactions-plan.md), with SPM-281 extended.
+Agents that act as broad roles (control, briefings, skills, hand-offs and evaluation) follow the
+[agent roles roadmap](ai-agent-roles-plan.md).
 
 ## Goals
 
