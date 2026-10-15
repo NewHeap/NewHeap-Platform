@@ -61,6 +61,15 @@ export interface AgentRun {
   /** The skill of the agent the run worked in; missing or null for the agent's own tools. */
   skill?: string | null;
   skillChosenBy?: AgentSkillChooser | null;
+  /** The agent that handed the run's work off; missing or null for a run no agent asked for. */
+  requestedByAgentId?: string | null;
+  /**
+   * The thread of the run that handed the work off, only in a thread's run list and only when the
+   * reader may open it.
+   */
+  requestedByConversationId?: string | null;
+  /** How many hand-offs led to the run; 0 or missing for a run no agent asked for. */
+  handOffDepth?: number;
 }
 
 export interface AgentRunList {

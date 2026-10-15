@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, and let one agent act as a role with skills.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, and let agents hand work to each other.
 
 ## Preferred approach
 
@@ -187,6 +187,23 @@ most twice; people's turns start without a skill and load one the same way. Paus
 a single skill with `PauseSkillAsync`, `StopSkillAsync` and `ResumeSkillAsync`; the agent's state
 covers all its skills. Start with a trigger per skill and add triage only for events rules cannot
 route; keep separate roles separate agents.
+
+Let separate agents hand work to each other with hand-offs, never with events published to start
+another agent. Both sides opt in: the target lists its sources with `AcceptHandOffs(subjectType,
+handOff => handOff.From(sourceAgentId).Description(...).NotifySource().Limits(maxPerSubjectPerDay))`,
+and a source's model gets the generated tool `assistant.handoff.{agentId}.{subjectType}` only when
+its tool selectors (or its skill's) select it; a source's rules call
+`NhAssistantRuleContext.HandOffAsync(targetAgentId, subject, message, payload)`. Only runs hand off;
+people never get the tool. The target works in its own thread under its own grants, approval
+policies, budget and audit, as trigger `agent-handoff` without an initiator, and reads the message as
+data from the named agent. A paused target lets the work wait; a stopped target, an agent that does
+not list the source, a subject outside the source's scope key, a shadow run handing to a live agent,
+a chain beyond `MaxHandOffDepth` (2) or back to an agent in it, and the daily limit per source,
+target and subject refuse with their codes. One run hands the same subject to the same agent once.
+With `NotifySource()` the source gets an `agent-handoff-ended` input, in the skill it handed off
+from, whose payload is an `NhAssistantHandOffResult` with the outcome and proposal count, and the
+target's summary only when both worked on the same subject and the target read nothing restricted
+with its own grant.
 
 Give an agent continuity with `Memory<TMemory>(schemaVersion)`: the model reads and
 changes a working memory per thread through the internal `memory_get` and
@@ -372,8 +389,11 @@ profile and instructions that answer questions about the rules' proposals from t
 - Letting a consulted agent use its own grants, execute changes or update its memory, or
   writing the asking person's question and the answer into the consulted agent's thread.
 - Building agent-to-agent calls by hand (for example a tool that calls
-  `INhAssistantAgentTriggers` and waits) instead of `AllowConsultation`, or raising
-  `MaxConsultationDepth` without a reason.
+  `INhAssistantAgentTriggers` and waits, or an event published only to start another agent)
+  instead of `AllowConsultation` or `AcceptHandOffs`, or raising `MaxConsultationDepth` or
+  `MaxHandOffDepth` without a reason.
+- Accepting hand-offs from every agent, letting a source wait inside its run for the target, or
+  passing a target's results to the source beyond its summary.
 - Requiring a reason before a person may reject a proposal, or counting `not-now` and
   `already-done` feedback as the agent's mistakes.
 - Feeding one subject's feedback text into runs on other subjects or scope keys, or
@@ -480,8 +500,12 @@ it, that rules and triage route to a skill with only its tools, instructions and
 triage can end a run with nothing to do, that `use_skill` switches at most twice and that a person's
 turn starts without a skill, that a stopped skill refuses its triggers before any lambda while the
 other skills work, that a paused skill lets its events wait and resumes one run per thread, and that
-a skill's budget stops its runs, on both providers. SPM-268 to SPM-280 and SPM-282 to SPM-286 are
-the executable references.
+a skill's budget stops its runs, on both providers. Assert that a rule and a model hand a subject
+to a target that works in its own thread without an initiator under its own policy, that one run
+hands the same subject off once, that a paused target lets the work wait and runs it after the
+resume, that every refusal carries its code, that the chain and daily limits hold, and that the
+source's follow-up carries the target's summary only for the same subject without restricted reads,
+on both providers. SPM-268 to SPM-280 and SPM-282 to SPM-287 are the executable references.
 
 ## Executable evidence
 
@@ -575,3 +599,8 @@ the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
+- SPM-287 — An agent hands work to another agent and hears how it ended
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs)

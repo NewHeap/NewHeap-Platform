@@ -193,6 +193,11 @@ internal sealed record NhAssistantAgentTurnResult(
     /// </summary>
     public string? SkillId { get; init; }
 
+    /// <summary>
+    /// The turn read results with the agent's own grant that some readers of the thread may not see.
+    /// </summary>
+    public bool UsedRestrictedResults { get; init; }
+
     public const string Busy = "busy";
 
     public static NhAssistantAgentTurnResult BusyResult { get; } = new(Busy, NhAssistantErrorCodes.ConversationBusy, null, null, 0, 0, 0, 0);

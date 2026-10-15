@@ -369,6 +369,41 @@ internal sealed class NhAssistantAgentEvents(
     }
 
     /// <summary>
+    /// Records a hand-off from a run of <paramref name="sourceAgentId"/> to
+    /// <paramref name="targetAgentId"/>: the outcome or the refusal code, never the message.
+    /// </summary>
+    public Task HandOffAsync(
+        string sourceAgentId,
+        Guid sourceRunId,
+        string targetAgentId,
+        NhAiSubjectRef subject,
+        string outcome,
+        Guid? conversationId,
+        Guid? runId,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.AgentHandedOff,
+                conversationId ?? Guid.Empty,
+                Guid.Empty,
+                AgentActorPrefix + sourceAgentId,
+                targetAgentId,
+                0,
+                DateTimeOffset.UtcNow)
+            {
+                ResultCode = outcome,
+                RunId = runId,
+                TriggerId = NhAssistantTriggerIds.HandOff,
+                SubjectType = subject.Type,
+                SubjectId = subject.Id,
+                AskingAgentId = sourceAgentId,
+                SourceRunId = sourceRunId
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Records a pause, stop or resume of an agent. The reason stays out of the business audit
     /// sinks, like other free text; the agent's state keeps it.
     /// </summary>

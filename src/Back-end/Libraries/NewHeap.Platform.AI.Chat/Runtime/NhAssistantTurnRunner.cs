@@ -979,7 +979,8 @@ internal sealed partial class NhAssistantTurnRunner(
             state.ProposalCount)
         {
             Kind = state.Kind,
-            SkillId = state.Skill?.Id
+            SkillId = state.Skill?.Id,
+            UsedRestrictedResults = state.UsedRestrictedResults
         };
     }
 
@@ -1172,7 +1173,14 @@ internal sealed partial class NhAssistantTurnRunner(
                 conversationId,
                 agentTurn.Options,
                 JsonSerializer.SerializeToElement(patch, patch.GetType(), JsonSerializerOptions.Web),
-                token)).Success);
+                token)).Success,
+            (target, subject, message, payload, token) => HandOffAsync(
+                state,
+                target,
+                subject,
+                message,
+                NhAssistantHandOffPayloads.Serialize(payload),
+                token));
     }
 
     private static async Task<NhAssistantRuleProposal> ProposeForRulesAsync(

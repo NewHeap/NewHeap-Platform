@@ -156,6 +156,12 @@ internal sealed class NhAssistantTurnState
     public bool HandedOver { get; set; }
 
     /// <summary>
+    /// A read of the agent's own grant succeeded while its results are restricted per reader, so the
+    /// run's summary may hold what some readers may not see.
+    /// </summary>
+    public bool UsedRestrictedResults { get; set; }
+
+    /// <summary>
     /// The agent's or a skill's rules ran in this turn.
     /// </summary>
     public bool RulesRan { get; set; }
@@ -513,6 +519,13 @@ internal sealed class NhAssistantToolCallInterceptor(
         if (execution.Call.AuditRecords.Count > 0 && execution.Call.AuditRecords[^1].GrantSource != NhAiGrantSource.None)
         {
             row.GrantSource = execution.Call.AuditRecords[^1].GrantSource;
+        }
+        if (succeeded
+            && row.GrantSource == NhAiGrantSource.Agent
+            && execution.Call.Descriptor.Effect == NhAiToolEffect.ReadOnly
+            && state.AgentTurn?.Options.ElevatedReads == NhAiElevatedReads.Restricted)
+        {
+            state.UsedRestrictedResults = true;
         }
         if (state.Scope.Consultation is not null)
         {

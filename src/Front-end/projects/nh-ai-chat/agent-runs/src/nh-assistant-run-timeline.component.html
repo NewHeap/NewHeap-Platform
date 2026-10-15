@@ -40,6 +40,16 @@
             </span>
           }
         </div>
+        @if (run.requestedByAgentId; as source) {
+          <p class="handed-off" [attr.data-handed-off-by]="source">
+            {{ 'nh-assistant.agent-runs.run.handed-off-by' | translate: { agent: (['nh-assistant.agents.' + source + '.name'] | nhAssistantTranslate: source) } }}
+            @if (run.requestedByConversationId; as sourceThread) {
+              <button class="link" type="button" (click)="openConversation.emit(sourceThread)">
+                {{ 'nh-assistant.agent-runs.run.open-source-thread' | translate }}
+              </button>
+            }
+          </p>
+        }
         <div class="meta">
           <span>{{ 'nh-assistant.agent-runs.run.tool-calls' | translate: { count: run.toolCalls } }}</span>
           <span>{{ 'nh-assistant.agent-runs.run.tokens' | translate: { count: run.inputTokens + run.outputTokens } }}</span>

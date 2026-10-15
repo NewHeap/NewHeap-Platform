@@ -96,6 +96,27 @@ public sealed class AssistantRun
     /// </summary>
     public string? SkillChosenBy { get; set; }
 
+    /// <summary>
+    /// The agent that handed the run's work off; <see langword="null"/> for a run no agent asked for.
+    /// </summary>
+    public string? RequestedByAgentId { get; set; }
+
+    /// <summary>
+    /// The run of <see cref="RequestedByAgentId"/> that handed the work off.
+    /// </summary>
+    public Guid? RequestedByRunId { get; set; }
+
+    /// <summary>
+    /// How many hand-offs led to the run: 0 for a run no agent asked for.
+    /// </summary>
+    public int HandOffDepth { get; set; }
+
+    /// <summary>
+    /// Whether the run read results with its agent's own grant that people without the tool's
+    /// policy may not see. Such a run's summary never reaches another agent.
+    /// </summary>
+    public bool UsedRestrictedResults { get; set; }
+
     public int AgentVersion { get; set; }
 
     /// <summary>
@@ -191,6 +212,71 @@ public sealed class AssistantConsultation
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset? EndedAt { get; set; }
+}
+
+/// <summary>
+/// The content-free record of one hand-off from a run of one agent to another agent: who handed
+/// which subject to whom, how it was received and which run took it. The message stays in the
+/// target's thread.
+/// </summary>
+public sealed class AssistantHandOff
+{
+    public Guid Id { get; set; }
+
+    public string ScopeKey { get; set; } = string.Empty;
+
+    public string SourceAgentId { get; set; } = string.Empty;
+
+    public Guid SourceRunId { get; set; }
+
+    public Guid SourceConversationId { get; set; }
+
+    /// <summary>
+    /// The skill the source run worked in; its follow-up returns there.
+    /// </summary>
+    public string? SourceSkillId { get; set; }
+
+    public string TargetAgentId { get; set; } = string.Empty;
+
+    public string SubjectType { get; set; } = string.Empty;
+
+    public string SubjectId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The hand-off's place in its chain: 1 for a hand-off from a run no agent asked for.
+    /// </summary>
+    public int Depth { get; set; }
+
+    /// <summary>
+    /// The input the hand-off wrote into the target's thread; the run that claims it takes the work.
+    /// </summary>
+    public Guid InputId { get; set; }
+
+    /// <summary>
+    /// The target's thread, once the hand-off reached it.
+    /// </summary>
+    public Guid? TargetConversationId { get; set; }
+
+    /// <summary>
+    /// The target's run that took the work.
+    /// </summary>
+    public Guid? TargetRunId { get; set; }
+
+    /// <summary>
+    /// One of the values in <see cref="NhAssistantHandOffOutcomes"/>, or <c>pending</c> while it fires.
+    /// </summary>
+    public string Outcome { get; set; } = string.Empty;
+
+    public string? Code { get; set; }
+
+    public bool NotifySource { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>
+    /// When the source received its follow-up.
+    /// </summary>
+    public DateTimeOffset? NotifiedAt { get; set; }
 }
 
 /// <summary>

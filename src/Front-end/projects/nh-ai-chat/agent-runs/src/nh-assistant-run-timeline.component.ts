@@ -19,9 +19,9 @@ const endedStatuses = new Set(['completed', 'failed', 'cancelled']);
 
 /**
  * The runs of an agent thread, newest first: trigger, status, failure, usage, proposals and the
- * summary the next run starts from. Participants cancel an open run; approvers resume or restart
- * a failed or cancelled one. With live updates it reloads by itself when a run or proposal of the
- * thread changes.
+ * summary the next run starts from, and the agent that handed a run its work. Participants cancel
+ * an open run; approvers resume or restart a failed or cancelled one. With live updates it reloads
+ * by itself when a run or proposal of the thread changes.
  */
 @Component({
   selector: 'nh-assistant-run-timeline',
@@ -40,6 +40,8 @@ export class NhAssistantRunTimelineComponent {
   readonly role = input<AgentSubjectRole>('reader');
   /** Emits after a run was cancelled or retried. */
   readonly changed = output<void>();
+  /** Emits the thread of the agent that handed a run its work, so the host can open it. */
+  readonly openConversation = output<string>();
 
   readonly loading = signal(true);
   readonly loadFailed = signal(false);

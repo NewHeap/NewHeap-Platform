@@ -687,6 +687,92 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.ToTable("AssistantConversationParticipant", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantHandOff", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Depth")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("InputId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("NotifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("NotifySource")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("ScopeKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("SourceAgentId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("SourceConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SourceRunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceSkillId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("TargetAgentId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("TargetConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TargetRunId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InputId");
+
+                    b.HasIndex("SourceConversationId");
+
+                    b.HasIndex("TargetRunId");
+
+                    b.HasIndex("SourceRunId", "TargetAgentId", "SubjectType", "SubjectId")
+                        .IsUnique();
+
+                    b.HasIndex("SourceAgentId", "TargetAgentId", "SubjectType", "SubjectId", "CreatedAt");
+
+                    b.ToTable("AssistantHandOff", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantIdempotencyLease", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1185,6 +1271,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<int>("HandOffDepth")
+                        .HasColumnType("integer");
+
                     b.Property<string>("InitiatorActorId")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -1204,6 +1293,13 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 
                     b.Property<int>("ProposalCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("RequestedByAgentId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("RequestedByRunId")
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("Shadow")
                         .HasColumnType("boolean");
@@ -1242,6 +1338,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 
                     b.Property<Guid?>("TurnId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("UsedRestrictedResults")
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 
@@ -1568,6 +1667,15 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantConversation", null)
                         .WithMany("Participants")
                         .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantHandOff", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantConversation", null)
+                        .WithMany()
+                        .HasForeignKey("SourceConversationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

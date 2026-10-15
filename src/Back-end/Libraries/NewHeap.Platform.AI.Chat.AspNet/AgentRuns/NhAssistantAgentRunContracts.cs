@@ -97,6 +97,22 @@ public sealed record NhAssistantRunDto(
     /// Who chose <see cref="Skill"/>: <c>trigger</c>, <c>rules</c>, <c>triage</c> or <c>model</c>.
     /// </summary>
     public string? SkillChosenBy { get; init; }
+
+    /// <summary>
+    /// The agent that handed the run's work off; <see langword="null"/> for a run no agent asked for.
+    /// </summary>
+    public string? RequestedByAgentId { get; init; }
+
+    /// <summary>
+    /// The thread of the run that handed the work off, only in a thread's run list and only when the
+    /// reader may open that thread.
+    /// </summary>
+    public Guid? RequestedByConversationId { get; init; }
+
+    /// <summary>
+    /// How many hand-offs led to the run: 0 for a run no agent asked for.
+    /// </summary>
+    public int HandOffDepth { get; init; }
 }
 
 public sealed record NhAssistantRunListDto(
@@ -553,7 +569,9 @@ internal static class NhAssistantAgentRunDtoMapper
         {
             Kind = run.Kind,
             Skill = run.SkillId,
-            SkillChosenBy = run.SkillChosenBy
+            SkillChosenBy = run.SkillChosenBy,
+            RequestedByAgentId = run.RequestedByAgentId,
+            HandOffDepth = run.HandOffDepth
         };
     }
 

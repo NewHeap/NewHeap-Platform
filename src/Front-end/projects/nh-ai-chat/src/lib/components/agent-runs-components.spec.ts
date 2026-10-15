@@ -723,6 +723,30 @@ describe('agent-run components', () => {
       expect(skill?.textContent).toContain('nh-assistant.agent-runs.run.skill-chosen-by.triage');
       expect(element.querySelectorAll('[data-skill]').length).toBe(1);
     });
+
+    it('names the agent that handed a run its work and opens its thread only when the reader may', () => {
+      api.getRuns.and.returnValue(of({
+        items: [
+          { ...run('run-1', 'rule'), requestedByAgentId: 'project-planner', requestedByConversationId: 'planner-thread', handOffDepth: 1 },
+          { ...run('run-2', 'rule'), requestedByAgentId: 'project-planner', requestedByConversationId: null, handOffDepth: 1 },
+          run('run-3', 'model')
+        ],
+        total: 3
+      }));
+      const fixture = TestBed.createComponent(NhAssistantRunTimelineComponent);
+      fixture.componentRef.setInput('conversationId', 'conversation-1');
+      const opened: string[] = [];
+      fixture.componentInstance.openConversation.subscribe(id => opened.push(id));
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      const lines = Array.from(element.querySelectorAll('[data-handed-off-by="project-planner"]'));
+      expect(lines.length).toBe(2);
+      expect(lines[0].textContent).toContain('nh-assistant.agent-runs.run.handed-off-by');
+      expect(lines[1].querySelector('button')).toBeNull();
+      (lines[0].querySelector('button') as HTMLButtonElement).click();
+      expect(opened).toEqual(['planner-thread']);
+    });
   });
 
   describe('nh-assistant-agent-consultations', () => {

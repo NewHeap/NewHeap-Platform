@@ -66,6 +66,31 @@ its skills with their states and today's usage. Agents without skills work as be
 | `NhAssistantAgentState` and `NhAssistantAdminAgentDto` gain `Skills`; `NhAssistantRunDto` gains `Skill` and `SkillChosenBy`; `NhAssistantAuditEvent` gains `SkillId`. | None; audit sinks may record the skill. |
 | An event joins only a queued run of the same skill, and a run claims only the inputs without a skill and those of its own skill. | None for agents without skills. |
 
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: hand-offs between agents
+
+An agent can hand work on a subject to another agent without a person.
+`ConfigureAgent(target, agent => agent.AcceptHandOffs(subjectType, handOff => handOff.From(source)
+.Description(...).NotifySource().Limits(maxPerSubjectPerDay)))` lists the agents that may hand work
+to the target. A source's model hands off through the generated tool
+`assistant.handoff.{agentId}.{subjectType}` when its tool selectors select it, only in its own runs;
+a source's rules call `NhAssistantRuleContext.HandOffAsync(targetAgentId, subject, message,
+payload)`. The target runs in its own thread as trigger `agent-handoff` without an initiator, under
+its own grants, approval policies and budget, with the message as data from the source. A paused
+target lets the work wait. Hand-offs stay within the source's scope key, a shadow run never hands off
+to a live agent, a chain holds at most `NhAssistantLimits.MaxHandOffDepth` (2) hand-offs and never
+returns to an agent in it, a source hands one subject to one target at most `Limits(...)` times a
+day, and one run hands the same subject to the same agent once. With `NotifySource()` the source gets
+an `agent-handoff-ended` input in the skill it handed off from, whose payload is an
+`NhAssistantHandOffResult`: the outcome and proposal count, and the target's summary only when both
+worked on the same subject and the target read nothing restricted with its own grant. Every hand-off
+is audited as `AgentHandedOff` with source, target and outcome, never the message.
+
+| Breaking change | Required action |
+|---|---|
+| Migration `AgentHandOffs` adds `RequestedByAgentId`, `RequestedByRunId`, `HandOffDepth` and `UsedRestrictedResults` to `AssistantRun` and the table `AssistantHandOff`. | Apply the migration. |
+| `NhAssistantRunDto` gains `RequestedByAgentId`, `RequestedByConversationId` (only in a thread's run list, for a reader of the source thread) and `HandOffDepth`; `NhAssistantAuditEvent` gains `SourceRunId`; `NhAssistantAuditEventKind` gains `AgentHandedOff`. | None; audit sinks may record the source run. |
+| The trigger ids `agent-handoff` and `agent-handoff-ended` are reserved. | Rename an application trigger with one of these ids. |
+
 ## @newheap/platform-ai-chat: agent state in the administration
 
 The agent list shows each agent's state, "Active", "Paused", "Stopped" or "Off in configuration"
@@ -76,9 +101,13 @@ agent says that the state stays as it is. `NhAssistantAdminApiService` gains `ge
 `setAgentState`, and the mock backend of `@newheap/platform-ai-chat/testing` serves them. An agent
 with skills lists them with their state, today's usage and budget, with pause, stop and resume per
 skill (`setSkillState`); the run timeline shows the skill of a run and who chose it. `AgentRun`
-gains `skill` and `skillChosenBy`, `AdminAgent` and `AgentState` gain `skills`.
+gains `skill` and `skillChosenBy`, `AdminAgent` and `AgentState` gain `skills`. The run timeline
+names the agent that handed a run its work ("Handed off by …", Dutch: "Overgedragen door …") with
+a button that opens that agent's thread when the reader may; `NhAssistantRunTimelineComponent` and
+`NhAssistantAgentThreadViewComponent` emit it through `openConversation`. `AgentRun` gains
+`requestedByAgentId`, `requestedByConversationId` and `handOffDepth`.
 
 | Breaking change | Required action |
 |---|---|
 | `AdminAgentInput.isEnabled` is optional and deprecated; the server ignores it. `AdminAgent` gains `runState`, `stateChangedAt`, `stateChangedBy`, `stateReason` and `waitingInputs`. | Stop sending `isEnabled`; change the state with `setAgentState`. |
-| New translation keys `nh-assistant.admin.agents.state.*`, `nh-assistant.admin.agents.reset-keeps-state`, `nh-assistant.admin.agent-editor.state-hint` and `nh-assistant.errors.assistant-agent-stopped`, `assistant-agent-paused`, `assistant-agent-configured-off`, `assistant-run-token-limit` and `assistant-skill-*`, `nh-assistant.admin.agents.skills.*` and `nh-assistant.agent-runs.run.skill` and `skill-chosen-by.*`; `nh-assistant.admin.agent-editor.enabled` is removed. The run timeline shows a run stopped at its token ceiling with that text. | Applications with their own translation files add and remove them. |
+| New translation keys `nh-assistant.admin.agents.state.*`, `nh-assistant.admin.agents.reset-keeps-state`, `nh-assistant.admin.agent-editor.state-hint` and `nh-assistant.errors.assistant-agent-stopped`, `assistant-agent-paused`, `assistant-agent-configured-off`, `assistant-run-token-limit` and `assistant-skill-*`, `nh-assistant.admin.agents.skills.*` and `nh-assistant.agent-runs.run.skill` and `skill-chosen-by.*`, `nh-assistant.agent-runs.run.handed-off-by` and `open-source-thread`, and `nh-assistant.errors.assistant-handoff-*`; `nh-assistant.admin.agent-editor.enabled` is removed. The run timeline shows a run stopped at its token ceiling with that text. | Applications with their own translation files add and remove them. |

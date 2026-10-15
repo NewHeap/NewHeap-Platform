@@ -213,6 +213,7 @@ internal sealed class NhAssistantAgentRunOperation(
     NhAssistantAgentNotifier notifier,
     NhAssistantRunSummaries summaries,
     NhAssistantAgentWorkUpdates workUpdates,
+    NhAssistantHandOffService handOffs,
     IOptions<RequestLocalizationOptions> localization,
     IOptionsMonitor<NhAssistantOptions> assistantOptions,
     ILogger<NhAssistantAgentRunOperation> logger) : INhBackgroundOperationHandler<NhAssistantAgentRunRequest>
@@ -380,6 +381,9 @@ internal sealed class NhAssistantAgentRunOperation(
         // The run owns every input it claimed; inputs already written by an earlier attempt are
         // skipped when the turn appends them.
         var inputs = await runs.ClaimQueuedInputsAsync(run.ConversationId, run.Id, cancellationToken, agentTurn.SkillId);
+        // Work other agents handed off belongs to the run that claimed it, before its turn hands
+        // work on itself.
+        await handOffs.LinkAsync(run.Id, inputs, cancellationToken);
         var result = await runner.RunAgentTurnAsync(
             new NhAssistantAgentTurnRequest(agentTurn, inputs.Select(ToInput).ToArray()),
             cancellationToken);
@@ -610,6 +614,7 @@ internal sealed class NhAssistantAgentRunOperation(
             await summaries.WriteAsync(run, failureCode is null ? status : status + " (" + failureCode + ")", turnId, CancellationToken.None);
             await events.RunEndedAsync(thread, run, status, failureCode, CancellationToken.None);
             await workUpdates.PublishAsync(run.ConversationId, NhAssistantAgentWorkReasons.Run, runId: run.Id, cancellationToken: CancellationToken.None);
+            await NotifyHandOffSourcesAsync(run, thread);
             if (status == NhAssistantRunStatuses.Completed
                 && string.Equals(run.TriggerId, NhAssistantTriggerIds.AgentRequest, StringComparison.Ordinal))
             {
@@ -626,6 +631,25 @@ internal sealed class NhAssistantAgentRunOperation(
         }
 
         return ended;
+    }
+
+    /// <summary>
+    /// Tells the agents that handed this run work how it ended. A failed follow-up never changes
+    /// how the run ended.
+    /// </summary>
+    private async Task NotifyHandOffSourcesAsync(AssistantRun run, AssistantThread thread)
+    {
+        try
+        {
+            await handOffs.NotifySourcesAsync(run.Id, thread, CancellationToken.None);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            logger.LogWarning(
+                "The hand-off follow-ups of run {RunId} were not sent ({ExceptionType}).",
+                run.Id,
+                exception.GetType().Name);
+        }
     }
 
     private async Task NotifyWaitingProposalsAsync(AssistantRun run, AssistantThread thread)
@@ -664,7 +688,8 @@ internal sealed class NhAssistantAgentRunOperation(
             result.ProposalCount,
             cancellationToken,
             // A resumed turn is the model's; it keeps the kind the run started with.
-            result.Kind == NhAssistantRunKinds.Model ? null : result.Kind);
+            result.Kind == NhAssistantRunKinds.Model ? null : result.Kind,
+            result.UsedRestrictedResults);
     }
 
     private static NhAssistantAgentTurnInput ToInput(AssistantQueuedInput input)

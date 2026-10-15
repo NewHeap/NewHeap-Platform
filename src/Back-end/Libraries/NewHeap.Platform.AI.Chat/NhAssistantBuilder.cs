@@ -581,6 +581,15 @@ internal sealed class NhAssistantRegistrationState
             }
 
             var agent = _agents[agentId];
+            foreach (var handOff in options.HandOffs)
+            {
+                foreach (var source in handOff.Sources.Where(source => !_agentRuns.ContainsKey(source)))
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' accepts hand-offs from '{source}', which is not configured with ConfigureAgent.");
+                }
+            }
+
             foreach (var skill in options.Skills.Values)
             {
                 if (skill.ApprovalPolicyId is { } skillPolicy)

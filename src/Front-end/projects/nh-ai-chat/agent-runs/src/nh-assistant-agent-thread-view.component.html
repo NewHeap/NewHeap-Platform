@@ -79,7 +79,11 @@
             }
           }
           @case ('runs') {
-            <nh-assistant-run-timeline [conversationId]="current.conversationId" [role]="role()" (changed)="load()" />
+            <nh-assistant-run-timeline
+              [conversationId]="current.conversationId"
+              [role]="role()"
+              (changed)="load()"
+              (openConversation)="openConversation.emit($event)" />
           }
           @case ('consultations') {
             <nh-assistant-agent-consultations [conversationId]="current.conversationId" />

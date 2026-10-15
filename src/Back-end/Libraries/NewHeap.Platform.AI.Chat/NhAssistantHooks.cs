@@ -137,7 +137,15 @@ public enum NhAssistantAuditEventKind
     /// An administrator or the application paused an agent: it starts no runs and its events wait.
     /// <c>ResultCode</c> is <c>paused</c>.
     /// </summary>
-    AdminAgentPaused = 44
+    AdminAgentPaused = 44,
+
+    /// <summary>
+    /// An agent handed work on a subject to another agent. <c>AgentId</c> is the target,
+    /// <c>AskingAgentId</c> the source and <see cref="NhAssistantAuditEvent.SourceRunId"/> its run;
+    /// <c>RunId</c> is the target's run once there is one. <c>ResultCode</c> is the outcome or the
+    /// refusal code. The message is never recorded.
+    /// </summary>
+    AgentHandedOff = 45
 }
 
 /// <summary>
@@ -251,9 +259,15 @@ public sealed record NhAssistantAuditEvent(
     public int? ConsultationDepth { get; init; }
 
     /// <summary>
-    /// The agent whose turn consulted or requested another agent, when an agent turn did.
+    /// The agent whose turn consulted or requested another agent, when an agent turn did, or that
+    /// handed work off.
     /// </summary>
     public string? AskingAgentId { get; init; }
+
+    /// <summary>
+    /// The run of the agent that handed work off.
+    /// </summary>
+    public Guid? SourceRunId { get; init; }
 
     /// <summary>
     /// Usage of a consultation: tool calls of the consulted agent, model tokens and the proposals it

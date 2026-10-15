@@ -82,12 +82,18 @@ internal sealed partial class NhAssistantTurnRunner
 
     /// <summary>
     /// Loads the active skills of the agent and offers the turn's assistant functions: the working
-    /// memory and, in an agent with skills, <c>use_skill</c>.
+    /// memory, in a run the hand-off tools the agent may use and, in an agent with skills,
+    /// <c>use_skill</c>.
     /// </summary>
     private async Task PrepareSkillsAsync(NhAssistantTurnState state, CancellationToken cancellationToken)
     {
-        if (state.AgentTurn is not { } agentTurn || agentTurn.Options.Skills.Count == 0 || state.Scope.Consultation is not null)
+        if (state.AgentTurn is not { } agentTurn || state.Scope.Consultation is not null)
         {
+            return;
+        }
+        if (agentTurn.Options.Skills.Count == 0)
+        {
+            RefreshFunctions(state);
             return;
         }
 
@@ -100,14 +106,16 @@ internal sealed partial class NhAssistantTurnRunner
     }
 
     /// <summary>
-    /// The working memory functions and, while another active skill exists and switches remain,
-    /// <c>use_skill</c> with the catalog of the other active skills.
+    /// The working memory functions, in a run the hand-off tools the agent or its skill selects, and,
+    /// while another active skill exists and switches remain, <c>use_skill</c> with the catalog of
+    /// the other active skills.
     /// </summary>
     private void RefreshFunctions(NhAssistantTurnState state)
     {
         var agentTurn = state.AgentTurn!;
         var functions = new List<AIFunction>(services.GetRequiredService<NhAssistantMemoryService>()
             .CreateFunctions(agentTurn.Thread.ConversationId, agentTurn.Options));
+        functions.AddRange(CreateHandOffFunctions(state));
         var others = state.ActiveSkills.Where(skill => skill != state.Skill).ToArray();
         if (others.Length > 0 && state.SkillSwitches < MaxSkillSwitches && !state.RuleTurn)
         {

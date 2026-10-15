@@ -67,6 +67,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantConsultation> Consultations => Set<AssistantConsultation>();
 
+    public DbSet<AssistantHandOff> HandOffs => Set<AssistantHandOff>();
+
     public DbSet<AssistantProposalFeedback> ProposalFeedback => Set<AssistantProposalFeedback>();
 
     public DbSet<AssistantApprovalKey> ApprovalKeys => Set<AssistantApprovalKey>();
@@ -286,6 +288,7 @@ public sealed class NhAssistantDbContext : DbContext
             run.Property(item => item.CancelledByActorId).HasMaxLength(256);
             run.Property(item => item.SkillId).HasMaxLength(64);
             run.Property(item => item.SkillChosenBy).HasMaxLength(16);
+            run.Property(item => item.RequestedByAgentId).HasMaxLength(128);
             run.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             run.HasIndex(item => new { item.ConversationId, item.CreatedAt });
             run.HasIndex(item => new { item.Status, item.CreatedAt });
@@ -353,6 +356,31 @@ public sealed class NhAssistantDbContext : DbContext
             consultation.HasOne<AssistantConversation>()
                 .WithMany()
                 .HasForeignKey(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantHandOff>(handOff =>
+        {
+            handOff.ToTable("AssistantHandOff");
+            handOff.HasKey(item => item.Id);
+            handOff.Property(item => item.Id).ValueGeneratedNever();
+            handOff.Property(item => item.ScopeKey).HasMaxLength(128).IsRequired();
+            handOff.Property(item => item.SourceAgentId).HasMaxLength(128).IsRequired();
+            handOff.Property(item => item.SourceSkillId).HasMaxLength(64);
+            handOff.Property(item => item.TargetAgentId).HasMaxLength(128).IsRequired();
+            handOff.Property(item => item.SubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength).IsRequired();
+            handOff.Property(item => item.SubjectId).HasMaxLength(NhAiSubjectRef.MaxIdLength).IsRequired();
+            handOff.Property(item => item.Outcome).HasMaxLength(16).IsRequired();
+            handOff.Property(item => item.Code).HasMaxLength(128);
+            // One hand-off per source run, target and subject; the daily limit per pair and subject;
+            // the run that claims the input; the chain and the follow-ups of a target run.
+            handOff.HasIndex(item => new { item.SourceRunId, item.TargetAgentId, item.SubjectType, item.SubjectId }).IsUnique();
+            handOff.HasIndex(item => new { item.SourceAgentId, item.TargetAgentId, item.SubjectType, item.SubjectId, item.CreatedAt });
+            handOff.HasIndex(item => item.InputId);
+            handOff.HasIndex(item => item.TargetRunId);
+            handOff.HasOne<AssistantConversation>()
+                .WithMany()
+                .HasForeignKey(item => item.SourceConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

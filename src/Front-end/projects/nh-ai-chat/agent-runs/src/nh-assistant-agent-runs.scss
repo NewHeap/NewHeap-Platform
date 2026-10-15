@@ -166,6 +166,29 @@ pre {
   overflow-wrap: anywhere;
 }
 
+// The agent that handed a run its work, with a link to its thread when the reader may open it.
+.handed-off {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+
+  button.link {
+    min-height: 0;
+    border: 0;
+    padding: 0;
+    background: none;
+    color: var(--nha-accent, currentColor);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+}
+
 // The application's presentation of a proposal, as in the chat's approval card.
 .presentation-fields {
   display: grid;

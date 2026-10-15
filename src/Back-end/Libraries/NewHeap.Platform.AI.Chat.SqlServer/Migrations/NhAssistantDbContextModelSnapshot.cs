@@ -687,6 +687,92 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.ToTable("AssistantConversationParticipant", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantHandOff", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Depth")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("InputId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("NotifiedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("NotifySource")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("ScopeKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("SourceAgentId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid>("SourceConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SourceRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceSkillId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TargetAgentId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid?>("TargetConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TargetRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InputId");
+
+                    b.HasIndex("SourceConversationId");
+
+                    b.HasIndex("TargetRunId");
+
+                    b.HasIndex("SourceRunId", "TargetAgentId", "SubjectType", "SubjectId")
+                        .IsUnique();
+
+                    b.HasIndex("SourceAgentId", "TargetAgentId", "SubjectType", "SubjectId", "CreatedAt");
+
+                    b.ToTable("AssistantHandOff", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantIdempotencyLease", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1185,6 +1271,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<int>("HandOffDepth")
+                        .HasColumnType("int");
+
                     b.Property<string>("InitiatorActorId")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -1204,6 +1293,13 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
 
                     b.Property<int>("ProposalCount")
                         .HasColumnType("int");
+
+                    b.Property<string>("RequestedByAgentId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid?>("RequestedByRunId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("Shadow")
                         .HasColumnType("bit");
@@ -1242,6 +1338,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
 
                     b.Property<Guid?>("TurnId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("UsedRestrictedResults")
+                        .HasColumnType("bit");
 
                     b.HasKey("Id");
 
@@ -1568,6 +1667,15 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantConversation", null)
                         .WithMany("Participants")
                         .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantHandOff", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantConversation", null)
+                        .WithMany()
+                        .HasForeignKey("SourceConversationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

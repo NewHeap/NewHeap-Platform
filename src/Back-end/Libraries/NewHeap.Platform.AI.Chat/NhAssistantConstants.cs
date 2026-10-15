@@ -614,6 +614,38 @@ public static class NhAssistantErrorCodes
     public const string ConsultReadOnly = "assistant-consult-read-only";
 
     /// <summary>
+    /// A hand-off was asked for outside an agent run, such as in a person's chat.
+    /// </summary>
+    public const string HandOffUnavailable = "assistant-handoff-unavailable";
+
+    /// <summary>
+    /// The target agent does not accept hand-offs about the subject type from the source agent.
+    /// </summary>
+    public const string HandOffNotAccepted = "assistant-handoff-not-accepted";
+
+    /// <summary>
+    /// The subject does not exist or belongs to another scope key (tenant or division) than the
+    /// source's subject. Both cases share the code, so a hand-off cannot probe for subjects.
+    /// </summary>
+    public const string HandOffSubjectUnavailable = "assistant-handoff-subject-unavailable";
+
+    /// <summary>
+    /// A shadow run tried to hand work to an agent that is not in shadow mode.
+    /// </summary>
+    public const string HandOffShadowToLive = "assistant-handoff-shadow-to-live";
+
+    /// <summary>
+    /// The chain of hand-offs would grow beyond <see cref="NhAssistantLimits.MaxHandOffDepth"/> or
+    /// return to an agent that is already in it.
+    /// </summary>
+    public const string HandOffChainLimit = "assistant-handoff-chain-limit";
+
+    /// <summary>
+    /// The source reached the target's daily limit of hand-offs about the subject.
+    /// </summary>
+    public const string HandOffLimitReached = "assistant-handoff-limit-reached";
+
+    /// <summary>
     /// The feedback has an unknown category or a text longer than
     /// <see cref="NhAssistantLimits.MaxFeedbackCharacters"/>.
     /// </summary>

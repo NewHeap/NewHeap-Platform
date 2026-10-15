@@ -8,8 +8,45 @@ and governance. It is phase C of the [agent roles roadmap](ai-agent-roles-plan.m
 
 ## Status
 
-Decided and ready for implementation; nothing is implemented yet. The choices are part of the
-[decision record](#decision-record) and the [answered questions](#answered-questions).
+Implemented on 2026-10-15, with sample case SPM-287. The choices are part of the
+[decision record](#decision-record) and the [answered questions](#answered-questions). The consumer
+guide `ai-agent-runs` and the sample are authoritative from now on; the implementation deviates from
+the plan where [Implementation notes](#implementation-notes) says so.
+
+## Implementation notes
+
+- **A hand-off record.** Next to the run columns, migration `AgentHandOffs` adds the content-free
+  table `AssistantHandOff` (source agent, run, thread and skill, target, subject, depth, the input it
+  wrote, outcome and when the source was told), like the consultation record. It carries the
+  deduplication per source run, target and subject (a unique index), the daily limit per pair and
+  subject, the chain, and the follow-up. Only work the target took is kept: a refused hand-off is
+  audited, not recorded.
+- **Which run takes the work.** The hand-off writes an input into the target's thread and, unless
+  the target is paused, a queued run (`Queue`), which records the source. The run that claims the
+  input takes the work: an active run of the thread may claim it first, and after a pause the resumed
+  run does. That run records the source when it names none yet, the chain is read from the records,
+  and its end sends the follow-up.
+- **The tool is an assistant function**, like the working memory and `use_skill`: offered in a
+  source's runs when its or its skill's selectors select `assistant.handoff.{agentId}.{subjectType}`,
+  read-only for the governance pipeline because it changes nothing itself, and never offered in
+  people's turns or consultations. No agent grant is needed; the target's list of sources is the
+  second key. The subject id is optional for the run's own subject type. Rules hand off without the
+  selector: the rule handler is the application's own code.
+- **Outcomes.** The receipt is `accepted` (with the run), `waiting` (paused target, with
+  `assistant-agent-paused`), `deduplicated` or `refused` with a code: the target's state codes
+  (`assistant-agent-stopped`, `assistant-agent-not-configured`, ...) or `assistant-handoff-*`. A
+  subject that does not exist and one in another scope key share `assistant-handoff-subject-unavailable`.
+- **The follow-up** fires as trigger `agent-handoff-ended` on the source's subject, coalescing with a
+  queued run, in the skill the source run handed off from, with an `NhAssistantHandOffResult`
+  payload. It is sent when the target's run ends through its run operation, whatever its status.
+- **Restricted results.** A run records `UsedRestrictedResults` when a read-only tool of its agent's
+  own grant succeeded while the agent's elevated reads are restricted; such a run's summary never
+  reaches another agent.
+- **The run timeline** links to the source thread only in a thread's run list and only for a reader
+  of that thread; `NhAssistantRunTimelineComponent` emits the thread through `openConversation`.
+- **The sample** keeps the closer's own task trigger (SPM-283). The planner hands off only projects
+  with a deadline whose tasks are all completed; the closer's trigger run and the hand-off together
+  record one proposal through its duplicate handling.
 
 ## Problem
 

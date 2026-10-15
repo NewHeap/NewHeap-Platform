@@ -154,6 +154,12 @@ public sealed class NhAssistantLimits
     public int MaxConsultationsPerActorPerDay { get; set; } = 50;
 
     /// <summary>
+    /// How many hand-offs a chain of agents may hold: 2 lets the agent that received work hand it on
+    /// once more. At most 3. An agent already in the chain never receives work from it again.
+    /// </summary>
+    public int MaxHandOffDepth { get; set; } = 2;
+
+    /// <summary>
     /// How many rejected proposals of its thread, with the feedback people gave, a new agent run
     /// starts with, so it does not propose them again unchanged. 0 leaves them out. At most 20.
     /// </summary>
@@ -198,6 +204,7 @@ public sealed class NhAssistantLimits
             || MaxParticipantsPerConversation is < 1 or > 100
             || MaxConsultationDepth is < 1 or > 3
             || MaxConsultationsPerActorPerDay < 1
+            || MaxHandOffDepth is < 1 or > 3
             || MaxRejectionsInContext is < 0 or > 20
             || RejectionContextWindow < TimeSpan.FromDays(1)
             || RejectionContextWindow > TimeSpan.FromDays(365)

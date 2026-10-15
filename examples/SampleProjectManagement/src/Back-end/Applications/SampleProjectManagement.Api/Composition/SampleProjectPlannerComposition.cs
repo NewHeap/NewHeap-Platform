@@ -20,6 +20,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// nothing to do. Each skill has its own budget and state, so stopping the deadline skill keeps the
 /// task follow-up working. Call it after <c>AddSampleIntakeReviewer</c>, which registers the project
 /// subject type and its briefing.
+/// SPM-287: when the follow-up finds every task of a project with a deadline completed, its rules
+/// hand the project to the project closer instead of proposing the closer's work themselves. The
+/// closer answers in its own thread; the planner hears back how it ended, with the closer's summary.
 /// </summary>
 public static class SampleProjectPlannerComposition
 {
@@ -114,6 +117,8 @@ public static class SampleProjectPlannerComposition
 /// <summary>
 /// SPM-286: the rules of the planner's task follow-up skill. They read the project's tasks as they
 /// are now and say what is left; they propose nothing and call no model.
+/// SPM-287: a project with a deadline whose tasks are all completed goes to the project closer, and
+/// the closer's answer comes back to this skill.
 /// </summary>
 public sealed class ProjectTaskFollowUpRules(
     SampleProjectManagementDbContext dbContext,
@@ -121,6 +126,16 @@ public sealed class ProjectTaskFollowUpRules(
 {
     public async Task<NhAssistantRuleResult> RunAsync(NhAssistantRuleContext context, CancellationToken cancellationToken)
     {
+        if (context.Inputs.LastOrDefault(input => input.TriggerId == NhAssistantTriggerIds.HandOffEnded)
+                ?.GetPayload<NhAssistantHandOffResult>() is { } ended)
+        {
+            // The closer's summary is data from another agent; the rules only pass it on, shortened
+            // to fit a rule summary.
+            return NhAssistantRuleResult.Done(ended.Summary is { } summary
+                ? localizer["PlannerCloserAnswered", summary.Length > 1_500 ? summary[..1_500] + "…" : summary].Value
+                : localizer["PlannerCloserEnded", ended.Status].Value);
+        }
+
         var projectId = Guid.Parse(context.Subject.Subject.Id);
         var open = await dbContext.ProjectTasks
             .AsNoTracking()
@@ -129,8 +144,30 @@ public sealed class ProjectTaskFollowUpRules(
             .Select(task => task.Title)
             .ToListAsync(cancellationToken);
         var total = await dbContext.ProjectTasks.CountAsync(task => task.ProjectId == projectId, cancellationToken);
-        return NhAssistantRuleResult.Done(open.Count == 0
-            ? localizer["PlannerAllDone", total].Value
-            : localizer["PlannerFollowUp", open.Count, total, open[0]].Value);
+        if (open.Count > 0)
+        {
+            return NhAssistantRuleResult.Done(localizer["PlannerFollowUp", open.Count, total, open[0]].Value);
+        }
+
+        var deadline = await dbContext.Projects
+            .AsNoTracking()
+            .Where(project => project.Id == projectId && project.Status == ProjectStatus.Active)
+            .Select(project => project.Deadline)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (deadline is null)
+        {
+            return NhAssistantRuleResult.Done(localizer["PlannerAllDone", total].Value);
+        }
+
+        // The closer decides whether the project can be completed, in its own thread and under its
+        // own approval policy; the planner does not propose the closer's work itself.
+        var handOff = await context.HandOffAsync(
+            SampleProjectCloserComposition.AgentId,
+            context.Subject.Subject,
+            $"All {total} tasks of the project are completed and its deadline is {deadline.Value:yyyy-MM-dd}. Check whether it can be completed.",
+            cancellationToken: cancellationToken);
+        return NhAssistantRuleResult.Done(handOff.Accepted
+            ? localizer["PlannerHandedToCloser", total].Value
+            : localizer["PlannerAllDone", total].Value);
     }
 }

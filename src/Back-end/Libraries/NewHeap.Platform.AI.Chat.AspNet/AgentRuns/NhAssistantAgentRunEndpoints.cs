@@ -226,6 +226,7 @@ internal static class NhAssistantAgentRunEndpoints
         HttpContext httpContext,
         NhAssistantThreadService threads,
         NhAssistantRunStore runs,
+        NhAssistantHandOffStore handOffs,
         int? page,
         int? itemsPerPage)
     {
@@ -242,8 +243,16 @@ internal static class NhAssistantAgentRunEndpoints
         }
 
         var (items, total) = await runs.ListRunsAsync(id, pageNumber, size, httpContext.RequestAborted);
+        var links = await HandOffLinksAsync(httpContext, items, access.ActorId!, threads, handOffs);
         return TypedResults.Json(
-            new NhAssistantRunListDto(items.Select(NhAssistantAgentRunDtoMapper.ToDto).ToArray(), total),
+            new NhAssistantRunListDto(
+                items
+                    .Select(run => NhAssistantAgentRunDtoMapper.ToDto(run) with
+                    {
+                        RequestedByConversationId = run.RequestedByRunId is { } source && links.TryGetValue(source, out var link) ? link : null
+                    })
+                    .ToArray(),
+                total),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantRunListDto);
     }
 
@@ -714,6 +723,44 @@ internal static class NhAssistantAgentRunEndpoints
             request.Reason,
             httpContext.RequestAborted);
         return await ProposalResultAsync(resolved, caller.Data.ActorId, runs, httpContext.RequestAborted);
+    }
+
+    /// <summary>
+    /// The threads of the runs that handed work to these runs, by source run, that the caller may
+    /// open: as a reader of their subject, and not a hidden shadow thread.
+    /// </summary>
+    private static async Task<IReadOnlyDictionary<Guid, Guid>> HandOffLinksAsync(
+        HttpContext httpContext,
+        IReadOnlyList<Entities.AssistantRun> items,
+        string actorId,
+        NhAssistantThreadService threads,
+        NhAssistantHandOffStore handOffs)
+    {
+        var sourceRuns = items
+            .Select(run => run.RequestedByRunId)
+            .OfType<Guid>()
+            .Distinct()
+            .ToArray();
+        var conversations = await handOffs.GetSourceConversationsAsync(sourceRuns, httpContext.RequestAborted);
+        var links = new Dictionary<Guid, Guid>();
+        var readable = new Dictionary<Guid, bool>();
+        foreach (var (sourceRun, conversationId) in conversations)
+        {
+            if (!readable.TryGetValue(conversationId, out var may))
+            {
+                var access = await threads.ResolveAccessAsync(conversationId, actorId, null, httpContext.RequestAborted);
+                may = access is not null
+                      && access.Role >= NhAiSubjectRole.Reader
+                      && !await NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, access.Thread.AgentId);
+                readable[conversationId] = may;
+            }
+            if (may)
+            {
+                links[sourceRun] = conversationId;
+            }
+        }
+
+        return links;
     }
 
     /// <summary>

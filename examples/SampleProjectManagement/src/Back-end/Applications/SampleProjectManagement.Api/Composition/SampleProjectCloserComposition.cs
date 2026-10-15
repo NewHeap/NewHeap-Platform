@@ -19,8 +19,11 @@ namespace SampleProjectManagement.Api.Composition;
 /// spend no tokens; the same proposal is never recorded twice, and a rejected proposal stays quiet
 /// for the policy's cooldown. People who ask the closer about a proposal in the project's thread
 /// get an answer from its model, which reads the reasons the rules wrote.
-/// Call it after <c>AddSampleIntakeReviewer</c>, which registers the project subject type; the host
-/// must call <c>AddAssistantAgentRuns</c> inside <c>WithBackgroundOperations</c>.
+/// SPM-287: the project planner hands it projects whose tasks are all completed; the closer works on
+/// them in its own thread, under its own policy, and tells the planner how it ended.
+/// Call it after <c>AddSampleIntakeReviewer</c>, which registers the project subject type, and add
+/// the planner with <c>AddSampleProjectPlanner</c>; the host must call
+/// <c>AddAssistantAgentRuns</c> inside <c>WithBackgroundOperations</c>.
 /// </summary>
 public static class SampleProjectCloserComposition
 {
@@ -60,6 +63,13 @@ public static class SampleProjectCloserComposition
                 .Grant(ProjectAiTools.ChangeStatusToolId)
                 .TriggerOnly()
                 .UseApprovalPolicy(ApprovalPolicyId)
+                // SPM-287: the planner hands over projects whose tasks are all completed and hears
+                // back how the closer's run ended, with its summary: both work on the same project.
+                .AcceptHandOffs(ProjectSubjects.Type, handOff => handOff
+                    .From(SampleProjectPlannerComposition.AgentId)
+                    .Description("Checks whether a project whose tasks are all completed can be completed, and proposes it.")
+                    .NotifySource()
+                    .Limits(maxPerSubjectPerDay: 3))
                 .Retry(2)
                 .Budget(
                     NhAssistantAgentBudget.PerDay(toolCalls: 50, tokens: 50_000),
@@ -88,6 +98,7 @@ public sealed record ProjectTaskChange(Guid TaskId, bool IsCompleted);
 /// SPM-283: the project closer's rules. They read the project as it is now, because events
 /// coalesce, arrive late and repeat, and propose to complete an active project once all its tasks
 /// are completed. The summary and the reason are the application's own texts in each language.
+/// SPM-287: work the project planner handed over is checked the same way.
 /// </summary>
 public sealed class ProjectCloserRules(
     SampleProjectManagementDbContext dbContext,
@@ -95,7 +106,8 @@ public sealed class ProjectCloserRules(
 {
     public async Task<NhAssistantRuleResult> RunAsync(NhAssistantRuleContext context, CancellationToken cancellationToken)
     {
-        if (!context.Inputs.Any(input => input.GetPayload<ProjectTaskChange>()?.IsCompleted == true))
+        var handedOver = context.Inputs.Any(input => input.TriggerId == NhAssistantTriggerIds.HandOff);
+        if (!handedOver && !context.Inputs.Any(input => input.GetPayload<ProjectTaskChange>()?.IsCompleted == true))
         {
             return NhAssistantRuleResult.Done(localizer["CloserNoTaskCompleted"].Value);
         }

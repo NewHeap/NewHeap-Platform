@@ -183,6 +183,7 @@ public sealed class NhAssistantRuleContext
 {
     private readonly Func<string, object, Func<CultureInfo, string?>?, CancellationToken, Task<NhAssistantRuleProposal>> _propose;
     private readonly Func<object, CancellationToken, Task<bool>> _updateMemory;
+    private readonly Func<string, NhAiSubjectRef, string, object?, CancellationToken, Task<NhAssistantHandOffReceipt>> _handOff;
 
     internal NhAssistantRuleContext(
         string agentId,
@@ -198,7 +199,8 @@ public sealed class NhAssistantRuleContext
         IReadOnlyList<NhAssistantRuleDecision> recentRejections,
         IReadOnlyList<NhAssistantRuleDecision> recentInvalidations,
         Func<string, object, Func<CultureInfo, string?>?, CancellationToken, Task<NhAssistantRuleProposal>> propose,
-        Func<object, CancellationToken, Task<bool>> updateMemory)
+        Func<object, CancellationToken, Task<bool>> updateMemory,
+        Func<string, NhAiSubjectRef, string, object?, CancellationToken, Task<NhAssistantHandOffReceipt>> handOff)
     {
         AgentId = agentId;
         RunId = runId;
@@ -214,6 +216,7 @@ public sealed class NhAssistantRuleContext
         RecentInvalidations = recentInvalidations;
         _propose = propose;
         _updateMemory = updateMemory;
+        _handOff = handOff;
     }
 
     public string AgentId { get; }
@@ -286,5 +289,33 @@ public sealed class NhAssistantRuleContext
     {
         ArgumentNullException.ThrowIfNull(patch);
         return _updateMemory(patch, cancellationToken);
+    }
+
+    /// <summary>
+    /// Hands work on <paramref name="subject"/> to another agent that accepts hand-offs from this
+    /// agent (<c>AcceptHandOffs</c>). The target works in its own thread, under its own grants and
+    /// approval policies, with <paramref name="message"/> as data from this agent and
+    /// <paramref name="payload"/> for its rule handler. The subject must belong to the same scope
+    /// key as this run's subject. A paused target lets the work wait; a refusal carries its code.
+    /// The same run hands the same subject to the same agent once.
+    /// </summary>
+    public Task<NhAssistantHandOffReceipt> HandOffAsync(
+        string targetAgentId,
+        NhAiSubjectRef subject,
+        string message,
+        object? payload = null,
+        CancellationToken cancellationToken = default)
+    {
+        NhAssistantNames.ValidateSegment(targetAgentId, nameof(targetAgentId));
+        ArgumentNullException.ThrowIfNull(subject);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        if (message.Length > NhAssistantHandOffTools.MaxMessageChars)
+        {
+            throw new ArgumentException(
+                $"A hand-off message has at most {NhAssistantHandOffTools.MaxMessageChars} characters.",
+                nameof(message));
+        }
+
+        return _handOff(targetAgentId, subject, message.Trim(), payload, cancellationToken);
     }
 }

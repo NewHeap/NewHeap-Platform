@@ -43,6 +43,7 @@ public sealed class NhAssistantAgentRunOptions
     /// </summary>
     public const int MaxSkills = 20;
     private readonly List<NhAssistantConsultationOptions> _consultations = [];
+    private readonly List<NhAssistantHandOffOptions> _handOffs = [];
 
     internal NhAssistantAgentRunOptions(string agentId)
     {
@@ -160,6 +161,11 @@ public sealed class NhAssistantAgentRunOptions
     /// </summary>
     public IReadOnlyList<NhAssistantConsultationOptions> Consultations => _consultations;
 
+    /// <summary>
+    /// The subject types other agents may hand work on to this agent, one entry per type.
+    /// </summary>
+    public IReadOnlyList<NhAssistantHandOffOptions> HandOffs => _handOffs;
+
     internal void AddGrants(IEnumerable<NhAiAgentGrant> grants)
     {
         _grants.AddRange(grants);
@@ -176,6 +182,19 @@ public sealed class NhAssistantAgentRunOptions
         var consultation = new NhAssistantConsultationOptions(AgentId, subjectType);
         _consultations.Add(consultation);
         return consultation;
+    }
+
+    internal NhAssistantHandOffOptions AddHandOff(string subjectType)
+    {
+        if (_handOffs.Any(item => string.Equals(item.SubjectType, subjectType, StringComparison.Ordinal)))
+        {
+            throw new InvalidOperationException(
+                $"Agent '{AgentId}' already accepts hand-offs about subject type '{subjectType}'.");
+        }
+
+        var handOff = new NhAssistantHandOffOptions(AgentId, subjectType);
+        _handOffs.Add(handOff);
+        return handOff;
     }
 
     internal void MarkLastGrantsTriggerOnly(int count)
@@ -512,6 +531,36 @@ public sealed class NhAssistantAgentRunBuilder
 
         var consultation = _options.AddConsultation(subjectType);
         configure?.Invoke(new NhAssistantConsultationBuilder(consultation));
+        return this;
+    }
+
+    /// <summary>
+    /// Lets the agents named with <c>From</c> hand work on subjects of <paramref name="subjectType"/>
+    /// to this agent, from a model turn through the generated tool
+    /// <c>assistant.handoff.{agentId}.{subjectType}</c> or from their rules. The work starts a run of
+    /// this agent in its own thread, under its own grants, approval policies and budget, with no
+    /// initiator; the source's message reaches it as data from another agent. Hand-offs stay within
+    /// one scope key, a chain holds at most <see cref="NhAssistantLimits.MaxHandOffDepth"/> of them and
+    /// never returns to an agent already in it.
+    /// </summary>
+    public NhAssistantAgentRunBuilder AcceptHandOffs(
+        string subjectType,
+        Action<NhAssistantHandOffBuilder> configure)
+    {
+        if (!NhAiSubjectRef.IsValidType(subjectType))
+        {
+            throw new ArgumentException("A subject type is a dash-case identifier.", nameof(subjectType));
+        }
+        ArgumentNullException.ThrowIfNull(configure);
+
+        var handOff = _options.AddHandOff(subjectType);
+        configure(new NhAssistantHandOffBuilder(handOff));
+        if (handOff.Sources.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"Agent '{_options.AgentId}' accepts hand-offs about '{subjectType}' from no agent; name them with From.");
+        }
+
         return this;
     }
 
@@ -1122,8 +1171,20 @@ public static class NhAssistantTriggerIds
     /// </summary>
     public const string Consultation = "consultation";
 
+    /// <summary>
+    /// Another agent handed work on a subject to the agent; the run has no initiator.
+    /// </summary>
+    public const string HandOff = "agent-handoff";
+
+    /// <summary>
+    /// A run of another agent that this agent handed work to ended; the input's payload is an
+    /// <see cref="NhAssistantHandOffResult"/>.
+    /// </summary>
+    public const string HandOffEnded = "agent-handoff-ended";
+
     internal static bool IsReserved(string triggerId)
     {
-        return triggerId is Manual or ProposalDecided or ProposalExecuted or QueuedMessage or AgentRequest or Consultation;
+        return triggerId is Manual or ProposalDecided or ProposalExecuted or QueuedMessage or AgentRequest or Consultation
+            or HandOff or HandOffEnded;
     }
 }

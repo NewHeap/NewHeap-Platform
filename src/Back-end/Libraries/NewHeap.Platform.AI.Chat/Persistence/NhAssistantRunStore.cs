@@ -648,7 +648,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         long outputTokens,
         int proposals,
         CancellationToken cancellationToken,
-        string? kind = null)
+        string? kind = null,
+        bool usedRestrictedResults = false)
     {
         await using var context = contextFactory.CreateDbContext();
         await context.Runs
@@ -661,6 +662,13 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                     .SetProperty(run => run.ProposalCount, run => run.ProposalCount + proposals)
                     .SetProperty(run => run.Kind, run => kind ?? run.Kind),
                 cancellationToken);
+        if (usedRestrictedResults)
+        {
+            // Once set, a run keeps it: any of its turns may have read restricted results.
+            await context.Runs
+                .Where(run => run.Id == runId)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(run => run.UsedRestrictedResults, true), cancellationToken);
+        }
     }
 
     public async Task SetRunAttemptAsync(
