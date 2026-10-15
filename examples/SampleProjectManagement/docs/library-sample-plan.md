@@ -43,7 +43,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | ID | Case | Library surface | Verifiable outcome |
 |---|---|---|---|
 | SPM-016 | Free-text search | `[Searchable]`, searchable request | Changing the name or description changes the result and count. |
-| SPM-017 | Equality filter | fluent `.equals()` + `[Filterable]` | The preferred status filter is visible in the request. |
+| SPM-017 | Equality filter | fluent `.equals()` + `[Filterable]` | The preferred status filter is visible in the request. Repeated filters with the same structure reuse EF query compilation on SQL Server and PostgreSQL, including when filter values change. |
 | SPM-018 | AND/OR filter tree | fluent `.and()` / `.or()` | An explicitly nested status OR combines with the remaining AND filters. |
 | SPM-019 | Text operators | fluent `.like()` | The playground compares contains, starts-with, and ends-with behavior. |
 | SPM-020 | Date range | `.greaterThanOrEqual()` + `.lessThanOrEqual()` | The deadline range includes both boundaries. |

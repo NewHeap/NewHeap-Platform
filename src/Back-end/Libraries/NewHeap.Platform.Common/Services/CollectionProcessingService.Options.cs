@@ -11,6 +11,7 @@ using System.Data.Common;
 using System.Linq.Dynamic.Core;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace NewHeap.Platform.Common.Services;
 
@@ -259,6 +260,7 @@ public partial class CollectionProcessingService
             return filterResult;
         }
 
+        var parameterIndex = new StrongBox<int>();
         foreach (var filter in filterCollection)
         {
             if (!IsFilterAllowed(filter, filterProperties, options))
@@ -267,7 +269,7 @@ public partial class CollectionProcessingService
             }
 
             var mappedFilter = MapFilterKeys(filter, options.FilterableSelectors);
-            var filterLambda = GetFilterLambda<TEntity>(mappedFilter, filterProperties, skipValidation: true);
+            var filterLambda = GetFilterLambdaCore<TEntity>(mappedFilter, filterProperties, parameterIndex, skipValidation: true);
             if (filterLambda != null)
             {
                 queryable = queryable.Where(filterLambda);

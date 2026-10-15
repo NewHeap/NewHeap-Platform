@@ -38,6 +38,7 @@ Test AND/OR, null, text, date ranges, multiple values, single and multi-column s
 - SPM-017 — Equality filter
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts)
 - SPM-018 — AND/OR filter tree
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs)

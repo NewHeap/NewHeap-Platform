@@ -392,6 +392,7 @@
     "SPM-017": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
       "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
     ],
     "SPM-018": [

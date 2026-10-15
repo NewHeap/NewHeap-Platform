@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -7,6 +10,7 @@ using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
 using SampleProjectManagement.Core.Models.View;
+using SampleProjectManagement.DAL;
 using SampleProjectManagement.DAL.Entities;
 using Xunit;
 
@@ -48,6 +52,37 @@ public class CollectionAndProjectionSamplesTests
         ]);
 
         Assert.Equal(["Operations app", "Operations"], projects.Select(project => project.Name));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void StatusFiltersReuseCompilationAcrossRequests(bool sqlServer)
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var compilations = 0;
+        var options = new DbContextOptionsBuilder<SampleProjectManagementDbContext>()
+            .UseMemoryCache(cache)
+            .LogTo(_ => compilations++, [CoreEventId.QueryCompilationStarting]);
+        if (sqlServer)
+        {
+            options.UseSqlServer("Server=localhost;Database=TranslationOnly;Integrated Security=true");
+        }
+        else
+        {
+            options.UseNpgsql("Host=localhost;Database=translation_only");
+        }
+
+        using var db = new SampleProjectManagementDbContext(options.Options);
+        foreach (var status in new[] { ProjectStatus.Active, ProjectStatus.Active, ProjectStatus.Completed, ProjectStatus.Active })
+        {
+            IQueryable<Project> projects = db.Projects;
+            _processor.ProcessFilter<Project, ProjectViewModel>(ref projects,
+                [new FilterCollectionRequestModel { Key = "status", Operator = "==", Value = status }]);
+
+            Assert.Contains("WHERE", projects.Select(project => project.Id).ToQueryString());
+            Assert.Equal(1, compilations);
+        }
     }
 
     [Fact]

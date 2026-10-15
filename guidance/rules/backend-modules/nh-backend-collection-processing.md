@@ -4,7 +4,7 @@ title: "Collection processing and bounded deadlock retries"
 area: backend
 reference: backend-collection-processing
 summary: "Keep filtering, ordering, paging, and projection server-side with validated paging defaults while retrying only recognized relational deadlock victims within the configured collection-processing bound."
-sample-cases: ["SPM-028", "SPM-031", "SPM-032"]
+sample-cases: ["SPM-017", "SPM-028", "SPM-031", "SPM-032"]
 public-symbols: ["ICollectionProcessingService", "IHttpCollectionProcessingService", "CollectionProcessingService", "HttpCollectionProcessingService", "NewHeapCommonSettings", "SelectableAttribute", "FieldAccessAttribute", "NhFieldSelectionService", "NhSelectedCollectionResult", "NhSelectableField", "NhSelectableCollection", "NhCollectionSelection", "NhSelectedCollectionMessagePack"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
@@ -24,8 +24,11 @@ Expose authorized descriptors through `DescribeAsync<TView>` on a protected disc
 
 `FieldAccess` only protects requests that opt in with `fields`. Removing `fields` deliberately retains legacy behavior. It is not a security boundary for an existing unrestricted endpoint; applying the policy everywhere requires a separate migration of that endpoint. See the executable project controller, `ProjectTableViewModel`, and the sample field-selection guide.
 
+Keep the filter structure stable across requests. Collection processing numbers new lambda parameters `x1`, `x2`, and so on within each filter collection, including nested filters. AND/OR parts that refer to the same variable keep sharing its parameter. The numbering restarts for each collection, so EF can reuse compilation when only filter values change.
+
 ## Avoid
 
+- Giving dynamically constructed lambda parameters random names; EF includes those names in its query-cache hash.
 - Matching localized provider message text to identify a deadlock.
 - Retrying every `DbException` or hiding an exhausted retry as a successful empty collection.
 - Putting writes or other side effects in a collection query or materialization callback.
@@ -43,3 +46,5 @@ Expose authorized descriptors through `DescribeAsync<TView>` on a protected disc
 Verify the compatible paging defaults, configured paging values, invalid paging combinations, the default five-attempt retry bound, a configured lower retry bound, immediate propagation of non-deadlock failures, and retry of SQL Server `1205` and PostgreSQL `40P01` during both count and item materialization. Run the normal collection flow against SQL Server and PostgreSQL, and keep filtering, ordering, and paging server-side.
 
 Run `FieldSelectionTests` and `ProjectFieldSelectionSamplesTests` for the opt-in branch, alias/falsy/null values, resource policies, forbidden queries and JSON/MessagePack parity. The provider tests use isolated SQL Server and PostgreSQL Testcontainers. Translation-only tests do not replace actual execution evidence. Run the collection encoding benchmark in Release from its project directory and keep JSON the default unless representative end-to-end measurements justify a change.
+
+Run `CollectionQueryCacheTests` for SQL Server and PostgreSQL translation and execution, including repeated equality, nested any/all filters, combined AND/OR groups, unique sequential parameter names, changed values, and count/item query reuse through both attribute- and options-based filtering. `CollectionAndProjectionSamplesTests.StatusFiltersReuseCompilationAcrossRequests` demonstrates the same cache behavior with the sample project status filter.

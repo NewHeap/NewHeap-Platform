@@ -249,11 +249,12 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Equality filter",
     "category": "Collections, filtering, and projections",
     "surface": "fluent .equals() + [Filterable]",
-    "outcome": "The preferred status filter is visible in the request.",
+    "outcome": "The preferred status filter is visible in the request. Repeated filters with the same structure reuse EF query compilation on SQL Server and PostgreSQL, including when filter values change.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
       "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
     ]
   },

@@ -25,6 +25,8 @@ when it:
 | Intake reviews | proposals waiting for the signed-in person, and one project's proposals, runs, working memory and files | `@newheap/platform-ai-chat/agent-runs`, `NhAssistantAgentRunApiService` |
 | Executable tests | collection expressions, projection, validation, SQL, and translation parity | library-only contracts without a UI abstraction |
 
+The equality filter (SPM-017) reuses EF query compilation across repeated requests and changed status values. `CollectionAndProjectionSamplesTests` verifies this with both relational providers; the library regression also executes ordinary and nested any/all filters on SQL Server and PostgreSQL.
+
 ## Library patterns
 
 The intake reviewer (SPM-268 to SPM-271) is an assistant agent that starts on its

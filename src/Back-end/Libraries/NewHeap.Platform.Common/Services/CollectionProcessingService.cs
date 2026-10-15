@@ -9,6 +9,8 @@ using System.Collections;
 using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Linq.Dynamic.Core;
 using NewHeap.Platform.Common.Extensions;
 using NewHeap.Platform.Common.Exceptions;
@@ -329,9 +331,10 @@ public partial class CollectionProcessingService : ICollectionProcessingService
 
             if (filterProperties.Any())
             {
+                var parameterIndex = new StrongBox<int>();
                 foreach (var filter in filterCollection)
                 {
-                    var filterLambda = GetFilterLambda<TEntity>(filter, filterProperties);
+                    var filterLambda = GetFilterLambdaCore<TEntity>(filter, filterProperties, parameterIndex);
                     if (filterLambda != null)
                     {
                         queryable = queryable.Where(filterLambda);
@@ -412,6 +415,14 @@ public partial class CollectionProcessingService : ICollectionProcessingService
     protected Expression<Func<T, bool>>? GetFilterLambda<T>(FilterCollectionRequestModel filter,
         IEnumerable<PropertyInfo> filterProperties, ParameterExpression? parameter = null, bool skipValidation = false)
     {
+        return GetFilterLambdaCore<T>(filter, filterProperties,
+            new StrongBox<int>(parameter == null ? 0 : 1), parameter, skipValidation);
+    }
+
+    private Expression<Func<T, bool>>? GetFilterLambdaCore<T>(FilterCollectionRequestModel filter,
+        IEnumerable<PropertyInfo> filterProperties, StrongBox<int> parameterIndex,
+        ParameterExpression? parameter = null, bool skipValidation = false)
+    {
         if (!skipValidation && !IsFilterValid(filter, filterProperties, out var err))
         {
             if (err is not null)
@@ -424,8 +435,8 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             }
         }
 
-        var selector = Guid.NewGuid().ToString().Replace("-", string.Empty).Substring(0, 8);
-        parameter = parameter ?? Expression.Parameter(typeof(T), selector);
+        // Number new parameters within this filter collection; EF includes their names in query-cache hashes.
+        parameter ??= Expression.Parameter(typeof(T), "x" + (++parameterIndex.Value).ToString(CultureInfo.InvariantCulture));
 
         Expression member = parameter;
         var didCollectionHit = false;
@@ -467,8 +478,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                 var remainderParts = keyParts.Skip(i);
                 var collectionItemType = method.ReturnType.GetGenericArguments()[0];
 
-                var selector2 = Guid.NewGuid().ToString().Replace("-", string.Empty).Substring(0, 8);
-                var parameter2 = Expression.Parameter(collectionItemType, selector2);
+                var parameter2 = Expression.Parameter(collectionItemType, "x" + (++parameterIndex.Value).ToString(CultureInfo.InvariantCulture));
                 var expression2 = ExpressionUtils.CreateMemberAccess(parameter2, string.Join('.', remainderParts));
 
                 var filter2 = new FilterCollectionRequestModel
@@ -479,9 +489,9 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                 };
 
                 dynamic? lambda2 = typeof(CollectionProcessingService)
-                    .GetMethod("GetFilterLambda", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .GetMethod(nameof(GetFilterLambdaCore), BindingFlags.Instance | BindingFlags.NonPublic)!
                     .MakeGenericMethod(collectionItemType)
-                    .Invoke(this, new object[] { filter2, filterProperties, parameter2, true });
+                    .Invoke(this, new object[] { filter2, filterProperties, parameterIndex, parameter2, true });
 
                 if (collectionMethodName == "any" || collectionMethodName == "!any")
                 {
@@ -649,7 +659,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         {
             foreach (var andFilter in filter.Ands)
             {
-                var andFilterLambda = GetFilterLambda<T>(andFilter, filterProperties, parameter)!;
+                var andFilterLambda = GetFilterLambdaCore<T>(andFilter, filterProperties, parameterIndex, parameter)!;
                 body = Expression.AndAlso(body!, andFilterLambda.Body);
             }
         }
@@ -658,7 +668,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         {
             foreach (var andFilter in filter.Ors)
             {
-                var andFilterLambda = GetFilterLambda<T>(andFilter, filterProperties, parameter);
+                var andFilterLambda = GetFilterLambdaCore<T>(andFilter, filterProperties, parameterIndex, parameter);
                 body = Expression.OrElse(body!, andFilterLambda!.Body);
             }
         }
