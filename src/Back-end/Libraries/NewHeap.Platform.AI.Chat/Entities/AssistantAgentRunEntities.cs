@@ -126,11 +126,22 @@ public sealed class AssistantRun
 
     public int ToolCalls { get; set; }
 
+    /// <summary>
+    /// The model calls of the run's turns, including triage.
+    /// </summary>
+    public int ModelCalls { get; set; }
+
     public long InputTokens { get; set; }
 
     public long OutputTokens { get; set; }
 
     public int ProposalCount { get; set; }
+
+    /// <summary>
+    /// The run of another agent whose recorded inputs this run replays; <see langword="null"/> for a
+    /// run that is no replay.
+    /// </summary>
+    public Guid? ReplayOfRunId { get; set; }
 
     /// <summary>
     /// A bounded summary of what the run did, proposed and left open.
@@ -212,6 +223,60 @@ public sealed class AssistantConsultation
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset? EndedAt { get; set; }
+}
+
+/// <summary>
+/// A replay of the recorded inputs of one agent's runs in a period into a shadow variant: what was
+/// asked, how far it got and why it stopped.
+/// </summary>
+public sealed class AssistantAgentReplay
+{
+    public Guid Id { get; set; }
+
+    public string VariantAgentId { get; set; } = string.Empty;
+
+    public string SourceAgentId { get; set; } = string.Empty;
+
+    public DateTimeOffset From { get; set; }
+
+    public DateTimeOffset To { get; set; }
+
+    public int MaxRuns { get; set; }
+
+    /// <summary>
+    /// One of the values in <see cref="NhAssistantReplayStatuses"/>.
+    /// </summary>
+    public string Status { get; set; } = NhAssistantReplayStatuses.Running;
+
+    /// <summary>
+    /// Why the replay stopped before it replayed every run, such as <c>assistant-budget-exhausted</c>.
+    /// </summary>
+    public string? StopReason { get; set; }
+
+    /// <summary>
+    /// The source runs the replay fired into the variant.
+    /// </summary>
+    public int RunsReplayed { get; set; }
+
+    /// <summary>
+    /// The source runs the replay passed over: without inputs or with a subject that no longer exists.
+    /// </summary>
+    public int RunsSkipped { get; set; }
+
+    /// <summary>
+    /// The creation time and id of the last source run the replay handled, oldest first.
+    /// </summary>
+    public DateTimeOffset? CursorCreatedAt { get; set; }
+
+    public Guid? CursorRunId { get; set; }
+
+    public string RequestedByActorId { get; set; } = string.Empty;
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset? EndedAt { get; set; }
+
+    public Guid ConcurrencyStamp { get; set; }
 }
 
 /// <summary>

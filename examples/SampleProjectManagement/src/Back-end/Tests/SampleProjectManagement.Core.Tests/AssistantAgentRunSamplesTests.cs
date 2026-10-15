@@ -51,6 +51,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
+    /// <summary>
+    /// How the planner's shadow variant describes its deadline skill to triage (SPM-288).
+    /// </summary>
+    private const string VariantDeadlineSkill = "only when less than a third";
+
     [Fact]
     public async Task A_created_project_starts_the_intake_reviewer_whose_proposal_a_second_approver_executes()
     {
@@ -596,7 +601,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         host.Model.Use(new RoutingChatClient(
             new SampleAssistantChatClient(),
             ((messages, options) => RoutingChatClient.Mentions(messages, options, "You route the work of an assistant agent")
-                && RoutingChatClient.Mentions(messages, options, projectText), triage),
+                && RoutingChatClient.Mentions(messages, options, projectText)
+                && !RoutingChatClient.Mentions(messages, options, VariantDeadlineSkill), triage),
             ((messages, options) => RoutingChatClient.Mentions(messages, options, "## Skill: deadline-risk")
                 && RoutingChatClient.Mentions(messages, options, projectText), deadline)));
         try
@@ -719,10 +725,110 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Contains(prefix, answered.Summary);
         var audit = Assert.Single(
             host.Services.GetRequiredService<SampleAssistantAuditLog>().Events,
-            evt => evt.Kind == NhAssistantAuditEventKind.AgentHandedOff && evt.SubjectId == project.ToString("D"));
+            evt => evt.Kind == NhAssistantAuditEventKind.AgentHandedOff
+                && evt.SubjectId == project.ToString("D")
+                && evt.AskingAgentId == planner);
         Assert.Equal(closer, audit.AgentId);
         Assert.Equal(planner, audit.AskingAgentId);
         Assert.Equal(NhAssistantHandOffOutcomes.Accepted, audit.ResultCode);
+    }
+
+    [Fact]
+    public async Task A_variant_of_the_project_planner_runs_in_the_shadow_and_is_compared_with_the_live_planner()
+    {
+        // SPM-288
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string variant = SampleProjectPlannerVariantComposition.AgentId;
+        var from = DateTimeOffset.UtcNow.AddSeconds(-1);
+        var project = await host.CreateProjectAsync("VARIANT", ownerId: host.OwnerId, status: ProjectStatus.Active, deadline: DateTimeOffset.UtcNow.AddDays(3));
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        await host.CreateTaskAsync(project, "Design the release");
+        await host.CreateTaskAsync(project, "Ship the release");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var admin = host.CreateClient(host.ColleagueId.ToString(), admin: true);
+        var projectText = project.ToString("D");
+        var liveTriage = new NhAiScriptedChatClient()
+            .RespondWithText("""{"skill":"deadline-risk","reason":"No task is completed three days before the deadline."}""");
+        var variantTriage = new NhAiScriptedChatClient()
+            .RespondWithText("""{"skill":null,"reason":"No task is completed yet, so it is too early to judge."}""")
+            .RespondWithText("""{"skill":null,"reason":"No task is completed yet, so it is too early to judge."}""");
+        var deadline = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = project, status = "OnHold" } }, "call-hold")
+            .RespondWithText("The project will miss its deadline; I proposed to put it on hold.");
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You route the work of an assistant agent")
+                && RoutingChatClient.Mentions(messages, options, projectText)
+                && RoutingChatClient.Mentions(messages, options, VariantDeadlineSkill), variantTriage),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You route the work of an assistant agent")
+                && RoutingChatClient.Mentions(messages, options, projectText), liveTriage),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "## Skill: deadline-risk")
+                && RoutingChatClient.Mentions(messages, options, projectText), deadline)));
+        try
+        {
+            // The daily deadline check fires for the live planner and for its shadow variant. The
+            // planner's triage sends it to the deadline skill, which proposes to put the project on
+            // hold; the variant's stricter triage finds it too early and proposes nothing.
+            host.Services.GetRequiredService<IRecurringJobManager>()
+                .Trigger("nh-assistant-trigger-" + SampleProjectPlannerComposition.DeadlineCheckTriggerId);
+            var plannerThread = await WaitForThreadAsync(colleague, project, planner);
+            var proposal = await WaitForProposalAsync(colleague, plannerThread, NhAssistantApprovalStatuses.Pending);
+            var variantThread = await WaitForThreadAsync(admin, project, variant);
+            var shadowRun = await WaitForRunWithTriggerAsync(admin, variantThread, SampleProjectPlannerComposition.DeadlineCheckTriggerId);
+            Assert.True(shadowRun.Shadow);
+            Assert.Null(shadowRun.Skill);
+            Assert.Contains("too early to judge", shadowRun.Summary);
+            // People who are no administrators do not see the variant's thread.
+            Assert.Equal(HttpStatusCode.NotFound, (await colleague.GetAsync($"/api/assistant/threads/{variantThread}/runs")).StatusCode);
+
+            // The approver rejects the live proposal.
+            Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, proposal, "reject")).StatusCode);
+
+            // The comparison: the variant did not propose what people rejected.
+            var period = $"from={Uri.EscapeDataString(from.ToString("O"))}&to={Uri.EscapeDataString(DateTimeOffset.UtcNow.AddSeconds(1).ToString("O"))}";
+            var report = (await admin.GetFromJsonAsync<NhAssistantEvaluationDto>(
+                $"/api/assistant/admin/agents/{planner}/evaluation?variant={variant}&{period}",
+                Json))!;
+            Assert.True(report.Runs.Paired >= 1);
+            var tool = Assert.Single(report.Tools, row => row.ToolId == ProjectAiTools.ChangeStatusToolId);
+            Assert.True(tool.RejectedLiveNotProposed >= 1);
+            Assert.Contains(report.Differences, difference => difference.LiveConversationId == plannerThread
+                && difference.Kind == NhAssistantEvaluationDifferenceKinds.LiveOnly
+                && difference.LiveStatus == NhAssistantApprovalStatuses.Rejected);
+
+            // A replay fires the planner's recorded runs of the period into the variant.
+            var started = await admin.PostAsJsonAsync(
+                $"/api/assistant/admin/agents/{variant}/replay",
+                new NhAssistantReplayRequest(planner, from, DateTimeOffset.UtcNow.AddSeconds(1), 20),
+                Json);
+            Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+            var replay = await WaitForReplayAsync(admin, variant, (await started.Content.ReadFromJsonAsync<NhAssistantReplayDto>(Json))!.Id);
+            Assert.Equal(NhAssistantReplayStatuses.Completed, replay.Status);
+            Assert.True(replay.RunsReplayed >= 1);
+            await WaitForRunCountAsync(admin, variantThread, 2);
+
+            // The export pairs the live run with the variant's run and with its replay, without content.
+            var export = await admin.GetStringAsync(
+                $"/api/assistant/admin/agents/{planner}/evaluation/export?variant={variant}&from={Uri.EscapeDataString(from.ToString("O"))}");
+            Assert.DoesNotContain("OnHold", export, StringComparison.Ordinal);
+            var records = export
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => JsonSerializer.Deserialize<NhAssistantEvaluationExportRecord>(line, Json)!)
+                .Where(record => record.SubjectId == projectText && record.TriggerId == SampleProjectPlannerComposition.DeadlineCheckTriggerId)
+                .ToArray();
+            var mirrored = Assert.Single(records, record => !record.Replayed);
+            Assert.Single(records, record => record.Replayed);
+            Assert.Equal(NhAssistantApprovalStatuses.Rejected, Assert.Single(mirrored.Live.Proposals).Status);
+            Assert.Empty(mirrored.Variant.Proposals);
+            Assert.True(mirrored.Live.ModelCalls > mirrored.Variant.ModelCalls);
+            var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
+            Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentReplayStarted && evt.AgentId == variant);
+            Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentEvaluationExported && evt.ObjectId == variant);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+        }
     }
 
     [Fact]
@@ -1279,6 +1385,28 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     /// <summary>
+    /// Waits until the replay ended.
+    /// </summary>
+    private static async Task<NhAssistantReplayDto> WaitForReplayAsync(HttpClient client, string variantId, Guid replayId)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        NhAssistantReplayDto? replay = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var list = await client.GetFromJsonAsync<NhAssistantReplayListDto>($"/api/assistant/admin/agents/{variantId}/replays", Json);
+            replay = list?.Items.FirstOrDefault(item => item.Id == replayId);
+            if (replay is not null && replay.Status != NhAssistantReplayStatuses.Running)
+            {
+                return replay;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+        }
+
+        throw new TimeoutException($"Replay {replayId} is still {replay?.Status ?? "missing"} after {replay?.RunsReplayed ?? 0} runs.");
+    }
+
+    /// <summary>
     /// Waits until the thread has an ended run of <paramref name="triggerId"/>.
     /// </summary>
     private static async Task<NhAssistantRunDto> WaitForRunWithTriggerAsync(HttpClient client, Guid conversationId, string triggerId)
@@ -1532,6 +1660,7 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         services.AddSampleStatusAdvisor();
         services.AddSampleProjectCloser();
         services.AddSampleProjectPlanner();
+        services.AddSampleProjectPlannerVariant();
     }
 
     public async Task WaitForOperationAsync(Guid operationId, NhBackgroundOperationStatus status)

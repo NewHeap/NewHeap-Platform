@@ -649,7 +649,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         int proposals,
         CancellationToken cancellationToken,
         string? kind = null,
-        bool usedRestrictedResults = false)
+        bool usedRestrictedResults = false,
+        int modelCalls = 0)
     {
         await using var context = contextFactory.CreateDbContext();
         await context.Runs
@@ -657,6 +658,7 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(run => run.ToolCalls, run => run.ToolCalls + toolCalls)
+                    .SetProperty(run => run.ModelCalls, run => run.ModelCalls + modelCalls)
                     .SetProperty(run => run.InputTokens, run => run.InputTokens + inputTokens)
                     .SetProperty(run => run.OutputTokens, run => run.OutputTokens + outputTokens)
                     .SetProperty(run => run.ProposalCount, run => run.ProposalCount + proposals)

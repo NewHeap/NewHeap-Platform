@@ -16,9 +16,9 @@ close the rest. Each phase has its own plan. It was checked against `main` at `9
 
 ## Status
 
-Decided on 2026-10-15. A1 (agent control), A2 (subject briefings and run budgets), B (agent
-skills) and C (hand-offs between agents) are implemented; D is not yet. The phase plans hold the
-decisions and the answered questions; the phases are built in the order A1, A2, B, C, D.
+Decided on 2026-10-15. All phases are implemented: A1 (agent control), A2 (subject briefings and
+run budgets), B (agent skills), C (hand-offs between agents) and D (agent evaluation). The phase
+plans hold the decisions, the answered questions and the implementation notes.
 
 | Phase | Plan | Sample case |
 |---|---|---|

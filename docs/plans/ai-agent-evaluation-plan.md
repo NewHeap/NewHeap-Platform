@@ -8,8 +8,39 @@ cost and routing with the live agent, and a replay of recorded events. It is pha
 
 ## Status
 
-Decided and ready for implementation; nothing is implemented yet. The choices are part of the
-[decision record](#decision-record) and the [answered questions](#answered-questions).
+Implemented on 2026-10-15, with sample case SPM-288. The choices are part of the
+[decision record](#decision-record) and the [answered questions](#answered-questions). The consumer
+guide `ai-agent-runs` and the sample are authoritative from now on; the implementation deviates from
+the plan where [Implementation notes](#implementation-notes) says so.
+
+## Implementation notes
+
+- **Mirrored triggers.** Event, scheduled and webhook triggers of the live agent fire for each
+  variant with the same subject, message, dedupe key and payload. Each agent's state decides for
+  itself: a stopped live agent still lets its variants receive the event, a paused variant lets its
+  events wait, and a schedule tick skips a paused variant only. A trigger's skill applies to a variant
+  that declares a skill with that id; otherwise the variant routes the run itself. Publishers read the
+  live agent's receipts; the variants' fires are audited like any trigger.
+- **Model calls.** Runs record `ModelCalls`, counted from the budget reservations of their turns,
+  triage included, so the report compares model calls next to tokens and tool calls.
+- **Pairing.** A live run pairs with the variant's run of the same subject, trigger and dedupe key
+  (the first event of a coalesced run) and with every variant run that replayed it, whenever the
+  replay ran. Runs without a dedupe key, such as runs people started, stay unpaired. The report reads
+  at most 5,000 runs per side and says when the period held more; the period is seven days by default
+  and at most 92. It lists at most 50 differences.
+- **Replays** go into any shadow agent; the source is the variant's live agent by default. One
+  replayed run repeats one recorded run with all inputs it claimed, the first input's trigger and no
+  initiator; runs that claimed no input or whose subject is gone are skipped. The operation fires as
+  many runs as the variant may run at once, then continues every five seconds. It stops with a reason
+  when the variant is paused or stopped, its daily budget for the subject's scope is spent, the run
+  limit per subject is reached or another refusal comes back. Starting a replay is audited as
+  `AdminAgentReplayStarted`, next to the export.
+- **Administration.** `shadowOf` on the admin agent and the agent state lets the client offer the
+  evaluation on agents with variants; the evaluation opens the threads of differences through the
+  assistant panel when the host provides it.
+- **The sample** registers a variant of the project planner with another triage profile and a
+  stricter deadline-skill description. Because it also receives the planner's task events, its rules
+  try to hand a finished project to the closer, which does not accept work from the variant.
 
 ## Problem
 

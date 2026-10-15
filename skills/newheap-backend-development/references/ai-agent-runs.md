@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, and let agents hand work to each other.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, and evaluate shadow variants against the live agent.
 
 ## Preferred approach
 
@@ -205,6 +205,20 @@ from, whose payload is an `NhAssistantHandOffResult` with the outcome and propos
 target's summary only when both worked on the same subject and the target read nothing restricted
 with its own grant.
 
+Evaluate a change to an agent's instructions, profile, skills or triage before it goes live with a
+shadow variant: register the changed agent with its own id and `ConfigureAgent(variant, agent =>
+agent.ShadowOf(liveAgentId))`. Every event, scheduled and webhook trigger of the live agent then
+fires for the variant too, with the same subject, message, dedupe key and payload; publishers read
+the live receipt. The variant keeps what shadow mode guarantees (threads for administrators only, no
+notifications, nothing executes) and its own budget and state. `GET admin/agents/{id}/evaluation?
+variant=...` pairs the runs that handled the same event or that a replay repeated and returns, per
+tool, the proposals both made (same arguments or same objects), only one made, and what people
+decided about the live ones, with cost and routing of both; counts, ids and thread links only.
+`.../evaluation/export` writes the pairs as audited JSON Lines. `POST admin/agents/{variant}/replay`
+fires the recorded runs of a period into a shadow agent, oldest first and against today's state, at
+most 500 runs and one replay at a time, until the variant's state, budget or run limits stop it.
+Decide from the report; nothing promotes a variant automatically.
+
 Give an agent continuity with `Memory<TMemory>(schemaVersion)`: the model reads and
 changes a working memory per thread through the internal `memory_get` and
 `memory_update` functions with JSON Merge Patch. Every version must deserialize into
@@ -394,6 +408,8 @@ profile and instructions that answer questions about the rules' proposals from t
   `MaxHandOffDepth` without a reason.
 - Accepting hand-offs from every agent, letting a source wait inside its run for the target, or
   passing a target's results to the source beyond its summary.
+- Registering an agent's triggers twice to evaluate a variant; use `ShadowOf`. Promoting a variant
+  on percentages of a few runs, or reading a replay as the past: it ran against today's state.
 - Requiring a reason before a person may reject a proposal, or counting `not-now` and
   `already-done` feedback as the agent's mistakes.
 - Feeding one subject's feedback text into runs on other subjects or scope keys, or
@@ -505,7 +521,13 @@ to a target that works in its own thread without an initiator under its own poli
 hands the same subject off once, that a paused target lets the work wait and runs it after the
 resume, that every refusal carries its code, that the chain and daily limits hold, and that the
 source's follow-up carries the target's summary only for the same subject without restricted reads,
-on both providers. SPM-268 to SPM-280 and SPM-282 to SPM-287 are the executable references.
+on both providers. Assert that a `ShadowOf` variant receives every event, tick and webhook of the
+live agent once, notifies nobody and executes nothing while its own triggers work; that the
+evaluation pairs runs of the same event, counts agreed, live-only and variant-only proposals with the
+live decisions and holds no message or argument; and that a replay fires the recorded inputs oldest
+first, records the runs it replays, stops at the variant's budget and refuses a live agent and a
+second replay, on both providers. SPM-268 to SPM-280 and SPM-282 to SPM-288 are the executable
+references.
 
 ## Optional source evidence
 

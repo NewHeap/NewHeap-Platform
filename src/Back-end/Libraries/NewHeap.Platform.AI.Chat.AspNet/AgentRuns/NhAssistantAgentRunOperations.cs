@@ -63,6 +63,7 @@ public static class NhAssistantAgentRunOperationTypes
     public const string ExecuteProposalOnce = "nh-ai-execute-proposal-once";
     public const string RevalidateProposals = "nh-ai-revalidate-proposals";
     public const string FireTrigger = "nh-ai-fire-trigger";
+    public const string Replay = "nh-ai-agent-replay";
 
     public static bool IsAgentOperation(string operationType)
     {
@@ -109,6 +110,12 @@ public static class NhAssistantBackgroundOperationBuilderExtensions
             operation => operation
                 .WithRetry(3)
                 .WithSoftTimeout(TimeSpan.FromMinutes(2))
+                .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
+        operations.Add<NhAssistantReplayOperationRequest, NhAssistantReplayOperation>(
+            NhAssistantAgentRunOperationTypes.Replay,
+            operation => operation
+                .WithRetry(3)
+                .WithSoftTimeout(TimeSpan.FromMinutes(5))
                 .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
         return operations;
     }
@@ -689,7 +696,8 @@ internal sealed class NhAssistantAgentRunOperation(
             cancellationToken,
             // A resumed turn is the model's; it keeps the kind the run started with.
             result.Kind == NhAssistantRunKinds.Model ? null : result.Kind,
-            result.UsedRestrictedResults);
+            result.UsedRestrictedResults,
+            result.ModelCalls);
     }
 
     private static NhAssistantAgentTurnInput ToInput(AssistantQueuedInput input)

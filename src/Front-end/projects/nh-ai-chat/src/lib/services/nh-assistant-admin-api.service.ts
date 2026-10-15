@@ -3,11 +3,16 @@ import { Observable } from 'rxjs';
 import {
   AdminAgent,
   AdminAgentInput,
+  AgentEvaluation,
+  AgentEvaluationFilter,
   AgentFeedbackExportFilter,
   AgentFeedbackFilter,
   AgentFeedbackList,
   AgentFeedbackListFilter,
   AgentFeedbackSummary,
+  AgentReplay,
+  AgentReplayList,
+  AgentReplayRequest,
   AgentSkillState,
   AgentState,
   ApplicationContext,
@@ -160,8 +165,40 @@ export class NhAssistantAdminApiService {
    * Downloads the feedback as JSON Lines with the tool input of each proposal. The file holds
    * subject data and the server audits the export. Rejects with `NhAssistantApiError`.
    */
-  async exportAgentFeedback(agentId: string, filter: AgentFeedbackExportFilter = {}): Promise<Blob> {
-    const path = withQuery(`${feedbackPath(agentId)}/export`, filter);
+  exportAgentFeedback(agentId: string, filter: AgentFeedbackExportFilter = {}): Promise<Blob> {
+    return this.download(withQuery(`${feedbackPath(agentId)}/export`, filter));
+  }
+
+  /**
+   * Compares a shadow variant with its live agent over a period: the runs that handled the same
+   * events, the proposals per tool with what people decided about the live ones, cost and routing.
+   */
+  getAgentEvaluation(agentId: string, filter: AgentEvaluationFilter): Observable<AgentEvaluation> {
+    return this.request<AgentEvaluation>('GET', withQuery(`${agentPath(agentId)}/evaluation`, filter));
+  }
+
+  /**
+   * Downloads the paired runs of the comparison as JSON Lines: identifiers, statuses, usage and
+   * proposal identities, no content. The server audits the export. Rejects with `NhAssistantApiError`.
+   */
+  exportAgentEvaluation(agentId: string, filter: AgentEvaluationFilter): Promise<Blob> {
+    return this.download(withQuery(`${agentPath(agentId)}/evaluation/export`, filter));
+  }
+
+  /**
+   * Replays the recorded runs of another agent in a period into a shadow variant, against today's
+   * state of each subject. One replay runs per variant (`assistant-replay-active`).
+   */
+  startAgentReplay(variantId: string, request: AgentReplayRequest): Observable<AgentReplay> {
+    return this.request<AgentReplay>('POST', `${agentPath(variantId)}/replay`, request);
+  }
+
+  /** The latest replays into a shadow variant, newest first. */
+  getAgentReplays(variantId: string): Observable<AgentReplayList> {
+    return this.request<AgentReplayList>('GET', `${agentPath(variantId)}/replays`);
+  }
+
+  private async download(path: string): Promise<Blob> {
     let response: Response;
     try {
       response = await this.transport.fetch('GET', path, 'application/x-ndjson', undefined, new AbortController().signal);
@@ -183,7 +220,11 @@ export class NhAssistantAdminApiService {
 }
 
 function feedbackPath(agentId: string): string {
-  return `admin/agents/${encodeURIComponent(agentId)}/feedback`;
+  return `${agentPath(agentId)}/feedback`;
+}
+
+function agentPath(agentId: string): string {
+  return `admin/agents/${encodeURIComponent(agentId)}`;
 }
 
 /** Appends the filter values that are set as query parameters. */

@@ -311,6 +311,9 @@
       "assistant-handoff-shadow-to-live": "Een agent in schaduwmodus kan geen werk overdragen aan een agent die echt werkt.",
       "assistant-handoff-chain-limit": "De keten van overdrachten is zo lang als toegestaan of zou terugkeren naar een agent erin.",
       "assistant-handoff-limit-reached": "Deze agent heeft dit onderwerp vandaag zo vaak als toegestaan aan die agent overgedragen.",
+      "assistant-replay-not-shadow": "Alleen een agent in schaduwmodus kan een herhaling ontvangen, van een andere agent.",
+      "assistant-replay-active": "Er loopt nog een herhaling naar deze variant.",
+      "assistant-evaluation-not-variant": "Die agent is geen schaduwvariant om mee te vergelijken.",
       "assistant-agent-not-configured": "Deze agent kan niet zelfstandig werken.",
       "assistant-run-not-found": "De run is niet gevonden.",
       "assistant-run-not-retryable": "Deze run kan niet opnieuw worden gestart.",
@@ -458,6 +461,7 @@
           "execute": "Uitvoeren"
         },
         "feedback": "Feedback",
+        "evaluation": "Evaluatie",
         "state": {
           "active": "Actief",
           "paused": "Gepauzeerd",
@@ -660,6 +664,77 @@
         "next": "Volgende",
         "page": "Pagina {{page}} van {{pages}}",
         "pages": "Pagina's"
+      },
+      "evaluation": {
+        "back": "Terug naar de agents",
+        "title": "Evaluatie van schaduwvarianten",
+        "description": "Vergelijkt een schaduwvariant met de live agent: de runs die dezelfde gebeurtenissen behandelden, de voorstellen die beide of maar één deed, wat mensen over de live voorstellen besloten, en wat elk kostte.",
+        "export-hint": "De export bevat id's, statussen, gebruik en identiteiten van voorstellen, geen berichten of argumenten. De export wordt geaudit.",
+        "refresh": "Vernieuwen",
+        "export": "Exporteren als JSON Lines",
+        "exporting": "Exporteren…",
+        "variant": "Variant",
+        "period": "Periode",
+        "runs-title": "Runs",
+        "runs": {
+          "live": "Live agent",
+          "variant": "Variant",
+          "paired": "Zelfde gebeurtenis",
+          "replayed": "Herhaald",
+          "live-unpaired": "Alleen live",
+          "variant-unpaired": "Alleen variant"
+        },
+        "small-numbers": "Kleine aantallen misleiden: lees de aantallen naast elk percentage.",
+        "replayed-hint": "Herhaalde runs zagen de huidige stand van elk onderwerp; een onderwerp dat sindsdien veranderde, kan een verschil verklaren.",
+        "truncated": "De periode bevat meer runs dan één evaluatie leest; ze dekt de oudste.",
+        "tools-title": "Voorstellen per tool",
+        "tools-empty": "De gekoppelde runs deden geen voorstellen.",
+        "columns": {
+          "tool": "Tool",
+          "agreed": "Gelijk",
+          "live-only": "Alleen live",
+          "variant-only": "Alleen variant",
+          "rejected-not-proposed": "Live afgewezen, niet voorgesteld",
+          "rejected-also-proposed": "Live afgewezen, ook voorgesteld",
+          "approved-missed": "Live goedgekeurd, gemist",
+          "live-decisions": "Besluiten over live voorstellen",
+          "measure": "Maat",
+          "live": "Live agent",
+          "variant": "Variant",
+          "live-skill": "Vaardigheid live",
+          "variant-skill": "Vaardigheid variant",
+          "runs": "Runs"
+        },
+        "decisions": "{{pending}} open, {{approved}} goedgekeurd, {{executed}} uitgevoerd, {{rejected}} afgewezen, {{stale}} verouderd",
+        "cost-title": "Kosten",
+        "cost": {
+          "runs": "Runs",
+          "model-calls": "Modelaanroepen per run",
+          "tokens": "Tokens per run",
+          "tool-calls": "Toolaanroepen per run",
+          "average-p95": "gemiddeld {{average}}, p95 {{p95}} ({{total}} in totaal)"
+        },
+        "routing-title": "Routering",
+        "no-skill": "Eigen tools",
+        "differences-title": "Verschillen",
+        "kind": {
+          "live-only": "Alleen live",
+          "variant-only": "Alleen variant"
+        },
+        "live-status": "Live: {{status}}",
+        "replayed": "Herhaald",
+        "open-live": "Open de live thread",
+        "open-variant": "Open de thread van de variant",
+        "replay-title": "Herhaling",
+        "replay-hint": "Stuurt de vastgelegde runs van de live agent in de periode naar de variant, oudste eerst, tegen de huidige stand van elk onderwerp; hoogstens {{max}} runs. Het budget en de limieten van de variant gelden.",
+        "replay-runs": "Te herhalen runs",
+        "replay": "Periode herhalen",
+        "replay-status": {
+          "running": "Bezig",
+          "completed": "Voltooid",
+          "stopped": "Gestopt"
+        },
+        "replay-progress": "{{replayed}} van hoogstens {{max}} runs herhaald, {{skipped}} overgeslagen"
       }
     },
     "page-context": {

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.67",
   "backEnd": {
-    "hash": "97f3abf0e73d18089ed7cf0c4ffe731ddec21beaa9ae761378cccdfabf1ecf07",
-    "declarationCount": 7550,
+    "hash": "a862e2bc3a2988511f2abb93bdc65d6fd5964600b773fc0bed5e738b9a6978c8",
+    "declarationCount": 7650,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1391,6 +1391,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+        "declaration": "public string? ShadowOf { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
         "declaration": "public sealed record NhAssistantSkillState( string SkillId, string Description, string RunState, DateTimeOffset? ChangedAt, string? ChangedBy, string? Reason, int WaitingInputs, int ToolCallsToday, long TokensToday, int? DailyToolCalls, long? DailyTokens, int CancelledRuns, int StartedRuns);"
       },
       {
@@ -1424,6 +1428,142 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
         "declaration": "public Task<TaskResult<NhAssistantSkillState>> ResumeSkillAsync( string agentId, string skillId, string actorId, string? reason = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantEvaluationDto( string AgentId, string VariantId, DateTimeOffset From, DateTimeOffset To, NhAssistantEvaluationRunsDto Runs, IReadOnlyList<NhAssistantEvaluationToolDto> Tools, NhAssistantEvaluationCostDto LiveCost, NhAssistantEvaluationCostDto VariantCost, IReadOnlyList<NhAssistantEvaluationRoutingDto> Routing, IReadOnlyList<NhAssistantEvaluationDifferenceDto> Differences);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantEvaluationRunsDto( int Live, int Variant, int Paired, int Replayed, int LiveUnpaired, int VariantUnpaired, bool Truncated);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantEvaluationToolDto( string ToolId, int Agreed, int LiveOnly, int VariantOnly, NhAssistantEvaluationDecisionsDto LiveDecisions, int RejectedLiveNotProposed, int RejectedLiveAlsoProposed, int ApprovedLiveMissed);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantEvaluationDecisionsDto( int Pending, int Approved, int Executed, int Rejected, int Stale, int Other, IReadOnlyDictionary<string, int> RejectionCategories);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantEvaluationCostDto( int Runs, long ModelCalls, long Tokens, long ToolCalls, double AverageModelCalls, double AverageTokens, double AverageToolCalls, long P95ModelCalls, long P95Tokens, long P95ToolCalls);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantEvaluationRoutingDto( string? LiveSkill, string? VariantSkill, int Runs);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantEvaluationDifferenceDto( string ToolId, string Kind, string? LiveStatus, Guid LiveRunId, Guid LiveConversationId, Guid VariantRunId, Guid VariantConversationId, bool Replayed);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public static class NhAssistantEvaluationDifferenceKinds {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public const string LiveOnly = \"live-only\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public const string VariantOnly = \"variant-only\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantEvaluationExportRecord( Guid LiveRunId, Guid VariantRunId, bool Replayed, string SubjectType, string SubjectId, string TriggerId, NhAssistantEvaluationRunRecord Live, NhAssistantEvaluationRunRecord Variant, IReadOnlyList<string> AgreedTools);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantEvaluationRunRecord( Guid ConversationId, string Status, string? Skill, string? SkillChosenBy, int ModelCalls, long Tokens, int ToolCalls, IReadOnlyList<NhAssistantEvaluationProposalRecord> Proposals);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantEvaluationProposalRecord( string ToolId, string Status, string? ArgumentsHash);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantReplayRequest( string? SourceAgentId, DateTimeOffset? From, DateTimeOffset? To, int? MaxRuns);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantReplayDto( Guid Id, string VariantAgentId, string SourceAgentId, DateTimeOffset From, DateTimeOffset To, int MaxRuns, string Status, string? StopReason, int RunsReplayed, int RunsSkipped, DateTimeOffset CreatedAt, DateTimeOffset? EndedAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantReplayListDto(IReadOnlyList<NhAssistantReplayDto> Items);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public sealed record NhAssistantReplayOperationRequest(Guid ReplayId);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public bool IsConfigured(string agentId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public bool IsVariant(string variantId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public async Task<NhAssistantEvaluationDto> CompareAsync( string agentId, string variantId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantEvaluationExportRecord>> ExportAsync( string agentId, string variantId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public string ToolId { get; } = toolId;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public int Agreed { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public int LiveOnly { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public int VariantOnly { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public int RejectedLiveNotProposed { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public int RejectedLiveAlsoProposed { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public int ApprovedLiveMissed { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public void Count(string status, IEnumerable<string> categories) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public NhAssistantEvaluationToolDto ToDto() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public async Task<TaskResult<AssistantAgentReplay>> StartAsync( string variantId, NhAssistantReplayRequest request, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public static NhAssistantReplayDto ToDto(AssistantAgentReplay replay) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+        "declaration": "public async Task<TaskResult> ExecuteAsync( NhAssistantReplayOperationRequest request, INhBackgroundOperationContext context, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluationEndpoints.cs",
+        "declaration": "public static void MapAdmin(RouteGroupBuilder admin) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
@@ -1671,7 +1811,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
-        "declaration": "[JsonSerializable(typeof(NhAssistantThreadLookupDto))] [JsonSerializable(typeof(NhAssistantKillSwitchRequest))] [JsonSerializable(typeof(NhAssistantThreadMemoryDto))] [JsonSerializable(typeof(NhAssistantArtifactDto[]))] [JsonSerializable(typeof(NhAssistantKillSwitchDto))] [JsonSerializable(typeof(NhAssistantAgentState))] [JsonSerializable(typeof(NhAssistantAgentStateRequest))] [JsonSerializable(typeof(NhAssistantSkillState))] [JsonSerializable(typeof(NhAssistantStartAgentRequest))] [JsonSerializable(typeof(NhAssistantTriggerReceiptDto))] [JsonSerializable(typeof(NhAssistantRunDto))] [JsonSerializable(typeof(NhAssistantRunListDto))] [JsonSerializable(typeof(NhAssistantRetryRunRequest))] [JsonSerializable(typeof(NhAssistantProposalDto))] [JsonSerializable(typeof(NhAssistantProposalDto[]))] [JsonSerializable(typeof(NhAssistantInboxDto))] [JsonSerializable(typeof(NhAssistantProposalDecisionRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionDto))] [JsonSerializable(typeof(NhAssistantResolveExecutionRequest))] [JsonSerializable(typeof(NhAssistantConsultationListDto))] [JsonSerializable(typeof(NhAssistantProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantFeedbackSummaryDto))] [JsonSerializable(typeof(NhAssistantFeedbackListDto))] [JsonSerializable(typeof(NhAssistantFeedbackExportRecord))] [JsonSerializable(typeof(NhAssistantSubjectWorkDto))] [JsonSerializable(typeof(NhAssistantSubjectProposalDto))] [JsonSerializable(typeof(NhAssistantProposalLookupRequest))] [JsonSerializable(typeof(NhAssistantProposalLookupDto))] [JsonSerializable(typeof(NhAssistantSubjectSummaryRequest))] [JsonSerializable(typeof(NhAssistantSubjectSummaryListDto))] [JsonSerializable(typeof(NhAssistantOpenThreadRequest))] [JsonSerializable(typeof(string[]))] public sealed partial class NhAssistantAgentRunJsonSerializerContext : JsonSerializerContext;"
+        "declaration": "[JsonSerializable(typeof(NhAssistantThreadLookupDto))] [JsonSerializable(typeof(NhAssistantKillSwitchRequest))] [JsonSerializable(typeof(NhAssistantThreadMemoryDto))] [JsonSerializable(typeof(NhAssistantArtifactDto[]))] [JsonSerializable(typeof(NhAssistantKillSwitchDto))] [JsonSerializable(typeof(NhAssistantAgentState))] [JsonSerializable(typeof(NhAssistantAgentStateRequest))] [JsonSerializable(typeof(NhAssistantSkillState))] [JsonSerializable(typeof(NhAssistantStartAgentRequest))] [JsonSerializable(typeof(NhAssistantTriggerReceiptDto))] [JsonSerializable(typeof(NhAssistantRunDto))] [JsonSerializable(typeof(NhAssistantRunListDto))] [JsonSerializable(typeof(NhAssistantRetryRunRequest))] [JsonSerializable(typeof(NhAssistantProposalDto))] [JsonSerializable(typeof(NhAssistantProposalDto[]))] [JsonSerializable(typeof(NhAssistantInboxDto))] [JsonSerializable(typeof(NhAssistantProposalDecisionRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionDto))] [JsonSerializable(typeof(NhAssistantResolveExecutionRequest))] [JsonSerializable(typeof(NhAssistantConsultationListDto))] [JsonSerializable(typeof(NhAssistantProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantFeedbackSummaryDto))] [JsonSerializable(typeof(NhAssistantFeedbackListDto))] [JsonSerializable(typeof(NhAssistantFeedbackExportRecord))] [JsonSerializable(typeof(NhAssistantEvaluationDto))] [JsonSerializable(typeof(NhAssistantEvaluationExportRecord))] [JsonSerializable(typeof(NhAssistantReplayRequest))] [JsonSerializable(typeof(NhAssistantReplayDto))] [JsonSerializable(typeof(NhAssistantReplayListDto))] [JsonSerializable(typeof(NhAssistantSubjectWorkDto))] [JsonSerializable(typeof(NhAssistantSubjectProposalDto))] [JsonSerializable(typeof(NhAssistantProposalLookupRequest))] [JsonSerializable(typeof(NhAssistantProposalLookupDto))] [JsonSerializable(typeof(NhAssistantSubjectSummaryRequest))] [JsonSerializable(typeof(NhAssistantSubjectSummaryListDto))] [JsonSerializable(typeof(NhAssistantOpenThreadRequest))] [JsonSerializable(typeof(string[]))] public sealed partial class NhAssistantAgentRunJsonSerializerContext : JsonSerializerContext;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
@@ -1752,6 +1892,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
         "declaration": "public const string FireTrigger = \"nh-ai-fire-trigger\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+        "declaration": "public const string Replay = \"nh-ai-agent-replay\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
@@ -1892,6 +2036,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
         "declaration": "public string? SkillId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "declaration": "public Guid? ReplayOfRunId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "declaration": "public IReadOnlyList<NhAssistantReplayedInput> ReplayedInputs { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
@@ -2527,6 +2679,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public string? ShadowOf { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantMcpServerInputDto( string? Id, string? DisplayName, string? Url, string? AuthMode, string? HeaderName, string? Secret, string? RequiredPolicy, bool? IsEnabled);"
       },
       {
@@ -3006,6 +3162,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261015212801_AgentEvaluation.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261015212801_AgentEvaluation.cs",
+        "declaration": "public partial class AgentEvaluation : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261015212801_AgentEvaluation.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261015212801_AgentEvaluation.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -3259,6 +3431,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261015204841_AgentHandOffs.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261015212757_AgentEvaluation.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261015212757_AgentEvaluation.cs",
+        "declaration": "public partial class AgentEvaluation : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261015212757_AgentEvaluation.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261015212757_AgentEvaluation.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -3526,6 +3714,42 @@
         "declaration": "public string ActorId => \"assistant-agent:\" + Id;"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentEvaluation.cs",
+        "declaration": "public static class NhAssistantReplayStatuses {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentEvaluation.cs",
+        "declaration": "public const string Running = \"running\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentEvaluation.cs",
+        "declaration": "public const string Completed = \"completed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentEvaluation.cs",
+        "declaration": "public const string Stopped = \"stopped\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentEvaluation.cs",
+        "declaration": "public static bool IsKnown(string status) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentEvaluation.cs",
+        "declaration": "public static class NhAssistantEvaluationLimits {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentEvaluation.cs",
+        "declaration": "public const int MaxReplayRuns = 500;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentEvaluation.cs",
+        "declaration": "public const int MaxEvaluatedRuns = 5_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentEvaluation.cs",
+        "declaration": "public static TimeSpan MaxPeriod { get; } = TimeSpan.FromDays(92);"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs",
         "declaration": "public sealed class NhAssistantHandOffOptions {"
       },
@@ -3755,6 +3979,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public string? ShadowOfAgentId { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public int MaxConcurrentRuns { get; internal set; } = 4;"
       },
       {
@@ -3872,6 +4100,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder Shadow(bool enabled = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder ShadowOf(string liveAgentId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -4831,6 +5063,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public int ModelCalls { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
         "declaration": "public long InputTokens { get; set; }"
       },
       {
@@ -4840,6 +5076,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
         "declaration": "public int ProposalCount { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public Guid? ReplayOfRunId { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
@@ -4952,6 +5192,74 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
         "declaration": "public DateTimeOffset? EndedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public sealed class AssistantAgentReplay {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string VariantAgentId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string SourceAgentId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public DateTimeOffset From { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public DateTimeOffset To { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public int MaxRuns { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string Status { get; set; } = NhAssistantReplayStatuses.Running;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string? StopReason { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public int RunsReplayed { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public int RunsSkipped { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public DateTimeOffset? CursorCreatedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public Guid? CursorRunId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string RequestedByActorId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public DateTimeOffset CreatedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public DateTimeOffset? EndedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public Guid ConcurrencyStamp { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
@@ -7103,6 +7411,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ReplayNotShadow = \"assistant-replay-not-shadow\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ReplayActive = \"assistant-replay-active\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string EvaluationNotVariant = \"assistant-evaluation-not-variant\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string HandOffUnavailable = \"assistant-handoff-unavailable\";"
       },
       {
@@ -8227,6 +8547,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantAgentReplay> AgentReplays => Set<AssistantAgentReplay>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
         "declaration": "public DbSet<AssistantProposalFeedback> ProposalFeedback => Set<AssistantProposalFeedback>();"
       },
       {
@@ -8240,6 +8564,62 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
         "declaration": "public object Create(DbContext context, bool designTime) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantEvaluationRun>> GetRunsAsync( string agentId, DateTimeOffset from, DateTimeOffset to, int max, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantEvaluationRun>> GetReplaysOfAsync( string agentId, IReadOnlyCollection<Guid> replayedRunIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantEvaluationProposal>> GetProposalsAsync( IReadOnlyCollection<Guid> runIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task<ILookup<Guid, string>> GetObjectsAsync( IReadOnlyCollection<Guid> approvalIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task<ILookup<Guid, string>> GetFeedbackCategoriesAsync( IReadOnlyCollection<Guid> approvalIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task<AssistantAgentReplay?> FindActiveReplayAsync(string variantAgentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task<AssistantAgentReplay?> FindReplayAsync(Guid replayId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAgentReplay>> ListReplaysAsync( string variantAgentId, int take, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task AddReplayAsync(AssistantAgentReplay replay, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task<bool> TrySaveReplayAsync(AssistantAgentReplay replay, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task<IReadOnlyList<(AssistantRun Run, AssistantThread Thread)>> GetReplaySourceRunsAsync( AssistantAgentReplay replay, int take, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantQueuedInput>> GetClaimedInputsAsync(Guid runId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public required AssistantRun Run { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+        "declaration": "public required AssistantThread Thread { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantHandOffStore.cs",
@@ -8503,7 +8883,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task RecordRunUsageAsync( Guid runId, int toolCalls, long inputTokens, long outputTokens, int proposals, CancellationToken cancellationToken, string? kind = null, bool usedRestrictedResults = false)"
+        "declaration": "public async Task RecordRunUsageAsync( Guid runId, int toolCalls, long inputTokens, long outputTokens, int proposals, CancellationToken cancellationToken, string? kind = null, bool usedRestrictedResults = false, int modelCalls = 0)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -9103,6 +9483,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public Task EvaluationExportedAsync(string agentId, string variantId, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public Task ReplayStartedAsync(Guid replayId, string variantId, string sourceAgentId, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
         "declaration": "public Task FeedbackExportedAsync(string agentId, string actorId, CancellationToken cancellationToken) {"
       },
       {
@@ -9471,6 +9859,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public int ModelCalls { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public const string Busy = \"busy\";"
       },
       {
@@ -9668,6 +10060,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
         "declaration": "public int ToolCalls => Volatile.Read(ref _toolCalls);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public int ModelCalls => Volatile.Read(ref _modelCalls);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public void AddModelCalls(int calls) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
@@ -33865,7 +34265,21 @@
       "NhAssistantHandOffReceipt",
       "NhAssistantHandOffOutcomes",
       "NhAssistantHandOffResult",
-      "MaxHandOffDepth"
+      "MaxHandOffDepth",
+      "ShadowOf",
+      "NhAssistantEvaluationDto",
+      "NhAssistantEvaluationRunsDto",
+      "NhAssistantEvaluationToolDto",
+      "NhAssistantEvaluationDecisionsDto",
+      "NhAssistantEvaluationCostDto",
+      "NhAssistantEvaluationRoutingDto",
+      "NhAssistantEvaluationDifferenceDto",
+      "NhAssistantEvaluationDifferenceKinds",
+      "NhAssistantEvaluationExportRecord",
+      "NhAssistantReplayRequest",
+      "NhAssistantReplayDto",
+      "NhAssistantReplayStatuses",
+      "NhAssistantEvaluationLimits"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

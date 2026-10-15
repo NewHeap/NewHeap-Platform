@@ -145,7 +145,19 @@ public enum NhAssistantAuditEventKind
     /// <c>RunId</c> is the target's run once there is one. <c>ResultCode</c> is the outcome or the
     /// refusal code. The message is never recorded.
     /// </summary>
-    AgentHandedOff = 45
+    AgentHandedOff = 45,
+
+    /// <summary>
+    /// An administrator exported the evaluation of a shadow variant against its live agent.
+    /// <c>ObjectId</c> is the variant; <c>AgentId</c> the live agent.
+    /// </summary>
+    AdminAgentEvaluationExported = 46,
+
+    /// <summary>
+    /// An administrator started a replay of recorded runs into a shadow variant. <c>ObjectId</c> is
+    /// the replay, <c>AgentId</c> the variant and <c>AskingAgentId</c> the agent whose runs it replays.
+    /// </summary>
+    AdminAgentReplayStarted = 47
 }
 
 /// <summary>

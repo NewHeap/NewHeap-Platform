@@ -141,6 +141,75 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.ToTable("AssistantAgentMcpServer", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentReplay", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("CursorCreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CursorRunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("From")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MaxRuns")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RequestedByActorId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("RunsReplayed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RunsSkipped")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceAgentId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("StopReason")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset>("To")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VariantAgentId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VariantAgentId", "CreatedAt");
+
+                    b.HasIndex("VariantAgentId", "Status");
+
+                    b.ToTable("AssistantAgentReplay", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentSkillState", b =>
                 {
                     b.Property<string>("AgentId")
@@ -1288,11 +1357,17 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasColumnType("character varying(24)")
                         .HasDefaultValue("model");
 
+                    b.Property<int>("ModelCalls")
+                        .HasColumnType("integer");
+
                     b.Property<long>("OutputTokens")
                         .HasColumnType("bigint");
 
                     b.Property<int>("ProposalCount")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("ReplayOfRunId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("RequestedByAgentId")
                         .HasMaxLength(128)
@@ -1345,6 +1420,8 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BackgroundOperationId");
+
+                    b.HasIndex("ReplayOfRunId");
 
                     b.HasIndex("ConversationId", "CreatedAt");
 

@@ -1,6 +1,7 @@
 import {
   AdminAgent,
   AdminAgentInput,
+  AgentReplay,
   AgentSkillState,
   AgentState,
   AgentSummary,
@@ -62,6 +63,7 @@ const defaultPreferences: AssistantPreferences = {
 export class NhAssistantMockAdmin {
   private readonly agents = new Map<string, StoredAgent>();
   private readonly servers = new Map<string, StoredServer>();
+  private readonly replays = new Map<string, AgentReplay[]>();
   private readonly contextVersions: (ApplicationContextVersion & { text: string })[] = [];
   private preferences: AssistantPreferences;
   private canAdminister: boolean;
@@ -75,10 +77,11 @@ export class NhAssistantMockAdmin {
 
     const agents: NhAssistantMockAdminAgent[] = admin.agents
       ?? scenario.agents.map(agent => ({ ...codeAgentFromSummary(agent), source: 'code' as const }));
-    for (const { source, skills, ...input } of agents) {
+    for (const { source, skills, shadowOf, ...input } of agents) {
       this.agents.set(input.id, {
         agent: {
           ...this.toAgent(input, source, 1, false),
+          shadowOf: shadowOf ?? null,
           skills: (skills ?? []).map((skill): AgentSkillState => ({
             skillId: skill.skillId,
             description: skill.description,
@@ -172,7 +175,7 @@ export class NhAssistantMockAdmin {
     return { status: 200, body: this.preferences };
   }
 
-  handleAdmin(method: string, segments: string[], body: unknown): NhAssistantMockResult {
+  handleAdmin(method: string, segments: string[], body: unknown, query = new URLSearchParams()): NhAssistantMockResult {
     if (!this.canAdminister) {
       return failure(403, 'assistant-forbidden');
     }
@@ -186,6 +189,12 @@ export class NhAssistantMockAdmin {
       case 'agents':
         if (id !== undefined && action === 'feedback') {
           return this.agentFeedback(method, id, child, segments.length);
+        }
+        if (id !== undefined && action === 'evaluation') {
+          return this.agentEvaluation(method, id, child, segments.length, query);
+        }
+        if (id !== undefined && (action === 'replay' || action === 'replays') && segments.length === 4) {
+          return this.agentReplay(method, id, action, body);
         }
         if (id !== undefined && action === 'skills' && child !== undefined && segments[5] === 'state' && segments.length === 6) {
           return this.skillStateEndpoint(method, id, child, body);
@@ -411,6 +420,98 @@ export class NhAssistantMockAdmin {
     return failure(404, 'assistant-not-found');
   }
 
+  /**
+   * The comparison of a shadow variant with its live agent. The mock runs no agents on their own,
+   * so it pairs no runs and the export is empty.
+   */
+  private agentEvaluation(method: string, agentId: string, child: string | undefined, length: number, query: URLSearchParams): NhAssistantMockResult {
+    if (!this.agents.has(agentId)) {
+      return failure(404, 'assistant-agent-not-found');
+    }
+    if (method !== 'GET') {
+      return { status: 405 };
+    }
+
+    const variantId = query.get('variant') ?? '';
+    if (this.agents.get(variantId)?.agent.shadowOf !== agentId) {
+      return failure(400, 'assistant-evaluation-not-variant');
+    }
+    if (length === 5 && child === 'export') {
+      return { status: 200 };
+    }
+    if (length !== 4) {
+      return failure(404, 'assistant-not-found');
+    }
+
+    const to = query.get('to') ?? this.now();
+    const from = query.get('from') ?? new Date(Date.parse(to) - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const noCost = {
+      runs: 0, modelCalls: 0, tokens: 0, toolCalls: 0,
+      averageModelCalls: 0, averageTokens: 0, averageToolCalls: 0,
+      p95ModelCalls: 0, p95Tokens: 0, p95ToolCalls: 0
+    };
+    return {
+      status: 200,
+      body: {
+        agentId,
+        variantId,
+        from,
+        to,
+        runs: { live: 0, variant: 0, paired: 0, replayed: 0, liveUnpaired: 0, variantUnpaired: 0, truncated: false },
+        tools: [],
+        liveCost: noCost,
+        variantCost: noCost,
+        routing: [],
+        differences: []
+      }
+    };
+  }
+
+  /**
+   * Replays into a shadow variant. The mock records no runs, so a replay completes at once
+   * without replaying any.
+   */
+  private agentReplay(method: string, agentId: string, action: string, body: unknown): NhAssistantMockResult {
+    const stored = this.agents.get(agentId);
+    if (!stored) {
+      return failure(404, 'assistant-agent-not-found');
+    }
+    if (action === 'replays') {
+      return method === 'GET' ? { status: 200, body: { items: [...(this.replays.get(agentId) ?? [])].reverse() } } : { status: 405 };
+    }
+    if (method !== 'POST') {
+      return { status: 405 };
+    }
+    if (!stored.agent.shadowOf) {
+      return failure(400, 'assistant-replay-not-shadow');
+    }
+
+    const request = (body ?? {}) as { sourceAgentId?: string | null; from?: string | null; to?: string | null; maxRuns?: number | null };
+    const maxRuns = request.maxRuns ?? 100;
+    if (maxRuns < 1 || maxRuns > 500) {
+      return failure(400, 'assistant-message-invalid');
+    }
+
+    const now = this.now();
+    const to = request.to ?? now;
+    const replay = {
+      id: crypto.randomUUID(),
+      variantAgentId: agentId,
+      sourceAgentId: request.sourceAgentId ?? stored.agent.shadowOf,
+      from: request.from ?? new Date(Date.parse(to) - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      to,
+      maxRuns,
+      status: 'completed' as const,
+      stopReason: null,
+      runsReplayed: 0,
+      runsSkipped: 0,
+      createdAt: now,
+      endedAt: now
+    };
+    this.replays.set(agentId, [...(this.replays.get(agentId) ?? []), replay]);
+    return { status: 202, body: replay };
+  }
+
   private serversEndpoint(
     method: string,
     id: string | undefined,
@@ -634,7 +735,8 @@ export class NhAssistantMockAdmin {
       stateChangedBy: previous?.stateChangedBy ?? null,
       stateReason: previous?.stateReason ?? null,
       waitingInputs: previous?.waitingInputs ?? 0,
-      skills: previous?.skills ?? []
+      skills: previous?.skills ?? [],
+      shadowOf: previous?.shadowOf ?? null
     };
   }
 
@@ -673,7 +775,8 @@ function toAgentState(agent: AdminAgent): AgentState {
     waitingInputs: agent.waitingInputs,
     cancelledRuns: 0,
     startedRuns: 0,
-    skills: agent.skills ?? []
+    skills: agent.skills ?? [],
+    shadowOf: agent.shadowOf ?? null
   };
 }
 

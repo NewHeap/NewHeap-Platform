@@ -283,7 +283,8 @@
     "SPM-284",
     "SPM-285",
     "SPM-286",
-    "SPM-287"
+    "SPM-287",
+    "SPM-288"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2295,6 +2296,18 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentHandOffTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-timeline.component.html",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts"
+    ],
+    "SPM-288": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerVariantComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentEvaluation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluationEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentEvaluationTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-evaluation.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
     ]
   }
 }

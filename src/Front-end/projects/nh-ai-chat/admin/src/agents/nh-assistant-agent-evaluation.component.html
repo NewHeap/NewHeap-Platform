@@ -1,0 +1,265 @@
+<section class="section report" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()">
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.evaluation.title' | translate }}</h3>
+      <p class="muted">{{ 'nh-assistant.admin.evaluation.description' | translate }}</p>
+      <p class="muted export-hint" [id]="id + '-export-hint'">{{ 'nh-assistant.admin.evaluation.export-hint' | translate }}</p>
+    </div>
+    <div class="header-actions">
+      <button class="secondary" type="button" [disabled]="loading()" (click)="load()">
+        <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.evaluation.refresh' | translate }}
+      </button>
+      <button class="secondary" type="button" [disabled]="!canExport()" [attr.aria-describedby]="id + '-export-hint'" (click)="export()">
+        <nh-assistant-icon name="page" />{{ (exporting() ? 'nh-assistant.admin.evaluation.exporting' : 'nh-assistant.admin.evaluation.export') | translate }}
+      </button>
+    </div>
+  </header>
+
+  <div class="filters">
+    <div class="field">
+      <label [for]="id + '-variant'">{{ 'nh-assistant.admin.evaluation.variant' | translate }}</label>
+      <select [id]="id + '-variant'" (change)="onVariant($event)">
+        @for (option of variants(); track option) {
+          <option [value]="option" [selected]="variant() === option">
+            {{ ['nh-assistant.agents.' + option + '.name'] | nhAssistantTranslate: option }}
+          </option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label [for]="id + '-period'">{{ 'nh-assistant.admin.evaluation.period' | translate }}</label>
+      <select [id]="id + '-period'" (change)="onPeriod($event)">
+        @for (days of periods; track days) {
+          <option [value]="days" [selected]="period() === days">{{ 'nh-assistant.admin.feedback.periods.last-' + days + '-days' | translate }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  @if (exportError(); as failure) {
+    <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ exportErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+  }
+
+  @if (loading() && evaluation() === null) {
+    <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+  } @else if (error(); as failure) {
+    <div class="state" role="alert">
+      <p>{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+    </div>
+  } @else if (evaluation(); as report) {
+    <section class="subsection" [attr.aria-labelledby]="id + '-runs-title'">
+      <h4 [id]="id + '-runs-title'">{{ 'nh-assistant.admin.evaluation.runs-title' | translate }}</h4>
+      <dl class="meta" data-evaluation-runs>
+        <div><dt>{{ 'nh-assistant.admin.evaluation.runs.live' | translate }}</dt><dd>{{ report.runs.live }}</dd></div>
+        <div><dt>{{ 'nh-assistant.admin.evaluation.runs.variant' | translate }}</dt><dd>{{ report.runs.variant }}</dd></div>
+        <div><dt>{{ 'nh-assistant.admin.evaluation.runs.paired' | translate }}</dt><dd data-paired>{{ report.runs.paired }}</dd></div>
+        <div><dt>{{ 'nh-assistant.admin.evaluation.runs.replayed' | translate }}</dt><dd>{{ report.runs.replayed }}</dd></div>
+        <div><dt>{{ 'nh-assistant.admin.evaluation.runs.live-unpaired' | translate }}</dt><dd>{{ report.runs.liveUnpaired }}</dd></div>
+        <div><dt>{{ 'nh-assistant.admin.evaluation.runs.variant-unpaired' | translate }}</dt><dd>{{ report.runs.variantUnpaired }}</dd></div>
+      </dl>
+      <p class="muted">{{ 'nh-assistant.admin.evaluation.small-numbers' | translate }}</p>
+      @if (report.runs.replayed > 0) {
+        <p class="muted">{{ 'nh-assistant.admin.evaluation.replayed-hint' | translate }}</p>
+      }
+      @if (report.runs.truncated) {
+        <p class="message" role="status"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.evaluation.truncated' | translate }}</p>
+      }
+    </section>
+
+    <section class="subsection" [attr.aria-labelledby]="id + '-tools-title'">
+      <h4 [id]="id + '-tools-title'">{{ 'nh-assistant.admin.evaluation.tools-title' | translate }}</h4>
+      @if (report.tools.length === 0) {
+        <p class="state">{{ 'nh-assistant.admin.evaluation.tools-empty' | translate }}</p>
+      } @else {
+        <div class="table-container">
+          <table class="summary-table" [attr.aria-labelledby]="id + '-tools-title'">
+            <thead>
+              <tr>
+                <th scope="col">{{ 'nh-assistant.admin.evaluation.columns.tool' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.evaluation.columns.agreed' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.evaluation.columns.live-only' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.evaluation.columns.variant-only' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.evaluation.columns.rejected-not-proposed' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.evaluation.columns.rejected-also-proposed' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.evaluation.columns.approved-missed' | translate }}</th>
+                <th scope="col">{{ 'nh-assistant.admin.evaluation.columns.live-decisions' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of report.tools; track row.toolId) {
+                <tr [attr.data-evaluation-tool]="row.toolId">
+                  <th scope="row" [attr.data-label]="'nh-assistant.admin.evaluation.columns.tool' | translate"><span class="mono">{{ row.toolId }}</span></th>
+                  <td class="number" data-agreed [attr.data-label]="'nh-assistant.admin.evaluation.columns.agreed' | translate">
+                    {{ row.agreed }}
+                    @if (share(row.agreed, total(row)); as fraction) {
+                      <span class="muted">({{ fraction * 100 | number: '1.0-0' }}%)</span>
+                    }
+                  </td>
+                  <td class="number" [attr.data-label]="'nh-assistant.admin.evaluation.columns.live-only' | translate">{{ row.liveOnly }}</td>
+                  <td class="number" [attr.data-label]="'nh-assistant.admin.evaluation.columns.variant-only' | translate">{{ row.variantOnly }}</td>
+                  <td class="number" data-rejected-not-proposed [attr.data-label]="'nh-assistant.admin.evaluation.columns.rejected-not-proposed' | translate">{{ row.rejectedLiveNotProposed }}</td>
+                  <td class="number" [attr.data-label]="'nh-assistant.admin.evaluation.columns.rejected-also-proposed' | translate">{{ row.rejectedLiveAlsoProposed }}</td>
+                  <td class="number" [attr.data-label]="'nh-assistant.admin.evaluation.columns.approved-missed' | translate">{{ row.approvedLiveMissed }}</td>
+                  <td [attr.data-label]="'nh-assistant.admin.evaluation.columns.live-decisions' | translate">
+                    {{ 'nh-assistant.admin.evaluation.decisions' | translate: row.liveDecisions }}
+                    @if (categories(row).length > 0) {
+                      <ul class="badges">
+                        @for (item of categories(row); track item.category) {
+                          <li>
+                            <span class="badge">
+                              {{ 'nh-assistant.proposal-feedback.categories.' + item.category | nhAssistantTranslate: item.category }}
+                              <span class="count">{{ item.count }}</span>
+                            </span>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+    <section class="subsection" [attr.aria-labelledby]="id + '-cost-title'">
+      <h4 [id]="id + '-cost-title'">{{ 'nh-assistant.admin.evaluation.cost-title' | translate }}</h4>
+      <div class="table-container">
+        <table class="summary-table" [attr.aria-labelledby]="id + '-cost-title'">
+          <thead>
+            <tr>
+              <th scope="col">{{ 'nh-assistant.admin.evaluation.columns.measure' | translate }}</th>
+              <th scope="col" class="number">{{ 'nh-assistant.admin.evaluation.columns.live' | translate }}</th>
+              <th scope="col" class="number">{{ 'nh-assistant.admin.evaluation.columns.variant' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of costRows(); track row.key) {
+              <tr [attr.data-cost]="row.key">
+                <th scope="row" [attr.data-label]="'nh-assistant.admin.evaluation.columns.measure' | translate">{{ 'nh-assistant.admin.evaluation.cost.' + row.key | translate }}</th>
+                @for (side of [row.live, row.variant]; track $index) {
+                  <td class="number" [attr.data-label]="($index === 0 ? 'nh-assistant.admin.evaluation.columns.live' : 'nh-assistant.admin.evaluation.columns.variant') | translate">
+                    @switch (row.key) {
+                      @case ('runs') { {{ side.runs }} }
+                      @case ('model-calls') {
+                        {{ 'nh-assistant.admin.evaluation.cost.average-p95' | translate: { average: (side.averageModelCalls | number: '1.0-2'), p95: side.p95ModelCalls, total: side.modelCalls } }}
+                      }
+                      @case ('tokens') {
+                        {{ 'nh-assistant.admin.evaluation.cost.average-p95' | translate: { average: (side.averageTokens | number: '1.0-0'), p95: side.p95Tokens, total: side.tokens } }}
+                      }
+                      @case ('tool-calls') {
+                        {{ 'nh-assistant.admin.evaluation.cost.average-p95' | translate: { average: (side.averageToolCalls | number: '1.0-2'), p95: side.p95ToolCalls, total: side.toolCalls } }}
+                      }
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    @if (showRouting()) {
+      <section class="subsection" [attr.aria-labelledby]="id + '-routing-title'">
+        <h4 [id]="id + '-routing-title'">{{ 'nh-assistant.admin.evaluation.routing-title' | translate }}</h4>
+        <div class="table-container">
+          <table class="summary-table" [attr.aria-labelledby]="id + '-routing-title'">
+            <thead>
+              <tr>
+                <th scope="col">{{ 'nh-assistant.admin.evaluation.columns.live-skill' | translate }}</th>
+                <th scope="col">{{ 'nh-assistant.admin.evaluation.columns.variant-skill' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.evaluation.columns.runs' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of report.routing; track $index) {
+                <tr>
+                  <td [attr.data-label]="'nh-assistant.admin.evaluation.columns.live-skill' | translate">{{ row.liveSkill ?? ('nh-assistant.admin.evaluation.no-skill' | translate) }}</td>
+                  <td [attr.data-label]="'nh-assistant.admin.evaluation.columns.variant-skill' | translate">{{ row.variantSkill ?? ('nh-assistant.admin.evaluation.no-skill' | translate) }}</td>
+                  <td class="number" [attr.data-label]="'nh-assistant.admin.evaluation.columns.runs' | translate">{{ row.runs }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+
+    @if (report.differences.length > 0) {
+      <section class="subsection" [attr.aria-labelledby]="id + '-differences-title'">
+        <h4 [id]="id + '-differences-title'">{{ 'nh-assistant.admin.evaluation.differences-title' | translate }}</h4>
+        <ul class="cards">
+          @for (difference of report.differences; track difference.liveRunId + difference.variantRunId + $index) {
+            <li class="card" [attr.data-difference]="difference.kind">
+              <div class="card-header">
+                <span class="mono">{{ difference.toolId }}</span>
+                <span class="badge">{{ 'nh-assistant.admin.evaluation.kind.' + difference.kind | translate }}</span>
+                @if (difference.liveStatus; as status) {
+                  <span class="badge">{{ 'nh-assistant.admin.evaluation.live-status' | translate: { status } }}</span>
+                }
+                @if (difference.replayed) {
+                  <span class="badge">{{ 'nh-assistant.admin.evaluation.replayed' | translate }}</span>
+                }
+              </div>
+              @if (canOpenThreads) {
+                <div class="card-actions">
+                  <button class="secondary" type="button" (click)="openThread(difference.liveConversationId)">
+                    {{ 'nh-assistant.admin.evaluation.open-live' | translate }}
+                  </button>
+                  <button class="secondary" type="button" (click)="openThread(difference.variantConversationId)">
+                    {{ 'nh-assistant.admin.evaluation.open-variant' | translate }}
+                  </button>
+                </div>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  }
+
+  <section class="subsection" [attr.aria-labelledby]="id + '-replay-title'">
+    <h4 [id]="id + '-replay-title'">{{ 'nh-assistant.admin.evaluation.replay-title' | translate }}</h4>
+    <p class="muted" [id]="id + '-replay-hint'">{{ 'nh-assistant.admin.evaluation.replay-hint' | translate: { max: maxReplayRuns } }}</p>
+    <div class="inline">
+      <div class="field">
+        <label [for]="id + '-replay-runs'">{{ 'nh-assistant.admin.evaluation.replay-runs' | translate }}</label>
+        <input
+          [id]="id + '-replay-runs'"
+          type="number"
+          min="1"
+          [max]="maxReplayRuns"
+          [value]="replayRuns()"
+          [attr.aria-describedby]="id + '-replay-hint'"
+          (change)="onReplayRuns($event)" />
+      </div>
+      <button class="secondary" type="button" [disabled]="replaying() || replayRunning() || !variant()" (click)="replay()">
+        <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.evaluation.replay' | translate }}
+      </button>
+    </div>
+    @if (replayError(); as failure) {
+      <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ replayErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+    }
+    @if (replays().length > 0) {
+      <ul class="cards" data-replays>
+        @for (item of replays(); track item.id) {
+          <li class="card" [attr.data-replay]="item.status">
+            <div class="card-header">
+              <strong>{{ item.createdAt | date: 'short' }}</strong>
+              <span class="badge">{{ 'nh-assistant.admin.evaluation.replay-status.' + item.status | translate }}</span>
+            </div>
+            <p class="muted">
+              {{ 'nh-assistant.admin.evaluation.replay-progress' | translate: { replayed: item.runsReplayed, skipped: item.runsSkipped, max: item.maxRuns } }}
+            </p>
+            @if (item.stopReason; as code) {
+              <p class="muted">{{ ['nh-assistant.errors.' + code] | nhAssistantTranslate: code }}</p>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </section>
+</section>

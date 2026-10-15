@@ -115,6 +115,8 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
   source: 'code' | 'admin';
   /** The skills of a code agent, by id and description; they start active. */
   skills?: { skillId: string; description: string }[];
+  /** The live agent this code agent is a shadow variant of. */
+  shadowOf?: string;
 }
 
 /**

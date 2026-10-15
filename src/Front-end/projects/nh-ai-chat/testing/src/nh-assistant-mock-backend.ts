@@ -216,7 +216,7 @@ export class NhAssistantMockBackend {
       return this.error(404, 'assistant-push-unavailable');
     }
     if (segments[0] === 'admin') {
-      return this.result(this.admin.handleAdmin(method, segments, body));
+      return this.result(this.admin.handleAdmin(method, segments, body, query));
     }
     if (segments[0] !== 'conversations') {
       return this.empty(404);

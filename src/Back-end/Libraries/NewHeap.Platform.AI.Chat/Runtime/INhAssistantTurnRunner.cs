@@ -198,6 +198,11 @@ internal sealed record NhAssistantAgentTurnResult(
     /// </summary>
     public bool UsedRestrictedResults { get; init; }
 
+    /// <summary>
+    /// The model calls of the turn, including triage.
+    /// </summary>
+    public int ModelCalls { get; init; }
+
     public const string Busy = "busy";
 
     public static NhAssistantAgentTurnResult BusyResult { get; } = new(Busy, NhAssistantErrorCodes.ConversationBusy, null, null, 0, 0, 0, 0);

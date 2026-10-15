@@ -980,7 +980,8 @@ internal sealed partial class NhAssistantTurnRunner(
         {
             Kind = state.Kind,
             SkillId = state.Skill?.Id,
-            UsedRestrictedResults = state.UsedRestrictedResults
+            UsedRestrictedResults = state.UsedRestrictedResults,
+            ModelCalls = state.Scope.ModelCalls
         };
     }
 

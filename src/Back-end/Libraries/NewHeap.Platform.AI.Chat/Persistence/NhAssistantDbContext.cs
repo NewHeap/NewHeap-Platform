@@ -69,6 +69,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantHandOff> HandOffs => Set<AssistantHandOff>();
 
+    public DbSet<AssistantAgentReplay> AgentReplays => Set<AssistantAgentReplay>();
+
     public DbSet<AssistantProposalFeedback> ProposalFeedback => Set<AssistantProposalFeedback>();
 
     public DbSet<AssistantApprovalKey> ApprovalKeys => Set<AssistantApprovalKey>();
@@ -289,6 +291,8 @@ public sealed class NhAssistantDbContext : DbContext
             run.Property(item => item.SkillId).HasMaxLength(64);
             run.Property(item => item.SkillChosenBy).HasMaxLength(16);
             run.Property(item => item.RequestedByAgentId).HasMaxLength(128);
+            // The evaluation pairs a replayed run with the run it replays.
+            run.HasIndex(item => item.ReplayOfRunId);
             run.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             run.HasIndex(item => new { item.ConversationId, item.CreatedAt });
             run.HasIndex(item => new { item.Status, item.CreatedAt });
@@ -357,6 +361,22 @@ public sealed class NhAssistantDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(item => item.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAgentReplay>(replay =>
+        {
+            replay.ToTable("AssistantAgentReplay");
+            replay.HasKey(item => item.Id);
+            replay.Property(item => item.Id).ValueGeneratedNever();
+            replay.Property(item => item.VariantAgentId).HasMaxLength(128).IsRequired();
+            replay.Property(item => item.SourceAgentId).HasMaxLength(128).IsRequired();
+            replay.Property(item => item.Status).HasMaxLength(16).IsRequired();
+            replay.Property(item => item.StopReason).HasMaxLength(128);
+            replay.Property(item => item.RequestedByActorId).HasMaxLength(256).IsRequired();
+            replay.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
+            // The active replay of a variant and its latest replays.
+            replay.HasIndex(item => new { item.VariantAgentId, item.Status });
+            replay.HasIndex(item => new { item.VariantAgentId, item.CreatedAt });
         });
 
         modelBuilder.Entity<AssistantHandOff>(handOff =>

@@ -141,6 +141,75 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.ToTable("AssistantAgentMcpServer", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentReplay", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("CursorCreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CursorRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("From")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("MaxRuns")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RequestedByActorId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int>("RunsReplayed")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RunsSkipped")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceAgentId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("StopReason")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset>("To")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("VariantAgentId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VariantAgentId", "CreatedAt");
+
+                    b.HasIndex("VariantAgentId", "Status");
+
+                    b.ToTable("AssistantAgentReplay", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentSkillState", b =>
                 {
                     b.Property<string>("AgentId")
@@ -1288,11 +1357,17 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasColumnType("nvarchar(24)")
                         .HasDefaultValue("model");
 
+                    b.Property<int>("ModelCalls")
+                        .HasColumnType("int");
+
                     b.Property<long>("OutputTokens")
                         .HasColumnType("bigint");
 
                     b.Property<int>("ProposalCount")
                         .HasColumnType("int");
+
+                    b.Property<Guid?>("ReplayOfRunId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("RequestedByAgentId")
                         .HasMaxLength(128)
@@ -1345,6 +1420,8 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BackgroundOperationId");
+
+                    b.HasIndex("ReplayOfRunId");
 
                     b.HasIndex("ConversationId", "CreatedAt");
 

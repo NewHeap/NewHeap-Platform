@@ -9,6 +9,7 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 internal sealed class NhAssistantTurnScope
 {
     private int _toolCalls;
+    private int _modelCalls;
 
     public required Guid ConversationId { get; init; }
 
@@ -82,6 +83,16 @@ internal sealed class NhAssistantTurnScope
     public string? TenantId { get; init; }
 
     public int ToolCalls => Volatile.Read(ref _toolCalls);
+
+    /// <summary>
+    /// The model calls the turn reserved budget for, including triage.
+    /// </summary>
+    public int ModelCalls => Volatile.Read(ref _modelCalls);
+
+    public void AddModelCalls(int calls)
+    {
+        Interlocked.Add(ref _modelCalls, calls);
+    }
 
     /// <summary>
     /// Set when the durable daily budget of the accountable actor refused a reservation in this turn.

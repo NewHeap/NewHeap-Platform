@@ -91,6 +91,29 @@ is audited as `AgentHandedOff` with source, target and outcome, never the messag
 | `NhAssistantRunDto` gains `RequestedByAgentId`, `RequestedByConversationId` (only in a thread's run list, for a reader of the source thread) and `HandOffDepth`; `NhAssistantAuditEvent` gains `SourceRunId`; `NhAssistantAuditEventKind` gains `AgentHandedOff`. | None; audit sinks may record the source run. |
 | The trigger ids `agent-handoff` and `agent-handoff-ended` are reserved. | Rename an application trigger with one of these ids. |
 
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: agent evaluation
+
+`ConfigureAgent(variant, agent => agent.ShadowOf(liveAgentId))` makes an agent a shadow variant of a
+live agent: every event, scheduled and webhook trigger of the live agent also fires for the variant,
+with the same subject, message, dedupe key and payload, and a trigger's skill when the variant
+declares it. The variant keeps the shadow-mode guarantees and its own budget and state; publishers
+read the live agent's receipts. `GET admin/agents/{id}/evaluation?variant=&from=&to=` compares the
+variant with the live agent: it pairs runs that handled the same event or that a replay repeated,
+matches their proposals by tool and arguments hash or by tool and objects, and returns per tool the
+agreed, live-only and variant-only proposals with what people decided about the live ones (with
+feedback categories), the runs, model calls, tokens and tool calls of both with averages and the 95th
+percentile, and the skills both routed to. `GET .../evaluation/export` streams the pairs as JSON
+Lines, audited as `AdminAgentEvaluationExported`. `POST admin/agents/{id}/replay` fires the recorded
+runs of another agent in a period into a shadow agent, oldest first and against today's state, at
+most 500 runs with one replay per variant, until the variant's state, budget or run limits stop it;
+`GET admin/agents/{id}/replays` reports how far each got. Runs now record their model calls.
+
+| Breaking change | Required action |
+|---|---|
+| Migration `AgentEvaluation` adds `ModelCalls` and `ReplayOfRunId` to `AssistantRun` and the table `AssistantAgentReplay`. | Apply the migration. |
+| `NhAssistantAdminAgentDto` and `NhAssistantAgentState` gain `ShadowOf`; `NhAssistantAuditEventKind` gains `AdminAgentEvaluationExported` and `AdminAgentReplayStarted`. | None; audit sinks may record the new kinds. |
+| A shadow variant receives its live agent's triggers. | None for agents without `ShadowOf`. |
+
 ## @newheap/platform-ai-chat: agent state in the administration
 
 The agent list shows each agent's state, "Active", "Paused", "Stopped" or "Off in configuration"
@@ -105,9 +128,15 @@ gains `skill` and `skillChosenBy`, `AdminAgent` and `AgentState` gain `skills`. 
 names the agent that handed a run its work ("Handed off by …", Dutch: "Overgedragen door …") with
 a button that opens that agent's thread when the reader may; `NhAssistantRunTimelineComponent` and
 `NhAssistantAgentThreadViewComponent` emit it through `openConversation`. `AgentRun` gains
-`requestedByAgentId`, `requestedByConversationId` and `handOffDepth`.
+`requestedByAgentId`, `requestedByConversationId` and `handOffDepth`. An agent with shadow variants
+offers an evaluation (`NhAssistantAgentEvaluationComponent`): choose a variant and a period, read
+the runs, the proposals per tool with the live decisions, cost and routing, open the threads of the
+differences in the assistant panel, replay the period into the variant and export the comparison.
+`NhAssistantAdminApiService` gains `getAgentEvaluation`, `exportAgentEvaluation`, `startAgentReplay`
+and `getAgentReplays`; `AdminAgent` and `AgentState` gain `shadowOf`, and the mock backend serves
+the new endpoints.
 
 | Breaking change | Required action |
 |---|---|
 | `AdminAgentInput.isEnabled` is optional and deprecated; the server ignores it. `AdminAgent` gains `runState`, `stateChangedAt`, `stateChangedBy`, `stateReason` and `waitingInputs`. | Stop sending `isEnabled`; change the state with `setAgentState`. |
-| New translation keys `nh-assistant.admin.agents.state.*`, `nh-assistant.admin.agents.reset-keeps-state`, `nh-assistant.admin.agent-editor.state-hint` and `nh-assistant.errors.assistant-agent-stopped`, `assistant-agent-paused`, `assistant-agent-configured-off`, `assistant-run-token-limit` and `assistant-skill-*`, `nh-assistant.admin.agents.skills.*` and `nh-assistant.agent-runs.run.skill` and `skill-chosen-by.*`, `nh-assistant.agent-runs.run.handed-off-by` and `open-source-thread`, and `nh-assistant.errors.assistant-handoff-*`; `nh-assistant.admin.agent-editor.enabled` is removed. The run timeline shows a run stopped at its token ceiling with that text. | Applications with their own translation files add and remove them. |
+| New translation keys `nh-assistant.admin.agents.state.*`, `nh-assistant.admin.agents.reset-keeps-state`, `nh-assistant.admin.agent-editor.state-hint` and `nh-assistant.errors.assistant-agent-stopped`, `assistant-agent-paused`, `assistant-agent-configured-off`, `assistant-run-token-limit` and `assistant-skill-*`, `nh-assistant.admin.agents.skills.*` and `nh-assistant.agent-runs.run.skill` and `skill-chosen-by.*`, `nh-assistant.agent-runs.run.handed-off-by` and `open-source-thread`, `nh-assistant.errors.assistant-handoff-*`, `nh-assistant.admin.agents.evaluation`, `nh-assistant.admin.evaluation.*` and `nh-assistant.errors.assistant-replay-not-shadow`, `assistant-replay-active` and `assistant-evaluation-not-variant`; `nh-assistant.admin.agent-editor.enabled` is removed. The run timeline shows a run stopped at its token ceiling with that text. | Applications with their own translation files add and remove them. |

@@ -11,7 +11,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// trigger for each of them, at most <c>MaxSubjectsPerTick</c>. A tick fires every subject once:
 /// a repeated job in the same minute finds the runs it already started. While the assistant is
 /// disabled or the agent is paused, stopped or disabled in code, the tick is skipped before the
-/// subjects are read.
+/// subjects are read. The shadow variants of the agent get every subject of the tick too, unless
+/// they are not active themselves.
 /// </summary>
 internal sealed class NhAssistantScheduledTriggerJob(
     IServiceProvider services,
@@ -48,20 +49,35 @@ internal sealed class NhAssistantScheduledTriggerJob(
         {
             refusal = skillState == NhAssistantAgentRunStates.Paused ? NhAssistantErrorCodes.SkillPaused : NhAssistantErrorCodes.SkillStopped;
         }
+        var variants = await triggers.AcceptingVariantsAsync(trigger, null, refusePaused: true, cancellationToken);
+        var variantsTakingTick = new List<string>();
+        foreach (var variant in variants)
+        {
+            // A variant's paused skill skips the tick for that variant only.
+            if (triggers.SkillFor(trigger, variant) is not { } variantSkill
+                || await triggers.SkillStateAsync(variant, variantSkill, cancellationToken) == NhAssistantAgentRunStates.Active)
+            {
+                variantsTakingTick.Add(variant);
+            }
+        }
         if (refusal is not null)
         {
             logger.LogInformation(
                 "Scheduled trigger {TriggerId} skipped its tick ({Reason}).",
                 triggerId,
                 refusal);
-            return [];
+            if (variantsTakingTick.Count == 0)
+            {
+                return [];
+            }
         }
 
         var tick = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, now.Offset).ToUniversalTime();
         var receipts = new List<NhAssistantTriggerReceipt>();
+        var subjects = 0;
         await foreach (var subject in trigger.ScheduledSubjects(services, cancellationToken))
         {
-            if (receipts.Count >= trigger.MaxSubjectsPerTick)
+            if (subjects >= trigger.MaxSubjectsPerTick)
             {
                 logger.LogInformation(
                     "Scheduled trigger {TriggerId} reached its limit of {Limit} subjects; the rest wait for the next tick.",
@@ -70,7 +86,16 @@ internal sealed class NhAssistantScheduledTriggerJob(
                 break;
             }
 
-            receipts.Add(await triggers.FireScheduledAsync(trigger, new NhAssistantScheduledTick(subject, tick), cancellationToken));
+            subjects++;
+            var scheduled = new NhAssistantScheduledTick(subject, tick);
+            if (refusal is null)
+            {
+                receipts.Add(await triggers.FireScheduledAsync(trigger, scheduled, cancellationToken));
+            }
+            foreach (var variant in variantsTakingTick)
+            {
+                await triggers.FireScheduledAsync(trigger, scheduled, cancellationToken, variant);
+            }
         }
 
         return receipts;

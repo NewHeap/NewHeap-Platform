@@ -614,6 +614,21 @@ public static class NhAssistantErrorCodes
     public const string ConsultReadOnly = "assistant-consult-read-only";
 
     /// <summary>
+    /// A replay targets an agent that is not in shadow mode, or replays an agent into itself.
+    /// </summary>
+    public const string ReplayNotShadow = "assistant-replay-not-shadow";
+
+    /// <summary>
+    /// The variant already has a replay that runs.
+    /// </summary>
+    public const string ReplayActive = "assistant-replay-active";
+
+    /// <summary>
+    /// The evaluation compares an agent with an agent that is not its shadow variant.
+    /// </summary>
+    public const string EvaluationNotVariant = "assistant-evaluation-not-variant";
+
+    /// <summary>
     /// A hand-off was asked for outside an agent run, such as in a person's chat.
     /// </summary>
     public const string HandOffUnavailable = "assistant-handoff-unavailable";

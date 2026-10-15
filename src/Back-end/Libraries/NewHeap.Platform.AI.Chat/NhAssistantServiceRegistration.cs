@@ -81,6 +81,7 @@ internal static class NhAssistantServiceRegistration
         // Agent runs: subject threads, member snapshots and approval policies.
         services.TryAddScoped<NhAssistantRunStore>();
         services.TryAddScoped<NhAssistantHandOffStore>();
+        services.TryAddScoped<NhAssistantEvaluationStore>();
         services.TryAddScoped<NhAssistantSubjectAccessService>();
         services.TryAddScoped<INhAiSubjectAccess>(provider => provider.GetRequiredService<NhAssistantSubjectAccessService>());
         services.TryAddScoped<NhAssistantThreadService>();

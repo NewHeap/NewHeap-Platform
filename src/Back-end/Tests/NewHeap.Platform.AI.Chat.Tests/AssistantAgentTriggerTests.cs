@@ -329,6 +329,12 @@ public sealed class RecordingOperations
                 Executions.Enqueue(call.ArgAt<NhAssistantExecuteProposalOnceRequest>(0).ApprovalId);
                 return Task.FromResult(TaskResult<NhBackgroundOperationViewModel>.Succeeded(new NhBackgroundOperationViewModel { Id = Guid.NewGuid() }));
             });
+        Service.EnqueueAsync(Arg.Any<NhAssistantReplayOperationRequest>(), Arg.Any<NhBackgroundOperationEnqueueOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                Replays.Enqueue(call.ArgAt<NhAssistantReplayOperationRequest>(0).ReplayId);
+                return Task.FromResult(TaskResult<NhBackgroundOperationViewModel>.Succeeded(new NhBackgroundOperationViewModel { Id = Guid.NewGuid() }));
+            });
         Service.RequestCancellationForActorAsync(Arg.Any<Guid>(), Arg.Any<NhBackgroundOperationActor>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
@@ -347,6 +353,11 @@ public sealed class RecordingOperations
     /// The approvals whose execution was queued.
     /// </summary>
     public ConcurrentQueue<Guid> Executions { get; } = new();
+
+    /// <summary>
+    /// The replays whose operation was queued.
+    /// </summary>
+    public ConcurrentQueue<Guid> Replays { get; } = new();
 }
 
 public sealed class RecordingChannel

@@ -538,6 +538,12 @@ public sealed record NhAssistantAdminAgentDto(
     /// The agent's skills with their states and today's usage; empty for an agent without skills.
     /// </summary>
     public IReadOnlyList<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantSkillState> Skills { get; init; } = [];
+
+    /// <summary>
+    /// The live agent this agent is a shadow variant of; <see langword="null"/> for an agent that is
+    /// no variant.
+    /// </summary>
+    public string? ShadowOf { get; init; }
 }
 
 /// <summary>

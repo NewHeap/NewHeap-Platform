@@ -35,6 +35,10 @@ public interface INhAssistantAgentTriggers
     /// agent; a trigger's <c>When</c> filter decides next. A paused agent's events wait in their
     /// thread (<see cref="NhAssistantTriggerOutcomes.Waiting"/>) until it resumes.
     /// </para>
+    /// <para>
+    /// Every trigger also fires for the shadow variants of its agent (<c>ShadowOf</c>), with their
+    /// own state; the receipts are those of the live agents.
+    /// </para>
     /// </summary>
     Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync<TEvent>(
         TEvent evt,
@@ -133,7 +137,22 @@ internal sealed record NhAssistantTriggerFire(
     /// The skill the trigger names; <see langword="null"/> lets the agent's rules or triage choose.
     /// </summary>
     public string? SkillId { get; init; }
+
+    /// <summary>
+    /// The run of another agent whose recorded inputs this fire replays; its run records it.
+    /// </summary>
+    public Guid? ReplayOfRunId { get; init; }
+
+    /// <summary>
+    /// The further recorded inputs of the replayed run, written after the fire's own input.
+    /// </summary>
+    public IReadOnlyList<NhAssistantReplayedInput> ReplayedInputs { get; init; } = [];
 }
+
+/// <summary>
+/// One recorded input a replay writes again.
+/// </summary>
+internal sealed record NhAssistantReplayedInput(string? TriggerId, string Text, string? PayloadJson);
 
 internal sealed class NhAssistantAgentTriggers(
     NhAssistantRegistrationState registration,
@@ -185,9 +204,16 @@ internal sealed class NhAssistantAgentTriggers(
         var refusals = new Dictionary<string, string?>(StringComparer.Ordinal);
         foreach (var trigger in matching)
         {
-            if (await RefuseEarlyAsync(trigger, evt, refusals, cancellationToken) is { } early)
+            var live = await RefuseAgentAsync(trigger, trigger.AgentId, trigger.SkillId, refusals, cancellationToken);
+            var variants = await AcceptingVariantsAsync(trigger, refusals, refusePaused: false, cancellationToken);
+            if (live is not null && variants.Count == 0)
             {
-                receipts.Add(early);
+                receipts.Add(live);
+                continue;
+            }
+            if (trigger.When is { } when && !when(evt))
+            {
+                receipts.Add(live ?? Filtered(trigger));
                 continue;
             }
 
@@ -204,10 +230,72 @@ internal sealed class NhAssistantAgentTriggers(
                 PayloadJson = PayloadOf(trigger, evt),
                 SkillId = trigger.SkillId
             };
-            receipts.Add(await FireOrDeferAsync(fire, cancellationToken));
+            receipts.Add(live ?? await FireOrDeferAsync(fire, cancellationToken));
+            foreach (var variant in variants)
+            {
+                // A variant gets the same event; publishers read the live agent's receipt.
+                await FireOrDeferAsync(fire with { AgentId = variant, SkillId = SkillFor(trigger, variant) }, cancellationToken);
+            }
         }
 
         return receipts;
+    }
+
+    /// <summary>
+    /// The shadow variants of an agent (<c>ShadowOf</c>), which receive its triggers too.
+    /// </summary>
+    internal IReadOnlyList<string> VariantsOf(string agentId)
+    {
+        return registration.AgentRuns.Values
+            .Where(options => string.Equals(options.ShadowOfAgentId, agentId, StringComparison.Ordinal))
+            .Select(options => options.AgentId)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// The skill a trigger names for <paramref name="agentId"/>: the trigger's skill when the agent
+    /// declares it. A variant without that skill routes the run itself.
+    /// </summary>
+    internal string? SkillFor(NhAssistantTriggerDefinition trigger, string agentId)
+    {
+        return trigger.SkillId is { } skillId
+               && registration.AgentRuns.TryGetValue(agentId, out var options)
+               && options.Skills.ContainsKey(skillId)
+            ? skillId
+            : null;
+    }
+
+    /// <summary>
+    /// The variants of the trigger's agent that take it now, each refusal audited once per agent in
+    /// <paramref name="refusals"/>. With <paramref name="refusePaused"/> a paused variant takes none,
+    /// as for schedule ticks.
+    /// </summary>
+    internal async Task<IReadOnlyList<string>> AcceptingVariantsAsync(
+        NhAssistantTriggerDefinition trigger,
+        Dictionary<string, string?>? refusals,
+        bool refusePaused,
+        CancellationToken cancellationToken)
+    {
+        var accepting = new List<string>();
+        foreach (var variant in VariantsOf(trigger.AgentId))
+        {
+            if (await RefuseAgentAsync(trigger, variant, SkillFor(trigger, variant), refusals, cancellationToken, refusePaused) is null)
+            {
+                accepting.Add(variant);
+            }
+        }
+
+        return accepting;
+    }
+
+    private static NhAssistantTriggerReceipt Filtered(NhAssistantTriggerDefinition trigger)
+    {
+        return new NhAssistantTriggerReceipt(
+            trigger.Id,
+            NhAssistantTriggerOutcomes.Ignored,
+            null,
+            null,
+            NhAssistantTriggerReasons.Filtered);
     }
 
     /// <summary>
@@ -350,45 +438,55 @@ internal sealed class NhAssistantAgentTriggers(
         Dictionary<string, string?>? refusals,
         CancellationToken cancellationToken)
     {
+        return await RefuseAgentAsync(trigger, trigger.AgentId, trigger.SkillId, refusals, cancellationToken)
+            ?? (trigger.When is { } when && !when(evt) ? Filtered(trigger) : null);
+    }
+
+    /// <summary>
+    /// The receipt of a trigger that <paramref name="agentId"/> takes no event of now: the agent
+    /// takes no triggers, audited once per agent in <paramref name="refusals"/>, or the skill the
+    /// trigger names for it is stopped. <see langword="null"/> when the agent takes it.
+    /// </summary>
+    private async Task<NhAssistantTriggerReceipt?> RefuseAgentAsync(
+        NhAssistantTriggerDefinition trigger,
+        string agentId,
+        string? skillId,
+        Dictionary<string, string?>? refusals,
+        CancellationToken cancellationToken,
+        bool refusePaused = false)
+    {
         string? refusal;
-        if (refusals is null || !refusals.TryGetValue(trigger.AgentId, out refusal))
+        if (refusals is null || !refusals.TryGetValue(agentId, out refusal))
         {
-            refusal = await RefusalOfAsync(trigger.AgentId, refusePaused: false, cancellationToken);
+            refusal = await RefusalOfAsync(agentId, refusePaused, cancellationToken);
             if (refusals is not null)
             {
-                refusals[trigger.AgentId] = refusal;
+                refusals[agentId] = refusal;
             }
             if (refusal is not null && refusal != NhAssistantErrorCodes.Disabled)
             {
-                await events.TriggerAsync(trigger.AgentId, null, trigger.Id, null, null, null, refusal, accepted: false, cancellationToken);
+                await events.TriggerAsync(agentId, null, trigger.Id, null, null, null, refusal, accepted: false, cancellationToken);
             }
         }
 
-        if (refusal is null && trigger.SkillId is { } skillId
-            && await SkillStateAsync(trigger.AgentId, skillId, cancellationToken) == NhAssistantAgentRunStates.Stopped)
+        if (refusal is null && skillId is not null
+            && await SkillStateAsync(agentId, skillId, cancellationToken) == NhAssistantAgentRunStates.Stopped)
         {
             // A stopped skill evaluates none of its triggers' lambdas either.
             refusal = NhAssistantErrorCodes.SkillStopped;
-            await events.TriggerAsync(trigger.AgentId, null, trigger.Id, null, null, null, refusal, accepted: false, cancellationToken, skillId);
+            await events.TriggerAsync(agentId, null, trigger.Id, null, null, null, refusal, accepted: false, cancellationToken, skillId);
         }
-        if (refusal is not null)
+        if (refusal is null)
         {
-            logger.LogInformation(
-                "Trigger {TriggerId} for agent {AgentId} was rejected ({Reason}).",
-                trigger.Id,
-                trigger.AgentId,
-                refusal);
-            return new NhAssistantTriggerReceipt(trigger.Id, NhAssistantTriggerOutcomes.Rejected, null, null, refusal);
+            return null;
         }
 
-        return trigger.When is { } when && !when(evt)
-            ? new NhAssistantTriggerReceipt(
-                trigger.Id,
-                NhAssistantTriggerOutcomes.Ignored,
-                null,
-                null,
-                NhAssistantTriggerReasons.Filtered)
-            : null;
+        logger.LogInformation(
+            "Trigger {TriggerId} for agent {AgentId} was rejected ({Reason}).",
+            trigger.Id,
+            agentId,
+            refusal);
+        return new NhAssistantTriggerReceipt(trigger.Id, NhAssistantTriggerOutcomes.Rejected, null, null, refusal);
     }
 
     /// <summary>
@@ -519,14 +617,16 @@ internal sealed class NhAssistantAgentTriggers(
     }
 
     /// <summary>
-    /// Fires a scheduled trigger for one subject of one tick.
+    /// Fires a scheduled trigger for one subject of one tick, for its agent or one of its variants.
     /// </summary>
     internal Task<NhAssistantTriggerReceipt> FireScheduledAsync(
         NhAssistantTriggerDefinition trigger,
         NhAssistantScheduledTick tick,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? agentId = null)
     {
-        return FireAsync(Create(trigger, tick, initiatorActorId: null), cancellationToken);
+        var target = agentId ?? trigger.AgentId;
+        return FireAsync(Create(trigger, tick, initiatorActorId: null) with { AgentId = target, SkillId = SkillFor(trigger, target) }, cancellationToken);
     }
 
     /// <summary>
@@ -538,6 +638,31 @@ internal sealed class NhAssistantAgentTriggers(
         CancellationToken cancellationToken)
     {
         return FireAsync(Create(trigger, delivery, initiatorActorId: null), cancellationToken);
+    }
+
+    /// <summary>
+    /// Fires a verified webhook delivery for the variants of the trigger's agent that take it,
+    /// whatever became of the live agent's fire.
+    /// </summary>
+    internal async Task MirrorWebhookAsync(
+        NhAssistantTriggerDefinition trigger,
+        NhAssistantWebhookDelivery delivery,
+        CancellationToken cancellationToken)
+    {
+        var variants = await AcceptingVariantsAsync(trigger, null, refusePaused: false, cancellationToken);
+        if (variants.Count == 0
+            || (trigger.When is { } when && !when(delivery))
+            || trigger.WebhookSubject?.Invoke(delivery.Body) is null)
+        {
+            return;
+        }
+
+        foreach (var variant in variants)
+        {
+            await FireAsync(
+                Create(trigger, delivery, initiatorActorId: null) with { AgentId = variant, SkillId = SkillFor(trigger, variant) },
+                cancellationToken);
+        }
     }
 
     private static NhAssistantTriggerFire Create(NhAssistantTriggerDefinition trigger, object evt, string? initiatorActorId)
@@ -625,7 +750,48 @@ internal sealed class NhAssistantAgentTriggers(
             {
                 PayloadJson = request.PayloadJson,
                 InputId = request.InputId,
-                SkillId = registration.Triggers.TryGetValue(request.TriggerId, out var trigger) ? trigger.SkillId : null
+                SkillId = registration.Triggers.TryGetValue(request.TriggerId, out var trigger) ? SkillFor(trigger, request.AgentId) : null
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Fires the recorded inputs of <paramref name="sourceRun"/> into the shadow variant
+    /// <paramref name="variantId"/> as one new run that records the run it replays, with the trigger,
+    /// text and payload of each input and without an initiator. A retried replay finds the run it
+    /// already started.
+    /// </summary>
+    internal Task<NhAssistantTriggerReceipt> ReplayAsync(
+        string variantId,
+        AssistantRun sourceRun,
+        AssistantThread sourceThread,
+        IReadOnlyList<AssistantQueuedInput> inputs,
+        CancellationToken cancellationToken)
+    {
+        var first = inputs[0];
+        var skillId = first.SkillId is { } skill
+                      && registration.AgentRuns.TryGetValue(variantId, out var options)
+                      && options.Skills.ContainsKey(skill)
+            ? skill
+            : null;
+        return FireAsync(
+            new NhAssistantTriggerFire(
+                first.TriggerId ?? sourceRun.TriggerId,
+                variantId,
+                new NhAiSubjectRef(sourceThread.SubjectType, sourceThread.SubjectId),
+                null,
+                first.Text,
+                "replay:" + sourceRun.Id.ToString("N"),
+                NhAssistantTriggerConflict.Queue,
+                TimeSpan.Zero)
+            {
+                PayloadJson = first.PayloadJson,
+                SkillId = skillId,
+                ReplayOfRunId = sourceRun.Id,
+                ReplayedInputs = inputs
+                    .Skip(1)
+                    .Select(input => new NhAssistantReplayedInput(input.TriggerId, input.Text, input.PayloadJson))
+                    .ToArray()
             },
             cancellationToken);
     }
@@ -892,6 +1058,7 @@ internal sealed class NhAssistantAgentTriggers(
             Shadow = options.Shadow,
             SkillId = fire.SkillId,
             SkillChosenBy = fire.SkillId is null ? null : NhAssistantSkillChoosers.Trigger,
+            ReplayOfRunId = fire.ReplayOfRunId,
             CreatedAt = DateTimeOffset.UtcNow,
             ConcurrencyStamp = Guid.NewGuid()
         };
@@ -899,6 +1066,21 @@ internal sealed class NhAssistantAgentTriggers(
         if (!fire.Resume)
         {
             await runs.AddQueuedInputAsync(input, cancellationToken);
+            foreach (var replayed in fire.ReplayedInputs)
+            {
+                await runs.AddQueuedInputAsync(
+                    CreateInput(
+                        fire with
+                        {
+                            TriggerId = replayed.TriggerId ?? fire.TriggerId,
+                            Message = replayed.Text,
+                            PayloadJson = replayed.PayloadJson,
+                            EventKey = null,
+                            InputId = null
+                        },
+                        conversationId),
+                    cancellationToken);
+            }
         }
 
         var notBefore = fire.Conflict == NhAssistantTriggerConflict.Coalesce && fire.Debounce > TimeSpan.Zero

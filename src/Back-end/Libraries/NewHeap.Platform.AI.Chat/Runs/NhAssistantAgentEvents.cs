@@ -434,6 +434,43 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    public Task EvaluationExportedAsync(string agentId, string variantId, string actorId, CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.AdminAgentEvaluationExported,
+                Guid.Empty,
+                Guid.Empty,
+                actorId,
+                agentId,
+                0,
+                DateTimeOffset.UtcNow)
+            {
+                ObjectId = variantId,
+                ResultCode = "exported"
+            },
+            cancellationToken);
+    }
+
+    public Task ReplayStartedAsync(Guid replayId, string variantId, string sourceAgentId, string actorId, CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.AdminAgentReplayStarted,
+                Guid.Empty,
+                Guid.Empty,
+                actorId,
+                variantId,
+                0,
+                DateTimeOffset.UtcNow)
+            {
+                ObjectId = replayId.ToString("N"),
+                AskingAgentId = sourceAgentId,
+                ResultCode = "started"
+            },
+            cancellationToken);
+    }
+
     public Task FeedbackExportedAsync(string agentId, string actorId, CancellationToken cancellationToken)
     {
         return RecordAsync(

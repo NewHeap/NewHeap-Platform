@@ -111,6 +111,9 @@ internal static class NhAssistantWebhookEndpoints
             receipt = await triggers.FireWebhookAsync(trigger, delivery, httpContext.RequestAborted);
         }
 
+        // Shadow variants of the agent get the delivery too; the caller reads the live receipt.
+        await triggers.MirrorWebhookAsync(trigger, delivery, httpContext.RequestAborted);
+
         return TypedResults.Json(
             new NhAssistantTriggerReceiptDto(receipt.TriggerId, receipt.Outcome, receipt.RunId, receipt.ConversationId, receipt.ReasonCode),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantTriggerReceiptDto,

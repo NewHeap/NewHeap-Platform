@@ -555,6 +555,10 @@
       "sample-project-planner": {
         "name": "Project planner",
         "description": "Follows up completed tasks by rule and judges deadline risks with a model."
+      },
+      "sample-project-planner-v2": {
+        "name": "Project planner (variant)",
+        "description": "A shadow variant of the project planner with a stricter triage, evaluated before it goes live."
       }
     }
   },

@@ -316,6 +316,40 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(element.querySelector('.card .card-header')?.textContent).toContain('Active');
   });
 
+  it('compares an agent with its shadow variant, replays the period and offers evaluation only with a variant', async () => {
+    const script = scenario();
+    script.admin!.agents!.push({
+      source: 'code', id: 'projects-v2', displayName: 'Project assistant v2', description: 'Projects', instructions: 'Other instructions.',
+      toolSelectors: ['sample-api.project.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'execute', isEnabled: true,
+      shadowOf: 'projects'
+    });
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+
+    // Only the live agent offers the evaluation; the variant itself has no variants.
+    const actions = Array.from(element.querySelectorAll<HTMLButtonElement>('[data-evaluation-agent]'));
+    expect(actions.map(action => action.dataset['evaluationAgent'])).toEqual(['projects']);
+    actions[0].click();
+    await settle(fixture);
+
+    expect(element.textContent).toContain('Evaluation of shadow variants');
+    expect(element.querySelector('[data-paired]')?.textContent?.trim()).toBe('0');
+    // The mock answers only for the agent's own variant, so the report names it.
+    expect(element.textContent).toContain('Small numbers mislead');
+    expect(element.querySelector('select[id$="-variant"]')?.textContent).toContain('projects-v2');
+
+    button(element, 'Replay the period').click();
+    await settle(fixture);
+    const [request] = requestBodies('POST', 'admin/agents/projects-v2/replay') as { sourceAgentId: string; maxRuns: number }[];
+    expect(request.sourceAgentId).toBe('projects');
+    expect(request.maxRuns).toBe(100);
+    expect(element.querySelector('[data-replay="completed"]')?.textContent).toContain('0 of at most 100 runs replayed');
+
+    button(element, 'Back to the agents').click();
+    await settle(fixture);
+    expect(document.activeElement).toBe(element.querySelector('[data-evaluation-agent="projects"]'));
+  });
+
   it('pauses with a reason, stops and resumes an agent from the list', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);

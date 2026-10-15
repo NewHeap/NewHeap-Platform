@@ -4320,5 +4320,25 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-timeline.component.html",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts"
     ]
+  },
+  {
+    "id": "SPM-288",
+    "title": "A shadow variant of an agent is compared with the live agent before it goes live",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantAgentRunBuilder.ShadowOf and NhAssistantAgentRunOptions.ShadowOfAgentId; mirrored event, scheduled and webhook triggers; GET admin/agents/{id}/evaluation with NhAssistantEvaluationDto (NhAssistantEvaluationRunsDto, NhAssistantEvaluationToolDto, NhAssistantEvaluationDecisionsDto, NhAssistantEvaluationCostDto, NhAssistantEvaluationRoutingDto, NhAssistantEvaluationDifferenceDto, NhAssistantEvaluationDifferenceKinds); GET admin/agents/{id}/evaluation/export with NhAssistantEvaluationExportRecord; POST admin/agents/{id}/replay with NhAssistantReplayRequest and GET admin/agents/{id}/replays with NhAssistantReplayDto, NhAssistantReplayStatuses and NhAssistantEvaluationLimits; shadowOf on NhAssistantAdminAgentDto and NhAssistantAgentState; modelCalls of runs; assistant-replay-not-shadow, assistant-replay-active and assistant-evaluation-not-variant; NhAssistantAuditEventKind.AdminAgentEvaluationExported and AdminAgentReplayStarted; the AgentEvaluation migrations for SQL Server and PostgreSQL; NhAssistantAgentEvaluationComponent in NhAssistantAdminAgentsComponent, with NhAssistantAdminApiService.getAgentEvaluation, exportAgentEvaluation, startAgentReplay and getAgentReplays",
+    "outcome": "A variant of the project planner with a smaller triage profile and a stricter description of its deadline-risk skill is registered as a shadow of the live planner. Every trigger of the planner fires for the variant too: the daily deadline check reaches both. The planner's triage sends the check to its deadline skill, which proposes to put the project on hold; the variant's triage finds it too early and ends its run in its own thread, which only administrators see, without proposing, notifying or executing anything. The project's approver rejects the live proposal. In the administration the planner's evaluation pairs the runs that handled the same check and shows per tool that the variant did not propose what people rejected, with links to both threads, next to the runs, model calls, tokens and tool calls of both. An administrator replays the planner's recorded runs of the period into the variant against today's state of each project, and exports the comparison as JSON Lines without messages or arguments; both actions are audited.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerVariantComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentEvaluation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantEvaluationStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluationEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentEvaluationTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-evaluation.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
+    ]
   }
 ] as const;

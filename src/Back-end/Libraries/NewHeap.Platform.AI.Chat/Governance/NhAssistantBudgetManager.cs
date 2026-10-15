@@ -53,6 +53,11 @@ internal sealed class NhAssistantBudgetManager(
                 "The daily assistant budget of the accountable actor is exhausted.");
         }
 
+        if (!isToolCall)
+        {
+            turn.AddModelCalls(request.RequestedCalls);
+        }
+
         var remainingCalls = limit == int.MaxValue ? int.MaxValue : Math.Max(0, limit - booked.Value);
         return TaskResult<NhAiBudgetReservation>.Succeeded(new NhAiBudgetReservation(
             Guid.NewGuid().ToString("N"),

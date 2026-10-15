@@ -91,6 +91,12 @@ public sealed class NhAssistantAgentRunOptions
     /// </summary>
     public bool Shadow { get; internal set; }
 
+    /// <summary>
+    /// The live agent this agent is a shadow variant of: every trigger of the live agent also fires
+    /// for it. <see langword="null"/> for an agent that is no variant.
+    /// </summary>
+    public string? ShadowOfAgentId { get; internal set; }
+
     public int MaxConcurrentRuns { get; internal set; } = 4;
 
     public int MaxRunsPerSubjectPerDay { get; internal set; } = 10;
@@ -499,6 +505,28 @@ public sealed class NhAssistantAgentRunBuilder
     public NhAssistantAgentRunBuilder Shadow(bool enabled = true)
     {
         _options.Shadow = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Makes the agent a shadow variant of <paramref name="liveAgentId"/> to evaluate other
+    /// instructions, a profile, skills or triage before they go live: every event, scheduled and
+    /// webhook trigger of the live agent also fires for the variant, with the same subject, message,
+    /// dedupe key and payload, and a trigger's skill when the variant declares it. The variant keeps
+    /// what shadow mode guarantees: administrators alone see its threads, it notifies nobody, nothing
+    /// it proposes executes, and its usage counts against its own budget. It may have triggers of its
+    /// own; the states of the live agent and the variant are independent. Implies <see cref="Shadow"/>.
+    /// </summary>
+    public NhAssistantAgentRunBuilder ShadowOf(string liveAgentId)
+    {
+        NhAssistantNames.ValidateSegment(liveAgentId, nameof(liveAgentId));
+        if (string.Equals(liveAgentId, _options.AgentId, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("An agent is no shadow variant of itself.", nameof(liveAgentId));
+        }
+
+        _options.ShadowOfAgentId = liveAgentId;
+        _options.Shadow = true;
         return this;
     }
 

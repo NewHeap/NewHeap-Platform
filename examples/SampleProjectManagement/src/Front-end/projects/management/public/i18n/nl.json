@@ -555,6 +555,10 @@
       "sample-project-planner": {
         "name": "Projectplanner",
         "description": "Volgt afgeronde taken op volgens regels en beoordeelt deadlinerisico's met een model."
+      },
+      "sample-project-planner-v2": {
+        "name": "Projectplanner (variant)",
+        "description": "Een schaduwvariant van de projectplanner met een strengere triage, die wordt geëvalueerd voordat hij live gaat."
       }
     }
   },

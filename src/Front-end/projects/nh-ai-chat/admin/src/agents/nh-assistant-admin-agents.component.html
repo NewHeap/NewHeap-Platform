@@ -15,6 +15,16 @@
     <p class="muted">{{ 'nh-assistant.admin.feedback.agent' | translate: { name: agent.displayName, id: agent.id } }}</p>
     <nh-assistant-agent-feedback-report [agentId]="agent.id" />
   </div>
+} @else if (evaluating(); as agent) {
+  <div class="stack">
+    <div>
+      <button #back class="secondary" type="button" (click)="closeEvaluation()">
+        {{ 'nh-assistant.admin.evaluation.back' | translate }}
+      </button>
+    </div>
+    <p class="muted">{{ 'nh-assistant.admin.feedback.agent' | translate: { name: agent.displayName, id: agent.id } }}</p>
+    <nh-assistant-agent-evaluation [agentId]="agent.id" [variants]="variantsOf(agent)" />
+  </div>
 } @else {
   <section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()">
     <header class="section-header">
@@ -102,6 +112,11 @@
               <button class="secondary" type="button" [attr.data-feedback-agent]="agent.id" (click)="openReport(agent)">
                 <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agents.feedback' | translate }}
               </button>
+              @if (variantsOf(agent).length > 0) {
+                <button class="secondary" type="button" [attr.data-evaluation-agent]="agent.id" (click)="openEvaluation(agent)">
+                  <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agents.evaluation' | translate }}
+                </button>
+              }
               @if (agent.source === 'code' && agent.isOverridden) {
                 @if (isConfirming(agent.id, 'reset')) {
                   <span class="muted">{{ 'nh-assistant.admin.agents.reset-keeps-state' | translate }}</span>

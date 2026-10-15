@@ -117,6 +117,12 @@ public sealed record NhAssistantAgentState(
     /// state covers all of them.
     /// </summary>
     public IReadOnlyList<NhAssistantSkillState> Skills { get; init; } = [];
+
+    /// <summary>
+    /// The live agent this agent is a shadow variant of (<c>ShadowOf</c>); <see langword="null"/>
+    /// for an agent that is no variant. The two agents' states are independent.
+    /// </summary>
+    public string? ShadowOf { get; init; }
 }
 
 /// <param name="RunState"><c>active</c>, <c>paused</c> or <c>stopped</c>.</param>
@@ -477,7 +483,8 @@ internal sealed class NhAssistantAgentControl(
         {
             Skills = registration.AgentRuns.TryGetValue(agent.Id, out var runOptions)
                 ? await SkillStatesAsync(agent.Id, runOptions, cancellationToken)
-                : []
+                : [],
+            ShadowOf = runOptions?.ShadowOfAgentId
         };
     }
 }

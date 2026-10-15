@@ -29,6 +29,7 @@ import {
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAdminAgentEditorComponent } from './nh-assistant-admin-agent-editor.component';
+import { NhAssistantAgentEvaluationComponent } from './nh-assistant-agent-evaluation.component';
 import { NhAssistantAgentFeedbackReportComponent } from './nh-assistant-agent-feedback-report.component';
 
 let nextId = 0;
@@ -42,7 +43,8 @@ const maxStateReason = 500;
  * Agent administration: code agents (override, reset) and agents created here (edit, delete),
  * and for every agent its run state with pause, stop and resume, each with an optional reason.
  * Editing opens `nh-assistant-admin-agent-editor`; the feedback action opens
- * `nh-assistant-agent-feedback-report` for the agent.
+ * `nh-assistant-agent-feedback-report` for the agent, and the evaluation action of an agent with
+ * shadow variants opens `nh-assistant-agent-evaluation`.
  */
 @Component({
   selector: 'nh-assistant-admin-agents',
@@ -53,6 +55,7 @@ const maxStateReason = 500;
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
     NhAssistantAdminAgentEditorComponent,
+    NhAssistantAgentEvaluationComponent,
     NhAssistantAgentFeedbackReportComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -79,6 +82,8 @@ export class NhAssistantAdminAgentsComponent {
   readonly editing = signal<AdminAgent | null | undefined>(undefined);
   /** The agent whose feedback report is shown instead of the list. */
   readonly reporting = signal<AdminAgent | null>(null);
+  /** The agent whose comparison with its shadow variants is shown instead of the list. */
+  readonly evaluating = signal<AdminAgent | null>(null);
   readonly confirming = signal<{ agentId: string; action: 'delete' | 'reset' } | null>(null);
   readonly busyAgentId = signal<string | null>(null);
   /** The state change whose reason is being entered, of the agent or one of its skills. */
@@ -130,6 +135,34 @@ export class NhAssistantAdminAgentsComponent {
     this.confirming.set(null);
     this.reporting.set(agent);
     afterNextRender(() => this.backButton()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /** The shadow variants of an agent, by id. */
+  variantsOf(agent: AdminAgent): string[] {
+    return this.agents()
+      .filter(item => item.shadowOf === agent.id)
+      .map(item => item.id);
+  }
+
+  /** Compares the agent with its shadow variants. */
+  openEvaluation(agent: AdminAgent): void {
+    this.error.set(null);
+    this.confirming.set(null);
+    this.evaluating.set(agent);
+    afterNextRender(() => this.backButton()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /** Returns to the list and to the evaluation action of the agent whose comparison was open. */
+  closeEvaluation(): void {
+    const agentId = this.evaluating()?.id;
+    this.evaluating.set(null);
+    if (agentId !== undefined) {
+      afterNextRender(() => {
+        const action = Array.from(this.host.nativeElement.querySelectorAll<HTMLButtonElement>('[data-evaluation-agent]'))
+          .find(item => item.dataset['evaluationAgent'] === agentId);
+        action?.focus();
+      }, { injector: this.injector });
+    }
   }
 
   /** Returns to the list and to the feedback action of the agent whose report was open. */

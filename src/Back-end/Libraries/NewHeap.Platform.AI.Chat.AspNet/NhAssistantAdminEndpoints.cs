@@ -125,6 +125,7 @@ internal static class NhAssistantAdminEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         AgentRuns.NhAssistantProposalFeedbackEndpoints.MapAdmin(admin);
+        AgentRuns.NhAssistantAgentEvaluationEndpoints.MapAdmin(admin);
         admin.MapDelete("agents/{id}", DeleteAgentAsync)
             .WithName("NhAssistantAdminDeleteAgent")
             .WithSummary("Delete an agent")
@@ -725,7 +726,8 @@ internal static class NhAssistantAdminEndpoints
             state.Reason,
             state.WaitingInputs)
         {
-            Skills = state.Skills
+            Skills = state.Skills,
+            ShadowOf = state.ShadowOf
         };
     }
 

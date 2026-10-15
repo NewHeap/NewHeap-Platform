@@ -96,6 +96,8 @@ export interface AdminAgent extends AdminAgentInput {
   waitingInputs: number;
   /** The agent's skills with their states and today's usage; missing or empty without skills. */
   skills?: AgentSkillState[];
+  /** The live agent this agent is a shadow variant of; missing or null for an agent that is no variant. */
+  shadowOf?: string | null;
 }
 
 /** One skill of an agent with its own state and today's usage across scopes. */
@@ -132,6 +134,7 @@ export interface AgentState {
   /** The runs this change started for waiting events by resuming the agent. */
   startedRuns: number;
   skills?: AgentSkillState[];
+  shadowOf?: string | null;
 }
 
 /** Body of `POST admin/agents/{id}/state`. `active` resumes the agent. */
@@ -222,6 +225,137 @@ export interface AgentFeedbackListFilter extends AgentFeedbackFilter {
 }
 
 /** Filter of `GET admin/agents/{id}/feedback/export`. */
+/** Query of `GET admin/agents/{id}/evaluation` and its export. */
+export interface AgentEvaluationFilter {
+  /** The shadow variant to compare with the agent. */
+  variant: string;
+  /** Start of the period as an ISO 8601 date-time; seven days before `to` by default. */
+  from?: string;
+  /** End of the period, exclusive; now by default. The period spans at most 92 days. */
+  to?: string;
+}
+
+/**
+ * Response of `GET admin/agents/{id}/evaluation`: how a shadow variant compared with its live
+ * agent. Counts, identifiers and links only; no messages or arguments.
+ */
+export interface AgentEvaluation {
+  agentId: string;
+  variantId: string;
+  from: string;
+  to: string;
+  runs: AgentEvaluationRuns;
+  tools: AgentEvaluationTool[];
+  liveCost: AgentEvaluationCost;
+  variantCost: AgentEvaluationCost;
+  routing: AgentEvaluationRouting[];
+  /** Proposals only one of the two made, with the runs and threads to read; at most 50. */
+  differences: AgentEvaluationDifference[];
+}
+
+export interface AgentEvaluationRuns {
+  live: number;
+  variant: number;
+  /** Pairs of runs that handled the same event or that a replay repeated. */
+  paired: number;
+  /** Pairs whose variant run replayed the live run; it saw today's state of the subject. */
+  replayed: number;
+  liveUnpaired: number;
+  variantUnpaired: number;
+  /** The period held more runs than one evaluation reads; it covers the oldest. */
+  truncated: boolean;
+}
+
+export interface AgentEvaluationTool {
+  toolId: string;
+  agreed: number;
+  liveOnly: number;
+  variantOnly: number;
+  liveDecisions: AgentEvaluationDecisions;
+  /** Live proposals people rejected that the variant did not make. */
+  rejectedLiveNotProposed: number;
+  /** Live proposals people rejected that the variant made too. */
+  rejectedLiveAlsoProposed: number;
+  /** Live proposals people approved that the variant did not make. */
+  approvedLiveMissed: number;
+}
+
+export interface AgentEvaluationDecisions {
+  pending: number;
+  approved: number;
+  /** Executed, including failed and uncertain executions. */
+  executed: number;
+  rejected: number;
+  stale: number;
+  /** Expired and withdrawn proposals. */
+  other: number;
+  /** Feedback categories of rejected proposals and how often people chose them. */
+  rejectionCategories: Record<string, number>;
+}
+
+export interface AgentEvaluationCost {
+  runs: number;
+  modelCalls: number;
+  tokens: number;
+  toolCalls: number;
+  averageModelCalls: number;
+  averageTokens: number;
+  averageToolCalls: number;
+  p95ModelCalls: number;
+  p95Tokens: number;
+  p95ToolCalls: number;
+}
+
+export interface AgentEvaluationRouting {
+  /** `null` is the agent's own tools. */
+  liveSkill: string | null;
+  variantSkill: string | null;
+  runs: number;
+}
+
+export interface AgentEvaluationDifference {
+  toolId: string;
+  kind: 'live-only' | 'variant-only';
+  /** What people decided about a live-only proposal. */
+  liveStatus: string | null;
+  liveRunId: string;
+  liveConversationId: string;
+  variantRunId: string;
+  variantConversationId: string;
+  replayed: boolean;
+}
+
+/** Body of `POST admin/agents/{id}/replay`. */
+export interface AgentReplayRequest {
+  /** The agent whose runs to replay; the variant's live agent by default. */
+  sourceAgentId?: string | null;
+  from?: string | null;
+  to?: string | null;
+  /** 1 to 500; 100 by default. */
+  maxRuns?: number | null;
+}
+
+/** A replay of recorded runs into a shadow variant. */
+export interface AgentReplay {
+  id: string;
+  variantAgentId: string;
+  sourceAgentId: string;
+  from: string;
+  to: string;
+  maxRuns: number;
+  status: 'running' | 'completed' | 'stopped';
+  /** Why a stopped replay stopped, such as `assistant-budget-exhausted`. */
+  stopReason: string | null;
+  runsReplayed: number;
+  runsSkipped: number;
+  createdAt: string;
+  endedAt: string | null;
+}
+
+export interface AgentReplayList {
+  items: AgentReplay[];
+}
+
 export interface AgentFeedbackExportFilter extends AgentFeedbackFilter {
   category?: AgentProposalFeedbackCategory;
   /** Maximum number of records; the server defaults to 10,000 and allows at most 50,000. */

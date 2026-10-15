@@ -581,6 +581,25 @@ internal sealed class NhAssistantRegistrationState
             }
 
             var agent = _agents[agentId];
+            if (options.ShadowOfAgentId is { } liveAgentId)
+            {
+                if (!options.Shadow)
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' is a shadow variant of '{liveAgentId}' and must stay in shadow mode.");
+                }
+                if (!_agentRuns.TryGetValue(liveAgentId, out var live))
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' is a shadow variant of '{liveAgentId}', which is not configured with ConfigureAgent.");
+                }
+                if (live.Shadow || live.ShadowOfAgentId is not null)
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' is a shadow variant of '{liveAgentId}', which is not a live agent.");
+                }
+            }
+
             foreach (var handOff in options.HandOffs)
             {
                 foreach (var source in handOff.Sources.Where(source => !_agentRuns.ContainsKey(source)))

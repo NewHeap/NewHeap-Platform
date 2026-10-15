@@ -311,6 +311,9 @@
       "assistant-handoff-shadow-to-live": "An agent in shadow mode cannot hand work to an agent that works for real.",
       "assistant-handoff-chain-limit": "The chain of hand-offs is as long as allowed or would return to an agent in it.",
       "assistant-handoff-limit-reached": "This agent handed this subject to that agent as often as allowed today.",
+      "assistant-replay-not-shadow": "Only an agent in shadow mode can receive a replay, from another agent.",
+      "assistant-replay-active": "A replay into this variant is still running.",
+      "assistant-evaluation-not-variant": "That agent is not a shadow variant to compare with.",
       "assistant-agent-not-configured": "This agent cannot run on its own.",
       "assistant-run-not-found": "The run was not found.",
       "assistant-run-not-retryable": "This run cannot be retried.",
@@ -458,6 +461,7 @@
           "execute": "Execute"
         },
         "feedback": "Feedback",
+        "evaluation": "Evaluation",
         "state": {
           "active": "Active",
           "paused": "Paused",
@@ -660,6 +664,77 @@
         "next": "Next",
         "page": "Page {{page}} of {{pages}}",
         "pages": "Pages"
+      },
+      "evaluation": {
+        "back": "Back to the agents",
+        "title": "Evaluation of shadow variants",
+        "description": "Compares a shadow variant with the live agent: the runs that handled the same events, the proposals both made or only one made, what people decided about the live ones, and what each cost.",
+        "export-hint": "The export holds identifiers, statuses, usage and proposal identities, no messages or arguments. It is audited.",
+        "refresh": "Refresh",
+        "export": "Export JSON Lines",
+        "exporting": "Exporting…",
+        "variant": "Variant",
+        "period": "Period",
+        "runs-title": "Runs",
+        "runs": {
+          "live": "Live agent",
+          "variant": "Variant",
+          "paired": "Same event",
+          "replayed": "Replayed",
+          "live-unpaired": "Live only",
+          "variant-unpaired": "Variant only"
+        },
+        "small-numbers": "Small numbers mislead: read the counts next to every share.",
+        "replayed-hint": "Replayed runs saw today's state of each subject; a subject that changed since can explain a difference.",
+        "truncated": "The period holds more runs than one evaluation reads; it covers the oldest ones.",
+        "tools-title": "Proposals per tool",
+        "tools-empty": "The paired runs made no proposals.",
+        "columns": {
+          "tool": "Tool",
+          "agreed": "Agreed",
+          "live-only": "Live only",
+          "variant-only": "Variant only",
+          "rejected-not-proposed": "Rejected live, not proposed",
+          "rejected-also-proposed": "Rejected live, also proposed",
+          "approved-missed": "Approved live, missed",
+          "live-decisions": "Decisions on live proposals",
+          "measure": "Measure",
+          "live": "Live agent",
+          "variant": "Variant",
+          "live-skill": "Live skill",
+          "variant-skill": "Variant skill",
+          "runs": "Runs"
+        },
+        "decisions": "{{pending}} pending, {{approved}} approved, {{executed}} executed, {{rejected}} rejected, {{stale}} stale",
+        "cost-title": "Cost",
+        "cost": {
+          "runs": "Runs",
+          "model-calls": "Model calls per run",
+          "tokens": "Tokens per run",
+          "tool-calls": "Tool calls per run",
+          "average-p95": "{{average}} on average, p95 {{p95}} ({{total}} in total)"
+        },
+        "routing-title": "Routing",
+        "no-skill": "Own tools",
+        "differences-title": "Differences",
+        "kind": {
+          "live-only": "Live only",
+          "variant-only": "Variant only"
+        },
+        "live-status": "Live: {{status}}",
+        "replayed": "Replayed",
+        "open-live": "Open the live thread",
+        "open-variant": "Open the variant's thread",
+        "replay-title": "Replay",
+        "replay-hint": "Fires the live agent's recorded runs of the period into the variant, oldest first, against today's state of each subject; at most {{max}} runs. The variant's budget and limits apply.",
+        "replay-runs": "Runs to replay",
+        "replay": "Replay the period",
+        "replay-status": {
+          "running": "Running",
+          "completed": "Completed",
+          "stopped": "Stopped"
+        },
+        "replay-progress": "{{replayed}} of at most {{max}} runs replayed, {{skipped}} skipped"
       }
     },
     "page-context": {
