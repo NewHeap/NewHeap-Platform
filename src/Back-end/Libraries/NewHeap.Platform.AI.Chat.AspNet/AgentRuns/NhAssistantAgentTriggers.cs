@@ -253,6 +253,17 @@ internal sealed class NhAssistantAgentTriggers(
     }
 
     /// <summary>
+    /// Who chose the skill of a run that a fire names: the follow-up of a proposal continues in the
+    /// skill of the run that made it; every other fire names its trigger's skill.
+    /// </summary>
+    private static string ChooserOf(string triggerId)
+    {
+        return triggerId is NhAssistantTriggerIds.ProposalExecuted or NhAssistantTriggerIds.ProposalDecided
+            ? NhAssistantSkillChoosers.FollowUp
+            : NhAssistantSkillChoosers.Trigger;
+    }
+
+    /// <summary>
     /// The skill a trigger names for <paramref name="agentId"/>: the trigger's skill when the agent
     /// declares it. A variant without that skill routes the run itself.
     /// </summary>
@@ -585,14 +596,22 @@ internal sealed class NhAssistantAgentTriggers(
 
     /// <summary>
     /// Starts a follow-up run after a proposal was rejected or finished executing, so the agent
-    /// continues with the outcome. An approved proposal follows up once its execution ended.
+    /// continues with the outcome. An approved proposal follows up once its execution ended. The
+    /// run continues in the skill of the run that made the proposal while the agent declares it, so
+    /// that skill's state applies: a paused skill lets the follow-up wait, a stopped one refuses it.
     /// </summary>
-    internal Task<NhAssistantTriggerReceipt> StartFollowUpAsync(
+    internal async Task<NhAssistantTriggerReceipt> StartFollowUpAsync(
         AssistantThread thread,
         AssistantApproval approval,
         string? actorId,
         CancellationToken cancellationToken)
     {
+        var skillId = approval.RunId is { } runId
+                      && await runs.FindRunAsync(runId, cancellationToken) is { SkillId: { } skill }
+                      && registration.AgentRuns.TryGetValue(thread.AgentId, out var options)
+                      && options.Skills.ContainsKey(skill)
+            ? skill
+            : null;
         var executed = approval.Status is not (NhAssistantApprovalStatuses.Approved or NhAssistantApprovalStatuses.Rejected);
         var outcome = approval.Status switch
         {
@@ -603,7 +622,7 @@ internal sealed class NhAssistantAgentTriggers(
             NhAssistantApprovalStatuses.Stale => "approved, but closed as stale because the subject changed",
             _ => approval.Status
         };
-        return FireAsync(
+        return await FireAsync(
             new NhAssistantTriggerFire(
                 executed ? NhAssistantTriggerIds.ProposalExecuted : NhAssistantTriggerIds.ProposalDecided,
                 thread.AgentId,
@@ -612,7 +631,10 @@ internal sealed class NhAssistantAgentTriggers(
                 $"Proposal {approval.ProposalId:N} for tool {approval.ToolId} was {outcome}.",
                 approval.Id.ToString("N"),
                 NhAssistantTriggerConflict.Coalesce,
-                TimeSpan.FromSeconds(30)),
+                TimeSpan.FromSeconds(30))
+            {
+                SkillId = skillId
+            },
             cancellationToken);
     }
 
@@ -1057,7 +1079,7 @@ internal sealed class NhAssistantAgentTriggers(
             AgentVersion = agent.Definition.Version,
             Shadow = options.Shadow,
             SkillId = fire.SkillId,
-            SkillChosenBy = fire.SkillId is null ? null : NhAssistantSkillChoosers.Trigger,
+            SkillChosenBy = fire.SkillId is null ? null : ChooserOf(fire.TriggerId),
             ReplayOfRunId = fire.ReplayOfRunId,
             CreatedAt = DateTimeOffset.UtcNow,
             ConcurrencyStamp = Guid.NewGuid()

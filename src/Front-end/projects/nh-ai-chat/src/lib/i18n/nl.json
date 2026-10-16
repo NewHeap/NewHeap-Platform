@@ -908,7 +908,8 @@
           "trigger": "door de trigger",
           "rules": "door de regels",
           "triage": "door triage",
-          "model": "door het model"
+          "model": "door het model",
+          "follow-up": "als vervolg op een besluit"
         },
         "tool-calls": "{{count}} tool-aanroepen",
         "tokens": "{{count}} tokens",

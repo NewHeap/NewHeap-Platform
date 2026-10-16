@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.68",
   "backEnd": {
-    "hash": "96453aa379eb76123984acb9245fd373a09de4efb71b5643996c39dd12876840",
-    "declarationCount": 7758,
+    "hash": "214630f2bc77e0f5ed51aa792df68fbb50298023f45a5cdc0bba10101d103bae",
+    "declarationCount": 7759,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4780,6 +4780,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
         "declaration": "public const string Model = \"model\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
+        "declaration": "public const string FollowUp = \"follow-up\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantTextAssets.cs",

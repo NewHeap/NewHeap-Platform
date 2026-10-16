@@ -28,6 +28,7 @@
   <data name="CloserTasksOpen" xml:space="preserve"><value>{0} of {1} tasks are still open; the project stays active.</value></data>
   <data name="CloserReason" xml:space="preserve"><value>All {0} tasks of the project are completed.</value></data>
   <data name="PlannerFollowUp" xml:space="preserve"><value>{0} of {1} tasks are still open; next is &quot;{2}&quot;.</value></data>
+  <data name="PlannerDecisionFollowedUp" xml:space="preserve"><value>The decision on the proposal is in; the planner keeps following the open tasks.</value></data>
   <data name="PlannerAllDone" xml:space="preserve"><value>All {0} tasks are completed.</value></data>
   <data name="PlannerHandedToCloser" xml:space="preserve"><value>All {0} tasks are completed; I asked the project closer whether the project can be completed.</value></data>
   <data name="PlannerCloserAnswered" xml:space="preserve"><value>The project closer answered: {0}</value></data>

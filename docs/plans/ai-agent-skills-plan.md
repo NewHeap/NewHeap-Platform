@@ -19,8 +19,16 @@ the plan where [Implementation notes](#implementation-notes) says so.
 - **Routing order in practice.** A trigger's skill wins. Without one, the agent's rule handler runs
   first; `HandOver` means the agent's own model (no triage), `UseSkill` routes. Model triage runs
   only when neither decided, not for request turns, and only offers active skills. A skill with
-  rules runs them after routing; its `HandOver` continues in the agent's own model and its
-  `UseSkill` may route once more to a model skill.
+  rules runs them after routing; its `UseSkill` may route once more to a model skill. Its
+  `HandOver` first continued in the agent's own model; since the next release it continues in the
+  same skill (see below).
+- **Rules and a model in one skill (later change).** A skill may have rules and a profile. When
+  its rules hand over, the run stays in the skill: its tools, instructions, profile (or else the
+  agent's), ceiling, budget and state. Leaving the skill gave the model every tool of the agent and
+  the agent's ceiling, against the idea of a skill.
+- **Follow-up runs (later change).** The follow-up of a decided or executed proposal continues in
+  the skill of the run that made it while the agent declares it, recorded as chosen by
+  `follow-up`; a paused skill lets it wait and a stopped one refuses it.
 - **Triage** is one tool-free call to the triage profile with the briefing, the run's events and the
   catalog, asking for `{"skill": ..., "reason": ...}`; structured output is requested when the
   profile declares it. An answer that is not usable leaves the run without a skill. "Nothing to do"
@@ -137,8 +145,9 @@ The run records the skill and who chose it (`trigger`, `rules`, `triage`).
   at most two switches per run. Budget and ceiling follow the skill that works.
 - **People in the thread:** their turns start without a skill, with the agent's own tools, plus the
   catalog and `use_skill`, so a person's question loads only the skill it needs.
-- **Rules in a skill:** a skill with a rule handler runs rules; `HandOver` continues in the agent's
-  default model or with `UseSkill` in another skill.
+- **Rules in a skill:** a skill with a rule handler runs rules; `HandOver` continues in the same
+  skill's model (changed later; first in the agent's default model) or with `UseSkill` in another
+  skill.
 
 ### Budgets, ceilings and states
 

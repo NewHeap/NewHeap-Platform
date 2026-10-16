@@ -121,6 +121,28 @@ public static class ProjectAiAssets
     /// <summary>
     /// Instructions of the planner's deadline-risk skill (SPM-286).
     /// </summary>
+    /// <summary>
+    /// SPM-292: the task follow-up skill's instructions for the cases its rules hand over.
+    /// </summary>
+    public static NhAiTextAsset ProjectPlannerLateTaskInstructions { get; } =
+        NhAiTextAssetFactory.Create(
+            "project-planner-late-task",
+            1,
+            """
+            The rules handed you a task that was completed after the project's deadline.
+            When the open tasks cannot be finished soon, propose status onhold with the status tool and say why in one sentence.
+            Otherwise propose nothing and say what the team should do next.
+            """,
+            "embedded:SampleProjectManagement.Core/ProjectAiAssets",
+            NhAiAssetRole.SystemInstructions,
+            NhAiContextTrust.TrustedApplication,
+            NhAiModelCapability.FunctionCalling,
+            [],
+            "project-planner-late-task-v1",
+            NhAiDataClassification.Internal,
+            NhAiRetentionCategory.Evaluation,
+            "sample-project-planner-late-task-v1");
+
     public static NhAiTextAsset ProjectPlannerDeadlineRiskInstructions { get; } =
         NhAiTextAssetFactory.Create(
             "project-planner-deadline-risk",

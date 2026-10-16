@@ -89,7 +89,8 @@ public sealed class NhAssistantSkillBuilder
     }
 
     /// <summary>
-    /// Runs the skill by rules instead of a model. A skill uses rules or a model profile, not both.
+    /// Runs the skill by rules first. When they hand over with <c>HandOver</c>, the model continues
+    /// in this skill: with its tools, instructions, profile, run ceiling, budget and state.
     /// </summary>
     public NhAssistantSkillBuilder UseRuleHandler<THandler>()
         where THandler : class, INhAssistantAgentRuleHandler
@@ -99,7 +100,8 @@ public sealed class NhAssistantSkillBuilder
     }
 
     /// <summary>
-    /// Runs the skill with another model profile than the agent's, for example a stronger one.
+    /// Runs the skill with another model profile than the agent's, for example a stronger one. A
+    /// skill with rules uses it for the model after the rules hand over.
     /// </summary>
     public NhAssistantSkillBuilder UseProfile(string profileName)
     {
@@ -230,4 +232,10 @@ public static class NhAssistantSkillChoosers
 
     /// <summary>The model switched to it with <c>use_skill</c>.</summary>
     public const string Model = "model";
+
+    /// <summary>
+    /// The run follows up a proposal that people decided or that finished executing, and continues
+    /// in the skill of the run that made it.
+    /// </summary>
+    public const string FollowUp = "follow-up";
 }

@@ -4,7 +4,7 @@ title: "Run assistant agents on their own from events, with subject threads, def
 area: backend
 reference: ai-agent-runs
 summary: "Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, and evaluate shadow variants against the live agent."
-sample-cases: ["SPM-268", "SPM-269", "SPM-270", "SPM-271", "SPM-272", "SPM-273", "SPM-274", "SPM-275", "SPM-276", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-282", "SPM-283", "SPM-284", "SPM-285", "SPM-286", "SPM-287", "SPM-288", "SPM-291", "SPM-290"]
+sample-cases: ["SPM-268", "SPM-269", "SPM-270", "SPM-271", "SPM-272", "SPM-273", "SPM-274", "SPM-275", "SPM-276", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-282", "SPM-283", "SPM-284", "SPM-285", "SPM-286", "SPM-287", "SPM-288", "SPM-291", "SPM-290", "SPM-292"]
 public-symbols: ["ConfigureAgent", "NhAssistantAgentRunBuilder", "NhAssistantAgentRunOptions", "NhAssistantAgentBudget", "AddApprovalPolicy", "NhAiApprovalPolicyBuilder", "NhAiApprovalPolicy", "NhAiApprovalMode", "NhAiApprovalExpiryAction", "NhAiApprovalBinding", "NhAiApprovers", "NhAiApproverRule", "AddSubjectType", "INhAiSubjectAccessResolver", "INhAiSubjectAccess", "NhAiSubjectRef", "NhAiSubjectInfo", "NhAiSubjectAccess", "NhAiSubjectMember", "NhAiSubjectRole", "AddTrigger", "NhAssistantTriggerBuilder", "NhAssistantTriggerConflict", "NhAssistantTriggerIds", "INhAssistantAgentTriggers", "NhAssistantTriggerReceipt", "NhAssistantTriggerOutcomes", "NhAssistantTriggerReasons", "AddAssistantAgentRuns", "NhAiAgentAccountability", "NhAiGrantSource", "NhAiAgentGrant", "NhAiElevatedReads", "NhAiAgentInvocationScope", "NhAiAgentInvocationScopes", "NhAiAgentFailureCodes", "INhAiAgentToolAuthorizer", "INhAiProposalPrecondition", "NhAiProposalPreconditionContext", "NhAiPreconditionResult", "INhAiPrincipalFactory", "NhAiSubjectAuthorizationResource", "NhAssistantRunStatuses", "NhAssistantApprovalModes", "AddScheduledTrigger", "NhAssistantScheduleBuilder", "NhAssistantScheduledTick", "AddWebhookTrigger", "NhAssistantWebhookBuilder", "NhAssistantWebhookDelivery", "NhAssistantKillSwitchDto", "NhAssistantKillSwitchRequest", "INhAssistantAgentNotificationPolicy", "INhAssistantAgentNotificationChannel", "NhAssistantAgentNotificationContext", "NhAssistantAgentNotificationKind", "NhAssistantDefaultAgentNotificationPolicy", "UseAgentNotificationPolicy", "AddAgentNotificationChannel", "INhAssistantAgentMemoryMigrator", "UseAgentMemoryMigrator", "MaxRunSummaries", "MaxArtifactBytes", "INhAiArtifacts", "NhAiArtifact", "NhAiArtifactInfo", "INhAiSubjectRetention", "ForgetSubjectAsync", "NhAssistantThreadMemoryDto", "NhAssistantArtifactDto", "NhAssistantProposalDto", "INhAssistantToolPresenter", "NhAssistantConversationThreadDto", "NhAssistantThreadDecisionDto", "NhAssistantConversationKinds", "NhAssistantMessageAuthorKinds", "AllowConsultation", "NhAssistantConsultationBuilder", "NhAssistantConsultationOptions", "NhAssistantConsultationTools", "NhAssistantConsultationAnswer", "NhAssistantAgentRequestReceipt", "NhAssistantConsultationStatuses", "NhAssistantConsultationDto", "NhAssistantConsultationListDto", "MaxConsultationDepth", "MaxConsultationsPerActorPerDay", "RequireApprovalForEffects", "NhAssistantProposalFeedbackCategories", "NhAssistantProposalFeedbackGroups", "NhAssistantFeedbackTargetKinds", "INhAssistantProposalFeedbackSink", "NhAssistantProposalFeedback", "AddProposalFeedbackSink", "MaxRejectionsInContext", "RejectionContextWindow", "MaxFeedbackCharacters", "NhAssistantProposalFeedbackRequest", "NhAssistantBulkProposalFeedbackRequest", "NhAssistantProposalFeedbackDto", "NhAssistantBulkProposalFeedbackDto", "NhAssistantFeedbackOutcomeDto", "NhAssistantFeedbackSummaryDto", "NhAssistantFeedbackSummaryRowDto", "NhAssistantFeedbackCategoryCountDto", "NhAssistantFeedbackListDto", "NhAssistantFeedbackItemDto", "NhAssistantFeedbackExportRecord", "NhAssistantLiveAgentWorkDto", "NhAssistantToolCallStatuses", "INhAssistantSubjectWork", "NhAssistantSubjectWorkExtensions", "NhAssistantSubjectWorkDto", "NhAssistantSubjectAgentDto", "NhAssistantSubjectProposalDto", "NhAssistantSubjectSummaryRequest", "NhAssistantSubjectSummaryDto", "NhAssistantSubjectSummaryListDto", "NhAssistantOpenThreadRequest", "INhAiProposalGuard", "NhAiProposalGuardContext", "NhAiProposalKey", "NhAiProposalGuardStages", "NhAiStaleKind", "AddProposalGuard", "AddProposalRevalidation", "NhAssistantRevalidationBuilder", "INhAssistantProposalRevalidation", "NhAssistantRevalidationResult", "NhAssistantInvalidatedProposal", "NhAssistantStaleKinds", "NhAssistantInvalidationStages", "NhAssistantRevalidateProposalsRequest", "NhAssistantInvalidationCountDto", "INhAssistantAgentRuleHandler", "NhAssistantRuleContext", "NhAssistantRuleResult", "NhAssistantRuleInput", "NhAssistantRuleProposal", "NhAssistantRuleDecision", "NhAssistantProposeOutcome", "UseRuleHandler", "UseModel", "NhAssistantRunKinds", "NhAssistantRunDto", "NhAiDuplicateProposals", "RejectionCooldown", "MaxRejectionCooldown", "MaxInputPayloadCharacters", "NhAssistantProposalObjectDto", "NhAssistantProposalLookupRequest", "NhAssistantProposalLookupDto", "INhAssistantAgentControl", "NhAssistantAgentState", "NhAssistantAgentStateRequest", "NhAssistantAgentRunStates", "MaxStateReasonCharacters", "INhAssistantSubjectBriefingProvider", "NhAssistantBriefingContext", "NhAssistantBriefingPurposes", "NhAssistantSubjectBriefing", "NhAssistantBriefingSection", "AddSubjectBriefing", "MaxBriefingCharacters", "BriefingTimeout", "MaxTokensPerRun", "Skill", "NhAssistantSkillBuilder", "NhAssistantSkillOptions", "Triage", "NhAssistantTriageBuilder", "NhAssistantSkillChoosers", "UseSkill", "PauseSkillAsync", "StopSkillAsync", "ResumeSkillAsync", "NhAssistantSkillState", "AcceptHandOffs", "NhAssistantHandOffBuilder", "NhAssistantHandOffOptions", "NhAssistantHandOffTools", "HandOffAsync", "NhAssistantHandOffReceipt", "NhAssistantHandOffOutcomes", "NhAssistantHandOffResult", "MaxHandOffDepth", "ShadowOf", "NhAssistantEvaluationDto", "NhAssistantEvaluationRunsDto", "NhAssistantEvaluationToolDto", "NhAssistantEvaluationDecisionsDto", "NhAssistantEvaluationCostDto", "NhAssistantEvaluationRoutingDto", "NhAssistantEvaluationDifferenceDto", "NhAssistantEvaluationDifferenceKinds", "NhAssistantEvaluationExportRecord", "NhAssistantReplayRequest", "NhAssistantReplayDto", "NhAssistantReplayStatuses", "NhAssistantEvaluationLimits", "INhAiAgentInvocationContextFactory", "AllowGatewayReads"]
 skills: ["newheap-backend-development", "newheap-background-processing"]
 providers: ["sql-server", "postgresql"]
@@ -125,7 +125,9 @@ a user: the caller signs `{timestamp}.{deliveryId}.{body}` with HMAC-SHA256 and 
 secret of at least 32 characters read for every call, calls more than five minutes off
 are refused, and a delivery id starts at most one run. Treat the body as untrusted and
 take only identifiers and known values from it. A follow-up run after a decided or
-executed proposal is opt-in per approval policy (`StartFollowUpRun`).
+executed proposal is opt-in per approval policy (`StartFollowUpRun`). It continues in the skill of
+the run that made the proposal (`skillChosenBy` `follow-up`) while the agent declares that skill:
+a paused skill lets it wait and a stopped one refuses it.
 
 Filter events that do not concern the agent with `When` on `AddTrigger` and
 `AddWebhookTrigger`: it runs before every other lambda of the trigger, and a refused event
@@ -196,11 +198,14 @@ an approver resumes it; a consultation uses the same ceiling for its one turn. T
 by default; set one for every agent that runs on events.
 
 Give one agent a broad role with skills instead of many tools on every call: `Skill(id, skill =>
-...)` declares a part of the role with its own `Description`, rules (`UseRuleHandler`) or model
+...)` declares a part of the role with its own `Description`, rules (`UseRuleHandler`), model
 profile (`UseProfile`), `Instructions` after the agent's, `Tools` within the agent's selectors,
 `MaxTokensPerRun`, daily `Budget` and `UseApprovalPolicy`; it shares the agent's identity, grants,
-thread, memory and briefing. A run works in one skill, chosen in this order: the trigger
-(`.Skill(id)`), the agent's rules (`NhAssistantRuleResult.UseSkill(id, reason)`), model triage
+thread, memory and briefing. A skill may work by rules first and still use a model: when its rules
+return `HandOver(reason)`, the run continues in the same skill, with its tools, instructions,
+profile (or else the agent's), ceiling, budget and state, and the reason in the briefing. A run
+works in one skill, chosen in this order: the trigger (`.Skill(id)`), the agent's rules
+(`NhAssistantRuleResult.UseSkill(id, reason)`), model triage
 (`Triage(triage => triage.UseProfile(...))`, one tool-free call that may also end the run with
 nothing to do) or none. The model sees only the skill's tools and can switch with `use_skill` at
 most twice; people's turns start without a skill and load one the same way. Pause, stop and resume
@@ -535,9 +540,12 @@ after a resume, on both providers. Assert that a trigger with a skill runs that 
 it, that rules and triage route to a skill with only its tools, instructions and profile, that
 triage can end a run with nothing to do, that `use_skill` switches at most twice and that a person's
 turn starts without a skill, that a stopped skill refuses its triggers before any lambda while the
-other skills work, that a paused skill lets its events wait and resumes one run per thread, and that
-a skill's budget stops its runs, on both providers. Assert that a rule and a model hand a subject
-to a target that works in its own thread without an initiator under its own policy, that one run
+other skills work, that a paused skill lets its events wait and resumes one run per thread, that
+a skill's budget stops its runs, that a skill's rules hand over to the skill's own model with its
+tools, instructions, profile and ceiling, and that a follow-up run continues in the skill of the
+run that proposed unless that skill is stopped, on both providers. Assert that a rule and a model
+hand a subject to a target that works in its own thread without an initiator under its own
+policy, that one run
 hands the same subject off once, that a paused target lets the work wait and runs it after the
 resume, that every refusal carries its code, that the chain and daily limits hold, and that the
 source's follow-up carries the target's summary only for the same subject without restricted reads,
@@ -551,4 +559,4 @@ with its inputs and subject, as the agent with the subject's scopes, on both pro
 a run with gateway reads records `DelegatedRead`, reads with its starter's rights when a person
 started it, shows the result only to the person whose rights it used, also with `ElevatedReads.Deny`,
 and that startup fails without an accountable person or an issuer. SPM-268 to
-SPM-280, SPM-282 to SPM-288, SPM-290 and SPM-291 are the executable references.
+SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-292 are the executable references.

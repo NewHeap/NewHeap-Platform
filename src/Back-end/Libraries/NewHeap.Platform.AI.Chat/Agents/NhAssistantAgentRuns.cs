@@ -447,12 +447,6 @@ public sealed class NhAssistantAgentRunBuilder
         {
             throw new InvalidOperationException($"Skill '{skillId}' of agent '{_options.AgentId}' needs a Description.");
         }
-        if (skill.RuleHandlerType is not null && skill.ProfileName is not null)
-        {
-            throw new InvalidOperationException(
-                $"Skill '{skillId}' of agent '{_options.AgentId}' uses rules or a model profile, not both.");
-        }
-
         return this;
     }
 

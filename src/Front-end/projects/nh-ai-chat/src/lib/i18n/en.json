@@ -908,7 +908,8 @@
           "trigger": "by its trigger",
           "rules": "by the rules",
           "triage": "by triage",
-          "model": "by the model"
+          "model": "by the model",
+          "follow-up": "as the follow-up of a decision"
         },
         "tool-calls": "{{count}} tool calls",
         "tokens": "{{count}} tokens",

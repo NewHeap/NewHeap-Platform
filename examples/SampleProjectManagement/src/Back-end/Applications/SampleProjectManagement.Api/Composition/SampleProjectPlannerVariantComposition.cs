@@ -57,7 +57,9 @@ public static class SampleProjectPlannerVariantComposition
                 // The same skill ids as the planner, so its triggers' skills apply.
                 .Skill(SampleProjectPlannerComposition.TaskFollowUpSkill, skill => skill
                     .Description("Follows up completed tasks by rule: says how many tasks are left and which comes next.")
-                    .UseRuleHandler<ProjectTaskFollowUpRules>())
+                    .UseRuleHandler<ProjectTaskFollowUpRules>()
+                    .Instructions(ProjectAiAssets.ProjectPlannerLateTaskInstructions)
+                    .Tools(ProjectAiTools.ChangeStatusToolId))
                 .Skill(SampleProjectPlannerComposition.DeadlineRiskSkill, skill => skill
                     .Description("Judges a deadline risk only when less than a third of the project's tasks is completed.")
                     .Instructions(ProjectAiAssets.ProjectPlannerDeadlineRiskInstructions)

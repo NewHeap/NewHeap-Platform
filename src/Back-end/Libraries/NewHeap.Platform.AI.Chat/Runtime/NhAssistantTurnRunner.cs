@@ -396,7 +396,7 @@ internal sealed partial class NhAssistantTurnRunner(
             }
 
             // A skill that works by rules runs them; they end the run, route to a model skill or hand
-            // over to the agent's own model.
+            // over to the skill's own model, with its tools, instructions, profile, ceiling and budget.
             if (state.Skill is { RuleHandlerType: { } skillRules })
             {
                 var ruled = await RunRulesAsync(state, callerContext, request.Inputs, skillRules, cancellation.Token);
@@ -417,7 +417,6 @@ internal sealed partial class NhAssistantTurnRunner(
                 }
                 else
                 {
-                    await EnterSkillAsync(state, null, null, callerContext, record: false, cancellationToken);
                     routing = NhAssistantBriefingService.RulesSection(ruled.HandOverReason!, state.ProposalCount);
                 }
             }

@@ -32,8 +32,11 @@ export type AgentGrantSource = 'none' | 'delegated' | 'agent' | 'delegated-read'
  */
 export type AgentRunKind = 'model' | 'rule' | 'rule-then-model';
 
-/** Who chose the skill a run worked in. */
-export type AgentSkillChooser = 'trigger' | 'rules' | 'triage' | 'model';
+/**
+ * Who chose the skill a run worked in; `follow-up` continues in the skill of the run whose
+ * proposal people decided.
+ */
+export type AgentSkillChooser = 'trigger' | 'rules' | 'triage' | 'model' | 'follow-up';
 
 export interface AgentRun {
   id: string;

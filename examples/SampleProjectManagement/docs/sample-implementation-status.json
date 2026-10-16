@@ -287,7 +287,8 @@
     "SPM-288",
     "SPM-289",
     "SPM-290",
-    "SPM-291"
+    "SPM-291",
+    "SPM-292"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2343,6 +2344,15 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRetrievedContextTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiContextResolverTests.cs"
+    ],
+    "SPM-292": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentSkillTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-timeline.component.html"
     ]
   }
 }

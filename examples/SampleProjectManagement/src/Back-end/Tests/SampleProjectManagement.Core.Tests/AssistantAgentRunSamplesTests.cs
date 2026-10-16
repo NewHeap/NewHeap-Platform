@@ -1319,6 +1319,77 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_project_planner_hands_a_late_task_to_its_follow_up_skills_model_and_follows_up_the_decision_in_that_skill()
+    {
+        // SPM-292
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string variant = SampleProjectPlannerVariantComposition.AgentId;
+        const string skill = SampleProjectPlannerComposition.TaskFollowUpSkill;
+        var project = await host.CreateProjectAsync("LATE", ownerId: host.OwnerId, status: ProjectStatus.Active, deadline: DateTimeOffset.UtcNow.AddDays(-2));
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var foundation = await host.CreateTaskAsync(project, "Pour the foundation");
+        await host.CreateTaskAsync(project, "Build the walls");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var projectText = project.ToString("D");
+        var late = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = project, status = "OnHold" } }, "call-hold")
+            .RespondWithText("The walls cannot follow soon after the deadline; I proposed to put the project on hold.");
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "## Skill: task-follow-up")
+                && RoutingChatClient.Mentions(messages, options, projectText), late)));
+        // The shadow variant's copy of the skill would take the same task; it stays out of this case.
+        Assert.True((await ChangeSkillAsync(variant, skill, stop: true)).Success);
+        try
+        {
+            // A task completed after the deadline starts the follow-up skill; its rules hand the case
+            // to the skill's own model, which proposes to put the project on hold.
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(foundation, host.ParticipantId));
+            var conversationId = await WaitForThreadAsync(colleague, project, planner);
+            var proposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending);
+            Assert.Equal(ProjectAiTools.ChangeStatusToolId, proposal.ToolId);
+            var handedOver = Assert.Single(await RunsAsync(colleague, conversationId), run => run.Id == proposal.RunId);
+            Assert.Equal(skill, handedOver.Skill);
+            Assert.Equal(NhAssistantSkillChoosers.Trigger, handedOver.SkillChosenBy);
+            Assert.Equal(NhAssistantRunKinds.RuleThenModel, handedOver.Kind);
+            // The model worked in the skill: its instructions, only its status tool, the rules' reason.
+            var request = late.Requests[0];
+            Assert.Contains("The rules handed you a task that was completed after the project's deadline.", request.Options!.Instructions);
+            var tools = request.Options.Tools!.Select(tool => tool.Name).ToArray();
+            Assert.Contains("projects_change_status_v1", tools);
+            Assert.DoesNotContain(tools, name => name.StartsWith("sample-api-gateway_", StringComparison.Ordinal));
+            Assert.Contains(request.Messages, message => message.Text.Contains("completed after the project's deadline of", StringComparison.Ordinal));
+
+            // The approver approves; once it executed, the follow-up run continues in the same skill
+            // and its rules take the decision as the answer, without a model.
+            var decision = await DecideAsync(colleague, proposal, "approve");
+            Assert.True(decision.IsSuccessStatusCode);
+            var followUp = await WaitForRunWithTriggerAsync(colleague, conversationId, NhAssistantTriggerIds.ProposalExecuted);
+            Assert.Equal(NhAssistantRunStatuses.Completed, followUp.Status);
+            Assert.Equal(skill, followUp.Skill);
+            Assert.Equal(NhAssistantSkillChoosers.FollowUp, followUp.SkillChosenBy);
+            Assert.Equal(NhAssistantRunKinds.Rule, followUp.Kind);
+            Assert.Equal(2, late.Requests.Count);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+            await ChangeSkillAsync(variant, skill, stop: false);
+        }
+    }
+
+    /// <summary>Stops or resumes a skill of any agent, the shadow variant included.</summary>
+    private async Task<TaskResult<NhAssistantSkillState>> ChangeSkillAsync(string agentId, string skillId, bool stop)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var control = scope.ServiceProvider.GetRequiredService<INhAssistantAgentControl>();
+        var operatorId = host.OwnerId.ToString("D");
+        return stop
+            ? await control.StopSkillAsync(agentId, skillId, operatorId, "Outside this case", CancellationToken.None)
+            : await control.ResumeSkillAsync(agentId, skillId, operatorId, null, CancellationToken.None);
+    }
+
+    [Fact]
     public async Task An_approver_explains_a_rejection_that_the_next_run_and_the_administrators_report_see()
     {
         // SPM-279

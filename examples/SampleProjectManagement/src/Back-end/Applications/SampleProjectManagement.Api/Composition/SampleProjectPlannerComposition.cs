@@ -23,6 +23,10 @@ namespace SampleProjectManagement.Api.Composition;
 /// SPM-287: when the follow-up finds every task of a project with a deadline completed, its rules
 /// hand the project to the project closer instead of proposing the closer's work themselves. The
 /// closer answers in its own thread; the planner hears back how it ended, with the closer's summary.
+/// SPM-292: the task follow-up skill works by rules first. A task completed after the project's
+/// deadline is a case its rules cannot judge: they hand it over, and the skill's own model judges it
+/// with the skill's instructions and only the status tool. After people decide its proposal, the
+/// follow-up run continues in the same skill, whose rules take the decision as the answer.
 /// SPM-290: the planner works for the project's owner and reads the project's data through the API
 /// bridge gateway in its headless runs, with the owner's rights: every call gets a short-lived
 /// delegated read credential of the owner, which this API's own bearer scheme validates and the
@@ -36,6 +40,7 @@ public static class SampleProjectPlannerComposition
     public const string TaskTriggerId = "project-task-completed-planner";
     public const string DeadlineCheckTriggerId = "daily-deadline-check";
     public const string TriageProfileName = "project-planner-triage";
+    public const string FollowUpPolicyId = "project-planning";
 
     public static IServiceCollection AddSampleProjectPlanner(this IServiceCollection services)
     {
@@ -50,6 +55,14 @@ public static class SampleProjectPlannerComposition
                 .WithTimeout(TimeSpan.FromSeconds(15))));
 
         services.AddNewHeapAssistant(assistant => assistant
+            // SPM-292: proposals of the task follow-up skill; a decision starts a follow-up run that
+            // continues in the skill.
+            .AddApprovalPolicy(FollowUpPolicyId, policy => policy
+                .Mode(NhAiApprovalMode.Deferred)
+                .Lifetime(TimeSpan.FromDays(3))
+                .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
+                .OnExpiry(NhAiApprovalExpiryAction.Withdraw)
+                .StartFollowUpRun())
             .AddAgent(new NhAssistantAgentDefinition(
                 Id: AgentId,
                 Version: 1,
@@ -75,7 +88,11 @@ public static class SampleProjectPlannerComposition
                 .Triage(triage => triage.UseProfile(TriageProfileName))
                 .Skill(TaskFollowUpSkill, skill => skill
                     .Description("Follows up completed tasks by rule: says how many tasks are left and which comes next.")
-                    .UseRuleHandler<ProjectTaskFollowUpRules>())
+                    .UseRuleHandler<ProjectTaskFollowUpRules>()
+                    // SPM-292: what the skill's model knows and may do when its rules hand over.
+                    .Instructions(ProjectAiAssets.ProjectPlannerLateTaskInstructions)
+                    .Tools(ProjectAiTools.ChangeStatusToolId)
+                    .UseApprovalPolicy(FollowUpPolicyId))
                 .Skill(DeadlineRiskSkill, skill => skill
                     .Description("Judges whether an active project will miss its deadline and proposes to put it on hold.")
                     .Instructions(ProjectAiAssets.ProjectPlannerDeadlineRiskInstructions)
@@ -143,6 +160,13 @@ public sealed class ProjectTaskFollowUpRules(
                 : localizer["PlannerCloserEnded", ended.Status].Value);
         }
 
+        // SPM-292: the follow-up of a proposal that people decided continues in this skill. The
+        // decision is the answer, so the rules do not judge the project again.
+        if (context.Inputs.Any(input => input.TriggerId is NhAssistantTriggerIds.ProposalExecuted or NhAssistantTriggerIds.ProposalDecided))
+        {
+            return NhAssistantRuleResult.Done(localizer["PlannerDecisionFollowedUp"].Value);
+        }
+
         var projectId = Guid.Parse(context.Subject.Subject.Id);
         var open = await dbContext.ProjectTasks
             .AsNoTracking()
@@ -153,6 +177,22 @@ public sealed class ProjectTaskFollowUpRules(
         var total = await dbContext.ProjectTasks.CountAsync(task => task.ProjectId == projectId, cancellationToken);
         if (open.Count > 0)
         {
+            // SPM-292: work that goes on after the deadline is a case the rules cannot judge. They
+            // hand it to the skill's model, which works with the skill's instructions and tools.
+            var now = DateTimeOffset.UtcNow;
+            var passed = await dbContext.Projects
+                .AsNoTracking()
+                .Where(project => project.Id == projectId
+                    && project.Status == ProjectStatus.Active
+                    && project.Deadline != null
+                    && project.Deadline < now)
+                .Select(project => project.Deadline)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (passed is { } lateSince)
+            {
+                return NhAssistantRuleResult.HandOver(
+                    $"A task was completed after the project's deadline of {lateSince:yyyy-MM-dd}, and {open.Count} of {total} tasks are still open. Judge whether to put the project on hold.");
+            }
             return NhAssistantRuleResult.Done(localizer["PlannerFollowUp", open.Count, total, open[0]].Value);
         }
 

@@ -28,6 +28,7 @@
   <data name="CloserTasksOpen" xml:space="preserve"><value>{0} van de {1} taken staan nog open; het project blijft actief.</value></data>
   <data name="CloserReason" xml:space="preserve"><value>Alle {0} taken van het project zijn afgerond.</value></data>
   <data name="PlannerFollowUp" xml:space="preserve"><value>{0} van de {1} taken staan nog open; de volgende is &quot;{2}&quot;.</value></data>
+  <data name="PlannerDecisionFollowedUp" xml:space="preserve"><value>Er is over het voorstel besloten; de planner blijft de open taken volgen.</value></data>
   <data name="PlannerAllDone" xml:space="preserve"><value>Alle {0} taken zijn afgerond.</value></data>
   <data name="PlannerHandedToCloser" xml:space="preserve"><value>Alle {0} taken zijn afgerond; ik heb de projectafsluiter gevraagd of het project kan worden afgerond.</value></data>
   <data name="PlannerCloserAnswered" xml:space="preserve"><value>De projectafsluiter antwoordde: {0}</value></data>

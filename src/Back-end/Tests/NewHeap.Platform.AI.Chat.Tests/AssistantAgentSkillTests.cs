@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using NewHeap.Platform.Common.Models;
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +32,9 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database)
     private const string Risk = "risk";
     private const string Notes = "notes";
     private const string RiskInstructions = "Judge whether the project misses its deadline.";
+    private const string Intake = "intake";
+    private const string IntakeInstructions = "Decide whether the order belongs to the project.";
+    private const string FollowUpInstructions = "Say which task comes next.";
 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -242,6 +247,167 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database)
         Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentRunsStopped && evt.SkillId == FollowUp);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Rules_of_a_skill_hand_over_to_its_own_model_with_its_tools_instructions_profile_and_ceiling(AssistantTestProvider provider)
+    {
+        var models = new SkillModels();
+        models.Skill
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = Guid.NewGuid(), status = "Active" } }, "call-1")
+            .RespondWithText("Not reached: the skill's ceiling ends the run first.");
+        await using var host = await CreateHostAsync(provider, models);
+        var intake = host.Services.GetRequiredService<TestIntakeRuleScript>();
+        intake.Run = (_, _) => Task.FromResult(NhAssistantRuleResult.HandOver("The contractor of the order is unknown."));
+
+        var receipt = Assert.Single(await PublishAsync(host, "intake order"));
+        await ExecuteAsync(host, receipt.RunId!.Value);
+
+        // The run stays in the skill: its rules ran, then its own profile, tools and instructions.
+        var run = await Runs(host).FindRunAsync(receipt.RunId.Value, CancellationToken.None);
+        Assert.Equal(Intake, run!.SkillId);
+        Assert.Equal(NhAssistantSkillChoosers.Trigger, run.SkillChosenBy);
+        Assert.Equal(NhAssistantRunKinds.RuleThenModel, run.Kind);
+        Assert.Single(intake.Contexts);
+        Assert.Empty(models.Default.Requests);
+        var request = Assert.Single(models.Skill.Requests);
+        Assert.Contains(IntakeInstructions, request.Options!.Instructions);
+        Assert.Contains("## Skill: intake", request.Options.Instructions);
+        var tools = ToolNames(request);
+        Assert.Contains("projects_change_status_v1", tools);
+        Assert.DoesNotContain("projects_search_v1", tools);
+        var briefing = Assert.Single(request.Messages, message => message.Text.Contains("<subject-briefing>", StringComparison.Ordinal)).Text;
+        Assert.Contains("handed this run over to you", briefing);
+        Assert.Contains("The contractor of the order is unknown.", briefing);
+        // The skill's run ceiling applies after the hand-over, and its budget counts the model's tokens.
+        Assert.Equal(NhAssistantRunStatuses.Failed, run.Status);
+        Assert.Equal(NhAssistantErrorCodes.RunTokenLimit, run.FailureCode);
+        var usage = (await ControlAsync(host, control => control.GetAsync(AgentId)))!.Skills.Single(skill => skill.SkillId == Intake);
+        Assert.True(usage.TokensToday > 0);
+
+        // A paused skill lets its event wait before its rules run.
+        await ControlAsync(host, control => control.PauseSkillAsync(AgentId, Intake, "operator-1", "Import"));
+        var waiting = Assert.Single(await PublishAsync(host, "intake later"));
+        Assert.Equal(NhAssistantTriggerOutcomes.Waiting, waiting.Outcome);
+        Assert.Single(intake.Contexts);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Rules_of_a_skill_without_a_profile_hand_over_to_the_agents_profile_with_the_skills_tools(AssistantTestProvider provider)
+    {
+        var models = new SkillModels();
+        models.Default.RespondWithText("The release notes come next.");
+        await using var host = await CreateHostAsync(provider, models);
+        host.Services.GetRequiredService<TestSkillRuleScript>().Run = (_, _) =>
+            Task.FromResult(NhAssistantRuleResult.HandOver("Two tasks could come next."));
+
+        var receipt = Assert.Single(await PublishAsync(host, "task done"));
+        await ExecuteAsync(host, receipt.RunId!.Value);
+
+        var run = await Runs(host).FindRunAsync(receipt.RunId.Value, CancellationToken.None);
+        Assert.Equal(NhAssistantRunStatuses.Completed, run!.Status);
+        Assert.Equal(FollowUp, run.SkillId);
+        Assert.Empty(models.Skill.Requests);
+        var request = Assert.Single(models.Default.Requests);
+        Assert.Contains(FollowUpInstructions, request.Options!.Instructions);
+        var tools = ToolNames(request);
+        Assert.Contains("projects_search_v1", tools);
+        Assert.DoesNotContain("projects_change_status_v1", tools);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_follow_up_run_continues_in_the_skill_of_the_run_whose_proposal_people_decided(AssistantTestProvider provider)
+    {
+        var models = new SkillModels();
+        await using var host = await CreateHostAsync(provider, models);
+        var intake = host.Services.GetRequiredService<TestIntakeRuleScript>();
+        var proposals = new ConcurrentQueue<Guid>();
+        intake.Run = async (context, cancellationToken) =>
+        {
+            if (context.Inputs.Any(input => input.TriggerId is NhAssistantTriggerIds.ProposalExecuted or NhAssistantTriggerIds.ProposalDecided))
+            {
+                return NhAssistantRuleResult.Done("Linked the order to the project.");
+            }
+            var proposed = await context.ProposeAsync(
+                "projects.change-status",
+                new ProjectStatusInput(Guid.Parse(context.Subject.Subject.Id), "Active"),
+                null,
+                cancellationToken);
+            proposals.Enqueue(proposed.ApprovalId!.Value);
+            return NhAssistantRuleResult.Done("Proposed to approve the order.");
+        };
+
+        // An executed proposal follows up in the skill that made it, chosen as a follow-up.
+        var first = Assert.Single(await PublishAsync(host, "intake first"));
+        await ExecuteAsync(host, first.RunId!.Value);
+        Assert.True((await DecideAsync(host, proposals.Last(), approve: true)).Success);
+        await ExecuteProposalAsync(host, proposals.Last());
+        var executed = await LatestRunAsync(host, first.ConversationId!.Value);
+        Assert.Equal(NhAssistantTriggerIds.ProposalExecuted, executed.TriggerId);
+        Assert.Equal(Intake, executed.SkillId);
+        Assert.Equal(NhAssistantSkillChoosers.FollowUp, executed.SkillChosenBy);
+        await ExecuteAsync(host, executed.Id);
+        Assert.Equal(NhAssistantRunStatuses.Completed, (await Runs(host).FindRunAsync(executed.Id, CancellationToken.None))!.Status);
+        Assert.Contains(intake.Contexts, context => context.Inputs.Any(input => input.TriggerId == NhAssistantTriggerIds.ProposalExecuted));
+
+        // A rejected one as well.
+        var second = Assert.Single(await PublishAsync(host, "intake second"));
+        await ExecuteAsync(host, second.RunId!.Value);
+        Assert.True((await DecideAsync(host, proposals.Last(), approve: false)).Success);
+        var rejected = await LatestRunAsync(host, second.ConversationId!.Value);
+        Assert.Equal(NhAssistantTriggerIds.ProposalDecided, rejected.TriggerId);
+        Assert.Equal(Intake, rejected.SkillId);
+        Assert.Equal(NhAssistantSkillChoosers.FollowUp, rejected.SkillChosenBy);
+
+        // A stopped skill refuses the follow-up; the thread gets no new run.
+        var third = Assert.Single(await PublishAsync(host, "intake third"));
+        await ExecuteAsync(host, third.RunId!.Value);
+        await ControlAsync(host, control => control.StopSkillAsync(AgentId, Intake, "operator-1", "Wrong approvals"));
+        Assert.True((await DecideAsync(host, proposals.Last(), approve: false)).Success);
+        Assert.Equal(third.RunId, (await LatestRunAsync(host, third.ConversationId!.Value)).Id);
+        Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentTriggerRejected
+            && evt.SkillId == Intake
+            && evt.ResultCode == NhAssistantErrorCodes.SkillStopped);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_follow_up_of_a_run_without_a_skill_lets_the_agent_route_it_as_before(AssistantTestProvider provider)
+    {
+        var models = new SkillModels();
+        await using var host = await CreateHostAsync(provider, models);
+        var approvals = new ConcurrentQueue<Guid>();
+        host.Services.GetRequiredService<TestRuleScript>().Run = async (context, cancellationToken) =>
+        {
+            if (context.Inputs.Any(input => input.TriggerId == NhAssistantTriggerIds.ProposalDecided))
+            {
+                return NhAssistantRuleResult.Done("Noted the decision.");
+            }
+            var proposed = await context.ProposeAsync(
+                "projects.change-status",
+                new ProjectStatusInput(Guid.Parse(context.Subject.Subject.Id), "OnHold"),
+                null,
+                cancellationToken);
+            approvals.Enqueue(proposed.ApprovalId!.Value);
+            return NhAssistantRuleResult.Done("Proposed to hold the project.");
+        };
+
+        var receipt = Assert.Single(await PublishAsync(host, "rule hold"));
+        await ExecuteAsync(host, receipt.RunId!.Value);
+        Assert.Null((await Runs(host).FindRunAsync(receipt.RunId.Value, CancellationToken.None))!.SkillId);
+        Assert.True((await DecideAsync(host, approvals.Single(), approve: false)).Success);
+
+        var followUp = await LatestRunAsync(host, receipt.ConversationId!.Value);
+        Assert.Equal(NhAssistantTriggerIds.ProposalDecided, followUp.TriggerId);
+        Assert.Null(followUp.SkillId);
+        Assert.Null(followUp.SkillChosenBy);
+    }
+
     [Fact]
     public void A_skill_outside_the_agents_tools_or_a_trigger_for_an_unknown_skill_fails_validation()
     {
@@ -263,16 +429,20 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database)
 
         var tools = Assert.Throws<InvalidOperationException>(() => State(outside).ValidateAgentRuns());
         var trigger = Assert.Throws<InvalidOperationException>(() => State(unknown).ValidateAgentRuns());
-        var both = Assert.Throws<InvalidOperationException>(() => new ServiceCollection().AddNewHeapAssistant(assistant => assistant
+        // A skill may work by rules and use its own profile for the model after a hand-over.
+        var both = new ServiceCollection();
+        both.AddNewHeapAssistant(assistant => assistant
             .AddAgent(AssistantTestData.Agent())
             .ConfigureAgent(AgentId, agent => agent.Skill(Risk, skill => skill
                 .Description("Judges risks.")
                 .UseProfile("skill-chat")
-                .UseRuleHandler<TestRules>()))));
+                .UseRuleHandler<TestRules>())));
 
         Assert.Contains("orders.*", tools.Message);
         Assert.Contains("missing", trigger.Message);
-        Assert.Contains("rules or a model profile", both.Message);
+        var risk = State(both).AgentRuns[AgentId].Skills[Risk];
+        Assert.Equal("skill-chat", risk.ProfileName);
+        Assert.Equal(typeof(TestRules), risk.RuleHandlerType);
     }
 
     private static NhAssistantRegistrationState State(IServiceCollection services)
@@ -291,6 +461,7 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database)
                 services.AddSingleton(new TestSubjects());
                 services.AddSingleton<TestRuleScript>();
                 services.AddSingleton<TestSkillRuleScript>();
+                services.AddSingleton<TestIntakeRuleScript>();
                 services.AddSingleton<RecordingOperations>();
                 services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, TestPrincipalFactory>());
@@ -318,7 +489,8 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database)
                 .AddApprovalPolicy("project-review", policy => policy
                     .Mode(NhAiApprovalMode.Deferred)
                     .Lifetime(TimeSpan.FromDays(3))
-                    .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver)))
+                    .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
+                    .StartFollowUpRun())
                 .ConfigureAgent(AgentId, agent => agent
                     .Grant("projects.*")
                     .UseApprovalPolicy("project-review")
@@ -326,7 +498,16 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database)
                     .Triage(triage => triage.UseProfile("triage-chat"))
                     .Skill(FollowUp, skill => skill
                         .Description("Follows up completed tasks by rule.")
-                        .UseRuleHandler<TestSkillRules>())
+                        .UseRuleHandler<TestSkillRules>()
+                        .Instructions(FollowUpInstructions)
+                        .Tools("projects.search"))
+                    .Skill(Intake, skill => skill
+                        .Description("Takes in orders by rule and asks its model when in doubt.")
+                        .UseRuleHandler<TestIntakeRules>()
+                        .UseProfile("skill-chat")
+                        .Instructions(IntakeInstructions)
+                        .Tools("projects.change-status")
+                        .MaxTokensPerRun(1))
                     .Skill(Risk, skill => skill
                         .Description("Judges deadline risks and proposes a status change.")
                         .UseProfile("skill-chat")
@@ -340,6 +521,13 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database)
                     .StartAgent(AgentId)
                     .When(evt => evt.Change.StartsWith("task", StringComparison.Ordinal))
                     .Skill(FollowUp)
+                    .Subject(evt => new NhAiSubjectRef("project", evt.ProjectId.ToString("N")))
+                    .Message(evt => evt.Change)
+                    .OnBusy(NhAssistantTriggerConflict.Queue))
+                .AddTrigger<ProjectChanged>("intake-changed", trigger => trigger
+                    .StartAgent(AgentId)
+                    .When(evt => evt.Change.StartsWith("intake", StringComparison.Ordinal))
+                    .Skill(Intake)
                     .Subject(evt => new NhAiSubjectRef("project", evt.ProjectId.ToString("N")))
                     .Message(evt => evt.Change)
                     .OnBusy(NhAssistantTriggerConflict.Queue))
@@ -381,6 +569,31 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database)
         await operation.ExecuteAsync(new NhAssistantAgentRunRequest(runId), context, CancellationToken.None);
     }
 
+    private static async Task<TaskResult<AssistantApproval>> DecideAsync(AssistantTestHost host, Guid approvalId, bool approve)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<NhAssistantProposalDecisions>().DecideAsync(
+            approvalId,
+            "approver-1",
+            new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "approver-1")], "test")),
+            approve,
+            expectedProposalHash: null,
+            reason: null,
+            CancellationToken.None);
+    }
+
+    private static async Task ExecuteProposalAsync(AssistantTestHost host, Guid approvalId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>().HttpContext = null;
+        var result = await scope.ServiceProvider.GetRequiredService<NhAssistantProposalExecutor>().ExecuteAsync(
+            approvalId,
+            Substitute.For<INhBackgroundOperationContext>(),
+            fenced: false,
+            CancellationToken.None);
+        Assert.True(result.Success);
+    }
+
     private static async Task<AssistantThread> ThreadAsync(AssistantTestHost host, Guid projectId)
     {
         await using var scope = host.Services.CreateAsyncScope();
@@ -420,6 +633,23 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database)
         public NhAiScriptedChatClient Skill { get; } = new();
 
         public NhAiScriptedChatClient Triage { get; } = new();
+    }
+}
+
+public sealed class TestIntakeRuleScript
+{
+    public Func<NhAssistantRuleContext, CancellationToken, Task<NhAssistantRuleResult>> Run { get; set; } =
+        (_, _) => Task.FromResult(NhAssistantRuleResult.Done("Took in the order."));
+
+    public ConcurrentQueue<NhAssistantRuleContext> Contexts { get; } = new();
+}
+
+public sealed class TestIntakeRules(TestIntakeRuleScript script) : INhAssistantAgentRuleHandler
+{
+    public Task<NhAssistantRuleResult> RunAsync(NhAssistantRuleContext context, CancellationToken cancellationToken)
+    {
+        script.Contexts.Enqueue(context);
+        return script.Run(context, cancellationToken);
     }
 }
 
