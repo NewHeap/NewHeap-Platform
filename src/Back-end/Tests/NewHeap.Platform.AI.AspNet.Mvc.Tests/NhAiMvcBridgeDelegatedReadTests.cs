@@ -28,33 +28,41 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
     private const string Get = "test-gateway_get_v1";
 
     [Fact]
-    public async Task A_delegated_read_token_authenticates_only_a_gateway_GET_with_its_invocation_header()
+    public async Task A_delegated_read_token_authenticates_only_its_gateway_action_with_its_invocation_header()
     {
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
         var invocation = Guid.NewGuid();
-        var token = TestReadTokens.Create("reader", [TestPolicies.OrderView], invocation, TimeSpan.FromMinutes(1));
+        var list = TestReadTokens.Create("reader", [TestPolicies.OrderView], invocation, TimeSpan.FromMinutes(1), ListAction);
+        var get = TestReadTokens.Create("reader", [TestPolicies.OrderView], invocation, TimeSpan.FromMinutes(1), GetAction);
 
-        Assert.Equal(HttpStatusCode.OK, await SendAsync(client, HttpMethod.Get, "/orders", token, invocation));
-        Assert.Equal(HttpStatusCode.OK, await SendAsync(client, HttpMethod.Get, "/orders/7", token, invocation));
-        // Without the header, with another invocation, as a write and outside the gateway it fails.
-        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Get, "/orders", token, null));
-        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Get, "/orders", token, Guid.NewGuid()));
-        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Post, "/orders", token, invocation));
-        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Get, "/probe/echo", token, invocation));
+        Assert.Equal(HttpStatusCode.OK, await SendAsync(client, HttpMethod.Get, "/orders", list, invocation));
+        Assert.Equal(HttpStatusCode.OK, await SendAsync(client, HttpMethod.Get, "/orders/7", get, invocation));
+        // Another gateway action, no header, another invocation, a write and outside the gateway fail.
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Get, "/orders/7", list, invocation));
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Get, "/orders", list, null));
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Get, "/orders", list, Guid.NewGuid()));
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Post, "/orders", list, invocation));
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Get, "/probe/echo", list, invocation));
+        // A marked token bound to no action, as the library authenticates internally, reaches nothing.
+        var unbound = TestReadTokens.Create("reader", [TestPolicies.OrderView], invocation, TimeSpan.FromMinutes(1));
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Get, "/orders", unbound, invocation));
         // An expired token fails; a token without the marker is not restricted.
-        var expired = TestReadTokens.Create("reader", [TestPolicies.OrderView], invocation, TimeSpan.FromSeconds(-30));
+        var expired = TestReadTokens.Create("reader", [TestPolicies.OrderView], invocation, TimeSpan.FromSeconds(-30), ListAction);
         Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Get, "/orders", expired, invocation));
         var plain = TestReadTokens.Create("reader", [TestPolicies.OrderView], null, TimeSpan.FromMinutes(1));
         Assert.Equal(HttpStatusCode.OK, await SendAsync(client, HttpMethod.Get, "/probe/echo", plain, null));
     }
 
     [Fact]
-    public async Task Another_JWT_bearer_scheme_with_the_same_key_restricts_the_token_as_well()
+    public async Task Another_JWT_bearer_scheme_with_the_same_key_restricts_the_token_even_when_its_events_skip_the_delegate()
     {
+        var partnerEvents = new SkippingEvents();
         await using var factory = CreateFactory(services => services.AddAuthentication()
             .AddJwtBearer("Partner", options =>
             {
+                // Events whose TokenValidated never calls OnTokenValidated: the restriction still applies.
+                options.Events = partnerEvents;
                 options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -80,6 +88,26 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
 
         Assert.False(restricted.Succeeded);
         Assert.True(plain.Succeeded);
+        // The host's own events still ran for the token that passed, and never for the refused one.
+        Assert.Equal(1, partnerEvents.Validated);
+    }
+
+    [Fact]
+    public async Task Startup_fails_when_a_JWT_bearer_scheme_resolves_its_events_from_a_type()
+    {
+        await using var factory = CreateFactory(services =>
+        {
+            services.AddSingleton<SkippingEvents>();
+            services.AddAuthentication().AddJwtBearer("Typed", options =>
+            {
+                options.EventsType = typeof(SkippingEvents);
+                options.TokenValidationParameters = new TokenValidationParameters { IssuerSigningKey = TestReadTokens.Key };
+            });
+        });
+
+        var failure = Assert.Throws<InvalidOperationException>(() => factory.Services);
+
+        Assert.Contains("'Typed' resolves its events from a type", failure.Message);
     }
 
     [Fact]
@@ -108,9 +136,15 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
 
         Assert.Contains(factory.Requests, request => request.StartsWith("GET /orders?", StringComparison.Ordinal));
         Assert.Contains("GET /orders/7", factory.Requests);
-        // One credential to authenticate the person for discovery, one per call, each for the person.
+        // One credential to authenticate the person, bound to no action, and one per call bound to
+        // the gateway action it calls, each for the person.
         Assert.All(issued.Requests, request => Assert.Equal("reader", request.PersonActorId));
         Assert.All(issued.Requests, request => Assert.Equal(NhAiDelegatedReadDefaults.DefaultLifetime, request.Lifetime));
+        Assert.Equal(
+            [null, ListAction, GetAction],
+            issued.Requests
+                .Select(request => request.Claims.SingleOrDefault(claim => claim.Type == NhAiDelegatedReadDefaults.ActionClaimType)?.Value)
+                .Order(StringComparer.Ordinal));
         Assert.Contains(audit.Records, record => record.ToolId == "test-api.order.get" && record.GrantSource == NhAiGrantSource.DelegatedRead);
         Assert.Contains(audit.Records, record => record.ToolId == "test-api.order.get-by-id" && record.GrantSource == NhAiGrantSource.DelegatedRead);
         var calls = audit.Records.Where(record => record.ToolId.StartsWith("test-api.order.", StringComparison.Ordinal)).Select(record => record.InvocationId).ToArray();
@@ -133,6 +167,13 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
             var query = await InvokeAsync(services, Query, new { resource = "order" });
             Assert.Equal(NhAiBridgeFailureCodes.ResourceNotFound, query.Property("code").GetString());
         }
+        // The subject's responsible person changed after the run was queued: no credential.
+        var changed = AgentScope("reader");
+        using (NhAiAgentInvocationScopes.Begin(changed with { Subject = changed.Subject with { ResponsibleActorId = "someone-else" } }))
+        {
+            var query = await InvokeAsync(services, Query, new { resource = "order" });
+            Assert.Equal(NhAiBridgeFailureCodes.Unauthenticated, query.Property("code").GetString());
+        }
         using (NhAiAgentInvocationScopes.Begin(AgentScope("removed")))
         {
             var query = await InvokeAsync(services, Query, new { resource = "order" });
@@ -144,17 +185,34 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
     }
 
     [Fact]
-    public async Task A_delegated_read_result_needs_the_policies_of_the_resource_it_read()
+    public async Task A_credential_without_its_binding_or_that_lives_too_long_is_never_used()
     {
         await using var factory = CreateFactory();
-        var surface = factory.Services.GetServices<INhAiDelegatedReadSurface>().Single();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
 
-        Assert.Equal([TestPolicies.OrderView], surface.ResultPolicies("test-gateway.query", """{"input":{"resource":"order"}}"""));
-        Assert.Equal([TestPolicies.OrderManage], surface.ResultPolicies("test-gateway.get", """{"resource":"order-audit","id":1}"""));
-        Assert.Equal([TestPolicies.OrderManage, TestPolicies.OrderView], surface.ResultPolicies("test-gateway.search-resources", "{}"));
-        Assert.Null(surface.ResultPolicies("test-gateway.query", """{"input":{"resource":"unknown"}}"""));
-        Assert.Null(surface.ResultPolicies("test-gateway.query", "not json"));
-        Assert.Null(surface.ResultPolicies("test-api.order.post", null));
+        foreach (var person in new[] { "unbound", "long-lived" })
+        {
+            using (NhAiAgentInvocationScopes.Begin(AgentScope(person)))
+            {
+                var query = await InvokeAsync(services, Query, new { resource = "order" });
+                Assert.Equal(NhAiBridgeFailureCodes.Unauthenticated, query.Property("code").GetString());
+            }
+        }
+        Assert.DoesNotContain(factory.Requests, request => request.StartsWith("GET /orders", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_dot_segment_or_an_empty_route_value_never_reaches_another_action()
+    {
+        await using var factory = new BridgeApiFactory();
+
+        var dots = await factory.InvokeAsync(TestTokenHandler.Viewer, "test-api_order_get-by-id_v1", new { id = ".." });
+        var empty = await factory.InvokeAsync(TestTokenHandler.Viewer, "test-api_order_get-by-id_v1", new { id = "" });
+
+        Assert.Equal(NhAiBridgeFailureCodes.Validation, dots.Property("code").GetString());
+        Assert.Equal(NhAiBridgeFailureCodes.Validation, empty.Property("code").GetString());
+        Assert.DoesNotContain(factory.Requests, request => request.StartsWith("GET /orders", StringComparison.Ordinal) || request == "GET /");
     }
 
     [Fact]
@@ -168,13 +226,28 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
         Assert.Contains("JWT bearer scheme 'Bearer'", failure.Message);
     }
 
+    private const string ListAction = "test-api.order.get";
+    private const string GetAction = "test-api.order.get-by-id";
+
+    /// <summary>JWT bearer events whose TokenValidated never invokes the OnTokenValidated delegate.</summary>
+    private sealed class SkippingEvents : JwtBearerEvents
+    {
+        public int Validated { get; private set; }
+
+        public override Task TokenValidated(TokenValidatedContext context)
+        {
+            Validated++;
+            return Task.CompletedTask;
+        }
+    }
+
     private static NhAiAgentInvocationScope AgentScope(string person)
     {
         return new NhAiAgentInvocationScope(
             "order-planner",
             "agent:order-planner",
             1,
-            new NhAiSubjectInfo(new NhAiSubjectRef("order", "7"), "order:7"),
+            new NhAiSubjectInfo(new NhAiSubjectRef("order", "7"), "order:7") { ResponsibleActorId = person },
             person,
             Guid.NewGuid().ToString(),
             "assistant")
@@ -269,13 +342,23 @@ internal static class TestReadTokens
 
     public static readonly SymmetricSecurityKey Key = new(Encoding.UTF8.GetBytes("delegated-read-tests-signing-key-0123456789"));
 
-    public static string Create(string person, IReadOnlyList<string> permissions, Guid? invocation, TimeSpan lifetime, IEnumerable<Claim>? extra = null)
+    public static string Create(
+        string person,
+        IReadOnlyList<string> permissions,
+        Guid? invocation,
+        TimeSpan lifetime,
+        string? action = null,
+        IEnumerable<Claim>? extra = null)
     {
         var claims = new List<Claim> { new("sub", person), new(ClaimTypes.NameIdentifier, person) };
         claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
         if (invocation is { } id)
         {
             claims.Add(new Claim(NhAiDelegatedReadDefaults.ClaimType, id.ToString("D")));
+        }
+        if (action is not null)
+        {
+            claims.Add(new Claim(NhAiDelegatedReadDefaults.ActionClaimType, action));
         }
         claims.AddRange(extra ?? []);
         var now = DateTime.UtcNow;
@@ -291,7 +374,8 @@ internal static class TestReadTokens
 }
 
 /// <summary>
-/// Issues tokens for a reader, a person without rights, and refuses a removed person.
+/// Issues tokens for a reader and a person without rights, refuses a removed person, and misbehaves
+/// for "unbound" (no binding claims) and "long-lived" (an hour).
 /// </summary>
 internal sealed class TestReadIssuer(TestReadIssuer.Recorder recorder) : INhAiDelegatedReadCredentialIssuer
 {
@@ -305,8 +389,13 @@ internal sealed class TestReadIssuer(TestReadIssuer.Recorder recorder) : INhAiDe
             return ValueTask.FromResult(TaskResult<NhAiDelegatedReadCredential>.Failed("person-removed", "The person was removed."));
         }
 
-        string[] permissions = request.PersonActorId == "reader" ? [TestPolicies.OrderView] : [];
-        var token = TestReadTokens.Create(request.PersonActorId, permissions, null, request.Lifetime, request.Claims);
+        string[] permissions = request.PersonActorId is "reader" or "unbound" or "long-lived" ? [TestPolicies.OrderView] : [];
+        var token = request.PersonActorId switch
+        {
+            "unbound" => TestReadTokens.Create(request.PersonActorId, permissions, null, request.Lifetime),
+            "long-lived" => TestReadTokens.Create(request.PersonActorId, permissions, null, TimeSpan.FromHours(1), extra: request.Claims),
+            _ => TestReadTokens.Create(request.PersonActorId, permissions, null, request.Lifetime, extra: request.Claims)
+        };
         return ValueTask.FromResult(TaskResult<NhAiDelegatedReadCredential>.Succeeded(
             new NhAiDelegatedReadCredential(token, DateTimeOffset.UtcNow + request.Lifetime)));
     }

@@ -562,17 +562,20 @@ internal sealed class NhAssistantConsultationViewer(
     public async ValueTask<bool> MayViewAsync(
         NhAiGrantSource grantSource,
         string toolId,
-        string? argumentsJson,
+        string? readForActorId,
         CancellationToken cancellationToken)
     {
+        if (grantSource == NhAiGrantSource.DelegatedRead)
+        {
+            return NhAssistantRestrictedResults.IsReadFor(askerActorId, readForActorId);
+        }
         var shield = !registration.AgentRuns.TryGetValue(options.AgentId, out var runOptions)
                      || runOptions.ElevatedReads == NhAiElevatedReads.Restricted;
-        if (grantSource is not (NhAiGrantSource.Agent or NhAiGrantSource.DelegatedRead) || !shield)
+        if (grantSource != NhAiGrantSource.Agent || !shield)
         {
             return true;
         }
-        var key = NhAssistantRestrictedResults.CacheKey(services, grantSource, toolId, argumentsJson);
-        if (_allowed.TryGetValue(key, out var cached))
+        if (_allowed.TryGetValue(toolId, out var cached))
         {
             return cached;
         }
@@ -580,8 +583,8 @@ internal sealed class NhAssistantConsultationViewer(
         await ResolveAsync(cancellationToken);
         var may = _principal is not null
                   && _resource is not null
-                  && await NhAssistantRestrictedResults.SatisfiesResultPoliciesAsync(services, _principal, _resource, grantSource, toolId, argumentsJson);
-        _allowed[key] = may;
+                  && await NhAssistantRestrictedResults.SatisfiesToolPoliciesAsync(services, _principal, _resource, toolId);
+        _allowed[toolId] = may;
         return may;
     }
 

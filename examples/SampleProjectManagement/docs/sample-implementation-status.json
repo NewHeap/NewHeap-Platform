@@ -2328,6 +2328,7 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRestrictedResults.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDelegatedReadTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantGatewayReadTests.cs"

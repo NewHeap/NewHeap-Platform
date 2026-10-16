@@ -139,6 +139,9 @@ public class AssistantCollaborationSampleHost : AssistantSampleHost
             NormalizedUserName = email.ToUpperInvariant(),
             Email = email,
             NormalizedEmail = email.ToUpperInvariant(),
+            // An active account: the identity requires a confirmed e-mail address to sign in, and
+            // agents use the rights of people who may sign in only.
+            EmailConfirmed = true,
             ActiveDivisionId = divisionId
         });
         dbContext.Set<NhDivisionUser>().Add(new NhDivisionUser { Id = Guid.NewGuid(), UserId = id, DivisionId = divisionId });

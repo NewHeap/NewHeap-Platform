@@ -601,7 +601,7 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
 
     private sealed class AllowAllViewer : INhAssistantConsultationViewer
     {
-        public ValueTask<bool> MayViewAsync(NhAiGrantSource grantSource, string toolId, string? argumentsJson, CancellationToken cancellationToken)
+        public ValueTask<bool> MayViewAsync(NhAiGrantSource grantSource, string toolId, string? readForActorId, CancellationToken cancellationToken)
         {
             return ValueTask.FromResult(true);
         }

@@ -1608,6 +1608,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<Guid?>("ProposalId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ReadForActorId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<string>("ResultCode")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");

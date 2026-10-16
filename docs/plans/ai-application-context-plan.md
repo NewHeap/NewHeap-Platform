@@ -11,8 +11,8 @@ later plan; this one prepares its place. It was checked against `feature/ai-agen
 ## Status
 
 All three parts are implemented: the application map (SPM-289), gateway reads in headless runs
-(SPM-290) and retrieved context (SPM-291). The security review of the delegated read credential
-and its restriction, which precedes the release, is still open. The choices are part
+(SPM-290) and retrieved context (SPM-291). The delegated read credential was security-reviewed on
+2026-10-16; the [security review](#security-review) lists its findings and their resolution. The choices are part
 of the [decision record](#decision-record) and the [answered questions](#answered-questions); the
 implementation deviates from the plan where [Implementation notes](#implementation-notes) says so.
 
@@ -50,22 +50,56 @@ implementation deviates from the plan where [Implementation notes](#implementati
 - **Where gateway reads apply.** Headless turns of agents with `AllowGatewayReads` that answer to a
   person or service account; consultations and turns inside a person's request read with that
   person's own rights. Startup also fails without a registered gateway.
-- **Shielding.** A delegated read's result needs the policies of the resource operation it read,
-  taken from the call's stored arguments; `search-resources` needs every resource's policies, and
-  unknown arguments shield the result. Such a run counts as one that used restricted results.
+- **Whose rights.** Changed by the security review: a run that a person started reads with that
+  person's rights, a trigger run with its accountable person's (`GatewayReadActorId`).
+- **Shielding.** Changed by the security review: only the person whose rights a read used sees its
+  result, recorded as `ReadForActorId` on the tool call, whatever `ElevatedReads` says. Such a run
+  counts as one that used restricted results.
 - **Credential failures.** A credential that cannot be issued or is rejected while the gateway
   authorizes becomes `api-bridge-unauthenticated` before any request; a delegated call outside the
   gateway's `GET` actions becomes `api-bridge-forbidden` without a request. A request without a
   known endpoint fails authentication; the application then answers it as anonymous.
-- **Built-in issuer.** It takes the person's valid claims from `INhUserManager` and needs their
-  security stamp. It ignores the request's division, which reaches the call through trusted
-  query bindings.
-- **Every JWT bearer scheme.** The restriction applies to all JWT bearer schemes of the host, so
-  another scheme that trusts the same key cannot accept the token either; the configured scheme
-  authenticates it. The library authenticates a credential for discovery in a service scope of
-  its own, because authentication handlers cache their result per scope.
-- **Startup checks.** The scheme must be a JWT bearer scheme without `EventsType`, and the
-  restriction must still be its `OnTokenValidated` after all configuration.
+- **Built-in issuer.** It calls `INhAuthenticationService.CreateDelegatedTokenAsync`, which uses
+  the claims of the person's own sign-in and checks `MaySignInAsync` as a refresh does. It ignores
+  the request's division, which reaches the call through trusted query bindings.
+- **Every JWT bearer scheme.** The restriction applies to all JWT bearer schemes of the host, through
+  events that wrap the host's own, so another scheme that trusts the same key cannot accept the
+  token either; the configured scheme authenticates it. The library authenticates a credential for
+  discovery in a service scope of its own, because authentication handlers cache their result per
+  scope.
+- **Startup checks.** The configured scheme must be a JWT bearer scheme, and no JWT bearer scheme
+  may set `EventsType` or replace the wrapped events after the registration.
+
+## Security review
+
+Held on 2026-10-16, before the release: a review of the code by its author and an independent
+adversarial review of the delegated read credential, its restriction, issuance, discovery and
+shielding. Every finding was verified in the code.
+
+| # | Finding | Severity | Resolution |
+|---|---|---|---|
+| 1 | With `ElevatedReads.Deny`, delegated read results were shown to every thread reader, and a hand-off could carry them. | High | Delegated read results are always shielded and always count as restricted results. |
+| 2 | A person who started a run could have it read with the accountable person's rights and read the data in the model's answer. | High | A run that a person starts reads with that person's own rights; only trigger runs read with the accountable person's. |
+| 3 | Shielding checked an endpoint's policies against the thread's subject, not the rows a controller filters per person. | Medium | Only the person whose rights a read used sees its result. |
+| 4 | The built-in issuer issued tokens for locked-out, blocked or unconfirmed people and skipped the second-factor enrollment gate; the principal factory's sign-in check never failed. | Medium | `CreateDelegatedTokenAsync` and the principal factory require `MaySignInAsync`, the checks of a refresh. |
+| 5 | An events subclass overriding `TokenValidated`, another scheme with `EventsType`, or events replaced later bypassed the restriction. | Medium | Every JWT bearer scheme's events are wrapped and restrict in `TokenValidated`; startup fails for `EventsType` or replaced events. |
+| 6 | Issued tokens were used without checking their claims or real expiry, so an issuer that forgot the marker produced an unrestricted token. | Medium | A token is used only as a JWT with exactly the marker and action claims that expires within the lifetime plus 30 seconds. |
+| 7 | A route value `..` could send a call to another gateway `GET`, and a token was valid for every gateway `GET`. | Low to medium | Empty and dot-segment route values are refused; each token is bound to the one gateway action it calls. |
+| 8 | Weak binding: the audience equals the issuer, the invocation header is no proof of possession, and the self-HTTP base URL may be plain http. | Low | Mitigated by the action binding and the 60-second lifetime; the guide asks for https or loopback and an unshared signing key. |
+| 9 | A run kept the rights of the responsible person it was queued for after the subject's responsible person changed. | Low | No credential is issued when the subject's responsible person no longer is the run's accountable person. |
+| 10 | Custom issuers could not bind tokens to the subject's tenant. | Low | `NhAiDelegatedReadRequest.TenantId`. |
+
+Found sound: `HEAD`, `OPTIONS` and method overrides cannot reach anything but a `GET`; minimal APIs,
+SignalR hubs, `/mcp` and the assistant's endpoints have no gateway action; authentication before
+routing fails; inherited and generic controllers are told apart; the internal authentication mark
+cannot come from a request; the token never reaches logs, audit records or responses; writes and
+reads that require approval never reach the gateway; the model cannot choose whose credential is
+issued.
+
+Remaining risks: in a trigger run the model may restate what it read with the accountable person's
+rights in text that the thread's readers see; a host's `ClockSkew` adds to the token's lifetime; the
+person whose rights are used is not notified, and the audit records the grant source and the
+reading person instead.
 
 ## Problem
 
@@ -173,9 +207,10 @@ public sealed record NhAiApplicationMapRelation(string Field, string Resource);
 - **Opt-in with two keys.** The agent's tool selectors select the gateway tools, and its options
   allow them with `ConfigureAgent(id, agent => agent.AllowGatewayReads())`. Without both, headless
   runs behave as today.
-- **Whose rights.** Those of the run's accountable person, the person the agent works for. The
-  bridge stays the authorization boundary: each call runs through the controller with that person's
-  policies, model binding, filters and trusted query bindings.
+- **Whose rights.** Those of the person who started the run, or of the run's accountable person, the
+  person the agent works for, when nobody did (revised by the security review). The bridge stays
+  the authorization boundary: each call runs through the controller with that person's policies,
+  model binding, filters and trusted query bindings.
 - **Division.** The run's invocation context carries the division that the subject's
   `INhAiSubjectAccessResolver.DescribeAsync` returns as its division scope, and trusted query
   bindings put it into the call, as they do with the request's division in a person's turn. The
@@ -184,9 +219,9 @@ public sealed record NhAiApplicationMapRelation(string Field, string Resource);
   owner, to the current HTTP principal. In a headless run it binds to the principal of the read
   credential instead, so `search-resources`, `describe-resource` and the map show exactly what the
   calls can read.
-- **Shielding.** Gateway results in a subject thread follow the rule for results of agent grants:
-  they reach only thread readers who satisfy the underlying bridge action's policies; others see
-  `restricted`.
+- **Shielding.** Gateway results in a subject thread reach only the person whose rights the read
+  used; others see `restricted` (revised by the security review: endpoint policies do not capture
+  the rows a controller filters per person).
 - **Failures.** A credential that cannot be issued, has expired or is rejected becomes
   `api-bridge-unauthenticated` or `api-bridge-forbidden` for that call. The run continues, as with
   any failed tool call.
@@ -231,10 +266,11 @@ public sealed record NhAiDelegatedReadCredential(string BearerToken, DateTimeOff
   removed person. `NewHeap.Platform.AI.AspNet.Common` already references
   `NewHeap.Platform.AspNet.Common`, so this adds no dependency. Startup fails when an agent allows
   gateway reads and no issuer is available.
-- **Restriction.** Every token carries the claim `nh-ai-delegated-read` with the invocation id. The
-  registration post-configures the host's JWT bearer scheme and, composed with its existing events,
-  checks that claim in `OnTokenValidated`: the request must be a `GET` to an action that a gateway
-  resource exposes, with the matching `X-NewHeap-AI-Invocation` header. Every other request with the
+- **Restriction.** Every token carries the claim `nh-ai-delegated-read` with the invocation id and
+  `nh-ai-delegated-read-action` with the gateway action it may reach. The registration
+  post-configures every JWT bearer scheme with events that wrap the existing ones and check those
+  claims in `TokenValidated`: the request must be a `GET` to that gateway action, with the matching
+  `X-NewHeap-AI-Invocation` header. Every other request with the
   token fails authentication, including the assistant's own endpoints, `/mcp` and minimal APIs, and
   so does a request whose endpoint is not yet known at authentication time. The restriction does not
   depend on each controller.
@@ -326,7 +362,8 @@ Proposed on 2026-10-15; decided the same day.
    restriction in AI.AspNet.Common, headless discovery in AI.AspNet.Mvc, and the opt-in, division
    scope and shielding in AI.Chat. The sample's project planner reads a project's tasks through the
    gateway in a headless run with the built-in issuer, and its credential fails on a `POST` and on
-   an endpoint outside the gateway. A security review precedes the release.
+   an endpoint outside the gateway. A security review precedes the release; it took place on
+   2026-10-16.
 3. **Retrieved context** (SPM-291). The opt-in, query, block, limits and trace sink in AI.Chat. The
    sample's `ProjectAiContextSource` feeds the project assistant; items outside the division scope
    do not reach it.
@@ -358,9 +395,10 @@ on SQL Server and PostgreSQL.
 ## Risks
 
 - **Credential misuse** is the largest new surface: a read token for a person, issued while that
-  person is not present. The restriction (D7), the lifetime and the security review exist for it.
-- **Leaking through the model.** In a shared subject thread the model may restate what it read with
-  the accountable person's rights in a summary or proposal that other readers see. Shielding covers
+  person is not present. The restriction (D7), the action binding, the lifetime and the
+  [security review](#security-review) exist for it.
+- **Leaking through the model.** In a shared subject thread the model of a trigger run may restate
+  what it read with the accountable person's rights in a summary or proposal that other readers see. Shielding covers
   tool results, not the model's own text. As for agent grants, the guide asks applications to keep
   what a subject's readers may see in line with what its accountable person may read.
 - **Prompt injection through retrieved text.** Retrieved items are untrusted and marked so, and the

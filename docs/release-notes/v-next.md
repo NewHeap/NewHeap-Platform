@@ -134,24 +134,32 @@ unlike `ConfigureAgent`.
 | `NhAssistantAuditEvent` gains `ApplicationMapHash`. | None; audit sinks may record it. |
 | Startup fails when a gateway `Relate` or `IgnoreRelation` names an unknown resource or filter field. | None until you add explicit relations. |
 
-## NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.AspNet.Mvc and NewHeap.Platform.AI.Chat: gateway reads in headless runs
+## NewHeap.Platform.AspNet.Common, NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.AspNet.Mvc and NewHeap.Platform.AI.Chat: gateway reads in headless runs
 
-A headless agent run can read through the API bridge gateway with the rights of the person it
-works for. `AddNewHeapPlatformAIDelegatedReads()` issues a short-lived JWT of the host's own bearer
-scheme per call: the built-in issuer uses `INhAuthenticationService.CreateToken` with the person's
-claims and security stamp, other hosts supply `INhAiDelegatedReadCredentialIssuer` with
-`UseIssuer<T>()`. The library restricts such a token in the `OnTokenValidated` of every JWT bearer scheme to
-`GET` calls of gateway resources with the matching `X-NewHeap-AI-Invocation` header; every other request
+A headless agent run can read through the API bridge gateway with the rights of the person who
+started it, or of the person it works for when nobody did. `AddNewHeapPlatformAIDelegatedReads()`
+issues a short-lived JWT of the host's own bearer scheme per call, bound to the invocation and to
+the one gateway action it calls: the built-in issuer uses the new
+`INhAuthenticationService.CreateDelegatedTokenAsync`, which carries the claims of the person's own
+sign-in and is only issued while the new `MaySignInAsync` holds; other hosts supply
+`INhAiDelegatedReadCredentialIssuer` with `UseIssuer<T>()`, and the library refuses an issued token
+without its binding claims or that lives too long. Every JWT bearer scheme restricts such a token
+to its gateway `GET` action with the matching `X-NewHeap-AI-Invocation` header; every other request
 with it fails authentication. Agents opt in with `AllowGatewayReads()` on `ConfigureAgent` and
 select the gateway's tools; they need an accountable person or service account. Their runs are
-offered the four gateway tools only, discovery and the gateway authorize with the person's token,
-calls record the new grant source `DelegatedRead` (`delegated-read` in the API and the chat's tool
-card), and readers without the read resource's policies see the result shielded. A security
-review of the credential and its restriction precedes the release.
+offered the four gateway tools only, calls record the new grant source `DelegatedRead`
+(`delegated-read` in the API and the chat's tool card) with the person whose rights they used, and
+only that person sees the result. The credential was security-reviewed before the release; the
+plan lists the findings and their resolution.
 
 | Breaking change | Required action |
 |---|---|
 | `NhAiGrantSource` gains `DelegatedRead`; tool calls report `delegated-read`. | Handle the new value where you map grant sources. |
+| `INhAuthenticationService` gains `MaySignInAsync` and `CreateDelegatedTokenAsync` with default implementations. | None; implementations of your own refuse delegated tokens until they implement it. |
+| The built-in `INhAiPrincipalFactory` refuses people who may not sign in (locked out, blocked, unconfirmed, second factor not enrolled where required). | None; delegation from such an initiator stops. |
+| With `AddNewHeapPlatformAIDelegatedReads`, startup fails when any JWT bearer scheme sets `EventsType` or replaces its events after the registration. | Set `Events` in the scheme's own configuration. |
+| The API bridge refuses route values that are empty or a dot segment with `api-bridge-validation`. | None. |
+| The assistant's tool calls gain the column `ReadForActorId` (migration `DelegatedReadActor` for SQL Server and PostgreSQL). | Apply the migration; `RunMigrations` does it at startup. |
 | `NhAiMvcBridgeDefaults.InvocationHeaderName` is now defined by `NhAiDelegatedReadDefaults.InvocationHeaderName`. | None; the value is unchanged. |
 | The chat's shielded-result text no longer says the agent used its own rights. | Update overridden translations of `nh-assistant.tool-call.restricted`. |
 

@@ -1608,6 +1608,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<Guid?>("ProposalId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ReadForActorId")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<string>("ResultCode")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");

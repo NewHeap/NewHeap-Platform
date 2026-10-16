@@ -181,13 +181,15 @@ may reach every reader of the thread through the model's text.
 
 Let a headless run read application data through the API bridge gateway with
 `AllowGatewayReads()` and tool selectors that select the gateway's tools (see `nh-ai-api-bridge`
-and `AddNewHeapPlatformAIDelegatedReads`). The run reads with the rights of its accountable person
-or service account, so startup fails for an agent that answers to itself, without an issuer or
-without a gateway. Consultations and turns inside a person's request keep reading with that
-person's own rights. Each read is recorded with grant source `DelegatedRead`, its result is
-shielded from thread readers without the read resource's policies, and the run counts as one that
-used restricted results, so a hand-off carries no summary of it. The model may still restate what
-it read: keep what a subject's readers may see in line with what its accountable person may read.
+and `AddNewHeapPlatformAIDelegatedReads`). A run that a person started reads with that person's
+own rights, so asking an agent never lends someone else's; a run from a trigger reads with its
+accountable person or service account. Startup fails for an agent that answers to itself, without
+an issuer or without a gateway. Consultations and turns inside a person's request keep reading with
+that person's own rights. Each read is recorded with grant source `DelegatedRead` and the person
+whose rights it used; only that person sees its result, whatever `ElevatedReads` says, and the run
+counts as one that used restricted results, so a hand-off carries no summary of it. In a trigger
+run the model may still restate what it read: keep what a subject's readers may see in line with
+what its accountable person may read.
 
 Bound the cost of one run with `MaxTokensPerRun(tokens)`: input and output tokens of every model
 call of the run, checked before each next model call. A run at its ceiling fails with failure
@@ -548,8 +550,9 @@ live decisions and holds no message or argument; and that a replay fires the rec
 first, records the runs it replays, stops at the variant's budget and refuses a live agent and a
 second replay, on both providers. Assert that a headless run with retrieved context retrieves once
 with its inputs and subject, as the agent with the subject's scopes, on both providers. Assert that
-a run with gateway reads records `DelegatedRead`, shields the result from readers without the
-resource's policies and that startup fails without an accountable person or an issuer. SPM-268 to
+a run with gateway reads records `DelegatedRead`, reads with its starter's rights when a person
+started it, shows the result only to the person whose rights it used, also with `ElevatedReads.Deny`,
+and that startup fails without an accountable person or an issuer. SPM-268 to
 SPM-280, SPM-282 to SPM-288, SPM-290 and SPM-291 are the executable references.
 
 ## Executable evidence
@@ -659,7 +662,7 @@ SPM-280, SPM-282 to SPM-288, SPM-290 and SPM-291 are the executable references.
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiContextSource.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiContextSource.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs)
-- SPM-290 — The project planner reads a project's tasks through the gateway with the owner's rights
+- SPM-290 — The project planner reads a project's tasks through the gateway with the rights of whom it reads for
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)

@@ -26,8 +26,8 @@ public enum NhAiGrantSource
     Delegated = 2,
 
     /// <summary>
-    /// A read of the API bridge gateway in a headless run, with the rights of the run's accountable
-    /// person through a short-lived delegated read credential.
+    /// A read of the API bridge gateway in a headless run, through a short-lived delegated read
+    /// credential of the person who started the run, or of its accountable person when nobody did.
     /// </summary>
     DelegatedRead = 3
 }
@@ -818,10 +818,19 @@ public sealed record NhAiAgentInvocationScope(
 
     /// <summary>
     /// The API bridge gateway's reads may run in this headless turn with the rights of
-    /// <see cref="AccountableOwnerId"/>, through a short-lived delegated read credential. Set only
+    /// <see cref="GatewayReadActorId"/>, through a short-lived delegated read credential. Set only
     /// for agents that allow gateway reads and answer to a person or technical account.
     /// </summary>
     public bool AllowGatewayReads { get; init; }
+
+    /// <summary>
+    /// Whose rights a gateway read of this turn uses: the person who started the run, so a run that
+    /// someone asks for never reads more than they may, or the accountable person when nobody did.
+    /// <see langword="null"/> when the turn does not allow gateway reads.
+    /// </summary>
+    public string? GatewayReadActorId => AllowGatewayReads
+        ? InitiatorActorId ?? AccountableOwnerId
+        : null;
 
     public int? RunAttemptNumber { get; init; }
     public string? CorrelationId { get; init; }

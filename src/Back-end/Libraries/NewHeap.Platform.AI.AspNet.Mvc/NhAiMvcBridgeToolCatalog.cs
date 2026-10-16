@@ -52,15 +52,17 @@ public sealed class NhAiMvcBridgeToolCatalog : INhAiAttestedToolCatalog
     internal NhAiMvcBridgeGatewayModel? Gateway => _model.Value.Gateway;
 
     /// <summary>
-    /// Whether <paramref name="action"/> is the <c>GET</c> action of a gateway resource operation.
+    /// Whether <paramref name="action"/> is the <c>GET</c> action of the gateway resource operation
+    /// whose bridge tool id is <paramref name="actionToolId"/>.
     /// </summary>
-    internal bool IsGatewayRead(ControllerActionDescriptor action)
+    internal bool IsGatewayRead(ControllerActionDescriptor action, string actionToolId)
     {
         ArgumentNullException.ThrowIfNull(action);
         return _model.Value.Gateway is { } gateway
             && gateway.Resources.Values
                 .SelectMany(resource => resource.Operations)
-                .Any(operation => HttpMethods.IsGet(operation.Action.HttpMethod)
+                .Any(operation => string.Equals(operation.Descriptor.Id, actionToolId, StringComparison.Ordinal)
+                    && HttpMethods.IsGet(operation.Action.HttpMethod)
                     && operation.Action.ActionDescriptor.ControllerTypeInfo == action.ControllerTypeInfo
                     && operation.Action.ActionDescriptor.MethodInfo == action.MethodInfo);
     }

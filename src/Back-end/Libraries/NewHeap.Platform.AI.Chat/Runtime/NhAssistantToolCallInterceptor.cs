@@ -531,10 +531,16 @@ internal sealed class NhAssistantToolCallInterceptor(
         {
             row.GrantSource = execution.Call.AuditRecords[^1].GrantSource;
         }
+        if (row.GrantSource == NhAiGrantSource.DelegatedRead)
+        {
+            // Only the person whose rights the read used sees its result; without a known person, nobody.
+            row.ReadForActorId = NhAiAgentInvocationScopes.Current?.GatewayReadActorId;
+        }
         if (succeeded
             && (row.GrantSource == NhAiGrantSource.DelegatedRead
-                || (row.GrantSource == NhAiGrantSource.Agent && execution.Call.Descriptor.Effect == NhAiToolEffect.ReadOnly))
-            && state.AgentTurn?.Options.ElevatedReads == NhAiElevatedReads.Restricted)
+                || (row.GrantSource == NhAiGrantSource.Agent
+                    && execution.Call.Descriptor.Effect == NhAiToolEffect.ReadOnly
+                    && state.AgentTurn?.Options.ElevatedReads == NhAiElevatedReads.Restricted)))
         {
             state.UsedRestrictedResults = true;
         }

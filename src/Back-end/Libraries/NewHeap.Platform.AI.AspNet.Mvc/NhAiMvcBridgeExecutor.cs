@@ -122,7 +122,7 @@ internal sealed partial class NhAiMvcBridgeExecutor(
             return TaskResult<NhAiBridgeResponse>.Failed(NhAiBridgeFailureCodes.Validation, exception.Message);
         }
 
-        var credential = await ResolveCredentialAsync(request, action, context, cancellationToken);
+        var credential = await ResolveCredentialAsync(request, action, descriptor, context, cancellationToken);
         if (credential.FailureCode is { } credentialFailure)
         {
             LogCredentialRefused(logger, descriptor.Id, context.InvocationId, credentialFailure);
@@ -276,12 +276,14 @@ internal sealed partial class NhAiMvcBridgeExecutor(
 
     /// <summary>
     /// The bearer token of the call: the caller's own, or for a delegated read of a headless run a
-    /// credential of the accountable person issued for this invocation. A delegated read reaches
-    /// only the <c>GET</c> actions of gateway resources; anything else fails before a request is sent.
+    /// credential of the reading person issued for this invocation and this gateway action. A
+    /// delegated read reaches only the <c>GET</c> actions of gateway resources; anything else fails
+    /// before a request is sent.
     /// </summary>
     private async ValueTask<(string? Token, string? FailureCode)> ResolveCredentialAsync(
         NhAiBridgeHttpRequest request,
         NhAiBridgeActionInfo action,
+        NhAiToolDescriptor descriptor,
         NhAiInvocationContext context,
         CancellationToken cancellationToken)
     {
@@ -291,7 +293,7 @@ internal sealed partial class NhAiMvcBridgeExecutor(
         }
         if (NhAiAgentInvocationScopes.Current is not { AllowGatewayReads: true } scope
             || !HttpMethods.IsGet(request.Method)
-            || !catalog.IsGatewayRead(action.ActionDescriptor))
+            || !catalog.IsGatewayRead(action.ActionDescriptor, descriptor.Id))
         {
             return (null, NhAiBridgeFailureCodes.Forbidden);
         }
@@ -301,7 +303,7 @@ internal sealed partial class NhAiMvcBridgeExecutor(
         {
             return (null, NhAiBridgeFailureCodes.Unauthenticated);
         }
-        var issued = await reads.IssueAsync(scope, context.InvocationId, cancellationToken);
+        var issued = await reads.IssueAsync(scope, context.InvocationId, descriptor.Id, cancellationToken);
         return issued.Success
             ? (issued.Data!.BearerToken, null)
             : (null, NhAiBridgeFailureCodes.Unauthenticated);

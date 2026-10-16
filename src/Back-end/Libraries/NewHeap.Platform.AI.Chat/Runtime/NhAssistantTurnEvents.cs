@@ -166,11 +166,10 @@ internal sealed record NhAssistantToolCallPartView(
     public bool Restricted { get; init; }
 
     /// <summary>
-    /// The stored arguments, which decide whose policies a delegated read's result needs. Never sent
-    /// to clients.
+    /// For a delegated read, the person whose rights the call read with. Never sent to clients.
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public string? ArgumentsJson { get; init; }
+    public string? ReadForActorId { get; init; }
 }
 
 internal sealed record NhAssistantApprovalView(

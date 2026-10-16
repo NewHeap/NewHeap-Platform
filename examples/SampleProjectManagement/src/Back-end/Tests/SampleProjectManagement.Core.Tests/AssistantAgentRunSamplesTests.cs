@@ -1147,29 +1147,37 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
-    public async Task The_project_planner_reads_the_tasks_of_a_project_through_the_gateway_with_the_owners_rights()
+    public async Task The_project_planner_reads_a_projects_tasks_through_the_gateway_with_the_rights_of_whom_it_reads_for()
     {
         // SPM-290
         const string planner = SampleProjectPlannerComposition.AgentId;
-        var owner = await host.CreateProjectReaderAsync();
+        const string listAction = "sample-api.project-task.get";
+        const string getAction = "sample-api.project-task.get-by-id";
+        var owner = await host.CreatePersonAsync("app.project.view");
+        var approver = await host.CreatePersonAsync();
         var project = await host.CreateProjectAsync("GATEWAY", ownerId: owner, status: ProjectStatus.Active, deadline: DateTimeOffset.UtcNow.AddDays(2));
-        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
-        await host.CreateTaskAsync(project, "Migrate the customer data");
+        await host.AddMemberAsync(project, approver, ProjectMemberRole.Approver);
+        var migrate = await host.CreateTaskAsync(project, "Migrate the customer data");
         await host.CreateTaskAsync(project, "Rehearse the cutover");
-        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var ownerClient = host.CreateClient(owner.ToString());
+        using var approverClient = host.CreateClient(approver.ToString());
         var projectText = project.ToString("D");
-        var triage = new NhAiScriptedChatClient()
-            .RespondWithText("""{"skill":"deadline-risk","reason":"Two tasks are open two days before the deadline."}""");
-        var deadline = new NhAiScriptedChatClient()
-            .RespondWithFunctionCall("sample-api-gateway_query_v1", new
+        var openTasks = new
+        {
+            input = new
             {
-                input = new
-                {
-                    resource = "project-task",
-                    filter = new[] { new { key = "projectId", @operator = "==", value = projectText } }
-                }
-            }, "call-tasks")
-            .RespondWithText("Both open tasks fit in the two days left, so the project holds.");
+                resource = "project-task",
+                filter = new[] { new { key = "projectId", @operator = "==", value = projectText } }
+            }
+        };
+        var triage = new NhAiScriptedChatClient()
+            .RespondWithText("""{"skill":"deadline-risk","reason":"Two tasks are open two days before the deadline."}""")
+            .RespondWithText("""{"skill":"deadline-risk","reason":"The approver asks for the deadline again."}""");
+        var deadline = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("sample-api-gateway_query_v1", openTasks, "call-owner")
+            .RespondWithText("Both open tasks fit in the two days left, so the project holds.")
+            .RespondWithFunctionCall("sample-api-gateway_query_v1", openTasks, "call-approver")
+            .RespondWithText("I cannot read the tasks of this project for you.");
         host.Model.Use(new RoutingChatClient(
             new SampleAssistantChatClient(),
             ((messages, options) => RoutingChatClient.Mentions(messages, options, "You route the work of an assistant agent")
@@ -1179,69 +1187,119 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 && RoutingChatClient.Mentions(messages, options, projectText), deadline)));
         try
         {
-            // The approver asks for a deadline check; the run works in the background for the owner.
-            var asked = await colleague.PostAsJsonAsync(
-                "/api/assistant/threads/start",
-                new NhAssistantStartAgentRequest(planner, ProjectSubjects.Type, projectText, $"Check the deadline of project {projectText}."),
-                Json);
-            Assert.Equal(HttpStatusCode.Accepted, asked.StatusCode);
-            var conversationId = await WaitForThreadAsync(colleague, project, planner);
-            var run = await WaitForRunAsync(colleague, conversationId, NhAssistantRunStatuses.Completed);
-            Assert.Equal(SampleProjectPlannerComposition.DeadlineRiskSkill, run.Skill);
-
+            // The daily deadline check starts the planner without a person: it reads for the owner.
+            host.Services.GetRequiredService<IRecurringJobManager>()
+                .Trigger("nh-assistant-trigger-" + SampleProjectPlannerComposition.DeadlineCheckTriggerId);
+            var conversationId = await WaitForThreadAsync(approverClient, project, planner);
+            var check = await WaitForRunAsync(approverClient, conversationId, NhAssistantRunStatuses.Completed);
+            Assert.Null(check.InitiatorActorId);
+            Assert.Equal(SampleProjectPlannerComposition.DeadlineRiskSkill, check.Skill);
             // The skill's model is offered the gateway's read tools and never the API's own actions.
             var tools = deadline.Requests[0].Options!.Tools!.Select(tool => tool.Name).ToArray();
             Assert.Contains("sample-api-gateway_query_v1", tools);
             Assert.Contains("projects_change_status_v1", tools);
             Assert.DoesNotContain(tools, name => name.StartsWith("sample-api_", StringComparison.Ordinal));
             // The query ran through the task controller with the owner's credential.
-            var read = deadline.FunctionResults.Single().Result?.ToString();
-            Assert.Contains("Migrate the customer data", read);
-            Assert.Contains("Rehearse the cutover", read);
+            var ownerRead = deadline.FunctionResults.First(result => result.CallId == "call-owner").Result?.ToString();
+            Assert.Contains("Migrate the customer data", ownerRead);
+            Assert.Contains("Rehearse the cutover", ownerRead);
 
-            // People on the project see that the planner read for the owner; the result only with the
-            // policy of the task resource.
-            var hidden = ToolCall(await ReadConversationAsync(colleague, conversationId), "sample-api-gateway.query");
-            Assert.Equal("delegated-read", hidden.GrantSource);
-            Assert.True(hidden.Restricted);
-            Assert.Null(hidden.ResultPreview);
-            using var reader = host.CreateClient(host.ColleagueId.ToString(), false, "app.project.view");
-            var shown = ToolCall(await ReadConversationAsync(reader, conversationId), "sample-api-gateway.query");
+            // Only the owner sees what was read with their rights; the approver sees that it happened,
+            // also with the permission to read projects.
+            var shown = ToolCall(await ReadConversationAsync(ownerClient, conversationId), "call-owner");
+            Assert.Equal("delegated-read", shown.GrantSource);
             Assert.False(shown.Restricted);
             Assert.Contains("Migrate the customer data", shown.ResultPreview);
+            using var approverWithRight = host.CreateClient(approver.ToString(), false, "app.project.view");
+            var hidden = ToolCall(await ReadConversationAsync(approverWithRight, conversationId), "call-owner");
+            Assert.True(hidden.Restricted);
+            Assert.Null(hidden.ResultPreview);
+
+            // When the approver asks for a check, the run reads with the approver's own rights, which
+            // do not include tasks: asking the planner never lends the owner's rights.
+            var asked = await approverClient.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new NhAssistantStartAgentRequest(planner, ProjectSubjects.Type, projectText, $"Check the deadline of project {projectText} again."),
+                Json);
+            Assert.Equal(HttpStatusCode.Accepted, asked.StatusCode);
+            await WaitForInitiatedRunAsync(approverClient, conversationId, approver.ToString());
+            var approverRead = deadline.FunctionResults.First(result => result.CallId == "call-approver").Result?.ToString();
+            Assert.DoesNotContain("Migrate the customer data", approverRead);
+            Assert.Contains(NhAiBridgeFailureCodes.ResourceNotFound, approverRead);
         }
         finally
         {
             host.Model.Use(new SampleAssistantChatClient());
         }
 
-        // The owner's credential from the built-in issuer reads only GET calls of the gateway with its
-        // invocation header: a write, an endpoint outside the gateway and a call without the header fail.
+        // The owner's credential from the built-in issuer reaches only the gateway action it was
+        // issued for, with its invocation header: another gateway action, a write, an endpoint outside
+        // the gateway and a call without the header fail.
         var invocation = Guid.NewGuid();
-        string token;
-        await using (var scope = host.Services.CreateAsyncScope())
-        {
-            var issued = await scope.ServiceProvider.GetRequiredService<INhAiDelegatedReadCredentialIssuer>().IssueAsync(
-                new NhAiDelegatedReadRequest(
-                    owner.ToString(),
-                    null,
-                    invocation,
-                    NhAiDelegatedReadDefaults.DefaultLifetime,
-                    [new Claim(NhAiDelegatedReadDefaults.ClaimType, invocation.ToString("D"))]),
-                CancellationToken.None);
-            Assert.True(issued.Success);
-            token = issued.Data!.BearerToken;
-        }
+        var token = await IssueReadCredentialAsync(owner, invocation, listAction);
         using var api = host.CreateAnonymousClient();
         Assert.Equal(HttpStatusCode.OK, await SendWithTokenAsync(api, HttpMethod.Get, $"/project-tasks?projectId={projectText}", token, invocation));
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendWithTokenAsync(api, HttpMethod.Get, $"/project-tasks/{migrate:D}", token, invocation));
+        Assert.Equal(HttpStatusCode.OK, await SendWithTokenAsync(api, HttpMethod.Get, $"/project-tasks/{migrate:D}", await IssueReadCredentialAsync(owner, invocation, getAction), invocation));
         Assert.Equal(HttpStatusCode.Unauthorized, await SendWithTokenAsync(api, HttpMethod.Post, "/project-tasks", token, invocation));
         Assert.Equal(HttpStatusCode.Unauthorized, await SendWithTokenAsync(api, HttpMethod.Get, "/project-members", token, invocation));
         Assert.Equal(HttpStatusCode.Unauthorized, await SendWithTokenAsync(api, HttpMethod.Get, $"/project-tasks?projectId={projectText}", token, null));
+
+        // A locked-out owner gets no credential, while their earlier sessions are still valid.
+        await host.LockOutAsync(owner);
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var refused = await scope.ServiceProvider.GetRequiredService<INhAiDelegatedReadCredentialIssuer>().IssueAsync(
+                ReadRequest(owner, Guid.NewGuid(), listAction),
+                CancellationToken.None);
+            Assert.False(refused.Success);
+        }
     }
 
-    private static NhAssistantToolCallPartDto ToolCall(NhAssistantConversationDto conversation, string toolId)
+    private static NhAiDelegatedReadRequest ReadRequest(Guid person, Guid invocation, string action)
     {
-        return Assert.Single(conversation.Messages.SelectMany(message => message.Parts).OfType<NhAssistantToolCallPartDto>(), part => part.ToolId == toolId);
+        return new NhAiDelegatedReadRequest(
+            person.ToString(),
+            null,
+            invocation,
+            NhAiDelegatedReadDefaults.DefaultLifetime,
+            [
+                new Claim(NhAiDelegatedReadDefaults.ClaimType, invocation.ToString("D")),
+                new Claim(NhAiDelegatedReadDefaults.ActionClaimType, action)
+            ]);
+    }
+
+    private async Task<string> IssueReadCredentialAsync(Guid person, Guid invocation, string action)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var issued = await scope.ServiceProvider.GetRequiredService<INhAiDelegatedReadCredentialIssuer>()
+            .IssueAsync(ReadRequest(person, invocation, action), CancellationToken.None);
+        Assert.True(issued.Success);
+        return issued.Data!.BearerToken;
+    }
+
+    private static async Task WaitForInitiatedRunAsync(HttpClient client, Guid conversationId, string initiator)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var runs = await client.GetFromJsonAsync<NhAssistantRunListDto>($"/api/assistant/threads/{conversationId}/runs", Json);
+            if (runs!.Items.Any(run => run.InitiatorActorId == initiator && run.Status == NhAssistantRunStatuses.Completed))
+            {
+                return;
+            }
+            await Task.Delay(TimeSpan.FromMilliseconds(200));
+        }
+        throw new TimeoutException($"No completed run started by {initiator}.");
+    }
+
+    /// <summary>The tool call of the thread that answered the model's call <paramref name="callId"/>.</summary>
+    private static NhAssistantToolCallPartDto ToolCall(NhAssistantConversationDto conversation, string callId)
+    {
+        var calls = conversation.Messages.SelectMany(message => message.Parts).OfType<NhAssistantToolCallPartDto>()
+            .Where(part => part.ToolId == "sample-api-gateway.query")
+            .ToArray();
+        return callId == "call-owner" ? calls[0] : calls[^1];
     }
 
     private static async Task<HttpStatusCode> SendWithTokenAsync(HttpClient client, HttpMethod method, string path, string token, Guid? invocation)
@@ -1894,16 +1952,16 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
     }
 
     /// <summary>
-    /// SPM-290: a person of the division who may read projects and their tasks, with a security stamp
-    /// so the NewHeap authentication service can issue their tokens.
+    /// SPM-290: an active person of the division with the given permissions and a security stamp, so
+    /// the NewHeap authentication service can issue their tokens.
     /// </summary>
-    public async Task<Guid> CreateProjectReaderAsync()
+    public async Task<Guid> CreatePersonAsync(params string[] permissions)
     {
         var id = Guid.NewGuid();
         await using (var scope = Services.CreateAsyncScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
-            AddUser(dbContext, id, $"reader-{id:N}@sample.localhost");
+            AddUser(dbContext, id, $"person-{id:N}@sample.localhost");
             await dbContext.SaveChangesAsync();
         }
         await using (var scope = Services.CreateAsyncScope())
@@ -1911,9 +1969,22 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
             var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
             var user = (await users.FindByIdAsync(id.ToString()))!;
             await users.UpdateSecurityStampAsync(user);
-            await users.AddClaimAsync(user, new Claim(NhPlatformClaimTypes.Permission, "app.project.view"));
+            foreach (var permission in permissions)
+            {
+                await users.AddClaimAsync(user, new Claim(NhPlatformClaimTypes.Permission, permission));
+            }
         }
         return id;
+    }
+
+    /// <summary>Locks the person out for an hour, as an administrator blocks a user.</summary>
+    public async Task LockOutAsync(Guid personId)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
+        var user = (await users.FindByIdAsync(personId.ToString()))!;
+        await users.SetLockoutEnabledAsync(user, true);
+        await users.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddHours(1));
     }
 
     public async Task<Guid> CreateProjectAsync(
@@ -2088,6 +2159,9 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
             NormalizedUserName = email.ToUpperInvariant(),
             Email = email,
             NormalizedEmail = email.ToUpperInvariant(),
+            // An active account: the identity requires a confirmed e-mail address to sign in, and
+            // agents use the rights of people who may sign in only.
+            EmailConfirmed = true,
             ActiveDivisionId = DivisionId
         });
         dbContext.Set<NhDivisionUser>().Add(new NhDivisionUser { Id = Guid.NewGuid(), UserId = id, DivisionId = DivisionId });

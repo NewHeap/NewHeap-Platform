@@ -18,20 +18,47 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 
 /// <summary>
 /// Gateway reads in headless runs, as the assistant sees them: only agents that allow them and
-/// answer to an account read with that account's rights, and thread readers without the read
-/// resource's policies see that the read happened but not what it returned. The bridge itself is
-/// replaced by a read surface over the test catalog's search tool.
+/// answer to an account read, with the rights of the person who started the run or else of that
+/// account, and only that person sees what the read returned. The bridge itself is replaced by a
+/// read surface over the test catalog's search tool.
 /// </summary>
 [Collection(AssistantDatabaseCollection.Name)]
 public sealed class AssistantGatewayReadTests(AssistantDatabaseFixture database)
 {
     private const string AgentId = "project-assistant";
-    private const string ReadPolicy = "test-gateway-read";
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer, NhAiElevatedReads.Restricted)]
+    [InlineData(AssistantTestProvider.PostgreSql, NhAiElevatedReads.Deny)]
+    public async Task A_trigger_run_reads_for_its_accountable_account_and_only_that_account_sees_the_result(
+        AssistantTestProvider provider,
+        NhAiElevatedReads elevatedReads)
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap" } }, "call-1")
+            .RespondWithText("Read the roadmap.");
+        await using var host = await CreateHostAsync(provider, model, agent => agent.AllowGatewayReads().ElevatedReads(elevatedReads));
+        var started = await StartAsync(host);
+
+        var result = await RunTurnAsync(host, started, initiator: null);
+
+        // Whatever the agent's elevated reads allow, the read counts as restricted and only the
+        // account it read for sees the result; a member with the resource's permission does not.
+        Assert.True(result.UsedRestrictedResults);
+        var forAccount = await ToolsAsync(host, started, Person("service-1"));
+        var forMember = await ToolsAsync(host, started, Person("member-1", "project.read"));
+        var read = Assert.Single(forAccount);
+        Assert.Equal(NhAiGrantSource.DelegatedRead, read.GrantSource);
+        Assert.False(read.Restricted);
+        Assert.NotNull(read.ResultPreview);
+        Assert.True(Assert.Single(forMember).Restricted);
+        Assert.Null(forMember[0].ResultPreview);
+    }
 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
-    public async Task A_headless_run_reads_with_the_accountable_account_and_shields_the_result_from_other_readers(AssistantTestProvider provider)
+    public async Task A_run_that_a_person_started_reads_with_their_rights_and_only_they_see_the_result(AssistantTestProvider provider)
     {
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap" } }, "call-1")
@@ -39,29 +66,10 @@ public sealed class AssistantGatewayReadTests(AssistantDatabaseFixture database)
         await using var host = await CreateHostAsync(provider, model, agent => agent.AllowGatewayReads());
         var started = await StartAsync(host);
 
-        var result = await RunTurnAsync(host, started);
+        await RunTurnAsync(host, started, initiator: "member-1");
 
-        Assert.True(result.UsedRestrictedResults);
-        await using var scope = host.Services.CreateAsyncScope();
-        var services = scope.ServiceProvider;
-        var conversationId = started.ConversationId!.Value;
-        var threadAccess = (await services.GetRequiredService<NhAssistantThreadService>()
-            .ResolveAccessAsync(conversationId, "member-1", null, CancellationToken.None))!;
-        var conversation = (await services.GetRequiredService<INhAssistantStore>()
-            .FindShareableConversationAsync(conversationId, CancellationToken.None))!;
-        var view = await services.GetRequiredService<NhAssistantConversationReader>().CreateViewAsync(conversation, CancellationToken.None);
-        var reader = new DefaultHttpContext { RequestServices = services, User = Person("member-1", "project.read") };
-        var colleague = new DefaultHttpContext { RequestServices = services, User = Person("member-1") };
-
-        var visible = Tools(await NhAssistantRestrictedResults.ApplyAsync(view, reader, threadAccess));
-        var shielded = Tools(await NhAssistantRestrictedResults.ApplyAsync(view, colleague, threadAccess));
-
-        var read = Assert.Single(visible);
-        Assert.Equal(NhAiGrantSource.DelegatedRead, read.GrantSource);
-        Assert.False(read.Restricted);
-        Assert.NotNull(read.ResultPreview);
-        Assert.True(Assert.Single(shielded).Restricted);
-        Assert.Null(shielded[0].ResultPreview);
+        Assert.False(Assert.Single(await ToolsAsync(host, started, Person("member-1"))).Restricted);
+        Assert.True(Assert.Single(await ToolsAsync(host, started, Person("service-1"))).Restricted);
     }
 
     [Theory]
@@ -108,6 +116,20 @@ public sealed class AssistantGatewayReadTests(AssistantDatabaseFixture database)
         }
     }
 
+    /// <summary>The thread's tool calls as <paramref name="viewer"/> sees them.</summary>
+    private static async Task<NhAssistantToolCallPartView[]> ToolsAsync(AssistantTestHost host, NhAssistantTriggerReceipt started, ClaimsPrincipal viewer)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var conversationId = started.ConversationId!.Value;
+        var threadAccess = (await services.GetRequiredService<NhAssistantThreadService>()
+            .ResolveAccessAsync(conversationId, "member-1", null, CancellationToken.None))!;
+        var conversation = (await services.GetRequiredService<INhAssistantStore>()
+            .FindShareableConversationAsync(conversationId, CancellationToken.None))!;
+        var view = await services.GetRequiredService<NhAssistantConversationReader>().CreateViewAsync(conversation, CancellationToken.None);
+        return Tools(await NhAssistantRestrictedResults.ApplyAsync(view, new DefaultHttpContext { RequestServices = services, User = viewer }, threadAccess));
+    }
+
     private static Task StartValidatorAsync(AssistantTestHost host)
     {
         return host.Services.GetServices<IHostedService>().OfType<NhAssistantStartupValidator>().Single().StartAsync(CancellationToken.None);
@@ -146,8 +168,6 @@ public sealed class AssistantGatewayReadTests(AssistantDatabaseFixture database)
                 {
                     services.AddScoped<INhAiDelegatedReadCredentialIssuer, TestNoCredentialIssuer>();
                 }
-                services.AddAuthorization(options =>
-                    options.AddPolicy(ReadPolicy, policy => policy.RequireClaim("permission", "project.read")));
             },
             assistantBuilder: assistant => assistant
                 .AddSubjectType<TestSubjectResolver>()
@@ -173,7 +193,7 @@ public sealed class AssistantGatewayReadTests(AssistantDatabaseFixture database)
         return receipt;
     }
 
-    private static async Task<NhAssistantAgentTurnResult> RunTurnAsync(AssistantTestHost host, NhAssistantTriggerReceipt receipt)
+    private static async Task<NhAssistantAgentTurnResult> RunTurnAsync(AssistantTestHost host, NhAssistantTriggerReceipt receipt, string? initiator = null)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -185,7 +205,7 @@ public sealed class AssistantGatewayReadTests(AssistantDatabaseFixture database)
         var options = services.GetRequiredService<NhAssistantRegistrationState>().AgentRuns[AgentId];
         var result = await services.GetRequiredService<INhAssistantTurnRunner>().RunAgentTurnAsync(
             new NhAssistantAgentTurnRequest(
-                new NhAssistantAgentTurnContext(thread, subject, options, run.Id, run.TriggerId, null, thread.AccountableOwnerId, IsRequestTurn: false),
+                new NhAssistantAgentTurnContext(thread, subject, options, run.Id, run.TriggerId, initiator, thread.AccountableOwnerId, IsRequestTurn: false),
                 [new NhAssistantAgentTurnInput(Guid.NewGuid(), null, run.TriggerId, "Read the roadmap.")]),
             CancellationToken.None);
         Assert.Equal(NhAssistantTurnStatuses.Completed, result.Outcome);
@@ -194,7 +214,7 @@ public sealed class AssistantGatewayReadTests(AssistantDatabaseFixture database)
 }
 
 /// <summary>
-/// Treats the test catalog's search as a gateway read whose results need <c>project.read</c>.
+/// Treats the test catalog's search as a gateway read; it makes no HTTP call.
 /// </summary>
 public sealed class TestReadSurface : INhAiDelegatedReadSurface
 {
@@ -203,14 +223,9 @@ public sealed class TestReadSurface : INhAiDelegatedReadSurface
         return descriptor.Id == "projects.search";
     }
 
-    public bool IsReadEndpoint(Endpoint endpoint)
+    public bool IsReadEndpoint(Endpoint endpoint, string actionToolId)
     {
         return false;
-    }
-
-    public IReadOnlyList<string>? ResultPolicies(string toolId, string? argumentsJson)
-    {
-        return toolId == "projects.search" ? ["test-gateway-read"] : null;
     }
 }
 

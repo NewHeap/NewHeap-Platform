@@ -8,15 +8,15 @@ namespace NewHeap.Platform.AI.Chat.Runs;
 
 /// <summary>
 /// Decides whether the asking person may see what a tool returned under the consulted agent's own
-/// grant or through a delegated read. The ASP.NET package evaluates the policies for the asker
-/// against the subject.
+/// grant or through a delegated read. The ASP.NET package evaluates the tool's policies for the
+/// asker against the subject; a delegated read only the person it read for may see.
 /// </summary>
 internal interface INhAssistantConsultationViewer
 {
     ValueTask<bool> MayViewAsync(
         NhAiGrantSource grantSource,
         string toolId,
-        string? argumentsJson,
+        string? readForActorId,
         CancellationToken cancellationToken);
 }
 

@@ -159,7 +159,7 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             invocation.ResultCode)
         {
             GrantSource = invocation.GrantSource,
-            ArgumentsJson = invocation.ArgumentsJson
+            ReadForActorId = invocation.ReadForActorId
         };
     }
 

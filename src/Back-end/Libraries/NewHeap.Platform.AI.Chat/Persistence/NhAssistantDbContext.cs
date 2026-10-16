@@ -169,6 +169,7 @@ public sealed class NhAssistantDbContext : DbContext
             invocation.Property(item => item.DataClassification).HasConversion<string>().HasMaxLength(32);
             invocation.Property(item => item.RetentionCategory).HasConversion<string>().HasMaxLength(64);
             invocation.Property(item => item.IdempotencyKey).HasMaxLength(256);
+            invocation.Property(item => item.ReadForActorId).HasMaxLength(256);
             invocation.Property(item => item.GrantSource)
                 .HasConversion<string>()
                 .HasMaxLength(16)

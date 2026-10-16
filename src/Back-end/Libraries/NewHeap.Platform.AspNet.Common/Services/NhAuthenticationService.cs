@@ -542,6 +542,53 @@ public class NhAuthenticationService<
         return token;
     }
 
+    public virtual async Task<bool> MaySignInAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        return user != null && await MaySignInAsync(user);
+    }
+
+    public virtual async Task<TaskResult<JwtSecurityToken>> CreateDelegatedTokenAsync(
+        Guid userId,
+        IEnumerable<Claim> claims,
+        TimeSpan expiration,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(claims);
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null || !await MaySignInAsync(user))
+        {
+            return TaskResult<JwtSecurityToken>.Failed("User may not sign in");
+        }
+
+        var additional = claims.ToArray();
+        var replaced = additional.Select(claim => claim.Type).ToHashSet(StringComparer.Ordinal);
+        var userClaims = await GetClaimsAsync(user.Id, cancellationToken);
+        var token = await CreateToken(
+            user.Id,
+            userClaims.Where(claim => !replaced.Contains(claim.Type)).Concat(additional),
+            expiration);
+        return TaskResult<JwtSecurityToken>.Succeeded(token);
+    }
+
+    /// <summary>
+    /// The checks of a session that continues without the user presenting a credential, as a
+    /// refresh does: the user may sign in, is neither locked out nor blocked, and has enrolled a
+    /// second factor where one is required.
+    /// </summary>
+    private async Task<bool> MaySignInAsync(TUser user)
+    {
+        if (!await _signInManager.CanSignInAsync(user)
+            || await _userManager.IsLockedOutAsync(user)
+            || await _userManager.IsBlockedAsync(user))
+        {
+            return false;
+        }
+
+        var gate = await EvaluateSessionGateAsync(user, NhAuthenticationFactors.RefreshToken, allowEnrolledUsers: true);
+        return gate.Success;
+    }
+
     /// <summary>
     /// Validate and decode a JWT token
     /// </summary>

@@ -560,9 +560,15 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
             }
 
             var text = ReadScalar(value, parameter.InputName);
-            return catchAll
-                ? string.Join("/", text.Split('/').Select(Uri.EscapeDataString))
-                : Uri.EscapeDataString(text);
+            // Escaping leaves dot segments alone and the URI resolves them, so "." or ".." would reach
+            // another action; an empty value would match another route.
+            var segments = catchAll ? text.Split('/') : [text];
+            if ((!catchAll && string.IsNullOrWhiteSpace(text)) || segments.Any(segment => segment is "." or ".."))
+            {
+                throw new NhAiBridgeInputException(
+                    $"The route value '{Bounded(parameter.InputName)}' must not be empty or a dot segment.");
+            }
+            return string.Join("/", segments.Select(Uri.EscapeDataString));
         });
 
         while (path.Contains("//", StringComparison.Ordinal))

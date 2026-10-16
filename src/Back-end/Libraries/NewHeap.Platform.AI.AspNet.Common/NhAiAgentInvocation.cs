@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Policy;
-using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI.AspNet;
@@ -70,14 +69,16 @@ internal sealed class NhAiUserManagerPrincipalFactory(IServiceProvider services)
             return null;
         }
 
-        var claims = await userManager.GetValidClaimsByUserIdAsync(userId, true, cancellationToken);
-        var canSignIn = claims.Any(claim =>
-            claim.Type == NhPlatformClaimTypes.Permission
-            && claim.Value == Platform.Common.Constants.PermissionClaimValues.AuthenticatedAccess);
-        if (!canSignIn)
+        // A person who may no longer sign in (locked out, blocked, second factor required but not
+        // enrolled) lends no rights either. Hosts without the NewHeap authentication service keep
+        // their own checks in their principal factory.
+        if (services.GetService<INhAuthenticationService>() is { } authentication
+            && !await authentication.MaySignInAsync(userId, cancellationToken))
         {
             return null;
         }
+
+        var claims = await userManager.GetValidClaimsByUserIdAsync(userId, true, cancellationToken);
 
         return new ClaimsPrincipal(new ClaimsIdentity(claims, AuthenticationType));
     }

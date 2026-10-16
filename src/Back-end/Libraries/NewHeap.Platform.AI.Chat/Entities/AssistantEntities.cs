@@ -171,9 +171,14 @@ public sealed class AssistantToolInvocation
     public string? IdempotencyKey { get; set; }
 
     /// <summary>
-    /// Whether an agent grant or the initiator's own rights allowed the call.
+    /// Whether an agent grant, the initiator's own rights or a delegated read allowed the call.
     /// </summary>
     public NhAiGrantSource GrantSource { get; set; }
+
+    /// <summary>
+    /// For a delegated read, the person whose rights the call read with; only they see its result.
+    /// </summary>
+    public string? ReadForActorId { get; set; }
 
     public DateTimeOffset StartedAt { get; set; }
 

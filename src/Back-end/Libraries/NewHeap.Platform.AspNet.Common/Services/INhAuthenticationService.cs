@@ -75,4 +75,32 @@ public interface INhAuthenticationService
     Task<TaskResult<UserToken>> LoginWithoutValidations(Guid userId, bool iAmSureThatIKnowWhatImDoing = false);
 
     void WriteTokenToCookie(HttpContext httpContext, UserToken token, string? authCookieName = null, string? refreshCookieName = null);
+
+    /// <summary>
+    /// Whether the user may sign in now: the user exists, may sign in, is not locked out or
+    /// blocked, and has enrolled a second factor where one is required. Implementations that
+    /// cannot tell return <see langword="true"/>, the behavior before this check existed.
+    /// </summary>
+    Task<bool> MaySignInAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
+
+    /// <summary>
+    /// Creates a short-lived token for a user who is not present, such as the delegated read
+    /// credential of an AI agent run: the claims a sign-in of the user carries plus
+    /// <paramref name="claims"/>, which replace user claims of the same types, and the user's
+    /// security stamp. Fails when the user may not sign in now (<see cref="MaySignInAsync"/>).
+    /// Implementations without support fail, so no token is issued by accident.
+    /// </summary>
+    Task<TaskResult<JwtSecurityToken>> CreateDelegatedTokenAsync(
+        Guid userId,
+        IEnumerable<Claim> claims,
+        TimeSpan expiration,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(TaskResult<JwtSecurityToken>.Failed(
+            "delegated-token-unsupported",
+            "This authentication service does not issue delegated tokens."));
+    }
 }

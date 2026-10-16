@@ -9,7 +9,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.Services;
-using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI.AspNet;
@@ -30,14 +29,19 @@ public interface INhAiDelegatedReadCredentialIssuer
 /// <summary>
 /// A request for a delegated read credential: the person whose rights the call uses, the subject's
 /// division for hosts that carry the division in the token, the invocation the token is bound to,
-/// its lifetime and the marker claims the token must carry.
+/// its lifetime and the claims the token must carry exactly: the invocation marker and, for a call,
+/// the gateway action it may reach. The library refuses a token without them or that lives longer.
 /// </summary>
 public sealed record NhAiDelegatedReadRequest(
     string PersonActorId,
     string? DivisionId,
     Guid InvocationId,
     TimeSpan Lifetime,
-    IReadOnlyList<Claim> Claims);
+    IReadOnlyList<Claim> Claims)
+{
+    /// <summary>The subject's tenant, for hosts that bind tokens to a tenant.</summary>
+    public string? TenantId { get; init; }
+}
 
 /// <summary>
 /// A delegated read credential. It is held for one call only and never stored, logged or placed in
@@ -52,6 +56,12 @@ public static class NhAiDelegatedReadDefaults
     /// </summary>
     public const string ClaimType = "nh-ai-delegated-read";
 
+    /// <summary>
+    /// The claim that binds a delegated read token to one gateway action; its value is the bridge
+    /// tool id of the resource operation the call executes.
+    /// </summary>
+    public const string ActionClaimType = "nh-ai-delegated-read-action";
+
     /// <summary>The header that carries the invocation id of a bridge call.</summary>
     public const string InvocationHeaderName = "X-NewHeap-AI-Invocation";
 
@@ -62,8 +72,7 @@ public static class NhAiDelegatedReadDefaults
 
 /// <summary>
 /// The reads that a delegated read credential may reach, published by the API bridge gateway: its
-/// read tools, the <c>GET</c> endpoints its resources expose, and the policies a reader of a thread
-/// must satisfy to see what such a read returned.
+/// read tools and the <c>GET</c> endpoints of its resources.
 /// </summary>
 public interface INhAiDelegatedReadSurface
 {
@@ -73,15 +82,11 @@ public interface INhAiDelegatedReadSurface
     /// </summary>
     bool IsReadTool(NhAiToolDescriptor descriptor);
 
-    /// <summary>Whether the endpoint is the <c>GET</c> action of a gateway resource.</summary>
-    bool IsReadEndpoint(Endpoint endpoint);
-
     /// <summary>
-    /// The policies a reader must satisfy to see the result of a delegated read of
-    /// <paramref name="toolId"/> with <paramref name="argumentsJson"/>, or <see langword="null"/> when
-    /// the tool is not a gateway read or its arguments name no known resource.
+    /// Whether the endpoint is the <c>GET</c> action of the gateway resource operation whose bridge
+    /// tool id is <paramref name="actionToolId"/>.
     /// </summary>
-    IReadOnlyList<string>? ResultPolicies(string toolId, string? argumentsJson);
+    bool IsReadEndpoint(Endpoint endpoint, string actionToolId);
 }
 
 /// <summary>
@@ -139,19 +144,17 @@ internal sealed class NhAiDelegatedReadOptions
     public TimeSpan Lifetime { get; set; } = NhAiDelegatedReadDefaults.DefaultLifetime;
 
     public string Scheme { get; set; } = JwtBearerDefaults.AuthenticationScheme;
-
-    /// <summary>The restriction the JWT bearer scheme ended up with, checked at startup.</summary>
-    public Func<TokenValidatedContext, Task>? AppliedRestriction { get; set; }
 }
 
 public static class NhAiDelegatedReadServiceCollectionExtensions
 {
     /// <summary>
-    /// Lets the API bridge gateway read in headless agent runs with the rights of the run's
-    /// accountable person. Every call gets a short-lived JWT of the host's own bearer scheme,
-    /// marked with the invocation it belongs to. The library restricts such a token to <c>GET</c>
-    /// calls of gateway resources with the matching <c>X-NewHeap-AI-Invocation</c> header; every
-    /// other request with it fails authentication. Agents opt in with <c>AllowGatewayReads</c>.
+    /// Lets the API bridge gateway read in headless agent runs with the rights of the person who
+    /// started the run, or of its accountable person when nobody did. Every call gets a short-lived
+    /// JWT of the host's own bearer scheme, bound to the invocation and the gateway action it calls.
+    /// Every JWT bearer scheme of the host restricts such a token to that <c>GET</c> action with the
+    /// matching <c>X-NewHeap-AI-Invocation</c> header; every other request with it fails
+    /// authentication. Agents opt in with <c>AllowGatewayReads</c>.
     /// </summary>
     public static IServiceCollection AddNewHeapPlatformAIDelegatedReads(
         this IServiceCollection services,
@@ -177,8 +180,9 @@ public static class NhAiDelegatedReadServiceCollectionExtensions
 }
 
 /// <summary>
-/// The built-in issuer for hosts on the NewHeap identity: the token carries the person's own
-/// claims and security stamp, so the host's session validation rejects a removed or changed person.
+/// The built-in issuer for hosts on the NewHeap identity: the token carries the claims of the
+/// person's own sign-in and their security stamp, and is only issued while the person may sign in,
+/// so a removed, locked-out or blocked person gets none and a changed person's token is rejected.
 /// </summary>
 internal sealed class NhAiNewHeapDelegatedReadCredentialIssuer(IServiceProvider services) : INhAiDelegatedReadCredentialIssuer
 {
@@ -187,30 +191,20 @@ internal sealed class NhAiNewHeapDelegatedReadCredentialIssuer(IServiceProvider 
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var userManager = services.GetService<INhUserManager>();
         var authentication = services.GetService<INhAuthenticationService>();
-        if (!Guid.TryParse(request.PersonActorId, out var userId) || userManager is null || authentication is null)
+        if (!Guid.TryParse(request.PersonActorId, out var userId) || authentication is null)
         {
             return NhAiDelegatedReadService.Unavailable();
         }
 
-        var claims = await userManager.GetValidClaimsByUserIdAsync(userId, true, cancellationToken);
-        var canSignIn = claims.Any(claim =>
-            claim.Type == NhPlatformClaimTypes.Permission
-            && claim.Value == Platform.Common.Constants.PermissionClaimValues.AuthenticatedAccess);
-        if (!canSignIn)
+        var created = await authentication.CreateDelegatedTokenAsync(userId, request.Claims, request.Lifetime, cancellationToken);
+        if (!created.Success || created.Data is null)
         {
             return NhAiDelegatedReadService.Unavailable();
         }
-
-        var markers = request.Claims.Select(claim => claim.Type).ToHashSet(StringComparer.Ordinal);
-        var token = await authentication.CreateToken(
-            userId,
-            claims.Where(claim => !markers.Contains(claim.Type)).Concat(request.Claims),
-            request.Lifetime);
         return TaskResult<NhAiDelegatedReadCredential>.Succeeded(new NhAiDelegatedReadCredential(
-            new JwtSecurityTokenHandler().WriteToken(token),
-            new DateTimeOffset(DateTime.SpecifyKind(token.ValidTo, DateTimeKind.Utc))));
+            new JwtSecurityTokenHandler().WriteToken(created.Data),
+            new DateTimeOffset(DateTime.SpecifyKind(created.Data.ValidTo, DateTimeKind.Utc))));
     }
 }
 
@@ -248,18 +242,29 @@ internal sealed partial class NhAiDelegatedReadService(
     }
 
     /// <summary>
-    /// Issues a credential of the scope's accountable person, bound to <paramref name="invocationId"/>.
+    /// Issues a credential of the scope's reading person (<see cref="NhAiAgentInvocationScope.GatewayReadActorId"/>),
+    /// bound to <paramref name="invocationId"/> and, for a call, to the gateway action
+    /// <paramref name="actionToolId"/>. The token the issuer returns must carry exactly those claims
+    /// and live no longer than the configured lifetime; otherwise it is never used.
     /// </summary>
     public async ValueTask<TaskResult<NhAiDelegatedReadCredential>> IssueAsync(
         NhAiAgentInvocationScope scope,
         Guid invocationId,
+        string? actionToolId,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scope);
-        if (!scope.AllowGatewayReads
-            || scope.Accountability == NhAiAgentAccountability.Agent
-            || string.IsNullOrWhiteSpace(scope.AccountableOwnerId))
+        if (scope.GatewayReadActorId is not { } person || scope.Accountability == NhAiAgentAccountability.Agent)
         {
+            return Unavailable();
+        }
+        // The run answers to the subject's responsible person; when that changed after the run was
+        // queued, the person it was queued for no longer lends their rights.
+        if (string.Equals(person, scope.AccountableOwnerId, StringComparison.Ordinal)
+            && scope.Accountability == NhAiAgentAccountability.SubjectResponsible
+            && !string.Equals(scope.Subject.ResponsibleActorId, person, StringComparison.Ordinal))
+        {
+            LogResponsibleChanged(logger, scope.AgentId);
             return Unavailable();
         }
 
@@ -269,12 +274,20 @@ internal sealed partial class NhAiDelegatedReadService(
             return Unavailable();
         }
 
+        List<Claim> claims = [new Claim(NhAiDelegatedReadDefaults.ClaimType, invocationId.ToString("D"))];
+        if (actionToolId is not null)
+        {
+            claims.Add(new Claim(NhAiDelegatedReadDefaults.ActionClaimType, actionToolId));
+        }
         var request = new NhAiDelegatedReadRequest(
-            scope.AccountableOwnerId,
+            person,
             scope.Subject.DivisionId?.ToString(),
             invocationId,
             options.Lifetime,
-            [new Claim(NhAiDelegatedReadDefaults.ClaimType, invocationId.ToString("D"))]);
+            claims)
+        {
+            TenantId = scope.Subject.TenantId
+        };
         TaskResult<NhAiDelegatedReadCredential> issued;
         try
         {
@@ -287,10 +300,7 @@ internal sealed partial class NhAiDelegatedReadService(
             return Unavailable();
         }
 
-        if (!issued.Success
-            || issued.Data is null
-            || string.IsNullOrWhiteSpace(issued.Data.BearerToken)
-            || issued.Data.ExpiresAt > DateTimeOffset.UtcNow + options.Lifetime + ExpiryTolerance)
+        if (!issued.Success || issued.Data is null || !IsBound(issued.Data.BearerToken, invocationId, actionToolId))
         {
             LogIssueRefused(logger, scope.AgentId);
             return Unavailable();
@@ -299,23 +309,24 @@ internal sealed partial class NhAiDelegatedReadService(
     }
 
     /// <summary>
-    /// The principal of the scope's accountable person as the host's scheme authenticates a
-    /// credential, including claims transformation, or <see langword="null"/> when none can be
-    /// issued or the scheme rejects it. Cached for the run within this service scope.
+    /// The principal of the scope's reading person as the host's scheme authenticates a credential,
+    /// including claims transformation, or <see langword="null"/> when none can be issued or the
+    /// scheme rejects it. Cached for the run within this service scope.
     /// </summary>
     public async ValueTask<ClaimsPrincipal?> AuthenticateAsync(
         NhAiAgentInvocationScope scope,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scope);
-        var key = scope.AccountableOwnerId + "|" + scope.RunId;
+        var key = scope.GatewayReadActorId + "|" + scope.RunId;
         if (_principals.TryGetValue(key, out var cached))
         {
             return cached;
         }
 
         ClaimsPrincipal? principal = null;
-        var credential = await IssueAsync(scope, Guid.NewGuid(), cancellationToken);
+        // A credential bound to no action: the restriction accepts it only for this authentication.
+        var credential = await IssueAsync(scope, Guid.NewGuid(), null, cancellationToken);
         if (credential.Success)
         {
             // Authentication handlers and their results are cached per service scope; a scope of its
@@ -337,50 +348,78 @@ internal sealed partial class NhAiDelegatedReadService(
         return principal;
     }
 
+    /// <summary>
+    /// Whether the token is a JWT that carries exactly the invocation marker and action of this
+    /// call and expires within the configured lifetime.
+    /// </summary>
+    private bool IsBound(string bearerToken, Guid invocationId, string? actionToolId)
+    {
+        var handler = new JwtSecurityTokenHandler();
+        if (string.IsNullOrWhiteSpace(bearerToken) || !handler.CanReadToken(bearerToken))
+        {
+            return false;
+        }
+
+        JwtSecurityToken token;
+        try
+        {
+            token = handler.ReadJwtToken(bearerToken);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            return false;
+        }
+
+        var markers = token.Claims.Where(claim => claim.Type == NhAiDelegatedReadDefaults.ClaimType).Select(claim => claim.Value).ToArray();
+        var actions = token.Claims.Where(claim => claim.Type == NhAiDelegatedReadDefaults.ActionClaimType).Select(claim => claim.Value).ToArray();
+        return markers.Length == 1
+            && string.Equals(markers[0], invocationId.ToString("D"), StringComparison.Ordinal)
+            && (actionToolId is null
+                ? actions.Length == 0
+                : actions.Length == 1 && string.Equals(actions[0], actionToolId, StringComparison.Ordinal))
+            && token.Payload.Expiration is not null
+            && token.ValidTo <= DateTime.UtcNow + options.Lifetime + ExpiryTolerance;
+    }
+
     [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "A delegated read credential for agent {AgentId} could not be issued: the issuer failed with {ExceptionType}.")]
     private static partial void LogIssueFailed(ILogger logger, string agentId, string exceptionType);
 
-    [LoggerMessage(EventId = 2, Level = LogLevel.Warning, Message = "The issuer refused a delegated read credential for agent {AgentId} or issued one that lives too long.")]
+    [LoggerMessage(EventId = 2, Level = LogLevel.Warning, Message = "The issuer refused a delegated read credential for agent {AgentId}, or issued one without its binding claims or that lives too long.")]
     private static partial void LogIssueRefused(ILogger logger, string agentId);
 
     [LoggerMessage(EventId = 3, Level = LogLevel.Warning, Message = "The host's scheme rejected the delegated read credential for agent {AgentId}.")]
     private static partial void LogAuthenticationRefused(ILogger logger, string agentId);
+
+    [LoggerMessage(EventId = 4, Level = LogLevel.Warning, Message = "The subject's responsible person changed since the run of agent {AgentId} was queued; no delegated read credential is issued.")]
+    private static partial void LogResponsibleChanged(ILogger logger, string agentId);
 }
 
 /// <summary>
 /// Restricts delegated read tokens in every JWT bearer scheme of the host, so another scheme that
-/// trusts the same key cannot accept them either. A token with the
-/// <see cref="NhAiDelegatedReadDefaults.ClaimType"/> claim authenticates only a <c>GET</c> request
-/// to an endpoint of a gateway resource that carries the matching invocation header, or the
-/// library's own authentication of it. Every other request with such a token, including one whose
-/// endpoint is not yet known, fails authentication. Tokens without the claim are not affected.
+/// trusts the same key cannot accept them either. The scheme's events are wrapped in
+/// <see cref="NhAiRestrictedJwtBearerEvents"/>, which applies the restriction before any handler of
+/// the host, including an override of <see cref="JwtBearerEvents.TokenValidated"/> in an events
+/// subclass.
 /// </summary>
-internal sealed class NhAiDelegatedReadRestriction(NhAiDelegatedReadOptions options) : IPostConfigureOptions<JwtBearerOptions>
+internal sealed class NhAiDelegatedReadRestriction : IPostConfigureOptions<JwtBearerOptions>
 {
     public void PostConfigure(string? name, JwtBearerOptions jwt)
     {
-        var events = jwt.Events ?? new JwtBearerEvents();
-        var inner = events.OnTokenValidated;
-        Func<TokenValidatedContext, Task> restriction = async context =>
+        if (jwt.Events is NhAiRestrictedJwtBearerEvents)
         {
-            if (!Allows(context))
-            {
-                context.Fail("The delegated read credential is not valid for this request.");
-                return;
-            }
-            if (inner is not null)
-            {
-                await inner(context);
-            }
-        };
-        events.OnTokenValidated = restriction;
-        jwt.Events = events;
-        if (string.Equals(name, options.Scheme, StringComparison.Ordinal))
-        {
-            options.AppliedRestriction = restriction;
+            return;
         }
+        jwt.Events = new NhAiRestrictedJwtBearerEvents(jwt.Events ?? new JwtBearerEvents());
     }
 
+    /// <summary>
+    /// Whether the validated token may authenticate the request. A token with the
+    /// <see cref="NhAiDelegatedReadDefaults.ClaimType"/> claim authenticates only a <c>GET</c> request
+    /// to the gateway action named by its <see cref="NhAiDelegatedReadDefaults.ActionClaimType"/>
+    /// claim with the matching invocation header, or the library's own authentication of it. Every
+    /// other request with such a token, including one whose endpoint is not yet known, fails.
+    /// Tokens without the claim are not affected.
+    /// </summary>
     internal static bool Allows(TokenValidatedContext context)
     {
         var markers = context.Principal?.FindAll(NhAiDelegatedReadDefaults.ClaimType).ToArray() ?? [];
@@ -398,9 +437,12 @@ internal sealed class NhAiDelegatedReadRestriction(NhAiDelegatedReadOptions opti
         {
             return true;
         }
-        if (!HttpMethods.IsGet(httpContext.Request.Method)
+
+        var actions = context.Principal!.FindAll(NhAiDelegatedReadDefaults.ActionClaimType).ToArray();
+        if (actions.Length != 1
+            || !HttpMethods.IsGet(httpContext.Request.Method)
             || httpContext.GetEndpoint() is not { } endpoint
-            || !httpContext.RequestServices.GetServices<INhAiDelegatedReadSurface>().Any(surface => surface.IsReadEndpoint(endpoint)))
+            || !httpContext.RequestServices.GetServices<INhAiDelegatedReadSurface>().Any(surface => surface.IsReadEndpoint(endpoint, actions[0].Value)))
         {
             return false;
         }
@@ -413,8 +455,40 @@ internal sealed class NhAiDelegatedReadRestriction(NhAiDelegatedReadOptions opti
 }
 
 /// <summary>
-/// Fails startup when the delegated read scheme is not a JWT bearer scheme, resolves its events
-/// from a type, or replaced the restriction after it was composed.
+/// The events of a JWT bearer scheme with the delegated read restriction applied first. The host's
+/// own events keep working: their methods, also overridden ones, are the wrapper's delegates, and a
+/// handler composed onto those delegates later still runs after the restriction.
+/// </summary>
+internal sealed class NhAiRestrictedJwtBearerEvents : JwtBearerEvents
+{
+    public NhAiRestrictedJwtBearerEvents(JwtBearerEvents inner)
+    {
+        ArgumentNullException.ThrowIfNull(inner);
+        Inner = inner;
+        OnAuthenticationFailed = inner.AuthenticationFailed;
+        OnChallenge = inner.Challenge;
+        OnForbidden = inner.Forbidden;
+        OnMessageReceived = inner.MessageReceived;
+        OnTokenValidated = inner.TokenValidated;
+    }
+
+    public JwtBearerEvents Inner { get; }
+
+    public override Task TokenValidated(TokenValidatedContext context)
+    {
+        if (!NhAiDelegatedReadRestriction.Allows(context))
+        {
+            context.Fail("The delegated read credential is not valid for this request.");
+            return Task.CompletedTask;
+        }
+        return base.TokenValidated(context);
+    }
+}
+
+/// <summary>
+/// Fails startup when the delegated read scheme is not a JWT bearer scheme, or when any JWT bearer
+/// scheme resolves its events from a type or replaced the restricted events after they were
+/// composed: such a scheme could accept a delegated read token without the restriction.
 /// </summary>
 internal sealed class NhAiDelegatedReadStartupValidator(
     NhAiDelegatedReadOptions options,
@@ -430,16 +504,20 @@ internal sealed class NhAiDelegatedReadStartupValidator(
                 $"Delegated reads need the JWT bearer scheme '{options.Scheme}'; register it or choose another with UseScheme.");
         }
 
-        var jwt = jwtOptions.Get(options.Scheme);
-        if (jwt.EventsType is not null)
+        foreach (var jwtScheme in (await schemes.GetAllSchemesAsync())
+            .Where(candidate => typeof(JwtBearerHandler).IsAssignableFrom(candidate.HandlerType)))
         {
-            throw new InvalidOperationException(
-                $"The JWT bearer scheme '{options.Scheme}' resolves its events from a type, so the delegated read restriction cannot be composed; set Events instead of EventsType.");
-        }
-        if (options.AppliedRestriction is null || !ReferenceEquals(jwt.Events?.OnTokenValidated, options.AppliedRestriction))
-        {
-            throw new InvalidOperationException(
-                $"The OnTokenValidated event of the JWT bearer scheme '{options.Scheme}' was replaced after AddNewHeapPlatformAIDelegatedReads; compose your handler in the scheme's own configuration instead.");
+            var jwt = jwtOptions.Get(jwtScheme.Name);
+            if (jwt.EventsType is not null)
+            {
+                throw new InvalidOperationException(
+                    $"The JWT bearer scheme '{jwtScheme.Name}' resolves its events from a type, so the delegated read restriction cannot be applied to it; set Events instead of EventsType.");
+            }
+            if (jwt.Events is not NhAiRestrictedJwtBearerEvents)
+            {
+                throw new InvalidOperationException(
+                    $"The events of the JWT bearer scheme '{jwtScheme.Name}' were replaced after AddNewHeapPlatformAIDelegatedReads; configure them in the scheme's own configuration instead.");
+            }
         }
     }
 
