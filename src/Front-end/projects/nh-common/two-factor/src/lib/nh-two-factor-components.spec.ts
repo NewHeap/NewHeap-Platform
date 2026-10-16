@@ -304,4 +304,24 @@ describe('NhTwoFactorTranslationMerger', () => {
     expect(translate.instant('nh-two-factor.invalid-code')).toBe('Eigen tekst');
     expect(translate.instant('nh-two-factor.ui.verify')).toBe('Controleren');
   });
+
+  it('gives a regional language the texts of its base language, and others English', () => {
+    TestBed.configureTestingModule({
+      providers: [provideTranslateService({fallbackLang: 'nl-NL'})]
+    });
+
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('nl-NL', {'nh-two-factor': {'invalid-code': 'Eigen tekst'}});
+    translate.use('nl-NL');
+
+    TestBed.inject(NhTwoFactorTranslationMerger).start();
+
+    expect(translate.instant('nh-two-factor.invalid-code')).toBe('Eigen tekst');
+    expect(translate.instant('nh-two-factor.ui.verify')).toBe('Controleren');
+
+    translate.setTranslation('fr-FR', {});
+    translate.use('fr-FR');
+
+    expect(translate.instant('nh-two-factor.ui.verify')).toBe('Verify');
+  });
 });

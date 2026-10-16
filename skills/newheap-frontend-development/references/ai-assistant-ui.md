@@ -83,8 +83,9 @@ lazy route guarded by the host's admin permission (for example
 the server status and the admin policy on the endpoints agree. The separate entry
 point keeps the administration out of the initial bundle.
 
-Keep the bundled `en` and `nl` texts (`translations: 'bundled'`) and add only
-host-specific keys under `nh-assistant.`: agent names and descriptions from the
+Keep the bundled `en` and `nl` texts (`translations: 'bundled'`); a host language with
+a region, such as `nl-NL`, receives the texts of its base language, so do not merge the
+bundles into regional languages yourself. Add only host-specific keys under `nh-assistant.`: agent names and descriptions from the
 server's `displayNameKey`/`descriptionKey`, and message keys of host-specific
 error codes. Agents created by an administrator carry literal text in those fields,
 which the panel shows as is. Theme the panel through the `--nh-assistant-*` custom
@@ -324,7 +325,8 @@ and approvals and sends the proposal hash exactly once, and a completed turn wit
 an error code or without answer text sets a notice while the conversation stays
 usable; the launcher disappears for
 `enabled: false` and a denying policy; model text with a script tag renders no
-script; `en` and `nl` have identical keys; and the mock emits exactly the contract
+script; `en` and `nl` have identical keys and a regional language such as `nl-NL`
+receives the `nl` texts; and the mock emits exactly the contract
 event fields. The preference tests save, validate the 1,000-character limit and show
 failures; the administration tests save context versions and report conflicts,
 create, disable, reset and delete agents after confirmation, never render a stored

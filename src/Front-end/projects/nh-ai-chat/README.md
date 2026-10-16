@@ -453,7 +453,9 @@ use small built-in outline glyphs:
 ## Translations
 
 All keys live under `nh-assistant.`. With `translations: 'bundled'` the library
-merges its `en` and `nl` texts whenever the host loads a language; other
+merges its `en` and `nl` texts whenever the host loads a language. A regional
+language such as `nl-NL`, `nl-BE` or `en-GB` receives the texts of its base
+language, so a host with regional languages needs no merge of its own; other
 languages receive English. Keys the host defines under `nh-assistant.` win, so a
 host adds only what the server decides:
 

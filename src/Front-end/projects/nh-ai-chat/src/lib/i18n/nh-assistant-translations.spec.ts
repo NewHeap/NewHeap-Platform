@@ -76,6 +76,8 @@ describe('error translations', () => {
   });
 });
 
+const NH_ASSISTANT_DUTCH_CLOSE = (NH_ASSISTANT_TRANSLATIONS.nl as { 'nh-assistant': { panel: { close: string } } })['nh-assistant'].panel.close;
+
 describe('bundled translations', () => {
   function setup(translations?: 'bundled' | 'host'): TranslateService {
     TestBed.configureTestingModule({
@@ -117,6 +119,32 @@ describe('bundled translations', () => {
     expect(translate.instant('nh-assistant.agents.projects.name')).toBe('Project assistant');
     expect(translate.instant('nh-assistant.panel.title')).toBe('Helper');
     expect(translate.instant('nh-assistant.panel.close')).toBe('Close assistant');
+  });
+
+  it('gives a regional language the texts of its base language, and others English', async () => {
+    const translate = setup();
+
+    await firstValueFrom(translate.use('nl-NL'));
+    expect(translate.instant('nh-assistant.panel.title')).toBe('Assistent');
+
+    await firstValueFrom(translate.use('nl_BE'));
+    expect(translate.instant('nh-assistant.panel.title')).toBe('Assistent');
+
+    await firstValueFrom(translate.use('en-GB'));
+    expect(translate.instant('nh-assistant.panel.title')).toBe('Assistant');
+
+    await firstValueFrom(translate.use('de-DE'));
+    expect(translate.instant('nh-assistant.panel.title')).toBe('Assistant');
+  });
+
+  it('keeps host keys of a regional language', async () => {
+    const translate = setup();
+    await firstValueFrom(translate.use('nl-NL'));
+
+    translate.setTranslation('nl-NL', { 'nh-assistant': { panel: { title: 'Hulp' } } });
+
+    expect(translate.instant('nh-assistant.panel.title')).toBe('Hulp');
+    expect(translate.instant('nh-assistant.panel.close')).toBe(NH_ASSISTANT_DUTCH_CLOSE);
   });
 
   it('leaves translations to the host in host mode', async () => {

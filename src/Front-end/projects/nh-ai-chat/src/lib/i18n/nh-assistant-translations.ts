@@ -25,6 +25,19 @@ function mergeTrees(base: TranslationTree, override: TranslationTree): Translati
   return result;
 }
 
+/**
+ * The bundle of a language: its own, else that of its base language, so a regional tag such as
+ * `nl-NL`, `nl_BE` or `en-GB` gets the `nl` or `en` texts, else English.
+ */
+function bundleOf(language: string): TranslationTree {
+  for (const candidate of [language, language.split(/[-_]/)[0]].map(tag => tag.toLowerCase())) {
+    if (Object.hasOwn(NH_ASSISTANT_TRANSLATIONS, candidate)) {
+      return NH_ASSISTANT_TRANSLATIONS[candidate as keyof typeof NH_ASSISTANT_TRANSLATIONS] as TranslationTree;
+    }
+  }
+  return NH_ASSISTANT_TRANSLATIONS.en as TranslationTree;
+}
+
 function hasAllKeys(bundle: TranslationTree, candidate: unknown): boolean {
   if (!isTree(candidate)) {
     return false;
@@ -39,7 +52,8 @@ function hasAllKeys(bundle: TranslationTree, candidate: unknown): boolean {
  * Merges the bundled texts into `TranslateService` whenever the host loads or replaces a
  * language. Host loaders never lose the library texts, the library never pre-empts the
  * host loader, and keys the host defines under `nh-assistant.` (agent names, overrides)
- * win over the bundle. Languages without a bundle receive the English texts.
+ * win over the bundle. A regional language such as `nl-NL` receives the texts of its base
+ * language; languages without a bundle receive the English texts.
  */
 @Injectable({ providedIn: 'root' })
 export class NhAssistantTranslationMerger {
@@ -70,8 +84,7 @@ export class NhAssistantTranslationMerger {
   }
 
   private ensure(language: string, existing: unknown): void {
-    const bundle = (NH_ASSISTANT_TRANSLATIONS[language as 'en' | 'nl'] ?? NH_ASSISTANT_TRANSLATIONS.en) as TranslationTree;
-    const bundleRoot = bundle[rootKey] as TranslationTree;
+    const bundleRoot = bundleOf(language)[rootKey] as TranslationTree;
     if (hasAllKeys(bundleRoot, existing)) {
       return;
     }
