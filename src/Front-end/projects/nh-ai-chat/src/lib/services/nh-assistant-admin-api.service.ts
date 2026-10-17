@@ -21,6 +21,8 @@ import {
   McpServerInput,
   McpServerTestResult,
   McpTool,
+  SetAgentServiceAccountRequest,
+  SetAgentShadowRequest,
   SetAgentStateRequest,
   ToolCatalogEntry,
   UpdateAdminAgentRequest,
@@ -106,6 +108,31 @@ export class NhAssistantAdminApiService {
       'POST',
       `admin/agents/${encodeURIComponent(agentId)}/skills/${encodeURIComponent(skillId)}/state`,
       request);
+  }
+
+  /**
+   * Puts an agent in shadow, live, or back to the mode in code. A shadow variant cannot change
+   * (`assistant-shadow-variant`).
+   */
+  setAgentShadow(agentId: string, request: SetAgentShadowRequest): Observable<AgentState> {
+    return this.request<AgentState>('POST', `admin/agents/${encodeURIComponent(agentId)}/shadow`, request);
+  }
+
+  /** Puts one skill of an agent in shadow, live, or back to the mode in code. */
+  setSkillShadow(agentId: string, skillId: string, request: SetAgentShadowRequest): Observable<AgentSkillState> {
+    return this.request<AgentSkillState>(
+      'POST',
+      `admin/agents/${encodeURIComponent(agentId)}/skills/${encodeURIComponent(skillId)}/shadow`,
+      request);
+  }
+
+  /**
+   * Changes the technical account that answers for the agent's new runs, or with `actorId: null`
+   * uses the account in code again. Fails with `assistant-service-account-not-found` for an
+   * account that does not exist or may not sign in.
+   */
+  setServiceAccount(agentId: string, request: SetAgentServiceAccountRequest): Observable<AgentState> {
+    return this.request<AgentState>('POST', `admin/agents/${encodeURIComponent(agentId)}/service-account`, request);
   }
 
   /** Deletes an admin agent. Code agents cannot be deleted; stop them instead. */

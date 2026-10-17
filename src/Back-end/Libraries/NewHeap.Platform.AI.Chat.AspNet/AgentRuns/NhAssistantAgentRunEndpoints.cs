@@ -162,12 +162,20 @@ internal static class NhAssistantAgentRunEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.SubjectNotFound);
         }
 
+        if (await NhAssistantEndpointRouteBuilderExtensions.IsHiddenVariantAsync(httpContext, agentId!))
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
+        }
+
         var agent = await agents.FindAsync(agentId!, includeDisabled: false, cancellationToken);
+        var runOptions = registration.AgentRuns[agentId!];
         var canStart = agent is not null
-            && registration.AgentRuns[agentId!].Enabled
+            && runOptions.Enabled
             && access.Has(NhAiSubjectRole.Participant)
-            && await agentAccess.CanUseAsync(httpContext.User, agent.Definition);
-        var thread = await runs.FindThreadAsync(info.ScopeKey, agentId!, subject!, cancellationToken);
+            && await agentAccess.CanUseAsync(httpContext.User, agent.Definition)
+            && await MayStartAsync(httpContext, runOptions, agent);
+        // People open the live thread; a shadow variant has shadow threads only.
+        var thread = await runs.FindThreadAsync(info.ScopeKey, agentId!, subject!, cancellationToken, runOptions.ShadowOfAgentId is not null);
         NhAssistantThreadDto? threadDto = null;
         if (thread is not null)
         {
@@ -212,13 +220,28 @@ internal static class NhAssistantAgentRunEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
         }
         var agent = await agents.FindAsync(request.AgentId!, includeDisabled: false, cancellationToken);
-        if (agent is null || !await agentAccess.CanUseAsync(httpContext.User, agent.Definition))
+        if (agent is null
+            || !await agentAccess.CanUseAsync(httpContext.User, agent.Definition)
+            || !await MayStartAsync(httpContext, registration.AgentRuns[request.AgentId!], agent))
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
         }
 
         var receipt = await triggers.StartNowAsync(request.AgentId!, subject!, caller.Data.ActorId, request.Message, cancellationToken);
         return Receipt(receipt);
+    }
+
+    /// <summary>
+    /// Whether the caller may start the agent by hand: an agent in shadow works in shadow threads,
+    /// which only administrators see, so only they start it.
+    /// </summary>
+    internal static async Task<bool> MayStartAsync(
+        HttpContext httpContext,
+        NhAssistantAgentRunOptions runOptions,
+        NhAssistantAgent agent)
+    {
+        return !NhAssistantShadowModes.IsAgentShadow(runOptions, agent.ShadowOverride)
+            || await NhAssistantEndpointRouteBuilderExtensions.IsAdministratorAsync(httpContext);
     }
 
     private static async Task<IResult> ListRunsAsync(
@@ -586,7 +609,7 @@ internal static class NhAssistantAgentRunEndpoints
             caller.Data!.ActorId,
             caller.Data.TenantId,
             httpContext.User,
-            agentId => NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, agentId),
+            thread => NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, thread),
             httpContext.RequestAborted);
         // A proposal the caller may not see answers like one that does not exist.
         return read.Count == 0
@@ -617,7 +640,7 @@ internal static class NhAssistantAgentRunEndpoints
             caller.Data!.ActorId,
             caller.Data.TenantId,
             httpContext.User,
-            agentId => NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, agentId),
+            thread => NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, thread),
             httpContext.RequestAborted);
         return TypedResults.Json(
             new NhAssistantProposalLookupDto(read),
@@ -748,10 +771,11 @@ internal static class NhAssistantAgentRunEndpoints
         {
             if (!readable.TryGetValue(conversationId, out var may))
             {
-                var access = await threads.ResolveAccessAsync(conversationId, actorId, null, httpContext.RequestAborted);
-                may = access is not null
-                      && access.Role >= NhAiSubjectRole.Reader
-                      && !await NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, access.Thread.AgentId);
+                // A hidden shadow thread is checked before access, which records participants.
+                var access = await IsHiddenAsync(httpContext, conversationId)
+                    ? null
+                    : await threads.ResolveAccessAsync(conversationId, actorId, null, httpContext.RequestAborted);
+                may = access is not null && access.Role >= NhAiSubjectRole.Reader;
                 readable[conversationId] = may;
             }
             if (may)
@@ -761,6 +785,16 @@ internal static class NhAssistantAgentRunEndpoints
         }
 
         return links;
+    }
+
+    /// <summary>
+    /// Whether the conversation is a shadow thread hidden from the caller.
+    /// </summary>
+    private static async Task<bool> IsHiddenAsync(HttpContext httpContext, Guid conversationId)
+    {
+        var thread = await httpContext.RequestServices.GetRequiredService<NhAssistantRunStore>()
+            .FindThreadByConversationAsync(conversationId, httpContext.RequestAborted);
+        return thread is not null && await NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, thread);
     }
 
     /// <summary>
@@ -778,9 +812,11 @@ internal static class NhAssistantAgentRunEndpoints
             return (null, null, NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable());
         }
 
-        var access = await threads.ResolveAccessAsync(conversationId, caller.Data!.ActorId, null, httpContext.RequestAborted);
-        if (access is null
-            || await NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, access.Thread.AgentId))
+        // A hidden shadow thread is checked before access, which records participants.
+        var access = await IsHiddenAsync(httpContext, conversationId)
+            ? null
+            : await threads.ResolveAccessAsync(conversationId, caller.Data!.ActorId, null, httpContext.RequestAborted);
+        if (access is null)
         {
             return (null, null, NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ConversationNotFound));
         }
@@ -812,7 +848,10 @@ internal static class NhAssistantAgentRunEndpoints
             thread.AccountableOwnerId,
             NhAssistantAgentRunDtoMapper.RoleName(role),
             active is null ? null : NhAssistantAgentRunDtoMapper.ToDto(active),
-            await runs.CountWaitingInputsAsync(thread.ConversationId, cancellationToken));
+            await runs.CountWaitingInputsAsync(thread.ConversationId, cancellationToken))
+        {
+            Shadow = thread.Shadow
+        };
     }
 
     internal static bool TryReadSubject(

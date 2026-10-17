@@ -92,8 +92,10 @@ public sealed class NhAssistantAgentRunOptions
     public bool Enabled { get; internal set; } = true;
 
     /// <summary>
-    /// Runs execute normally, but proposals are recorded as shadow proposals that nobody is
-    /// notified about and that never execute.
+    /// The agent starts in shadow mode: its runs work in shadow threads, where proposals are recorded
+    /// as shadow proposals that nobody is notified about and that never execute. Administrators
+    /// switch a live agent at runtime with <c>INhAssistantAgentControl.SetShadowAsync</c>; a shadow
+    /// variant (<see cref="ShadowOfAgentId"/>) always works in shadow.
     /// </summary>
     public bool Shadow { get; internal set; }
 
@@ -292,7 +294,9 @@ public sealed class NhAssistantAgentRunBuilder
     }
 
     /// <summary>
-    /// Makes a technical user account answer for the agent's runs.
+    /// Makes a technical user account answer for the agent's runs. An administrator replaces the
+    /// account at runtime with <c>INhAssistantAgentControl.SetServiceAccountAsync</c>; this one
+    /// applies until then and again after the override is cleared.
     /// </summary>
     public NhAssistantAgentRunBuilder ServiceAccount(string actorId)
     {
@@ -513,8 +517,9 @@ public sealed class NhAssistantAgentRunBuilder
     }
 
     /// <summary>
-    /// Runs the agent in shadow mode: it reads and proposes, but nobody is notified and nothing
-    /// executes, so a team can evaluate it on real events.
+    /// Starts the agent in shadow mode: it reads and proposes in shadow threads, but nobody is
+    /// notified and nothing executes, so a team can evaluate it on real events. An administrator
+    /// puts it live at runtime without a deploy.
     /// </summary>
     public NhAssistantAgentRunBuilder Shadow(bool enabled = true)
     {

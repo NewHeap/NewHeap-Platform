@@ -1204,7 +1204,7 @@ internal sealed partial class NhAssistantTurnRunner(
             agentTurn.Subject,
             agentTurn.InitiatorActorId,
             agentTurn.AccountableOwnerId,
-            agentTurn.Options.Shadow,
+            agentTurn.Thread.Shadow,
             inputs.Select(input => new NhAssistantRuleInput(input.TriggerId, input.Text, input.PayloadJson, input.CreatedAt)).ToArray(),
             snapshot.Json,
             summaries,

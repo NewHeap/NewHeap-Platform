@@ -36,6 +36,13 @@ public sealed class AssistantThread
     public string AccountableOwnerId { get; set; } = string.Empty;
 
     /// <summary>
+    /// The thread holds the agent's shadow work about the subject: administrators alone see it,
+    /// nobody is notified and nothing proposed in it executes. An agent has at most one live and
+    /// one shadow thread per subject.
+    /// </summary>
+    public bool Shadow { get; set; }
+
+    /// <summary>
     /// The structured working memory the agent keeps about the subject.
     /// </summary>
     public string? MemoryJson { get; set; }

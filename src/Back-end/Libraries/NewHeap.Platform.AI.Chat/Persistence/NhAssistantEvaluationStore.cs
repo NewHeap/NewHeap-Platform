@@ -48,17 +48,19 @@ internal sealed class NhAssistantEvaluationStore(NhAssistantDbContextFactory con
 
     /// <summary>
     /// The runs of <paramref name="agentId"/> created in the period, oldest first, at most
-    /// <paramref name="max"/>.
+    /// <paramref name="max"/>: those in its live threads, or with <paramref name="shadow"/> those in
+    /// its shadow threads.
     /// </summary>
     public async Task<IReadOnlyList<NhAssistantEvaluationRun>> GetRunsAsync(
         string agentId,
         DateTimeOffset from,
         DateTimeOffset to,
         int max,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool shadow = false)
     {
         await using var context = contextFactory.CreateDbContext();
-        return await Project(RunsOf(context, agentId)
+        return await Project(RunsOf(context, agentId, shadow)
                 .Where(row => row.Run.CreatedAt >= from && row.Run.CreatedAt < to)
                 .OrderBy(row => row.Run.CreatedAt)
                 .ThenBy(row => row.Run.Id)
@@ -82,7 +84,7 @@ internal sealed class NhAssistantEvaluationStore(NhAssistantDbContextFactory con
 
         await using var context = contextFactory.CreateDbContext();
         var ids = replayedRunIds.ToArray();
-        return await Project(RunsOf(context, agentId)
+        return await Project(RunsOf(context, agentId, shadow: true)
                 .Where(row => row.Run.ReplayOfRunId.HasValue && ids.Contains(row.Run.ReplayOfRunId.Value)))
             .ToListAsync(cancellationToken);
     }
@@ -233,7 +235,7 @@ internal sealed class NhAssistantEvaluationStore(NhAssistantDbContextFactory con
                 && run.ReplayOfRunId == null
                 && !ActiveRunStatuses.Contains(run.Status))
             .Join(
-                context.Threads.AsNoTracking().Where(thread => thread.AgentId == replay.SourceAgentId),
+                context.Threads.AsNoTracking().Where(thread => thread.AgentId == replay.SourceAgentId && !thread.Shadow),
                 run => run.ConversationId,
                 thread => thread.ConversationId,
                 (run, thread) => new { Run = run, Thread = thread });
@@ -265,12 +267,12 @@ internal sealed class NhAssistantEvaluationStore(NhAssistantDbContextFactory con
             .ToListAsync(cancellationToken);
     }
 
-    private static IQueryable<RunRow> RunsOf(NhAssistantDbContext context, string agentId)
+    private static IQueryable<RunRow> RunsOf(NhAssistantDbContext context, string agentId, bool shadow)
     {
         return context.Runs
             .AsNoTracking()
             .Join(
-                context.Threads.AsNoTracking().Where(thread => thread.AgentId == agentId),
+                context.Threads.AsNoTracking().Where(thread => thread.AgentId == agentId && thread.Shadow == shadow),
                 run => run.ConversationId,
                 thread => thread.ConversationId,
                 (run, thread) => new RunRow { Run = run, Thread = thread });

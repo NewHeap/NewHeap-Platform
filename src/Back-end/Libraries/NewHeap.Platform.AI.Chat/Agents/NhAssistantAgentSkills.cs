@@ -51,6 +51,13 @@ public sealed class NhAssistantSkillOptions
 
     public string? ApprovalPolicyId { get; internal set; }
 
+    /// <summary>
+    /// The skill starts in shadow mode: its work goes to the agent's shadow thread of the subject,
+    /// where nobody is notified and nothing executes. Administrators switch it at runtime with
+    /// <c>INhAssistantAgentControl.SetSkillShadowAsync</c>.
+    /// </summary>
+    public bool Shadow { get; internal set; }
+
     internal void SetToolSelectors(IEnumerable<string> selectors)
     {
         _toolSelectors.Clear();
@@ -189,6 +196,17 @@ public sealed class NhAssistantSkillBuilder
         }
 
         _options.ApprovalPolicyId = policyId;
+        return this;
+    }
+
+    /// <summary>
+    /// Starts the skill in shadow mode, so a team evaluates it on real events while the agent's
+    /// other skills work live: the work that reaches the skill goes to the agent's shadow thread of
+    /// the subject. An administrator puts it live at runtime without a deploy.
+    /// </summary>
+    public NhAssistantSkillBuilder Shadow(bool enabled = true)
+    {
+        _options.Shadow = enabled;
         return this;
     }
 }

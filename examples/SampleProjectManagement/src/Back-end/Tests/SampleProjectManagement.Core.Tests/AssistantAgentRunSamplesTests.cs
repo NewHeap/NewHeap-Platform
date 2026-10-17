@@ -457,6 +457,121 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task An_operator_puts_the_project_closer_and_a_planner_skill_in_shadow_while_the_team_evaluates_them()
+    {
+        // SPM-293
+        const string closer = SampleProjectCloserComposition.AgentId;
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string skill = SampleProjectPlannerComposition.TaskFollowUpSkill;
+        var evaluated = await host.CreateProjectAsync("SHADOW", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        var live = await host.CreateProjectAsync("LIVE", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        await host.AddMemberAsync(evaluated, host.ColleagueId, ProjectMemberRole.Approver);
+        await host.AddMemberAsync(live, host.ColleagueId, ProjectMemberRole.Approver);
+        var report = await host.CreateTaskAsync(evaluated, "Write the report");
+        var handover = await host.CreateTaskAsync(live, "Hand the project over");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            // While the team evaluates the closer's rules and the planner's follow-ups, the operator
+            // puts the closer and the planner's task follow-up skill in shadow.
+            var closerState = await ChangeShadowAsync(closer, SampleShadowChange.Shadow, "Evaluate the closing rules");
+            Assert.True(closerState.Shadow!.Shadow);
+            Assert.True(closerState.Shadow.Override);
+            var skillState = await ChangeSkillShadowAsync(planner, skill, SampleShadowChange.Shadow, "Evaluate the follow-ups");
+            Assert.True(skillState.Shadow.Shadow);
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(report, host.ParticipantId));
+
+            // The closer proposes in its shadow thread, which only administrators see; the proposal
+            // never executes and the approver hears nothing of it.
+            var closerShadow = await WaitForShadowThreadAsync(administrator, evaluated, closer);
+            var shadowProposal = await WaitForProposalAsync(administrator, closerShadow, NhAssistantApprovalStatuses.Shadow);
+            Assert.Equal(ProjectAiTools.ChangeStatusToolId, shadowProposal.ToolId);
+            var plannerShadow = await WaitForShadowThreadAsync(administrator, evaluated, planner);
+            var plannerRun = Assert.Single(await WaitForRunCountAsync(administrator, plannerShadow, 1));
+            Assert.True(plannerRun.Shadow);
+            Assert.Equal(skill, plannerRun.Skill);
+            var memberWork = (await colleague.GetFromJsonAsync<NhAssistantSubjectWorkDto>($"/api/assistant/subjects/project/{evaluated:D}/work", Json))!;
+            Assert.All(memberWork.Agents, agent => Assert.Null(agent.ShadowThread));
+            Assert.DoesNotContain(memberWork.Agents, agent => agent.AgentId == closer && agent.Thread is not null);
+            Assert.DoesNotContain(memberWork.OpenProposals, proposal => proposal.Proposal.ConversationId == closerShadow);
+            Assert.Equal(HttpStatusCode.NotFound, (await colleague.GetAsync($"/api/assistant/conversations/{closerShadow}")).StatusCode);
+            Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == evaluated);
+
+            // The rules convinced the team: the operator lets the code decide again, and the closer
+            // proposes live, in the live thread the approver decides in.
+            var liveState = await ChangeShadowAsync(closer, SampleShadowChange.Code, "The closing rules are good");
+            Assert.False(liveState.Shadow!.Shadow);
+            Assert.Null(liveState.Shadow.Override);
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(handover, host.ParticipantId));
+            var liveThread = await WaitForThreadAsync(colleague, live, closer);
+            var liveProposal = await WaitForProposalAsync(colleague, liveThread, NhAssistantApprovalStatuses.Pending);
+            Assert.Equal(ProjectAiTools.ChangeStatusToolId, liveProposal.ToolId);
+        }
+        finally
+        {
+            // Other samples share the host, its closer and its planner.
+            await ChangeShadowAsync(closer, SampleShadowChange.Code, null);
+            await ChangeSkillShadowAsync(planner, skill, SampleShadowChange.Code, null);
+        }
+    }
+
+    [Fact]
+    public async Task An_operator_replaces_the_technical_account_of_the_project_closer_for_its_new_runs()
+    {
+        // SPM-294
+        const string closer = SampleProjectCloserComposition.AgentId;
+        var configured = host.TechnicalAccountId.ToString("D");
+        var operations = host.OperationsAccountId.ToString("D");
+        var before = await host.CreateProjectAsync("ACCOUNT", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        var after = await host.CreateProjectAsync("ACCOUNT", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        await host.AddMemberAsync(before, host.ColleagueId, ProjectMemberRole.Approver);
+        await host.AddMemberAsync(after, host.ColleagueId, ProjectMemberRole.Approver);
+        var first = await host.CreateTaskAsync(before, "Close the books");
+        var second = await host.CreateTaskAsync(after, "Close the books");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        colleague.DefaultRequestHeaders.AcceptLanguage.Clear();
+        colleague.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en");
+        try
+        {
+            // The closer answers to the technical account in the application's configuration.
+            var initial = (await AgentStateAsync(closer)).ServiceAccount!;
+            Assert.Equal(configured, initial.ActorId);
+            Assert.Equal(configured, initial.ConfiguredActorId);
+            Assert.False(initial.Overridden);
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(first, host.ParticipantId));
+            var beforeThread = await WaitForThreadAsync(colleague, before, closer);
+            var beforeProposal = await WaitForProposalAsync(colleague, beforeThread, NhAssistantApprovalStatuses.Pending);
+            Assert.Equal(configured, Assert.Single(await RunsAsync(colleague, beforeThread)).AccountableOwnerId);
+
+            // An account that does not exist is refused; the operations account takes over.
+            var unknown = await ChangeServiceAccountAsync(closer, Guid.NewGuid(), "A typo");
+            Assert.Contains(unknown.GetResultItems(), item => item.Name == NhAssistantErrorCodes.ServiceAccountNotFound);
+            var changed = await ChangeServiceAccountAsync(closer, host.OperationsAccountId, "The operations account takes over");
+            Assert.True(changed.Success);
+            Assert.Equal(operations, changed.Data!.ServiceAccount!.ActorId);
+            Assert.True(changed.Data.ServiceAccount.Overridden);
+            Assert.Equal("The operations account takes over", changed.Data.ServiceAccount.Reason);
+
+            // New runs answer to the operations account; the earlier run keeps its account, and its
+            // proposal still executes after the approval.
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(second, host.ParticipantId));
+            var afterThread = await WaitForThreadAsync(colleague, after, closer);
+            await WaitForProposalAsync(colleague, afterThread, NhAssistantApprovalStatuses.Pending);
+            Assert.Equal(operations, Assert.Single(await RunsAsync(colleague, afterThread)).AccountableOwnerId);
+            Assert.Equal(configured, Assert.Single(await RunsAsync(colleague, beforeThread)).AccountableOwnerId);
+            Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, beforeProposal, "approve")).StatusCode);
+            await WaitForProposalAsync(colleague, beforeThread, NhAssistantApprovalStatuses.Executed);
+            Assert.Contains(host.Projects.StatusChanges, change => change.ProjectId == before && change.Status == ProjectStatus.Completed);
+        }
+        finally
+        {
+            var back = await ChangeServiceAccountAsync(closer, null, null);
+            Assert.Equal(configured, back.Data!.ServiceAccount!.ActorId);
+        }
+    }
+
+    [Fact]
     public async Task An_operator_pauses_the_project_closer_for_an_import_and_stops_it_without_losing_approved_work()
     {
         // SPM-284
@@ -1736,6 +1851,56 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         return string.Concat(message.Parts.OfType<NhAssistantTextPartDto>().Select(part => part.Text));
     }
 
+    private async Task<NhAssistantAgentState> ChangeShadowAsync(string agentId, SampleShadowChange change, string? reason)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var changed = await scope.ServiceProvider.GetRequiredService<SampleAgentMaintenanceService>()
+            .ChangeShadowAsync(agentId, change, host.OwnerId, reason, CancellationToken.None);
+        Assert.NotNull(changed);
+        Assert.True(changed.Success);
+        return changed.Data!;
+    }
+
+    private async Task<NhAssistantSkillState> ChangeSkillShadowAsync(string agentId, string skillId, SampleShadowChange change, string? reason)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var changed = await scope.ServiceProvider.GetRequiredService<SampleAgentMaintenanceService>()
+            .ChangeSkillShadowAsync(agentId, skillId, change, host.OwnerId, reason, CancellationToken.None);
+        Assert.NotNull(changed);
+        Assert.True(changed.Success);
+        return changed.Data!;
+    }
+
+    private async Task<TaskResult<NhAssistantAgentState>> ChangeServiceAccountAsync(string agentId, Guid? accountId, string? reason)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var changed = await scope.ServiceProvider.GetRequiredService<SampleAgentMaintenanceService>()
+            .ChangeServiceAccountAsync(agentId, accountId, host.OwnerId, reason, CancellationToken.None);
+        Assert.NotNull(changed);
+        return changed;
+    }
+
+    /// <summary>
+    /// SPM-293: waits until an administrator sees the agent's shadow thread of the project.
+    /// </summary>
+    private static async Task<Guid> WaitForShadowThreadAsync(HttpClient administrator, Guid projectId, string agentId)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var work = await administrator.GetFromJsonAsync<NhAssistantSubjectWorkDto>($"/api/assistant/subjects/project/{projectId:D}/work", Json);
+            if (work?.Agents.FirstOrDefault(agent => agent.AgentId == agentId)?.ShadowThread is { } thread)
+            {
+                Assert.True(thread.Shadow);
+                return thread.ConversationId;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        }
+
+        throw new TimeoutException($"No shadow thread of agent {agentId} was created for project {projectId}.");
+    }
+
     private async Task<NhAssistantAgentState> ChangeAgentAsync(string agentId, SampleAgentStateChange change, string? reason)
     {
         await using var scope = host.Services.CreateAsyncScope();
@@ -1809,6 +1974,14 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
 
     public Guid ParticipantId { get; } = Guid.NewGuid();
 
+    /// <summary>
+    /// SPM-294: the technical account the closer answers to by configuration, and the operations
+    /// account an operator lets take over.
+    /// </summary>
+    public Guid TechnicalAccountId { get; } = Guid.NewGuid();
+
+    public Guid OperationsAccountId { get; } = Guid.NewGuid();
+
     public FakeReviewRequests Reviews { get; } = new();
 
     public const string ReviewBoardSecret = "sample-review-board-secret-for-tests-only";
@@ -1821,7 +1994,15 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
         AddUser(dbContext, ReaderId, "reader@sample.localhost");
         AddUser(dbContext, ParticipantId, "participant@sample.localhost");
+        AddUser(dbContext, TechnicalAccountId, "closer-account@sample.localhost");
+        AddUser(dbContext, OperationsAccountId, "operations-account@sample.localhost");
         await dbContext.SaveChangesAsync();
+        // The technical accounts may sign in, so the closer's runs can answer to them.
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
+        foreach (var account in new[] { TechnicalAccountId, OperationsAccountId })
+        {
+            await users.UpdateSecurityStampAsync((await users.FindByIdAsync(account.ToString()))!);
+        }
     }
 
     public override async ValueTask DisposeAsync()
@@ -1990,7 +2171,8 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         services.AddSingleton<IProjectReviewRequestService>(Reviews);
         services.AddSampleIntakeReviewer();
         services.AddSampleStatusAdvisor();
-        services.AddSampleProjectCloser();
+        // SPM-294: the closer answers to the technical account in configuration.
+        services.AddSampleProjectCloser(TechnicalAccountId.ToString("D"));
         services.AddSampleProjectPlanner();
         services.AddSampleProjectPlannerVariant();
     }

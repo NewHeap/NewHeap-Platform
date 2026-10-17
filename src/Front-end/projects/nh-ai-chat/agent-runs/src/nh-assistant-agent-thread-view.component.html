@@ -11,6 +11,9 @@
           · {{ 'nh-assistant.agent-runs.thread.waiting-inputs' | translate: { count: thread()!.waitingInputs } }}
         }
       </p>
+      @if (thread()?.shadow) {
+        <p class="muted" data-shadow-thread>{{ 'nh-assistant.agent-runs.thread.shadow' | translate }}</p>
+      }
     </div>
     <div class="toolbar">
       @if (thread(); as current) {

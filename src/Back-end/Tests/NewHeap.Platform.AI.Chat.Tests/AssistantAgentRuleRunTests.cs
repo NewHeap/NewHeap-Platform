@@ -384,7 +384,8 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
             return NhAssistantRuleResult.Done("Proposed in shadow.");
         };
 
-        var run = await StartRunAsync(host, projectId);
+        // The triggers of an agent in shadow start its runs in the shadow thread of the subject.
+        var run = await StartRunAsync(host, projectId, shadow: true);
         await RunTurnAsync(host, run, "Round 1.");
 
         var approval = Assert.Single(await RunStore(host).GetRunApprovalsAsync(run.Run.Id, CancellationToken.None));
@@ -487,13 +488,14 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         Guid projectId,
         string triggerId = "project-created",
         bool isRequestTurn = false,
-        bool agentEnabled = true)
+        bool agentEnabled = true,
+        bool shadow = false)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var info = (await services.GetRequiredService<NhAssistantSubjectAccessService>().DescribeAsync(Subject(projectId), CancellationToken.None))!;
         var agent = (await services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(AgentId, includeDisabled: !agentEnabled, CancellationToken.None))!;
-        var thread = (await services.GetRequiredService<NhAssistantThreadService>().GetOrCreateAsync(agent, info, CancellationToken.None)).Data!;
+        var thread = (await services.GetRequiredService<NhAssistantThreadService>().GetOrCreateAsync(agent, info, CancellationToken.None, shadow)).Data!;
         var run = new AssistantRun
         {
             Id = Guid.NewGuid(),
@@ -501,6 +503,7 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
             TriggerId = triggerId,
             AccountableOwnerId = thread.AccountableOwnerId,
             Status = NhAssistantRunStatuses.Queued,
+            Shadow = shadow,
             AgentVersion = agent.Definition.Version,
             CreatedAt = DateTimeOffset.UtcNow,
             ConcurrencyStamp = Guid.NewGuid()

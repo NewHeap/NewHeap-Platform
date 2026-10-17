@@ -13,6 +13,8 @@ namespace SampleProjectManagement.Api.Controllers;
 /// <summary>
 /// SPM-284: the application's maintenance page for its agents. Operators who manage projects pause
 /// an agent around an import, stop it when it proposes wrongly and resume it, each with a reason.
+/// SPM-293 and SPM-294: they also put an agent or a skill in shadow or live and replace the
+/// technical account an agent answers to, without a deploy.
 /// </summary>
 [ApiController]
 [Route("agent-maintenance")]
@@ -108,6 +110,118 @@ public sealed class AgentMaintenanceController(SampleAgentMaintenanceService mai
         }
 
         return result.Success ? Ok(result.Data) : BadRequest();
+    }
+
+    [HttpPost("{agentId}/shadow/{mode}")]
+    [EndpointSummary("Put an agent in shadow or live")]
+    [EndpointDescription("mode is shadow, live or code. In shadow the agent's runs work in shadow threads that only administrators see: nobody is notified and nothing executes. code lets the mode in code decide again. A shadow variant always works in shadow and answers 409.")]
+    [ProducesResponseType<NhAssistantAgentState>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ChangeShadow(
+        string agentId,
+        string mode,
+        [FromBody] AgentStateChangeMutateModel model,
+        CancellationToken cancellationToken)
+    {
+        if (HttpContext.GetUserId() is not { } operatorId)
+        {
+            return Unauthorized();
+        }
+        if (ShadowChange(mode) is not { } change)
+        {
+            return NotFound();
+        }
+
+        var result = await maintenance.ChangeShadowAsync(agentId, change, operatorId, model.Reason, cancellationToken);
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        return result.Success
+            ? Ok(result.Data)
+            : result.GetResultItems().Any(item => item.Name == NhAssistantErrorCodes.ShadowVariant) ? Conflict() : BadRequest();
+    }
+
+    [HttpPost("{agentId}/skills/{skillId}/shadow/{mode}")]
+    [EndpointSummary("Put one skill of an agent in shadow or live")]
+    [EndpointDescription("mode is shadow, live or code. Work that reaches a skill in shadow goes to the agent's shadow threads; the agent's other skills keep their mode.")]
+    [ProducesResponseType<NhAssistantSkillState>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ChangeSkillShadow(
+        string agentId,
+        string skillId,
+        string mode,
+        [FromBody] AgentStateChangeMutateModel model,
+        CancellationToken cancellationToken)
+    {
+        if (HttpContext.GetUserId() is not { } operatorId)
+        {
+            return Unauthorized();
+        }
+        if (ShadowChange(mode) is not { } change)
+        {
+            return NotFound();
+        }
+
+        var result = await maintenance.ChangeSkillShadowAsync(agentId, skillId, change, operatorId, model.Reason, cancellationToken);
+        if (result is null || result.GetResultItems().Any(item => item.Name == NhAssistantErrorCodes.SkillNotFound))
+        {
+            return NotFound();
+        }
+
+        return result.Success
+            ? Ok(result.Data)
+            : result.GetResultItems().Any(item => item.Name == NhAssistantErrorCodes.ShadowVariant) ? Conflict() : BadRequest();
+    }
+
+    [HttpPost("{agentId}/service-account")]
+    [EndpointSummary("Replace the technical account of an agent")]
+    [EndpointDescription("accountId is the user that answers for the agent's new runs; it must exist and be allowed to sign in. Without it the account in configuration answers again. Started runs keep their account. An agent that answers to no technical account answers 409.")]
+    [ProducesResponseType<NhAssistantAgentState>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ChangeServiceAccount(
+        string agentId,
+        [FromBody] AgentServiceAccountMutateModel model,
+        CancellationToken cancellationToken)
+    {
+        if (HttpContext.GetUserId() is not { } operatorId)
+        {
+            return Unauthorized();
+        }
+
+        var result = await maintenance.ChangeServiceAccountAsync(agentId, model.AccountId, operatorId, model.Reason, cancellationToken);
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        return result.Success
+            ? Ok(result.Data)
+            : result.GetResultItems().Any(item => item.Name == NhAssistantErrorCodes.ServiceAccountNotUsed) ? Conflict() : BadRequest();
+    }
+
+    private static SampleShadowChange? ShadowChange(string mode)
+    {
+        return mode switch
+        {
+            "shadow" => SampleShadowChange.Shadow,
+            "live" => SampleShadowChange.Live,
+            "code" => SampleShadowChange.Code,
+            _ => null
+        };
     }
 
     private async Task<IActionResult> ChangeAsync(

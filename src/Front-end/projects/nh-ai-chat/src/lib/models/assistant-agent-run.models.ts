@@ -91,6 +91,11 @@ export interface AgentThread {
   role: AgentSubjectRole;
   activeRun: AgentRun | null;
   waitingInputs: number;
+  /**
+   * The thread holds the agent's shadow work about the subject: only administrators see it,
+   * nobody is notified and nothing proposed in it executes.
+   */
+  shadow?: boolean;
 }
 
 export interface AgentThreadLookup {
@@ -114,6 +119,11 @@ export interface AgentSubjectWorkAgent {
   agentId: string;
   thread: AgentThread | null;
   canStart: boolean;
+  /**
+   * For administrators, the agent's shadow thread about the subject while the agent or one of its
+   * skills works in shadow; missing or `null` otherwise.
+   */
+  shadowThread?: AgentThread | null;
 }
 
 /**

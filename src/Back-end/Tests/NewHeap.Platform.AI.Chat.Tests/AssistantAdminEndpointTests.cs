@@ -169,7 +169,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         var code = list.EnumerateArray().Single(agent => agent.GetProperty("id").GetString() == "project-assistant");
         AssertNames(code, "id", "displayName", "description", "instructions", "toolSelectors", "mcpServerIds", "requiredPolicy",
             "autonomy", "isEnabled", "version", "source", "isOverridden", "instructionsHash", "updatedAt",
-            "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf");
+            "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf", "shadow", "serviceAccount");
         Assert.Equal("active", code.GetProperty("runState").GetString());
         Assert.Equal("code", code.GetProperty("source").GetString());
         Assert.Equal("execute", code.GetProperty("autonomy").GetString());
@@ -233,7 +233,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         using var released = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = false }));
         var active = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
 
-        AssertNames(initial, "agentId", "runState", "active", "changedAt", "changedBy", "reason", "waitingInputs", "cancelledRuns", "startedRuns", "skills", "shadowOf");
+        AssertNames(initial, "agentId", "runState", "active", "changedAt", "changedBy", "reason", "waitingInputs", "cancelledRuns", "startedRuns", "skills", "shadowOf", "shadow", "serviceAccount");
         Assert.Equal("active", initial.GetProperty("runState").GetString());
         Assert.True(initial.GetProperty("active").GetBoolean());
         Assert.Equal(HttpStatusCode.OK, paused.StatusCode);
@@ -260,6 +260,91 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Equal("stopped", stopped.GetProperty("runState").GetString());
         Assert.True((await ReadJsonAsync(released)).GetProperty("enabled").GetBoolean());
         Assert.Equal("active", active.GetProperty("runState").GetString());
+    }
+
+    [Fact]
+    public async Task The_shadow_and_service_account_endpoints_override_the_code_at_runtime()
+    {
+        await using var app = await AssistantWebApplication.StartAsync(
+            database,
+            new NhAiScriptedChatClient(),
+            configure: services =>
+            {
+                services.Replace(ServiceDescriptor.Singleton<NewHeap.Platform.AI.AspNet.INhAiPrincipalFactory, KnownAccountPrincipalFactory>());
+                // The endpoints change stored overrides only; this host has no background operations
+                // for agent runs, which the startup check would require.
+                services.Remove(services.Single(descriptor => descriptor.ImplementationType == typeof(NewHeap.Platform.AI.Chat.AspNet.NhAssistantStartupValidator)));
+            },
+            assistantBuilder: assistant => assistant
+                .AddAgent(AssistantTestData.Agent("project-assistant-next"))
+                .ConfigureAgent("project-assistant", agent => agent
+                    .ServiceAccount(KnownAccountPrincipalFactory.First)
+                    .Skill("notes", skill => skill.Description("Writes notes.").Shadow()))
+                .ConfigureAgent("project-assistant-next", agent => agent.ShadowOf("project-assistant"))
+                .ConfigureAgent("project-manager", _ => { }));
+        using var admin = app.CreateClient(admin: true);
+        using var user = app.CreateClient();
+        const string path = "/api/assistant/admin/agents/project-assistant";
+
+        var initial = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
+        using var shadow = await admin.PostAsync(path + "/shadow", Json(new { mode = "shadow", reason = "Evaluate the new instructions" }));
+        using var missingMode = await admin.PostAsync(path + "/shadow", Json(new { reason = "No mode" }));
+        using var invalidMode = await admin.PostAsync(path + "/shadow", Json(new { mode = "sometimes" }));
+        using var forbidden = await user.PostAsync(path + "/shadow", Json(new { mode = "live" }));
+        using var variant = await admin.PostAsync("/api/assistant/admin/agents/project-assistant-next/shadow", Json(new { mode = "live" }));
+        using var skillLive = await admin.PostAsync(path + "/skills/notes/shadow", Json(new { mode = "live" }));
+        using var unknownSkill = await admin.PostAsync(path + "/skills/missing/shadow", Json(new { mode = "live" }));
+        using var unknownAccount = await admin.PostAsync(path + "/service-account", Json(new { actorId = "nobody", reason = "Rotate" }));
+        using var account = await admin.PostAsync(path + "/service-account", Json(new { actorId = KnownAccountPrincipalFactory.Second, reason = "Rotate" }));
+        using var notUsed = await admin.PostAsync("/api/assistant/admin/agents/project-manager/service-account", Json(new { actorId = KnownAccountPrincipalFactory.Second }));
+        var listed = (await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/agents"))).EnumerateArray()
+            .Single(agent => agent.GetProperty("id").GetString() == "project-assistant");
+        using var back = await admin.PostAsync(path + "/service-account", Json(new { actorId = (string?)null }));
+        using var code = await admin.PostAsync(path + "/shadow", Json(new { mode = "code" }));
+
+        AssertNames(initial.GetProperty("shadow"), "shadow", "configured", "override", "locked", "changedAt", "changedBy", "reason");
+        AssertNames(initial.GetProperty("serviceAccount"), "actorId", "configuredActorId", "overridden", "changedAt", "changedBy", "reason");
+        Assert.False(initial.GetProperty("shadow").GetProperty("shadow").GetBoolean());
+        Assert.Equal(KnownAccountPrincipalFactory.First, initial.GetProperty("serviceAccount").GetProperty("actorId").GetString());
+        var notes = initial.GetProperty("skills").EnumerateArray().Single();
+        Assert.True(notes.GetProperty("shadow").GetProperty("shadow").GetBoolean());
+        Assert.True(notes.GetProperty("shadow").GetProperty("configured").GetBoolean());
+
+        Assert.Equal(HttpStatusCode.OK, shadow.StatusCode);
+        var shadowed = (await ReadJsonAsync(shadow)).GetProperty("shadow");
+        Assert.True(shadowed.GetProperty("shadow").GetBoolean());
+        Assert.True(shadowed.GetProperty("override").GetBoolean());
+        Assert.Equal("Evaluate the new instructions", shadowed.GetProperty("reason").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, missingMode.StatusCode);
+        AssertNames((await ReadJsonAsync(missingMode)).GetProperty("errors"), "mode");
+        Assert.Equal(HttpStatusCode.BadRequest, invalidMode.StatusCode);
+        Assert.Equal("invalid", (await ReadJsonAsync(invalidMode)).GetProperty("errors").GetProperty("mode")[0].GetString());
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, variant.StatusCode);
+        Assert.Equal("assistant-shadow-variant", (await ReadJsonAsync(variant)).GetProperty("code").GetString());
+        // The skill is live by itself, but works in shadow while its agent does.
+        Assert.Equal(HttpStatusCode.OK, skillLive.StatusCode);
+        var skillShadow = (await ReadJsonAsync(skillLive)).GetProperty("shadow");
+        Assert.False(skillShadow.GetProperty("override").GetBoolean());
+        Assert.True(skillShadow.GetProperty("shadow").GetBoolean());
+        Assert.Equal(HttpStatusCode.NotFound, unknownSkill.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, unknownAccount.StatusCode);
+        Assert.Equal("assistant-service-account-not-found", (await ReadJsonAsync(unknownAccount)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.OK, account.StatusCode);
+        var changed = (await ReadJsonAsync(account)).GetProperty("serviceAccount");
+        Assert.Equal(KnownAccountPrincipalFactory.Second, changed.GetProperty("actorId").GetString());
+        Assert.Equal(KnownAccountPrincipalFactory.First, changed.GetProperty("configuredActorId").GetString());
+        Assert.True(changed.GetProperty("overridden").GetBoolean());
+        Assert.Equal(HttpStatusCode.Conflict, notUsed.StatusCode);
+        Assert.Equal("assistant-service-account-not-used", (await ReadJsonAsync(notUsed)).GetProperty("code").GetString());
+        Assert.True(listed.GetProperty("shadow").GetProperty("shadow").GetBoolean());
+        Assert.Equal(KnownAccountPrincipalFactory.Second, listed.GetProperty("serviceAccount").GetProperty("actorId").GetString());
+        Assert.Equal(HttpStatusCode.OK, back.StatusCode);
+        Assert.False((await ReadJsonAsync(back)).GetProperty("serviceAccount").GetProperty("overridden").GetBoolean());
+        Assert.Equal(HttpStatusCode.OK, code.StatusCode);
+        var followsCode = (await ReadJsonAsync(code)).GetProperty("shadow");
+        Assert.False(followsCode.GetProperty("shadow").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, followsCode.GetProperty("override").ValueKind);
     }
 
     [Fact]

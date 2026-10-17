@@ -30,6 +30,29 @@ internal sealed record NhAssistantAgent(
     public string? StateChangedBy { get; init; }
 
     public string? StateReason { get; init; }
+
+    /// <summary>
+    /// The shadow mode an administrator set at runtime; <see langword="null"/> follows the code.
+    /// </summary>
+    public bool? ShadowOverride { get; init; }
+
+    public DateTimeOffset? ShadowChangedAt { get; init; }
+
+    public string? ShadowChangedBy { get; init; }
+
+    public string? ShadowReason { get; init; }
+
+    /// <summary>
+    /// The technical account an administrator set at runtime; <see langword="null"/> uses the one in
+    /// code.
+    /// </summary>
+    public string? ServiceAccountOverride { get; init; }
+
+    public DateTimeOffset? ServiceAccountChangedAt { get; init; }
+
+    public string? ServiceAccountChangedBy { get; init; }
+
+    public string? ServiceAccountReason { get; init; }
 }
 
 /// <summary>
@@ -131,7 +154,15 @@ internal sealed class NhAssistantAgentCatalog(
                 : NhAssistantAgentRunStates.IsStored(row.RunState) ? row.RunState : NhAssistantAgentRunStates.Active,
             StateChangedAt = row.StateChangedAt,
             StateChangedBy = row.StateChangedBy,
-            StateReason = row.StateReason
+            StateReason = row.StateReason,
+            ShadowOverride = row.ShadowOverride,
+            ShadowChangedAt = row.ShadowChangedAt,
+            ShadowChangedBy = row.ShadowChangedBy,
+            ShadowReason = row.ShadowReason,
+            ServiceAccountOverride = row.ServiceAccountActorId,
+            ServiceAccountChangedAt = row.ServiceAccountChangedAt,
+            ServiceAccountChangedBy = row.ServiceAccountChangedBy,
+            ServiceAccountReason = row.ServiceAccountReason
         };
     }
 
@@ -233,6 +264,11 @@ internal sealed class NhAssistantSeeder(
             var now = DateTimeOffset.UtcNow;
             await store.UpsertCodeAgentsAsync(
                 state.Agents.Select(agent => NhAssistantAgentCatalog.ToCodeRow(agent, now)).ToArray(),
+                cancellationToken);
+            // Threads of agents that work in shadow by their code stay with administrators.
+            await store.MarkShadowThreadsAsync(
+                state.AgentRuns.Values.Where(options => options.ShadowOfAgentId is not null).Select(options => options.AgentId).ToArray(),
+                state.AgentRuns.Values.Where(options => options.ShadowOfAgentId is null && options.Shadow).Select(options => options.AgentId).ToArray(),
                 cancellationToken);
             if (state.DefaultApplicationContext is { } seed)
             {

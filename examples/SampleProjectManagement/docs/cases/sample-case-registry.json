@@ -4474,6 +4474,42 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentSkillTests.cs",
         "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-timeline.component.html"
       ]
+    },
+    {
+      "id": "SPM-293",
+      "categoryId": "18",
+      "title": "An operator puts the project closer and a planner skill in shadow at runtime while the team evaluates them, and puts them live again",
+      "surface": "`INhAssistantAgentControl.SetShadowAsync` and `SetSkillShadowAsync` with `NhAssistantShadowState` on `NhAssistantAgentState` and `NhAssistantSkillState`; `NhAssistantSkillBuilder.Shadow`; `POST admin/agents/{id}/shadow` and `POST admin/agents/{id}/skills/{skillId}/shadow` with `NhAssistantShadowRequest` and `NhAssistantShadowChoices`; shadow threads with `shadow` on `NhAssistantThreadDto` and `shadowThread` on `NhAssistantSubjectAgentDto`; `assistant-moved-to-shadow` and `assistant-shadow-variant`; the AgentRuntimeOverrides migrations for SQL Server and PostgreSQL; `setAgentShadow` and `setSkillShadow` in `NhAssistantAdminApiService`, the shadow actions of `NhAssistantAdminAgentsComponent` and the shadow note of the agent thread view",
+      "outcome": "Through the sample's maintenance page the operator puts the project closer and the planner's task follow-up skill in shadow while the team evaluates them. A completed task then starts their runs in their shadow threads of the project: the closer proposes to complete the project as a shadow proposal that never executes, and the planner follows the task up in the skill. An administrator sees both shadow threads in the project's work; the approver sees neither thread nor proposal, opening the shadow thread answers not found, and the project's status stays. Once the operator lets the code decide again, the closer proposes live in the live thread the approver decides in.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowModes.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRuntimeOverrideTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.html"
+      ]
+    },
+    {
+      "id": "SPM-294",
+      "categoryId": "18",
+      "title": "An operator replaces the technical account the project closer answers to for its new runs, next to the account in the application's configuration",
+      "surface": "`INhAssistantAgentControl.SetServiceAccountAsync` with `NhAssistantServiceAccountState` on `NhAssistantAgentState`; `NhAssistantAgentRunBuilder.ServiceAccount` as the default from configuration; `POST admin/agents/{id}/service-account` with `NhAssistantServiceAccountRequest`; `INhAiPrincipalFactory` deciding which accounts exist; `assistant-service-account-not-found` and `assistant-service-account-not-used`; `AdminAgentServiceAccountChanged`; `setServiceAccount` in `NhAssistantAdminApiService` and the technical account actions of `NhAssistantAdminAgentsComponent`",
+      "outcome": "The project closer answers to the technical account in the application's configuration. Through the maintenance page the operator lets the operations account take over: an account that does not exist is refused, the closer's next run answers to the operations account and the project's thread with it, while the run before the change keeps its account and its approved proposal still completes the project. Clearing the override makes the configured account answer again.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRuntimeOverrideTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.ts"
+      ]
     }
   ]
 }

@@ -132,22 +132,24 @@ internal sealed class NhAssistantThreadService(
     NhAssistantRegistrationState registration)
 {
     /// <summary>
-    /// Returns the thread of the agent about the subject, creating it when needed.
+    /// Returns the live thread of the agent about the subject, or with <paramref name="shadow"/> its
+    /// shadow thread, creating it when needed.
     /// </summary>
     public async Task<TaskResult<AssistantThread>> GetOrCreateAsync(
         NhAssistantAgent agent,
         NhAiSubjectInfo subject,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool shadow = false)
     {
         ArgumentNullException.ThrowIfNull(agent);
         ArgumentNullException.ThrowIfNull(subject);
-        var existing = await runs.FindThreadAsync(subject.ScopeKey, agent.Id, subject.Subject, cancellationToken);
+        var existing = await runs.FindThreadAsync(subject.ScopeKey, agent.Id, subject.Subject, cancellationToken, shadow);
         if (existing is not null)
         {
             return TaskResult<AssistantThread>.Succeeded(existing);
         }
 
-        var accountable = ResolveAccountableOwner(agent.Definition, subject);
+        var accountable = ResolveAccountableOwner(agent, subject);
         if (!accountable.Success)
         {
             return TaskResult<AssistantThread>.Failed(accountable);
@@ -182,6 +184,7 @@ internal sealed class NhAssistantThreadService(
             SubjectVersion = subject.Version,
             Accountability = NhAssistantAccountabilities.From(options.Accountability),
             AccountableOwnerId = accountable.Data!,
+            Shadow = shadow,
             MemorySchemaVersion = options.MemorySchemaVersion,
             MemoryConcurrencyStamp = Guid.NewGuid(),
             CreatedAt = now,
@@ -193,10 +196,11 @@ internal sealed class NhAssistantThreadService(
 
     /// <summary>
     /// Returns who answers for a run of the agent on the subject: the agent itself, the
-    /// subject's responsible person or the configured service account.
+    /// subject's responsible person or the technical account, the one an administrator set at
+    /// runtime before the one in code.
     /// </summary>
     public TaskResult<string> ResolveAccountableOwner(
-        NhAssistantAgentDefinition agent,
+        NhAssistantAgent agent,
         NhAiSubjectInfo subject)
     {
         var options = registration.GetOrAddAgentRun(agent.Id);
@@ -209,9 +213,9 @@ internal sealed class NhAssistantThreadService(
                         "The subject has no responsible person to answer for the agent.")
                     : TaskResult<string>.Succeeded(subject.ResponsibleActorId);
             case NhAiAgentAccountability.ServiceAccount:
-                return TaskResult<string>.Succeeded(options.ServiceAccountActorId!);
+                return TaskResult<string>.Succeeded(agent.ServiceAccountOverride ?? options.ServiceAccountActorId!);
             default:
-                return TaskResult<string>.Succeeded(agent.ActorId);
+                return TaskResult<string>.Succeeded(agent.Definition.ActorId);
         }
     }
 

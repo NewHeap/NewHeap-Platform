@@ -114,6 +114,13 @@ internal sealed class NhAssistantTurnState
     /// </summary>
     public IReadOnlyDictionary<string, string> SkillStates { get; set; } = new Dictionary<string, string>();
 
+    /// <summary>
+    /// The skills that work in shadow while the turn works in a live thread: <c>use_skill</c> does
+    /// not offer them, and a run that rules or triage route to one hands its events to the shadow
+    /// thread. Empty in a shadow thread, where every skill works in shadow.
+    /// </summary>
+    public IReadOnlySet<string> ShadowSkills { get; set; } = new HashSet<string>();
+
     public int SkillSwitches { get; set; }
 
     /// <summary>
@@ -695,7 +702,8 @@ internal sealed class NhAssistantToolCallInterceptor(
             : state.RuleTurn
                 ? NhAiApprovalMode.Deferred
                 : policy.Mode;
-        var shadow = agentTurn is { RunId: not null } && agentTurn.Options.Shadow;
+        // A run in a shadow thread proposes only shadow proposals, which never execute.
+        var shadow = agentTurn is { RunId: not null } && agentTurn.Thread.Shadow;
         var bindPrompt = policy is null || policy.BindTo == NhAiApprovalBinding.ToolContractAndPrompt;
         var lifetime = policy?.Lifetime ?? state.Scope.Limits.ApprovalLifetime;
 

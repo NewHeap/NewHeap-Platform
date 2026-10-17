@@ -235,14 +235,14 @@ internal sealed class NhAssistantConsultationService(
         }
 
         if (!registration.AgentRuns.TryGetValue(options.AgentId, out var runOptions)
-            || !runOptions.Enabled
-            || runOptions.Shadow)
+            || !runOptions.Enabled)
         {
             return Refused(NhAssistantErrorCodes.ConsultAgentUnavailable, "The agent cannot be consulted.");
         }
 
+        // An agent in shadow answers nobody: its work stays with administrators.
         var agent = await agents.FindAsync(options.AgentId, includeDisabled: false, cancellationToken);
-        if (agent is null)
+        if (agent is null || NhAssistantShadowModes.IsAgentShadow(runOptions, agent.ShadowOverride))
         {
             return Refused(NhAssistantErrorCodes.ConsultAgentUnavailable, "The agent cannot be consulted.");
         }

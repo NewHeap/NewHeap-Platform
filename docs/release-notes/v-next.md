@@ -1,1 +1,47 @@
 # v-next
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: shadow mode and technical account at runtime
+
+An agent's shadow mode, per agent and per skill, and the technical account it answers to are now
+runtime overrides of the code, changed like the run state: `INhAssistantAgentControl.SetShadowAsync`,
+`SetSkillShadowAsync` and `SetServiceAccountAsync`, `POST admin/agents/{id}/shadow`,
+`POST admin/agents/{id}/skills/{skillId}/shadow` (body `{ "mode": "shadow" | "live" | "code",
+"reason" }`) and `POST admin/agents/{id}/service-account` (body `{ "actorId": string | null,
+"reason" }`), and the administration page. `code` and `null` let the code decide again. A skill now
+has `Shadow()` in code as well. Shadow work goes to a separate shadow thread per agent and subject,
+which only administrators see: a trigger that names a skill in shadow fires there, a live run that
+rules or triage route to such a skill ends with `assistant-moved-to-shadow` and a run in the shadow
+thread takes its events, `use_skill` in a live thread no longer offers it, a run that was still
+queued when the mode changed starts in the new mode and waiting events move along when they
+resume. The live thread, its open proposals and people's chat stay. A shadow variant always works
+in shadow (`assistant-shadow-variant`). Another technical account must exist and be allowed to sign
+in (`assistant-service-account-not-found`), only for an agent that answers to one in code
+(`assistant-service-account-not-used`); new runs and the agent's threads answer to it, while runs
+that started and their proposals keep their account. `NhAssistantAgentState` gains `Shadow` and
+`ServiceAccount`, `NhAssistantSkillState` gains `Shadow`, `NhAssistantThreadDto` gains `Shadow` and
+`NhAssistantSubjectAgentDto` gains `ShadowThread` for administrators. Changes are audited as
+`AdminAgentShadowChanged` and `AdminAgentServiceAccountChanged`.
+
+Apply the `AgentRuntimeOverrides` migration of `NewHeap.Platform.AI.Chat.SqlServer` or
+`NewHeap.Platform.AI.Chat.PostgreSql`: it adds the override columns and the thread's `Shadow`
+column, which joins the thread's unique key. At startup the threads of shadow variants, and of
+agents in shadow by code whose mode no administrator changed, become shadow threads.
+
+| Breaking change | Required action |
+|---|---|
+| `INhAssistantAgentControl` has three new members. | Implement them in your own implementations and test doubles. |
+| The runs of an agent or skill in shadow work in its shadow thread instead of in the thread people see; non-administrators see live threads only, and only administrators start an agent in shadow by hand. | Read shadow work from `ShadowThread` in the subject work as an administrator; give people the live thread only. |
+| Consultations and requests are refused, and replays only start, by the agent's mode at runtime; a shadow run hands off only to an agent in shadow at runtime. | Put an agent live at runtime before people consult it; keep replays to agents in shadow. |
+| The rule context's `Shadow` follows the run's thread. | Nothing for runs from triggers; runs you build yourself in a live thread are live. |
+| Database schema change. | Apply the `AgentRuntimeOverrides` migration. |
+
+## @newheap/platform-ai-chat: shadow mode and technical account in the administration
+
+The administration's agents page puts an agent and each skill in shadow, live or back to the code,
+and replaces the technical account of an agent that answers to one, each with an optional reason,
+through `NhAssistantAdminApiService.setAgentShadow`, `setSkillShadow` and `setServiceAccount`. The
+models gain `AgentShadowState`, `AgentServiceAccountState`, `shadow` and `serviceAccount` on
+`AdminAgent` and `AgentState`, `shadow` on `AgentSkillState` and `AgentThread`, and `shadowThread`
+on `AgentSubjectWorkAgent`; the agent thread view marks a shadow thread. The mock API implements the
+endpoints, with `shadow`, `serviceAccount` and per-skill `shadow` in its admin scenario. The texts of
+the four new error codes are bundled in English and Dutch.

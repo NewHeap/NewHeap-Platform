@@ -327,7 +327,8 @@ internal sealed class NhAssistantEvaluationService(
     {
         var max = NhAssistantEvaluationLimits.MaxEvaluatedRuns;
         var live = (await store.GetRunsAsync(agentId, from, to, max + 1, cancellationToken)).ToList();
-        var variant = (await store.GetRunsAsync(variantId, from, to, max + 1, cancellationToken)).ToList();
+        // The live agent's live runs against the variant's shadow runs.
+        var variant = (await store.GetRunsAsync(variantId, from, to, max + 1, cancellationToken, shadow: true)).ToList();
         var truncated = live.Count > max || variant.Count > max;
         live = live.Take(max).ToList();
         variant = variant.Take(max).ToList();
@@ -579,6 +580,7 @@ internal sealed class NhAssistantReplayService(
     NhAssistantRegistrationState registration,
     NhAssistantEvaluationStore store,
     NhAssistantAgentEvents events,
+    NhAssistantShadowModes shadowModes,
     IServiceProvider services,
     ILogger<NhAssistantReplayService> logger)
 {
@@ -596,8 +598,11 @@ internal sealed class NhAssistantReplayService(
             return TaskResult<AssistantAgentReplay>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent has no run configuration.");
         }
 
+        // A replay runs only into an agent that works in shadow now, never into a live one.
         var sourceId = request.SourceAgentId ?? options.ShadowOfAgentId;
-        if (!options.Shadow || sourceId is null || string.Equals(sourceId, variantId, StringComparison.Ordinal))
+        if (!await shadowModes.IsAgentShadowAsync(variantId, cancellationToken)
+            || sourceId is null
+            || string.Equals(sourceId, variantId, StringComparison.Ordinal))
         {
             return TaskResult<AssistantAgentReplay>.Failed(
                 NhAssistantErrorCodes.ReplayNotShadow,
@@ -685,6 +690,7 @@ internal sealed class NhAssistantReplayOperation(
     NhAssistantEvaluationStore store,
     NhAssistantRunStore runs,
     NhAssistantAgentTriggers triggers,
+    NhAssistantShadowModes shadowModes,
     ILogger<NhAssistantReplayOperation> logger) : INhBackgroundOperationHandler<NhAssistantReplayOperationRequest>
 {
     internal static readonly TimeSpan ContinueAfter = TimeSpan.FromSeconds(5);
@@ -699,11 +705,14 @@ internal sealed class NhAssistantReplayOperation(
         {
             return TaskResult.Succeeded();
         }
-        if (!registration.AgentRuns.TryGetValue(replay.VariantAgentId, out var options) || !options.Shadow)
+        if (!registration.AgentRuns.ContainsKey(replay.VariantAgentId)
+            || !await shadowModes.IsAgentShadowAsync(replay.VariantAgentId, cancellationToken))
         {
             await EndAsync(replay, NhAssistantReplayStatuses.Stopped, NhAssistantErrorCodes.ReplayNotShadow);
             return TaskResult.Succeeded();
         }
+
+        var options = registration.AgentRuns[replay.VariantAgentId];
         if (await triggers.RefusalOfAsync(replay.VariantAgentId, refusePaused: true, cancellationToken) is { } refusal)
         {
             await EndAsync(replay, NhAssistantReplayStatuses.Stopped, refusal);

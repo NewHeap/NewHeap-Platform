@@ -21,6 +21,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// get an answer from its model, which reads the reasons the rules wrote.
 /// SPM-287: the project planner hands it projects whose tasks are all completed; the closer works on
 /// them in its own thread, under its own policy, and tells the planner how it ended.
+/// SPM-294: with a technical account in the application's configuration
+/// (<see cref="ServiceAccountKey"/>), the closer answers to that account instead of to itself; an
+/// operator replaces it per agent at runtime on the maintenance page, without a deploy.
 /// Call it after <c>AddSampleIntakeReviewer</c>, which registers the project subject type, and add
 /// the planner with <c>AddSampleProjectPlanner</c>; the host must call
 /// <c>AddAssistantAgentRuns</c> inside <c>WithBackgroundOperations</c>.
@@ -31,7 +34,18 @@ public static class SampleProjectCloserComposition
     public const string TriggerId = "project-task-completed-closer";
     public const string ApprovalPolicyId = "project-closing";
 
-    public static IServiceCollection AddSampleProjectCloser(this IServiceCollection services)
+    /// <summary>
+    /// The configuration key of the technical account the closer answers to: the user id of an
+    /// account that may sign in. Without it the closer answers to itself.
+    /// </summary>
+    public const string ServiceAccountKey = "SampleProjectManagement:Agents:ProjectCloser:ServiceAccount";
+
+    private static NhAssistantAgentRunBuilder ServiceAccountFrom(this NhAssistantAgentRunBuilder agent, string? actorId)
+    {
+        return string.IsNullOrWhiteSpace(actorId) ? agent : agent.ServiceAccount(actorId);
+    }
+
+    public static IServiceCollection AddSampleProjectCloser(this IServiceCollection services, string? serviceAccountActorId = null)
     {
         services.AddNewHeapAssistant(assistant => assistant
             .AddAgent(new NhAssistantAgentDefinition(
@@ -74,7 +88,10 @@ public static class SampleProjectCloserComposition
                 .Budget(
                     NhAssistantAgentBudget.PerDay(toolCalls: 50, tokens: 50_000),
                     maxConcurrentRuns: 2,
-                    maxRunsPerSubjectPerDay: 20))
+                    maxRunsPerSubjectPerDay: 20)
+                // SPM-294: the configured technical account is the default; the maintenance page
+                // overrides it per agent at runtime.
+                .ServiceAccountFrom(serviceAccountActorId))
             .AddTrigger<ProjectTaskUpdatedEvent>(TriggerId, trigger => trigger
                 .StartAgent(AgentId)
                 .Subject(evt => ProjectSubjects.For(evt.ProjectId))

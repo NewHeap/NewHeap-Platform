@@ -88,3 +88,15 @@ public sealed class AgentStateChangeMutateModel
     [MaxLength(500)]
     public string? Reason { get; set; }
 }
+
+/// <summary>
+/// SPM-294: the technical account an operator lets answer for an agent's new runs; without one
+/// the account in configuration answers again.
+/// </summary>
+public sealed class AgentServiceAccountMutateModel
+{
+    public Guid? AccountId { get; set; }
+
+    [MaxLength(500)]
+    public string? Reason { get; set; }
+}

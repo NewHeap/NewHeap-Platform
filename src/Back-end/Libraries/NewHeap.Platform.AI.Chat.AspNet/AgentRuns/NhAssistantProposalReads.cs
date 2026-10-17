@@ -22,20 +22,19 @@ internal sealed class NhAssistantProposalReads(
     /// The proposals among <paramref name="approvalIds"/> that the caller may see, in the order of
     /// the ids and each once; unknown and invisible ids are left out.
     /// </summary>
-    /// <param name="isHiddenAgent">Whether an agent's threads are hidden from the caller, as shadow agents are from everyone but administrators.</param>
+    /// <param name="isHiddenThread">Whether a thread is hidden from the caller, as shadow threads are from everyone but administrators.</param>
     public async Task<IReadOnlyList<NhAssistantSubjectProposalDto>> ReadAsync(
         IReadOnlyList<Guid> approvalIds,
         string actorId,
         string? tenantId,
         ClaimsPrincipal user,
-        Func<string, Task<bool>> isHiddenAgent,
+        Func<AssistantThread, Task<bool>> isHiddenThread,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(approvalIds);
         ArgumentNullException.ThrowIfNull(user);
-        ArgumentNullException.ThrowIfNull(isHiddenAgent);
+        ArgumentNullException.ThrowIfNull(isHiddenThread);
         var rows = await runs.GetThreadApprovalsByIdAsync(approvalIds, cancellationToken);
-        var hiddenAgents = new Dictionary<string, bool>(StringComparer.Ordinal);
         var roles = new Dictionary<NhAiSubjectRef, NhAiSubjectAccess>();
         var visible = new List<(AssistantApproval Approval, NhAssistantThreadAccess Access)>();
         foreach (var group in rows.GroupBy(row => row.Thread.ConversationId))
@@ -46,12 +45,7 @@ internal sealed class NhAssistantProposalReads(
             {
                 continue;
             }
-            if (!hiddenAgents.TryGetValue(thread.AgentId, out var hidden))
-            {
-                hidden = await isHiddenAgent(thread.AgentId);
-                hiddenAgents[thread.AgentId] = hidden;
-            }
-            if (hidden)
+            if (await isHiddenThread(thread))
             {
                 continue;
             }

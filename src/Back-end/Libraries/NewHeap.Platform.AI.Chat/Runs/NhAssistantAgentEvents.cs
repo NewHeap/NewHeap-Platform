@@ -32,9 +32,11 @@ internal sealed class NhAssistantAgentNotifier(
         int proposalCount = 0,
         string? failureCode = null)
     {
+        // Shadow work notifies nobody: a shadow run, a shadow proposal, a shadow thread or a variant.
         if (shadow
+            || thread.Shadow
             || approval?.Status == NhAssistantApprovalStatuses.Shadow
-            || (registration.AgentRuns.TryGetValue(thread.AgentId, out var options) && options.Shadow))
+            || (registration.AgentRuns.TryGetValue(thread.AgentId, out var options) && options.ShadowOfAgentId is not null))
         {
             return;
         }
@@ -430,6 +432,39 @@ internal sealed class NhAssistantAgentEvents(
                 ObjectId = agentId,
                 ResultCode = resultCode,
                 SkillId = skillId
+            },
+            cancellationToken);
+    }
+
+    public Task AgentShadowChangedAsync(
+        string agentId,
+        string actorId,
+        bool? shadow,
+        CancellationToken cancellationToken,
+        string? skillId = null)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentShadowChanged, Guid.Empty, Guid.Empty, actorId, agentId, 0, DateTimeOffset.UtcNow)
+            {
+                ObjectId = agentId,
+                ResultCode = shadow switch { true => "shadow", false => "live", null => "code" },
+                SkillId = skillId
+            },
+            cancellationToken);
+    }
+
+    public Task AgentServiceAccountChangedAsync(
+        string agentId,
+        string actorId,
+        string accountableActorId,
+        bool overridden,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentServiceAccountChanged, Guid.Empty, Guid.Empty, actorId, agentId, 0, DateTimeOffset.UtcNow)
+            {
+                ObjectId = accountableActorId,
+                ResultCode = overridden ? "set" : "code"
             },
             cancellationToken);
     }

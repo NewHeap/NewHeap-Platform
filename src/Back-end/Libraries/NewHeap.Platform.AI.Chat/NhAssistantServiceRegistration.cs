@@ -57,6 +57,7 @@ internal static class NhAssistantServiceRegistration
         services.TryAddSingleton<NhAssistantSeeder>();
         services.TryAddScoped<NhAssistantAdminStore>();
         services.TryAddScoped<NhAssistantAgentCatalog>();
+        services.TryAddScoped<NhAssistantShadowModes>();
         services.TryAddScoped<NhAssistantAgentAdministration>();
         services.TryAddScoped<NhAssistantPersonalization>();
         services.TryAddScoped<NhAssistantTurnContextCollector>();

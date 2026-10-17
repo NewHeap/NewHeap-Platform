@@ -157,7 +157,21 @@ public enum NhAssistantAuditEventKind
     /// An administrator started a replay of recorded runs into a shadow variant. <c>ObjectId</c> is
     /// the replay, <c>AgentId</c> the variant and <c>AskingAgentId</c> the agent whose runs it replays.
     /// </summary>
-    AdminAgentReplayStarted = 47
+    AdminAgentReplayStarted = 47,
+
+    /// <summary>
+    /// An administrator or the application changed the shadow mode of an agent, or of one skill
+    /// with <c>SkillId</c>. <c>ResultCode</c> is <c>shadow</c>, <c>live</c> or <c>code</c> when the
+    /// code decides again.
+    /// </summary>
+    AdminAgentShadowChanged = 48,
+
+    /// <summary>
+    /// An administrator or the application changed the technical account that answers for an
+    /// agent's runs. <c>ObjectId</c> is the account that answers now; <c>ResultCode</c> is
+    /// <c>set</c>, or <c>code</c> when the account in code answers again.
+    /// </summary>
+    AdminAgentServiceAccountChanged = 49
 }
 
 /// <summary>

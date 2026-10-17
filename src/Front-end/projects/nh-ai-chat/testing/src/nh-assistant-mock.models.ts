@@ -113,10 +113,14 @@ export interface NhAssistantMockMcpServer extends McpServerInput {
 /** A preconfigured agent. Code agents default to the scenario's chat agents. */
 export interface NhAssistantMockAdminAgent extends AdminAgentInput {
   source: 'code' | 'admin';
-  /** The skills of a code agent, by id and description; they start active. */
-  skills?: { skillId: string; description: string }[];
+  /** The skills of a code agent, by id and description; they start active, and in shadow with `shadow`. */
+  skills?: { skillId: string; description: string; shadow?: boolean }[];
   /** The live agent this code agent is a shadow variant of. */
   shadowOf?: string;
+  /** The agent starts in shadow, as with `Shadow()` in code. */
+  shadow?: boolean;
+  /** The technical account in code, as with `ServiceAccount(actorId)`. */
+  serviceAccount?: string;
 }
 
 /**

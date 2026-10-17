@@ -15,6 +15,8 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { Observable, Subscription, forkJoin } from 'rxjs';
 import {
   AdminAgent,
+  AgentShadowMode,
+  AgentShadowState,
   AgentSkillState,
   AgentState,
   McpServer,
@@ -41,7 +43,8 @@ const maxStateReason = 500;
 
 /**
  * Agent administration: code agents (override, reset) and agents created here (edit, delete),
- * and for every agent its run state with pause, stop and resume, each with an optional reason.
+ * and for every agent its run state with pause, stop and resume, its shadow mode and that of each
+ * skill, and the technical account of an agent that answers to one, each with an optional reason.
  * Editing opens `nh-assistant-admin-agent-editor`; the feedback action opens
  * `nh-assistant-agent-feedback-report` for the agent, and the evaluation action of an agent with
  * shadow variants opens `nh-assistant-agent-evaluation`.
@@ -88,6 +91,11 @@ export class NhAssistantAdminAgentsComponent {
   readonly busyAgentId = signal<string | null>(null);
   /** The state change whose reason is being entered, of the agent or one of its skills. */
   readonly changingState = signal<{ agentId: string; skillId?: string; state: AgentStateAction } | null>(null);
+  /** The shadow mode change whose reason is being entered, of the agent or one of its skills. */
+  readonly changingShadow = signal<{ agentId: string; skillId?: string; mode: AgentShadowMode } | null>(null);
+  /** The change of the technical account being entered: a new account, or the one in code. */
+  readonly changingAccount = signal<{ agentId: string; mode: 'set' | 'code' } | null>(null);
+  readonly accountId = signal('');
   readonly stateReason = signal('');
   readonly maxReason = maxStateReason;
   readonly error = signal<NhAssistantError | null>(null);
@@ -215,11 +223,86 @@ export class NhAssistantAdminAgentsComponent {
 
   /** Opens the reason form of a state change of the agent or, with a skill, of that skill. */
   askState(agent: AdminAgent, state: AgentStateAction, skill?: AgentSkillState): void {
-    this.confirming.set(null);
-    this.error.set(null);
-    this.stateReason.set('');
+    this.closeForms();
     this.changingState.set({ agentId: agent.id, skillId: skill?.skillId, state });
     afterNextRender(() => this.reasonInput()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /**
+   * The shadow modes an agent or skill can change to: the opposite of its own mode, and the mode
+   * in code once an administrator overrode it. A shadow variant, and an agent without runs that
+   * only chats, offer none.
+   */
+  shadowActions(shadow: AgentShadowState | null | undefined): AgentShadowMode[] {
+    if (!shadow || shadow.locked) {
+      return [];
+    }
+    const own = shadow.override ?? shadow.configured;
+    const actions: AgentShadowMode[] = [own ? 'live' : 'shadow'];
+    return shadow.override === null ? actions : [...actions, 'code'];
+  }
+
+  /** Opens the reason form of a shadow mode change of the agent or, with a skill, of that skill. */
+  askShadow(agent: AdminAgent, mode: AgentShadowMode, skill?: AgentSkillState): void {
+    this.closeForms();
+    this.changingShadow.set({ agentId: agent.id, skillId: skill?.skillId, mode });
+    afterNextRender(() => this.reasonInput()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  isChangingShadow(agentId: string, mode: AgentShadowMode, skillId?: string): boolean {
+    const change = this.changingShadow();
+    return change?.agentId === agentId && change.mode === mode && change.skillId === skillId;
+  }
+
+  applyShadow(agent: AdminAgent): void {
+    const change = this.changingShadow();
+    if (change?.agentId !== agent.id) {
+      return;
+    }
+
+    const reason = this.stateReason().trim();
+    const request = { mode: change.mode, reason: reason.length > 0 ? reason : null };
+    if (change.skillId !== undefined) {
+      this.run(
+        agent.id,
+        this.admin.setSkillShadow(agent.id, change.skillId, request),
+        skill => this.replace(withSkill(agent, skill)));
+      return;
+    }
+
+    this.run(
+      agent.id,
+      this.admin.setAgentShadow(agent.id, request),
+      state => this.replace(withState(agent, state)));
+  }
+
+  /** Opens the form that changes the technical account, or returns to the one in code. */
+  askAccount(agent: AdminAgent, mode: 'set' | 'code'): void {
+    this.closeForms();
+    this.changingAccount.set({ agentId: agent.id, mode });
+    afterNextRender(() => this.reasonInput()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  isChangingAccount(agentId: string, mode: 'set' | 'code'): boolean {
+    const change = this.changingAccount();
+    return change?.agentId === agentId && change.mode === mode;
+  }
+
+  applyAccount(agent: AdminAgent): void {
+    const change = this.changingAccount();
+    if (change?.agentId !== agent.id) {
+      return;
+    }
+
+    const actorId = change.mode === 'set' ? this.accountId().trim() : null;
+    if (actorId === '') {
+      return;
+    }
+    const reason = this.stateReason().trim();
+    this.run(
+      agent.id,
+      this.admin.setServiceAccount(agent.id, { actorId, reason: reason.length > 0 ? reason : null }),
+      state => this.replace(withState(agent, state)));
   }
 
   isChangingState(agentId: string, state: AgentStateAction, skillId?: string): boolean {
@@ -255,6 +338,8 @@ export class NhAssistantAdminAgentsComponent {
 
   confirm(agentId: string, action: 'delete' | 'reset'): void {
     this.changingState.set(null);
+    this.changingShadow.set(null);
+    this.changingAccount.set(null);
     this.confirming.set({ agentId, action });
   }
 
@@ -277,6 +362,8 @@ export class NhAssistantAdminAgentsComponent {
     this.busyAgentId.set(agentId);
     this.confirming.set(null);
     this.changingState.set(null);
+    this.changingShadow.set(null);
+    this.changingAccount.set(null);
     this.error.set(null);
     this.actionSubscription?.unsubscribe();
     this.actionSubscription = request.subscribe({
@@ -290,6 +377,17 @@ export class NhAssistantAdminAgentsComponent {
         this.error.set(toNhAssistantError(error));
       }
     });
+  }
+
+  /** Closes the open confirmation and change forms before another opens; one is open at a time. */
+  private closeForms(): void {
+    this.confirming.set(null);
+    this.error.set(null);
+    this.stateReason.set('');
+    this.accountId.set('');
+    this.changingState.set(null);
+    this.changingShadow.set(null);
+    this.changingAccount.set(null);
   }
 
   private replace(agent: AdminAgent): void {
@@ -311,7 +409,9 @@ function withState(agent: AdminAgent, state: AgentState): AdminAgent {
     stateChangedBy: state.changedBy,
     stateReason: state.reason,
     waitingInputs: state.waitingInputs,
-    skills: state.skills ?? agent.skills
+    skills: state.skills ?? agent.skills,
+    shadow: state.shadow ?? agent.shadow,
+    serviceAccount: state.serviceAccount === undefined ? agent.serviceAccount : state.serviceAccount
   };
 }
 

@@ -197,7 +197,11 @@ low-key "What was wrong?" button; plain chat approvals never ask. Administrators
 the feedback per agent with `nh-assistant-agent-feedback-report` of
 `@newheap/platform-ai-chat/admin`, also reachable from each agent in the administration
 page: rejection rates and categories per tool and agent version, the texts and a JSON
-Lines export through `NhAssistantAdminApiService`.
+Lines export through `NhAssistantAdminApiService`. The same page pauses, stops and resumes
+an agent and each skill, puts them in shadow or live or lets the code decide again
+(`setAgentShadow`, `setSkillShadow`), and replaces the technical account of an agent that
+answers to one (`setServiceAccount`), each with an optional reason; a thread view marks a
+shadow thread, which only administrators reach.
 
 The agent-run components refresh themselves: `NhAssistantLiveService.agentWork$` emits the
 hub's `AgentWorkChanged` for every run, proposal or feedback change on a subject the user
@@ -329,7 +333,8 @@ script; `en` and `nl` have identical keys and a regional language such as `nl-NL
 receives the `nl` texts; and the mock emits exactly the contract
 event fields. The preference tests save, validate the 1,000-character limit and show
 failures; the administration tests save context versions and report conflicts,
-create, disable, reset and delete agents after confirmation, never render a stored
+create, disable, reset and delete agents after confirmation, put an agent and a skill in
+shadow and back and replace and restore a technical account, never render a stored
 secret and send it only on replace or clear, keep synced MCP tools disabled as
 changes, show remote hints as hints and warn after a remote schema change. The
 page-context tests send the getter result read in the injection context, truncate

@@ -2,6 +2,7 @@ import {
   AdminAgent,
   AdminAgentInput,
   AgentReplay,
+  AgentShadowState,
   AgentSkillState,
   AgentState,
   AgentSummary,
@@ -77,11 +78,16 @@ export class NhAssistantMockAdmin {
 
     const agents: NhAssistantMockAdminAgent[] = admin.agents
       ?? scenario.agents.map(agent => ({ ...codeAgentFromSummary(agent), source: 'code' as const }));
-    for (const { source, skills, shadowOf, ...input } of agents) {
+    for (const { source, skills, shadowOf, shadow, serviceAccount, ...input } of agents) {
+      const agentShadow = shadowOf !== undefined || shadow === true;
       this.agents.set(input.id, {
         agent: {
           ...this.toAgent(input, source, 1, false),
           shadowOf: shadowOf ?? null,
+          shadow: shadowState(agentShadow, shadowOf !== undefined || shadow === true, null, shadowOf !== undefined),
+          serviceAccount: serviceAccount === undefined
+            ? null
+            : { actorId: serviceAccount, configuredActorId: serviceAccount, overridden: false, changedAt: null, changedBy: null, reason: null },
           skills: (skills ?? []).map((skill): AgentSkillState => ({
             skillId: skill.skillId,
             description: skill.description,
@@ -95,7 +101,8 @@ export class NhAssistantMockAdmin {
             dailyToolCalls: null,
             dailyTokens: null,
             cancelledRuns: 0,
-            startedRuns: 0
+            startedRuns: 0,
+            shadow: shadowState(agentShadow || skill.shadow === true, skill.shadow === true, null, shadowOf !== undefined)
           }))
         },
         codeDefinition: source === 'code' ? structuredClone(input) : null
@@ -199,6 +206,9 @@ export class NhAssistantMockAdmin {
         if (id !== undefined && action === 'skills' && child !== undefined && segments[5] === 'state' && segments.length === 6) {
           return this.skillStateEndpoint(method, id, child, body);
         }
+        if (id !== undefined && action === 'skills' && child !== undefined && segments[5] === 'shadow' && segments.length === 6) {
+          return this.skillShadowEndpoint(method, id, child, body);
+        }
         return this.agentsEndpoint(method, id, action, body, segments.length);
       case 'mcp-servers':
         return this.serversEndpoint(method, id, action, child, body, segments.length);
@@ -288,6 +298,12 @@ export class NhAssistantMockAdmin {
     if (length === 4 && action === 'state') {
       return this.agentStateEndpoint(stored, method, body);
     }
+    if (length === 4 && action === 'shadow' && method === 'POST') {
+      return this.agentShadowEndpoint(stored, body);
+    }
+    if (length === 4 && action === 'service-account' && method === 'POST') {
+      return this.serviceAccountEndpoint(stored, body);
+    }
     if (length === 4 && action === 'kill-switch' && method === 'POST') {
       const engaged = (body as { engaged?: unknown } | undefined)?.engaged;
       if (typeof engaged !== 'boolean') {
@@ -350,6 +366,112 @@ export class NhAssistantMockAdmin {
       : { ...skill, runState: request.state, changedAt: this.now(), changedBy: 'current-user', reason };
     stored.agent = { ...stored.agent, skills: stored.agent.skills!.map(item => item.skillId === skillId ? changed : item) };
     return { status: 200, body: changed };
+  }
+
+  /**
+   * `POST admin/agents/{id}/shadow`: the agent's shadow mode as an override of the code. A
+   * variant always works in shadow; the skills' effective modes follow the agent's.
+   */
+  private agentShadowEndpoint(stored: StoredAgent, body: unknown): NhAssistantMockResult {
+    const request = shadowRequest(body);
+    if (request === null) {
+      return validationFailure();
+    }
+    const current = stored.agent.shadow ?? shadowState(false, false, null, false);
+    if (current.locked) {
+      return failure(409, 'assistant-shadow-variant');
+    }
+
+    const override = request.mode === 'code' ? null : request.mode === 'shadow';
+    if (current.override !== override) {
+      const shadow = override ?? current.configured;
+      stored.agent = {
+        ...stored.agent,
+        shadow: { ...current, shadow, override, changedAt: this.now(), changedBy: 'current-user', reason: request.reason },
+        skills: (stored.agent.skills ?? []).map(skill => ({ ...skill, shadow: withAgentShadow(skill.shadow, shadow) }))
+      };
+    }
+    return { status: 200, body: toAgentState(stored.agent) };
+  }
+
+  /**
+   * `POST admin/agents/{id}/skills/{skillId}/shadow`: one skill's shadow mode; a skill of an agent
+   * in shadow works in shadow whatever its own mode.
+   */
+  private skillShadowEndpoint(method: string, agentId: string, skillId: string, body: unknown): NhAssistantMockResult {
+    const stored = this.agents.get(agentId);
+    const skill = stored?.agent.skills?.find(item => item.skillId === skillId);
+    if (!stored || !skill) {
+      return failure(404, 'assistant-skill-not-found');
+    }
+    if (method !== 'POST') {
+      return { status: 405 };
+    }
+    const request = shadowRequest(body);
+    if (request === null) {
+      return validationFailure();
+    }
+    const agentShadow = stored.agent.shadow ?? shadowState(false, false, null, false);
+    if (agentShadow.locked) {
+      return failure(409, 'assistant-shadow-variant');
+    }
+
+    const current = skill.shadow ?? shadowState(agentShadow.shadow, false, null, false);
+    const override = request.mode === 'code' ? null : request.mode === 'shadow';
+    const changed: AgentSkillState = current.override === override
+      ? skill
+      : {
+        ...skill,
+        shadow: {
+          ...current,
+          shadow: agentShadow.shadow || (override ?? current.configured),
+          override,
+          changedAt: this.now(),
+          changedBy: 'current-user',
+          reason: request.reason
+        }
+      };
+    stored.agent = { ...stored.agent, skills: stored.agent.skills!.map(item => item.skillId === skillId ? changed : item) };
+    return { status: 200, body: changed };
+  }
+
+  /**
+   * `POST admin/agents/{id}/service-account`: the technical account of an agent that answers to
+   * one in code. The mock accepts every account id except those starting with `unknown`.
+   */
+  private serviceAccountEndpoint(stored: StoredAgent, body: unknown): NhAssistantMockResult {
+    const current = stored.agent.serviceAccount;
+    if (!current) {
+      return failure(409, 'assistant-service-account-not-used');
+    }
+    const request = body as { actorId?: unknown; reason?: unknown } | undefined;
+    if (request === undefined || (request.actorId !== null && request.actorId !== undefined && typeof request.actorId !== 'string')) {
+      return validationFailure();
+    }
+    const actorId = typeof request.actorId === 'string' && request.actorId.trim().length > 0 ? request.actorId.trim() : null;
+    if (actorId !== null && (actorId.length > 256 || actorId.startsWith('unknown'))) {
+      return actorId.length > 256 ? validationFailure() : failure(400, 'assistant-service-account-not-found');
+    }
+    const reason = typeof request.reason === 'string' && request.reason.trim().length > 0 ? request.reason.trim() : null;
+    if (reason !== null && reason.length > maxStateReason) {
+      return validationFailure();
+    }
+
+    const overridden = actorId !== null;
+    if ((current.overridden ? current.actorId : null) !== actorId) {
+      stored.agent = {
+        ...stored.agent,
+        serviceAccount: {
+          ...current,
+          actorId: actorId ?? current.configuredActorId,
+          overridden,
+          changedAt: this.now(),
+          changedBy: 'current-user',
+          reason
+        }
+      };
+    }
+    return { status: 200, body: toAgentState(stored.agent) };
   }
 
   /**
@@ -736,7 +858,9 @@ export class NhAssistantMockAdmin {
       stateReason: previous?.stateReason ?? null,
       waitingInputs: previous?.waitingInputs ?? 0,
       skills: previous?.skills ?? [],
-      shadowOf: previous?.shadowOf ?? null
+      shadowOf: previous?.shadowOf ?? null,
+      shadow: previous?.shadow ?? shadowState(false, false, null, false),
+      serviceAccount: previous?.serviceAccount ?? null
     };
   }
 
@@ -776,8 +900,29 @@ function toAgentState(agent: AdminAgent): AgentState {
     cancelledRuns: 0,
     startedRuns: 0,
     skills: agent.skills ?? [],
-    shadowOf: agent.shadowOf ?? null
+    shadowOf: agent.shadowOf ?? null,
+    shadow: agent.shadow ?? shadowState(false, false, null, false),
+    serviceAccount: agent.serviceAccount ?? null
   };
+}
+
+function shadowState(shadow: boolean, configured: boolean, override: boolean | null, locked: boolean): AgentShadowState {
+  return { shadow, configured, override, locked, changedAt: null, changedBy: null, reason: null };
+}
+
+/** A skill's mode after its agent's mode changed: the agent's shadow comes on top of its own. */
+function withAgentShadow(skill: AgentShadowState | undefined, agentShadow: boolean): AgentShadowState {
+  const own = skill?.override ?? skill?.configured ?? false;
+  return { ...(skill ?? shadowState(false, false, null, false)), shadow: agentShadow || own };
+}
+
+function shadowRequest(body: unknown): { mode: 'shadow' | 'live' | 'code'; reason: string | null } | null {
+  const request = body as { mode?: unknown; reason?: unknown } | undefined;
+  if (request?.mode !== 'shadow' && request?.mode !== 'live' && request?.mode !== 'code') {
+    return null;
+  }
+  const reason = typeof request.reason === 'string' && request.reason.trim().length > 0 ? request.reason.trim() : null;
+  return reason !== null && reason.length > maxStateReason ? null : { mode: request.mode, reason };
 }
 
 function toServerFields(input: McpServerInput): Pick<McpServer, 'id' | 'displayName' | 'url' | 'authMode' | 'headerName' | 'requiredPolicy' | 'isEnabled'> {

@@ -324,7 +324,8 @@ builder.Services.AddNewHeapPlatformAIDelegatedReads();
 builder.Services.AddSampleAssistant(builder.Environment, builder.Configuration);
 builder.Services.AddSampleIntakeReviewer();
 builder.Services.AddSampleStatusAdvisor();
-builder.Services.AddSampleProjectCloser();
+// SPM-294: the closer answers to the technical account in configuration, when there is one.
+builder.Services.AddSampleProjectCloser(builder.Configuration[SampleProjectCloserComposition.ServiceAccountKey]);
 builder.Services.AddSampleProjectPlanner();
 builder.Services.AddSampleProjectPlannerVariant();
 builder.Services.AddMcpServer()

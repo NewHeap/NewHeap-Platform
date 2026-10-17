@@ -346,7 +346,11 @@
       "assistant-consult-limit-reached": "You reached the daily number of consultations.",
       "assistant-consult-timeout": "The agent did not answer in time.",
       "assistant-consult-failed": "The agent could not answer.",
-      "assistant-consult-read-only": "A consultation cannot change anything."
+      "assistant-consult-read-only": "A consultation cannot change anything.",
+      "assistant-moved-to-shadow": "The work went to the agent's shadow thread, where a run in shadow takes it.",
+      "assistant-shadow-variant": "A shadow variant always works in shadow.",
+      "assistant-service-account-not-used": "This agent does not answer to a technical account.",
+      "assistant-service-account-not-found": "No account that may sign in exists with this id."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",
@@ -498,6 +502,49 @@
             "active": "The skill {{skill}} works again. Every subject with events waiting for it gets one run.",
             "paused": "The skill {{skill}} starts no new runs: its events wait, triage no longer chooses it and running work finishes. The other skills keep working.",
             "stopped": "The runs of the skill {{skill}} are cancelled and its waiting events dropped; its triggers are refused. The other skills keep working."
+          }
+        },
+        "shadow": {
+          "badge": "Shadow",
+          "hint": "Its work goes to shadow threads that only administrators see.",
+          "changed": "Shadow mode set by {{user}} on {{date}}.",
+          "locked": "A shadow variant always works in shadow.",
+          "action": {
+            "shadow": "Put in shadow",
+            "live": "Put live",
+            "code": "Follow the code"
+          },
+          "explain": {
+            "shadow": "New runs work in shadow threads that only administrators see: nobody is notified and nothing proposed there executes. Running work finishes as it started; the live threads and their open proposals stay.",
+            "live": "New runs work live: people see them, are notified and decide their proposals.",
+            "code": "The mode in code decides again."
+          },
+          "skill-explain": {
+            "shadow": "Work that reaches the skill {{skill}} goes to the shadow threads; the other skills keep their mode.",
+            "live": "The skill {{skill}} works live again, unless its agent works in shadow.",
+            "code": "The mode in code decides again for the skill {{skill}}."
+          },
+          "confirm": {
+            "shadow": "Confirm shadow",
+            "live": "Confirm live",
+            "code": "Confirm"
+          }
+        },
+        "service-account": {
+          "label": "Technical account: {{account}}",
+          "configured": "In code: {{account}}",
+          "input-label": "Account id",
+          "action": {
+            "set": "Change technical account",
+            "code": "Use the account in code"
+          },
+          "explain": {
+            "set": "New runs answer to this account and use its rights. Runs that started and their proposals keep their account.",
+            "code": "New runs answer to the account in code again: {{account}}."
+          },
+          "confirm": {
+            "set": "Confirm account",
+            "code": "Confirm"
           }
         }
       },
@@ -819,7 +866,8 @@
           "ignored": "The agent is busy; nothing was started.",
           "deduplicated": "This was already started.",
           "rejected": "The agent could not be started."
-        }
+        },
+        "shadow": "Shadow thread: only administrators see it, and nothing proposed here executes."
       },
       "subject": {
         "title": "Agent suggestions",

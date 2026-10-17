@@ -22,6 +22,7 @@ internal sealed class NhAssistantHandOffService(
     NhAssistantHandOffStore handOffs,
     NhAssistantRunStore runs,
     NhAssistantAgentEvents events,
+    NhAssistantShadowModes shadowModes,
     ILogger<NhAssistantHandOffService> logger) : INhAssistantHandOffs
 {
     /// <summary>
@@ -65,7 +66,8 @@ internal sealed class NhAssistantHandOffService(
         }
 
         var sourceRun = await runs.FindRunAsync(sourceRunId, cancellationToken);
-        if ((sourceRun?.Shadow ?? source.Options.Shadow) && !target.Shadow)
+        // Shadow work never starts live work: a shadow run hands off only to an agent in shadow.
+        if ((sourceRun?.Shadow ?? source.Thread.Shadow) && !await shadowModes.IsAgentShadowAsync(targetAgentId, cancellationToken))
         {
             return await RefuseAsync(request, sourceRunId, NhAssistantErrorCodes.HandOffShadowToLive);
         }

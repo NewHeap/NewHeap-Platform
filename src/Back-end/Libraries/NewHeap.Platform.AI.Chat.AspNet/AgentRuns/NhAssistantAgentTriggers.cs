@@ -134,6 +134,18 @@ internal sealed record NhAssistantTriggerFire(
     public bool Resume { get; init; }
 
     /// <summary>
+    /// The thread the inputs of a resume wait in. When the work now belongs in the agent's other
+    /// thread, because its shadow mode changed, the inputs move there first.
+    /// </summary>
+    public Guid? ResumeConversationId { get; init; }
+
+    /// <summary>
+    /// Who chose <see cref="SkillId"/> when it was not the trigger: the rules or triage of a run
+    /// whose work moved to the shadow thread.
+    /// </summary>
+    public string? SkillChosenBy { get; init; }
+
+    /// <summary>
     /// The skill the trigger names; <see langword="null"/> lets the agent's rules or triage choose.
     /// </summary>
     public string? SkillId { get; init; }
@@ -533,6 +545,7 @@ internal sealed class NhAssistantAgentTriggers(
                         TimeSpan.Zero)
                     {
                         Resume = true,
+                        ResumeConversationId = thread.ConversationId,
                         SkillId = input.SkillId
                     },
                     cancellationToken);
@@ -858,6 +871,85 @@ internal sealed class NhAssistantAgentTriggers(
     }
 
     /// <summary>
+    /// Moves a run that has not started to the agent's shadow thread of its subject when the agent
+    /// or the run's skill went into shadow after the run was queued, so nothing live starts once
+    /// shadow mode is on. Returns the moved run, or <see langword="null"/> when it stays.
+    /// </summary>
+    internal async Task<AssistantRun?> MoveQueuedRunToShadowAsync(AssistantRun run, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+        if (run.Status != NhAssistantRunStatuses.Queued || run.Shadow)
+        {
+            return null;
+        }
+
+        var thread = await runs.FindThreadByConversationAsync(run.ConversationId, cancellationToken);
+        if (thread is null || thread.Shadow || !registration.AgentRuns.ContainsKey(thread.AgentId))
+        {
+            return null;
+        }
+
+        var shadowModes = services.GetRequiredService<NhAssistantShadowModes>();
+        if (!await shadowModes.IsShadowAsync(thread.AgentId, run.SkillId, cancellationToken))
+        {
+            return null;
+        }
+
+        var agent = await agents.FindAsync(thread.AgentId, includeDisabled: true, cancellationToken);
+        var subject = agent is null
+            ? null
+            : await subjects.DescribeAsync(new NhAiSubjectRef(thread.SubjectType, thread.SubjectId), cancellationToken);
+        if (agent is null || subject is null)
+        {
+            return null;
+        }
+
+        var shadowThread = await threads.GetOrCreateAsync(agent, subject, cancellationToken, shadow: true);
+        if (!shadowThread.Success
+            || !await runs.MoveQueuedRunToShadowAsync(run.Id, run.ConversationId, shadowThread.Data!.ConversationId, run.SkillId, cancellationToken))
+        {
+            return null;
+        }
+
+        logger.LogInformation(
+            "Run {RunId} of agent {AgentId} moved to its shadow thread before it started.",
+            run.Id,
+            thread.AgentId);
+        return await runs.FindRunAsync(run.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Starts the run in the agent's shadow thread that takes the events a live run handed on
+    /// because its rules or triage routed it to a skill in shadow. The new run works in that skill,
+    /// chosen as the live run recorded.
+    /// </summary>
+    internal Task<NhAssistantTriggerReceipt> ContinueInShadowAsync(
+        AssistantRun run,
+        AssistantThread thread,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+        ArgumentNullException.ThrowIfNull(thread);
+        return FireAsync(
+            new NhAssistantTriggerFire(
+                run.TriggerId,
+                thread.AgentId,
+                new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
+                run.InitiatorActorId,
+                string.Empty,
+                null,
+                NhAssistantTriggerConflict.Queue,
+                TimeSpan.Zero)
+            {
+                Resume = true,
+                ResumeConversationId = thread.ConversationId,
+                SkillId = run.SkillId,
+                SkillChosenBy = run.SkillChosenBy
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Records a fire published inside the application's transaction as a background operation in
     /// that transaction. Nothing is written to the assistant's own tables before the commit.
     /// </summary>
@@ -941,11 +1033,20 @@ internal sealed class NhAssistantAgentTriggers(
             return Rejected(fire, null, NhAssistantErrorCodes.AgentStopped);
         }
 
-        var skillState = fire.SkillId is { } skillId ? await SkillStateAsync(fire.AgentId, skillId, cancellationToken) : null;
+        var skillRow = fire.SkillId is { } skillId
+            ? (await admin.GetSkillStatesAsync(fire.AgentId, cancellationToken)).GetValueOrDefault(skillId)
+            : null;
+        var skillState = fire.SkillId is null ? null : skillRow?.RunState ?? NhAssistantAgentRunStates.Active;
         if (skillState == NhAssistantAgentRunStates.Stopped)
         {
             return Rejected(fire, null, NhAssistantErrorCodes.SkillStopped);
         }
+
+        // Work of an agent or a skill in shadow goes to the agent's shadow thread of the subject.
+        var shadow = NhAssistantShadowModes.IsAgentShadow(options, agent.ShadowOverride)
+            || (fire.SkillId is { } shadowSkill
+                && options.Skills.TryGetValue(shadowSkill, out var skillOptions)
+                && NhAssistantShadowModes.IsSkillShadow(skillOptions, skillRow));
 
         // A paused agent or a paused skill lets the event wait.
         var paused = (agent.RunState == NhAssistantAgentRunStates.Paused || skillState == NhAssistantAgentRunStates.Paused)
@@ -957,13 +1058,13 @@ internal sealed class NhAssistantAgentTriggers(
             return Rejected(fire, null, NhAssistantErrorCodes.SubjectNotFound);
         }
 
-        var accountable = threads.ResolveAccountableOwner(agent.Definition, subject);
+        var accountable = threads.ResolveAccountableOwner(agent, subject);
         if (!accountable.Success)
         {
             return Rejected(fire, null, NhAssistantErrorCodes.NoAccountableOwner);
         }
 
-        var created = await threads.GetOrCreateAsync(agent, subject, cancellationToken);
+        var created = await threads.GetOrCreateAsync(agent, subject, cancellationToken, shadow);
         if (!created.Success)
         {
             return Rejected(fire, null, NhAssistantErrorCodes.NoAccountableOwner);
@@ -971,6 +1072,12 @@ internal sealed class NhAssistantAgentTriggers(
 
         var thread = created.Data!;
         var conversationId = thread.ConversationId;
+        if (fire.Resume && fire.ResumeConversationId is { } waitingIn && waitingIn != conversationId)
+        {
+            // The shadow mode changed while the inputs waited: they move to the thread the work
+            // belongs in now, where this run claims them.
+            await runs.MoveWaitingInputsAsync(waitingIn, conversationId, fire.SkillId, cancellationToken);
+        }
         if (!fire.Resume && fire.EventKey is { } eventKey)
         {
             if (await runs.FindRunByEventKeyAsync(conversationId, fire.TriggerId, eventKey, cancellationToken) is { } duplicate)
@@ -1077,9 +1184,9 @@ internal sealed class NhAssistantAgentTriggers(
             AccountableOwnerId = accountable.Data!,
             Status = NhAssistantRunStatuses.Queued,
             AgentVersion = agent.Definition.Version,
-            Shadow = options.Shadow,
+            Shadow = shadow,
             SkillId = fire.SkillId,
-            SkillChosenBy = fire.SkillId is null ? null : ChooserOf(fire.TriggerId),
+            SkillChosenBy = fire.SkillId is null ? null : fire.SkillChosenBy ?? ChooserOf(fire.TriggerId),
             ReplayOfRunId = fire.ReplayOfRunId,
             CreatedAt = DateTimeOffset.UtcNow,
             ConcurrencyStamp = Guid.NewGuid()

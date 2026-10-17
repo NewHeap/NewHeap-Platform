@@ -31,7 +31,10 @@ internal sealed class NhAssistantAgentWorkUpdates(
                 return;
             }
 
-            members = (await runs.GetMembersAsync(
+            // A shadow thread belongs to administrators: only its own audience hears about it.
+            members = thread.Shadow
+                ? []
+                : (await runs.GetMembersAsync(
                     thread.ScopeKey,
                     new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
                     cancellationToken))

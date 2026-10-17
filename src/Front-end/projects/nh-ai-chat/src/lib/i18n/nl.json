@@ -346,7 +346,11 @@
       "assistant-consult-limit-reached": "Je hebt het aantal raadplegingen voor vandaag bereikt.",
       "assistant-consult-timeout": "De agent antwoordde niet op tijd.",
       "assistant-consult-failed": "De agent kon niet antwoorden.",
-      "assistant-consult-read-only": "Een raadpleging kan niets wijzigen."
+      "assistant-consult-read-only": "Een raadpleging kan niets wijzigen.",
+      "assistant-moved-to-shadow": "Het werk is naar de schaduwthread van de agent gegaan, waar een run in schaduw het oppakt.",
+      "assistant-shadow-variant": "Een schaduwvariant werkt altijd in schaduw.",
+      "assistant-service-account-not-used": "Deze agent werkt niet onder een technisch account.",
+      "assistant-service-account-not-found": "Er bestaat geen account met deze id dat mag inloggen."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
@@ -498,6 +502,49 @@
             "active": "De vaardigheid {{skill}} werkt weer. Elk onderwerp met gebeurtenissen die erop wachten krijgt één run.",
             "paused": "De vaardigheid {{skill}} start geen nieuwe runs: haar gebeurtenissen wachten, triage kiest haar niet meer en lopend werk wordt afgemaakt. De andere vaardigheden werken door.",
             "stopped": "De runs van de vaardigheid {{skill}} worden geannuleerd en haar wachtende gebeurtenissen vervallen; haar triggers worden geweigerd. De andere vaardigheden werken door."
+          }
+        },
+        "shadow": {
+          "badge": "Schaduw",
+          "hint": "Het werk gaat naar schaduwthreads die alleen beheerders zien.",
+          "changed": "Schaduwmodus ingesteld door {{user}} op {{date}}.",
+          "locked": "Een schaduwvariant werkt altijd in schaduw.",
+          "action": {
+            "shadow": "In schaduw zetten",
+            "live": "Live zetten",
+            "code": "Code laten beslissen"
+          },
+          "explain": {
+            "shadow": "Nieuwe runs werken in schaduwthreads die alleen beheerders zien: niemand krijgt een melding en niets wat daar wordt voorgesteld, wordt uitgevoerd. Lopend werk wordt afgemaakt zoals het begon; de live threads en hun open voorstellen blijven.",
+            "live": "Nieuwe runs werken live: mensen zien ze, krijgen meldingen en beslissen over de voorstellen.",
+            "code": "De modus in de code beslist weer."
+          },
+          "skill-explain": {
+            "shadow": "Werk dat bij de vaardigheid {{skill}} komt, gaat naar de schaduwthreads; de andere vaardigheden houden hun modus.",
+            "live": "De vaardigheid {{skill}} werkt weer live, tenzij haar agent in schaduw werkt.",
+            "code": "De modus in de code beslist weer voor de vaardigheid {{skill}}."
+          },
+          "confirm": {
+            "shadow": "Schaduw bevestigen",
+            "live": "Live bevestigen",
+            "code": "Bevestigen"
+          }
+        },
+        "service-account": {
+          "label": "Technisch account: {{account}}",
+          "configured": "In de code: {{account}}",
+          "input-label": "Account-id",
+          "action": {
+            "set": "Technisch account wijzigen",
+            "code": "Account uit de code gebruiken"
+          },
+          "explain": {
+            "set": "Nieuwe runs werken onder dit account en met zijn rechten. Runs die al begonnen en hun voorstellen houden hun account.",
+            "code": "Nieuwe runs werken weer onder het account uit de code: {{account}}."
+          },
+          "confirm": {
+            "set": "Account bevestigen",
+            "code": "Bevestigen"
           }
         }
       },
@@ -819,7 +866,8 @@
           "ignored": "De agent is bezig; er is niets gestart.",
           "deduplicated": "Dit was al gestart.",
           "rejected": "De agent kon niet starten."
-        }
+        },
+        "shadow": "Schaduwthread: alleen beheerders zien hem, en niets wat hier wordt voorgesteld, wordt uitgevoerd."
       },
       "subject": {
         "title": "Voorstellen van agents",

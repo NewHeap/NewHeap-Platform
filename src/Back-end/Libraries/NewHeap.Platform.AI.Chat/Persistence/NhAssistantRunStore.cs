@@ -24,11 +24,16 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         NhAssistantRunStatuses.WaitingForApproval
     ];
 
+    /// <summary>
+    /// The live thread of the agent about the subject, or with <paramref name="shadow"/> its shadow
+    /// thread.
+    /// </summary>
     public async Task<AssistantThread?> FindThreadAsync(
         string scopeKey,
         string agentId,
         NhAiSubjectRef subject,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool shadow = false)
     {
         await using var context = contextFactory.CreateDbContext();
         return await context.Threads
@@ -37,7 +42,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 thread => thread.ScopeKey == scopeKey
                     && thread.AgentId == agentId
                     && thread.SubjectType == subject.Type
-                    && thread.SubjectId == subject.Id,
+                    && thread.SubjectId == subject.Id
+                    && thread.Shadow == shadow,
                 cancellationToken);
     }
 
@@ -77,7 +83,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 thread.ScopeKey,
                 thread.AgentId,
                 new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
-                cancellationToken);
+                cancellationToken,
+                thread.Shadow);
             return existing ?? throw new InvalidOperationException(
                 "The agent thread could not be created and no existing thread was found.");
         }
@@ -1003,8 +1010,86 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// Moves the waiting inputs of <paramref name="fromConversationId"/> that wait for
+    /// <paramref name="skillId"/>, or for no skill with <see langword="null"/>, to another thread of
+    /// the same agent and subject, when the work changes between the live and the shadow thread.
+    /// Returns how many moved.
+    /// </summary>
+    public async Task<int> MoveWaitingInputsAsync(
+        Guid fromConversationId,
+        Guid toConversationId,
+        string? skillId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.QueuedInputs
+            .Where(input => input.ConversationId == fromConversationId
+                && input.ConsumedAt == null
+                && input.SkillId == skillId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(input => input.ConversationId, toConversationId), cancellationToken);
+    }
+
+    /// <summary>
+    /// Moves a run that has not started to the shadow thread <paramref name="toConversationId"/>,
+    /// with the waiting inputs of its skill, when its agent or skill went into shadow after it was
+    /// queued. Returns <see langword="false"/> when the run started meanwhile.
+    /// </summary>
+    public async Task<bool> MoveQueuedRunToShadowAsync(
+        Guid runId,
+        Guid fromConversationId,
+        Guid toConversationId,
+        string? skillId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var moved = await context.Runs
+            .Where(run => run.Id == runId
+                && run.ConversationId == fromConversationId
+                && run.Status == NhAssistantRunStatuses.Queued)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(run => run.ConversationId, toConversationId)
+                    .SetProperty(run => run.Shadow, true),
+                cancellationToken);
+        if (moved == 0)
+        {
+            return false;
+        }
+
+        await context.QueuedInputs
+            .Where(input => input.ConversationId == fromConversationId
+                && input.ConsumedAt == null
+                && input.SkillId == skillId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(input => input.ConversationId, toConversationId), cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// Makes <paramref name="accountableOwnerId"/> answer for the threads of an agent that answers to
+    /// a technical account, after an administrator changed the account. Runs and proposals keep the
+    /// account they were made with.
+    /// </summary>
+    public async Task<int> SetServiceAccountOfThreadsAsync(
+        string agentId,
+        string accountableOwnerId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Threads
+            .Where(thread => thread.AgentId == agentId && thread.Accountability == NhAssistantAccountabilities.ServiceAccount)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(thread => thread.AccountableOwnerId, accountableOwnerId)
+                    .SetProperty(thread => thread.UpdatedAt, DateTimeOffset.UtcNow),
+                cancellationToken);
+    }
+
+    /// <summary>
     /// Gives the inputs a run claimed back to the thread as waiting inputs of
-    /// <paramref name="skillId"/>, when the run's rules routed it to a paused skill.
+    /// <paramref name="skillId"/>, when the run's rules routed it to a paused skill or to a skill
+    /// that works in shadow.
     /// </summary>
     public async Task ReleaseInputsToSkillAsync(Guid runId, string skillId, CancellationToken cancellationToken)
     {
@@ -1546,14 +1631,16 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     /// <summary>
     /// Counts, per subject, the open proposals and active runs of the agent threads
     /// <paramref name="actorId"/> may see according to the member snapshot, and the proposals they
-    /// may decide as the inbox counts them. Subjects without visible work are left out.
+    /// may decide as the inbox counts them. Subjects without visible work are left out; shadow
+    /// threads count only with <paramref name="includeShadow"/>.
     /// </summary>
     public async Task<IReadOnlyList<NhAssistantSubjectSummaryRow>> SummarizeSubjectsAsync(
         string actorId,
         string subjectType,
         IReadOnlyCollection<string> subjectIds,
         IReadOnlyCollection<string> hiddenAgentIds,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool includeShadow = false)
     {
         await using var context = contextFactory.CreateDbContext();
         var now = DateTimeOffset.UtcNow;
@@ -1566,6 +1653,7 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .Where(thread => thread.SubjectType == subjectType
                 && subjectIds.Contains(thread.SubjectId)
                 && !hiddenAgentIds.Contains(thread.AgentId)
+                && (includeShadow || !thread.Shadow)
                 && memberships.Any(member => member.ScopeKey == thread.ScopeKey && member.SubjectId == thread.SubjectId));
         var pending =
             from approval in context.Approvals.AsNoTracking()

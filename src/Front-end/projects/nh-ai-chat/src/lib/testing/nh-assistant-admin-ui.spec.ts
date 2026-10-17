@@ -316,6 +316,87 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(element.querySelector('.card .card-header')?.textContent).toContain('Active');
   });
 
+  it('puts an agent and a skill in shadow or live and changes the technical account, each with a reason', async () => {
+    const script = scenario();
+    script.admin!.agents![0] = {
+      ...script.admin!.agents![0],
+      serviceAccount: 'service-1',
+      skills: [
+        { skillId: 'task-follow-up', description: 'Follows up tasks by rule.' },
+        { skillId: 'deadline-risk', description: 'Judges deadline risks.', shadow: true }
+      ]
+    };
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const card = () => element.querySelector('li.card')!;
+    const skill = (id: string) => element.querySelector(`[data-skill="${id}"]`)!;
+    const header = () => card().querySelector('.card-header')!;
+
+    // A skill in shadow by code shows it and offers to go live; the agent offers shadow.
+    expect(header().querySelector('[data-shadow-badge]')).toBeNull();
+    expect(skill('deadline-risk').querySelector('[data-shadow-badge]')).not.toBeNull();
+    expect(skill('deadline-risk').querySelector('[data-shadow-action="live"]')).not.toBeNull();
+    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: service-1');
+
+    (card().querySelector('[data-shadow-action="shadow"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(element.textContent).toContain('New runs work in shadow threads that only administrators see');
+    type(element, 'input[id$="-shadow-reason"]', 'Evaluate the rules');
+    button(element, 'Confirm shadow').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/shadow')).toEqual([{ mode: 'shadow', reason: 'Evaluate the rules' }]);
+    expect(header().querySelector('[data-shadow-badge]')).not.toBeNull();
+    expect(card().textContent).toContain('Reason: Evaluate the rules');
+    // Every skill of an agent in shadow works in shadow.
+    expect(skill('task-follow-up').querySelector('[data-shadow-badge]')).not.toBeNull();
+
+    (skill('deadline-risk').querySelector('[data-shadow-action="live"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(element.textContent).toContain('The skill deadline-risk works live again, unless its agent works in shadow.');
+    button(element, 'Confirm live').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/skills/deadline-risk/shadow')).toEqual([{ mode: 'live', reason: null }]);
+    expect(skill('deadline-risk').querySelector('[data-shadow-action="code"]')).not.toBeNull();
+
+    (card().querySelector('[data-shadow-action="code"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    button(element, 'Confirm').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/shadow')[1]).toEqual({ mode: 'code', reason: null });
+    expect(header().querySelector('[data-shadow-badge]')).toBeNull();
+    expect(skill('deadline-risk').querySelector('[data-shadow-badge]')).toBeNull();
+
+    // An account that does not exist is refused; another one answers for new runs.
+    (card().querySelector('[data-account-action="set"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(button(element, 'Confirm account').disabled).toBeTrue();
+    type(element, 'input[id$="-account"]', 'unknown-1');
+    await settle(fixture);
+    button(element, 'Confirm account').click();
+    await settle(fixture);
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('No account that may sign in exists with this id.');
+
+    (card().querySelector('[data-account-action="set"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    type(element, 'input[id$="-account"]', 'service-2');
+    type(element, 'input[id$="-account-reason"]', 'Rotate');
+    await settle(fixture);
+    button(element, 'Confirm account').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/service-account').at(-1)).toEqual({ actorId: 'service-2', reason: 'Rotate' });
+    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: service-2');
+    expect(card().querySelector('[data-service-account]')?.textContent).toContain('In code: service-1');
+
+    (card().querySelector('[data-account-action="code"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(element.textContent).toContain('New runs answer to the account in code again: service-1.');
+    button(element, 'Confirm').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/service-account').at(-1)).toEqual({ actorId: null, reason: null });
+    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: service-1');
+    expect(card().querySelector('[data-account-action="code"]')).toBeNull();
+  });
+
   it('compares an agent with its shadow variant, replays the period and offers evaluation only with a variant', async () => {
     const script = scenario();
     script.admin!.agents!.push({

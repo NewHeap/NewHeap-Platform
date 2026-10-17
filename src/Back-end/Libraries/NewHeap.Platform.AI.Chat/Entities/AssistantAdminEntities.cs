@@ -62,6 +62,29 @@ public sealed class AssistantAgent
     public string? StateReason { get; set; }
 
     /// <summary>
+    /// The shadow mode an administrator set at runtime; <see langword="null"/> follows the code.
+    /// </summary>
+    public bool? ShadowOverride { get; set; }
+
+    public DateTimeOffset? ShadowChangedAt { get; set; }
+
+    public string? ShadowChangedBy { get; set; }
+
+    public string? ShadowReason { get; set; }
+
+    /// <summary>
+    /// The technical account an administrator set at runtime for an agent that answers to one;
+    /// <see langword="null"/> uses the account in code.
+    /// </summary>
+    public string? ServiceAccountActorId { get; set; }
+
+    public DateTimeOffset? ServiceAccountChangedAt { get; set; }
+
+    public string? ServiceAccountChangedBy { get; set; }
+
+    public string? ServiceAccountReason { get; set; }
+
+    /// <summary>
     /// Hash of the code definition last applied, so unchanged code does not bump the version.
     /// </summary>
     public string? CodeHash { get; set; }
@@ -200,4 +223,15 @@ public sealed class AssistantAgentSkillState
     public string? StateChangedBy { get; set; }
 
     public string? StateReason { get; set; }
+
+    /// <summary>
+    /// The shadow mode an administrator set at runtime; <see langword="null"/> follows the code.
+    /// </summary>
+    public bool? ShadowOverride { get; set; }
+
+    public DateTimeOffset? ShadowChangedAt { get; set; }
+
+    public string? ShadowChangedBy { get; set; }
+
+    public string? ShadowReason { get; set; }
 }

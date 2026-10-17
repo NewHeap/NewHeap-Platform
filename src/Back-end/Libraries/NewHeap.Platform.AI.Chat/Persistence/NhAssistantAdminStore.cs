@@ -214,6 +214,111 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
     }
 
     /// <summary>
+    /// Sets the shadow mode of one skill; <see langword="null"/> follows the code again.
+    /// </summary>
+    public async Task SetSkillShadowAsync(
+        string agentId,
+        string skillId,
+        bool? shadow,
+        string actorId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var row = await context.AgentSkillStates.SingleOrDefaultAsync(
+            skill => skill.AgentId == agentId && skill.SkillId == skillId,
+            cancellationToken);
+        if (row is null)
+        {
+            row = new AssistantAgentSkillState { AgentId = agentId, SkillId = skillId };
+            context.AgentSkillStates.Add(row);
+        }
+
+        row.ShadowOverride = shadow;
+        row.ShadowChangedAt = DateTimeOffset.UtcNow;
+        row.ShadowChangedBy = actorId;
+        row.ShadowReason = reason;
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Sets the shadow mode of an agent without changing its definition or version;
+    /// <see langword="null"/> follows the code again. Returns <see langword="false"/> when the agent
+    /// does not exist.
+    /// </summary>
+    public async Task<bool> SetAgentShadowAsync(
+        string id,
+        bool? shadow,
+        string actorId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        return await context.Agents
+            .Where(agent => agent.Id == id)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(agent => agent.ShadowOverride, shadow)
+                    .SetProperty(agent => agent.ShadowChangedAt, now)
+                    .SetProperty(agent => agent.ShadowChangedBy, actorId)
+                    .SetProperty(agent => agent.ShadowReason, reason),
+                cancellationToken) > 0;
+    }
+
+    /// <summary>
+    /// Sets the technical account of an agent without changing its definition or version;
+    /// <see langword="null"/> uses the account in code again. Returns <see langword="false"/> when
+    /// the agent does not exist.
+    /// </summary>
+    public async Task<bool> SetAgentServiceAccountAsync(
+        string id,
+        string? serviceAccountActorId,
+        string actorId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        return await context.Agents
+            .Where(agent => agent.Id == id)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(agent => agent.ServiceAccountActorId, serviceAccountActorId)
+                    .SetProperty(agent => agent.ServiceAccountChangedAt, now)
+                    .SetProperty(agent => agent.ServiceAccountChangedBy, actorId)
+                    .SetProperty(agent => agent.ServiceAccountReason, reason),
+                cancellationToken) > 0;
+    }
+
+    /// <summary>
+    /// Marks the threads of agents that work in shadow by their code as shadow threads: every thread
+    /// of a shadow variant, and those of an agent with <c>Shadow()</c> in code whose shadow mode no
+    /// administrator ever changed. Threads from before shadow threads existed then stay with
+    /// administrators.
+    /// </summary>
+    public async Task MarkShadowThreadsAsync(
+        IReadOnlyCollection<string> variantIds,
+        IReadOnlyCollection<string> codeShadowIds,
+        CancellationToken cancellationToken)
+    {
+        if (variantIds.Count == 0 && codeShadowIds.Count == 0)
+        {
+            return;
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        var variants = variantIds.ToArray();
+        var codeShadow = codeShadowIds.ToArray();
+        await context.Threads
+            .Where(thread => !thread.Shadow
+                && (variants.Contains(thread.AgentId)
+                    || (codeShadow.Contains(thread.AgentId)
+                        && context.Agents.Any(agent => agent.Id == thread.AgentId && agent.ShadowChangedAt == null))))
+            .ExecuteUpdateAsync(setters => setters.SetProperty(thread => thread.Shadow, true), cancellationToken);
+    }
+
+    /// <summary>
     /// The stored run state of an agent, or <see langword="null"/> when it does not exist.
     /// </summary>
     public async Task<string?> FindAgentRunStateAsync(string id, CancellationToken cancellationToken)

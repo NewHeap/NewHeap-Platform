@@ -559,12 +559,19 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .FindThreadByConversationAsync(conversationId, httpContext.RequestAborted);
         if (thread is not null)
         {
+            // A hidden shadow thread answers like one that does not exist, before access records
+            // the caller as a participant.
+            if (await IsHiddenShadowThreadAsync(httpContext, thread))
+            {
+                return (null, Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ConversationNotFound));
+            }
+
             // Access to an agent thread follows the subject; the participant row holds read state.
             var displayName = await services.GetRequiredService<INhAssistantDisplayNameResolver>()
                 .GetDisplayNameAsync(httpContext.User, caller, httpContext.RequestAborted);
             var threadAccess = await services.GetRequiredService<NhAssistantThreadService>()
                 .ResolveAccessAsync(conversationId, caller.ActorId, displayName, httpContext.RequestAborted);
-            if (threadAccess is null || await IsHiddenShadowThreadAsync(httpContext, thread.AgentId))
+            if (threadAccess is null)
             {
                 return (null, Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ConversationNotFound));
             }
@@ -598,24 +605,38 @@ public static class NhAssistantEndpointRouteBuilderExtensions
     private const string ThreadAccessItemKey = "NhAssistant.ThreadAccess";
 
     /// <summary>
-    /// The threads of an agent in shadow mode are visible to administrators only: nobody else hears
-    /// about them, and they must not act on proposals that never execute.
+    /// Shadow threads are visible to administrators only: nobody else hears about them, and they
+    /// must not act on proposals that never execute. Every thread of a shadow variant is one.
     /// </summary>
-    internal static async Task<bool> IsHiddenShadowThreadAsync(HttpContext httpContext, string agentId)
+    internal static async Task<bool> IsHiddenShadowThreadAsync(HttpContext httpContext, AssistantThread thread)
+    {
+        var registration = httpContext.RequestServices.GetRequiredService<NhAssistantRegistrationState>();
+        var shadow = thread.Shadow
+            || (registration.AgentRuns.TryGetValue(thread.AgentId, out var runOptions) && runOptions.ShadowOfAgentId is not null);
+        return shadow && !await IsAdministratorAsync(httpContext);
+    }
+
+    /// <summary>
+    /// Whether the agent is hidden from the caller before any thread: a shadow variant works for
+    /// administrators only.
+    /// </summary>
+    internal static async Task<bool> IsHiddenVariantAsync(HttpContext httpContext, string agentId)
+    {
+        var registration = httpContext.RequestServices.GetRequiredService<NhAssistantRegistrationState>();
+        return registration.AgentRuns.TryGetValue(agentId, out var runOptions)
+            && runOptions.ShadowOfAgentId is not null
+            && !await IsAdministratorAsync(httpContext);
+    }
+
+    internal static async Task<bool> IsAdministratorAsync(HttpContext httpContext)
     {
         var services = httpContext.RequestServices;
-        var registration = services.GetRequiredService<NhAssistantRegistrationState>();
-        if (!registration.AgentRuns.TryGetValue(agentId, out var runOptions) || !runOptions.Shadow)
-        {
-            return false;
-        }
-
         var adminPolicy = NhAssistantEndpointOptions.ResolveAdminPolicy(
-            registration,
+            services.GetRequiredService<NhAssistantRegistrationState>(),
             services.GetRequiredService<IOptions<NhAssistantOptions>>().Value);
         var authorization = await services.GetRequiredService<IAuthorizationService>()
             .AuthorizeAsync(httpContext.User, adminPolicy);
-        return !authorization.Succeeded;
+        return authorization.Succeeded;
     }
 
     /// <summary>

@@ -263,7 +263,7 @@ public sealed class NhAssistantDbContext : DbContext
             thread.Property(item => item.AccountableOwnerId).HasMaxLength(256).IsRequired();
             thread.Property(item => item.MemoryJson).HasMaxLength(NhAssistantLimits.MaxStoredJsonCharacters);
             thread.Property(item => item.MemoryConcurrencyStamp).IsConcurrencyToken();
-            thread.HasIndex(item => new { item.ScopeKey, item.AgentId, item.SubjectType, item.SubjectId }).IsUnique();
+            thread.HasIndex(item => new { item.ScopeKey, item.AgentId, item.SubjectType, item.SubjectId, item.Shadow }).IsUnique();
             thread.HasIndex(item => new { item.SubjectType, item.SubjectId });
             thread.HasOne<AssistantConversation>()
                 .WithOne()
@@ -492,6 +492,11 @@ public sealed class NhAssistantDbContext : DbContext
             agent.Property(item => item.RunState).HasMaxLength(16).IsRequired().HasDefaultValue(NhAssistantAgentRunStates.Active);
             agent.Property(item => item.StateChangedBy).HasMaxLength(256);
             agent.Property(item => item.StateReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            agent.Property(item => item.ShadowChangedBy).HasMaxLength(256);
+            agent.Property(item => item.ShadowReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            agent.Property(item => item.ServiceAccountActorId).HasMaxLength(256);
+            agent.Property(item => item.ServiceAccountChangedBy).HasMaxLength(256);
+            agent.Property(item => item.ServiceAccountReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
             agent.Property(item => item.Version).IsConcurrencyToken();
             agent.HasMany(item => item.McpServers)
                 .WithOne()
@@ -526,6 +531,8 @@ public sealed class NhAssistantDbContext : DbContext
             skill.Property(item => item.RunState).HasMaxLength(16).IsRequired();
             skill.Property(item => item.StateChangedBy).HasMaxLength(256);
             skill.Property(item => item.StateReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            skill.Property(item => item.ShadowChangedBy).HasMaxLength(256);
+            skill.Property(item => item.ShadowReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
             skill.HasOne<AssistantAgent>()
                 .WithMany()
                 .HasForeignKey(item => item.AgentId)

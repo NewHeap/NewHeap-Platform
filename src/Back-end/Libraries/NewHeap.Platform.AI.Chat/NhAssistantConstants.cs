@@ -524,6 +524,27 @@ public static class NhAssistantErrorCodes
     public const string SkillNotFound = "assistant-skill-not-found";
 
     /// <summary>
+    /// The work went to the agent's shadow thread of the subject: the agent or the skill the run
+    /// was routed to works in shadow. A run in the shadow thread takes the run's events.
+    /// </summary>
+    public const string MovedToShadow = "assistant-moved-to-shadow";
+
+    /// <summary>
+    /// A shadow variant always works in shadow; its shadow mode cannot change.
+    /// </summary>
+    public const string ShadowVariant = "assistant-shadow-variant";
+
+    /// <summary>
+    /// The agent does not answer to a technical account, so it has none to change.
+    /// </summary>
+    public const string ServiceAccountNotUsed = "assistant-service-account-not-used";
+
+    /// <summary>
+    /// No account exists with the id given as the agent's technical account.
+    /// </summary>
+    public const string ServiceAccountNotFound = "assistant-service-account-not-found";
+
+    /// <summary>
     /// <c>use_skill</c> named a skill that is not active or is the current one.
     /// </summary>
     public const string SkillNotAvailable = "assistant-skill-not-available";

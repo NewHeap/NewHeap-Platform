@@ -113,16 +113,24 @@ internal sealed class NhAssistantSubjectWork(
         }
 
         var administrator = await agentAccess.CanAdministerAsync(user);
-        var threads = (await runs.FindThreadsBySubjectAsync(subject, cancellationToken))
+        // Shadow threads, and every thread of a shadow variant, are for administrators only.
+        var visible = (await runs.FindThreadsBySubjectAsync(subject, cancellationToken))
             .Where(thread => string.Equals(thread.ScopeKey, info.ScopeKey, StringComparison.Ordinal)
                 && registration.AgentRuns.ContainsKey(thread.AgentId)
-                && IsVisible(thread.AgentId, administrator))
+                && IsVisible(thread.AgentId, administrator)
+                && (administrator || !thread.Shadow))
+            .ToArray();
+        var threads = visible
+            .Where(thread => !thread.Shadow || IsVariant(thread.AgentId))
             .ToDictionary(thread => thread.AgentId, StringComparer.Ordinal);
-        var agentIds = threads.Keys.ToList();
+        var shadowThreads = visible
+            .Where(thread => thread.Shadow && !IsVariant(thread.AgentId))
+            .ToDictionary(thread => thread.AgentId, StringComparer.Ordinal);
+        var agentIds = threads.Keys.Union(shadowThreads.Keys, StringComparer.Ordinal).ToList();
         if (agentId is not null
             && registration.AgentRuns.ContainsKey(agentId)
             && IsVisible(agentId, administrator)
-            && !threads.ContainsKey(agentId))
+            && !agentIds.Contains(agentId, StringComparer.Ordinal))
         {
             agentIds.Add(agentId);
         }
@@ -132,10 +140,15 @@ internal sealed class NhAssistantSubjectWork(
         foreach (var id in agentIds.Order(StringComparer.Ordinal))
         {
             var thread = threads.GetValueOrDefault(id);
+            var canStart = await CanStartAsync(id, access, user, administrator, cancellationToken);
+            var shadowThread = shadowThreads.GetValueOrDefault(id);
             agentEntries.Add(new NhAssistantSubjectAgentDto(
                 id,
                 thread is null ? null : await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(thread, access.Role, runs, cancellationToken),
-                await CanStartAsync(id, access, user, cancellationToken)));
+                canStart)
+            {
+                ShadowThread = shadowThread is null ? null : await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(shadowThread, access.Role, runs, cancellationToken)
+            });
             if (thread is not null)
             {
                 proposals.AddRange(await OpenProposalsAsync(thread, actorId, user, cancellationToken));
@@ -177,7 +190,7 @@ internal sealed class NhAssistantSubjectWork(
             .Where(entry => !IsVisible(entry.Key, administrator))
             .Select(entry => entry.Key)
             .ToArray();
-        var rows = (await runs.SummarizeSubjectsAsync(actorId, subjectType, ids, hidden, cancellationToken))
+        var rows = (await runs.SummarizeSubjectsAsync(actorId, subjectType, ids, hidden, cancellationToken, includeShadow: administrator))
             .ToDictionary(row => row.SubjectId, StringComparer.Ordinal);
         var items = subjectIds
             .Select(id => rows.TryGetValue(id, out var row)
@@ -188,28 +201,39 @@ internal sealed class NhAssistantSubjectWork(
     }
 
     /// <summary>
-    /// Shadow agents work for administrators only; nobody else learns that they ran.
+    /// Shadow variants work for administrators only; nobody else learns that they ran.
     /// </summary>
     private bool IsVisible(string agentId, bool administrator)
     {
-        return administrator
-            || !registration.AgentRuns.TryGetValue(agentId, out var options)
-            || !options.Shadow;
+        return administrator || !IsVariant(agentId);
     }
 
+    private bool IsVariant(string agentId)
+    {
+        return registration.AgentRuns.TryGetValue(agentId, out var options) && options.ShadowOfAgentId is not null;
+    }
+
+    /// <summary>
+    /// Whether the caller may start the agent on the subject: an agent in shadow only by an
+    /// administrator, since its work goes to shadow threads.
+    /// </summary>
     private async Task<bool> CanStartAsync(
         string agentId,
         NhAiSubjectAccess access,
         ClaimsPrincipal user,
+        bool administrator,
         CancellationToken cancellationToken)
     {
-        if (!access.Has(NhAiSubjectRole.Participant) || !registration.AgentRuns[agentId].Enabled)
+        var options = registration.AgentRuns[agentId];
+        if (!access.Has(NhAiSubjectRole.Participant) || !options.Enabled)
         {
             return false;
         }
 
         var agent = await agents.FindAsync(agentId, includeDisabled: false, cancellationToken);
-        return agent is not null && await agentAccess.CanUseAsync(user, agent.Definition);
+        return agent is not null
+            && (administrator || !NhAssistantShadowModes.IsAgentShadow(options, agent.ShadowOverride))
+            && await agentAccess.CanUseAsync(user, agent.Definition);
     }
 
     private async Task<IReadOnlyList<NhAssistantSubjectProposalDto>> OpenProposalsAsync(

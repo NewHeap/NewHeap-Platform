@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, and evaluate shadow variants against the live agent.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, and put an agent or a skill in shadow and change its technical account at runtime.
 
 ## Preferred approach
 
@@ -115,8 +115,9 @@ once. The assistant's own endpoints, schedules, webhooks and follow-ups always f
 at once. Maintenance queues a run again whose operation never committed. Choose
 `NhAssistantTriggerConflict` for events that arrive while a run is active:
 coalesce, queue, supersede or ignore. Bound agents with `Budget`, `Retry`,
-`Enabled` and `Shadow` for evaluation on real events; shadow threads are visible to
-administrators only and never notify anyone. Call `AddAssistantAgentRuns()` inside
+`Enabled`, and `Shadow()` on the agent or a skill to start it in shadow for evaluation on real
+events: its work goes to the agent's shadow thread of the subject, which administrators alone see,
+where nobody is notified and nothing proposed executes. Call `AddAssistantAgentRuns()` inside
 `WithBackgroundOperations`.
 
 Other sources start agents too. `AddScheduledTrigger` runs a Hangfire recurring job on
@@ -151,6 +152,28 @@ and resetting never change the state, and `isEnabled` in the definition is ignor
 agent disabled in code with `Enabled(false)` reads `configured-off` and cannot be resumed;
 with `NewHeap:AI:Assistant:Enabled` off, triggers, schedules, runs and execution queuing
 stop as well. A stopped or code-disabled agent's triggers evaluate no lambda.
+
+The shadow mode and the technical account are runtime overrides of the code, changed the same way
+(`INhAssistantAgentControl`, `POST admin/agents/{id}/shadow`, `POST
+admin/agents/{id}/skills/{skillId}/shadow`, `POST admin/agents/{id}/service-account` or the
+administration) and audited without their reason. `SetShadowAsync(agentId, true | false | null)`
+puts an agent in shadow, live or back to its mode in code (mode `shadow`, `live` or `code`);
+`SetSkillShadowAsync` does so for one skill, which works in shadow whenever its agent does. Shadow
+work goes to the agent's shadow thread of each subject: an agent has at most one live and one
+shadow thread per subject, with separate memory. A trigger that names a skill in shadow fires
+there, a live run that rules or triage route to one ends with `assistant-moved-to-shadow` and a run
+in the shadow thread takes its events, and `use_skill` in a live thread does not offer it. Runs
+that started finish in the mode they started in; a run still queued when the mode changes starts in
+the new one, and waiting events move along when they resume. The live thread, its open proposals
+and people's chat in it stay as they are, but only administrators start an agent in shadow by
+hand, and consultations and requests are refused. A shadow variant always works in shadow
+(`assistant-shadow-variant`). `SetServiceAccountAsync(agentId, actorId | null)` lets another
+technical account answer for an agent that answers to one in code (`ServiceAccount(actorId)`
+stays the default; `assistant-service-account-not-used` otherwise). The account must exist and be
+allowed to sign in according to `INhAiPrincipalFactory` (`assistant-service-account-not-found`).
+New runs and the agent's threads answer to it; runs that started and the proposals they made keep
+the account they were made with. The account lends its rights to gateway reads: choose one with
+no more rights than the agent needs.
 
 People outside the thread hear about waiting proposals, due reminders,
 escalations, unknown outcomes and failed runs through Web Push and every
@@ -394,6 +417,9 @@ profile and instructions that answer questions about the rules' proposals from t
 - Stopping an agent by editing its definition or sending `isEnabled`; pause or stop it with
   `INhAssistantAgentControl` or `POST admin/agents/{id}/state`.
 - Stopping an agent for an import or a migration that should lose no events; pause it.
+- Deploying to put an agent or a skill live after an evaluation in shadow, or to replace its
+  technical account; change it at runtime with `INhAssistantAgentControl`.
+- A technical account with more rights than the agent needs: it lends them to gateway reads.
 - Letting the model read a subject's basic facts through tool calls in every run; brief it.
 - Splitting one role into several agents with their own threads only to give its tasks separate
   tools, models or budgets; declare skills. Use separate agents for separate roles.
@@ -551,8 +577,14 @@ policy, that one run
 hands the same subject off once, that a paused target lets the work wait and runs it after the
 resume, that every refusal carries its code, that the chain and daily limits hold, and that the
 source's follow-up carries the target's summary only for the same subject without restricted reads,
-on both providers. Assert that a `ShadowOf` variant receives every event, tick and webhook of the
-live agent once, notifies nobody and executes nothing while its own triggers work; that the
+on both providers. Put an agent and a skill in shadow at runtime and assert that a trigger,
+a routed run and a run queued before the change work in the shadow thread with shadow proposals,
+that waiting events move along on the resume, that `use_skill` in a live thread does not offer the
+skill, that members see the live thread and its open proposals but neither the shadow thread nor a
+manual start, that a variant cannot change and that `code` follows the code again; replace a
+technical account and assert that an unknown account is refused, that new runs and the threads
+answer to the new one while earlier runs keep theirs, on both providers. Assert that a `ShadowOf`
+variant receives every event, tick and webhook of the live agent once, notifies nobody and executes nothing while its own triggers work; that the
 evaluation pairs runs of the same event, counts agreed, live-only and variant-only proposals with the
 live decisions and holds no message or argument; and that a replay fires the recorded inputs oldest
 first, records the runs it replays, stops at the variant's budget and refuses a live agent and a
@@ -561,7 +593,7 @@ with its inputs and subject, as the agent with the subject's scopes, on both pro
 a run with gateway reads records `DelegatedRead`, reads with its starter's rights when a person
 started it, shows the result only to the person whose rights it used, also with `ElevatedReads.Deny`,
 and that startup fails without an accountable person or an issuer. SPM-268 to
-SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-292 are the executable references.
+SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-294 are the executable references.
 
 ## Executable evidence
 
@@ -680,3 +712,13 @@ SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-292 are the executable references
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs)
+- SPM-293 — An operator puts the project closer and a planner skill in shadow at runtime while the team evaluates them, and puts them live again
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowModes.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowModes.cs)
+- SPM-294 — An operator replaces the technical account the project closer answers to for its new runs, next to the account in the application's configuration
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)

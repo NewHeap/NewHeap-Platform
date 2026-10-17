@@ -544,6 +544,17 @@ public sealed record NhAssistantAdminAgentDto(
     /// no variant.
     /// </summary>
     public string? ShadowOf { get; init; }
+
+    /// <summary>
+    /// Whether the agent works in shadow, and how the code and an administrator decided it.
+    /// </summary>
+    public NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantShadowState? Shadow { get; init; }
+
+    /// <summary>
+    /// The technical account that answers for the agent's new runs; <see langword="null"/> for an
+    /// agent that does not answer to one.
+    /// </summary>
+    public NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantServiceAccountState? ServiceAccount { get; init; }
 }
 
 /// <summary>

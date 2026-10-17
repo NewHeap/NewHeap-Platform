@@ -98,6 +98,44 @@ export interface AdminAgent extends AdminAgentInput {
   skills?: AgentSkillState[];
   /** The live agent this agent is a shadow variant of; missing or null for an agent that is no variant. */
   shadowOf?: string | null;
+  /** Whether the agent works in shadow, and how the code and an administrator decided it. */
+  shadow?: AgentShadowState | null;
+  /** The technical account that answers for the agent's new runs; null when it answers to none. */
+  serviceAccount?: AgentServiceAccountState | null;
+}
+
+/** The shadow modes an administrator chooses; `code` lets the mode in code decide again. */
+export type AgentShadowMode = 'shadow' | 'live' | 'code';
+
+/**
+ * The shadow mode of an agent or a skill. In shadow the work goes to the agent's shadow threads,
+ * which only administrators see; nobody is notified and nothing proposed there executes.
+ */
+export interface AgentShadowState {
+  /** Whether the work goes to shadow threads now; for a skill this includes the agent's mode. */
+  shadow: boolean;
+  /** The mode in code: `Shadow()` on the agent or the skill. */
+  configured: boolean;
+  /** The mode an administrator set at runtime; `null` follows the code. */
+  override: boolean | null;
+  /** A shadow variant always works in shadow; its mode cannot change. */
+  locked: boolean;
+  changedAt: string | null;
+  changedBy: string | null;
+  reason: string | null;
+}
+
+/** The technical account of an agent that answers to one. */
+export interface AgentServiceAccountState {
+  /** The account that answers for the agent's new runs. */
+  actorId: string;
+  /** The account in code. */
+  configuredActorId: string;
+  /** Whether an administrator set `actorId` at runtime. */
+  overridden: boolean;
+  changedAt: string | null;
+  changedBy: string | null;
+  reason: string | null;
 }
 
 /** One skill of an agent with its own state and today's usage across scopes. */
@@ -117,6 +155,8 @@ export interface AgentSkillState {
   dailyTokens: number | null;
   cancelledRuns: number;
   startedRuns: number;
+  /** Whether the skill's work goes to the agent's shadow threads. */
+  shadow?: AgentShadowState;
 }
 
 /** Response of `GET` and `POST admin/agents/{id}/state`. */
@@ -135,6 +175,23 @@ export interface AgentState {
   startedRuns: number;
   skills?: AgentSkillState[];
   shadowOf?: string | null;
+  /** `null` for an agent without runs, which only chats. */
+  shadow?: AgentShadowState | null;
+  serviceAccount?: AgentServiceAccountState | null;
+}
+
+/** Body of `POST admin/agents/{id}/shadow` and `POST admin/agents/{id}/skills/{skillId}/shadow`. */
+export interface SetAgentShadowRequest {
+  mode: AgentShadowMode;
+  /** Optional, at most 500 characters. */
+  reason?: string | null;
+}
+
+/** Body of `POST admin/agents/{id}/service-account`. `null` uses the account in code again. */
+export interface SetAgentServiceAccountRequest {
+  actorId: string | null;
+  /** Optional, at most 500 characters. */
+  reason?: string | null;
 }
 
 /** Body of `POST admin/agents/{id}/state`. `active` resumes the agent. */

@@ -221,6 +221,7 @@ internal sealed class NhAssistantAgentRunOperation(
     NhAssistantRunSummaries summaries,
     NhAssistantAgentWorkUpdates workUpdates,
     NhAssistantHandOffService handOffs,
+    NhAssistantAgentTriggers triggers,
     IOptions<RequestLocalizationOptions> localization,
     IOptionsMonitor<NhAssistantOptions> assistantOptions,
     ILogger<NhAssistantAgentRunOperation> logger) : INhBackgroundOperationHandler<NhAssistantAgentRunRequest>
@@ -254,6 +255,12 @@ internal sealed class NhAssistantAgentRunOperation(
         if (NhAssistantRunStatuses.IsTerminal(run.Status))
         {
             return TaskResult.Succeeded();
+        }
+        if (await triggers.MoveQueuedRunToShadowAsync(run, cancellationToken) is { } moved)
+        {
+            // The agent or the run's skill went into shadow after the run was queued: it works in
+            // the shadow thread, so nothing live starts once shadow mode is on.
+            run = moved;
         }
 
         var created = await turns.CreateAsync(
@@ -529,6 +536,13 @@ internal sealed class NhAssistantAgentRunOperation(
             case NhAssistantTurnStatuses.Cancelled:
                 // A run routed to a paused or stopped skill ends cancelled with that code.
                 await EndAsync(run, agentTurn.Thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Cancelled, result.ErrorCode);
+                if (result.ErrorCode == NhAssistantErrorCodes.MovedToShadow)
+                {
+                    // Routed to a skill in shadow: a run in the shadow thread takes the events, in
+                    // the skill the routing recorded.
+                    var routed = await runs.FindRunAsync(run.Id, CancellationToken.None) ?? run;
+                    await triggers.ContinueInShadowAsync(routed, agentTurn.Thread, CancellationToken.None);
+                }
                 return TaskResult.Succeeded();
 
             default:

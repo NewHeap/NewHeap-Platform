@@ -116,6 +116,30 @@ internal static class NhAssistantAdminEndpoints
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantSkillState>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapPost("agents/{id}/skills/{skillId}/shadow", SetSkillShadowAsync)
+            .WithName("NhAssistantAdminSetSkillShadow")
+            .WithSummary("Put one skill of an agent in shadow or live")
+            .WithDescription("mode shadow: work that reaches the skill goes to the agent's shadow threads, which only administrators see, where nobody is notified and nothing executes. live: the skill works live. code: the mode in code decides again. A skill of an agent in shadow works in shadow whatever its own mode; a shadow variant cannot change (409).")
+            .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantSkillState>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPost("agents/{id}/shadow", SetAgentShadowAsync)
+            .WithName("NhAssistantAdminSetAgentShadow")
+            .WithSummary("Put an agent in shadow or live")
+            .WithDescription("mode shadow: the agent's runs work in its shadow threads, which only administrators see; nobody is notified, nothing executes and consultations and requests are refused. live: the agent works live. code: the mode in code decides again. Started runs finish in their mode; the live threads and their open proposals stay. A shadow variant cannot change (409).")
+            .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPost("agents/{id}/service-account", SetAgentServiceAccountAsync)
+            .WithName("NhAssistantAdminSetAgentServiceAccount")
+            .WithSummary("Change the technical account of an agent")
+            .WithDescription("actorId: the account that answers for the agent's new runs; it must exist and be allowed to sign in. null: the account in code answers again. Started runs and their proposals keep their account. An agent that does not answer to a technical account in code cannot change (409).")
+            .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPost("agents/{id}/state", SetAgentStateAsync)
             .WithName("NhAssistantAdminSetAgentState")
             .WithSummary("Pause, stop or resume an agent")
@@ -446,6 +470,88 @@ internal static class NhAssistantAdminEndpoints
             : Failure(result);
     }
 
+    private static async Task<IResult> SetSkillShadowAsync(string id, string skillId, HttpContext httpContext)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var body = await ReadAsync(
+            httpContext,
+            AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantShadowRequest);
+        if (body is null)
+        {
+            return Validation();
+        }
+        if (body.Mode is null)
+        {
+            return MissingField("mode");
+        }
+        if (!AgentRuns.NhAssistantShadowChoices.TryParse(body.Mode, out var shadow))
+        {
+            return Failure(NhAssistantValidationErrors.Failed("mode", NhAssistantFieldErrors.Invalid));
+        }
+
+        var control = httpContext.RequestServices.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
+        var result = await control.SetSkillShadowAsync(id, skillId, shadow, actor, body.Reason, httpContext.RequestAborted);
+        return result.Success
+            ? Json(result.Data!, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSkillState)
+            : Failure(result);
+    }
+
+    private static async Task<IResult> SetAgentShadowAsync(string id, HttpContext httpContext)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var body = await ReadAsync(
+            httpContext,
+            AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantShadowRequest);
+        if (body is null)
+        {
+            return Validation();
+        }
+        if (body.Mode is null)
+        {
+            return MissingField("mode");
+        }
+        if (!AgentRuns.NhAssistantShadowChoices.TryParse(body.Mode, out var shadow))
+        {
+            return Failure(NhAssistantValidationErrors.Failed("mode", NhAssistantFieldErrors.Invalid));
+        }
+
+        var control = httpContext.RequestServices.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
+        var result = await control.SetShadowAsync(id, shadow, actor, body.Reason, httpContext.RequestAborted);
+        return result.Success
+            ? Json(result.Data!, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentState)
+            : Failure(result);
+    }
+
+    private static async Task<IResult> SetAgentServiceAccountAsync(string id, HttpContext httpContext)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var body = await ReadAsync(
+            httpContext,
+            AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantServiceAccountRequest);
+        if (body is null)
+        {
+            return Validation();
+        }
+
+        var control = httpContext.RequestServices.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
+        var result = await control.SetServiceAccountAsync(id, body.ActorId, actor, body.Reason, httpContext.RequestAborted);
+        return result.Success
+            ? Json(result.Data!, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentState)
+            : Failure(result);
+    }
+
     private static async Task<IResult> SetAgentStateAsync(string id, HttpContext httpContext)
     {
         var actor = await ActorAsync(httpContext);
@@ -727,7 +833,9 @@ internal static class NhAssistantAdminEndpoints
             state.WaitingInputs)
         {
             Skills = state.Skills,
-            ShadowOf = state.ShadowOf
+            ShadowOf = state.ShadowOf,
+            Shadow = state.Shadow,
+            ServiceAccount = state.ServiceAccount
         };
     }
 
@@ -824,6 +932,8 @@ internal static class NhAssistantAdminEndpoints
                 or NhAssistantAdminErrorCodes.McpServerNotFound
                 or NhAssistantAdminErrorCodes.McpToolNotFound => StatusCodes.Status404NotFound,
             NhAssistantAdminErrorCodes.VersionConflict
+                or NhAssistantErrorCodes.ShadowVariant
+                or NhAssistantErrorCodes.ServiceAccountNotUsed
                 or NhAssistantAdminErrorCodes.AgentExists
                 or NhAssistantAdminErrorCodes.McpServerExists
                 or NhAssistantAdminErrorCodes.CodeAgentNotDeletable

@@ -102,13 +102,19 @@ internal sealed partial class NhAssistantTurnRunner
             .Where(skill => !stored.TryGetValue(skill.Id, out var row) || row.RunState == NhAssistantAgentRunStates.Active)
             .ToArray();
         state.SkillStates = stored.ToDictionary(item => item.Key, item => item.Value.RunState, StringComparer.Ordinal);
+        state.ShadowSkills = agentTurn.Thread.Shadow
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : agentTurn.Options.Skills.Values
+                .Where(skill => NhAssistantShadowModes.IsSkillShadow(skill, stored.GetValueOrDefault(skill.Id)))
+                .Select(skill => skill.Id)
+                .ToHashSet(StringComparer.Ordinal);
         RefreshFunctions(state);
     }
 
     /// <summary>
     /// The working memory functions, in a run the hand-off tools the agent or its skill selects, and,
     /// while another active skill exists and switches remain, <c>use_skill</c> with the catalog of
-    /// the other active skills.
+    /// the other active skills. A live thread offers no skill that works in shadow.
     /// </summary>
     private void RefreshFunctions(NhAssistantTurnState state)
     {
@@ -116,7 +122,7 @@ internal sealed partial class NhAssistantTurnRunner
         var functions = new List<AIFunction>(services.GetRequiredService<NhAssistantMemoryService>()
             .CreateFunctions(agentTurn.Thread.ConversationId, agentTurn.Options));
         functions.AddRange(CreateHandOffFunctions(state));
-        var others = state.ActiveSkills.Where(skill => skill != state.Skill).ToArray();
+        var others = state.ActiveSkills.Where(skill => skill != state.Skill && !state.ShadowSkills.Contains(skill.Id)).ToArray();
         if (others.Length > 0 && state.SkillSwitches < MaxSkillSwitches && !state.RuleTurn)
         {
             functions.Add(CreateUseSkillFunction(state, others));
@@ -150,7 +156,7 @@ internal sealed partial class NhAssistantTurnRunner
             async (arguments, cancellationToken) =>
             {
                 var id = Text(arguments, "skill");
-                var target = state.ActiveSkills.FirstOrDefault(skill => skill.Id == id && skill != state.Skill);
+                var target = state.ActiveSkills.FirstOrDefault(skill => skill.Id == id && skill != state.Skill && !state.ShadowSkills.Contains(skill.Id));
                 if (target is null)
                 {
                     return SkillResult(false, NhAssistantErrorCodes.SkillNotAvailable, "That skill is not available; continue with the current tools.");
@@ -230,7 +236,8 @@ internal sealed partial class NhAssistantTurnRunner
     /// <summary>
     /// Makes the run work in the skill its rules or triage chose. Returns <see langword="true"/>
     /// when the run ended instead: the skill is unknown, stopped, paused (its events then wait for
-    /// it) or out of budget.
+    /// it), works in shadow while the run is live (its events then go to the shadow thread) or is
+    /// out of budget.
     /// </summary>
     private async Task<bool> RouteAsync(
         NhAssistantTurnState state,
@@ -259,6 +266,19 @@ internal sealed partial class NhAssistantTurnRunner
                 await runs.ReleaseInputsToSkillAsync(state.AgentTurn.RunId!.Value, skillId, cancellationToken);
             }
             await EndRoutedRunAsync(state, NhAssistantTurnStatuses.Cancelled, null, NhAssistantErrorCodes.SkillPaused);
+            return true;
+        }
+        if (state.ShadowSkills.Contains(skillId))
+        {
+            if (IsRun(state))
+            {
+                // The run records the skill and who chose it; its events go to the agent's shadow
+                // thread, where a run in the skill takes them.
+                var runId = state.AgentTurn.RunId!.Value;
+                await runs.ReleaseInputsToSkillAsync(runId, skillId, cancellationToken);
+                await runs.SetRunSkillAsync(runId, skillId, chosenBy, cancellationToken);
+            }
+            await EndRoutedRunAsync(state, NhAssistantTurnStatuses.Cancelled, null, NhAssistantErrorCodes.MovedToShadow);
             return true;
         }
         if (IsRun(state) && await SkillBudgetExhaustedAsync(state, skill, cancellationToken))

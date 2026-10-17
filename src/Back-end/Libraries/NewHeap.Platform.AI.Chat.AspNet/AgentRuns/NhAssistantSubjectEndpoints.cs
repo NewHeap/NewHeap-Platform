@@ -118,23 +118,29 @@ internal static class NhAssistantSubjectEndpoints
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.SubjectNotFound);
         }
-        if (await NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, agentId))
+        if (await NhAssistantEndpointRouteBuilderExtensions.IsHiddenVariantAsync(httpContext, agentId))
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
         }
 
         var agent = await agents.FindAsync(agentId, includeDisabled: false, cancellationToken);
+        var runOptions = registration.AgentRuns[agentId];
         var mayUse = agent is not null && await agentAccess.CanUseAsync(httpContext.User, agent.Definition);
-        var thread = await runs.FindThreadAsync(info.ScopeKey, agentId, subject!, cancellationToken);
+        // People open the live thread; a shadow variant has shadow threads only.
+        var variant = runOptions.ShadowOfAgentId is not null;
+        var thread = await runs.FindThreadAsync(info.ScopeKey, agentId, subject!, cancellationToken, variant);
         if (thread is null)
         {
             // A new thread holds the conversation people start; no run and no model call happen here.
-            if (!access.Has(NhAiSubjectRole.Participant) || !mayUse)
+            // An agent in shadow gets no new live thread from anyone but an administrator.
+            if (!access.Has(NhAiSubjectRole.Participant)
+                || !mayUse
+                || !await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!))
             {
                 return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
             }
 
-            var created = await threads.GetOrCreateAsync(agent!, info, cancellationToken);
+            var created = await threads.GetOrCreateAsync(agent!, info, cancellationToken, variant);
             if (!created.Success)
             {
                 return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, FirstCode(created));
@@ -145,8 +151,9 @@ internal static class NhAssistantSubjectEndpoints
 
         await threads.ResolveAccessAsync(thread.ConversationId, caller.Data!.ActorId, null, cancellationToken);
         var canStart = mayUse
-            && registration.AgentRuns[agentId].Enabled
-            && access.Has(NhAiSubjectRole.Participant);
+            && runOptions.Enabled
+            && access.Has(NhAiSubjectRole.Participant)
+            && await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!);
         return TypedResults.Json(
             new NhAssistantThreadLookupDto(
                 await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(thread, access.Role, runs, cancellationToken),

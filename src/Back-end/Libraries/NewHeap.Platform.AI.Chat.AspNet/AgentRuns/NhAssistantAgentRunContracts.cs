@@ -19,7 +19,14 @@ public sealed record NhAssistantThreadDto(
     string AccountableOwnerId,
     string Role,
     NhAssistantRunDto? ActiveRun,
-    int WaitingInputs);
+    int WaitingInputs)
+{
+    /// <summary>
+    /// The thread holds the agent's shadow work about the subject: only administrators see it,
+    /// nobody is notified and nothing proposed in it executes.
+    /// </summary>
+    public bool Shadow { get; init; }
+}
 
 /// <param name="Thread">The agent's thread about the subject, or <see langword="null"/> before its first run.</param>
 /// <param name="CanStart">Whether the caller may start the agent on the subject.</param>
@@ -359,7 +366,15 @@ public sealed record NhAssistantFeedbackItemDto(
 public sealed record NhAssistantSubjectAgentDto(
     string AgentId,
     NhAssistantThreadDto? Thread,
-    bool CanStart);
+    bool CanStart)
+{
+    /// <summary>
+    /// For administrators, the agent's shadow thread about the subject, where its work goes while
+    /// the agent or one of its skills works in shadow; <see langword="null"/> otherwise. A shadow
+    /// variant's own threads are in <see cref="Thread"/>.
+    /// </summary>
+    public NhAssistantThreadDto? ShadowThread { get; init; }
+}
 
 /// <summary>
 /// A proposal on a subject with the caller's live decision right. Only a pending proposal can be
@@ -511,6 +526,8 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantAgentState))]
 [JsonSerializable(typeof(NhAssistantAgentStateRequest))]
 [JsonSerializable(typeof(NhAssistantSkillState))]
+[JsonSerializable(typeof(NhAssistantShadowRequest))]
+[JsonSerializable(typeof(NhAssistantServiceAccountRequest))]
 [JsonSerializable(typeof(NhAssistantStartAgentRequest))]
 [JsonSerializable(typeof(NhAssistantTriggerReceiptDto))]
 [JsonSerializable(typeof(NhAssistantRunDto))]

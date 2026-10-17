@@ -446,7 +446,8 @@ internal sealed class NhAssistantConsultationToolHandler(
                 NhAssistantErrorCodes.ConsultSubjectUnavailable,
                 "The subject does not exist or you may not ask the agent about it.");
         }
-        if (registration.AgentRuns.TryGetValue(options.AgentId, out var runOptions) && runOptions.Shadow)
+        // An agent in shadow takes no requests: its work stays with administrators.
+        if (await services.GetRequiredService<NhAssistantShadowModes>().IsAgentShadowAsync(options.AgentId, cancellationToken))
         {
             await events.RequestAsync(options.AgentId, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultAgentUnavailable, null, null, CancellationToken.None);
             return TaskResult<NhAssistantAgentRequestReceipt>.Failed(

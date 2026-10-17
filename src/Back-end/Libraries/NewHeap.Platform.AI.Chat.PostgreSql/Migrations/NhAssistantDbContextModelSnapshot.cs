@@ -87,6 +87,35 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasColumnType("character varying(16)")
                         .HasDefaultValue("active");
 
+                    b.Property<string>("ServiceAccountActorId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTimeOffset?>("ServiceAccountChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ServiceAccountChangedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ServiceAccountReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("ShadowChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ShadowChangedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<bool?>("ShadowOverride")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ShadowReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -224,6 +253,20 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset?>("ShadowChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ShadowChangedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<bool?>("ShadowOverride")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ShadowReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTimeOffset?>("StateChangedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1514,6 +1557,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<bool>("Shadow")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("SubjectDisplayName")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -1543,7 +1589,7 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 
                     b.HasIndex("SubjectType", "SubjectId");
 
-                    b.HasIndex("ScopeKey", "AgentId", "SubjectType", "SubjectId")
+                    b.HasIndex("ScopeKey", "AgentId", "SubjectType", "SubjectId", "Shadow")
                         .IsUnique();
 
                     b.ToTable("AssistantThread", "nhai");
