@@ -168,8 +168,8 @@ password). A secret no longer has to be stored: `secretReference` `config:<name>
 `INhAssistantMcpSecretResolver` that the application registers with
 `AddMcpSecretResolver<TResolver>(prefix)`, for example for a vault. A reference is resolved for every
 request, so a rotated secret applies at once, and its name contains no `:` or `..`, so it never reaches
-other configuration. A `config:` value that is blank or still holds an unresolved `${...}`
-reference counts as missing. A stored secret and a reference replace each other.
+other configuration. A `config:` value is read with `NhConfigurationSecrets.Read`, so it may also
+come from the secrets files, and a blank value or an unresolved `${...}` reference counts as missing. A stored secret and a reference replace each other.
 `clientCertificateReference` names a client certificate under
 `NewHeap:AI:Assistant:Mcp:ClientCertificates:<name>` (a PKCS#12 file or a certificate store entry with
 a private key) for mutual TLS. `transport` `auto`
@@ -185,8 +185,9 @@ invalidates. Without consent the server is skipped with `assistant-mcp-consent-r
 not sign in, a failing issuer or a host whose JWT bearer schemes do not restrict such tokens gives
 `assistant-mcp-delegated-token-unavailable`. A call authorized for anyone but that person is not sent.
 `NhAssistantMcpOptions.ForwardedTokenLifetime` (two minutes, at most five) sets the token's lifetime.
-The audit kinds `McpDelegatedTokenIssued` and `McpBackgroundUseChanged` record issuing and consent
-without the token, and the `McpServerCredentials` migrations add the server columns and the
+The token that planning a connection obtains serves its first request. `McpBackgroundUseChanged` audits
+consent, and `McpDelegatedTokenIssued` audits issuing once per turn, server, person and outcome with the
+number of tokens in the new `NhAssistantAuditEvent.TokenCount`, never the token itself, and the `McpServerCredentials` migrations add the server columns and the
 `AssistantMcpConnection` table on SQL Server and PostgreSQL.
 
 `NewHeap.Platform.AI.AspNet.Common` adds `AddNewHeapPlatformAIMcpDelegatedTokens`: every JWT bearer
@@ -222,8 +223,13 @@ transports, `McpServerInput` gains the optional `userName`, `secretReference`,
 `assistant-mcp-secret-reference-invalid` and `assistant-mcp-certificate-reference-invalid` are bundled
 in English and Dutch. The mock API validates the new fields, resolves `config:` references or the
 scenario's `secretReferences`, knows the scenario's `clientCertificates` and serves
-`mcp-connections` with the scenario's `mcpConnections`.
+`mcp-connections` with the scenario's `mcpConnections`. Like the server, the mock now refuses a
+`bearer`, `api-key` or `basic` server without a stored secret or a reference
+(`assistant-validation` with `secret: ["required"]`), and the editor no longer offers **Clear** for a
+secret, which the server always refused for those modes; choosing a reference or a mode without a
+secret removes the stored one.
 
 | Breaking change | Required action |
 |---|---|
 | `McpServer` has the required fields `userName`, `secretReference`, `clientCertificateReference` and `transport`, and `McpAuthMode` and `McpHeadlessUse` have new values. | Add the fields to hand-built `McpServer` objects and handle the new values in exhaustive switches. |
+| The mock API refuses `bearer`, `api-key` and `basic` servers without a secret or reference, and the server editor has no **Clear** button for a secret. | Give such servers a secret in mock scenarios and tests; tests that clicked **Clear** choose another mode instead. |

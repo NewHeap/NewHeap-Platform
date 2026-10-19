@@ -54,9 +54,13 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
 - **A delegated token per request, not per call.** The credential handler asks for a credential before
   every HTTP request, so a personal server gets a fresh delegated token for each request of a run:
   `initialize` and `tools/list` carry the marker `connection-<id>`, a tool call the invocation id from
-  `NhAiMcpCallContext`. Planning a connection also mints one, unsent, to report an unavailable token as
-  a skip code before the client connects. Every minted token is audited as `McpDelegatedTokenIssued` with
-  `issued` or `assistant-mcp-delegated-token-unavailable`; the token itself never leaves the request.
+  `NhAiMcpCallContext`. Planning a connection mints the first one, to report an unavailable token as a
+  skip code before the client connects; the connection's first request outside a tool call reuses it
+  while it is valid for at least 30 seconds more (Lars's recommendation 1, after M2). Issuing is counted
+  per service scope in `NhAssistantMcpDelegatedTokenLedger` and audited once per turn, server, person and
+  outcome as `McpDelegatedTokenIssued` with `TokenCount` when the turn releases its MCP tools; a run
+  normally has one turn, and a proposal execution is a scope of its own. The token itself never leaves
+  the request.
 - **Issuer contract.** The assistant sends a token only when it is a JWT with exactly one marker and one
   audience claim with the requested values that expires within the requested lifetime (plus 30 seconds
   of clock tolerance), as delegated gateway reads check theirs. A custom
@@ -78,11 +82,10 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
   status and "Connect". A headless run without consent leaves the server out with
   `assistant-mcp-consent-required`, which a deferred proposal reports as its result code; notifying the
   person, as planned for a missing personal connection, follows in M4.
-- **Secret references.** Names contain no `:` and no `..`. A `config:` value that is blank or still
-  contains an unresolved `${...}` reference counts as missing (fail closed), the same rule as
-  `NhConfigurationSecrets` on `feature/run-configuration-ux`. Follow-up after that branch is merged:
-  read the value with `NhConfigurationSecrets.Read` instead of the assistant's own check. Resolver
-  exceptions are logged with the prefix and the exception type only.
+- **Secret references.** Names contain no `:` and no `..`. A `config:` value is read with
+  `NhConfigurationSecrets.Read` (since the merge of `main`): the key itself or `Secrets:<key>` from the
+  secrets files, and a blank value or an unresolved `${...}` reference counts as missing (fail
+  closed). Resolver exceptions are logged with the prefix and the exception type only.
 - **Client certificates.** A loaded certificate is cached until its configuration changes; a replaced
   certificate is not disposed while a cached connection may still use it. The library test performs a
   real mutual TLS handshake with the handler of a plan; only the test trusts the self-signed server.
@@ -241,6 +244,18 @@ variant and the Q7 secret sources belong in M2.
 | Q8 | Is the deprecated HTTP+SSE transport supported? | **Per server `transport: auto`** with the SDK's HTTP+SSE fallback, shown as deprecated, and the same-origin rule for the SSE `endpoint` event; the default stays `streamable-http`. | The SDK implements the fallback; the origin rule closes the new risk. |
 | Q9 | Are private network addresses blocked? | **Always for OAuth URLs; for MCP endpoints only with `BlockPrivateNetworks`;** hosts in `AllowedHosts` stay reachable. | Metadata URLs come from the remote server; MCP endpoints are typed by an administrator and intranet servers are legitimate. |
 | Q10 | Whose personal connection executes an approved MCP proposal? | **The person whose rights authorized the call**, also when a colleague approves; a person who disconnected fails with `assistant-mcp-connection-required`. | The remote system attributes the action to the person the NewHeap audit names. |
+
+### Decisions by the implementer, for Lars to review
+
+Lars accepted the three recommendations after M2 (reuse the planning token and audit issuing per run,
+a mock that requires secrets, `NhConfigurationSecrets.Read` after the merge of `main`) and asked to work
+through M4 without waiting. Where a choice came up, the implementer decided as below.
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| I1 | Decided by the implementer on 2026-10-19, for Lars to review: after merging `main`, the `McpConnectionPolicy` and `McpServerCredentials` migrations were regenerated with the EF CLI on top of `AgentChatAvailability`, with the same names and new timestamps. | Their designer models lacked `main`'s columns; regenerating keeps every migration's target model correct. Neither was released. |
+| I2 | Decided by the implementer on 2026-10-19, for Lars to review: delegated token issuing is audited per service scope, which is one turn of a run or one proposal execution, as `McpDelegatedTokenIssued` with the new public `NhAssistantAuditEvent.TokenCount`; the planning token serves the connection's first request outside a tool call while it is valid for 30 more seconds. | A run normally has one turn; flushing when the turn releases its MCP tools avoids writing audit events while a service scope is disposed. A tool call always gets its own token, bound to its invocation. |
+| I3 | Decided by the implementer on 2026-10-19, for Lars to review: the server editor no longer offers **Clear** for a secret. | The server has always refused `bearer`, `api-key` and `basic` without a secret, which the stricter mock now shows; choosing a reference or a mode without a secret removes the stored secret. |
 
 ## Design
 
@@ -467,8 +482,9 @@ instead. Safeguards, all enforced in code:
   which refuses a removed, locked-out or blocked account and one that fails the session gate. A technical
   account that may not sign in gets none; an agent that answers to itself gets none. The call then fails
   with `assistant-mcp-delegated-token-unavailable`.
-- **Audited, never logged.** Every issuance writes a content-free `McpDelegatedTokenIssued` event (server,
-  person, agent, run and invocation ids). The token is a credential in the sense of D13.
+- **Audited, never logged.** Issuing writes a content-free `McpDelegatedTokenIssued` event per turn,
+  server, person and outcome with the number of tokens (`TokenCount`), the conversation, turn and agent;
+  the tool audit records each invocation. The token is a credential in the sense of D13.
 - **The person's consent.** A token is minted only for a person who consented to background use of the
   server, in the same `AssistantMcpConnection` record that personal OAuth connections use in M4
   (`AllowBackgroundUse` with a `ConsentHash` of the server's id, URL and mode, so a changed server needs
@@ -524,7 +540,7 @@ id, `ActorId` the person or administrator, `ResultCode` a stable code):
 
 | Kind | When |
 | --- | --- |
-| `McpDelegatedTokenIssued` (53) | A headless `forward-user-token` request received a delegated token, or was refused one (`ResultCode`) (M2). |
+| `McpDelegatedTokenIssued` (53) | Headless `forward-user-token` requests of a turn received delegated tokens, or were refused them (`ResultCode`, `TokenCount`) (M2). |
 | `McpBackgroundUseChanged` (54) | A person gave or withdrew consent to background use of a server (M2). |
 | `McpConnectionConnected` (55) | A personal or organization connection became active. |
 | `McpConnectionDisconnected` (56) | A connection was removed; `ResultCode` is `person`, `administrator`, `server-changed` or `retention`. |

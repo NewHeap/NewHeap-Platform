@@ -574,8 +574,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.McpBackgroundUseChanged && evt.ObjectId == "team-calendar");
             Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.McpDelegatedTokenIssued
                 && evt.ObjectId == "team-calendar"
-                && evt.ToolId == "mcp.team-calendar.next-milestone"
-                && evt.ResultCode == "issued");
+                && evt.ResultCode == "issued"
+                && evt.TokenCount == delegated.Length);
         }
         finally
         {

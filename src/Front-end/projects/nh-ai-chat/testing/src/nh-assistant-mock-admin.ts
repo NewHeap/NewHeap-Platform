@@ -913,8 +913,8 @@ export class NhAssistantMockAdmin {
   }
 
   /**
-   * The contract failure of the input's credential: a basic user name, a reference that names an
-   * available secret, and a configured client certificate.
+   * The contract failure of the input's credential: a basic user name, a secret or a reference that
+   * names an available secret, and a configured client certificate.
    */
   private credentialFailure(input: McpServerInput, stored: StoredServer | null): NhAssistantMockResult | null {
     const admin = this.scenario.admin ?? {};
@@ -934,10 +934,20 @@ export class NhAssistantMockAdmin {
     if (reference !== null && (!secretReference.test(reference) || reference.includes('..'))) {
       return failure(400, 'assistant-validation', { secretReference: ['invalid'] });
     }
-    // By default every config: reference resolves; a scenario can name the ones that do.
-    if (secretModes.includes(input.authMode) && reference !== null &&
-      !(admin.secretReferences?.includes(reference) ?? reference.startsWith('config:'))) {
-      return failure(400, 'assistant-mcp-secret-reference-invalid');
+    if (secretModes.includes(input.authMode)) {
+      // As on the server: bearer, api-key and basic need a stored secret or a reference. A new stored
+      // secret replaces a reference, a new reference a stored secret.
+      const storedSecret = input.secret === undefined || input.secret === null
+        ? !!stored?.secret && !input.secretReference
+        : input.secret.length > 0;
+      if (!storedSecret && (reference === null || !!input.secret)) {
+        return failure(400, 'assistant-validation', { secret: ['required'] });
+      }
+      // By default every config: reference resolves; a scenario can name the ones that do.
+      if (reference !== null && !input.secret &&
+        !(admin.secretReferences?.includes(reference) ?? reference.startsWith('config:'))) {
+        return failure(400, 'assistant-mcp-secret-reference-invalid');
+      }
     }
     const certificate = input.clientCertificateReference === undefined || input.clientCertificateReference === null
       ? stored?.server.clientCertificateReference ?? null

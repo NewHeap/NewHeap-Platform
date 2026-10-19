@@ -166,7 +166,7 @@ describe('provideNhAssistantMockApi administration', () => {
       .toBe('assistant-instructions-too-long');
   });
 
-  it('never returns a secret and keeps, replaces or clears it on update', async () => {
+  it('never returns a secret, keeps or replaces it and requires one for a mode that sends it', async () => {
     const [server] = await firstValueFrom(admin.getMcpServers());
     const { hasSecret, lastSyncAt, lastSyncStatus, assignedAgentIds, ...input } = server;
 
@@ -175,13 +175,18 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(JSON.stringify(server)).not.toContain('top-secret-value');
 
     const kept = await firstValueFrom(admin.updateMcpServer('files', { ...input, displayName: 'Files 2' }));
-    const cleared = await firstValueFrom(admin.updateMcpServer('files', { ...input, secret: '' }));
+    const refusedClear = await failure(firstValueFrom(admin.updateMcpServer('files', { ...input, secret: '' })));
     const replaced = await firstValueFrom(admin.updateMcpServer('files', { ...input, secret: 'new-value' }));
+    const withoutSecret = await failure(firstValueFrom(admin.createMcpServer({ ...input, id: 'keyless', authMode: 'api-key', secret: undefined })));
+    const noneMode = await firstValueFrom(admin.updateMcpServer('files', { ...input, authMode: 'none', secret: undefined }));
 
     expect(kept.hasSecret).toBeTrue();
-    expect(cleared.hasSecret).toBeFalse();
+    expect(refusedClear).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-validation', fieldErrors: { secret: ['required'] } }));
     expect(replaced.hasSecret).toBeTrue();
     expect(JSON.stringify(replaced)).not.toContain('new-value');
+    expect(withoutSecret).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-validation' }));
+    // A mode without a secret drops the stored one.
+    expect(noneMode.hasSecret).toBeFalse();
   });
 
   it('syncs tools disabled as mutations, keeps hints as hints and disables a tool on a schema change', async () => {
@@ -208,14 +213,14 @@ describe('provideNhAssistantMockApi administration', () => {
     await firstValueFrom(admin.createMcpServer({ ...base, id: 'blocked', url: 'https://169.254.169.254/mcp', authMode: 'none' }));
     await firstValueFrom(admin.createMcpServer({ ...base, id: 'down', url: 'https://unreachable.example.com/mcp', authMode: 'none' }));
     await firstValueFrom(admin.createMcpServer({ ...base, id: 'forward', url: 'https://other.example.com/mcp', authMode: 'forward-user-token' }));
-    await firstValueFrom(admin.createMcpServer({ ...base, id: 'keyless', url: 'https://keys.example.com/mcp', authMode: 'api-key' }));
+    await firstValueFrom(admin.createMcpServer({ ...base, id: 'keyless', url: 'https://keys.example.com/mcp', authMode: 'api-key', secret: 'key' }));
     await firstValueFrom(admin.createMcpServer({ ...base, id: 'planning', url: 'https://planning.example.com/mcp', authMode: 'forward-user-token' }));
 
     const results = await Promise.all(['blocked', 'down', 'forward', 'keyless', 'planning'].map(id => firstValueFrom(admin.testMcpServer(id))));
     const syncFailure = await failure(firstValueFrom(admin.syncMcpServer('down')));
 
     expect(results.map(result => result.code)).toEqual([
-      'assistant-mcp-host-blocked', 'assistant-mcp-unreachable', 'assistant-mcp-host-blocked', 'assistant-mcp-unauthorized', null
+      'assistant-mcp-host-blocked', 'assistant-mcp-unreachable', 'assistant-mcp-host-blocked', null, null
     ]);
     const blockedSync = await failure(firstValueFrom(admin.syncMcpServer('blocked')));
 

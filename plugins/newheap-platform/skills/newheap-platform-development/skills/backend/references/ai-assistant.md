@@ -145,7 +145,8 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   `config:<name>` reads `NewHeap:AI:Assistant:Mcp:Secrets:<name>`, another prefix needs
   an `INhAssistantMcpSecretResolver` registered with `AddMcpSecretResolver<T>(prefix)`
   (for example a vault). A reference is resolved for every request, so a rotation applies
-  at once; its name has no `:` or `..`, so it never reaches other configuration. A blank
+  at once; its name has no `:` or `..`, so it never reaches other configuration. The
+  value is read with `NhConfigurationSecrets.Read` (also from the secrets files); a blank
   value or one with an unresolved `${...}` reference counts as missing. A stored secret
   and a reference replace each other. `clientCertificateReference` names
   a certificate under `NewHeap:AI:Assistant:Mcp:ClientCertificates:<name>` (`Path` and
@@ -178,8 +179,9 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   JWT bearer scheme of the host that does not restrict delegated tokens gives
   `assistant-mcp-delegated-token-unavailable`. A call that the gate authorized with any
   other grant source than that person's is refused with `assistant-mcp-credential-mismatch`
-  before it is sent. Issuing (`McpDelegatedTokenIssued`) and consent
-  (`McpBackgroundUseChanged`) are audited without the token. The receiving server calls
+  before it is sent. Consent (`McpBackgroundUseChanged`) and issuing are audited without
+  the token; issuing once per turn, server, person and outcome as `McpDelegatedTokenIssued`
+  with `TokenCount`. The receiving server calls
   `AddNewHeapPlatformAIMcpDelegatedTokens(tokens => tokens.Accept(origin, "/mcp"))`; the
   assistant's own host accepts no such token. The token is signed with the host's
   symmetric key, so every host that can validate it can also mint tokens; use it only

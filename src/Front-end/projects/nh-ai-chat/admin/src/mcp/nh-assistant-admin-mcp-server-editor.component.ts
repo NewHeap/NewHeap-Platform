@@ -29,7 +29,9 @@ import {
 
 /**
  * What happens to the stored secret on save. `keep` omits `secret`, `replace` sends the
- * new value and `clear` sends `""`. The stored value is never shown.
+ * new value and `clear` sends `""`. The stored value is never shown. The editor offers no `clear`:
+ * the API refuses a mode with a secret that has none, so a stored secret goes by choosing a reference
+ * or a mode without a secret.
  */
 export type NhAssistantSecretAction = 'keep' | 'replace' | 'clear';
 

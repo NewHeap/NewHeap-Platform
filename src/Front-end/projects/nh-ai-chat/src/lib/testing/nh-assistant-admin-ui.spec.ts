@@ -907,12 +907,14 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     expect(Object.keys(body)).not.toContain('secret');
   });
 
-  it('replaces or clears the secret explicitly', async () => {
+  it('replaces the secret explicitly and removes it only with a mode that needs none', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
 
     button(element, 'Edit').click();
     await settle(fixture);
+    // A bearer token always needs a secret, so there is nothing to clear.
+    expect(buttons(element, 'Clear')).toEqual([]);
     button(element, 'Replace').click();
     fixture.detectChanges();
     const password = element.querySelector('input[type="password"]') as HTMLInputElement;
@@ -924,15 +926,15 @@ describe('NhAssistantAdminMcpServersComponent', () => {
 
     button(element, 'Edit').click();
     await settle(fixture);
-    button(element, 'Clear').click();
+    choose(element, 'select[id$="-auth"]', 'none');
     fixture.detectChanges();
-    expect(element.textContent).toContain('The secret will be cleared when you save.');
     button(element, 'Save').click();
     await settle(fixture);
 
     const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as { secret?: string }[];
     expect(bodies.map(body => body.secret)).toEqual(['new-secret', '']);
-    expect(element.textContent).toContain('No secret');
+    expect(element.textContent).toContain('No authentication');
+    expect(element.textContent).not.toContain('Secret set');
   });
 
   it('tests the connection and shows the result', async () => {

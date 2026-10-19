@@ -16,11 +16,19 @@ namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 /// The headers that authenticate requests to an MCP server. It is held only while requests are
 /// built and is never stored, logged or audited.
 /// </summary>
-internal sealed class NhAssistantMcpCredential(IReadOnlyDictionary<string, string> headers)
+internal sealed class NhAssistantMcpCredential(IReadOnlyDictionary<string, string> headers, DateTimeOffset? expiresAt = null)
 {
     public static NhAssistantMcpCredential None { get; } = new(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
     public IReadOnlyDictionary<string, string> Headers { get; } = headers;
+
+    /// <summary>When a short-lived credential expires; <see langword="null"/> for one without expiry.</summary>
+    public DateTimeOffset? ExpiresAt { get; } = expiresAt;
+
+    public override string ToString()
+    {
+        return "NhAssistantMcpCredential { Headers = [redacted] }";
+    }
 }
 
 /// <summary>
@@ -69,19 +77,43 @@ internal interface INhAssistantMcpCredentialProvider
 
 /// <summary>
 /// The credential source of one connection: the provider of the server's mode, the server as it was
-/// planned and the subject of the connection.
+/// planned and the subject of the connection. The credential that planning obtained serves the
+/// connection's first request that belongs to no tool call, so planning mints no credential that is
+/// never sent.
 /// </summary>
 internal sealed class NhAssistantMcpCredentialSource(
     INhAssistantMcpCredentialProvider provider,
     AssistantMcpServer server,
     NhAssistantMcpCredentialSubject subject)
 {
+    /// <summary>A primed credential is not used when it expires sooner than this.</summary>
+    internal static readonly TimeSpan PrimedValidity = TimeSpan.FromSeconds(30);
+
+    private NhAssistantMcpCredential? _primed;
+
     public string ServerId => server.Id;
 
     public bool CanRenew => provider.CanRenew;
 
+    /// <summary>
+    /// Keeps the credential that planning obtained for the connection's first request outside a call.
+    /// </summary>
+    public void Prime(NhAssistantMcpCredential credential)
+    {
+        Volatile.Write(ref _primed, credential);
+    }
+
     public ValueTask<TaskResult<NhAssistantMcpCredential>> GetAsync(CancellationToken cancellationToken)
     {
+        // A tool call always gets its own credential, which a delegated token binds to the invocation.
+        if (NhAiMcpCallContext.Current is not { } call || !string.Equals(call.ServerId, server.Id, StringComparison.Ordinal))
+        {
+            var primed = Interlocked.Exchange(ref _primed, null);
+            if (primed is not null && (primed.ExpiresAt is null || primed.ExpiresAt > DateTimeOffset.UtcNow + PrimedValidity))
+            {
+                return ValueTask.FromResult(TaskResult<NhAssistantMcpCredential>.Succeeded(primed));
+            }
+        }
         return provider.GetAsync(server, subject, cancellationToken);
     }
 
@@ -129,10 +161,12 @@ internal sealed partial class NhAssistantMcpSecretSource(
         }
         if (prefix == NhAssistantMcpSecretReferences.ConfigurationPrefix)
         {
+            // A blank value or an unresolved ${...} reference counts as missing (fail closed).
             var configuration = services.GetService<Microsoft.Extensions.Configuration.IConfiguration>();
-            var value = configuration?[NhAssistantMcpSecretReferences.ConfigurationSection + ":" + name];
-            // A secret store that cannot resolve a ${...} placeholder leaves it as literal text: fail closed.
-            return string.IsNullOrWhiteSpace(value) || IsUnresolvedReference(value)
+            var value = configuration is null
+                ? null
+                : NewHeap.Platform.Common.NhConfigurationSecrets.Read(configuration, NhAssistantMcpSecretReferences.ConfigurationSection + ":" + name);
+            return value is null
                 ? Failed(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid)
                 : TaskResult<string>.Succeeded(value);
         }
@@ -161,18 +195,6 @@ internal sealed partial class NhAssistantMcpSecretSource(
     {
         return TaskResult<string>.Failed(code, "The MCP secret is not available.");
     }
-
-    /// <summary>
-    /// Whether a configured value still contains a <c>${...}</c> reference that the configuration's
-    /// secret store did not resolve.
-    /// </summary>
-    internal static bool IsUnresolvedReference(string value)
-    {
-        return UnresolvedReferencePattern().IsMatch(value);
-    }
-
-    [System.Text.RegularExpressions.GeneratedRegex(@"\$\{[^{}]*\}", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
-    private static partial System.Text.RegularExpressions.Regex UnresolvedReferencePattern();
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP secret resolver for prefix {Prefix} failed ({ExceptionType}).")]
     private static partial void LogResolverFailed(ILogger logger, string prefix, string exceptionType);
@@ -245,8 +267,9 @@ internal sealed class NhAssistantMcpStaticCredentialProvider(NhAssistantMcpSecre
 /// In a person's request it is the caller's own bearer. In a headless turn it is a delegated token
 /// minted for each request for the person the run acts for, after that person's consent (checked
 /// before the connection is planned): short-lived, marked with the invocation, bound to the server's
-/// origin, audited and refused when the host could accept it itself. A call that the gate authorized
-/// for anyone but that person is refused.
+/// origin and refused when the host could accept it itself. Issuing is counted in
+/// <see cref="NhAssistantMcpDelegatedTokenLedger"/>, which audits it once per turn. A call that the gate
+/// authorized for anyone but that person is refused.
 /// </summary>
 internal sealed partial class NhAssistantMcpForwardedTokenCredentialProvider(
     IOptionsMonitor<NhAssistantOptions> options,
@@ -359,9 +382,11 @@ internal sealed partial class NhAssistantMcpForwardedTokenCredentialProvider(
         {
             return await RefuseAsync(server, subject, call, cancellationToken);
         }
-        await AuditAsync(server, subject, call, IssuedResult, cancellationToken);
-        return Bearer(issued.Data.BearerToken);
+        Ledger.Record(server, subject, IssuedResult);
+        return Bearer(issued.Data.BearerToken, issued.Data.ExpiresAt);
     }
+
+    private NhAssistantMcpDelegatedTokenLedger Ledger => services.GetRequiredService<NhAssistantMcpDelegatedTokenLedger>();
 
     /// <summary>
     /// Whether the token is a JWT that carries exactly the requested marker and audience and expires
@@ -393,52 +418,24 @@ internal sealed partial class NhAssistantMcpForwardedTokenCredentialProvider(
             && token.ValidTo <= DateTime.UtcNow + lifetime + ExpiryTolerance;
     }
 
-    private async ValueTask<TaskResult<NhAssistantMcpCredential>> RefuseAsync(
+    private ValueTask<TaskResult<NhAssistantMcpCredential>> RefuseAsync(
         AssistantMcpServer server,
         NhAssistantMcpCredentialSubject subject,
         NhAiMcpCallContext? call,
         CancellationToken cancellationToken)
     {
-        await AuditAsync(server, subject, call, NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable, cancellationToken);
-        return NhAssistantMcpCredentialResults.Failed(NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable);
+        Ledger.Record(server, subject, NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable);
+        return ValueTask.FromResult(NhAssistantMcpCredentialResults.Failed(NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable));
     }
 
-    private async Task AuditAsync(
-        AssistantMcpServer server,
-        NhAssistantMcpCredentialSubject subject,
-        NhAiMcpCallContext? call,
-        string resultCode,
-        CancellationToken cancellationToken)
-    {
-        var turn = NhAssistantExecutionScope.CurrentTurn;
-        var evt = new NhAssistantAuditEvent(
-            NhAssistantAuditEventKind.McpDelegatedTokenIssued,
-            turn?.ConversationId ?? Guid.Empty,
-            turn?.TurnId ?? Guid.Empty,
-            subject.PersonActorId ?? string.Empty,
-            turn?.Agent.Id ?? string.Empty,
-            turn?.Agent.Version ?? 0,
-            DateTimeOffset.UtcNow)
-        {
-            ObjectId = server.Id,
-            ToolId = call?.Descriptor.Id,
-            ToolVersion = call?.Descriptor.Version,
-            InvocationId = call?.Invocation.InvocationId,
-            ResultCode = resultCode
-        };
-        foreach (var sink in services.GetServices<INhAssistantBusinessAuditSink>())
-        {
-            await sink.RecordAsync(evt, cancellationToken);
-        }
-    }
-
-    private static TaskResult<NhAssistantMcpCredential> Bearer(string token)
+    private static TaskResult<NhAssistantMcpCredential> Bearer(string token, DateTimeOffset? expiresAt = null)
     {
         return TaskResult<NhAssistantMcpCredential>.Succeeded(new NhAssistantMcpCredential(
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Authorization"] = "Bearer " + token
-            }));
+            },
+            expiresAt));
     }
 
     private bool IsAllowedHost(AssistantMcpServer server)
@@ -460,6 +457,86 @@ internal sealed partial class NhAssistantMcpForwardedTokenCredentialProvider(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "No delegated token is minted for MCP server {ServerId}: the issuer failed ({ExceptionType}).")]
     private static partial void LogIssuerFailed(ILogger logger, string serverId, string exceptionType);
+}
+
+/// <summary>
+/// Counts the delegated MCP tokens of one service scope, a turn of a run or the execution of a
+/// proposal, per server, person and outcome, and audits each count once as
+/// <see cref="NhAssistantAuditEventKind.McpDelegatedTokenIssued"/> with
+/// <see cref="NhAssistantAuditEvent.TokenCount"/> when the turn releases its MCP tools. Tokens never
+/// reach the ledger.
+/// </summary>
+internal sealed class NhAssistantMcpDelegatedTokenLedger(IEnumerable<INhAssistantBusinessAuditSink> sinks)
+{
+    private readonly INhAssistantBusinessAuditSink[] _sinks = sinks.ToArray();
+    private readonly Dictionary<(string ServerId, string PersonActorId, string ResultCode), Entry> _entries = [];
+    private readonly Lock _gate = new();
+
+    public void Record(AssistantMcpServer server, NhAssistantMcpCredentialSubject subject, string resultCode)
+    {
+        var key = (server.Id, subject.PersonActorId ?? string.Empty, resultCode);
+        var turn = NhAssistantExecutionScope.CurrentTurn;
+        lock (_gate)
+        {
+            if (_entries.TryGetValue(key, out var entry))
+            {
+                entry.Count++;
+                return;
+            }
+            _entries[key] = new Entry
+            {
+                ConversationId = turn?.ConversationId ?? Guid.Empty,
+                TurnId = turn?.TurnId ?? Guid.Empty,
+                AgentId = turn?.Agent.Id ?? string.Empty,
+                AgentVersion = turn?.Agent.Version ?? 0,
+                Count = 1
+            };
+        }
+    }
+
+    /// <summary>Audits and clears the counts so far.</summary>
+    public async Task FlushAsync(CancellationToken cancellationToken)
+    {
+        KeyValuePair<(string ServerId, string PersonActorId, string ResultCode), Entry>[] entries;
+        lock (_gate)
+        {
+            entries = [.. _entries];
+            _entries.Clear();
+        }
+        foreach (var (key, entry) in entries)
+        {
+            var evt = new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.McpDelegatedTokenIssued,
+                entry.ConversationId,
+                entry.TurnId,
+                key.PersonActorId,
+                entry.AgentId,
+                entry.AgentVersion,
+                DateTimeOffset.UtcNow)
+            {
+                ObjectId = key.ServerId,
+                ResultCode = key.ResultCode,
+                TokenCount = entry.Count
+            };
+            foreach (var sink in _sinks)
+            {
+                await sink.RecordAsync(evt, cancellationToken);
+            }
+        }
+    }
+
+    private sealed class Entry
+    {
+        public Guid ConversationId { get; init; }
+
+        public Guid TurnId { get; init; }
+
+        public required string AgentId { get; init; }
+
+        public int AgentVersion { get; init; }
+
+        public int Count { get; set; }
+    }
 }
 
 internal static class NhAssistantMcpCredentialResults

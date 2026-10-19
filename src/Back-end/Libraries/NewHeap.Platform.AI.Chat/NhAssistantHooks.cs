@@ -197,10 +197,11 @@ public enum NhAssistantAuditEventKind
     AdminAgentRunSettingsChanged = 52,
 
     /// <summary>
-    /// A headless request to a <c>forward-user-token</c> MCP server received a delegated token for the
-    /// person the run acts for, or was refused one. <see cref="NhAssistantAuditEvent.ObjectId"/> is the
-    /// server, <see cref="NhAssistantAuditEvent.ActorId"/> the person and
-    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>issued</c> or the refusal code.
+    /// Headless requests to a <c>forward-user-token</c> MCP server received delegated tokens for the
+    /// person the run acts for, or were refused them; one event per turn, server, person and outcome.
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> is the server, <see cref="NhAssistantAuditEvent.ActorId"/>
+    /// the person, <see cref="NhAssistantAuditEvent.ResultCode"/> <c>issued</c> or the refusal code and
+    /// <see cref="NhAssistantAuditEvent.TokenCount"/> the number of tokens.
     /// </summary>
     McpDelegatedTokenIssued = 53,
 
@@ -353,6 +354,12 @@ public sealed record NhAssistantAuditEvent(
     public long? OutputTokens { get; init; }
 
     public int? ProposalCount { get; init; }
+
+    /// <summary>
+    /// The number of delegated MCP tokens a <see cref="NhAssistantAuditEventKind.McpDelegatedTokenIssued"/>
+    /// event covers: those issued, or refused, for one server and person in a turn.
+    /// </summary>
+    public int? TokenCount { get; init; }
 }
 
 /// <summary>

@@ -277,6 +277,8 @@ internal sealed class NhAssistantMcpConnectionPlanner(
         {
             return Failed(NhAssistantMcpCredentialResults.FirstCode(credential) ?? NhAssistantAdminErrorCodes.McpUnauthorized);
         }
+        // The connection's first request reuses it instead of obtaining another.
+        credentials.Prime(credential.Data!);
         return TaskResult<NhAssistantMcpConnectionPlan>.Succeeded(new NhAssistantMcpConnectionPlan(
             server.Id,
             endpoint,
@@ -585,6 +587,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             {
                 await lease.DisposeAsync();
             }
+            await services.GetRequiredService<NhAssistantMcpDelegatedTokenLedger>().FlushAsync(CancellationToken.None);
         })
         {
             SkippedServers = skipped

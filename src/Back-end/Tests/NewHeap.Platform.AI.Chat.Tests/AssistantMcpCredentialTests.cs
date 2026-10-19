@@ -42,6 +42,7 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
     private const string LookupFunction = "mcp_planning_lookup_order";
     private const string Member = "member-1";
     private const string SecretKey = NhAssistantMcpSecretReferences.ConfigurationSection + ":planning-token";
+    private const string NhConfigurationSecretsPrefix = NewHeap.Platform.Common.NhConfigurationSecrets.Prefix;
 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -104,6 +105,11 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
         configuration[NhAssistantMcpSecretReferences.ConfigurationSection + ":blank"] = "   ";
         Assert.Equal(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid, Code(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "config:unresolved" })));
         Assert.Equal(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid, Code(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "config:blank" })));
+        // NhConfigurationSecrets also finds the value in the secrets files.
+        configuration[NhConfigurationSecretsPrefix + ":" + NhAssistantMcpSecretReferences.ConfigurationSection + ":from-secrets-file"] = "secrets-file-token";
+        Assert.True((await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "config:from-secrets-file" })).Success);
+        Assert.True((await TestAsync(host)).Ok);
+        Assert.Equal("Bearer secrets-file-token", LastAuthorization(servers));
         // A rotation to an unresolved value stops the stored reference from connecting.
         Assert.True((await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "config:planning-token" })).Success);
         configuration[SecretKey] = "prefix-${planning-vault-token}";
@@ -111,7 +117,7 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
         Assert.False(unresolved.Ok);
         Assert.Equal(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid, unresolved.Code);
         Assert.Equal(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid, Code(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "vault:missing" })));
-        AssertNoSecretLogged(host, "first-token", "rotated-token", "from-vault", "stored-token", "pass-word", "database-password");
+        AssertNoSecretLogged(host, "first-token", "rotated-token", "from-vault", "stored-token", "pass-word", "database-password", "secrets-file-token");
     }
 
     [Fact]
@@ -288,10 +294,14 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
         Assert.NotEmpty(sent);
         Assert.All(sent, authorization => Assert.Contains(authorization, issuer.Issued.Select(token => "Bearer " + token)));
         Assert.Equal(sent.Length, sent.Distinct(StringComparer.Ordinal).Count());
-        var issuedEvents = host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.McpDelegatedTokenIssued).ToArray();
-        Assert.Equal(issuer.Issued.Count, issuedEvents.Length);
-        Assert.All(issuedEvents, evt => Assert.Equal(NhAssistantMcpForwardedTokenCredentialProvider.IssuedResult, evt.ResultCode));
-        Assert.Contains(issuedEvents, evt => evt.ToolId == "mcp.planning.lookup-order" && evt.InvocationId == call.InvocationId);
+        // The token minted when the connection was planned serves its first request: none is wasted.
+        Assert.Equal(issuer.Issued.Count, sent.Length);
+        // One audit event for the turn counts them.
+        var issued = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.McpDelegatedTokenIssued);
+        Assert.Equal(NhAssistantMcpForwardedTokenCredentialProvider.IssuedResult, issued.ResultCode);
+        Assert.Equal(issuer.Issued.Count, issued.TokenCount);
+        Assert.Equal(("planning", Member), (issued.ObjectId, issued.ActorId));
+        Assert.NotEqual(Guid.Empty, issued.TurnId);
         AssertNoSecretLogged(host, [.. issuer.Issued]);
 
         // Consent holds for the server as configured: another address needs consent again.
@@ -359,6 +369,7 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
             var refused = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.McpDelegatedTokenIssued);
             Assert.Equal(NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable, refused.ResultCode);
             Assert.Equal(Member, refused.ActorId);
+            Assert.Equal(1, refused.TokenCount);
             Assert.Contains(host.Logs.Messages, message => message.Contains("planning was skipped for this turn (" + NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable + ")", StringComparison.Ordinal));
             Assert.Equal(mode == TokenMode.HostAccepts ? 0 : 1, issuer.Requests.Count);
             AssertNoSecretLogged(host, [.. issuer.Issued, RecordingTokenIssuer.ThrownSecret]);

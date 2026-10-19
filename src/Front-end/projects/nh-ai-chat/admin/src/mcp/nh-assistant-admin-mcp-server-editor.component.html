@@ -157,8 +157,8 @@
             }
             @default {
               <span class="badge success">{{ 'nh-assistant.admin.server-editor.secret-set' | translate }}</span>
+              <!-- A mode with a secret always needs one: it is replaced, or removed by choosing a reference or another mode. -->
               <button class="secondary" type="button" (click)="setSecretAction('replace')">{{ 'nh-assistant.admin.server-editor.secret-replace' | translate }}</button>
-              <button class="danger" type="button" (click)="setSecretAction('clear')">{{ 'nh-assistant.admin.server-editor.secret-clear' | translate }}</button>
             }
           }
         </div>

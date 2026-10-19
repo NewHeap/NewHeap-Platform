@@ -52,6 +52,7 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddSingleton<NhAssistantMcpSecretSource>();
             services.TryAddSingleton<NhAssistantMcpClientCertificates>();
             services.TryAddScoped<NhAssistantMcpConnectionService>();
+            services.TryAddScoped<NhAssistantMcpDelegatedTokenLedger>();
             // Delegated MCP tokens that this host mints are never accepted by the host itself.
             services.AddNewHeapPlatformAIMcpDelegatedTokens();
             // Credentials are asked per request; a cached connection keeps only singleton providers.
