@@ -65,6 +65,8 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-trigger-in-code',
   'assistant-skill-in-use',
   'assistant-configuration-limit',
+  'assistant-run-settings-in-code',
+  'assistant-run-settings-in-use',
   'assistant-handoff-unavailable',
   'assistant-handoff-not-accepted',
   'assistant-handoff-subject-unavailable',

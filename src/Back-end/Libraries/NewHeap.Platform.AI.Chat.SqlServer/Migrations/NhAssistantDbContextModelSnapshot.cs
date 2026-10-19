@@ -239,6 +239,94 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.ToTable("AssistantAgentReplay", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentRunConfiguration", b =>
+                {
+                    b.Property<string>("AgentId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Accountability")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<bool>("AllowGatewayReads")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ApprovalPolicyId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<long?>("DailyTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("DailyToolCalls")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("DelegateFromInitiator")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ElevatedReads")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int>("MaxConcurrentRuns")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxRunsPerSubjectPerDay")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("MaxTokensPerRun")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RuleHandlerName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ServiceAccountActorId")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("TriageProfileName")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("AgentId");
+
+                    b.ToTable("AssistantAgentRunConfiguration", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentSkillDefinition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1926,6 +2014,15 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantMcpServer", null)
                         .WithMany()
                         .HasForeignKey("McpServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentRunConfiguration", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantAgent", null)
+                        .WithOne()
+                        .HasForeignKey("NewHeap.Platform.AI.Chat.Entities.AssistantAgentRunConfiguration", "AgentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

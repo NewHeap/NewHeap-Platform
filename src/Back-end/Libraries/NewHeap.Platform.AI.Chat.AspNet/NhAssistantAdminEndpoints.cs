@@ -941,6 +941,8 @@ internal static class NhAssistantAdminEndpoints
                 or NhAssistantErrorCodes.TriggerInCode
                 or NhAssistantErrorCodes.SkillInUse
                 or NhAssistantErrorCodes.ConfigurationLimit
+                or NhAssistantErrorCodes.RunSettingsInCode
+                or NhAssistantErrorCodes.RunSettingsInUse
                 or NhAssistantAdminErrorCodes.AgentExists
                 or NhAssistantAdminErrorCodes.McpServerExists
                 or NhAssistantAdminErrorCodes.CodeAgentNotDeletable

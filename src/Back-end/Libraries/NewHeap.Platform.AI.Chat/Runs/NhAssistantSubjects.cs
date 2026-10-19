@@ -146,6 +146,19 @@ internal sealed class NhAssistantThreadService(
         var existing = await runs.FindThreadAsync(subject.ScopeKey, agent.Id, subject.Subject, cancellationToken, shadow);
         if (existing is not null)
         {
+            var current = registration.RunOptionsOf(agent.Id);
+            var accountability = NhAssistantAccountabilities.From(current.Accountability);
+            if (current.DataVersion is not null
+                && !string.Equals(existing.Accountability, accountability, StringComparison.Ordinal)
+                && ResolveAccountableOwner(agent, subject) is { Success: true } resolved)
+            {
+                // The run settings of an agent created in the administration changed whom it answers
+                // to: its threads follow, as they follow a replaced technical account.
+                await runs.SetAccountabilityOfThreadAsync(existing.ConversationId, accountability, resolved.Data!, cancellationToken);
+                existing.Accountability = accountability;
+                existing.AccountableOwnerId = resolved.Data!;
+            }
+
             return TaskResult<AssistantThread>.Succeeded(existing);
         }
 

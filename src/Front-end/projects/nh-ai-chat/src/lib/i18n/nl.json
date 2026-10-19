@@ -126,7 +126,9 @@
         "delegated-read": "Gelezen met rechten van een persoon",
         "delegated-hint": "De agent gebruikte de rechten van de persoon die hem startte.",
         "agent-hint": "De agent gebruikte een recht dat hij zelf heeft gekregen, boven de rechten van de betrokkenen uit.",
-        "delegated-read-hint": "De agent las dit via de datagateway van de applicatie met de rechten van wie hem startte, of anders van degene voor wie hij werkt. Alleen die persoon ziet het resultaat."
+        "delegated-read-hint": "De agent las dit via de datagateway van de applicatie met de rechten van wie hem startte, of anders van degene voor wie hij werkt. Alleen die persoon ziet het resultaat.",
+        "accountable": "Rechten van wie hij voor werkt",
+        "accountable-hint": "De agent gebruikte de rechten van de persoon of het technische account voor wie hij werkt. Alleen mensen met dezelfde rechten zien het resultaat."
       },
       "restricted": "Afgeschermd: de agent kreeg dit met rechten die jij niet hebt."
     },
@@ -355,7 +357,9 @@
       "assistant-skill-in-code": "Deze vaardigheid staat in de code en kan hier niet veranderen.",
       "assistant-trigger-in-code": "Deze trigger staat in de code en kan hier niet veranderen.",
       "assistant-skill-in-use": "Een trigger start deze vaardigheid nog. Pas de trigger eerst aan of verwijder hem.",
-      "assistant-configuration-limit": "Deze agent heeft al zoveel vaardigheden of triggers als is toegestaan."
+      "assistant-configuration-limit": "Deze agent heeft al zoveel vaardigheden of triggers als is toegestaan.",
+      "assistant-run-settings-in-code": "Deze agent staat in de code; daar is ingesteld hoe hij werkt.",
+      "assistant-run-settings-in-use": "Er horen nog vaardigheden of triggers bij deze agent. Verwijder die eerst."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",

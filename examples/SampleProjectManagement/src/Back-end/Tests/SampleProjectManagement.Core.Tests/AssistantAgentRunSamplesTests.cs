@@ -626,6 +626,60 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task An_administrator_creates_a_project_starter_that_proposes_with_the_rights_of_its_technical_account()
+    {
+        // SPM-296
+        const string starter = "sample-project-starter";
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        using var created = await administrator.PostAsJsonAsync("/api/assistant/admin/agents", new
+        {
+            id = starter,
+            displayName = "Project starter",
+            description = "Starts projects that were created as drafts.",
+            instructions = "Explain why you proposed to start the project.",
+            toolSelectors = new[] { ProjectAiTools.ChangeStatusToolId },
+            mcpServerIds = Array.Empty<string>(),
+            requiredPolicy = (string?)null,
+            autonomy = "execute",
+            isEnabled = true
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        try
+        {
+            // The agent answers to the operations account and works by the kickoff rules; it has no
+            // grants, so it proposes with that account's rights.
+            Assert.True((await ConfigureAgentsAsync(service => service.ConfigureStarterAsync(
+                starter, host.OperationsAccountId, live: true, host.OwnerId, CancellationToken.None))).Success);
+            var configured = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{starter}/configuration", Json))!;
+            Assert.Equal((NhAssistantAgentSources.Admin, NhAssistantAccountabilities.ServiceAccount, host.OperationsAccountId.ToString("D")),
+                (configured.Source, configured.RunSettings!.Accountability, configured.RunSettings.ServiceAccountActorId));
+            Assert.False(Assert.Single(configured.DataTriggers).Shadow);
+
+            var project = await host.CreateProjectAsync("STARTER", ownerId: host.OwnerId);
+            await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+            var receipt = Assert.Single(
+                await host.PublishAsync(new ProjectCreatedEvent { ProjectId = project, ProjectKey = "STARTER", CreatedByUserId = host.OwnerId }),
+                item => item.TriggerId == SampleAgentConfigurationService.StarterTriggerId);
+            Assert.Equal(NhAssistantTriggerOutcomes.Started, receipt.Outcome);
+
+            using var colleague = host.CreateClient(host.ColleagueId.ToString());
+            var proposal = await WaitForProposalAsync(colleague, receipt.ConversationId!.Value, NhAssistantApprovalStatuses.Pending);
+            Assert.Equal(ProjectAiTools.ChangeStatusToolId, proposal.ToolId);
+            var run = Assert.Single(await WaitForRunCountAsync(colleague, receipt.ConversationId.Value, 1));
+            Assert.Equal((host.OperationsAccountId.ToString("D"), NhAssistantRunKinds.Rule), (run.AccountableOwnerId, run.Kind));
+            var conversation = await ReadConversationAsync(colleague, receipt.ConversationId.Value);
+            var call = conversation.Messages.SelectMany(message => message.Parts).OfType<NhAssistantToolCallPartDto>().Single();
+            Assert.Equal("accountable", call.GrantSource);
+        }
+        finally
+        {
+            Assert.True((await ConfigureAgentsAsync(service => service.RemoveStarterAsync(starter, host.OwnerId, CancellationToken.None))).Success);
+            using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{starter}");
+            Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task An_operator_pauses_the_project_closer_for_an_import_and_stops_it_without_losing_approved_work()
     {
         // SPM-284
@@ -2307,6 +2361,7 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         services.AddSampleProjectCloser(TechnicalAccountId.ToString("D"));
         services.AddSampleProjectPlanner();
         services.AddSampleProjectPlannerVariant();
+        services.AddSampleProjectStarterBlocks();
     }
 
     public async Task WaitForOperationAsync(Guid operationId, NhBackgroundOperationStatus status)

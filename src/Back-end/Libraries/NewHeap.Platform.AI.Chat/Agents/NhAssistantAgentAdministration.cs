@@ -28,7 +28,9 @@ internal sealed class NhAssistantAgentAdministration(
     NhAssistantAgentCatalog catalog,
     NhAssistantAgentRegistry registry,
     NhAssistantRegistrationState state,
-    IEnumerable<INhAssistantBusinessAuditSink> auditSinks)
+    IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
+    NhAssistantRunConfigurationStore runConfigurationStore,
+    NhAssistantRunConfigurations runConfigurations)
 {
     public const int MaxInstructionsLength = 20_000;
 
@@ -107,7 +109,27 @@ internal sealed class NhAssistantAgentAdministration(
             },
             input.McpServerIds,
             cancellationToken);
+        if (updated.Succeeded && updated.Value!.Source == NhAssistantAgentSources.Admin)
+        {
+            await RunConfigurationChangedAsync(cancellationToken);
+        }
+
         return await CompleteAsync(updated, NhAssistantAuditEventKind.AdminAgentUpdated, actorId, cancellationToken);
+    }
+
+    /// <summary>
+    /// The run configuration defined as data checks data skills against an administration agent's
+    /// tool selectors and loses an agent that is deleted: every host reloads it.
+    /// </summary>
+    private async Task RunConfigurationChangedAsync(CancellationToken cancellationToken)
+    {
+        if (!runConfigurations.Enabled)
+        {
+            return;
+        }
+
+        await runConfigurationStore.TouchAsync(cancellationToken);
+        await runConfigurations.ReloadAsync(cancellationToken);
     }
 
     /// <summary>
@@ -160,6 +182,7 @@ internal sealed class NhAssistantAgentAdministration(
                 "Code agents cannot be deleted; disable them instead.");
         }
         await AuditAsync(NhAssistantAuditEventKind.AdminAgentDeleted, agentId, actorId, cancellationToken);
+        await RunConfigurationChangedAsync(cancellationToken);
         return TaskResult.Succeeded();
     }
 

@@ -328,6 +328,7 @@ builder.Services.AddSampleStatusAdvisor();
 builder.Services.AddSampleProjectCloser(builder.Configuration[SampleProjectCloserComposition.ServiceAccountKey]);
 builder.Services.AddSampleProjectPlanner();
 builder.Services.AddSampleProjectPlannerVariant();
+builder.Services.AddSampleProjectStarterBlocks();
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     .WithNewHeapPlatformAITools();

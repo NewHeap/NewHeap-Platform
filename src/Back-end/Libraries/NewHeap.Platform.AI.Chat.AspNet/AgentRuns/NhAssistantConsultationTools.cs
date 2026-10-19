@@ -572,7 +572,7 @@ internal sealed class NhAssistantConsultationViewer(
         }
         var shield = !registration.AgentRuns.TryGetValue(options.AgentId, out var runOptions)
                      || runOptions.ElevatedReads == NhAiElevatedReads.Restricted;
-        if (grantSource != NhAiGrantSource.Agent || !shield)
+        if (grantSource is not (NhAiGrantSource.Agent or NhAiGrantSource.Accountable) || !shield)
         {
             return true;
         }

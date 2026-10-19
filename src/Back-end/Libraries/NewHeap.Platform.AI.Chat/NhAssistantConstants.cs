@@ -86,6 +86,17 @@ public static class NhAssistantAccountabilities
             _ => Agent
         };
     }
+
+    public static bool TryParse(string? name, out NhAiAgentAccountability accountability)
+    {
+        accountability = name switch
+        {
+            SubjectResponsible => NhAiAgentAccountability.SubjectResponsible,
+            ServiceAccount => NhAiAgentAccountability.ServiceAccount,
+            _ => NhAiAgentAccountability.Agent
+        };
+        return name is Agent or SubjectResponsible or ServiceAccount;
+    }
 }
 
 /// <summary>
@@ -563,6 +574,16 @@ public static class NhAssistantErrorCodes
     /// The agent already has as many skills or triggers defined as data as allowed.
     /// </summary>
     public const string ConfigurationLimit = "assistant-configuration-limit";
+
+    /// <summary>
+    /// The agent is registered in code; its runs are configured there.
+    /// </summary>
+    public const string RunSettingsInCode = "assistant-run-settings-in-code";
+
+    /// <summary>
+    /// Skills or triggers defined as data still belong to the agent; remove them first.
+    /// </summary>
+    public const string RunSettingsInUse = "assistant-run-settings-in-use";
 
     /// <summary>
     /// <c>use_skill</c> named a skill that is not active or is the current one.

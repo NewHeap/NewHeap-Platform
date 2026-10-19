@@ -75,7 +75,7 @@ internal sealed class NhAssistantRestrictedResults
         {
             return IsReadFor(await ViewerActorIdAsync(), readForActorId);
         }
-        if (grantSource != NhAiGrantSource.Agent || !_shield)
+        if (grantSource is not (NhAiGrantSource.Agent or NhAiGrantSource.Accountable) || !_shield)
         {
             return true;
         }

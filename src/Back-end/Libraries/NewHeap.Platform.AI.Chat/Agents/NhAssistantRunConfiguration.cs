@@ -31,6 +31,42 @@ public static class NhAssistantAgentConfigurationLimits
     /// The longest debounce of a data event trigger, in seconds.
     /// </summary>
     public const int MaxDebounceSeconds = 3_600;
+
+    /// <summary>
+    /// The most automatic retries of a run in the run settings of an agent.
+    /// </summary>
+    public const int MaxRetryCount = 10;
+
+    /// <summary>
+    /// The most concurrent runs in the run settings of an agent.
+    /// </summary>
+    public const int MaxConcurrentRuns = 100;
+
+    /// <summary>
+    /// The most runs per subject and day in the run settings of an agent.
+    /// </summary>
+    public const int MaxRunsPerSubjectPerDay = 1_000;
+}
+
+/// <summary>
+/// The names of <see cref="NhAiElevatedReads"/> in the run settings of an agent.
+/// </summary>
+public static class NhAssistantElevatedReadNames
+{
+    public const string Restricted = "restricted";
+
+    public const string Deny = "deny";
+
+    public static string NameOf(NhAiElevatedReads elevatedReads)
+    {
+        return elevatedReads == NhAiElevatedReads.Deny ? Deny : Restricted;
+    }
+
+    public static bool TryParse(string? name, out NhAiElevatedReads elevatedReads)
+    {
+        elevatedReads = name == Deny ? NhAiElevatedReads.Deny : NhAiElevatedReads.Restricted;
+        return name is Restricted or Deny;
+    }
 }
 
 /// <summary>
@@ -38,8 +74,8 @@ public static class NhAssistantAgentConfigurationLimits
 /// example after a deploy removed the profile, policy, rule handler, event or subject set it names.
 /// The administration shows it; startup does not fail on it.
 /// </summary>
-/// <param name="Kind"><c>skill</c> or <c>trigger</c>.</param>
-/// <param name="Id">The skill id or the trigger id.</param>
+/// <param name="Kind"><c>agent</c> for run settings, <c>skill</c> or <c>trigger</c>.</param>
+/// <param name="Id">The agent id, the skill id or the trigger id.</param>
 /// <param name="Code">One of <see cref="NhAssistantRunConfigurationProblems"/>.</param>
 public sealed record NhAssistantRunConfigurationProblem(string AgentId, string Kind, string Id, string Code);
 
@@ -48,11 +84,14 @@ public sealed record NhAssistantRunConfigurationProblem(string AgentId, string K
 /// </summary>
 public static class NhAssistantRunConfigurationProblems
 {
+    /// <summary>The run settings of an agent created in the administration.</summary>
+    public const string AgentKind = "agent";
+
     public const string SkillKind = "skill";
 
     public const string TriggerKind = "trigger";
 
-    /// <summary>The agent has no run configuration in code.</summary>
+    /// <summary>The agent has no run configuration, in code or as data, or no longer exists.</summary>
     public const string UnknownAgent = "unknown-agent";
 
     /// <summary>The code declares a skill or trigger with the same id.</summary>
@@ -148,6 +187,12 @@ internal interface INhAssistantRunSnapshotListener
 }
 
 /// <summary>
+/// What a data skill is checked against: the skills the agent declares in code and its own tool
+/// selectors, from code or from the administration.
+/// </summary>
+internal sealed record NhAssistantRunAgent(IReadOnlyCollection<string> CodeSkillIds, IReadOnlyList<string> ToolSelectors);
+
+/// <summary>
 /// Checks data skills and triggers against the code, the same way startup checks those in code.
 /// Saving and loading both use it, so data that is saved fits and data that no longer fits is left
 /// out.
@@ -160,12 +205,61 @@ internal sealed class NhAssistantRunConfigurationValidator(
         NhAiModelCapability.Chat | NhAiModelCapability.FunctionCalling | NhAiModelCapability.Streaming;
 
     /// <summary>
-    /// The problem of a data skill on the agent's options in code, or <see langword="null"/> when it fits.
+    /// The agent a data skill of <paramref name="agentId"/> is checked against when its runs are
+    /// configured in code, or <see langword="null"/>.
     /// </summary>
-    public string? ValidateSkill(AssistantAgentSkillDefinition definition, IReadOnlyList<string> toolSelectors)
+    public NhAssistantRunAgent? CodeAgent(string agentId)
     {
-        if (!registration.CodeAgentRuns.TryGetValue(definition.AgentId, out var options)
-            || !registration.TryGetAgent(definition.AgentId, out var agent))
+        return registration.CodeAgentRuns.TryGetValue(agentId, out var options) && registration.TryGetAgent(agentId, out var agent)
+            ? new NhAssistantRunAgent(options.Skills.Keys.ToArray(), agent.ToolSelectors)
+            : null;
+    }
+
+    /// <summary>
+    /// The problem of the run settings of an agent created in the administration, or
+    /// <see langword="null"/> when they fit the code.
+    /// </summary>
+    public string? ValidateRunSettings(AssistantAgentRunConfiguration settings)
+    {
+        if (!NhAssistantAccountabilities.TryParse(settings.Accountability, out var accountability)
+            || (accountability == NhAiAgentAccountability.ServiceAccount) == string.IsNullOrWhiteSpace(settings.ServiceAccountActorId)
+            || (settings.AllowGatewayReads && accountability == NhAiAgentAccountability.Agent)
+            || !NhAssistantElevatedReadNames.TryParse(settings.ElevatedReads, out _)
+            || settings.RetryCount is < 0 or > NhAssistantAgentConfigurationLimits.MaxRetryCount
+            || settings.MaxConcurrentRuns is < 1 or > NhAssistantAgentConfigurationLimits.MaxConcurrentRuns
+            || settings.MaxRunsPerSubjectPerDay is < 1 or > NhAssistantAgentConfigurationLimits.MaxRunsPerSubjectPerDay
+            || settings.MaxTokensPerRun < 1
+            || (settings.DailyToolCalls is null) != (settings.DailyTokens is null)
+            || settings.DailyToolCalls < 1
+            || settings.DailyTokens < 1)
+        {
+            return NhAssistantRunConfigurationProblems.Invalid;
+        }
+        if (settings.ApprovalPolicyId is { } policyId && !registration.ApprovalPolicies.ContainsKey(policyId))
+        {
+            return NhAssistantRunConfigurationProblems.UnknownPolicy;
+        }
+        if (settings.TriageProfileName is { } triage
+            && (services.GetService<INhAiModelProfileRegistry>() is not { } profiles
+                || !profiles.TryGet(triage, out var profile)
+                || (profile.Capabilities & NhAiModelCapability.Chat) == 0))
+        {
+            return NhAssistantRunConfigurationProblems.UnknownProfile;
+        }
+        if (settings.RuleHandlerName is { } handlerName && !registration.RuleHandlers.ContainsKey(handlerName))
+        {
+            return NhAssistantRunConfigurationProblems.UnknownRuleHandler;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The problem of a data skill on its agent, or <see langword="null"/> when it fits.
+    /// </summary>
+    public string? ValidateSkill(AssistantAgentSkillDefinition definition, IReadOnlyList<string> toolSelectors, NhAssistantRunAgent? agent)
+    {
+        if (agent is null)
         {
             return NhAssistantRunConfigurationProblems.UnknownAgent;
         }
@@ -180,7 +274,7 @@ internal sealed class NhAssistantRunConfigurationValidator(
         {
             return NhAssistantRunConfigurationProblems.Invalid;
         }
-        if (options.Skills.ContainsKey(definition.SkillId))
+        if (agent.CodeSkillIds.Contains(definition.SkillId, StringComparer.Ordinal))
         {
             return NhAssistantRunConfigurationProblems.ConflictsWithCode;
         }
@@ -314,13 +408,19 @@ internal sealed class NhAssistantRunConfigurations(
     private long _checkedAt = long.MinValue;
 
     /// <summary>
+    /// Whether the host loads the run configuration defined as data: it has agent runs in code or
+    /// runs agents whose run settings are data.
+    /// </summary>
+    public bool Enabled => registration.CodeAgentRuns.Count > 0 || registration.DataAgentRunsEnabled;
+
+    /// <summary>
     /// Makes sure the snapshot in effect has the latest data: reads the stamp when the last check
-    /// is more than a second ago and reloads when it changed. A host without agent runs in code reads
+    /// is more than a second ago and reloads when it changed. A host that loads no data reads
     /// nothing. When the store cannot be read, the configuration in effect stays.
     /// </summary>
     public async Task EnsureCurrentAsync(CancellationToken cancellationToken)
     {
-        if (registration.CodeAgentRuns.Count == 0 || !IsDue())
+        if (!Enabled || !IsDue())
         {
             return;
         }
@@ -360,7 +460,7 @@ internal sealed class NhAssistantRunConfigurations(
     /// </summary>
     public async Task ReloadAsync(CancellationToken cancellationToken)
     {
-        if (registration.CodeAgentRuns.Count == 0)
+        if (!Enabled)
         {
             return;
         }
@@ -426,17 +526,47 @@ internal sealed class NhAssistantRunConfigurations(
     {
         var problems = new List<NhAssistantRunConfigurationProblem>();
         var agentRuns = new Dictionary<string, NhAssistantAgentRunOptions>(registration.CodeAgentRuns, StringComparer.Ordinal);
+        var runAgents = new Dictionary<string, NhAssistantRunAgent>(StringComparer.Ordinal);
+        foreach (var agentId in registration.CodeAgentRuns.Keys)
+        {
+            if (validator.CodeAgent(agentId) is { } codeAgent)
+            {
+                runAgents[agentId] = codeAgent;
+            }
+        }
+
+        // Agents created in the administration whose run settings are data.
+        foreach (var settings in stored.AgentRuns)
+        {
+            IReadOnlyList<string>? agentSelectors = null;
+            var problem = registration.CodeAgentRuns.ContainsKey(settings.AgentId) || registration.TryGetAgent(settings.AgentId, out _)
+                ? NhAssistantRunConfigurationProblems.ConflictsWithCode
+                : !stored.AdminAgentSelectors.TryGetValue(settings.AgentId, out var selectorsJson)
+                    ? NhAssistantRunConfigurationProblems.UnknownAgent
+                    : (agentSelectors = ReadSelectors(selectorsJson)) is null
+                        ? NhAssistantRunConfigurationProblems.Invalid
+                        : validator.ValidateRunSettings(settings);
+            if (problem is not null)
+            {
+                problems.Add(new NhAssistantRunConfigurationProblem(settings.AgentId, NhAssistantRunConfigurationProblems.AgentKind, settings.AgentId, problem));
+                continue;
+            }
+
+            agentRuns[settings.AgentId] = ToOptions(settings);
+            runAgents[settings.AgentId] = new NhAssistantRunAgent([], agentSelectors!);
+        }
+
         foreach (var group in stored.Skills.GroupBy(definition => definition.AgentId, StringComparer.Ordinal))
         {
             var dataSkills = new List<NhAssistantSkillOptions>();
+            var runAgent = runAgents.GetValueOrDefault(group.Key);
             foreach (var definition in group)
             {
                 var selectors = ReadSelectors(definition.ToolSelectorsJson);
                 var problem = selectors is null
                     ? NhAssistantRunConfigurationProblems.ToolNotCovered
-                    : validator.ValidateSkill(definition, selectors);
-                if (problem is null
-                    && registration.CodeAgentRuns[definition.AgentId].Skills.Count + dataSkills.Count >= NhAssistantAgentRunOptions.MaxSkills)
+                    : validator.ValidateSkill(definition, selectors, runAgent);
+                if (problem is null && runAgent!.CodeSkillIds.Count + dataSkills.Count >= NhAssistantAgentRunOptions.MaxSkills)
                 {
                     problem = NhAssistantRunConfigurationProblems.TooManySkills;
                 }
@@ -451,7 +581,7 @@ internal sealed class NhAssistantRunConfigurations(
 
             if (dataSkills.Count > 0)
             {
-                agentRuns[group.Key] = registration.CodeAgentRuns[group.Key].WithDataSkills(dataSkills);
+                agentRuns[group.Key] = agentRuns[group.Key].WithDataSkills(dataSkills);
             }
         }
 
@@ -485,6 +615,34 @@ internal sealed class NhAssistantRunConfigurations(
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// The run options of an agent created in the administration. It has no grants: it acts with the
+    /// rights of the account it answers to.
+    /// </summary>
+    private NhAssistantAgentRunOptions ToOptions(AssistantAgentRunConfiguration settings)
+    {
+        NhAssistantAccountabilities.TryParse(settings.Accountability, out var accountability);
+        NhAssistantElevatedReadNames.TryParse(settings.ElevatedReads, out var elevatedReads);
+        return new NhAssistantAgentRunOptions(settings.AgentId)
+        {
+            Accountability = accountability,
+            ServiceAccountActorId = accountability == NhAiAgentAccountability.ServiceAccount ? settings.ServiceAccountActorId : null,
+            DelegateFromInitiator = settings.DelegateFromInitiator,
+            AllowGatewayReads = settings.AllowGatewayReads,
+            ElevatedReads = elevatedReads,
+            ApprovalPolicyId = settings.ApprovalPolicyId,
+            RetryCount = settings.RetryCount,
+            DailyBudget = settings is { DailyToolCalls: { } calls, DailyTokens: { } tokens } ? new NhAssistantAgentBudget(calls, tokens) : null,
+            MaxConcurrentRuns = settings.MaxConcurrentRuns,
+            MaxRunsPerSubjectPerDay = settings.MaxRunsPerSubjectPerDay,
+            MaxTokensPerRun = settings.MaxTokensPerRun,
+            TriageProfileName = settings.TriageProfileName,
+            RuleHandlerType = settings.RuleHandlerName is { } handler ? registration.RuleHandlers[handler].HandlerType : null,
+            ActWithAccountableRights = true,
+            DataVersion = settings.Version
+        };
     }
 
     private NhAssistantSkillOptions ToSkill(AssistantAgentSkillDefinition definition, IReadOnlyList<string> selectors)

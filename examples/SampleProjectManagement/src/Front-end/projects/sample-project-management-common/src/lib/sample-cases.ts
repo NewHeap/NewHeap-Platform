@@ -4473,5 +4473,24 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfigurationEndpoints.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunConfigurationTests.cs"
     ]
+  },
+  {
+    "id": "SPM-296",
+    "title": "An administrator creates a project starter in the administration that proposes with the rights of its technical account",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantAgentConfiguration.SaveRunSettingsAsync and RemoveRunSettingsAsync with NhAssistantAgentRunSettingsRequest and NhAssistantAgentRunSettingsDto; PUT and DELETE admin/agents/{id}/run-settings; RunSettings and Source on NhAssistantAgentConfigurationDto; NhAiGrantSource.Accountable and ActWithAccountableRights on NhAiAgentInvocationScope; NhAssistantAgentRunBuilder.ActWithAccountableRights; grantSource accountable on tool calls; assistant-run-settings-in-code and assistant-run-settings-in-use; AdminAgentRunSettingsChanged; the AgentRunSettings migrations for SQL Server and PostgreSQL",
+    "outcome": "The project starter composition registers the project-created event and the kickoff rules under names. An administrator creates the project starter in the administration with only the status tool, and the application gives it run settings as data: it answers to the operations account and works by the kickoff rules, and its trigger starts it on every created project. It has no grants: when a project is created as a draft, its rules propose to start it with the operations account's rights, recorded as the grant source accountable, and the project's approver decides. Removing its trigger and run settings lets it only chat again.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunConfigurationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantGatewayReadTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAgentInvocationGateTests.cs"
+    ]
   }
 ] as const;

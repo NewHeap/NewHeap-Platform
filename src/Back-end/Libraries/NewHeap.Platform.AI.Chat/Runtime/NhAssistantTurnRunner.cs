@@ -1013,6 +1013,12 @@ internal sealed partial class NhAssistantTurnRunner(
                 && consultation is null
                 && !agentTurn.IsRequestTurn
                 && agentTurn.Options.Accountability != NhAiAgentAccountability.Agent,
+            // The accountable account's rights, likewise in headless turns only: a person's turn in
+            // the thread and a consultation use that person's own rights.
+            ActWithAccountableRights = agentTurn.Options.ActWithAccountableRights
+                && !delegatedOnly
+                && !agentTurn.IsRequestTurn
+                && agentTurn.Options.Accountability != NhAiAgentAccountability.Agent,
             RunAttemptNumber = agentTurn.Attempt,
             CorrelationId = agentTurn.RunId?.ToString("N") ?? state.Scope.TurnId.ToString(),
             Deadline = state.Scope.Deadline,

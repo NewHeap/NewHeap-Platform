@@ -91,6 +91,8 @@ internal sealed class NhAiUserManagerPrincipalFactory(IServiceProvider services)
 /// <item>The tool must be exposed to agents.</item>
 /// <item>With delegation, the initiator's own rights allow the tool when the initiator passes
 /// the tool's policies against the subject resource (<see cref="NhAiGrantSource.Delegated"/>).</item>
+/// <item>In a scope that acts with the accountable account's rights, that account's own rights allow
+/// it when the account passes the tool's policies (<see cref="NhAiGrantSource.Accountable"/>).</item>
 /// <item>Otherwise a code grant of the agent registration allows it, provided the tool opts in
 /// through <see cref="NhAiToolAttribute.AllowAgentGrant"/> (<see cref="NhAiGrantSource.Agent"/>).</item>
 /// </list>
@@ -167,6 +169,18 @@ internal sealed class NhAiAgentInvocationGate(
         {
             var delegatedCapabilities = await GrantCapabilitiesAsync(initiator, resource, cancellationToken);
             return AgentToolDecision.Allowed(NhAiGrantSource.Delegated, delegatedCapabilities);
+        }
+
+        // The account the agent answers to lends its own rights, rebuilt for this decision only; an
+        // account that may no longer sign in lends none. Reads are shielded like a grant's.
+        if (scope.ActWithAccountableRights
+            && scope.Accountability != NhAiAgentAccountability.Agent
+            && !(descriptor.Effect == NhAiToolEffect.ReadOnly && scope.ElevatedReads == NhAiElevatedReads.Deny)
+            && await principalFactory.CreateAsync(scope.AccountableOwnerId, scope.Subject, cancellationToken) is { } accountable
+            && await SatisfiesAllAsync(accountable, resource, descriptor.AuthorizationPolicies, cancellationToken))
+        {
+            var accountableCapabilities = await GrantCapabilitiesAsync(accountable, resource, cancellationToken);
+            return AgentToolDecision.Allowed(NhAiGrantSource.Accountable, accountableCapabilities);
         }
 
         var grant = scope.Grants.FirstOrDefault(candidate =>

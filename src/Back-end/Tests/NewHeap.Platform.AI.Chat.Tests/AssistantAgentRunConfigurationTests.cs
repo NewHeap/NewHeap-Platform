@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.AspNet;
@@ -28,6 +29,8 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
     private const string DataTrigger = "data-changed";
     private const string WeeklyTrigger = "weekly-check";
     private const string Admin = "admin-1";
+    private const string Follower = "project-follower";
+    private const string FollowerTrigger = "follower-changed";
 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -246,6 +249,173 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
         }
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_administration_agent_runs_by_its_run_settings_with_the_rights_of_its_technical_account(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        var outcomes = ProposeHoldAndRecord(host);
+        await CreateFollowerAsync(host);
+
+        var chatOnly = (await ConfigureAsync(host, configuration => configuration.GetAsync(Follower)))!;
+        Assert.Equal(NhAssistantAgentSources.Admin, chatOnly.Source);
+        Assert.Null(chatOnly.RunSettings);
+        Assert.Equal(NhAssistantErrorCodes.AgentNotConfigured, Code(await SaveFollowerTriggerAsync(host)));
+        Assert.Equal(NhAssistantErrorCodes.ServiceAccountNotFound, Code(await SaveSettingsAsync(host, Settings("service-9"))));
+
+        // The agent answers to the technical account and works by the named rules; it has no grants.
+        var settings = await SaveSettingsAsync(host, Settings(KnownAccountPrincipalFactory.First));
+        Assert.True(settings.Success);
+        Assert.Equal((1, NhAssistantAccountabilities.ServiceAccount, true), (settings.Data!.Version, settings.Data.Accountability, settings.Data.InEffect));
+        var options = State(host).AgentRuns[Follower];
+        Assert.Equal((true, (int?)1, NhAiAgentAccountability.ServiceAccount, typeof(TestSkillRules)), (options.ActWithAccountableRights, options.DataVersion, options.Accountability, options.RuleHandlerType));
+        Assert.Empty(options.Grants);
+        Assert.True((await SaveFollowerTriggerAsync(host)).Success);
+        Assert.True((await ConfigureAsync(host, configuration => configuration.SetTriggerShadowAsync(Follower, FollowerTrigger, false, Admin))).Success);
+
+        // Its rules propose with the account's rights: the proposal records them as the grant source.
+        var project = Guid.NewGuid();
+        var first = Assert.Single(await PublishAsync(host, project, "data follow", FollowerTrigger));
+        await ExecuteAsync(host, first.RunId!.Value);
+        var run = (await Runs(host).FindRunAsync(first.RunId.Value, CancellationToken.None))!;
+        Assert.Equal((NhAssistantRunStatuses.Completed, KnownAccountPrincipalFactory.First, false), (run.Status, run.AccountableOwnerId, run.Shadow));
+        Assert.Equal(NhAssistantProposeOutcome.Created, Assert.Single(outcomes).Outcome);
+        var approval = Assert.Single(await ApprovalsAsync(host, first.ConversationId!.Value));
+        Assert.Equal((NhAiGrantSource.Accountable, NhAssistantApprovalStatuses.Pending), (approval.GrantSource, approval.Status));
+
+        // Answering to itself, the agent has no rights to lend: its thread follows and the rules are refused.
+        var itself = await SaveSettingsAsync(host, Settings(null) with { Accountability = NhAssistantAccountabilities.Agent, ExpectedVersion = 1 });
+        Assert.Equal(2, itself.Data!.Version);
+        var second = Assert.Single(await PublishAsync(host, project, "data again", FollowerTrigger));
+        Assert.Equal(first.ConversationId, second.ConversationId);
+        await ExecuteAsync(host, second.RunId!.Value);
+        Assert.Equal(2, outcomes.Count);
+        Assert.Equal(NhAssistantProposeOutcome.Refused, outcomes[1].Outcome);
+        var thread = (await Runs(host).FindThreadByConversationAsync(second.ConversationId!.Value, CancellationToken.None))!;
+        Assert.Equal((NhAssistantAccountabilities.Agent, "assistant-agent:" + Follower), (thread.Accountability, thread.AccountableOwnerId));
+
+        var changes = host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentRunSettingsChanged).ToArray();
+        Assert.Equal(["created", "changed"], changes.Select(evt => evt.ResultCode));
+        Assert.Equal([1, 2], changes.Select(evt => evt.AgentVersion));
+
+        // Run settings stay while data triggers belong to the agent.
+        Assert.Equal(NhAssistantErrorCodes.RunSettingsInUse, Code(await ConfigureAsync(host, configuration => configuration.RemoveRunSettingsAsync(Follower, 2, Admin))));
+        Assert.True((await ConfigureAsync(host, configuration => configuration.RemoveTriggerAsync(Follower, FollowerTrigger, null, Admin))).Success);
+        Assert.True((await ConfigureAsync(host, configuration => configuration.RemoveRunSettingsAsync(Follower, 2, Admin, "Only chats again"))).Success);
+        Assert.False(State(host).AgentRuns.ContainsKey(Follower));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Run_settings_are_checked_against_the_code_and_give_an_administration_agent_skills(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        await CreateFollowerAsync(host);
+
+        Assert.Equal(NhAssistantErrorCodes.RunSettingsInCode, Code(await ConfigureAsync(host, configuration => configuration.SaveRunSettingsAsync(AgentId, Settings(null), Admin))));
+        Assert.Equal("allowGatewayReads", Field(await SaveSettingsAsync(host, Settings(null) with { Accountability = NhAssistantAccountabilities.Agent, AllowGatewayReads = true })));
+        Assert.Equal("serviceAccountActorId", Field(await SaveSettingsAsync(host, Settings(null))));
+        Assert.Equal("approvalPolicy", Field(await SaveSettingsAsync(host, Settings(KnownAccountPrincipalFactory.First) with { ApprovalPolicy = "missing" })));
+        Assert.Equal("ruleHandler", Field(await SaveSettingsAsync(host, Settings(KnownAccountPrincipalFactory.First) with { RuleHandler = "missing" })));
+        Assert.Equal("triageProfile", Field(await SaveSettingsAsync(host, Settings(KnownAccountPrincipalFactory.First) with { TriageProfile = "missing-chat" })));
+        Assert.Equal("maxConcurrentRuns", Field(await SaveSettingsAsync(host, Settings(KnownAccountPrincipalFactory.First) with { MaxConcurrentRuns = 0 })));
+
+        Assert.True((await SaveSettingsAsync(host, Settings(KnownAccountPrincipalFactory.First) with { DailyToolCalls = 5, DailyTokens = 1_000, MaxTokensPerRun = 500 })).Success);
+        Assert.Equal(NhAssistantAdminErrorCodes.VersionConflict, Code(await SaveSettingsAsync(host, Settings(KnownAccountPrincipalFactory.First))));
+        var options = State(host).AgentRuns[Follower];
+        Assert.Equal(new NhAssistantAgentBudget(5, 1_000), options.DailyBudget);
+        Assert.Equal(500L, options.MaxTokensPerRun);
+
+        // A data skill stays within the administration agent's own tool selectors.
+        Assert.Equal("tools", Field(await ConfigureAsync(host, configuration => configuration.SaveSkillAsync(
+            Follower, FollowUp, new NhAssistantDataSkillRequest("Follows up.", Tools: ["orders.*"]), Admin))));
+        var skill = await ConfigureAsync(host, configuration => configuration.SaveSkillAsync(
+            Follower, FollowUp, new NhAssistantDataSkillRequest("Follows up.", Tools: ["projects.search"], RuleHandler: "project-follow-up"), Admin));
+        Assert.True(skill.Success);
+        Assert.True(State(host).AgentRuns[Follower].Skills[FollowUp].Shadow);
+        var view = (await ConfigureAsync(host, configuration => configuration.GetAsync(Follower)))!;
+        Assert.Equal(1, view.RunSettings!.Version);
+        Assert.Equal(FollowUp, Assert.Single(view.DataSkills).SkillId);
+        Assert.Equal(new[] { "projects.*" }, view.ToolSelectors);
+        Assert.Empty(view.Problems);
+
+        // Deleting the agent takes its run configuration along.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            Assert.True((await scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>().DeleteAsync(Follower, Admin, CancellationToken.None)).Success);
+        }
+        Assert.False(State(host).AgentRuns.ContainsKey(Follower));
+        Assert.Null(await ConfigureAsync(host, configuration => configuration.GetAsync(Follower)));
+    }
+
+    /// <summary>
+    /// The skill rules propose to put the project on hold and record what became of it.
+    /// </summary>
+    private static List<NhAssistantRuleProposal> ProposeHoldAndRecord(AssistantTestHost host)
+    {
+        var outcomes = new List<NhAssistantRuleProposal>();
+        host.Services.GetRequiredService<TestSkillRuleScript>().Run = async (context, cancellationToken) =>
+        {
+            outcomes.Add(await context.ProposeAsync(
+                "projects.change-status",
+                new ProjectStatusInput(Guid.Parse(context.Subject.Subject.Id), "OnHold"),
+                null,
+                cancellationToken));
+            return NhAssistantRuleResult.Done("Followed up the project.");
+        };
+        return outcomes;
+    }
+
+    private static async Task CreateFollowerAsync(AssistantTestHost host)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var created = await scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>().CreateAsync(
+            new NhAssistantAgentInput(
+                Follower,
+                "Project follower",
+                "Follows up changed projects.",
+                "Follow up the project.",
+                ["projects.*"],
+                [],
+                null,
+                NhAiAutonomyLevel.Execute),
+            Admin,
+            CancellationToken.None);
+        Assert.True(created.Success);
+    }
+
+    private static NhAssistantAgentRunSettingsRequest Settings(string? serviceAccount)
+    {
+        return new NhAssistantAgentRunSettingsRequest(
+            NhAssistantAccountabilities.ServiceAccount,
+            serviceAccount,
+            ApprovalPolicy: "project-review",
+            RuleHandler: "project-follow-up",
+            Reason: "Follow up projects");
+    }
+
+    private static Task<TaskResult<NhAssistantAgentRunSettingsDto>> SaveSettingsAsync(AssistantTestHost host, NhAssistantAgentRunSettingsRequest request)
+    {
+        return ConfigureAsync(host, configuration => configuration.SaveRunSettingsAsync(Follower, request, Admin));
+    }
+
+    private static Task<TaskResult<NhAssistantDataTriggerDto>> SaveFollowerTriggerAsync(AssistantTestHost host)
+    {
+        return ConfigureAsync(host, configuration => configuration.SaveTriggerAsync(
+            Follower,
+            FollowerTrigger,
+            new NhAssistantDataTriggerRequest(NhAssistantDataTriggerSources.Event, Event: "project.changed", Conflict: NhAssistantTriggerConflictNames.Queue),
+            Admin));
+    }
+
+    private static async Task<IReadOnlyList<AssistantApproval>> ApprovalsAsync(AssistantTestHost host, Guid conversationId)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        return await context.Approvals.AsNoTracking().Where(approval => approval.ConversationId == conversationId).ToListAsync();
+    }
+
     private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider)
     {
         return await AssistantTestHost.CreateAsync(
@@ -259,7 +429,7 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
                 services.AddSingleton<TestSkillRuleScript>();
                 services.AddSingleton<RecordingOperations>();
                 services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
-                services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, TestPrincipalFactory>());
+                services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, KnownAccountPrincipalFactory>());
             },
             assistantBuilder: assistant => assistant
                 .AddSubjectType<TestSubjectResolver>()
@@ -319,12 +489,16 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
     /// <summary>
     /// Publishes a change of the project and returns the receipt of the data trigger.
     /// </summary>
-    private static async Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync(AssistantTestHost host, Guid projectId, string change)
+    private static async Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync(
+        AssistantTestHost host,
+        Guid projectId,
+        string change,
+        string triggerId = DataTrigger)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var receipts = await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>()
             .PublishAsync(new ProjectChanged(Guid.NewGuid(), projectId, change));
-        return receipts.Where(receipt => receipt.TriggerId == DataTrigger).ToArray();
+        return receipts.Where(receipt => receipt.TriggerId == triggerId).ToArray();
     }
 
     private static async Task ExecuteAsync(AssistantTestHost host, Guid runId)

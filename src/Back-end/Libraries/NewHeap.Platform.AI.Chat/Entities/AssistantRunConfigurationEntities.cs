@@ -119,6 +119,70 @@ public sealed class AssistantAgentTriggerDefinition
 }
 
 /// <summary>
+/// The run settings of an agent created in the administration: who answers for its runs, how its
+/// proposals are approved, its budgets, ceiling and retries, gateway reads, triage and rules. Grants
+/// are never data: such an agent acts with the rights of the account it answers to.
+/// </summary>
+public sealed class AssistantAgentRunConfiguration
+{
+    public string AgentId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Incremented on every change.
+    /// </summary>
+    public int Version { get; set; } = 1;
+
+    /// <summary>
+    /// One of <see cref="NhAssistantAccountabilities"/>.
+    /// </summary>
+    public string Accountability { get; set; } = NhAssistantAccountabilities.Agent;
+
+    public string? ServiceAccountActorId { get; set; }
+
+    public bool DelegateFromInitiator { get; set; }
+
+    public bool AllowGatewayReads { get; set; }
+
+    /// <summary>
+    /// One of <see cref="NhAssistantElevatedReadNames"/>.
+    /// </summary>
+    public string ElevatedReads { get; set; } = NhAssistantElevatedReadNames.Restricted;
+
+    public string? ApprovalPolicyId { get; set; }
+
+    public int RetryCount { get; set; } = 3;
+
+    public int? DailyToolCalls { get; set; }
+
+    public long? DailyTokens { get; set; }
+
+    public int MaxConcurrentRuns { get; set; } = 4;
+
+    public int MaxRunsPerSubjectPerDay { get; set; } = 10;
+
+    public long? MaxTokensPerRun { get; set; }
+
+    public string? TriageProfileName { get; set; }
+
+    /// <summary>
+    /// The name of a rule handler registered with <c>AddRuleHandler</c>.
+    /// </summary>
+    public string? RuleHandlerName { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public string CreatedBy { get; set; } = string.Empty;
+
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public string UpdatedBy { get; set; } = string.Empty;
+
+    public string? Reason { get; set; }
+
+    public Guid ConcurrencyStamp { get; set; }
+}
+
+/// <summary>
 /// One row whose value changes with every change of the data-defined run configuration, so every
 /// host knows when to reload.
 /// </summary>

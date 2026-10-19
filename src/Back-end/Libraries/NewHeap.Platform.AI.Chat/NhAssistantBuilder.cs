@@ -572,6 +572,12 @@ internal sealed class NhAssistantRegistrationState
 
     public IReadOnlyDictionary<string, NhAssistantTriggerEventDefinition> TriggerEvents => _triggerEvents;
 
+    /// <summary>
+    /// The host runs agents whose run settings are data, as the ASP.NET integration does; without it
+    /// only a host with agent runs in code loads the run configuration defined as data.
+    /// </summary>
+    public bool DataAgentRunsEnabled { get; set; }
+
     public IReadOnlyDictionary<string, NhAssistantSubjectSetDefinition> SubjectSets => _subjectSets;
 
     public IReadOnlyDictionary<string, NhAssistantRuleHandlerDefinition> RuleHandlers => _ruleHandlers;

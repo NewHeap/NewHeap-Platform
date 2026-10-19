@@ -81,6 +81,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantRunConfigurationStamp> RunConfigurationStamps => Set<AssistantRunConfigurationStamp>();
 
+    public DbSet<AssistantAgentRunConfiguration> AgentRunConfigurations => Set<AssistantAgentRunConfiguration>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(_storageOptions.Schema);
@@ -574,6 +576,27 @@ public sealed class NhAssistantDbContext : DbContext
             trigger.HasOne<AssistantAgent>()
                 .WithMany()
                 .HasForeignKey(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAgentRunConfiguration>(settings =>
+        {
+            settings.ToTable("AssistantAgentRunConfiguration");
+            settings.HasKey(item => item.AgentId);
+            settings.Property(item => item.AgentId).HasMaxLength(128);
+            settings.Property(item => item.Accountability).HasMaxLength(32).IsRequired();
+            settings.Property(item => item.ServiceAccountActorId).HasMaxLength(256);
+            settings.Property(item => item.ElevatedReads).HasMaxLength(16).IsRequired();
+            settings.Property(item => item.ApprovalPolicyId).HasMaxLength(128);
+            settings.Property(item => item.TriageProfileName).HasMaxLength(128);
+            settings.Property(item => item.RuleHandlerName).HasMaxLength(NhAssistantBlockNames.MaxLength);
+            settings.Property(item => item.CreatedBy).HasMaxLength(256).IsRequired();
+            settings.Property(item => item.UpdatedBy).HasMaxLength(256).IsRequired();
+            settings.Property(item => item.Reason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            settings.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
+            settings.HasOne<AssistantAgent>()
+                .WithOne()
+                .HasForeignKey<AssistantAgentRunConfiguration>(item => item.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

@@ -483,10 +483,7 @@ internal static class NhAssistantAgentRunEndpoints
 
         // The participant role was checked above, so the run's owner cancels its operation.
         var thread = access.Access!.Thread;
-        var agent = registration.Agents.FirstOrDefault(item => string.Equals(item.Id, thread.AgentId, StringComparison.Ordinal));
-        var owner = agent is null
-            ? NhBackgroundOperationActor.ForAgent(NhAssistantAgentEvents.AgentActorPrefix + thread.AgentId)
-            : NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId, agent);
+        var owner = NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId);
         await httpContext.RequestServices
             .GetRequiredService<NhAssistantRunCancellation>()
             .CancelAsync(run, access.ActorId!, owner, httpContext.RequestAborted);

@@ -38,6 +38,8 @@ public static class NhAssistantServiceCollectionExtensions
         var state = NhAssistantServiceRegistration.EnsureRegistered(services);
         if (firstRegistration)
         {
+            // The ASP.NET host runs agents whose run settings are data as well as those in code.
+            state.DataAgentRunsEnabled = true;
             services.AddOptions<NhAssistantOptions>().BindConfiguration(NhAssistantOptions.SectionName);
             services.TryAddScoped<NhAssistantAgentAccess>();
             services.AddDataProtection();
@@ -244,6 +246,11 @@ internal sealed class NhAssistantStartupValidator(
             if (runOptions.TriageProfileName is not null && runOptions.Skills.Count == 0)
             {
                 throw new InvalidOperationException($"Agent '{agentId}' has a triage but no skills.");
+            }
+            if (runOptions.ActWithAccountableRights && runOptions.Accountability == NhAiAgentAccountability.Agent)
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{agentId}' acts with the rights of whom it answers to but answers to itself; choose an accountable person or technical account.");
             }
             if (runOptions.AllowGatewayReads)
             {

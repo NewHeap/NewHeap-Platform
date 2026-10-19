@@ -376,10 +376,7 @@ internal sealed class NhAssistantProposalDecisions(
         var descriptor = approvers.FindDescriptor(approval.ToolId);
         var idempotent = descriptor?.Effect is NhAiToolEffect.ReadOnly or NhAiToolEffect.IdempotentMutation;
         var proposal = Governance.NhAssistantProposalSerializer.Deserialize(approval.ProposalJson);
-        var agent = registration.Agents.FirstOrDefault(item => string.Equals(item.Id, thread.AgentId, StringComparison.Ordinal));
-        var owner = agent is null
-            ? NhBackgroundOperationActor.ForAgent("assistant-agent:" + thread.AgentId)
-            : NhAssistantAgentTriggers.OwnerActor(thread, proposal.AccountableOwnerId, agent);
+        var owner = NhAssistantAgentTriggers.OwnerActor(thread, proposal.AccountableOwnerId);
         var options = new NhBackgroundOperationEnqueueOptions
         {
             OwnerUserId = owner.UserId,

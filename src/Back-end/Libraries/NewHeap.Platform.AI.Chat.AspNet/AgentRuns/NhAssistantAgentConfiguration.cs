@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
@@ -8,7 +10,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
 /// The run configuration of agents as data: skills, and the triggers that start them, defined at
-/// runtime on agents whose runs are configured in code. Data names the building blocks code
+/// runtime on agents whose runs are configured in code, and the run settings of agents created in
+/// the administration, which then get skills and triggers the same way. Data names the building blocks code
 /// registered (trigger events, subject sets, rule handlers, approval policies and model profiles)
 /// and is checked against them on every save, as startup checks the code. A new skill and a new
 /// trigger start in shadow; an administrator puts a skill live with
@@ -25,10 +28,36 @@ public interface INhAssistantAgentConfiguration
     NhAssistantRunCatalogDto GetCatalog();
 
     /// <summary>
-    /// The agent's skills and triggers, in code and as data, or <see langword="null"/> for an agent
-    /// without a run configuration in code.
+    /// The agent's run settings, skills and triggers, in code and as data, or <see langword="null"/>
+    /// for an agent that does not exist or is registered in code without a run configuration.
     /// </summary>
     Task<NhAssistantAgentConfigurationDto?> GetAsync(string agentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds or changes the run settings of an agent created in the administration: whom it answers
+    /// to, its approval policy, budgets, run ceiling, retries, gateway reads, triage and rules. Grants
+    /// are never data: the agent acts with the rights of the account it answers to, in its headless
+    /// runs, within its tool selectors. An agent registered in code fails with
+    /// <c>assistant-run-settings-in-code</c>; a technical account that does not exist or may not sign
+    /// in fails with <c>assistant-service-account-not-found</c>. <c>expectedVersion</c> is the
+    /// settings' current version, <see langword="null"/> for new settings.
+    /// </summary>
+    Task<TaskResult<NhAssistantAgentRunSettingsDto>> SaveRunSettingsAsync(
+        string agentId,
+        NhAssistantAgentRunSettingsRequest request,
+        string actorId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes the run settings of an agent created in the administration, which then only chats.
+    /// Fails with <c>assistant-run-settings-in-use</c> while it has data skills or data triggers.
+    /// </summary>
+    Task<TaskResult> RemoveRunSettingsAsync(
+        string agentId,
+        int? expectedVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Every version of a data skill, newest first; empty when the agent has no such data skill.
@@ -109,9 +138,13 @@ public sealed record NhAssistantRunCatalogDto(
 
 public sealed record NhAssistantRunBlockDto(string Name, string Description);
 
-/// <param name="ToolSelectors">The agent's own tool selectors in code; a data skill's tools stay
-/// within them.</param>
+/// <param name="ToolSelectors">The agent's own tool selectors; a data skill's tools stay within
+/// them.</param>
 /// <param name="Problems">Data that is out of effect because it no longer fits the code.</param>
+/// <param name="Source"><c>code</c> for an agent registered in code, <c>admin</c> for one created in
+/// the administration.</param>
+/// <param name="RunSettings">The run settings of an agent created in the administration;
+/// <see langword="null"/> for an agent in code and for one that only chats.</param>
 public sealed record NhAssistantAgentConfigurationDto(
     string AgentId,
     IReadOnlyList<string> ToolSelectors,
@@ -119,7 +152,78 @@ public sealed record NhAssistantAgentConfigurationDto(
     IReadOnlyList<NhAssistantDataSkillDto> DataSkills,
     IReadOnlyList<NhAssistantCodeTriggerDto> CodeTriggers,
     IReadOnlyList<NhAssistantDataTriggerDto> DataTriggers,
-    IReadOnlyList<NhAssistantRunConfigurationProblem> Problems);
+    IReadOnlyList<NhAssistantRunConfigurationProblem> Problems,
+    string Source,
+    NhAssistantAgentRunSettingsDto? RunSettings);
+
+/// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or
+/// <c>service-account</c>.</param>
+/// <param name="ElevatedReads"><c>restricted</c> or <c>deny</c>.</param>
+/// <param name="InEffect">Whether the settings are in effect; <see langword="false"/> with
+/// <paramref name="Problem"/> when they no longer fit the code.</param>
+public sealed record NhAssistantAgentRunSettingsDto(
+    int Version,
+    string Accountability,
+    string? ServiceAccountActorId,
+    bool DelegateFromInitiator,
+    bool AllowGatewayReads,
+    string ElevatedReads,
+    string? ApprovalPolicy,
+    int RetryCount,
+    int? DailyToolCalls,
+    long? DailyTokens,
+    int MaxConcurrentRuns,
+    int MaxRunsPerSubjectPerDay,
+    long? MaxTokensPerRun,
+    string? TriageProfile,
+    string? RuleHandler,
+    DateTimeOffset ChangedAt,
+    string ChangedBy,
+    string? Reason,
+    bool InEffect,
+    string? Problem);
+
+/// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or <c>service-account</c>.
+/// The agent acts with the rights of the person or technical account it answers to; one that answers
+/// to itself can only use what the person who starts it may use, with
+/// <paramref name="DelegateFromInitiator"/>.</param>
+/// <param name="ServiceAccountActorId">The technical account, at most 256 characters, for
+/// <c>service-account</c> only.</param>
+/// <param name="DelegateFromInitiator">The agent also uses what the person who started a run may
+/// use.</param>
+/// <param name="AllowGatewayReads">Headless runs read through the API bridge gateway with the
+/// accountable person's rights; not for an agent that answers to itself.</param>
+/// <param name="ElevatedReads"><c>restricted</c> (default) shields reads with the accountable
+/// account's rights from thread readers without the tool's policies; <c>deny</c> refuses them.</param>
+/// <param name="ApprovalPolicy">A policy registered with <c>AddApprovalPolicy</c>.</param>
+/// <param name="RetryCount">Automatic retries after a transient failure, 0 to 10; 3 by default.</param>
+/// <param name="DailyToolCalls">With <paramref name="DailyTokens"/>, the daily budget per scope.</param>
+/// <param name="MaxConcurrentRuns">1 to 100; 4 by default.</param>
+/// <param name="MaxRunsPerSubjectPerDay">1 to 1,000; 10 by default.</param>
+/// <param name="MaxTokensPerRun">The run ceiling in tokens.</param>
+/// <param name="TriageProfile">A chat profile that chooses the skill of a run no trigger or rule
+/// routed.</param>
+/// <param name="RuleHandler">The name of a rule handler registered with <c>AddRuleHandler</c>.</param>
+/// <param name="ExpectedVersion">The settings' current version; <see langword="null"/> for new
+/// settings.</param>
+/// <param name="Reason">At most 500 characters.</param>
+public sealed record NhAssistantAgentRunSettingsRequest(
+    string? Accountability,
+    string? ServiceAccountActorId = null,
+    bool DelegateFromInitiator = false,
+    bool AllowGatewayReads = false,
+    string? ElevatedReads = null,
+    string? ApprovalPolicy = null,
+    int? RetryCount = null,
+    int? DailyToolCalls = null,
+    long? DailyTokens = null,
+    int? MaxConcurrentRuns = null,
+    int? MaxRunsPerSubjectPerDay = null,
+    long? MaxTokensPerRun = null,
+    string? TriageProfile = null,
+    string? RuleHandler = null,
+    int? ExpectedVersion = null,
+    string? Reason = null);
 
 public sealed record NhAssistantCodeSkillDto(string SkillId, string Description);
 
@@ -239,6 +343,7 @@ internal sealed class NhAssistantAgentConfiguration(
     NhAssistantRunConfigurationValidator validator,
     NhAssistantAgentCatalog agents,
     NhAssistantAgentEvents events,
+    NhAssistantRunStore runs,
     IServiceProvider services) : INhAssistantAgentConfiguration
 {
     private const int MaxActorIdLength = 256;
@@ -265,13 +370,16 @@ internal sealed class NhAssistantAgentConfiguration(
     public async Task<NhAssistantAgentConfigurationDto?> GetAsync(string agentId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-        if (!registration.CodeAgentRuns.TryGetValue(agentId, out var code) || !registration.TryGetAgent(agentId, out var agent))
+        var agent = await agents.FindAsync(agentId, includeDisabled: true, cancellationToken);
+        var code = registration.CodeAgentRuns.GetValueOrDefault(agentId);
+        if (agent is null || (code is null && agent.Source != NhAssistantAgentSources.Admin))
         {
             return null;
         }
 
         await configurations.EnsureCurrentAsync(cancellationToken);
         var problems = configurations.Problems.Where(problem => problem.AgentId == agentId).ToArray();
+        var settings = code is null ? await store.FindRunSettingsAsync(agentId, cancellationToken) : null;
         var skills = (await store.ListSkillsAsync(agentId, cancellationToken))
             .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live)
             .Select(item => ToDto(item, problems))
@@ -281,8 +389,8 @@ internal sealed class NhAssistantAgentConfiguration(
             .ToArray();
         return new NhAssistantAgentConfigurationDto(
             agentId,
-            agent.ToolSelectors,
-            code.Skills.Values.Select(skill => new NhAssistantCodeSkillDto(skill.Id, skill.Description)).ToArray(),
+            agent.Definition.ToolSelectors,
+            code is null ? [] : code.Skills.Values.Select(skill => new NhAssistantCodeSkillDto(skill.Id, skill.Description)).ToArray(),
             skills,
             registration.CodeTriggers.Values
                 .Where(trigger => trigger.AgentId == agentId)
@@ -290,7 +398,146 @@ internal sealed class NhAssistantAgentConfiguration(
                 .Select(trigger => new NhAssistantCodeTriggerDto(trigger.Id, SourceName(trigger.Source), trigger.SkillId))
                 .ToArray(),
             triggers,
-            problems);
+            problems,
+            code is null ? NhAssistantAgentSources.Admin : NhAssistantAgentSources.Code,
+            settings is null ? null : ToDto(settings, problems));
+    }
+
+    public async Task<TaskResult<NhAssistantAgentRunSettingsDto>> SaveRunSettingsAsync(
+        string agentId,
+        NhAssistantAgentRunSettingsRequest request,
+        string actorId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentNullException.ThrowIfNull(request);
+        var reason = request.Reason;
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(invalid);
+        }
+
+        var agent = await agents.FindAsync(agentId, includeDisabled: true, cancellationToken);
+        if (agent is null)
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
+        }
+        if (agent.Source != NhAssistantAgentSources.Admin || registration.CodeAgentRuns.ContainsKey(agentId))
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(NhAssistantErrorCodes.RunSettingsInCode, "The agent is registered in code.");
+        }
+        var accountabilityKnown = NhAssistantAccountabilities.TryParse(request.Accountability, out var accountability);
+        var serviceAccount = Blank(request.ServiceAccountActorId);
+        var elevatedReads = Blank(request.ElevatedReads) ?? NhAssistantElevatedReadNames.Restricted;
+        var errors = new NhAssistantValidationErrors()
+            .Require(accountabilityKnown, "accountability", request.Accountability is null ? NhAssistantFieldErrors.Required : NhAssistantFieldErrors.Invalid)
+            .Require((accountability == NhAiAgentAccountability.ServiceAccount) == (serviceAccount is not null), "serviceAccountActorId", serviceAccount is null ? NhAssistantFieldErrors.Required : NhAssistantFieldErrors.Invalid)
+            .Require(serviceAccount is null || serviceAccount.Length <= MaxActorIdLength, "serviceAccountActorId", NhAssistantFieldErrors.TooLong)
+            .Require(!request.AllowGatewayReads || accountability != NhAiAgentAccountability.Agent, "allowGatewayReads", NhAssistantFieldErrors.Invalid)
+            .Require(NhAssistantElevatedReadNames.TryParse(elevatedReads, out _), "elevatedReads", NhAssistantFieldErrors.Invalid)
+            .Require(request.RetryCount is null or >= 0 and <= NhAssistantAgentConfigurationLimits.MaxRetryCount, "retryCount", NhAssistantFieldErrors.Invalid)
+            .Require((request.DailyToolCalls is null) == (request.DailyTokens is null) && request.DailyToolCalls is null or >= 1 && request.DailyTokens is null or >= 1, "dailyBudget", NhAssistantFieldErrors.Invalid)
+            .Require(request.MaxConcurrentRuns is null or >= 1 and <= NhAssistantAgentConfigurationLimits.MaxConcurrentRuns, "maxConcurrentRuns", NhAssistantFieldErrors.Invalid)
+            .Require(request.MaxRunsPerSubjectPerDay is null or >= 1 and <= NhAssistantAgentConfigurationLimits.MaxRunsPerSubjectPerDay, "maxRunsPerSubjectPerDay", NhAssistantFieldErrors.Invalid)
+            .Require(request.MaxTokensPerRun is null or >= 1, "maxTokensPerRun", NhAssistantFieldErrors.Invalid);
+        if (request.AllowGatewayReads)
+        {
+            // Gateway reads need the host to issue a person's delegated read credential, as in code.
+            errors.Require(
+                services.GetService<INhAiDelegatedReadCredentialIssuer>() is not null && services.GetServices<INhAiDelegatedReadSurface>().Any(),
+                "allowGatewayReads",
+                NhAssistantFieldErrors.Invalid);
+        }
+        if (!errors.IsEmpty)
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(errors.ToResult());
+        }
+
+        var settings = new AssistantAgentRunConfiguration
+        {
+            AgentId = agentId,
+            Accountability = NhAssistantAccountabilities.From(accountability),
+            ServiceAccountActorId = serviceAccount,
+            DelegateFromInitiator = request.DelegateFromInitiator,
+            AllowGatewayReads = request.AllowGatewayReads,
+            ElevatedReads = elevatedReads,
+            ApprovalPolicyId = Blank(request.ApprovalPolicy),
+            RetryCount = request.RetryCount ?? 3,
+            DailyToolCalls = request.DailyToolCalls,
+            DailyTokens = request.DailyTokens,
+            MaxConcurrentRuns = request.MaxConcurrentRuns ?? 4,
+            MaxRunsPerSubjectPerDay = request.MaxRunsPerSubjectPerDay ?? 10,
+            MaxTokensPerRun = request.MaxTokensPerRun,
+            TriageProfileName = Blank(request.TriageProfile),
+            RuleHandlerName = Blank(request.RuleHandler),
+            UpdatedAt = DateTimeOffset.UtcNow,
+            UpdatedBy = actorId,
+            Reason = reason
+        };
+        if (validator.ValidateRunSettings(settings) is { } problem)
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(problem switch
+            {
+                NhAssistantRunConfigurationProblems.UnknownPolicy => NhAssistantValidationErrors.Failed("approvalPolicy", NhAssistantFieldErrors.NotFound),
+                NhAssistantRunConfigurationProblems.UnknownProfile => NhAssistantValidationErrors.Failed("triageProfile", NhAssistantFieldErrors.NotFound),
+                NhAssistantRunConfigurationProblems.UnknownRuleHandler => NhAssistantValidationErrors.Failed("ruleHandler", NhAssistantFieldErrors.NotFound),
+                _ => NhAssistantValidationErrors.Failed("accountability", NhAssistantFieldErrors.Invalid)
+            });
+        }
+        if (serviceAccount is not null && !await AccountExistsAsync(agentId, serviceAccount, cancellationToken))
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(
+                NhAssistantErrorCodes.ServiceAccountNotFound,
+                "No account that may sign in exists with that id.");
+        }
+
+        var saved = await store.SaveRunSettingsAsync(settings, request.ExpectedVersion, cancellationToken);
+        if (!saved.Succeeded)
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The run settings changed in the meantime.");
+        }
+        if (serviceAccount is not null)
+        {
+            // The agent's threads answer to the account, unless an administrator replaced it at runtime.
+            await runs.SetServiceAccountOfThreadsAsync(agentId, agent.ServiceAccountOverride ?? serviceAccount, cancellationToken);
+        }
+
+        await events.RunSettingsChangedAsync(agentId, saved.Value!.Version, saved.Value.Version == 1 ? "created" : "changed", actorId, cancellationToken);
+        await configurations.ReloadAsync(cancellationToken);
+        return TaskResult<NhAssistantAgentRunSettingsDto>.Succeeded(ToDto(saved.Value, configurations.Problems));
+    }
+
+    public async Task<TaskResult> RemoveRunSettingsAsync(
+        string agentId,
+        int? expectedVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return invalid;
+        }
+        if (registration.CodeAgentRuns.ContainsKey(agentId))
+        {
+            return TaskResult.Failed(NhAssistantErrorCodes.RunSettingsInCode, "The agent is registered in code.");
+        }
+
+        var removed = await store.RemoveRunSettingsAsync(agentId, expectedVersion, cancellationToken);
+        switch (removed.Outcome)
+        {
+            case NhAssistantStoreOutcome.NotFound:
+                return TaskResult.Failed(NhAssistantErrorCodes.AgentNotConfigured, "The agent has no run settings.");
+            case NhAssistantStoreOutcome.Conflict:
+                return TaskResult.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The run settings changed in the meantime.");
+            case NhAssistantStoreOutcome.Rejected:
+                return TaskResult.Failed(NhAssistantErrorCodes.RunSettingsInUse, "Data skills or triggers still belong to the agent.");
+        }
+
+        await events.RunSettingsChangedAsync(agentId, removed.Value!.Version, "removed", actorId, cancellationToken);
+        await configurations.ReloadAsync(cancellationToken);
+        return TaskResult.Succeeded();
     }
 
     public async Task<IReadOnlyList<NhAssistantDataSkillVersionDto>> GetSkillVersionsAsync(
@@ -321,13 +568,12 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(invalid);
         }
-        if (await RefuseAgentAsync(agentId, cancellationToken) is { } refused)
+        var (refused, runAgent) = await ResolveAgentAsync(agentId, cancellationToken);
+        if (refused is not null)
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(refused);
         }
-
-        var code = registration.CodeAgentRuns[agentId];
-        if (code.Skills.ContainsKey(skillId))
+        if (runAgent!.CodeSkillIds.Contains(skillId, StringComparer.Ordinal))
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.SkillInCode, "The skill is declared in code.");
         }
@@ -365,7 +611,7 @@ internal sealed class NhAssistantAgentConfiguration(
             CreatedBy = actorId,
             Reason = reason
         };
-        if (validator.ValidateSkill(definition, tools) is { } problem)
+        if (validator.ValidateSkill(definition, tools, runAgent) is { } problem)
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(SkillFieldError(problem));
         }
@@ -373,7 +619,7 @@ internal sealed class NhAssistantAgentConfiguration(
         var live = await LiveSkillsAsync(agentId, cancellationToken);
         if (request.ExpectedVersion is null
             && !live.ContainsKey(skillId)
-            && code.Skills.Count + live.Count >= NhAssistantAgentRunOptions.MaxSkills)
+            && runAgent.CodeSkillIds.Count + live.Count >= NhAssistantAgentRunOptions.MaxSkills)
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many skills as allowed.");
         }
@@ -410,11 +656,12 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             return invalid;
         }
-        if (await RefuseAgentAsync(agentId, cancellationToken) is { } refused)
+        var (refused, runAgent) = await ResolveAgentAsync(agentId, cancellationToken);
+        if (refused is not null)
         {
             return refused;
         }
-        if (registration.CodeAgentRuns[agentId].Skills.ContainsKey(skillId))
+        if (runAgent!.CodeSkillIds.Contains(skillId, StringComparer.Ordinal))
         {
             return TaskResult.Failed(NhAssistantErrorCodes.SkillInCode, "The skill is declared in code.");
         }
@@ -450,7 +697,8 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             return TaskResult<NhAssistantDataTriggerDto>.Failed(invalid);
         }
-        if (await RefuseAgentAsync(agentId, cancellationToken) is { } refused)
+        var (refused, _) = await ResolveAgentAsync(agentId, cancellationToken);
+        if (refused is not null)
         {
             return TaskResult<NhAssistantDataTriggerDto>.Failed(refused);
         }
@@ -617,16 +865,42 @@ internal sealed class NhAssistantAgentConfiguration(
         return TaskResult<NhAssistantDataTriggerDto>.Succeeded(ToDto(changed.Value!, configurations.Problems));
     }
 
-    private async Task<TaskResult?> RefuseAgentAsync(string agentId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The agent that data skills and triggers are added to: one whose runs are configured in code,
+    /// or one created in the administration with run settings.
+    /// </summary>
+    private async Task<(TaskResult? Refused, NhAssistantRunAgent? Agent)> ResolveAgentAsync(string agentId, CancellationToken cancellationToken)
     {
-        if (await agents.FindAsync(agentId, includeDisabled: true, cancellationToken) is null)
+        var agent = await agents.FindAsync(agentId, includeDisabled: true, cancellationToken);
+        if (agent is null)
         {
-            return TaskResult.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
+            return (TaskResult.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found."), null);
+        }
+        if (validator.CodeAgent(agentId) is { } codeAgent)
+        {
+            return (null, codeAgent);
+        }
+        if (agent.Source == NhAssistantAgentSources.Admin && await store.FindRunSettingsAsync(agentId, cancellationToken) is not null)
+        {
+            return (null, new NhAssistantRunAgent([], agent.Definition.ToolSelectors));
         }
 
-        return registration.CodeAgentRuns.ContainsKey(agentId)
-            ? null
-            : TaskResult.Failed(NhAssistantErrorCodes.AgentNotConfigured, "The agent has no run configuration in code.");
+        return (TaskResult.Failed(NhAssistantErrorCodes.AgentNotConfigured, "The agent has no run configuration."), null);
+    }
+
+    /// <summary>
+    /// Whether the account exists and may sign in, as the principal factory that rebuilds it for the
+    /// agent's runs decides.
+    /// </summary>
+    private async Task<bool> AccountExistsAsync(string agentId, string accountActorId, CancellationToken cancellationToken)
+    {
+        if (services.GetService<INhAiPrincipalFactory>() is not { } principals)
+        {
+            return false;
+        }
+
+        var subject = new NhAiSubjectInfo(new NhAiSubjectRef("agent", agentId), NhAiSubjectInfo.CreateScopeKey(null, null));
+        return await principals.CreateAsync(accountActorId, subject, cancellationToken) is not null;
     }
 
     private async Task<IReadOnlyDictionary<string, AssistantAgentSkillDefinition>> LiveSkillsAsync(string agentId, CancellationToken cancellationToken)
@@ -687,6 +961,35 @@ internal sealed class NhAssistantAgentConfiguration(
             NhAssistantTriggerSource.Webhook => "webhook",
             _ => NhAssistantDataTriggerSources.Event
         };
+    }
+
+    private static NhAssistantAgentRunSettingsDto ToDto(
+        AssistantAgentRunConfiguration item,
+        IReadOnlyList<NhAssistantRunConfigurationProblem> problems)
+    {
+        var problem = problems.FirstOrDefault(entry => entry.AgentId == item.AgentId
+                                                       && entry.Kind == NhAssistantRunConfigurationProblems.AgentKind)?.Code;
+        return new NhAssistantAgentRunSettingsDto(
+            item.Version,
+            item.Accountability,
+            item.ServiceAccountActorId,
+            item.DelegateFromInitiator,
+            item.AllowGatewayReads,
+            item.ElevatedReads,
+            item.ApprovalPolicyId,
+            item.RetryCount,
+            item.DailyToolCalls,
+            item.DailyTokens,
+            item.MaxConcurrentRuns,
+            item.MaxRunsPerSubjectPerDay,
+            item.MaxTokensPerRun,
+            item.TriageProfileName,
+            item.RuleHandlerName,
+            item.UpdatedAt,
+            item.UpdatedBy,
+            item.Reason,
+            problem is null,
+            problem);
     }
 
     private static NhAssistantDataSkillDto ToDto(

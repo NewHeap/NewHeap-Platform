@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, and add skills and triggers to an agent as data without a deploy.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, and let agents created in the administration run with the rights of the account they answer to.
 
 ## Preferred approach
 
@@ -208,6 +208,23 @@ every reader uses reloads when a stamp changes, checked before every fire and ru
 once per second and every half minute in the background, and data schedules get recurring jobs of
 their own. Data that no longer fits the code after a deploy, such as a removed event, is left out
 and shown as a problem in `GET admin/agents/{id}/configuration` instead of failing startup.
+
+An agent created in the administration gets runs through run settings as data:
+`INhAssistantAgentConfiguration.SaveRunSettingsAsync` or `PUT admin/agents/{id}/run-settings` sets
+whom it answers to (`agent`, `subject-responsible`, or `service-account` with an account that exists
+and may sign in), its approval policy, budget, run ceiling, retries, gateway reads, triage profile and
+rule handler by name. Grants never become data: in headless runs such an agent acts with the rights
+of the person or technical account it answers to, within its tool selectors. A tool is allowed when
+that account, rebuilt with `INhAiPrincipalFactory` for every decision, passes the tool's policies
+against the subject; the call, proposal and audit record `NhAiGrantSource.Accountable`, reads are
+shielded from thread readers without the tool's policies (or refused with `ElevatedReads` `deny`),
+and an agent that answers to itself has no rights to lend. A person's turn in the thread and a
+consultation keep that person's own rights. An agent in code opts in with
+`ActWithAccountableRights()`; startup refuses it for an agent that answers to itself. Once it has run
+settings, the agent gets data skills and data triggers like an agent in code; its threads follow a
+change of whom it answers to, and its run settings stay while data skills or triggers belong to it
+(`assistant-run-settings-in-use`). An agent in code cannot get run settings as data
+(`assistant-run-settings-in-code`). Hosts need `AddAssistantAgentRuns`, as for agents in code.
 
 People outside the thread hear about waiting proposals, due reminders,
 escalations, unknown outcomes and failed runs through Web Push and every
@@ -456,6 +473,8 @@ profile and instructions that answer questions about the rules' proposals from t
 - Registering a skill or trigger in code that administrators are meant to change; register its
   building blocks and let them define it as data. Putting a data skill or trigger live without
   reading its shadow runs first.
+- Letting an administration agent answer to a technical account with more rights than its work
+  needs, or to itself when it must use tools: it then has no rights at all.
 - A technical account with more rights than the agent needs: it lends them to gateway reads.
 - Letting the model read a subject's basic facts through tool calls in every run; brief it.
 - Splitting one role into several agents with their own threads only to give its tasks separate
@@ -633,7 +652,12 @@ the skill by its named rules until both are live, that saving refuses names code
 tools outside the agent's selectors and skills or triggers in code with field errors and conflicts,
 that every change is a version and audited, that a change stored by another host is followed through
 the stamp, that data which no longer fits is reported instead of loaded and that a data schedule
-starts its skill for every subject of its set, on both providers. Assert that a `ShadowOf`
+starts its skill for every subject of its set, on both providers. Give an administration agent run
+settings and assert that its rules propose with its technical account's rights as `Accountable`, that
+an unknown account and names code does not register are refused, that an agent that answers to itself
+is refused the tool, that its thread follows a change of whom it answers to and that its settings stay
+while triggers belong to it; assert that a read with accountable rights is shielded from a viewer
+without the tool's policies, on both providers. Assert that a `ShadowOf`
 variant receives every event, tick and webhook of the live agent once, notifies nobody and executes nothing while its own triggers work; that the
 evaluation pairs runs of the same event, counts agreed, live-only and variant-only proposals with the
 live decisions and holds no message or argument; and that a replay fires the recorded inputs oldest
@@ -643,7 +667,7 @@ with its inputs and subject, as the agent with the subject's scopes, on both pro
 a run with gateway reads records `DelegatedRead`, reads with its starter's rights when a person
 started it, shows the result only to the person whose rights it used, also with `ElevatedReads.Deny`,
 and that startup fails without an accountable person or an issuer. SPM-268 to
-SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-295 are the executable references.
+SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-296 are the executable references.
 
 ## Executable evidence
 
@@ -777,3 +801,8 @@ SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-295 are the executable references
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs)
+- SPM-296 — An administrator creates a project starter in the administration that proposes with the rights of its technical account
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs)

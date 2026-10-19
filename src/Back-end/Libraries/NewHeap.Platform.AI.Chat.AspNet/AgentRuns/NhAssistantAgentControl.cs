@@ -586,7 +586,7 @@ internal sealed class NhAssistantAgentControl(
                     var thread = await runs.FindThreadByConversationAsync(run.ConversationId, cancellationToken);
                     var owner = thread is null
                         ? NhBackgroundOperationActor.ForAgent(agent.Definition.ActorId)
-                        : NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId, agent.Definition);
+                        : NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId);
                     await cancellation.CancelAsync(run, actorId, owner, cancellationToken);
                     cancelled++;
                 }
@@ -729,7 +729,7 @@ internal sealed class NhAssistantAgentControl(
                 var thread = await runs.FindThreadByConversationAsync(run.ConversationId, cancellationToken);
                 var owner = thread is null
                     ? NhBackgroundOperationActor.ForAgent(agent.Definition.ActorId)
-                    : NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId, agent.Definition);
+                    : NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId);
                 await cancellation.CancelAsync(run, actorId, owner, cancellationToken);
                 cancelled++;
             }

@@ -106,6 +106,60 @@ public sealed class NhAiAgentInvocationGateTests
     }
 
     [Fact]
+    public async Task An_agent_that_acts_with_accountable_rights_uses_what_its_technical_account_may_use()
+    {
+        var authorization = new PolicyAuthorizationService();
+        authorization.Allow("project-manage", "service-1");
+        authorization.Allow("project-read", "service-1");
+        await using var provider = CreateProvider(httpContext: null, authorization);
+        await using var scope = provider.CreateAsyncScope();
+        var gate = scope.ServiceProvider.GetRequiredService<INhAiToolInvocationGate>();
+
+        // No grant and no opt-in of the tool: the account's own rights decide.
+        using var _ = NhAiAgentInvocationScopes.Begin(AccountableScope("service-1"));
+        var result = await gate.AuthorizeAsync(MutationTool(allowAgentGrant: false));
+
+        Assert.True(result.Success);
+        Assert.Equal(NhAiGrantSource.Accountable, result.Data.GrantSource);
+        Assert.Equal("service-1", result.Data.AccountableOwnerId);
+        Assert.Contains("projects-read", result.Data.CapabilityGrants);
+        var resource = Assert.IsType<NhAiSubjectAuthorizationResource>(authorization.LastResource);
+        Assert.Equal(new NhAiSubjectRef("project", "alpha"), resource.Subject);
+    }
+
+    [Fact]
+    public async Task Accountable_rights_lend_nothing_beyond_the_account_its_policies_or_an_agent_that_answers_to_itself()
+    {
+        var authorization = new PolicyAuthorizationService();
+        authorization.Allow("project-manage", "service-1");
+        await using var provider = CreateProvider(httpContext: null, authorization);
+        await using var scope = provider.CreateAsyncScope();
+        var gate = scope.ServiceProvider.GetRequiredService<INhAiToolInvocationGate>();
+        var readTool = MutationTool(allowAgentGrant: false) with
+        {
+            Id = "projects.search",
+            Effect = NhAiToolEffect.ReadOnly
+        };
+
+        using (NhAiAgentInvocationScopes.Begin(AccountableScope("service-2")))
+        {
+            Assert.Equal(NhAiAgentFailureCodes.NotGranted, FailureCode(await gate.AuthorizeAsync(MutationTool(allowAgentGrant: false))));
+        }
+        using (NhAiAgentInvocationScopes.Begin(AccountableScope("service-1") with { Accountability = NhAiAgentAccountability.Agent }))
+        {
+            Assert.Equal(NhAiAgentFailureCodes.NotGranted, FailureCode(await gate.AuthorizeAsync(MutationTool(allowAgentGrant: false))));
+        }
+        using (NhAiAgentInvocationScopes.Begin(AccountableScope("service-1") with { ActWithAccountableRights = false }))
+        {
+            Assert.Equal(NhAiAgentFailureCodes.NotGranted, FailureCode(await gate.AuthorizeAsync(MutationTool(allowAgentGrant: false))));
+        }
+        using (NhAiAgentInvocationScopes.Begin(AccountableScope("service-1") with { ElevatedReads = NhAiElevatedReads.Deny }))
+        {
+            Assert.Equal(NhAiAgentFailureCodes.NotGranted, FailureCode(await gate.AuthorizeAsync(readTool)));
+        }
+    }
+
+    [Fact]
     public async Task Elevated_reads_can_be_denied()
     {
         await using var provider = CreateProvider(httpContext: null, new PolicyAuthorizationService());
@@ -202,6 +256,16 @@ public sealed class NhAiAgentInvocationGateTests
             "agent-run")
         {
             Grants = grants
+        };
+    }
+
+    private static NhAiAgentInvocationScope AccountableScope(string accountActorId)
+    {
+        return CreateScope(grants: []) with
+        {
+            AccountableOwnerId = accountActorId,
+            Accountability = NhAiAgentAccountability.ServiceAccount,
+            ActWithAccountableRights = true
         };
     }
 

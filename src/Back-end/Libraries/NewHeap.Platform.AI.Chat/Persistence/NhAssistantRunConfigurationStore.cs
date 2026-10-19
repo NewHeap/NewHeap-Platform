@@ -6,8 +6,12 @@ namespace NewHeap.Platform.AI.Chat.Persistence;
 /// <summary>
 /// The skills and triggers defined as data, read together into a snapshot.
 /// </summary>
+/// <param name="AdminAgentSelectors">The tool selectors of every agent created in the
+/// administration, as JSON, by agent id.</param>
 internal sealed record NhAssistantStoredRunConfiguration(
     Guid? Stamp,
+    IReadOnlyList<AssistantAgentRunConfiguration> AgentRuns,
+    IReadOnlyDictionary<string, string> AdminAgentSelectors,
     IReadOnlyList<AssistantAgentSkillDefinition> Skills,
     IReadOnlyList<AssistantAgentTriggerDefinition> Triggers);
 
@@ -42,6 +46,15 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
     {
         var stamp = await ReadStampAsync(cancellationToken);
         await using var context = contextFactory.CreateDbContext();
+        var agentRuns = await context.AgentRunConfigurations
+            .AsNoTracking()
+            .OrderBy(item => item.AgentId)
+            .ToListAsync(cancellationToken);
+        var adminAgents = await context.Agents
+            .AsNoTracking()
+            .Where(agent => agent.Source == NhAssistantAgentSources.Admin)
+            .Select(agent => new { agent.Id, agent.ToolSelectorsJson })
+            .ToDictionaryAsync(agent => agent.Id, agent => agent.ToolSelectorsJson, StringComparer.Ordinal, cancellationToken);
         var skills = await context.AgentSkillDefinitions
             .AsNoTracking()
             .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live)
@@ -53,7 +66,130 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             .OrderBy(item => item.AgentId)
             .ThenBy(item => item.Id)
             .ToListAsync(cancellationToken);
-        return new NhAssistantStoredRunConfiguration(stamp, skills, triggers);
+        return new NhAssistantStoredRunConfiguration(stamp, agentRuns, adminAgents, skills, triggers);
+    }
+
+    public async Task<AssistantAgentRunConfiguration?> FindRunSettingsAsync(string agentId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.AgentRunConfigurations
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.AgentId == agentId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds the run settings of an agent, or changes them when <paramref name="expectedVersion"/> is
+    /// their current version.
+    /// </summary>
+    public async Task<NhAssistantStoreResult<AssistantAgentRunConfiguration>> SaveRunSettingsAsync(
+        AssistantAgentRunConfiguration settings,
+        int? expectedVersion,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var existing = await context.AgentRunConfigurations.SingleOrDefaultAsync(item => item.AgentId == settings.AgentId, cancellationToken);
+        if (existing?.Version != expectedVersion)
+        {
+            return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        if (existing is null)
+        {
+            settings.Version = 1;
+            settings.CreatedAt = settings.UpdatedAt;
+            settings.CreatedBy = settings.UpdatedBy;
+            settings.ConcurrencyStamp = Guid.NewGuid();
+            context.AgentRunConfigurations.Add(settings);
+            existing = settings;
+        }
+        else
+        {
+            existing.Accountability = settings.Accountability;
+            existing.ServiceAccountActorId = settings.ServiceAccountActorId;
+            existing.DelegateFromInitiator = settings.DelegateFromInitiator;
+            existing.AllowGatewayReads = settings.AllowGatewayReads;
+            existing.ElevatedReads = settings.ElevatedReads;
+            existing.ApprovalPolicyId = settings.ApprovalPolicyId;
+            existing.RetryCount = settings.RetryCount;
+            existing.DailyToolCalls = settings.DailyToolCalls;
+            existing.DailyTokens = settings.DailyTokens;
+            existing.MaxConcurrentRuns = settings.MaxConcurrentRuns;
+            existing.MaxRunsPerSubjectPerDay = settings.MaxRunsPerSubjectPerDay;
+            existing.MaxTokensPerRun = settings.MaxTokensPerRun;
+            existing.TriageProfileName = settings.TriageProfileName;
+            existing.RuleHandlerName = settings.RuleHandlerName;
+            existing.Version++;
+            existing.UpdatedAt = settings.UpdatedAt;
+            existing.UpdatedBy = settings.UpdatedBy;
+            existing.Reason = settings.Reason;
+            existing.ConcurrencyStamp = Guid.NewGuid();
+        }
+
+        if (!await TrySaveAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        if (!await ChangeStampAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Ok(existing);
+    }
+
+    /// <summary>
+    /// Removes the run settings of an agent, which then only chats. Fails with
+    /// <see cref="NhAssistantStoreOutcome.Rejected"/> while the agent has data skills or data triggers.
+    /// </summary>
+    public async Task<NhAssistantStoreResult<AssistantAgentRunConfiguration>> RemoveRunSettingsAsync(
+        string agentId,
+        int? expectedVersion,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var existing = await context.AgentRunConfigurations.SingleOrDefaultAsync(item => item.AgentId == agentId, cancellationToken);
+        if (existing is null)
+        {
+            return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.NotFound);
+        }
+        if (expectedVersion is not null && existing.Version != expectedVersion)
+        {
+            return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+        if (await context.AgentTriggerDefinitions.AnyAsync(item => item.AgentId == agentId, cancellationToken)
+            || await context.AgentSkillDefinitions.AnyAsync(
+                item => item.AgentId == agentId && item.Status != NhAssistantSkillDefinitionStatuses.Superseded,
+                cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.Rejected);
+        }
+
+        context.AgentRunConfigurations.Remove(existing);
+        if (!await TrySaveAsync(context, cancellationToken) || !await ChangeStampAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Ok(existing);
+    }
+
+    /// <summary>
+    /// Changes the stamp after a change outside the run configuration that it depends on, such as an
+    /// administration agent that was edited or deleted.
+    /// </summary>
+    public async Task TouchAsync(CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        if (await ChangeStampAsync(context, cancellationToken))
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
     }
 
     public async Task<IReadOnlyList<AssistantAgentSkillDefinition>> ListSkillsAsync(string agentId, CancellationToken cancellationToken)

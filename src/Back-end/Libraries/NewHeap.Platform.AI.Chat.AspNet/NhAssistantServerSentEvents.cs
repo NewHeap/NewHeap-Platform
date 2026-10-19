@@ -240,8 +240,8 @@ internal static class NhAssistantDtoMapper
 }
 
 /// <summary>
-/// The names of grant sources in the API: <c>none</c>, <c>agent</c>, <c>delegated</c> and
-/// <c>delegated-read</c>.
+/// The names of grant sources in the API: <c>none</c>, <c>agent</c>, <c>delegated</c>,
+/// <c>delegated-read</c> and <c>accountable</c>.
 /// </summary>
 internal static class NhAssistantGrantSources
 {

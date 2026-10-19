@@ -92,13 +92,18 @@ internal sealed class NhAssistantDataScheduleSync(
 /// </summary>
 internal sealed class NhAssistantRunConfigurationRefresh(
     NhAssistantRunConfigurations configurations,
-    NhAssistantRegistrationState registration) : BackgroundService
+    NhAssistantRegistrationState registration,
+    IServiceProvider services) : BackgroundService
 {
     internal static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (registration.CodeAgentRuns.Count == 0)
+        // A host that runs no agents on their own, in code or as data, follows nothing.
+        var runsAgents = registration.CodeAgentRuns.Count > 0
+            || services.GetService<NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.NhBackgroundOperationRegistry>()
+                ?.TryGetForOperationType(NhAssistantAgentRunOperationTypes.Run, out _) == true;
+        if (!configurations.Enabled || !runsAgents)
         {
             return;
         }

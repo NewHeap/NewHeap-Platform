@@ -489,6 +489,22 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    public Task RunSettingsChangedAsync(
+        string agentId,
+        int version,
+        string change,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentRunSettingsChanged, Guid.Empty, Guid.Empty, actorId, agentId, version, DateTimeOffset.UtcNow)
+            {
+                ObjectId = agentId,
+                ResultCode = change
+            },
+            cancellationToken);
+    }
+
     public Task TriggerDefinitionChangedAsync(
         string agentId,
         string triggerId,

@@ -93,6 +93,42 @@ public sealed class AssistantGatewayReadTests(AssistantDatabaseFixture database)
         Assert.Equal(NhAiGrantSource.Agent, Assert.Single(Tools(view)).GrantSource);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_agent_that_acts_with_accountable_rights_reads_with_its_technical_account_and_shields_the_result(AssistantTestProvider provider)
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap" } }, "call-1")
+            .RespondWithText("Read the roadmap.");
+        // No grant and no gateway reads: the technical account's own rights allow the search.
+        await using var host = await CreateHostAsync(provider, model, agent => agent.ActWithAccountableRights());
+        var started = await StartAsync(host);
+
+        var result = await RunTurnAsync(host, started, initiator: null);
+
+        Assert.True(result.UsedRestrictedResults);
+        var forReader = Assert.Single(await ToolsAsync(host, started, Person("member-1")));
+        Assert.Equal(NhAiGrantSource.Accountable, forReader.GrantSource);
+        Assert.False(forReader.Restricted);
+        // A viewer who does not pass the tool's policies does not see what the account's rights read.
+        var forStranger = Assert.Single(await ToolsAsync(host, started, new ClaimsPrincipal(new ClaimsIdentity())));
+        Assert.True(forStranger.Restricted);
+        Assert.Null(forStranger.ResultPreview);
+    }
+
+    [Fact]
+    public async Task Startup_fails_for_an_agent_that_acts_with_accountable_rights_but_answers_to_itself()
+    {
+        await using var host = await CreateHostAsync(
+            AssistantTestProvider.PostgreSql,
+            new NhAiScriptedChatClient(),
+            agent => agent.Accountability(NhAiAgentAccountability.Agent).ActWithAccountableRights());
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => StartValidatorAsync(host));
+        Assert.Contains("acts with the rights of whom it answers to", failure.Message);
+    }
+
     [Fact]
     public async Task Startup_fails_for_an_agent_that_answers_to_itself_or_without_an_issuer()
     {

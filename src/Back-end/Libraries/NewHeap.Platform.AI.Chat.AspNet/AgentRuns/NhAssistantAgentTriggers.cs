@@ -1183,7 +1183,7 @@ internal sealed class NhAssistantAgentTriggers(
         {
             var cancelled = await Operations.RequestCancellationForActorAsync(
                 activeOperationId,
-                OwnerActor(thread, accountable.Data!, agent.Definition),
+                OwnerActor(thread, accountable.Data!),
                 cancellationToken);
             superseded = cancelled.Success;
         }
@@ -1267,7 +1267,7 @@ internal sealed class NhAssistantAgentTriggers(
         DateTimeOffset? notBefore,
         CancellationToken cancellationToken)
     {
-        var owner = OwnerActor(thread, accountableOwnerId, agent.Definition);
+        var owner = OwnerActor(thread, accountableOwnerId);
         return Operations.EnqueueAsync(
             new NhAssistantAgentRunRequest(runId),
             new NhBackgroundOperationEnqueueOptions
@@ -1290,10 +1290,7 @@ internal sealed class NhAssistantAgentTriggers(
     /// The background-operation owner of a run: the agent when it answers for itself, otherwise the
     /// accountable user.
     /// </summary>
-    internal static NhBackgroundOperationActor OwnerActor(
-        AssistantThread thread,
-        string accountableOwnerId,
-        NhAssistantAgentDefinition agent)
+    internal static NhBackgroundOperationActor OwnerActor(AssistantThread thread, string accountableOwnerId)
     {
         if (!string.Equals(thread.Accountability, NhAssistantAccountabilities.Agent, StringComparison.Ordinal)
             && Guid.TryParse(accountableOwnerId, out var userId))
@@ -1301,7 +1298,8 @@ internal sealed class NhAssistantAgentTriggers(
             return NhBackgroundOperationActor.ForUser(userId);
         }
 
-        return NhBackgroundOperationActor.ForAgent(agent.ActorId);
+        // The actor of an agent in code and of an agent created in the administration alike.
+        return NhBackgroundOperationActor.ForAgent(NhAssistantAgentEvents.AgentActorPrefix + thread.AgentId);
     }
 
     private AssistantQueuedInput CreateInput(NhAssistantTriggerFire fire, Guid conversationId)

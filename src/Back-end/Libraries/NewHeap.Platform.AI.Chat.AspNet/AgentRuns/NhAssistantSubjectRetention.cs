@@ -13,7 +13,6 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 internal sealed class NhAssistantSubjectRetention(
     NhAssistantRunStore runs,
     NhAssistantRunCancellation cancellation,
-    NhAssistantRegistrationState registration,
     ILogger<NhAssistantSubjectRetention> logger) : INhAiSubjectRetention
 {
     internal const string RetentionActorId = "system:subject-retention";
@@ -26,12 +25,9 @@ internal sealed class NhAssistantSubjectRetention(
         var threads = await runs.FindThreadsBySubjectAsync(subject, cancellationToken);
         foreach (var thread in threads)
         {
-            var agent = registration.Agents.FirstOrDefault(item => string.Equals(item.Id, thread.AgentId, StringComparison.Ordinal));
             foreach (var run in await runs.GetOpenRunsAsync(thread.ConversationId, cancellationToken))
             {
-                var owner = agent is null
-                    ? NhBackgroundOperationActor.ForAgent(NhAssistantAgentEvents.AgentActorPrefix + thread.AgentId)
-                    : NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId, agent);
+                var owner = NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId);
                 await cancellation.CancelAsync(run, RetentionActorId, owner, cancellationToken);
             }
 

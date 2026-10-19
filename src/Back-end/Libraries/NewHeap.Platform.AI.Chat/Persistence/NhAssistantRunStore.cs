@@ -1071,6 +1071,23 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     /// a technical account, after an administrator changed the account. Runs and proposals keep the
     /// account they were made with.
     /// </summary>
+    public async Task SetAccountabilityOfThreadAsync(
+        Guid conversationId,
+        string accountability,
+        string accountableOwnerId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await context.Threads
+            .Where(thread => thread.ConversationId == conversationId)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(thread => thread.Accountability, accountability)
+                    .SetProperty(thread => thread.AccountableOwnerId, accountableOwnerId)
+                    .SetProperty(thread => thread.UpdatedAt, DateTimeOffset.UtcNow),
+                cancellationToken);
+    }
+
     public async Task<int> SetServiceAccountOfThreadsAsync(
         string agentId,
         string accountableOwnerId,

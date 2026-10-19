@@ -187,7 +187,14 @@ public enum NhAssistantAuditEventKind
     /// starts and <c>AgentVersion</c> its version; <c>ResultCode</c> is <c>created</c>,
     /// <c>changed</c>, <c>removed</c>, <c>shadow</c> or <c>live</c>.
     /// </summary>
-    AdminAgentTriggerDefinitionChanged = 51
+    AdminAgentTriggerDefinitionChanged = 51,
+
+    /// <summary>
+    /// An administrator or the application saved or removed the run settings of an agent created in
+    /// the administration. <c>ObjectId</c> is the agent and <c>AgentVersion</c> the settings'
+    /// version; <c>ResultCode</c> is <c>created</c>, <c>changed</c> or <c>removed</c>.
+    /// </summary>
+    AdminAgentRunSettingsChanged = 52
 }
 
 /// <summary>

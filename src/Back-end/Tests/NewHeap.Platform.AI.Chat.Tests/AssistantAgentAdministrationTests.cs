@@ -222,6 +222,11 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
             services.AddScoped<NhAssistantAdminStore>();
             services.AddScoped<NhAssistantAgentCatalog>();
             services.AddScoped<NhAssistantAgentAdministration>();
+            // Changes of administration agents reach the run configuration defined as data.
+            services.AddLogging();
+            services.AddSingleton<NhAssistantRunConfigurationStore>();
+            services.AddSingleton<NhAssistantRunConfigurationValidator>();
+            services.AddSingleton<NhAssistantRunConfigurations>();
             services.AddSingleton<CapturedBusinessAuditSink>();
             services.AddScoped<INhAssistantBusinessAuditSink, CapturedBusinessAuditSinkAdapter>();
         });

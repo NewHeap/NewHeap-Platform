@@ -131,6 +131,19 @@ public sealed class NhAssistantAgentRunOptions
     /// </summary>
     public string? TriageProfileName { get; internal set; }
 
+    /// <summary>
+    /// In headless runs the agent may use what the person or technical account it answers to may
+    /// use, within its tool selectors (<see cref="NhAiGrantSource.Accountable"/>). Always on for an
+    /// agent whose run settings are data.
+    /// </summary>
+    public bool ActWithAccountableRights { get; internal set; }
+
+    /// <summary>
+    /// The version of the run settings of an agent created in the administration;
+    /// <see langword="null"/> for an agent configured in code.
+    /// </summary>
+    public int? DataVersion { get; internal set; }
+
     internal NhAssistantSkillOptions AddSkill(string skillId)
     {
         if (_skills.ContainsKey(skillId))
@@ -371,6 +384,21 @@ public sealed class NhAssistantAgentRunBuilder
     public NhAssistantAgentRunBuilder DelegateFromInitiator(bool enabled = true)
     {
         _options.DelegateFromInitiator = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Lets the agent use, in its headless runs, what the person or technical account it answers to
+    /// may use: a tool its selectors select is allowed when that account passes the tool's policies
+    /// against the subject, recorded as <see cref="NhAiGrantSource.Accountable"/>. The account is
+    /// rebuilt with <c>INhAiPrincipalFactory</c> for every decision, so an account that may no longer
+    /// sign in lends nothing. Reads are shielded from thread readers without the tool's policies, as
+    /// for grants. Needs an accountable person or technical account; a person's turn in the thread
+    /// and consultations keep that person's own rights.
+    /// </summary>
+    public NhAssistantAgentRunBuilder ActWithAccountableRights(bool enabled = true)
+    {
+        _options.ActWithAccountableRights = enabled;
         return this;
     }
 

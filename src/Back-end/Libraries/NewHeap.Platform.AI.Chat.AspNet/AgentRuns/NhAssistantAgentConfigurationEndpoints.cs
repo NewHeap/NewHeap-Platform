@@ -23,9 +23,25 @@ internal static class NhAssistantAgentConfigurationEndpoints
         admin.MapGet("agents/{id}/configuration", GetAsync)
             .WithName("NhAssistantAdminGetAgentConfiguration")
             .WithSummary("Get the run configuration of an agent")
-            .WithDescription("Returns the agent's skills and triggers in code and as data, with the data that no longer fits the code and why. Only agents whose runs are configured in code have one.")
+            .WithDescription("Returns the agent's skills and triggers in code and as data, the run settings of an agent created in the administration, and the data that no longer fits the code and why. Agents in code without ConfigureAgent have none (404).")
             .Produces<NhAssistantAgentConfigurationDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapPut("agents/{id}/run-settings", SaveRunSettingsAsync)
+            .WithName("NhAssistantAdminSaveAgentRunSettings")
+            .WithSummary("Add or change the run settings of an agent created in the administration")
+            .WithDescription("Whom the agent answers to (agent, subject-responsible or service-account with serviceAccountActorId), its approval policy, budget, run ceiling, retries, gateway reads, triage profile and rule handler. Grants are never data: in headless runs the agent acts with the rights of the account it answers to, within its tool selectors, recorded as grant source accountable. The agent then gets skills and triggers as data. expectedVersion must be current, otherwise 409; an agent in code cannot change (409).")
+            .Produces<NhAssistantAgentRunSettingsDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapDelete("agents/{id}/run-settings", RemoveRunSettingsAsync)
+            .WithName("NhAssistantAdminRemoveAgentRunSettings")
+            .WithSummary("Remove the run settings of an agent created in the administration")
+            .WithDescription("The agent then only chats. While data skills or triggers belong to it, 409.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPut("agents/{id}/skills/{skillId}", SaveSkillAsync)
             .WithName("NhAssistantAdminSaveDataSkill")
             .WithSummary("Add or change a skill defined as data")
@@ -98,6 +114,47 @@ internal static class NhAssistantAgentConfigurationEndpoints
         return NhAssistantAdminEndpoints.Json(
             versions.ToArray(),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantDataSkillVersionDtoArray);
+    }
+
+    private static async Task<IResult> SaveRunSettingsAsync(
+        string id,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+        var body = await NhAssistantAdminEndpoints.ReadAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentRunSettingsRequest);
+        if (body is null)
+        {
+            return NhAssistantAdminEndpoints.Validation();
+        }
+
+        var result = await configuration.SaveRunSettingsAsync(id, body, actor, httpContext.RequestAborted);
+        return result.Success
+            ? NhAssistantAdminEndpoints.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentRunSettingsDto)
+            : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> RemoveRunSettingsAsync(
+        string id,
+        int? expectedVersion,
+        string? reason,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+
+        var result = await configuration.RemoveRunSettingsAsync(id, expectedVersion, actor, reason, httpContext.RequestAborted);
+        return result.Success ? TypedResults.NoContent() : NhAssistantAdminEndpoints.Failure(result);
     }
 
     private static async Task<IResult> SaveSkillAsync(

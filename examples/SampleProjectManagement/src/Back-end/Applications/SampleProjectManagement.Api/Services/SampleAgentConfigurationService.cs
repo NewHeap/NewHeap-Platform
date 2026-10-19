@@ -7,6 +7,10 @@ using SampleProjectManagement.Api.Composition;
 namespace SampleProjectManagement.Api.Services;
 
 /// <summary>
+/// SPM-296: the project starter is an agent an administrator created in the administration. The
+/// application gives it run settings as data: it answers to a technical account, works by the
+/// kickoff rules and starts on every created project. It has no grants: it proposes with the rights
+/// of that technical account, which the platform rebuilds for every decision.
 /// SPM-295: the application adds a skill and its trigger to the project planner at runtime, as an
 /// import of a skill package would, through <see cref="INhAssistantAgentConfiguration"/>. The
 /// progress note is data: the skill names the progress-note rules and the trigger names the
@@ -20,6 +24,7 @@ public sealed class SampleAgentConfigurationService(
 {
     public const string ProgressNoteSkill = "progress-note";
     public const string ProgressNoteTriggerId = "planner-progress-note";
+    public const string StarterTriggerId = "project-starter-created";
 
     private const string AgentId = SampleProjectPlannerComposition.AgentId;
 
@@ -88,6 +93,70 @@ public sealed class SampleAgentConfigurationService(
 
         var skill = await configuration.RemoveSkillAsync(AgentId, ProgressNoteSkill, null, actorId, cancellationToken: cancellationToken);
         return skill.Success || HasCode(skill, NhAssistantErrorCodes.SkillNotFound) ? TaskResult.Succeeded() : skill;
+    }
+
+    /// <summary>
+    /// SPM-296: lets an agent created in the administration start projects: it answers to
+    /// <paramref name="accountId"/>, works by the kickoff rules under the intake approval policy and
+    /// starts on every created project. Its trigger starts in shadow; <paramref name="live"/> puts it
+    /// live at once.
+    /// </summary>
+    public async Task<TaskResult> ConfigureStarterAsync(
+        string agentId,
+        Guid accountId,
+        bool live,
+        Guid operatorId,
+        CancellationToken cancellationToken)
+    {
+        var actorId = operatorId.ToString("D");
+        var settings = await configuration.SaveRunSettingsAsync(
+            agentId,
+            new NhAssistantAgentRunSettingsRequest(
+                NhAssistantAccountabilities.ServiceAccount,
+                accountId.ToString("D"),
+                ApprovalPolicy: SampleIntakeReviewerComposition.ApprovalPolicyId,
+                RuleHandler: SampleProjectStarterComposition.KickoffRules,
+                MaxRunsPerSubjectPerDay: 2,
+                Reason: "Start new projects"),
+            actorId,
+            cancellationToken);
+        if (!settings.Success)
+        {
+            return settings;
+        }
+
+        var trigger = await configuration.SaveTriggerAsync(
+            agentId,
+            StarterTriggerId,
+            new NhAssistantDataTriggerRequest(
+                NhAssistantDataTriggerSources.Event,
+                Event: SampleProjectStarterComposition.ProjectCreatedEvent,
+                Conflict: NhAssistantTriggerConflictNames.Ignore,
+                Reason: "Start new projects"),
+            actorId,
+            cancellationToken);
+        if (!trigger.Success || !live)
+        {
+            return trigger;
+        }
+
+        return await configuration.SetTriggerShadowAsync(agentId, StarterTriggerId, false, actorId, "Start new projects", cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-296: the agent only chats again: its trigger and its run settings are removed.
+    /// </summary>
+    public async Task<TaskResult> RemoveStarterAsync(string agentId, Guid operatorId, CancellationToken cancellationToken)
+    {
+        var actorId = operatorId.ToString("D");
+        var trigger = await configuration.RemoveTriggerAsync(agentId, StarterTriggerId, null, actorId, cancellationToken: cancellationToken);
+        if (!trigger.Success && !HasCode(trigger, NhAssistantErrorCodes.TriggerNotFound))
+        {
+            return trigger;
+        }
+
+        var settings = await configuration.RemoveRunSettingsAsync(agentId, null, actorId, cancellationToken: cancellationToken);
+        return settings.Success || HasCode(settings, NhAssistantErrorCodes.AgentNotConfigured) ? TaskResult.Succeeded() : settings;
     }
 
     private static bool HasCode(TaskResult result, string code)

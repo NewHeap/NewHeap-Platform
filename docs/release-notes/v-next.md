@@ -88,7 +88,39 @@ Apply the `AgentRunConfiguration` migration of `NewHeap.Platform.AI.Chat.SqlServ
 | Database schema change. | Apply the `AgentRunConfiguration` migration. |
 | Hosts with agent runs read the run configuration's stamp before fires and run starts and every 30 seconds. | Nothing; apply the migration before the host starts firing triggers. |
 
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: run settings as data and accountable rights
+
+An agent created in the administration now runs on its own once it has run settings as data:
+`INhAssistantAgentConfiguration.SaveRunSettingsAsync` and `RemoveRunSettingsAsync`, or `PUT` and
+`DELETE admin/agents/{id}/run-settings`, set whom it answers to (`agent`, `subject-responsible` or
+`service-account` with an account that exists and may sign in), its approval policy, budget, run
+ceiling, retries, gateway reads, elevated reads, triage profile and rule handler by name. It then gets
+data skills and data triggers like an agent in code, and `GET admin/agents/{id}/configuration`
+returns them with `source` and `runSettings`. Grants never become data: in headless runs such an
+agent acts with the rights of the person or technical account it answers to, within its tool
+selectors. The invocation gate allows a tool when that account, rebuilt with `INhAiPrincipalFactory`,
+passes the tool's policies, after the initiator's delegation and before grants, and records the new
+grant source `NhAiGrantSource.Accountable` (`accountable` in the API); reads are shielded like a
+grant's. `NhAiAgentInvocationScope.ActWithAccountableRights` carries the choice, and an agent in code
+opts in with `NhAssistantAgentRunBuilder.ActWithAccountableRights()`, which startup refuses for an
+agent that answers to itself. A thread of an administration agent follows a change of whom it
+answers to. Changes are audited as `AdminAgentRunSettingsChanged`; an agent in code cannot get run
+settings as data (`assistant-run-settings-in-code`) and settings stay while data skills or triggers
+belong to the agent (`assistant-run-settings-in-use`). Hosts need `AddAssistantAgentRuns` for such
+agents, as for agents in code.
+
+Apply the `AgentRunSettings` migration of `NewHeap.Platform.AI.Chat.SqlServer` or
+`NewHeap.Platform.AI.Chat.PostgreSql`: it adds the table `AssistantAgentRunConfiguration`.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAiGrantSource` has the new value `Accountable` (`accountable` in the API). | Handle it where you switch on grant sources, as you handle `Agent`. |
+| `NhAssistantAgentConfigurationDto` has the new members `Source` and `RunSettings`. | Pass them when you construct the record in tests. |
+| Database schema change. | Apply the `AgentRunSettings` migration. |
+
 ## @newheap/platform-ai-chat: texts for the run configuration as data
 
 The texts of the error codes `assistant-skill-in-code`, `assistant-trigger-in-code`,
-`assistant-skill-in-use` and `assistant-configuration-limit` are bundled in English and Dutch.
+`assistant-skill-in-use`, `assistant-configuration-limit`, `assistant-run-settings-in-code` and
+`assistant-run-settings-in-use` are bundled in English and Dutch. `AgentGrantSource` and the tool
+call's `grantSource` gain `accountable`, with a label and hint in the tool call card.
