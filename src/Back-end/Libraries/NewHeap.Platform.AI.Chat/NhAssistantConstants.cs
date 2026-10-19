@@ -540,6 +540,12 @@ public static class NhAssistantErrorCodes
     public const string AccountSearchUnavailable = "assistant-account-search-unavailable";
 
     /// <summary>
+    /// The subject type's resolver does not implement <c>INhAiSubjectSearch</c>, so its subjects are
+    /// chosen by id.
+    /// </summary>
+    public const string SubjectSearchUnavailable = "assistant-subject-search-unavailable";
+
+    /// <summary>
     /// The work went to the agent's shadow thread of the subject: the agent or the skill the run
     /// was routed to works in shadow. A run in the shadow thread takes the run's events.
     /// </summary>

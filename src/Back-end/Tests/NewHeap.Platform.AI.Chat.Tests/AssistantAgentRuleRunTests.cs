@@ -236,6 +236,7 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         var dto = Assert.Single(await NhAssistantAgentRunDtoMapper.CompleteAsync(
             [NhAssistantAgentRunDtoMapper.ToDto(replaced, thread)],
             RunStore(host),
+            host.Services.GetRequiredService<NhAssistantSubjectAccessService>(),
             CancellationToken.None));
         Assert.Equal(outcomes[1].ApprovalId, dto.SupersededByApprovalId);
         Assert.Equal(new NhAssistantProposalObjectDto(ProjectStatusGuard.KeyType, projectId.ToString()), Assert.Single(dto.Objects));

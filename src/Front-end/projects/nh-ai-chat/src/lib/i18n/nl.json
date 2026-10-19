@@ -298,6 +298,7 @@
       "assistant-conversation-removed": "Dit gesprek is niet meer voor je beschikbaar.",
       "assistant-subject-not-found": "Het onderwerp bestaat niet meer.",
       "assistant-subject-type-unknown": "Dit soort onderwerp kent de assistent niet.",
+      "assistant-subject-search-unavailable": "Dit soort object is niet te doorzoeken; geef de id.",
       "assistant-subject-access-denied": "Je rol op dit onderwerp staat dit niet toe.",
       "assistant-no-accountable-owner": "Niemand staat voor deze agent op dit onderwerp in.",
       "assistant-agent-disabled": "Deze agent is stopgezet.",
@@ -1366,6 +1367,14 @@
           "failed": "Niet beantwoord"
         }
       }
+    },
+    "subject-picker": {
+      "search-placeholder": "Zoek op naam",
+      "id-placeholder": "Id",
+      "id-hint": "Dit soort object kies je met de id.",
+      "looking-up": "Opzoeken…",
+      "found": "Gevonden: {{name}}",
+      "not-found": "Geen object met deze id gevonden, of je mag het niet zien."
     },
     "picker": {
       "toggle": "Toon de keuzes",

@@ -1,0 +1,24 @@
+@use '../styles/tokens';
+@use '../styles/forms';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  min-width: 0;
+  color: var(--nha-text);
+  font-family: var(--nha-font);
+  @include forms.controls;
+}
+
+.hint {
+  margin: 4px 2px 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+
+  &.error {
+    color: var(--nha-danger);
+  }
+}

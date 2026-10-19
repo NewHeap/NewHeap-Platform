@@ -68,6 +68,12 @@ public sealed partial record NhAiSubjectRef
     public const int MaxTypeLength = 100;
     public const int MaxIdLength = 200;
 
+    /// <summary>
+    /// Subject types that start with this prefix belong to the platform, such as the whole
+    /// application; an application cannot register its own.
+    /// </summary>
+    public const string ReservedTypePrefix = "nh-";
+
     public NhAiSubjectRef(string type, string id)
     {
         if (!IsValidType(type))
@@ -97,6 +103,14 @@ public sealed partial record NhAiSubjectRef
         return !string.IsNullOrEmpty(type)
                && type.Length <= MaxTypeLength
                && SubjectTypePattern().IsMatch(type);
+    }
+
+    /// <summary>
+    /// Whether the subject type is reserved for the platform (<see cref="ReservedTypePrefix"/>).
+    /// </summary>
+    public static bool IsReservedType(string? type)
+    {
+        return type is not null && type.StartsWith(ReservedTypePrefix, StringComparison.Ordinal);
     }
 
     public override string ToString()
@@ -244,6 +258,44 @@ public interface INhAiSubjectAccessResolver
     IAsyncEnumerable<NhAiSubjectMember> ListMembersAsync(
         NhAiSubjectRef subject,
         CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Finds subjects of one type by text, so people can choose an object by its name instead of its
+/// id. Implement it on the class that implements <see cref="INhAiSubjectAccessResolver"/> for the
+/// type: one class per subject type answers access, description and search. The platform keeps
+/// only results whose <see cref="INhAiSubjectAccessResolver.ResolveAsync"/> gives the searching
+/// person at least <see cref="NhAiSubjectRole.Reader"/> and that are in the person's tenant, and
+/// stops after <see cref="NhAiSubjectSearchRequest.Limit"/> results; searching the person's own
+/// subjects first keeps the answer complete.
+/// </summary>
+public interface INhAiSubjectSearch
+{
+    /// <summary>
+    /// Returns the subjects of <see cref="NhAiSubjectSearchRequest.SubjectType"/> whose name or key
+    /// matches <see cref="NhAiSubjectSearchRequest.Query"/>, best matches first, each described as
+    /// <see cref="INhAiSubjectAccessResolver.DescribeAsync"/> describes it. Keep the query
+    /// server-side and bounded by the limit.
+    /// </summary>
+    IAsyncEnumerable<NhAiSubjectInfo> SearchAsync(
+        NhAiSubjectSearchRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// A search for subjects of one type.
+/// </summary>
+/// <param name="SubjectType">The subject type the resolver handles.</param>
+/// <param name="Query">The trimmed text the person typed, <see cref="MinQueryLength"/> to
+/// <see cref="MaxQueryLength"/> characters.</param>
+/// <param name="ActorId">The person who searches.</param>
+/// <param name="Limit">The most results the platform shows, 1 to <see cref="MaxLimit"/>.</param>
+public sealed record NhAiSubjectSearchRequest(string SubjectType, string Query, string ActorId, int Limit = NhAiSubjectSearchRequest.DefaultLimit)
+{
+    public const int MinQueryLength = 2;
+    public const int MaxQueryLength = 100;
+    public const int DefaultLimit = 20;
+    public const int MaxLimit = 50;
 }
 
 /// <summary>

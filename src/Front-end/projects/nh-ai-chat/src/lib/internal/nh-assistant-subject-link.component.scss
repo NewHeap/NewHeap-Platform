@@ -1,0 +1,34 @@
+@use '../styles/tokens';
+
+@include tokens.tokens;
+
+:host {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.nh-assistant-subject-type {
+  color: var(--nha-text-muted);
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+a.nh-assistant-subject-name {
+  border-radius: 2px;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+
+  &:hover {
+    color: var(--nha-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--nha-focus);
+    outline-offset: 2px;
+  }
+}

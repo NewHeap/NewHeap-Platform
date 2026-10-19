@@ -202,7 +202,37 @@ public sealed record NhAssistantRunCatalogDto(
     /// <c>INhActorSearch</c>, as NewHeap Identity does.
     /// </summary>
     public bool AccountSearch { get; init; }
+
+    /// <summary>
+    /// The subject types the application registered with <c>AddSubjectType</c>, ordered by id, with
+    /// their names in the request's language.
+    /// </summary>
+    public IReadOnlyList<NhAssistantSubjectTypeDto> SubjectTypes { get; init; } = [];
 }
+
+/// <summary>
+/// A subject type as people see it.
+/// </summary>
+/// <param name="Id">The dash-case type id, such as <c>project</c>.</param>
+/// <param name="Name">The name of one subject in the request's language or the fallback language;
+/// the id when the application did not name the type.</param>
+/// <param name="PluralName">The name of several subjects, when the application gave one.</param>
+/// <param name="EntityType">The short type name of the entity the type stands for, from
+/// <c>ForEntity</c>, as the NewHeap log records <c>ObjectType</c>.</param>
+/// <param name="EntityTypeFull">The full type name of that entity, as <c>ObjectTypeFull</c>.</param>
+/// <param name="Link">The link template with <c>{id}</c>, from <c>OpenAt</c>.</param>
+/// <param name="Searchable">Whether <c>GET subjects/{type}/search</c> finds subjects by name; without
+/// it people give a subject's id.</param>
+/// <param name="IsSystem">Whether the type belongs to the platform instead of the application.</param>
+public sealed record NhAssistantSubjectTypeDto(
+    string Id,
+    string Name,
+    string? PluralName,
+    string? EntityType,
+    string? EntityTypeFull,
+    string? Link,
+    bool Searchable,
+    bool IsSystem);
 
 /// <param name="Name">The policy id.</param>
 /// <param name="Approvers">Who may decide; any of them can.</param>
@@ -536,7 +566,18 @@ internal sealed class NhAssistantAgentConfiguration(
             profiles)
         {
             ApprovalPolicySummaries = policies.Select(Summarize).ToArray(),
-            AccountSearch = services.GetService<IServiceProviderIsService>()?.IsService(typeof(INhActorSearch)) == true
+            AccountSearch = services.GetService<IServiceProviderIsService>()?.IsService(typeof(INhActorSearch)) == true,
+            SubjectTypes = services.GetRequiredService<NhAssistantSubjectAccessService>().Types
+                .Select(type => new NhAssistantSubjectTypeDto(
+                    type.Id,
+                    type.NameIn(System.Globalization.CultureInfo.CurrentUICulture),
+                    type.PluralNameIn(System.Globalization.CultureInfo.CurrentUICulture),
+                    type.EntityType,
+                    type.EntityTypeFull,
+                    type.LinkTemplate,
+                    type.Searchable,
+                    type.IsSystem))
+                .ToArray()
         };
     }
 

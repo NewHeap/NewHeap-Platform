@@ -69,8 +69,14 @@ public static class SampleIntakeReviewerComposition
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: SampleAssistantComposition.AccessPolicy))
             // Project members see the project's agent threads; their project role decides whether
-            // they read, take part or decide proposals.
-            .AddSubjectType<ProjectSubjectAccessResolver>()
+            // they read, take part or decide proposals. SPM-301: people read the type by its name in
+            // English or Dutch, find a project by key or name (the resolver also searches) and open
+            // it on the page where the portal shows a project's agent work.
+            .AddSubjectType<ProjectSubjectAccessResolver>(type => type
+                .Named(SampleSubjectTypeNames.Of("SubjectTypeProject"), fallbackLanguage: "en")
+                .NamedPlural(SampleSubjectTypeNames.Of("SubjectTypeProjects"))
+                .ForEntity<Project>()
+                .OpenAt(ProjectSubjects.LinkTemplate))
             // SPM-285: every model turn about a project, of any agent, reads its briefing first.
             .AddSubjectBriefing<ProjectBriefingProvider>()
             .AddApprovalPolicy(ApprovalPolicyId, policy => policy
@@ -199,5 +205,29 @@ public static class SampleIntakeReviewerComposition
         {
             yield return ProjectSubjects.For(projectId);
         }
+    }
+}
+
+/// <summary>
+/// SPM-301: the names of the sample's subject types per language, from the same resources as the
+/// tool presentations, so every language's text stays with the application's translations.
+/// </summary>
+internal static class SampleSubjectTypeNames
+{
+    private static readonly System.Resources.ResourceManager Resources = new(typeof(SampleAssistantToolPresenter));
+
+    public static Dictionary<string, string> Of(string resourceName)
+    {
+        return new Dictionary<string, string>
+        {
+            ["en"] = Text(resourceName, "en-US"),
+            ["nl"] = Text(resourceName, "nl-NL")
+        };
+    }
+
+    private static string Text(string resourceName, string culture)
+    {
+        return Resources.GetString(resourceName, System.Globalization.CultureInfo.GetCultureInfo(culture))
+            ?? throw new InvalidOperationException($"The resource '{resourceName}' has no text for {culture}.");
     }
 }

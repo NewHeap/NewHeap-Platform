@@ -148,7 +148,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Equal(NhAssistantMessageAuthorKinds.Trigger, trigger.AuthorKind);
 
         var inbox = await colleague.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox", Json);
-        Assert.Contains(inbox!.Items, item => item.ApprovalId == proposal.ApprovalId);
+        var waiting = Assert.Single(inbox!.Items, item => item.ApprovalId == proposal.ApprovalId);
+        // SPM-301: the inbox and the conversation name the project type and link to the project.
+        Assert.Equal("Project", waiting.SubjectTypeName);
+        Assert.Equal($"/management/intake-reviews?project={project:D}", waiting.SubjectLink);
+        Assert.Equal(waiting.SubjectLink, colleagueThread.Thread.SubjectLink);
         var decision = await DecideAsync(colleague, proposal, "approve");
         Assert.Equal(HttpStatusCode.OK, decision.StatusCode);
 
@@ -1958,6 +1962,99 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         {
             host.Model.Use(new SampleAssistantChatClient());
         }
+    }
+
+    [Fact]
+    public async Task People_find_their_own_projects_by_name_and_read_the_project_type_named_and_linked()
+    {
+        // SPM-301: the project subject type has English and Dutch names, stands for the Project
+        // entity, links to the portal's page of a project's agent work and is searched by its
+        // resolver, which looks among the caller's own projects.
+        var owned = await host.CreateProjectAsync("FINDABLE", ownerId: host.OwnerId);
+        var shared = await host.CreateProjectAsync("FINDABLE", ownerId: host.ColleagueId);
+        await host.AddMemberAsync(shared, host.OwnerId, ProjectMemberRole.Reader);
+        await host.CreateProjectAsync("FINDABLE", ownerId: host.ColleagueId);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var outsider = host.CreateClient(host.OutsiderId.ToString());
+
+        // Any case of the name finds the projects the owner owns or is a member of, never a
+        // colleague's own project; each result links to the project's page.
+        var found = (await owner.GetFromJsonAsync<NhAssistantSubjectSearchDto>(
+            "/api/assistant/subjects/project/search?query=findable%20PROJ&limit=10",
+            Json))!;
+        Assert.Equal(ProjectSubjects.Type, found.SubjectType);
+        Assert.Equal(
+            new[] { owned, shared }.Select(id => id.ToString("D")).Order(StringComparer.Ordinal),
+            found.Items.Select(item => item.Id).Order(StringComparer.Ordinal));
+        var ownedResult = Assert.Single(found.Items, item => item.Id == owned.ToString("D"));
+        Assert.EndsWith(" — FINDABLE project", ownedResult.DisplayName);
+        Assert.Equal(host.DivisionId, ownedResult.DivisionId);
+        Assert.Equal(NhAiSubjectInfo.CreateScopeKey(null, host.DivisionId), ownedResult.ScopeKey);
+        Assert.Equal($"/management/intake-reviews?project={owned:D}", ownedResult.Link);
+        Assert.Empty((await outsider.GetFromJsonAsync<NhAssistantSubjectSearchDto>(
+            "/api/assistant/subjects/project/search?query=findable",
+            Json))!.Items);
+        using (var tooShort = await owner.GetAsync("/api/assistant/subjects/project/search?query=f"))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, tooShort.StatusCode);
+        }
+
+        // The thread and the work on a project name the type in the reader's language and link to it.
+        using var opened = await owner.PostAsJsonAsync(
+            "/api/assistant/threads/open",
+            new NhAssistantOpenThreadRequest(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type, owned.ToString("D")),
+            Json);
+        Assert.Equal(HttpStatusCode.OK, opened.StatusCode);
+        var thread = (await opened.Content.ReadFromJsonAsync<NhAssistantThreadLookupDto>(Json))!.Thread!;
+        Assert.Equal("Project", thread.SubjectTypeName);
+        Assert.Equal(ownedResult.Link, thread.SubjectLink);
+        var work = (await owner.GetFromJsonAsync<NhAssistantSubjectWorkDto>($"/api/assistant/subjects/project/{owned:D}/work", Json))!;
+        Assert.Equal("Project", work.SubjectTypeName);
+        Assert.Equal(ownedResult.Link, work.SubjectLink);
+
+        // The run catalog describes the type for the administration, in Dutch for a Dutch reader.
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        administrator.DefaultRequestHeaders.AcceptLanguage.Clear();
+        administrator.DefaultRequestHeaders.AcceptLanguage.ParseAdd("nl-NL");
+        var catalog = (await administrator.GetFromJsonAsync<NhAssistantRunCatalogDto>("/api/assistant/admin/run-catalog", Json))!;
+        // The names come from the application's resources, as its other assistant texts do.
+        var dutch = CultureInfo.GetCultureInfo("nl-NL");
+        var resources = new ResourceManager(typeof(SampleAssistantToolPresenter));
+        Assert.Equal(
+            new NhAssistantSubjectTypeDto(
+                ProjectSubjects.Type,
+                resources.GetString("SubjectTypeProject", dutch)!,
+                resources.GetString("SubjectTypeProjects", dutch)!,
+                nameof(Project),
+                typeof(Project).FullName,
+                ProjectSubjects.LinkTemplate,
+                Searchable: true,
+                IsSystem: false),
+            Assert.Single(catalog.SubjectTypes, type => type.Id == ProjectSubjects.Type));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void The_project_search_stays_one_case_insensitive_server_side_query_on_both_providers(bool sqlServer)
+    {
+        // SPM-301: the search above runs on PostgreSQL; SQL Server translates the same query.
+        var options = new DbContextOptionsBuilder<SampleProjectManagementDbContext>();
+        if (sqlServer)
+        {
+            options.UseSqlServer("Server=localhost;Database=TranslationOnly;Integrated Security=true");
+        }
+        else
+        {
+            options.UseNpgsql("Host=localhost;Database=translation_only");
+        }
+
+        using var dbContext = new SampleProjectManagementDbContext(options.Options);
+        var sql = ProjectSubjectAccessResolver.Find(dbContext.Projects, Guid.NewGuid(), "Find", 20).ToQueryString();
+
+        Assert.Contains("lower(", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(sqlServer ? "TOP" : "LIMIT", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ORDER BY", sql, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

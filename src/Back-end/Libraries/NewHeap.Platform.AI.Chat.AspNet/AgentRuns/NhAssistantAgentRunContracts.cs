@@ -26,6 +26,18 @@ public sealed record NhAssistantThreadDto(
     /// nobody is notified and nothing proposed in it executes.
     /// </summary>
     public bool Shadow { get; init; }
+
+    /// <summary>
+    /// The name of the subject type in the caller's language, such as "Project", when the application
+    /// named the type with <c>AddSubjectType</c>; <see langword="null"/> otherwise.
+    /// </summary>
+    public string? SubjectTypeName { get; init; }
+
+    /// <summary>
+    /// Where the application shows the subject, from the type's link template; <see langword="null"/>
+    /// without one.
+    /// </summary>
+    public string? SubjectLink { get; init; }
 }
 
 /// <param name="Thread">The agent's thread about the subject, or <see langword="null"/> before its first run.</param>
@@ -237,6 +249,17 @@ public sealed record NhAssistantProposalDto(
     /// is an approver of the subject.
     /// </summary>
     public bool CanGiveFeedback { get; init; }
+
+    /// <summary>
+    /// The name of the subject type in the caller's language, when the application named the type;
+    /// <see langword="null"/> otherwise.
+    /// </summary>
+    public string? SubjectTypeName { get; init; }
+
+    /// <summary>
+    /// Where the application shows the subject; <see langword="null"/> without a link template.
+    /// </summary>
+    public string? SubjectLink { get; init; }
 }
 
 /// <summary>
@@ -428,7 +451,46 @@ public sealed record NhAssistantSubjectWorkDto(
     string? SubjectDisplayName,
     string Role,
     IReadOnlyList<NhAssistantSubjectAgentDto> Agents,
-    IReadOnlyList<NhAssistantSubjectProposalDto> OpenProposals);
+    IReadOnlyList<NhAssistantSubjectProposalDto> OpenProposals)
+{
+    /// <summary>
+    /// The name of the subject type in the caller's language, when the application named the type;
+    /// <see langword="null"/> otherwise.
+    /// </summary>
+    public string? SubjectTypeName { get; init; }
+
+    /// <summary>
+    /// Where the application shows the subject; <see langword="null"/> without a link template.
+    /// </summary>
+    public string? SubjectLink { get; init; }
+}
+
+/// <summary>
+/// The subjects of one type a search found that the caller may see, in the order the application's
+/// search returned them.
+/// </summary>
+public sealed record NhAssistantSubjectSearchDto(
+    string SubjectType,
+    IReadOnlyList<NhAssistantSubjectSearchResultDto> Items);
+
+/// <summary>
+/// One subject a search found.
+/// </summary>
+/// <param name="DisplayName">The name <c>DescribeAsync</c> would give; show <paramref name="Id"/> without one.</param>
+/// <param name="ScopeKey">The subject's isolation key: <c>tenant:…</c>, <c>division:…</c> or <c>global</c>.</param>
+/// <param name="DivisionId">The subject's division, when it has one.</param>
+public sealed record NhAssistantSubjectSearchResultDto(
+    string Type,
+    string Id,
+    string? DisplayName,
+    string ScopeKey,
+    Guid? DivisionId)
+{
+    /// <summary>
+    /// Where the application shows the subject; <see langword="null"/> without a link template.
+    /// </summary>
+    public string? Link { get; init; }
+}
 
 /// <param name="SubjectIds">At most 200 subjects of the route's subject type.</param>
 public sealed record NhAssistantSubjectSummaryRequest(IReadOnlyList<string>? SubjectIds);
@@ -583,6 +645,7 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantSubjectSummaryRequest))]
 [JsonSerializable(typeof(NhAssistantSubjectSummaryListDto))]
 [JsonSerializable(typeof(NhAssistantOpenThreadRequest))]
+[JsonSerializable(typeof(NhAssistantSubjectSearchDto))]
 [JsonSerializable(typeof(string[]))]
 public sealed partial class NhAssistantAgentRunJsonSerializerContext : JsonSerializerContext;
 
@@ -669,12 +732,14 @@ internal static class NhAssistantAgentRunDtoMapper
     }
 
     /// <summary>
-    /// Adds what a proposal row does not carry: the objects each proposal changes and the names of
-    /// who decided it and who made it stale, from the member snapshot.
+    /// Adds what a proposal row does not carry: the objects each proposal changes, the names of who
+    /// decided it and who made it stale, from the member snapshot, and the name and link of its
+    /// subject's type.
     /// </summary>
     public static async Task<IReadOnlyList<NhAssistantProposalDto>> CompleteAsync(
         IReadOnlyList<NhAssistantProposalDto> proposals,
         NhAssistantRunStore runs,
+        NhAssistantSubjectAccessService subjects,
         CancellationToken cancellationToken)
     {
         if (proposals.Count == 0)
@@ -687,14 +752,38 @@ internal static class NhAssistantAgentRunDtoMapper
             proposals.SelectMany(proposal => new[] { proposal.DecidedByActorId, proposal.StaleByActorId }),
             cancellationToken);
         return proposals
-            .Select(proposal => proposal with
+            .Select(proposal =>
             {
-                Objects = keys[proposal.ApprovalId].Select(key => new NhAssistantProposalObjectDto(key.Type, key.Id)).ToArray(),
-                DecidedByDisplayName = proposal.DecidedByDisplayName
-                    ?? (proposal.DecidedByActorId is { } decidedBy ? names.GetValueOrDefault(decidedBy) : null),
-                StaleByDisplayName = proposal.StaleByActorId is { } staleBy ? names.GetValueOrDefault(staleBy) : null
+                var (typeName, link) = SubjectOf(subjects, proposal.SubjectType, proposal.SubjectId);
+                return proposal with
+                {
+                    Objects = keys[proposal.ApprovalId].Select(key => new NhAssistantProposalObjectDto(key.Type, key.Id)).ToArray(),
+                    DecidedByDisplayName = proposal.DecidedByDisplayName
+                        ?? (proposal.DecidedByActorId is { } decidedBy ? names.GetValueOrDefault(decidedBy) : null),
+                    StaleByDisplayName = proposal.StaleByActorId is { } staleBy ? names.GetValueOrDefault(staleBy) : null,
+                    SubjectTypeName = typeName,
+                    SubjectLink = link
+                };
             })
             .ToArray();
+    }
+
+    /// <summary>
+    /// The name of the subject's type in the request's language, when the application named the type,
+    /// and the link to the subject, when the type has a link template.
+    /// </summary>
+    public static (string? TypeName, string? Link) SubjectOf(
+        NhAssistantSubjectAccessService subjects,
+        string subjectType,
+        string subjectId)
+    {
+        var type = subjects.FindType(subjectType);
+        if (type is null)
+        {
+            return (null, null);
+        }
+
+        return (type.IsNamed ? type.NameIn(System.Globalization.CultureInfo.CurrentUICulture) : null, type.LinkFor(subjectId));
     }
 
     public static NhAssistantProposalFeedbackDto ToDto(AssistantProposalFeedback feedback)

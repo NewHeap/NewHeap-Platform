@@ -294,7 +294,8 @@
     "SPM-295",
     "SPM-296",
     "SPM-297",
-    "SPM-298"
+    "SPM-298",
+    "SPM-301"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2452,6 +2453,25 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-work-setup.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-picker.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
+    ],
+    "SPM-301": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjectSearchService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSubjectTypeTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRegistrationTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-subject-link.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-subject-picker.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-subject-picker.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/subject-links.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-subjects.ts"
     ]
   }
 }

@@ -1,0 +1,37 @@
+@if (search(); as find) {
+  <nh-assistant-picker
+    [inputId]="inputId()"
+    [value]="value()"
+    [selectedLabel]="selectedLabel()"
+    [search]="find"
+    [placeholder]="'nh-assistant.subject-picker.search-placeholder' | translate"
+    [invalid]="invalid()"
+    [describedBy]="describedBy()"
+    [disabled]="disabled()"
+    (optionChange)="choose($event)" />
+} @else {
+  <input
+    type="text"
+    autocomplete="off"
+    spellcheck="false"
+    [id]="inputId()"
+    [value]="typedId()"
+    [placeholder]="'nh-assistant.subject-picker.id-placeholder' | translate"
+    [attr.aria-invalid]="invalid() || lookupError() ? true : null"
+    [attr.aria-describedby]="fieldDescribedBy()"
+    [disabled]="disabled()"
+    (input)="onIdInput($event)"
+    (change)="lookUp()"
+    (keydown.enter)="$event.preventDefault(); lookUp()" />
+  <p class="hint" aria-live="polite" [id]="hintId" [class.error]="lookupError()">
+    @if (lookingUp()) {
+      {{ 'nh-assistant.subject-picker.looking-up' | translate }}
+    } @else if (lookupError(); as code) {
+      {{ (code === 'assistant-subject-not-found' ? 'nh-assistant.subject-picker.not-found' : 'nh-assistant.errors.' + code) | translate }}
+    } @else if (found(); as subject) {
+      {{ 'nh-assistant.subject-picker.found' | translate: { name: subject.displayName ?? subject.id } }}
+    } @else {
+      {{ 'nh-assistant.subject-picker.id-hint' | translate }}
+    }
+  </p>
+}

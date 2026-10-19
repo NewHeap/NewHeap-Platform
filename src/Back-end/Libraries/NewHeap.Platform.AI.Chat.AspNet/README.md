@@ -87,6 +87,7 @@ these endpoints. Access follows the caller's role on the subject, which the subj
 |---|---|
 | `GET threads?agentId=&subjectType=&subjectId=` | the agent's thread about the subject, the caller's role and whether the caller may start the agent |
 | `POST threads/start` `{ agentId, subjectType, subjectId, message? }` | `202` trigger receipt; needs the participant role |
+| `GET subjects/{type}/search?query=&limit=` | the subjects of the type the caller may read whose name matches, with their link; `404 assistant-subject-search-unavailable` when the type's resolver does not search |
 | `GET threads/{id}/runs` | runs, newest first, with status, failure class, usage and proposal count |
 | `GET threads/{id}/consultations?page=&itemsPerPage=` | who consulted the agent through which assistant, newest first, with outcome, usage and proposal count; never the question or the answer |
 | `GET threads/{id}/proposals` | proposals with their decision and execution state and the application's `presentation` |

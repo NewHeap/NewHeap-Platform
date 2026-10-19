@@ -9,14 +9,15 @@ application groups them on its own pages. It was written on 2026-10-19 during th
 
 ## Status
 
-Accepted on 2026-10-19: Lars took decisions K1 to K16 below. Phases W1 to W7 are designed and not
-yet implemented; the flow view (U6 of the run configuration UX plan) follows on top of them. The
+Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 is implemented and not released;
+W2 to W7 are designed and not yet implemented; the flow view (U6 of the run configuration UX plan)
+follows on top of them. The
 [MCP connections plan](ai-assistant-mcp-connections-plan.md) uses SPM-299 and SPM-300; this plan
 uses SPM-301 onwards.
 
 | Phase | Status |
 | --- | --- |
-| W1 | Designed: object types with names, entity binding, search and links. |
+| W1 | Implemented, not released: object types with names, entity binding, search and links. |
 | W2 | Designed: what an agent works on. |
 | W3 | Designed: the whole application as a scope. |
 | W4 | Designed: run now. |
@@ -96,9 +97,38 @@ agent again by hand.
 | K15 | **Groups in code with names per language (K1)**; agents join a group in code or in the administration; `nh-assistant-agent-board` shows one group anywhere in the application. | Applications build their own pages without a dashboard designer. |
 | K16 | **No notifications yet**: a board marks what is new since the person's last visit. Notifications follow later on the notification module. | Enough for a first version; notifications need their own rules. |
 
+## Implementation decisions
+
+Choices the plan left open, taken during implementation for Lars to review.
+
+| Phase | Decision | Reason | Review |
+| --- | --- | --- | --- |
+| W1 | The sample links a project to `/management/intake-reviews?project={id}`, and that page now selects the project of the link. | The management portal has no project detail route; the intake reviews page is where it shows one project's agent work. | For Lars to review. |
+| W1 | "A scope the caller may use" in the search is the caller's tenant, as for threads and proposals; divisions follow `ResolveAsync`. | `INhDivisionAccess` denies every division without an implementation, so applications without divisions would find nothing. | For Lars to review. |
+| W1 | The search reads at most four results per result it may show and then stops; `limit` is clamped to 1 to 50 like the account search instead of refused. | Bounds the resolver calls per keystroke when an application's search ignores the actor; matches `GET admin/accounts`. | For Lars to review. |
+| W1 | `SubjectTypeName` in the thread, proposal, work and conversation DTOs is `null` for a type without `Named`; the catalog's `Name` falls back to the id. | Screens of applications that never named their types stay as they were; the administration always needs a label. | For Lars to review. |
+| W1 | A configuration belongs to its resolver class, because the type id comes from the resolver instance. A repeated parameterless registration keeps the configuration; two different configurations of one class fail at registration; "a configuration for a type without a resolver" is a configured class that is no longer registered as `INhAiSubjectAccessResolver`. | `AddSubjectType<TResolver>(configure)` has no type id until a resolver exists. | For Lars to review. |
+| W1 | Startup checks (`nh-` prefix, invalid type, two resolver classes for one type, configuration without resolver) run in the ASP.NET startup validator; a host without it keeps the old "last resolver wins" at runtime. | The core registers no hosted services; all agent-run hosts use the ASP.NET integration. | For Lars to review. |
+| W1 | Names are looked up by exact culture, parent cultures, another culture of the same language, then the fallback language; culture names are checked by syntax and compared case-insensitively. | A request for `nl` finds a name registered as `nl-NL`, as the presentation cultures do. | For Lars to review. |
+| W1 | `OpenAt` accepts `{id}` only in the path or query of an `https` URL, never in its host, and a relative link must start with exactly one `/`; no other braces. Clients link only within the application or over `https`. | A subject id must never choose the host a link leads to. | For Lars to review. |
+| W1 | The search answers `{ subjectType, items }` and adds each item's `link`. | Room for paging later; the picker and later e-mail need the link. | For Lars to review. |
+| W1 | Without search, the internal subject picker looks an id up through the existing `GET subjects/{type}/{id}/work`, which gives readers `DescribeAsync`'s name; the mock API serves a minimal version of it for its scenario subjects. | No new endpoint for one name; the access rule is the same. | For Lars to review. |
+| W1 | Names and links show in the proposal cards (inbox and thread view) and the thread view's heading through an internal link component; the feedback report and run DTOs are unchanged (a run's subject is its thread's). | Where subjects are listed today; runs carry no subject of their own. | For Lars to review. |
+| W1 | `provideNhAssistant({ subjectLinks })` takes a builder per subject type that returns router commands, a URL, `null` (no link) or `undefined` (the server's link) and runs in the assistant's injection context. | One override per type keeps the server's links for the rest. | For Lars to review. |
+| W1 | The sample's project search is provider-neutral `ToLower` and `Contains`; it runs on PostgreSQL in the sample tests and is checked as translated SQL for SQL Server. | The sample test project has no SQL Server container; the library's search filtering runs on both providers. | For Lars to review. |
+| W1 | W1 changes no schema, so it has no migrations. | Names, entities and links live in code. | For Lars to review. |
+
 ## Design
 
 ### W1: object types with names, entity binding, search and links
+
+**Implementation notes.** Implemented in `NhAssistantSubjectTypeBuilder` (AI.Chat), `INhAiSubjectSearch`
+and `NhAiSubjectSearchRequest` (AI.Common), `NhAssistantSubjectSearchService` and the subject
+access service's type descriptors, the startup validator, `GET subjects/{type}/search`, `SubjectTypes`
+in the run catalog and `SubjectTypeName`/`SubjectLink` on the thread, proposal, work and
+conversation-thread DTOs. Angular: `searchSubjects`, `subjectLinks`, the internal
+`nh-assistant-subject-link` and `nh-assistant-subject-picker`, names and links in the inbox, the
+proposal cards and the thread view, and the mock's `subjectTypes`. Sample case SPM-301. No migration.
 
 **Registration.** `AddSubjectType<TResolver>()` gains an optional configuration:
 

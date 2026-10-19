@@ -14,6 +14,12 @@ public static class ProjectSubjects
 {
     public const string Type = "project";
 
+    /// <summary>
+    /// SPM-301: where the management portal shows one project's agent work: the intake reviews
+    /// page with the project chosen.
+    /// </summary>
+    public const string LinkTemplate = "/management/intake-reviews?project={id}";
+
     public static NhAiSubjectRef For(Guid projectId)
     {
         return new NhAiSubjectRef(Type, projectId.ToString("D"));
@@ -23,11 +29,46 @@ public static class ProjectSubjects
 /// <summary>
 /// Tells the assistant who may see and act on the agent threads of a project. Project members
 /// keep their role; the project owner is an approver without a member row. The assistant asks on
-/// every request, so removing a member takes effect at once.
+/// every request, so removing a member takes effect at once. SPM-301: the same class finds
+/// projects by key or name for people who choose a project, among the projects they own or are a
+/// member of; the assistant still checks every result with <see cref="ResolveAsync"/>.
 /// </summary>
-public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContext dbContext) : INhAiSubjectAccessResolver
+public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContext dbContext)
+    : INhAiSubjectAccessResolver, INhAiSubjectSearch
 {
     public string SubjectType => ProjectSubjects.Type;
+
+    public async IAsyncEnumerable<NhAiSubjectInfo> SearchAsync(
+        NhAiSubjectSearchRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(request.ActorId, out var userId))
+        {
+            yield break;
+        }
+
+        var projects = await Find(dbContext.Projects.AsNoTracking(), userId, request.Query, request.Limit)
+            .Select(project => new
+            {
+                project.Id,
+                project.DivisionId,
+                project.Key,
+                project.Name,
+                project.OwnerUserId,
+                project.LastModifiedDateTime
+            })
+            .ToListAsync(cancellationToken);
+        foreach (var project in projects)
+        {
+            yield return Describe(
+                ProjectSubjects.For(project.Id),
+                project.DivisionId,
+                project.Key,
+                project.Name,
+                project.OwnerUserId,
+                project.LastModifiedDateTime);
+        }
+    }
 
     public async ValueTask<NhAiSubjectInfo?> DescribeAsync(
         NhAiSubjectRef subject,
@@ -55,14 +96,43 @@ public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContex
             return null;
         }
 
-        return new NhAiSubjectInfo(subject, NhAiSubjectInfo.CreateScopeKey(null, project.DivisionId))
+        return Describe(subject, project.DivisionId, project.Key, project.Name, project.OwnerUserId, project.LastModifiedDateTime);
+    }
+
+    /// <summary>
+    /// The projects the search finds: those the person owns or is a member of whose key or name
+    /// contains the query in any case, by key, at most <paramref name="limit"/>. Provider-neutral:
+    /// SQL Server and PostgreSQL both translate <c>ToLower</c> and <c>Contains</c>, so the query
+    /// stays server-side and finds the same projects on both.
+    /// </summary>
+    public static IQueryable<Project> Find(IQueryable<Project> projects, Guid userId, string query, int limit)
+    {
+        var text = query.ToLowerInvariant();
+        return projects
+            .Where(project => project.OwnerUserId == userId
+                || project.Members.Any(member => member.UserId == userId))
+            .Where(project => project.Key.ToLower().Contains(text) || project.Name.ToLower().Contains(text))
+            .OrderBy(project => project.Key)
+            .ThenBy(project => project.Id)
+            .Take(limit);
+    }
+
+    private static NhAiSubjectInfo Describe(
+        NhAiSubjectRef subject,
+        Guid divisionId,
+        string key,
+        string name,
+        Guid? ownerUserId,
+        DateTimeOffset lastModified)
+    {
+        return new NhAiSubjectInfo(subject, NhAiSubjectInfo.CreateScopeKey(null, divisionId))
         {
-            DivisionId = project.DivisionId,
+            DivisionId = divisionId,
             // Any project edit changes the version, so an approved proposal for an edited project
             // closes as stale instead of executing.
-            Version = project.LastModifiedDateTime.UtcTicks.ToString(CultureInfo.InvariantCulture),
-            DisplayName = project.Key + " — " + project.Name,
-            ResponsibleActorId = project.OwnerUserId?.ToString("D")
+            Version = lastModified.UtcTicks.ToString(CultureInfo.InvariantCulture),
+            DisplayName = key + " — " + name,
+            ResponsibleActorId = ownerUserId?.ToString("D")
         };
     }
 

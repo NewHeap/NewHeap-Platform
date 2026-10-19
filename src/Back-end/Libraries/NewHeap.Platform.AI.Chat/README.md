@@ -44,6 +44,11 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
   (`AddApprovalPolicy`): inline proposals pause the run, deferred proposals wait for
   people in the thread and the approval inbox and execute later as their own operation.
   Tools opt in to grants beyond the initiator's rights with `AllowAgentGrant`.
+- **Subject types for people** — `AddSubjectType<TResolver>(type => type.Named(...)
+  .NamedPlural(...).ForEntity<T>().OpenAt("/path/{id}"))` names a subject type per language,
+  binds it to its entity and links to where the application shows a subject. A resolver that
+  also implements `INhAiSubjectSearch` lets people find subjects by name; the platform keeps
+  only what `ResolveAsync` lets the person read. Types starting with `nh-` are reserved.
 - **Consultations** — `AllowConsultation(subjectType, ...)` in `ConfigureAgent` lets other
   assistants consult the agent about a subject through the generated tools
   `assistant.consult.{agentId}.{subjectType}` (an answer in the same turn) and, with

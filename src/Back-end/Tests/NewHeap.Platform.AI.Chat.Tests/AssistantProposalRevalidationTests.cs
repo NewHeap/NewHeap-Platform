@@ -113,6 +113,7 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
             var dto = Assert.Single(await NhAssistantAgentRunDtoMapper.CompleteAsync(
                 [NhAssistantAgentRunDtoMapper.ToDto(stale, run.Thread)],
                 RunStore(host),
+                host.Services.GetRequiredService<NhAssistantSubjectAccessService>(),
                 CancellationToken.None));
             Assert.Equal(NhAssistantStaleKinds.AlreadyDone, dto.StaleKind);
             Assert.Equal("Al op Active gezet door Henk.", dto.StaleExplanation);

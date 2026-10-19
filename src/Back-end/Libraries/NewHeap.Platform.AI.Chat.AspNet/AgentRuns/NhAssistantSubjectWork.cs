@@ -144,10 +144,10 @@ internal sealed class NhAssistantSubjectWork(
             var shadowThread = shadowThreads.GetValueOrDefault(id);
             agentEntries.Add(new NhAssistantSubjectAgentDto(
                 id,
-                thread is null ? null : await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(thread, access.Role, runs, cancellationToken),
+                thread is null ? null : await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(thread, access.Role, runs, subjects, cancellationToken),
                 canStart)
             {
-                ShadowThread = shadowThread is null ? null : await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(shadowThread, access.Role, runs, cancellationToken)
+                ShadowThread = shadowThread is null ? null : await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(shadowThread, access.Role, runs, subjects, cancellationToken)
             });
             if (thread is not null)
             {
@@ -155,13 +155,18 @@ internal sealed class NhAssistantSubjectWork(
             }
         }
 
+        var (typeName, link) = NhAssistantAgentRunDtoMapper.SubjectOf(subjects, subject.Type, subject.Id);
         return TaskResult<NhAssistantSubjectWorkDto>.Succeeded(new NhAssistantSubjectWorkDto(
             subject.Type,
             subject.Id,
             info.DisplayName,
             NhAssistantAgentRunDtoMapper.RoleName(access.Role),
             agentEntries,
-            proposals.OrderBy(item => item.Proposal.ExpiresAt).ToArray()));
+            proposals.OrderBy(item => item.Proposal.ExpiresAt).ToArray())
+        {
+            SubjectTypeName = typeName,
+            SubjectLink = link
+        });
     }
 
     public async Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeAsync(
@@ -246,6 +251,7 @@ internal sealed class NhAssistantSubjectWork(
         var proposals = await NhAssistantAgentRunDtoMapper.CompleteAsync(
             approvals.Select(approval => NhAssistantAgentRunDtoMapper.ToDto(approval, thread)).ToArray(),
             runs,
+            subjects,
             cancellationToken);
         var items = new List<NhAssistantSubjectProposalDto>(approvals.Count);
         for (var index = 0; index < approvals.Count; index++)

@@ -20,7 +20,7 @@ internal static class NhAssistantAgentConfigurationEndpoints
         admin.MapGet("run-catalog", GetCatalog)
             .WithName("NhAssistantAdminGetRunCatalog")
             .WithSummary("List the building blocks of agent runs")
-            .WithDescription("Returns the trigger events, subject sets and rule handlers registered in code, the approval policies and the chat profiles that skills and triggers defined as data can name.")
+            .WithDescription("Returns the trigger events, subject sets and rule handlers registered in code, the approval policies and the chat profiles that skills and triggers defined as data can name, and the subject types with their names in the request's language, entity, link template and whether they can be searched.")
             .Produces<NhAssistantRunCatalogDto>();
         admin.MapGet("accounts", GetAccountsAsync)
             .WithName("NhAssistantAdminGetAccounts")

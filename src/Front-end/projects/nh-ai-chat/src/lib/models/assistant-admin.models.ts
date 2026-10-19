@@ -543,6 +543,28 @@ export interface RunCatalog {
   approvalPolicySummaries?: ApprovalPolicySummary[];
   /** Whether `searchAccounts` can find accounts by name; otherwise an account is chosen by its id. */
   accountSearch?: boolean;
+  /** The subject types the application registered, by id; missing on older servers. */
+  subjectTypes?: AgentSubjectType[];
+}
+
+/** A subject type as people see it, from the run catalog. */
+export interface AgentSubjectType {
+  /** The dash-case type id, such as `project`. */
+  id: string;
+  /** The name of one subject in the request's language; the id when the application did not name the type. */
+  name: string;
+  /** The name of several subjects, when the application gave one. */
+  pluralName: string | null;
+  /** The short type name of the entity the type stands for, as the NewHeap log records `ObjectType`. */
+  entityType: string | null;
+  /** The full type name of that entity, as `ObjectTypeFull`. */
+  entityTypeFull: string | null;
+  /** The link template with `{id}`; `null` without one. */
+  link: string | null;
+  /** Whether `searchSubjects` finds subjects of this type by name; otherwise people give an id. */
+  searchable: boolean;
+  /** Whether the type belongs to the platform instead of the application. */
+  isSystem: boolean;
 }
 
 /** Who may decide a proposal under an approval policy. */

@@ -180,7 +180,7 @@ internal static class NhAssistantAgentRunEndpoints
         if (thread is not null)
         {
             await threads.ResolveAccessAsync(thread.ConversationId, caller.Data!.ActorId, null, cancellationToken);
-            threadDto = await ToThreadDtoAsync(thread, access.Role, runs, cancellationToken);
+            threadDto = await ToThreadDtoAsync(thread, access.Role, runs, subjects, cancellationToken);
         }
 
         return TypedResults.Json(
@@ -317,6 +317,7 @@ internal static class NhAssistantAgentRunEndpoints
         HttpContext httpContext,
         NhAssistantThreadService threads,
         NhAssistantRunStore runs,
+        NhAssistantSubjectAccessService subjects,
         NhAssistantProposalFeedbackStore feedback)
     {
         var access = await ResolveThreadAsync(httpContext, id, threads, NhAiSubjectRole.Reader);
@@ -346,6 +347,7 @@ internal static class NhAssistantAgentRunEndpoints
                 })
                 .ToArray(),
             runs,
+            subjects,
             httpContext.RequestAborted);
         return TypedResults.Json(
             proposals.ToArray(),
@@ -556,6 +558,7 @@ internal static class NhAssistantAgentRunEndpoints
     private static async Task<IResult> GetInboxAsync(
         HttpContext httpContext,
         NhAssistantRunStore runs,
+        NhAssistantSubjectAccessService subjects,
         string? subjectType,
         string? agentId,
         Guid? divisionId,
@@ -584,6 +587,7 @@ internal static class NhAssistantAgentRunEndpoints
         var proposals = await NhAssistantAgentRunDtoMapper.CompleteAsync(
             items.Select(row => NhAssistantAgentRunDtoMapper.ToDto(row.Approval, row.Thread)).ToArray(),
             runs,
+            subjects,
             httpContext.RequestAborted);
         return TypedResults.Json(
             new NhAssistantInboxDto(proposals, total),
@@ -648,7 +652,8 @@ internal static class NhAssistantAgentRunEndpoints
         Guid approvalId,
         HttpContext httpContext,
         NhAssistantProposalDecisions decisions,
-        NhAssistantRunStore runs)
+        NhAssistantRunStore runs,
+        NhAssistantSubjectAccessService subjects)
     {
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
         if (!caller.Success)
@@ -671,7 +676,7 @@ internal static class NhAssistantAgentRunEndpoints
             request.ExpectedProposalHash,
             request.Reason,
             httpContext.RequestAborted);
-        return await ProposalResultAsync(decided, caller.Data.ActorId, runs, httpContext.RequestAborted);
+        return await ProposalResultAsync(decided, caller.Data.ActorId, runs, subjects, httpContext.RequestAborted);
     }
 
     private static async Task<IResult> DecideManyAsync(
@@ -720,7 +725,8 @@ internal static class NhAssistantAgentRunEndpoints
         Guid approvalId,
         HttpContext httpContext,
         NhAssistantProposalDecisions decisions,
-        NhAssistantRunStore runs)
+        NhAssistantRunStore runs,
+        NhAssistantSubjectAccessService subjects)
     {
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
         if (!caller.Success)
@@ -742,7 +748,7 @@ internal static class NhAssistantAgentRunEndpoints
             request.Action == "re-execute",
             request.Reason,
             httpContext.RequestAborted);
-        return await ProposalResultAsync(resolved, caller.Data.ActorId, runs, httpContext.RequestAborted);
+        return await ProposalResultAsync(resolved, caller.Data.ActorId, runs, subjects, httpContext.RequestAborted);
     }
 
     /// <summary>
@@ -832,9 +838,11 @@ internal static class NhAssistantAgentRunEndpoints
         Entities.AssistantThread thread,
         NhAiSubjectRole role,
         NhAssistantRunStore runs,
+        NhAssistantSubjectAccessService subjects,
         CancellationToken cancellationToken)
     {
         var active = await runs.FindActiveRunAsync(thread.ConversationId, cancellationToken);
+        var (typeName, link) = NhAssistantAgentRunDtoMapper.SubjectOf(subjects, thread.SubjectType, thread.SubjectId);
         return new NhAssistantThreadDto(
             thread.ConversationId,
             thread.AgentId,
@@ -847,7 +855,9 @@ internal static class NhAssistantAgentRunEndpoints
             active is null ? null : NhAssistantAgentRunDtoMapper.ToDto(active),
             await runs.CountWaitingInputsAsync(thread.ConversationId, cancellationToken))
         {
-            Shadow = thread.Shadow
+            Shadow = thread.Shadow,
+            SubjectTypeName = typeName,
+            SubjectLink = link
         };
     }
 
@@ -892,6 +902,7 @@ internal static class NhAssistantAgentRunEndpoints
         NewHeap.Platform.Common.Models.TaskResult<Entities.AssistantApproval> result,
         string actorId,
         NhAssistantRunStore runs,
+        NhAssistantSubjectAccessService subjects,
         CancellationToken cancellationToken)
     {
         if (!result.Success)
@@ -923,6 +934,7 @@ internal static class NhAssistantAgentRunEndpoints
                 }
             ],
             runs,
+            subjects,
             cancellationToken);
         return TypedResults.Json(
             completed[0],

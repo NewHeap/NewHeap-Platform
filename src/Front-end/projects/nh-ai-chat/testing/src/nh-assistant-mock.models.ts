@@ -177,6 +177,39 @@ export interface NhAssistantMockCollaboration {
   maxParticipants?: number;
 }
 
+/** A subject of a mock subject type, as the application's resolver describes it. */
+export interface NhAssistantMockSubject {
+  id: string;
+  displayName: string;
+  /** Default `global`. */
+  scopeKey?: string;
+  divisionId?: string | null;
+  /** Whether the signed-in user may read the subject; others never find it. Default `true`. */
+  readable?: boolean;
+}
+
+/**
+ * A subject type the application registered with `AddSubjectType`, with its names per language, the
+ * entity it stands for, its link template and the subjects people can find. The mock checks it as
+ * the server checks the registration at startup: a dash-case id outside the reserved `nh-` prefix,
+ * names of 1 to 100 characters with one in the fallback language, and one `{id}` in the link.
+ */
+export interface NhAssistantMockSubjectType {
+  id: string;
+  /** Names per culture name, such as `{ en: 'Project', nl: 'Project' }`; without, people see the id. */
+  names?: Record<string, string>;
+  pluralNames?: Record<string, string>;
+  /** Default `en`. */
+  fallbackLanguage?: string;
+  entityType?: string | null;
+  entityTypeFull?: string | null;
+  /** Link template with exactly one `{id}`, such as `/projects/{id}`. */
+  link?: string | null;
+  subjects?: NhAssistantMockSubject[];
+  /** Whether `GET subjects/{type}/search` finds the subjects by name. Default: when the type has subjects. */
+  searchable?: boolean;
+}
+
 /** The scenario the mock API plays without a back-end. */
 export interface NhAssistantMockScenario {
   /** Default `true`. */
@@ -192,6 +225,11 @@ export interface NhAssistantMockScenario {
   preferences?: AssistantPreferences;
   admin?: NhAssistantMockAdminScenario;
   collaboration?: NhAssistantMockCollaboration;
+  /**
+   * The application's subject types: the run catalog lists them, `GET subjects/{type}/search` finds
+   * their readable subjects and `GET subjects/{type}/{id}/work` names a subject chosen by id.
+   */
+  subjectTypes?: NhAssistantMockSubjectType[];
 }
 
 /** One request the mock API received, for assertions in tests. */

@@ -298,6 +298,7 @@
       "assistant-conversation-removed": "This conversation is no longer available to you.",
       "assistant-subject-not-found": "The subject no longer exists.",
       "assistant-subject-type-unknown": "This kind of subject is not known to the assistant.",
+      "assistant-subject-search-unavailable": "This kind of object cannot be searched; give its id.",
       "assistant-subject-access-denied": "Your role on this subject does not allow this.",
       "assistant-no-accountable-owner": "Nobody answers for this agent on this subject.",
       "assistant-agent-disabled": "This agent has been stopped.",
@@ -1366,6 +1367,14 @@
           "failed": "Not answered"
         }
       }
+    },
+    "subject-picker": {
+      "search-placeholder": "Search by name",
+      "id-placeholder": "Id",
+      "id-hint": "This kind of object is chosen by its id.",
+      "looking-up": "Looking up…",
+      "found": "Found: {{name}}",
+      "not-found": "No object with this id was found, or you may not see it."
     },
     "picker": {
       "toggle": "Show the choices",

@@ -106,6 +106,27 @@ background operations, for notifications and live updates, so keep them free of
 request-only state. Call `INhAiSubjectAccess.RefreshAsync` after the people on a
 subject change.
 
+Describe the subject type for people in the same registration:
+`AddSubjectType<TResolver>(type => type.Named(new() { ["en"] = "Project", ["nl"] = "Project" }, fallbackLanguage: "en").NamedPlural(...).ForEntity<Project>().OpenAt("/projects/{id}"))`.
+Names are texts per culture name of at most 100 characters with one in the fallback language;
+every reader gets the name of their request culture, another culture of the same language or the
+fallback, and a type without names shows its id. `ForEntity<T>()` records the entity's short and
+full type name as the NewHeap log's `ObjectType` and `ObjectTypeFull` do. `OpenAt` takes a path
+within the application or an absolute `https` URL with exactly one `{id}` in its path or query; the
+subject id fills it URL-encoded. Let the resolver also implement `INhAiSubjectSearch`, so people
+choose a subject by name: `SearchAsync(NhAiSubjectSearchRequest)` searches the person's own
+subjects server-side, bounded by `Limit`, with provider-neutral LINQ. The platform keeps only results
+whose `ResolveAsync` gives the searching person at least `Reader` in the person's tenant, reads at
+most four results per result it shows, and answers `GET subjects/{type}/search?query=&limit=` (2 to 100
+characters, at most 50 results) with `NhAssistantSubjectSearchDto`; a type without search answers
+`404 assistant-subject-search-unavailable`, and people then give the id. The run catalog lists the
+types as `SubjectTypes` (`NhAssistantSubjectTypeDto`: name and plural in the reader's language,
+entity, link template, `Searchable`, `IsSystem`), and the thread, proposal, inbox, subject-work and
+conversation-thread DTOs carry `SubjectTypeName` (only for a named type) and `SubjectLink`. Startup
+fails for a type starting with `nh-` (`NhAiSubjectRef.ReservedTypePrefix`), which the platform
+reserves for its own subjects, for two resolvers of one type and for a configuration whose resolver
+is not registered; the parameterless `AddSubjectType<TResolver>()` stays valid.
+
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
 changed row and its version, so an at-least-once delivery starts one run. Publish
@@ -579,6 +600,10 @@ profile and instructions that answer questions about the rules' proposals from t
   decide the open proposal.
 - Reading a whole thread's proposals to refresh the one a live update names, or polling proposals
   by id instead of reading them when `AgentWorkChanged` names them.
+- Searching subjects in the client or returning every subject from `INhAiSubjectSearch`; search the
+  person's own subjects server-side within the limit, and leave access to `ResolveAsync`.
+- Naming subject types in the client's own texts, or registering an application type that starts
+  with `nh-`; name the type with `Named` where it is registered.
 
 ## Verification
 
@@ -697,8 +722,13 @@ second replay, on both providers. Assert that a headless run with retrieved cont
 with its inputs and subject, as the agent with the subject's scopes, on both providers. Assert that
 a run with gateway reads records `DelegatedRead`, reads with its starter's rights when a person
 started it, shows the result only to the person whose rights it used, also with `ElevatedReads.Deny`,
-and that startup fails without an accountable person or an issuer. SPM-268 to
-SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-297 are the executable references.
+and that startup fails without an accountable person or an issuer. Search a subject type as a
+member, an outsider and an approver and assert that only readable subjects of the caller's tenant
+return, once each and within the limit, that a short query, an unknown type and a type without
+search answer their codes, and that the catalog and the thread, proposal and work DTOs name the type
+in the reader's language and link to the subject, on both providers; assert that startup refuses an
+`nh-` type, two resolvers of one type and a configuration without its resolver. SPM-268 to
+SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297 and SPM-301 are the executable references.
 
 ## Optional source evidence
 

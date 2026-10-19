@@ -100,6 +100,16 @@ export interface AgentThread {
    * nobody is notified and nothing proposed in it executes.
    */
   shadow?: boolean;
+  /**
+   * The name of the subject type in the caller's language, such as "Project", when the application
+   * named the type; `null` or missing otherwise.
+   */
+  subjectTypeName?: string | null;
+  /**
+   * Where the application shows the subject, from the type's link template; `null` or missing
+   * without one. `provideNhAssistant({ subjectLinks })` may replace it with a router link.
+   */
+  subjectLink?: string | null;
 }
 
 export interface AgentThreadLookup {
@@ -158,6 +168,16 @@ export interface AgentSubjectWork {
   subjectType: string;
   subjectId: string;
   subjectDisplayName: string | null;
+  /**
+   * The name of the subject type in the caller's language, such as "Project", when the application
+   * named the type; `null` or missing otherwise.
+   */
+  subjectTypeName?: string | null;
+  /**
+   * Where the application shows the subject, from the type's link template; `null` or missing
+   * without one. `provideNhAssistant({ subjectLinks })` may replace it with a router link.
+   */
+  subjectLink?: string | null;
   /** The caller's live role. Without a role the server answers `404 assistant-subject-not-found`. */
   role: Exclude<AgentSubjectRole, 'none'>;
   agents: AgentSubjectWorkAgent[];
@@ -184,6 +204,28 @@ export interface AgentSubjectSummaryList {
 /** Maximum number of subjects one `POST subjects/{type}/summary` request accepts. */
 export const NH_ASSISTANT_MAX_SUBJECT_SUMMARY = 200;
 
+/** One subject a search found (`GET subjects/{type}/search`). */
+export interface AgentSubjectSearchResult {
+  type: string;
+  id: string;
+  /** The name the application gives the subject; show the id without one. */
+  displayName: string | null;
+  /** The subject's isolation key: `tenant:…`, `division:…` or `global`. */
+  scopeKey: string;
+  divisionId: string | null;
+  /** Where the application shows the subject; `null` without a link template. */
+  link?: string | null;
+}
+
+/** The subjects of one type a search found that the caller may read, in the application's order. */
+export interface AgentSubjectSearch {
+  subjectType: string;
+  items: AgentSubjectSearchResult[];
+}
+
+/** The shortest and longest text `searchSubjects` accepts, and the most results it returns. */
+export const NH_ASSISTANT_SUBJECT_SEARCH = { minQueryLength: 2, maxQueryLength: 100, maxLimit: 50 } as const;
+
 export interface StartAgentRequest {
   agentId: string;
   subjectType: string;
@@ -209,6 +251,16 @@ export interface AgentProposal {
   subjectType: string;
   subjectId: string;
   subjectDisplayName: string | null;
+  /**
+   * The name of the subject type in the caller's language, such as "Project", when the application
+   * named the type; `null` or missing otherwise.
+   */
+  subjectTypeName?: string | null;
+  /**
+   * Where the application shows the subject, from the type's link template; `null` or missing
+   * without one. `provideNhAssistant({ subjectLinks })` may replace it with a router link.
+   */
+  subjectLink?: string | null;
   toolId: string;
   summary: string;
   /**

@@ -21,6 +21,14 @@ internal static class NhAssistantSubjectEndpoints
             .Produces<NhAssistantSubjectWorkDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        group.MapGet("subjects/{type}/search", SearchAsync)
+            .WithName("NhAssistantSearchSubjects")
+            .WithSummary("Find subjects of one type by name")
+            .WithDescription("Searches the subjects of the type through the application's INhAiSubjectSearch with query (2 to 100 characters) and returns at most limit (default 20, at most 50) that the caller may read: the resolver gives the caller at least the reader role, and the subject is in the caller's tenant. An unknown type answers 404 assistant-subject-type-unknown, a type without search 404 assistant-subject-search-unavailable; people then give the subject's id.")
+            .Produces<NhAssistantSubjectSearchDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         group.MapPost("subjects/{type}/summary", SummarizeAsync)
             .WithName("NhAssistantSummarizeSubjects")
             .WithSummary("Summarize the agent work on many subjects")
@@ -60,6 +68,52 @@ internal static class NhAssistantSubjectEndpoints
         }
 
         return TypedResults.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSubjectWorkDto);
+    }
+
+    private static async Task<IResult> SearchAsync(
+        string type,
+        string? query,
+        int? limit,
+        HttpContext httpContext,
+        NhAssistantSubjectAccessService subjects,
+        NhAssistantSubjectSearchService search)
+    {
+        var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
+        }
+
+        var found = await search.SearchAsync(
+            type,
+            query,
+            limit,
+            caller.Data!.ActorId,
+            caller.Data.TenantId,
+            httpContext.RequestAborted);
+        if (!found.Success)
+        {
+            return FirstCode(found) == NhAssistantAdminErrorCodes.ValidationFailed
+                ? NhAssistantAdminEndpoints.Failure(found)
+                : Failure(found);
+        }
+
+        var subjectType = subjects.FindType(type)!;
+        return TypedResults.Json(
+            new NhAssistantSubjectSearchDto(
+                type,
+                found.Data!
+                    .Select(info => new NhAssistantSubjectSearchResultDto(
+                        info.Subject.Type,
+                        info.Subject.Id,
+                        info.DisplayName,
+                        info.ScopeKey,
+                        info.DivisionId)
+                    {
+                        Link = subjectType.LinkFor(info.Subject.Id)
+                    })
+                    .ToArray()),
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSubjectSearchDto);
     }
 
     private static async Task<IResult> SummarizeAsync(
@@ -156,7 +210,7 @@ internal static class NhAssistantSubjectEndpoints
             && await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!);
         return TypedResults.Json(
             new NhAssistantThreadLookupDto(
-                await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(thread, access.Role, runs, cancellationToken),
+                await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(thread, access.Role, runs, subjects, cancellationToken),
                 canStart,
                 NhAssistantAgentRunDtoMapper.RoleName(access.Role)),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantThreadLookupDto);
@@ -167,7 +221,9 @@ internal static class NhAssistantSubjectEndpoints
         var code = FirstCode(result);
         var status = code switch
         {
-            NhAssistantErrorCodes.SubjectNotFound or NhAssistantErrorCodes.SubjectTypeUnknown => StatusCodes.Status404NotFound,
+            NhAssistantErrorCodes.SubjectNotFound
+                or NhAssistantErrorCodes.SubjectTypeUnknown
+                or NhAssistantErrorCodes.SubjectSearchUnavailable => StatusCodes.Status404NotFound,
             NhAssistantErrorCodes.ContextUnavailable => StatusCodes.Status401Unauthorized,
             _ => StatusCodes.Status400BadRequest
         };

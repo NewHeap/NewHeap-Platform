@@ -49,12 +49,20 @@ internal static class NhAssistantThreadStanding
                 check.Success ? null : ReasonCode(check)));
         }
 
+        var (typeName, link) = NhAssistantAgentRunDtoMapper.SubjectOf(
+            services.GetRequiredService<NhAssistantSubjectAccessService>(),
+            thread.SubjectType,
+            thread.SubjectId);
         return new NhAssistantConversationThreadDto(
             thread.SubjectType,
             thread.SubjectId,
             thread.SubjectDisplayName,
             NhAssistantAgentRunDtoMapper.RoleName(access.Role),
-            decisions);
+            decisions)
+        {
+            SubjectTypeName = typeName,
+            SubjectLink = link
+        };
     }
 
     private static string ReasonCode(TaskResult check)

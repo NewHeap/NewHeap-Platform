@@ -15,6 +15,7 @@ import {
   AgentProposalLookup,
   AgentRunList,
   AgentRunRetryMode,
+  AgentSubjectSearch,
   AgentSubjectSummaryList,
   AgentSubjectWork,
   AgentSubjectWorkProposal,
@@ -74,6 +75,24 @@ export class NhAssistantAgentRunApiService {
     return this.transport.json<AgentSubjectSummaryList>('POST', `subjects/${encodeURIComponent(subjectType)}/summary`, {
       subjectIds
     });
+  }
+
+  /**
+   * Finds subjects of one type by name, at most `limit` (default 20, at most 50), among those the
+   * caller may read; `query` has 2 to 100 characters. Errors with `assistant-subject-search-unavailable`
+   * for a type the application does not search (people then give the subject's id), with
+   * `assistant-subject-type-unknown` for an unknown type and with `assistant-validation` for a
+   * query of the wrong length.
+   */
+  searchSubjects(subjectType: string, query: string, limit?: number): Observable<AgentSubjectSearch> {
+    const parameters = new URLSearchParams({ query });
+    if (limit !== undefined) {
+      parameters.set('limit', String(limit));
+    }
+    return this.transport.json<AgentSubjectSearch>(
+      'GET',
+      `subjects/${encodeURIComponent(subjectType)}/search?${parameters.toString()}`
+    );
   }
 
   getRuns(conversationId: string): Observable<AgentRunList> {

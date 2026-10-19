@@ -213,6 +213,11 @@ internal sealed class NhAssistantStartupValidator(
             cancellationToken);
 
         state.ValidateAgentRuns();
+        // One resolver per subject type, no type in the platform's nh- prefix, and every configured
+        // subject type with its resolver.
+        NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService.Validate(
+            provider.GetServices<INhAiSubjectAccessResolver>().ToArray(),
+            state);
         var sourceIds = provider.GetServices<INhAiContextSource>()
             .Select(source => source.Descriptor.Id)
             .ToHashSet(StringComparer.Ordinal);

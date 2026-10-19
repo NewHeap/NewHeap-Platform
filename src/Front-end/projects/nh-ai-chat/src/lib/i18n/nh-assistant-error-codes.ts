@@ -45,6 +45,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   // Agent runs
   'assistant-subject-not-found',
   'assistant-subject-type-unknown',
+  'assistant-subject-search-unavailable',
   'assistant-subject-access-denied',
   'assistant-no-accountable-owner',
   'assistant-agent-disabled',

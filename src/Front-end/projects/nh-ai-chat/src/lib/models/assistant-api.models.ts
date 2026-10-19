@@ -96,6 +96,10 @@ export interface ConversationThread {
   role: AgentSubjectRole;
   /** Each open proposal of the thread and whether the caller may decide it now, oldest first. */
   decisions: ConversationThreadDecision[];
+  /** The name of the subject type in the caller's language, when the application named it. */
+  subjectTypeName?: string | null;
+  /** Where the application shows the subject, when the type has a link template. */
+  subjectLink?: string | null;
 }
 
 /**

@@ -22,6 +22,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { Observable, Subject } from 'rxjs';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
+import { NhAssistantMockSubjects } from './nh-assistant-mock-subjects';
 import {
   NhAssistantMockApprovalStep,
   NhAssistantMockPerson,
@@ -79,6 +80,7 @@ export class NhAssistantMockBackend {
   private readonly pageContexts = new Map<string, ClientContext | null>();
   private readonly enabledState = signal(this.scenario.enabled ?? true);
   private readonly admin = new NhAssistantMockAdmin(this.scenario, () => new Date().toISOString());
+  private readonly subjects = new NhAssistantMockSubjects(this.scenario.subjectTypes);
   private readonly canAdministerState = signal(this.admin.administers);
   private readonly currentUser = this.scenario.collaboration?.currentUser ?? defaultUser;
   private readonly members = new Map<string, ConversationMember[]>();
@@ -178,10 +180,10 @@ export class NhAssistantMockBackend {
       return this.empty(404);
     }
 
-    return this.route(method, path, url.searchParams, body);
+    return this.route(method, path, url.searchParams, body, languageOf(init.headers));
   };
 
-  private route(method: string, path: string, query: URLSearchParams, body: unknown): Response {
+  private route(method: string, path: string, query: URLSearchParams, body: unknown, language: string | null = null): Response {
     const segments = path.split('/').map(segment => decodeURIComponent(segment));
 
     if (method === 'GET' && path === 'status') {
@@ -216,7 +218,14 @@ export class NhAssistantMockBackend {
       return this.error(404, 'assistant-push-unavailable');
     }
     if (segments[0] === 'admin') {
-      return this.result(this.admin.handleAdmin(method, segments, body, query));
+      const result = this.admin.handleAdmin(method, segments, body, query);
+      // The run catalog lists the subject types in the request's language, as the server does.
+      return this.result(method === 'GET' && segments.length === 2 && segments[1] === 'run-catalog' && result.status === 200
+        ? { ...result, body: { ...(result.body as object), subjectTypes: this.subjects.catalog(language) } }
+        : result);
+    }
+    if (segments[0] === 'subjects') {
+      return this.result(this.subjects.handle(method, segments, query, language) ?? { status: 404 });
     }
     if (segments[0] !== 'conversations') {
       return this.empty(404);
@@ -747,6 +756,11 @@ export class NhAssistantMockBackend {
   private empty(status: number): Response {
     return new Response(null, { status });
   }
+}
+
+function languageOf(headers: RequestInit['headers']): string | null {
+  const values = new Headers(headers ?? {});
+  return values.get('Accept-Language');
 }
 
 function delay(milliseconds: number): Promise<void> {

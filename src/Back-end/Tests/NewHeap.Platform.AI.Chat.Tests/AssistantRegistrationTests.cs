@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -93,6 +94,79 @@ public sealed class AssistantRegistrationTests
     }
 
     [Fact]
+    public async Task A_named_subject_type_starts_and_the_parameterless_registration_keeps_its_configuration()
+    {
+        await using var app = await StartAsync(builder =>
+        {
+            builder.Services.AddSingleton(new SearchableProjects());
+            AddAssistant(builder.Services, assistant => assistant
+                .AddSubjectType<SearchableProjectResolver>(type => type
+                    .Named(new() { ["en"] = "Project", ["nl"] = "Opdracht" }, fallbackLanguage: "en")
+                    .OpenAt("/projects/{id}"))
+                // Registering the same resolver again, as another composition may, is harmless.
+                .AddSubjectType<SearchableProjectResolver>()
+                .AddSubjectType<SearchableProjectResolver>(type => type
+                    .Named(new() { ["en"] = "Project", ["nl"] = "Opdracht" }, fallbackLanguage: "en")
+                    .OpenAt("/projects/{id}")));
+        });
+
+        var state = app.Services.GetRequiredService<NhAssistantRegistrationState>();
+        var options = Assert.Single(state.SubjectTypes.Values);
+        Assert.Equal("/projects/{id}", options.LinkTemplate);
+    }
+
+    [Fact]
+    public void A_resolver_cannot_be_configured_twice_differently()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            AddAssistant(new ServiceCollection(), assistant => assistant
+                .AddSubjectType<SearchableProjectResolver>(type => type.OpenAt("/projects/{id}"))
+                .AddSubjectType<SearchableProjectResolver>(type => type.OpenAt("/other/{id}"))));
+
+        Assert.Contains(nameof(SearchableProjectResolver), exception.Message);
+    }
+
+    [Fact]
+    public async Task Startup_fails_for_a_subject_type_in_the_platforms_reserved_prefix()
+    {
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync(builder =>
+            AddAssistant(builder.Services, assistant => assistant.AddSubjectType<ReservedSubjectResolver>())));
+
+        Assert.Contains("nh-system", exception.Message);
+        Assert.Contains("reserved", exception.Message);
+    }
+
+    [Fact]
+    public async Task Startup_fails_for_two_resolvers_of_one_subject_type()
+    {
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync(builder =>
+        {
+            builder.Services.AddSingleton(new SearchableProjects());
+            builder.Services.AddSingleton(new TestSubjects());
+            AddAssistant(builder.Services, assistant => assistant
+                .AddSubjectType<SearchableProjectResolver>()
+                .AddSubjectType<TestSubjectResolver>());
+        }));
+
+        Assert.Contains("'project'", exception.Message);
+        Assert.Contains(nameof(TestSubjectResolver), exception.Message);
+    }
+
+    [Fact]
+    public async Task Startup_fails_for_a_subject_type_configuration_without_its_resolver()
+    {
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync(builder =>
+        {
+            AddAssistant(builder.Services, assistant => assistant
+                .AddSubjectType<TicketResolver>(type => type.Named(new() { ["en"] = "Ticket" }, fallbackLanguage: "en")));
+            // The application removed the resolver afterwards, so the names describe nothing.
+            builder.Services.RemoveAll<INhAiSubjectAccessResolver>();
+        }));
+
+        Assert.Contains(nameof(TicketResolver), exception.Message);
+    }
+
+    [Fact]
     public async Task Options_are_bound_from_the_assistant_configuration_section()
     {
         await using var app = await StartAsync(
@@ -138,6 +212,29 @@ public sealed class AssistantRegistrationTests
                     or "InitiatorActorId" or "ApprovalPolicyId" or "AskingAgentId" or "SkillId" or "ApplicationMapHash" or "RetrievedContextHash"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
+    }
+
+    private sealed class ReservedSubjectResolver : INhAiSubjectAccessResolver
+    {
+        public string SubjectType => "nh-system";
+
+        public ValueTask<NhAiSubjectInfo?> DescribeAsync(NhAiSubjectRef subject, CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult<NhAiSubjectInfo?>(null);
+        }
+
+        public ValueTask<NhAiSubjectAccess> ResolveAsync(NhAiSubjectRef subject, string actorId, CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(NhAiSubjectAccess.None);
+        }
+
+        public async IAsyncEnumerable<NhAiSubjectMember> ListMembersAsync(
+            NhAiSubjectRef subject,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            await Task.CompletedTask;
+            yield break;
+        }
     }
 
     private static void AddAssistant(

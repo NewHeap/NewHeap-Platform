@@ -288,6 +288,23 @@ custom layouts. Opened in the panel, the thread offers its proposals to the same
 **Decided by** shows the name from the subject's member snapshot (`decidedByDisplayName`)
 and falls back to the actor id.
 
+Subjects show the name of their type (`subjectTypeName`, such as "Project") and link to where
+the application shows them (`subjectLink`, from the server's `AddSubjectType(...).OpenAt(...)`).
+A link within the application navigates through the router; an `https` link leaves it. Replace
+the server's link per subject type when the host's routes differ:
+
+```ts
+provideNhAssistant({
+  apiBaseUrl: environment.api.baseUrl + '/assistant',
+  getAccessToken: () => inject(AuthService).token(),
+  // Router commands or a URL; null shows no link, undefined keeps the server's link.
+  subjectLinks: { project: subject => ['/projects', subject.id] }
+});
+```
+
+`NhAssistantAgentRunApiService.searchSubjects(type, query, limit?)` finds the subjects of a type
+that the caller may read by name; the run catalog's `subjectTypes` say which types can be searched.
+
 With live updates the inbox, the thread view and its tabs reload by themselves when the hub
 reports `AgentWorkChanged` for work they show, debounced, and after every reconnect. The
 update names the thread, its subject (`subjectType`, `subjectId`) and whether a run, a

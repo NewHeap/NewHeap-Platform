@@ -51,7 +51,14 @@
                 [attr.aria-label]="'nh-assistant.agent-runs.inbox.select' | translate"
                 (change)="toggle(proposal)" />
             }
-            <strong>{{ proposal.subjectDisplayName ?? proposal.subjectId }}</strong>
+            <strong>
+              <nh-assistant-subject-link
+                [subjectType]="proposal.subjectType"
+                [subjectId]="proposal.subjectId"
+                [label]="proposal.subjectDisplayName ?? proposal.subjectId"
+                [typeName]="proposal.subjectTypeName"
+                [link]="proposal.subjectLink" />
+            </strong>
             <span class="muted">{{ proposal.presentation?.toolDisplayName ?? proposal.toolId }}</span>
             <span
               class="badge"

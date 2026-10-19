@@ -111,6 +111,26 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
     ],
     maxParticipants: 5
   },
+  // SPM-301: the project subject type as the API registers it: names in English and Dutch, the
+  // Project entity, the page of a project's agent work, and the projects people find by name.
+  subjectTypes: [
+    {
+      id: 'project',
+      names: { en: 'Project', nl: 'Project' },
+      // Dutch readers get the English plural: the sample keeps its Dutch texts in its translations.
+      pluralNames: { en: 'Projects' },
+      entityType: 'Project',
+      entityTypeFull: 'SampleProjectManagement.DAL.Entities.Project',
+      link: '/management/intake-reviews?project={id}',
+      subjects: [
+        { id: 'PRJ-ALPHA', displayName: 'PRJ-ALPHA — Alpha migration' },
+        { id: 'PRJ-BETA', displayName: 'PRJ-BETA — Beta onboarding' },
+        { id: 'PRJ-GAMMA', displayName: 'PRJ-GAMMA — Gamma analytics' },
+        // A project of another division: the playground user never finds it.
+        { id: 'PRJ-DELTA', displayName: 'PRJ-DELTA — Delta audit', readable: false }
+      ]
+    }
+  ],
   admin: {
     context: [
       'Sample Project Management tracks projects for divisions.',

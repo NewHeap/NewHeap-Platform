@@ -23,6 +23,7 @@ import {
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
+  ɵNhAssistantSubjectLinkComponent as NhAssistantSubjectLinkComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -48,6 +49,7 @@ export type NhAssistantAgentThreadTab = 'proposals' | 'runs' | 'consultations' |
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
+    NhAssistantSubjectLinkComponent,
     NhAssistantAgentProposalsComponent,
     NhAssistantRunTimelineComponent,
     NhAssistantAgentMemoryComponent,

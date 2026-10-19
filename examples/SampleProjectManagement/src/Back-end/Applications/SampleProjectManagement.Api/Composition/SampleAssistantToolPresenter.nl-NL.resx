@@ -44,4 +44,6 @@
   <data name="CloserAlreadyOpen" xml:space="preserve"><value>Het voorstel om het project te voltooien wacht al op een goedkeurder.</value></data>
   <data name="CloserRecentlyRejected" xml:space="preserve"><value>Een goedkeurder heeft het voltooien van het project op {0} afgewezen; voorlopig niet opnieuw voorgesteld.</value></data>
   <data name="CloserRefused" xml:space="preserve"><value>Het voltooien van het project kon niet worden voorgesteld.</value></data>
+  <data name="SubjectTypeProject" xml:space="preserve"><value>Project</value></data>
+  <data name="SubjectTypeProjects" xml:space="preserve"><value>Projecten</value></data>
 </root>

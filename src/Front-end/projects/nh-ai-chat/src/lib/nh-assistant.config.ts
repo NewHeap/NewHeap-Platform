@@ -87,7 +87,28 @@ export interface NhAssistantConfig {
    * `#nh-assistant-join=<conversationId>.<token>`; the panel joins when the page opens with it.
    */
   buildShareLink?: (conversationId: string, token: string) => string;
+  /**
+   * Replaces the server's links to subjects, which come from the link template of the subject type
+   * (`AddSubjectType(...).OpenAt("/projects/{id}")`), with the host's own routes, per subject type:
+   * for example `{ project: subject => ['/projects', subject.id] }`. Return router commands or a URL
+   * within the application, `null` to show no link, or `undefined` to keep the server's link.
+   * Runs in the assistant's injection context. Default: the server's links.
+   */
+  subjectLinks?: Record<string, NhAssistantSubjectLinkBuilder>;
 }
+
+/** A subject an agent works on, by its type and id. */
+export interface NhAssistantSubjectRef {
+  type: string;
+  id: string;
+}
+
+/**
+ * Builds the link to one subject in the host application: router commands such as
+ * `['/projects', subject.id]`, a URL such as `/projects/7`, `null` for no link, or `undefined` to keep
+ * the server's link.
+ */
+export type NhAssistantSubjectLinkBuilder = (subject: NhAssistantSubjectRef) => readonly unknown[] | string | null | undefined;
 
 export interface NhAssistantPushConfig {
   /** URL of the bundled worker, for example `/nh-assistant/nh-assistant-push-worker.js`. */

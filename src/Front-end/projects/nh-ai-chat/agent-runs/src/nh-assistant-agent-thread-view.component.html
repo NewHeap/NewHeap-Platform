@@ -1,7 +1,18 @@
 <section class="section" aria-labelledby="nh-assistant-agent-thread-title" [attr.aria-busy]="loading()">
   <header class="section-header">
     <div>
-      <h3 id="nh-assistant-agent-thread-title">{{ thread()?.subjectDisplayName ?? ('nh-assistant.agent-runs.thread.title' | translate) }}</h3>
+      <h3 id="nh-assistant-agent-thread-title">
+        @if (thread(); as current) {
+          <nh-assistant-subject-link
+            [subjectType]="current.subjectType"
+            [subjectId]="current.subjectId"
+            [label]="current.subjectDisplayName ?? ('nh-assistant.agent-runs.thread.title' | translate)"
+            [typeName]="current.subjectTypeName"
+            [link]="current.subjectLink" />
+        } @else {
+          {{ 'nh-assistant.agent-runs.thread.title' | translate }}
+        }
+      </h3>
       <p class="muted">
         {{ 'nh-assistant.agent-runs.role.' + role() | translate }}
         @if (thread()?.activeRun; as activeRun) {

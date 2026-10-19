@@ -26,6 +26,7 @@ import {
   NhAssistantProposalFeedbackComponent,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantSubjectLinkComponent as NhAssistantSubjectLinkComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -58,7 +59,14 @@ interface NhAssistantFeedbackRequest {
 @Component({
   selector: 'nh-assistant-agent-proposals',
   standalone: true,
-  imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantProposalFeedbackComponent],
+  imports: [
+    DatePipe,
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantSubjectLinkComponent,
+    NhAssistantProposalFeedbackComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-proposals.component.html',
   styleUrl: './nh-assistant-agent-runs.scss'

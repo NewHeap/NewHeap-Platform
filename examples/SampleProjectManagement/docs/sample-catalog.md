@@ -64,6 +64,15 @@ approver on the project members page, approves the proposal of a project the man
 created, while the manager reads that another approver decides. The panel reaches the
 live hub over WebSockets because the portal passes its active division as `divisionId`
 through `NhAssistantConfig.getHubQueryParameters`.
+
+The project subject type describes itself where it is registered (SPM-301):
+`AddSubjectType<ProjectSubjectAccessResolver>(type => ...)` names it in English and Dutch from
+the application's own resources, binds it to the `Project` entity and links a project to
+`/management/intake-reviews?project={id}`, which selects that project on the intake reviews page.
+The same resolver implements `INhAiSubjectSearch` and finds the projects a person owns or is a
+member of by key or name, with one provider-neutral query; the assistant keeps only results the
+resolver lets the person read. The inbox, the proposals and the thread view show "Project" next to
+the project's name and link it, and the run catalog lists the type for the administration.
 The project assistant can consult the intake reviewer (SPM-278): the reviewer allows
 consultation about projects with `AllowConsultation`, and the project assistant selects
 the generated `assistant.consult.*` and `assistant.request.*` tools, which the sample's

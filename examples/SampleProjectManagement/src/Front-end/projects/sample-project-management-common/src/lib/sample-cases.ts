@@ -4554,5 +4554,32 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-picker.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
     ]
+  },
+  {
+    "id": "SPM-301",
+    "title": "The project object type is named in English and Dutch, bound to the Project entity, searched by name and linked to its page",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantBuilder.AddSubjectType<TResolver>(configure) with NhAssistantSubjectTypeBuilder.Named, NamedPlural, ForEntity and OpenAt; INhAiSubjectSearch with NhAiSubjectSearchRequest on the resolver; NhAiSubjectRef.ReservedTypePrefix and IsReservedType; SubjectTypes on NhAssistantRunCatalogDto with NhAssistantSubjectTypeDto; GET subjects/{type}/search with NhAssistantSubjectSearchDto, NhAssistantSubjectSearchResultDto and assistant-subject-search-unavailable; SubjectTypeName and SubjectLink on NhAssistantThreadDto, NhAssistantProposalDto, NhAssistantSubjectWorkDto and NhAssistantConversationThreadDto; NhAssistantAgentRunApiService.searchSubjects with AgentSubjectSearch, AgentSubjectType and NH_ASSISTANT_SUBJECT_SEARCH; NhAssistantConfig.subjectLinks with NhAssistantSubjectLinkBuilder and NhAssistantSubjectRef; the subject names and links of nh-assistant-agent-inbox, nh-assistant-agent-proposals and nh-assistant-agent-thread-view; the internal subject picker; subjectTypes of the mock scenario",
+    "outcome": "The project subject type is named in English and Dutch from the application's resources, with a plural, stands for the Project entity and opens a project's agent work on the portal's intake reviews page. The run catalog lists it in the reader's language. A project member finds the projects they own or are a member of by key or name in any case, on PostgreSQL and with the same translated query on SQL Server, each with its link; an outsider finds none, and a query of one character is refused. The inbox, the thread and the work on a project name the type and link to the project; following the link selects the project on the intake reviews page. Startup refuses a subject type in the platform's nh- prefix, two resolvers of one type and a configuration without its resolver.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjectSearchService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSubjectTypeTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRegistrationTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-subject-link.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-subject-picker.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-subject-picker.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/subject-links.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-subjects.ts"
+    ]
   }
 ] as const;

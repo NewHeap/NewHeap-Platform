@@ -110,7 +110,19 @@ public sealed record NhAssistantConversationThreadDto(
     string SubjectId,
     string? SubjectDisplayName,
     string Role,
-    IReadOnlyList<NhAssistantThreadDecisionDto> Decisions);
+    IReadOnlyList<NhAssistantThreadDecisionDto> Decisions)
+{
+    /// <summary>
+    /// The name of the subject type in the caller's language, when the application named the type;
+    /// <see langword="null"/> otherwise.
+    /// </summary>
+    public string? SubjectTypeName { get; init; }
+
+    /// <summary>
+    /// Where the application shows the subject; <see langword="null"/> without a link template.
+    /// </summary>
+    public string? SubjectLink { get; init; }
+}
 
 /// <summary>
 /// The caller's right to decide one pending proposal of an agent thread, checked against the

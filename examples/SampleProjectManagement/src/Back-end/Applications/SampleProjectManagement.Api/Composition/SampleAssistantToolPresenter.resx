@@ -44,4 +44,6 @@
   <data name="CloserAlreadyOpen" xml:space="preserve"><value>The proposal to complete the project already waits for an approver.</value></data>
   <data name="CloserRecentlyRejected" xml:space="preserve"><value>An approver rejected completing the project on {0}; not proposed again for now.</value></data>
   <data name="CloserRefused" xml:space="preserve"><value>Completing the project could not be proposed.</value></data>
+  <data name="SubjectTypeProject" xml:space="preserve"><value>Project</value></data>
+  <data name="SubjectTypeProjects" xml:space="preserve"><value>Projects</value></data>
 </root>

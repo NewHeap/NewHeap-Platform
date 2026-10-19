@@ -13,11 +13,14 @@ namespace NewHeap.Platform.AI.Chat.Runs;
 internal sealed class NhAssistantSubjectAccessService(
     IEnumerable<INhAiSubjectAccessResolver> resolvers,
     NhAssistantRunStore runs,
+    NhAssistantRegistrationState registration,
     ILogger<NhAssistantSubjectAccessService> logger) : INhAiSubjectAccess
 {
     private readonly IReadOnlyDictionary<string, INhAiSubjectAccessResolver> _resolvers = resolvers
         .GroupBy(resolver => resolver.SubjectType, StringComparer.Ordinal)
         .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+
+    private IReadOnlyDictionary<string, NhAssistantSubjectType>? _types;
 
     public IReadOnlyCollection<string> SubjectTypes => _resolvers.Keys.ToArray();
 
@@ -25,6 +28,83 @@ internal sealed class NhAssistantSubjectAccessService(
     {
         return _resolvers.ContainsKey(subjectType);
     }
+
+    /// <summary>
+    /// The registered subject types with how people see them, ordered by id.
+    /// </summary>
+    public IReadOnlyList<NhAssistantSubjectType> Types => TypeMap.Values.OrderBy(type => type.Id, StringComparer.Ordinal).ToArray();
+
+    /// <summary>
+    /// The registered subject type, or <see langword="null"/> for an unknown one.
+    /// </summary>
+    public NhAssistantSubjectType? FindType(string subjectType)
+    {
+        return TypeMap.GetValueOrDefault(subjectType);
+    }
+
+    /// <summary>
+    /// The search of a subject type, when its resolver implements <see cref="INhAiSubjectSearch"/>.
+    /// </summary>
+    public INhAiSubjectSearch? FindSearch(string subjectType)
+    {
+        return _resolvers.GetValueOrDefault(subjectType) as INhAiSubjectSearch;
+    }
+
+    /// <summary>
+    /// Fails when the subject types do not fit together: a resolver with an invalid or reserved
+    /// type, two resolvers of one type, or a configuration whose resolver is not registered.
+    /// </summary>
+    public static void Validate(
+        IReadOnlyCollection<INhAiSubjectAccessResolver> registered,
+        NhAssistantRegistrationState registrationState)
+    {
+        ArgumentNullException.ThrowIfNull(registered);
+        ArgumentNullException.ThrowIfNull(registrationState);
+        foreach (var resolver in registered)
+        {
+            var type = resolver.SubjectType;
+            if (!NhAiSubjectRef.IsValidType(type))
+            {
+                throw new InvalidOperationException(
+                    $"The subject access resolver {resolver.GetType().Name} handles '{type}', which is not a dash-case subject type of at most {NhAiSubjectRef.MaxTypeLength} characters.");
+            }
+            if (NhAiSubjectRef.IsReservedType(type))
+            {
+                throw new InvalidOperationException(
+                    $"The subject access resolver {resolver.GetType().Name} handles '{type}'; subject types starting with '{NhAiSubjectRef.ReservedTypePrefix}' are reserved for the platform. Rename the type.");
+            }
+        }
+
+        foreach (var group in registered.GroupBy(resolver => resolver.SubjectType, StringComparer.Ordinal))
+        {
+            var classes = group.Select(resolver => resolver.GetType()).Distinct().ToArray();
+            if (classes.Length > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Subject type '{group.Key}' has more than one access resolver: {string.Join(", ", classes.Select(item => item.Name))}. Register one resolver per subject type.");
+            }
+        }
+
+        var registeredClasses = registered.Select(resolver => resolver.GetType()).ToHashSet();
+        foreach (var options in registrationState.SubjectTypes.Values.Where(options => options.IsConfigured))
+        {
+            if (!registeredClasses.Contains(options.ResolverType))
+            {
+                throw new InvalidOperationException(
+                    $"The subject type of {options.ResolverType.Name} is configured, but {options.ResolverType.Name} is not registered as a subject access resolver.");
+            }
+        }
+    }
+
+    private IReadOnlyDictionary<string, NhAssistantSubjectType> TypeMap => _types ??= _resolvers
+        .ToDictionary(
+            entry => entry.Key,
+            entry => new NhAssistantSubjectType(
+                entry.Key,
+                entry.Value.GetType(),
+                registration.SubjectTypes.GetValueOrDefault(entry.Value.GetType()),
+                entry.Value is INhAiSubjectSearch),
+            StringComparer.Ordinal);
 
     public async ValueTask<NhAiSubjectInfo?> DescribeAsync(
         NhAiSubjectRef subject,

@@ -114,3 +114,56 @@ Dutch, including `assistant-account-search-unavailable`.
 | The run configuration's markup changed: selects became pickers and the forms moved into child components. | Update tests and styles that target the old selects or element ids of the run configuration. |
 | `NhAssistantAdminAgentEditorComponent` emits the new `workRequested` instead of `saved` for a new agent that works on its own. | Handle `workRequested` when you host the editor yourself; `NhAssistantAdminAgentsComponent` does. |
 | The texts `nh-assistant.admin.keep` and `nh-assistant.admin.agents.state.reason-label` were removed; confirmations use `nh-assistant.admin.cancel` and changes `nh-assistant.admin.agents.state.note-label`. | Move host overrides of the removed texts to the new keys. |
+
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: object types with names, entity binding, search and links
+
+A subject type describes itself for people where it is registered:
+`AddSubjectType<TResolver>(type => type.Named(new() { ["en"] = "Project", ["nl"] = "Project" },
+fallbackLanguage: "en").NamedPlural(...).ForEntity<Project>().OpenAt("/projects/{id}"))`
+(`NhAssistantSubjectTypeBuilder`). Names are texts per culture name of at most 100 characters with
+one in the fallback language; readers get them in their request language. `ForEntity<T>()` records the
+entity's short and full type name like the NewHeap log's `ObjectType` and `ObjectTypeFull`. `OpenAt`
+takes a path in the application or an absolute `https` URL with exactly one `{id}`, which the subject
+id fills URL-encoded. The parameterless `AddSubjectType<TResolver>()` keeps working.
+
+A resolver that also implements the new `INhAiSubjectSearch` (`SearchAsync(NhAiSubjectSearchRequest)`)
+lets people find subjects by name with `GET subjects/{type}/search?query=&limit=` (2 to 100
+characters, at most 50 results, `NhAssistantSubjectSearchDto`): the platform keeps the results whose
+`ResolveAsync` gives the caller at least the reader role in the caller's tenant. A type without search
+answers `404 assistant-subject-search-unavailable`. The run catalog lists the types as `SubjectTypes`
+(`NhAssistantSubjectTypeDto`), and `NhAssistantThreadDto`, `NhAssistantProposalDto` (threads, inbox,
+lookups), `NhAssistantSubjectWorkDto` and `NhAssistantConversationThreadDto` gain `SubjectTypeName`
+and `SubjectLink`.
+
+Subject types that start with `nh-` are reserved for the platform (`NhAiSubjectRef.ReservedTypePrefix`,
+`IsReservedType`). No migration is needed.
+
+| Breaking change | Required action |
+|---|---|
+| Startup fails for a subject type that starts with `nh-`. | Rename the type; threads stored under the old type are not moved. |
+| Startup fails when two different resolver classes handle the same subject type; previously the last registration won silently. | Register one resolver per subject type. |
+| Startup fails for a subject type configuration whose resolver is no longer registered as `INhAiSubjectAccessResolver`. | Keep the resolver registered or drop the configuration. |
+
+## @newheap/platform-ai-chat: object types with names, search and links
+
+Agent proposals in `nh-assistant-agent-inbox` and `nh-assistant-agent-proposals`, and the heading of
+`nh-assistant-agent-thread-view`, show the subject's type name (`subjectTypeName`, such as "Project")
+and link the subject's name to `subjectLink`, the server's link from the type's `OpenAt` template. A
+link within the application navigates through the router; an `https` link leaves it; anything else
+shows no link. A host whose routes differ replaces the link per subject type with
+`provideNhAssistant({ subjectLinks: { project: subject => ['/projects', subject.id] } })`
+(`NhAssistantSubjectLinkBuilder`, `NhAssistantSubjectRef`); `null` hides it and `undefined` keeps the
+server's link.
+
+`NhAssistantAgentRunApiService.searchSubjects(type, query, limit?)` finds the subjects of one type
+that the caller may read (`AgentSubjectSearch`, `AgentSubjectSearchResult`,
+`NH_ASSISTANT_SUBJECT_SEARCH`). `RunCatalog` gains `subjectTypes` (`AgentSubjectType`), and
+`AgentThread`, `AgentProposal`, `AgentSubjectWork` and `ConversationThread` gain the optional
+`subjectTypeName` and `subjectLink`. The mock API of `@newheap/platform-ai-chat/testing` serves them
+from the scenario's new `subjectTypes` (`NhAssistantMockSubjectType`, `NhAssistantMockSubject`) with
+the server's validation. The new texts, including `assistant-subject-search-unavailable`, are bundled
+in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| A proposal card's subject and the thread view's heading render through a link component and may contain a link. | Update tests and styles that read the plain `strong` text or the heading text of these components. |

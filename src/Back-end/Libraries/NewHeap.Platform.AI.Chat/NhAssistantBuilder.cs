@@ -270,11 +270,32 @@ public sealed class NhAssistantBuilder
 
     /// <summary>
     /// Registers the access resolver of one subject type. Agent threads of that type follow the
-    /// resolver: it decides who sees a thread, who types in it and who decides its proposals.
+    /// resolver: it decides who sees a thread, who types in it and who decides its proposals. People
+    /// see the type id; the overload with a configuration names the type and links to its subjects.
     /// </summary>
     public NhAssistantBuilder AddSubjectType<TResolver>()
         where TResolver : class, INhAiSubjectAccessResolver
     {
+        _state.AddSubjectType(new NhAssistantSubjectTypeOptions(typeof(TResolver)));
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAiSubjectAccessResolver, TResolver>());
+        return this;
+    }
+
+    /// <summary>
+    /// Registers the access resolver of one subject type and describes the type for people: its
+    /// name per language, the entity it stands for and where the application shows one subject. A
+    /// resolver that also implements <see cref="INhAiSubjectSearch"/> lets people find subjects by
+    /// name. Startup fails for a type starting with <c>nh-</c>, which the platform reserves, and for
+    /// two resolvers of the same type.
+    /// </summary>
+    public NhAssistantBuilder AddSubjectType<TResolver>(Action<NhAssistantSubjectTypeBuilder> configure)
+        where TResolver : class, INhAiSubjectAccessResolver
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var options = new NhAssistantSubjectTypeOptions(typeof(TResolver));
+        configure(new NhAssistantSubjectTypeBuilder(options));
+        options.Validate();
+        _state.AddSubjectType(options);
         Services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAiSubjectAccessResolver, TResolver>());
         return this;
     }
@@ -527,6 +548,7 @@ internal sealed class NhAssistantRegistrationState
     private readonly Dictionary<string, NhAssistantTriggerEventDefinition> _triggerEvents = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantSubjectSetDefinition> _subjectSets = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantRuleHandlerDefinition> _ruleHandlers = new(StringComparer.Ordinal);
+    private readonly Dictionary<Type, NhAssistantSubjectTypeOptions> _subjectTypes = [];
     private NhAssistantRunSnapshot? _snapshot;
     private readonly List<Runs.NhAssistantProposalGuardRegistration> _proposalGuards = [];
     private readonly List<NhAssistantRevalidationDefinition> _revalidations = [];
@@ -581,6 +603,32 @@ internal sealed class NhAssistantRegistrationState
     public IReadOnlyDictionary<string, NhAssistantSubjectSetDefinition> SubjectSets => _subjectSets;
 
     public IReadOnlyDictionary<string, NhAssistantRuleHandlerDefinition> RuleHandlers => _ruleHandlers;
+
+    /// <summary>
+    /// The subject type configurations by resolver class, as <c>AddSubjectType</c> registered them.
+    /// </summary>
+    public IReadOnlyDictionary<Type, NhAssistantSubjectTypeOptions> SubjectTypes => _subjectTypes;
+
+    /// <summary>
+    /// Records the configuration of a resolver class. A repeated registration without configuration
+    /// keeps the configuration; two different configurations of one resolver are refused.
+    /// </summary>
+    public void AddSubjectType(NhAssistantSubjectTypeOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!_subjectTypes.TryGetValue(options.ResolverType, out var existing) || !existing.IsConfigured)
+        {
+            _subjectTypes[options.ResolverType] = options;
+            return;
+        }
+        if (!options.IsConfigured || existing.IsEquivalentTo(options))
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"The subject type of {options.ResolverType.Name} is already configured differently.");
+    }
 
     /// <summary>
     /// Puts a snapshot of code and data into effect for every reader at once.

@@ -83,6 +83,7 @@ internal sealed class NhAssistantProposalReads(
                 })
                 .ToArray(),
             runs,
+            subjects,
             cancellationToken);
 
         var described = new Dictionary<NhAiSubjectRef, NhAssistantResolvedSubject>();

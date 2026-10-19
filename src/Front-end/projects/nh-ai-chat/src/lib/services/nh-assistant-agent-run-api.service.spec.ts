@@ -72,6 +72,8 @@ describe('NhAssistantAgentRunApiService', () => {
       [() => firstValueFrom(api.getSubjectWork('project', 'p 1')), 'GET', 'subjects/project/p%201/work'],
       [() => firstValueFrom(api.getSubjectWork('project', 'p-1', 'intake')), 'GET', 'subjects/project/p-1/work?agentId=intake'],
       [() => firstValueFrom(api.summarizeSubjects('project', ['p-1', 'p-2'])), 'POST', 'subjects/project/summary'],
+      [() => firstValueFrom(api.searchSubjects('project', 'alpha one')), 'GET', 'subjects/project/search?query=alpha+one'],
+      [() => firstValueFrom(api.searchSubjects('project', 'a&b', 5)), 'GET', 'subjects/project/search?query=a%26b&limit=5'],
       [() => firstValueFrom(api.getRuns('thread-1')), 'GET', 'threads/thread-1/runs'],
       [() => firstValueFrom(api.getProposals('thread-1')), 'GET', 'threads/thread-1/proposals'],
       [() => firstValueFrom(api.getProposal('approval 1')), 'GET', 'approvals/approval%201'],

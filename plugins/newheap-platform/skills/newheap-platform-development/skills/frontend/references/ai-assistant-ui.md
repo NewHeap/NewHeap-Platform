@@ -181,6 +181,21 @@ collapsed technical details. In the conversation, the tool-call card marks resul
 obtained with its own grant with a badge and shows them as restricted, without content,
 to people without the tool's policy.
 
+Subjects read by the name of their type and link to where the application shows them. The
+inbox, the proposal cards and the thread view's heading show `subjectTypeName`, such as
+"Project", next to the subject's name and link the name to `subjectLink`, which the server
+builds from the type's `OpenAt` template. A link within the application navigates through the
+router, an `https` link leaves it, a modified click keeps the browser's behavior and anything
+else shows the name without a link. Prefer the server's link, so every screen and later e-mail
+use the same address; a host whose routes differ replaces it per subject type with
+`provideNhAssistant({ subjectLinks: { project: subject => ['/projects', subject.id] } })`, where
+`null` shows no link and `undefined` keeps the server's. `NhAssistantAgentRunApiService.searchSubjects`
+finds the subjects of one type that the caller may read by name (`AgentSubjectSearch`, 2 to 100
+characters, at most 50 results); the run catalog lists the types as `subjectTypes`
+(`AgentSubjectType`) with `searchable`, and a type without search is chosen by id, with the name
+the server gives that subject. The mock scenario's `subjectTypes` (`NhAssistantMockSubjectType`)
+serve the catalog, the search with the server's validation and a subject's name by id.
+
 The panel opens an agent thread like any conversation (`kind: 'thread'`), but there the
 subject's approvers decide the agent's proposals, not the author of a turn, and several
 deferred proposals can wait while the thread is idle. The server returns
@@ -374,6 +389,8 @@ the administration route under the same parent to share that scope.
   report.
 - Requesting agent work once per list row, or importing the `agent-runs` entry point into an
   eagerly loaded page.
+- Building subject links or subject type names in each screen; let the server's type
+  registration name and link them, and override only routes that differ with `subjectLinks`.
 
 ## Verification
 
@@ -442,8 +459,13 @@ conversation from it (SPM-280). In the assistant playground's administration, op
 project planner's run configuration, add a skill by the progress-note rules and see it in
 shadow next to the skills in code (SPM-295). In the portal's real assistant administration, sign in
 as the project lead and open the project starter's run configuration: the account by name, the
-policy explained, the kickoff skill and its live trigger (SPM-298). SPM-248, SPM-253, SPM-265,
-SPM-277, SPM-279, SPM-280, SPM-295 and SPM-298 are the executable references.
+policy explained, the kickoff skill and its live trigger (SPM-298). The subject tests name the
+type and open the server's link through the router, keep a modified click for the browser, apply a
+host's `subjectLinks` override, refuse links that are neither in the application nor `https`, and
+search a type's readable subjects by name or name a subject given by id through the mock API. In the
+portal, follow a project's link in the intake reviews inbox and see that project selected (SPM-301).
+SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298 and SPM-301 are the executable
+references.
 
 ## Optional source evidence
 
