@@ -49,6 +49,10 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantMcpConnection> McpConnections => Set<AssistantMcpConnection>();
 
+    public DbSet<AssistantMcpAuthorizationFlow> McpAuthorizationFlows => Set<AssistantMcpAuthorizationFlow>();
+
+    public DbSet<AssistantMcpClientRegistration> McpClientRegistrations => Set<AssistantMcpClientRegistration>();
+
     public DbSet<AssistantUserPreference> UserPreferences => Set<AssistantUserPreference>();
 
     public DbSet<AssistantConversationParticipant> Participants => Set<AssistantConversationParticipant>();
@@ -538,6 +542,18 @@ public sealed class NhAssistantDbContext : DbContext
                 .HasDefaultValue(NhAssistantMcpHeadlessUses.Never);
             server.Property(item => item.LastSyncStatus).HasMaxLength(16);
             server.Property(item => item.LastConnectCode).HasMaxLength(64);
+            server.Property(item => item.ConnectionScope)
+                .HasMaxLength(16)
+                .IsRequired()
+                .HasDefaultValue(NhAssistantMcpConnectionScopes.Organization);
+            server.Property(item => item.ResourceUri).HasMaxLength(2_048);
+            server.Property(item => item.AuthorizationServerIssuer).HasMaxLength(2_048);
+            server.Property(item => item.OAuthScopes).HasMaxLength(1_024);
+            server.Property(item => item.OAuthClientId).HasMaxLength(512);
+            server.Property(item => item.ProtectedOAuthClientSecret).HasMaxLength(4_000);
+            server.Property(item => item.OAuthClientSecretReference).HasMaxLength(NhAssistantMcpSecretReferences.MaxLength);
+            server.Property(item => item.OrganizationAccountLabel).HasMaxLength(200);
+            server.Property(item => item.AuthorizationConfirmedBy).HasMaxLength(128);
             server.HasMany(item => item.Tools)
                 .WithOne()
                 .HasForeignKey(item => item.ServerId)
@@ -659,10 +675,65 @@ public sealed class NhAssistantDbContext : DbContext
             connection.Property(item => item.OwnerActorId).HasMaxLength(128).IsRequired();
             connection.Property(item => item.TenantKey).HasMaxLength(128).IsRequired();
             connection.Property(item => item.ConsentHash).HasMaxLength(64);
+            connection.Property(item => item.Status).HasMaxLength(32);
+            connection.Property(item => item.Issuer).HasMaxLength(2_048);
+            connection.Property(item => item.ClientId).HasMaxLength(512);
+            connection.Property(item => item.Resource).HasMaxLength(2_048);
+            connection.Property(item => item.GrantedScopes).HasMaxLength(1_024);
+            connection.Property(item => item.RequiredScopes).HasMaxLength(1_024);
+            connection.Property(item => item.ConnectedBy).HasMaxLength(128);
+            connection.Property(item => item.LastFailureCode).HasMaxLength(64);
+            connection.Property(item => item.RefreshLeaseOwner).HasMaxLength(64);
             connection.Property(item => item.Version).IsConcurrencyToken();
             connection.HasIndex(item => new { item.ServerId, item.OwnerKind, item.OwnerActorId, item.TenantKey }).IsUnique();
             connection.HasIndex(item => new { item.OwnerActorId, item.OwnerKind });
             connection.HasOne<AssistantMcpServer>()
+                .WithMany()
+                .HasForeignKey(item => item.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantMcpAuthorizationFlow>(flow =>
+        {
+            flow.ToTable("AssistantMcpAuthorizationFlow");
+            flow.HasKey(item => item.Id);
+            flow.Property(item => item.ServerId).HasMaxLength(40).IsRequired();
+            flow.Property(item => item.OwnerKind).HasMaxLength(16).IsRequired();
+            flow.Property(item => item.OwnerActorId).HasMaxLength(128).IsRequired();
+            flow.Property(item => item.TenantKey).HasMaxLength(128).IsRequired();
+            flow.Property(item => item.StartedBy).HasMaxLength(128).IsRequired();
+            flow.Property(item => item.StateHash).HasMaxLength(64).IsRequired();
+            flow.Property(item => item.ProtectedCodeVerifier).IsRequired();
+            flow.Property(item => item.Issuer).HasMaxLength(2_048).IsRequired();
+            flow.Property(item => item.Resource).HasMaxLength(2_048).IsRequired();
+            flow.Property(item => item.ClientId).HasMaxLength(2_048).IsRequired();
+            flow.Property(item => item.RedirectUri).HasMaxLength(2_048).IsRequired();
+            flow.Property(item => item.RequestedScopes).HasMaxLength(1_024);
+            flow.Property(item => item.ReturnUrl).HasMaxLength(2_048);
+            flow.Property(item => item.CompletionCodeHash).HasMaxLength(64);
+            flow.Property(item => item.Status).HasMaxLength(16).IsRequired();
+            flow.Property(item => item.FailureCode).HasMaxLength(64);
+            flow.Property(item => item.Version).IsConcurrencyToken();
+            flow.HasIndex(item => item.StateHash).IsUnique();
+            flow.HasIndex(item => new { item.StartedBy, item.Status });
+            flow.HasIndex(item => item.ExpiresAt);
+            flow.HasOne<AssistantMcpServer>()
+                .WithMany()
+                .HasForeignKey(item => item.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantMcpClientRegistration>(registration =>
+        {
+            registration.ToTable("AssistantMcpClientRegistration");
+            registration.HasKey(item => new { item.ServerId, item.IssuerHash });
+            registration.Property(item => item.ServerId).HasMaxLength(40);
+            registration.Property(item => item.IssuerHash).HasMaxLength(64);
+            registration.Property(item => item.Issuer).HasMaxLength(2_048).IsRequired();
+            registration.Property(item => item.Method).HasMaxLength(16).IsRequired();
+            registration.Property(item => item.ClientId).HasMaxLength(2_048).IsRequired();
+            registration.Property(item => item.TokenEndpointAuthMethod).HasMaxLength(32).IsRequired();
+            registration.HasOne<AssistantMcpServer>()
                 .WithMany()
                 .HasForeignKey(item => item.ServerId)
                 .OnDelete(DeleteBehavior.Cascade);

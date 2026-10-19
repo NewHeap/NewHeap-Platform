@@ -53,7 +53,7 @@
       [value]="url()"
       [attr.aria-describedby]="id + '-url-hint'"
       [attr.aria-invalid]="submitted() && urlInvalid() ? true : null"
-      (input)="url.set(value($event))" />
+      (input)="onUrlInput($event)" />
     <p class="hint" [id]="id + '-url-hint'">
       <span [class.error-text]="submitted() && urlInvalid()">
         {{ (submitted() && urlInvalid() ? 'nh-assistant.admin.server-editor.url-invalid' : 'nh-assistant.admin.server-editor.url-hint') | translate }}
@@ -109,6 +109,173 @@
 
   @if (authMode() === 'forward-user-token') {
     <p class="message warning" role="note"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.server-editor.forward-warning' | translate }}</p>
+  }
+
+  @if (isOAuth()) {
+    <fieldset class="field">
+      <legend>OAuth</legend>
+
+      @if (authMode() === 'oauth') {
+        <div class="inline" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.server-editor.connection-scope' | translate" [attr.aria-describedby]="id + '-scope-hint'">
+          @for (scope of connectionScopes; track scope) {
+            <label class="check">
+              <input
+                type="radio"
+                [name]="id + '-connection-scope'"
+                [value]="scope"
+                [checked]="connectionScope() === scope"
+                (change)="connectionScope.set(scope)" />
+              <span>{{ 'nh-assistant.admin.mcp.connection-scope.' + scope | translate }}</span>
+            </label>
+          }
+        </div>
+        <p class="hint" [id]="id + '-scope-hint'">{{ 'nh-assistant.admin.server-editor.connection-scope-hint' | translate }}</p>
+      }
+
+      @if (isOrganizationOAuth()) {
+        <p class="message warning" role="note"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.server-editor.oauth-warning' | translate }}</p>
+        <label [for]="id + '-account-label'">{{ 'nh-assistant.admin.server-editor.organization-account-label' | translate }}</label>
+        <input
+          type="text"
+          [id]="id + '-account-label'"
+          [value]="organizationAccountLabel()"
+          [attr.aria-describedby]="id + '-account-label-hint'"
+          [attr.aria-invalid]="submitted() && labelMissing() ? true : null"
+          (input)="organizationAccountLabel.set(value($event))" />
+        <p class="hint" [id]="id + '-account-label-hint'">
+          <span [class.error-text]="submitted() && labelMissing()">
+            {{ (submitted() && labelMissing() ? 'nh-assistant.admin.server-editor.organization-account-label-required' : 'nh-assistant.admin.server-editor.organization-account-label-hint') | translate }}
+          </span>
+        </p>
+      }
+
+      <div class="meta">
+        @if (server()?.authorization; as confirmed) {
+          @if (!needsConfirmation()) {
+            <span class="badge success">{{ 'nh-assistant.admin.server-editor.confirmed-authorization' | translate: { issuer: confirmed.issuer } }}</span>
+          }
+        }
+        <button class="secondary" type="button" [disabled]="discovering() || urlInvalid()" (click)="discover()">
+          <nh-assistant-icon name="link" />{{ (discovering() ? 'nh-assistant.admin.server-editor.discovering' : 'nh-assistant.admin.server-editor.discover') | translate }}
+        </button>
+      </div>
+      @if (discoveryError(); as failure) {
+        <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ discoveryErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+      }
+      @if (discovery(); as found) {
+        <div class="discovery" role="group" [attr.aria-label]="'nh-assistant.admin.server-editor.discovery-title' | translate">
+          <dl>
+            <dt>{{ 'nh-assistant.admin.server-editor.discovery-issuer' | translate }}</dt>
+            <dd class="mono">{{ found.issuer }}</dd>
+            <dt>{{ 'nh-assistant.admin.server-editor.discovery-resource' | translate }}</dt>
+            <dd class="mono">{{ found.resource }}</dd>
+            @if (found.scopesSupported.length > 0) {
+              <dt>{{ 'nh-assistant.admin.server-editor.discovery-scopes' | translate }}</dt>
+              <dd class="mono">{{ found.scopesSupported.join(' ') }}</dd>
+            }
+            @if (authMode() === 'oauth' && registration(); as kind) {
+              <dt>{{ 'nh-assistant.admin.server-editor.discovery-registration' | translate }}</dt>
+              <dd>{{ 'nh-assistant.admin.server-editor.registration-' + kind | translate }}</dd>
+            }
+          </dl>
+          @if (pkceMissing()) {
+            <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.server-editor.pkce-missing' | translate }}</p>
+          } @else {
+            <label class="check">
+              <input type="checkbox" [checked]="confirmAuthorization()" [attr.aria-describedby]="id + '-confirm-hint'" (change)="confirmAuthorization.set(checked($event))" />
+              <span>{{ 'nh-assistant.admin.server-editor.confirm-authorization' | translate }}</span>
+            </label>
+            <p class="hint" [id]="id + '-confirm-hint'">{{ 'nh-assistant.admin.server-editor.confirm-authorization-hint' | translate }}</p>
+          }
+        </div>
+      }
+      @if (submitted() && confirmMissing()) {
+        <p class="hint"><span class="error-text">{{ 'nh-assistant.admin.server-editor.confirm-required' | translate }}</span></p>
+      }
+
+      <label [for]="id + '-scopes'">{{ 'nh-assistant.admin.server-editor.scopes' | translate }}</label>
+      <input
+        type="text"
+        class="mono"
+        spellcheck="false"
+        [id]="id + '-scopes'"
+        [value]="oauthScopes()"
+        [attr.aria-describedby]="id + '-scopes-hint'"
+        [attr.aria-invalid]="submitted() && scopesInvalid() ? true : null"
+        (input)="oauthScopes.set(value($event))" />
+      <p class="hint" [id]="id + '-scopes-hint'">
+        <span [class.error-text]="submitted() && scopesInvalid()">
+          {{ (submitted() && scopesInvalid() ? 'nh-assistant.admin.server-editor.scopes-invalid' : 'nh-assistant.admin.server-editor.scopes-hint') | translate }}
+        </span>
+      </p>
+
+      <label [for]="id + '-client-id'">{{ 'nh-assistant.admin.server-editor.client-id' | translate }}</label>
+      <input
+        type="text"
+        class="mono"
+        spellcheck="false"
+        [id]="id + '-client-id'"
+        [value]="oauthClientId()"
+        [attr.aria-describedby]="id + '-client-id-hint'"
+        [attr.aria-invalid]="submitted() && clientIdMissing() ? true : null"
+        (input)="oauthClientId.set(value($event))" />
+      <p class="hint" [id]="id + '-client-id-hint'">
+        <span [class.error-text]="submitted() && clientIdMissing()">
+          {{ (submitted() && clientIdMissing() ? 'nh-assistant.admin.server-editor.client-id-required' : 'nh-assistant.admin.server-editor.client-id-hint') | translate }}
+        </span>
+      </p>
+
+      @if (oauthClientId().trim().length > 0) {
+        <div class="inline" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.server-editor.client-secret' | translate">
+          @for (source of secretSources; track source) {
+            <label class="check">
+              <input
+                type="radio"
+                [name]="id + '-oauth-secret-source'"
+                [value]="source"
+                [checked]="oauthSecretSource() === source"
+                (change)="setOAuthSecretSource(source)" />
+              <span>{{ 'nh-assistant.admin.server-editor.secret-source-' + source | translate }}</span>
+            </label>
+          }
+        </div>
+        @if (usesOAuthReference()) {
+          <label [for]="id + '-oauth-reference'">{{ 'nh-assistant.admin.server-editor.client-secret-reference' | translate }}</label>
+          <input
+            type="text"
+            class="mono"
+            spellcheck="false"
+            placeholder="config:planning-client-secret"
+            [id]="id + '-oauth-reference'"
+            [value]="oauthSecretReference()"
+            [attr.aria-invalid]="submitted() && oauthReferenceInvalid() ? true : null"
+            (input)="oauthSecretReference.set(value($event))" />
+          @if (submitted() && oauthReferenceInvalid()) {
+            <p class="hint"><span class="error-text">{{ 'nh-assistant.admin.server-editor.secret-reference-invalid' | translate }}</span></p>
+          }
+        } @else {
+          @if (hasOAuthSecret() && oauthSecretAction() === 'keep') {
+            <div class="meta secret-state">
+              <span class="badge success">{{ 'nh-assistant.admin.server-editor.secret-set' | translate }}</span>
+              <button class="secondary" type="button" (click)="oauthSecretAction.set('replace')">{{ 'nh-assistant.admin.server-editor.secret-replace' | translate }}</button>
+            </div>
+          }
+          @if (showOAuthSecretInput()) {
+            <label [for]="id + '-oauth-secret'">{{ 'nh-assistant.admin.server-editor.client-secret' | translate }}</label>
+            <input
+              type="password"
+              class="mono"
+              autocomplete="new-password"
+              spellcheck="false"
+              [id]="id + '-oauth-secret'"
+              [attr.aria-describedby]="id + '-oauth-secret-hint'"
+              [value]="oauthSecret()"
+              (input)="onOAuthSecretInput($event)" />
+          }
+          <p class="hint" [id]="id + '-oauth-secret-hint'">{{ 'nh-assistant.admin.server-editor.client-secret-hint' | translate }}</p>
+        }
+      }
+    </fieldset>
   }
 
   @if (usesSecret()) {
@@ -237,7 +404,7 @@
       }
     </select>
     <p class="hint" [id]="id + '-headless-hint'">
-      {{ (authMode() === 'forward-user-token' ? 'nh-assistant.admin.server-editor.headless-use-personal' : 'nh-assistant.admin.server-editor.headless-use-hint') | translate }}
+      {{ (personalCredential() ? 'nh-assistant.admin.server-editor.headless-use-personal' : 'nh-assistant.admin.server-editor.headless-use-hint') | translate }}
     </p>
   </div>
 

@@ -80,6 +80,19 @@ which allows or withdraws background use with the user's own account at once
 (`GET` and `PUT mcp-connections`). It renders nothing without such servers; a host
 may place it on its own profile page instead.
 
+MCP servers protected with OAuth are added in the administration's server editor: it
+reads the server's authorization (`discoverMcpServer`), shows the authorization server,
+resource and offered scopes, and saves with `oauth.confirmAuthorization` only after the
+administrator ticked the confirmation; an organization connection also needs the
+connected account's label, client credentials a client id and secret. The server list
+shows the organization connection and connects it in a window: `nhAssistantConnectMcp`
+starts the authorization, shows it through `NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW`
+(a popup opened in the click handler, which accepts only the message of that popup for
+the started flow) and completes it with the administrator's own session. The host
+configures `NewHeap:AI:Assistant:Mcp:OAuth:RedirectUri` and lists its page origins in
+`ReturnOrigins`; the mock API provides `NhAssistantMockAuthorizationWindow`, which plays
+the callback as `mcpAuthorization` of the scenario says.
+
 Route to `NhAssistantAdminComponent` from `@newheap/platform-ai-chat/admin` with a
 lazy route guarded by the host's admin permission (for example
 `app.assistant.admin`), and pass that route as `adminRoute` to
@@ -355,6 +368,9 @@ the administration route under the same parent to share that scope.
   person's consent in `nh-assistant-mcp-connections`.
 - Sending a stored MCP secret and a `secretReference` together; the editor sends one of
   them, and a new one replaces the other.
+- Opening an MCP authorization with `noopener`, after an `await`, or accepting its
+  completion message from any window but the popup for the started flow; completing it
+  with anything but the starter's own session.
 - Retrying an administration save after `assistant-version-conflict` without
   reloading the latest version.
 - Offering free text for events, subject sets, rules, policies or profiles in a custom run
@@ -403,7 +419,10 @@ shadow and back and replace and restore a technical account, never render a stor
 secret and send it only on replace or clear, ask a user name for `basic`, send a
 `secretReference` instead of a secret and show the server's reference, certificate and
 fallback transport, offer `personal` only for a forwarded token, keep synced MCP tools
-disabled as changes, show remote hints as hints and warn after a remote schema change. The
+disabled as changes, show remote hints as hints and warn after a remote schema change. For
+OAuth servers they save only after discovery and confirmation, send the client secret only
+when entered, connect the organization through the mock authorization window, report a
+denied authorization and disconnect after confirmation. The
 preference tests also allow and withdraw background use of a personal server. The run
 configuration tests give an administration agent run settings, show refused fields and an
 account that may not sign in, add a skill that starts in shadow and a trigger that is put

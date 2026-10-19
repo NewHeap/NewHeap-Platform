@@ -217,6 +217,32 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         // allows it in the assistant's preferences.
         headlessUse: 'personal',
         remoteTools: PLAYGROUND_REMOTE_TOOLS
+      },
+      {
+        id: 'customer-crm',
+        displayName: 'Customer CRM',
+        url: 'https://crm.sample.localhost/mcp',
+        authMode: 'oauth',
+        headerName: null,
+        requiredPolicy: null,
+        isEnabled: true,
+        // SPM-299: an administrator connects the organization's CRM account once; everyone using the
+        // server's agents acts as that account. Connect it from the server list in the administration.
+        connectionScope: 'organization',
+        oauth: { clientId: 'sample-assistant', scopes: 'crm:read', organizationAccountLabel: 'CRM service account' },
+        remoteTools: PLAYGROUND_REMOTE_TOOLS
+      },
+      {
+        id: 'finance-ledger',
+        displayName: 'Finance ledger',
+        url: 'https://ledger.sample.localhost/mcp',
+        authMode: 'oauth-client-credentials',
+        headerName: null,
+        requiredPolicy: 'app.project.view',
+        isEnabled: true,
+        // SPM-299: the host's own client credentials; the first test or sync obtains a token.
+        oauth: { clientId: 'sample-assistant', clientSecret: 'sample-only-client-secret', scopes: 'ledger:read' },
+        remoteTools: PLAYGROUND_REMOTE_TOOLS
       }
     ]
   },

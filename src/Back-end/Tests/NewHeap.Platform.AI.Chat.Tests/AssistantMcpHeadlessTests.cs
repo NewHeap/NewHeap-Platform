@@ -184,10 +184,56 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
         Assert.Equal(NhAssistantMcpHeadlessUses.Never, defaulted.Data!.HeadlessUse);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_headless_run_calls_an_oauth_server_with_the_tokens_of_the_hosts_client_credentials(AssistantTestProvider provider)
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(LookupFunction, new { order = "A-100" }, "call-lookup")
+            .RespondWithText("Order A-100 is planned for Monday.");
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync();
+        authorization.RegisterClient("assistant-cc", "test-cc-secret-headless");
+        var tools = new InMemoryMcpServers();
+        NhAiTestProtectedResource? resource = null;
+        await using var mcp = await HttpMcpTestServer.StartAsync(() => tools.PlanningTools(), guard: (context, next) => resource!.InvokeAsync(context, next));
+        resource = new NhAiTestProtectedResource(authorization, mcp.StreamableUrl, "/planning");
+        await using var host = await CreateHostAsync(provider, model, servers: null);
+        await ConnectPlanningServerAsync(
+            host,
+            ("Lookup_Order", NhAssistantMcpToolEffects.ReadOnly),
+            input: new NhAssistantMcpServerInput(
+                "planning",
+                "Planning",
+                mcp.StreamableUrl,
+                NhAssistantMcpAuthModes.OAuthClientCredentials,
+                null,
+                null,
+                null,
+                true,
+                NhAssistantMcpHeadlessUses.Organization)
+            {
+                OAuth = new NhAssistantMcpOAuthInput("assistant-cc", "test-cc-secret-headless", null, null, null, ConfirmAuthorization: true)
+            });
+        var run = await StartRunAsync(host);
+
+        var result = await RunTurnAsync(host, run, "When is order A-100 planned?");
+
+        Assert.Equal(NhAssistantTurnStatuses.Completed, result.Outcome);
+        Assert.Equal(["lookup-order"], tools.Calls);
+        // The organization's token of the host's own client, for the server's address, served the run.
+        Assert.NotEmpty(resource.Requests);
+        Assert.All(resource.Requests, request => Assert.Equal("assistant-cc", request.Subject));
+        Assert.All(authorization.TokenRequests, request => Assert.Equal(mcp.StreamableUrl, request.Resource));
+        var record = Assert.Single(host.Audit.Records, item => item.ToolId == "mcp.planning.lookup-order");
+        Assert.Equal(NhAiOutcomeKind.Succeeded, record.Outcome);
+        Assert.Equal(NhAiGrantSource.Agent, record.GrantSource);
+    }
+
     private Task<AssistantTestHost> CreateHostAsync(
         AssistantTestProvider provider,
         NhAiScriptedChatClient model,
-        InMemoryMcpServers servers,
+        InMemoryMcpServers? servers,
         bool delegation = false,
         bool grants = true)
     {
@@ -197,7 +243,11 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
             model,
             configure: services =>
             {
-                services.Replace(ServiceDescriptor.Singleton<INhAssistantMcpClientFactory>(servers));
+                if (servers is not null)
+                {
+                    // Without in-memory servers the assistant connects over HTTP.
+                    services.Replace(ServiceDescriptor.Singleton<INhAssistantMcpClientFactory>(servers));
+                }
                 services.AddSingleton(new TestSubjects());
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, ManagerPrincipalFactory>());
             },
@@ -230,12 +280,13 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
     private static async Task ConnectPlanningServerAsync(
         AssistantTestHost host,
         (string RemoteName, string Effect) tool,
-        string? requiredPolicy = null)
+        string? requiredPolicy = null,
+        NhAssistantMcpServerInput? input = null)
     {
         await WithAdministrationAsync(host, async administration =>
         {
             Assert.True((await administration.CreateAsync(
-                Server(NhAssistantMcpAuthModes.None) with { RequiredPolicy = requiredPolicy },
+                input ?? Server(NhAssistantMcpAuthModes.None) with { RequiredPolicy = requiredPolicy },
                 "admin-1",
                 CancellationToken.None)).Success);
             Assert.True((await administration.SyncAsync("planning", "admin-1", CancellationToken.None)).Success);

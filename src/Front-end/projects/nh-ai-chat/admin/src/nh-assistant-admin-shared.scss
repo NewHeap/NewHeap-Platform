@@ -310,3 +310,28 @@ textarea.large {
     outline-offset: 2px;
   }
 }
+
+/* What OAuth discovery found, for the administrator to confirm. */
+.discovery {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+
+  dl {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 4px 12px;
+    margin: 0;
+  }
+
+  dt {
+    color: var(--nha-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}

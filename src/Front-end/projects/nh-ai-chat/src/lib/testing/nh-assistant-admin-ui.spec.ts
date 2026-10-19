@@ -1124,6 +1124,85 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     expect((card.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBeFalse();
     expect(element.querySelector('.card[data-status="missing"]')?.textContent).toContain('The server no longer lists this tool.');
   });
+
+  it('adds an OAuth server only after the administrator read and confirmed its authorization server', async () => {
+    await configure();
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+
+    button(element, 'New server').click();
+    await settle(fixture);
+    type(element, 'input[id$="-id"]', 'crm');
+    type(element, 'input[id$="-name"]', 'CRM');
+    type(element, 'input[id$="-url"]', 'https://crm.example.com/mcp');
+    choose(element, 'select[id$="-auth"]', 'oauth');
+    fixture.detectChanges();
+    expect(element.textContent).toContain('every user of the server\'s agents acts as the connected account');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.textContent).toContain('Name the account that will be connected.');
+    expect(element.textContent).toContain('Read the authorization and confirm it.');
+    expect(requestBodies('POST', 'admin/mcp-servers')).toEqual([]);
+
+    type(element, 'input[id$="-account-label"]', 'CRM service account');
+    button(element, 'Read authorization').click();
+    await settle(fixture);
+    expect(element.querySelector('.discovery')?.textContent).toContain('https://auth.crm.example.com');
+    expect((element.querySelector('input[id$="-scopes"]') as HTMLInputElement).value).toBe('mcp:read');
+    check(element, '.discovery input[type="checkbox"]');
+    type(element, 'input[id$="-client-id"]', 'assistant-crm');
+    fixture.detectChanges();
+    type(element, 'input[id$="-oauth-secret"]', 'test-crm-client-secret');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    expect(requestBodies('POST', 'admin/mcp-servers')).toEqual([jasmine.objectContaining({
+      authMode: 'oauth',
+      connectionScope: 'organization',
+      oauth: {
+        clientId: 'assistant-crm',
+        clientSecret: 'test-crm-client-secret',
+        scopes: 'mcp:read',
+        organizationAccountLabel: 'CRM service account',
+        confirmAuthorization: true
+      }
+    })]);
+    expect(element.textContent).toContain('Not connected');
+    expect(element.textContent).toContain('Everyone acts as CRM service account');
+    expect(element.innerHTML).not.toContain('test-crm-client-secret');
+  });
+
+  it('connects the organization through the authorization window and disconnects after confirmation', async () => {
+    const script = scenario();
+    script.admin!.mcpServers!.push({
+      id: 'crm', displayName: 'CRM', url: 'https://crm.example.com/mcp', authMode: 'oauth', headerName: null, requiredPolicy: null,
+      isEnabled: true, connectionScope: 'organization',
+      oauth: { clientId: 'assistant-crm', scopes: 'mcp:read', organizationAccountLabel: 'CRM service account' }
+    });
+    await configure(script);
+    const backend = TestBed.inject(NhAssistantMockBackend);
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+    const card = (): HTMLElement => Array.from(element.querySelectorAll<HTMLElement>('.card')).find(item => item.textContent?.includes('CRM'))!;
+
+    backend.setMcpAuthorizationOutcome('deny');
+    button(card(), 'Connect').click();
+    await settle(fixture);
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('The authorization was not given.');
+
+    backend.setMcpAuthorizationOutcome('approve');
+    button(card(), 'Connect').click();
+    await settle(fixture);
+    expect(backend.authorizationWindow.shown.length).toBe(2);
+    expect(card().textContent).toContain('The organization\'s account is connected.');
+    expect(card().textContent).toContain('Connected by current-user');
+    expect(requestBodies('POST', 'mcp-connections/complete').length).toBe(1);
+
+    button(card(), 'Disconnect').click();
+    fixture.detectChanges();
+    button(card(), 'Disconnect and revoke').click();
+    await settle(fixture);
+    expect(card().textContent).toContain('Not connected');
+    expect(card().textContent).toContain('The connection was removed and its tokens revoked.');
+  });
 });
 
 describe('NhAssistantAgentPickerComponent', () => {

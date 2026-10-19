@@ -191,6 +191,49 @@ public sealed class AssistantMcpServer
     /// </summary>
     public string? LastConnectCode { get; set; }
 
+    /// <summary>
+    /// For <c>oauth</c>: one of <see cref="NhAssistantMcpConnectionScopes"/>. Other modes are
+    /// <see cref="NhAssistantMcpConnectionScopes.Organization"/>.
+    /// </summary>
+    public string ConnectionScope { get; set; } = NhAssistantMcpConnectionScopes.Organization;
+
+    /// <summary>
+    /// The confirmed protected resource (RFC 9728) of an OAuth server: its canonical URI.
+    /// </summary>
+    public string? ResourceUri { get; set; }
+
+    /// <summary>
+    /// The confirmed authorization server of an OAuth server; tokens of another issuer are refused.
+    /// </summary>
+    public string? AuthorizationServerIssuer { get; set; }
+
+    /// <summary>
+    /// The scopes an administrator allows, separated by spaces. Empty lets the server's challenge and
+    /// metadata decide.
+    /// </summary>
+    public string? OAuthScopes { get; set; }
+
+    /// <summary>A pre-registered client id; empty uses a Client ID Metadata Document or registration.</summary>
+    public string? OAuthClientId { get; set; }
+
+    /// <summary>The pre-registered client's secret, protected with Data Protection.</summary>
+    public string? ProtectedOAuthClientSecret { get; set; }
+
+    /// <summary>A reference to the client secret instead of storing it.</summary>
+    public string? OAuthClientSecretReference { get; set; }
+
+    /// <summary>
+    /// For an organization connection made by signing in: the remote account everyone using the
+    /// server acts as.
+    /// </summary>
+    public string? OrganizationAccountLabel { get; set; }
+
+    /// <summary>When an administrator confirmed the authorization server and resource.</summary>
+    public DateTimeOffset? AuthorizationConfirmedAt { get; set; }
+
+    /// <summary>The administrator who confirmed them.</summary>
+    public string? AuthorizationConfirmedBy { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
@@ -199,9 +242,9 @@ public sealed class AssistantMcpServer
 }
 
 /// <summary>
-/// A person's or the organization's relation to an MCP server. In this version it records a person's
-/// consent to background use: <see cref="AllowBackgroundUse"/> applies only while
-/// <see cref="ConsentHash"/> matches the server as it is configured now. One row per server, owner and
+/// A person's or the organization's relation to an MCP server: a person's consent to background use,
+/// which applies only while <see cref="ConsentHash"/> matches the server as it is configured now, and
+/// the OAuth tokens of a connection, protected with Data Protection. One row per server, owner and
 /// tenant key; <see cref="OwnerActorId"/> and <see cref="TenantKey"/> are empty instead of null so the
 /// unique index behaves the same on every provider.
 /// </summary>
@@ -229,6 +272,50 @@ public sealed class AssistantMcpConnection
 
     public DateTimeOffset? ConsentedAt { get; set; }
 
+    /// <summary>
+    /// For a row with OAuth tokens: one of <see cref="NhAssistantMcpConnectionStatuses"/>; null for a
+    /// row that only records consent.
+    /// </summary>
+    public string? Status { get; set; }
+
+    /// <summary>The authorization server that issued the tokens.</summary>
+    public string? Issuer { get; set; }
+
+    public string? ClientId { get; set; }
+
+    /// <summary>The resource the tokens are for.</summary>
+    public string? Resource { get; set; }
+
+    /// <summary>The granted scopes, separated by spaces.</summary>
+    public string? GrantedScopes { get; set; }
+
+    /// <summary>Scopes a server asked for that the connection lacks, for the next authorization.</summary>
+    public string? RequiredScopes { get; set; }
+
+    public string? ProtectedAccessToken { get; set; }
+
+    public DateTimeOffset? AccessTokenExpiresAt { get; set; }
+
+    public string? ProtectedRefreshToken { get; set; }
+
+    public DateTimeOffset? RefreshTokenExpiresAt { get; set; }
+
+    /// <summary>Who completed the authorization: the person, or the administrator for the organization.</summary>
+    public string? ConnectedBy { get; set; }
+
+    public DateTimeOffset? ConnectedAt { get; set; }
+
+    public DateTimeOffset? LastUsedAt { get; set; }
+
+    public DateTimeOffset? LastRefreshedAt { get; set; }
+
+    public string? LastFailureCode { get; set; }
+
+    /// <summary>Until when one instance holds the right to renew the tokens.</summary>
+    public DateTimeOffset? RefreshLeaseUntil { get; set; }
+
+    public string? RefreshLeaseOwner { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
@@ -237,6 +324,96 @@ public sealed class AssistantMcpConnection
     /// Concurrency token, incremented with every change.
     /// </summary>
     public int Version { get; set; }
+}
+
+/// <summary>
+/// One authorization of an OAuth connection, from its start to its completion: single use, valid for
+/// <c>FlowLifetime</c>, found by the hash of its <c>state</c> and completed only by its starter with
+/// the one-time completion code that the callback page handed to the starter's browser.
+/// </summary>
+public sealed class AssistantMcpAuthorizationFlow
+{
+    public Guid Id { get; set; }
+
+    public string ServerId { get; set; } = string.Empty;
+
+    public string OwnerKind { get; set; } = NhAssistantMcpConnectionOwners.User;
+
+    public string OwnerActorId { get; set; } = string.Empty;
+
+    public string TenantKey { get; set; } = string.Empty;
+
+    /// <summary>The person who started the flow and alone may complete it.</summary>
+    public string StartedBy { get; set; } = string.Empty;
+
+    /// <summary>The SHA-256 of <c>state</c>, lowercase hex.</summary>
+    public string StateHash { get; set; } = string.Empty;
+
+    public string ProtectedCodeVerifier { get; set; } = string.Empty;
+
+    public string Issuer { get; set; } = string.Empty;
+
+    public string Resource { get; set; } = string.Empty;
+
+    public string ClientId { get; set; } = string.Empty;
+
+    public string RedirectUri { get; set; } = string.Empty;
+
+    public string? RequestedScopes { get; set; }
+
+    public bool AllowBackgroundUse { get; set; }
+
+    /// <summary>Where a redirect-mode flow returns to; null for a popup.</summary>
+    public string? ReturnUrl { get; set; }
+
+    /// <summary>The SHA-256 of the one-time completion code, lowercase hex.</summary>
+    public string? CompletionCodeHash { get; set; }
+
+    /// <summary>The token response between the callback and the completion, protected.</summary>
+    public string? ProtectedTokenResponse { get; set; }
+
+    /// <summary><c>pending</c>, <c>exchanged</c>, <c>completed</c> or <c>failed</c>.</summary>
+    public string Status { get; set; } = "pending";
+
+    public string? FailureCode { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset ExpiresAt { get; set; }
+
+    public DateTimeOffset? CompletedAt { get; set; }
+
+    public int Version { get; set; }
+}
+
+/// <summary>
+/// The dynamic client registration of the host at one authorization server for one MCP server.
+/// The issuer is part of the key through its hash, so a registration never serves another issuer.
+/// </summary>
+public sealed class AssistantMcpClientRegistration
+{
+    public string ServerId { get; set; } = string.Empty;
+
+    /// <summary>The SHA-256 of the issuer, lowercase hex.</summary>
+    public string IssuerHash { get; set; } = string.Empty;
+
+    public string Issuer { get; set; } = string.Empty;
+
+    /// <summary><c>dynamic</c>.</summary>
+    public string Method { get; set; } = "dynamic";
+
+    public string ClientId { get; set; } = string.Empty;
+
+    public string? ProtectedClientSecret { get; set; }
+
+    public string? ProtectedRegistrationAccessToken { get; set; }
+
+    /// <summary>The token endpoint authentication method the registration agreed on.</summary>
+    public string TokenEndpointAuthMethod { get; set; } = "none";
+
+    public DateTimeOffset? ClientSecretExpiresAt { get; set; }
+
+    public DateTimeOffset RegisteredAt { get; set; }
 }
 
 /// <summary>

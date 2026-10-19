@@ -29,6 +29,52 @@ internal static class NhAssistantMcpConnectionEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        enabled.MapPost("mcp-connections/complete", CompleteAsync)
+            .WithName("NhAssistantCompleteMcpAuthorization")
+            .WithSummary("Complete an MCP authorization")
+            .WithDescription("Activates the OAuth connection of an authorization the caller started, with the flow and the one-time completion code the callback handed to the caller's browser. An organization connection also needs the admin policy. The code is single use and expires with the flow.")
+            .Produces<NhAssistantMcpCompletionDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+    }
+
+    private static async Task<IResult> CompleteAsync(HttpContext httpContext, NhAssistantMcpAuthorizationFlows flows)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+        var body = await NhAssistantAdminEndpoints.ReadAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantMcpCompleteRequest);
+        if (body is null)
+        {
+            return NhAssistantAdminEndpoints.Validation();
+        }
+        if (body.FlowId is not { } flowId)
+        {
+            return NhAssistantAdminEndpoints.MissingField("flowId");
+        }
+        if (string.IsNullOrEmpty(body.CompletionCode))
+        {
+            return NhAssistantAdminEndpoints.MissingField("completionCode");
+        }
+        var completed = await flows.CompleteAsync(
+            flowId,
+            body.CompletionCode,
+            actor,
+            () => NhAssistantEndpointRouteBuilderExtensions.IsAdministratorAsync(httpContext),
+            httpContext.RequestAborted);
+        if (!completed.Success)
+        {
+            return NhAssistantAdminEndpoints.Failure(completed);
+        }
+        var result = completed.Data!;
+        return NhAssistantAdminEndpoints.Json(
+            new NhAssistantMcpCompletionDto(result.Server.Id, result.OwnerKind, result.Connection.Status ?? NhAssistantMcpConnectionStatuses.Active, result.Connection.GrantedScopes),
+            NhAssistantJsonSerializerContext.Default.NhAssistantMcpCompletionDto);
     }
 
     private static async Task<IResult> GetConnectionsAsync(HttpContext httpContext, NhAssistantMcpConnectionService connections)

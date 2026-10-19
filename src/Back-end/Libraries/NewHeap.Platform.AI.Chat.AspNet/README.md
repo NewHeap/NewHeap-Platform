@@ -53,7 +53,12 @@ approvals and tools without a presenter.
 | `NewHeap:AI:Assistant:Mcp:ConnectTimeout` | `00:00:10` | Connect timeout for MCP servers. |
 | `NewHeap:AI:Assistant:Mcp:ForwardedTokenLifetime` | `00:02:00` | Lifetime of the delegated token a background run sends to a `personal` server; at most 5 minutes. |
 | `NewHeap:AI:Assistant:Mcp:Secrets:<name>` | none | Secrets that a server names as `config:<name>` instead of storing one. |
-| `NewHeap:AI:Assistant:Mcp:ClientCertificates:<name>` | none | Client certificates for mutual TLS: `Path` and `Password` of a PKCS#12 file, or `Thumbprint`, `StoreLocation` and `StoreName`. |
+| `NewHeap:AI:Assistant:Mcp:ClientCertificates:<name>` | none | Client certificates for mutual TLS: `Path` and `Password` of a PKCS#12 file, or `Thumbprint`, `StoreLocation` and `StoreName`. They also sign `private_key_jwt` client assertions. |
+| `NewHeap:AI:Assistant:Mcp:BlockPrivateNetworks` | `false` | Also refuses MCP servers in private networks unless their host is in `AllowedHosts`; OAuth URLs are always refused there. |
+| `NewHeap:AI:Assistant:Mcp:OAuth:RedirectUri` | none | The public URL of `<prefix>/mcp/oauth/callback`; required for `oauth` servers. |
+| `NewHeap:AI:Assistant:Mcp:OAuth:ReturnOrigins` | the redirect URI's origin | Origins of the pages that start an authorization; the callback page posts to them or returns to them. |
+| `NewHeap:AI:Assistant:Mcp:OAuth:ClientMetadataDocumentUri` | none | The public URL of `<prefix>/mcp/oauth/client-metadata.json`, by which supporting authorization servers identify the host without a registration. |
+| `NewHeap:AI:Assistant:Mcp:OAuth:FlowLifetime`, `RefreshSkew`, `RefreshLeaseDuration`, `ConnectionRetention`, `MaxPendingFlowsPerActor` | 10 minutes, 60 seconds, 30 seconds, 90 days, 5 | Limits of authorizations, renewal and personal connections; checked at startup. |
 
 ## Endpoints
 
@@ -70,6 +75,8 @@ approvals and tools without a presenter.
 | `POST conversations/{id}/cancel` | `202` |
 | `GET` / `PUT preferences` | the caller's style preferences |
 | `GET mcp-connections`, `PUT mcp-connections/{serverId}` `{ allowBackgroundUse }` | MCP servers that background runs may use with the caller's own account, and the caller's consent |
+| `POST mcp-connections/complete` `{ flowId, completionCode }` | activates the OAuth connection of an authorization the caller started; an organization connection also needs the admin policy |
+| `GET mcp/oauth/callback`, `GET mcp/oauth/client-metadata.json` | anonymous: the OAuth redirect URI, bound to its flow by `state`, and the host's Client ID Metadata Document |
 
 Administration endpoints additionally require the admin policy:
 
@@ -81,6 +88,9 @@ Administration endpoints additionally require the admin policy:
 | `GET` / `POST mcp-servers`, `PUT` / `DELETE mcp-servers/{id}` | MCP servers; secrets are write-only (`hasSecret`) |
 | `POST mcp-servers/{id}/test`, `POST mcp-servers/{id}/sync` | connection test and tool sync; sync returns `502` when the server is unreachable or rejects the credentials |
 | `GET mcp-servers/{id}/tools`, `PUT mcp-servers/{id}/tools/{remoteName}` | synced tools; activate them and set their effect |
+| `POST mcp-servers/discover` `{ url }` | the authorization a server's address names; nothing is stored until a save with `oauth.confirmAuthorization` |
+| `GET` / `DELETE mcp-servers/{id}/connection`, `POST mcp-servers/{id}/connection/authorize` | the organization's OAuth connection: status, disconnect with revocation, and the start of its authorization |
+| `GET mcp-servers/{id}/connections/summary`, `DELETE mcp-servers/{id}/connections` | personal connections per status, and revoking all of them |
 
 Agent threads and runs (see `ConfigureAgent`, `AddSubjectType` and `AddTrigger`) add
 these endpoints. Access follows the caller's role on the subject, which the subject's
@@ -173,8 +183,9 @@ Validation errors return `400` with code `assistant-validation` and `errors` key
 camelCase field name (values `required`, `invalid`, `too-long`, `not-found`); blocked
 hosts return `400` with `assistant-mcp-host-blocked`. A caller without the admin policy
 receives `403` with `assistant-forbidden`, unknown objects `404` with a specific
-`*-not-found` code and stale versions `409`. MCP secrets are protected with ASP.NET Data Protection; persist the key
-ring across restarts and nodes.
+`*-not-found` code and stale versions `409`. MCP secrets and OAuth tokens are protected with ASP.NET Data
+Protection; persist the key ring across restarts and nodes. `services.AddHealthChecks().AddNewHeapAssistantMcpHealthCheck()`
+adds an opt-in check that reports failing MCP servers and OAuth connections that wait for someone.
 
 `clientContext` is `{ route, title?, entities?: [{ type, id, label? }] }` (route 200,
 title 120, five entities, dash-case type, id 64, label 120 characters). The server cuts

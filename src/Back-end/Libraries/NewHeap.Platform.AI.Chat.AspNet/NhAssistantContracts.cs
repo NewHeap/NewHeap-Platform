@@ -465,6 +465,14 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantMcpConnectionDto))]
 [JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))]
 [JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))]
+[JsonSerializable(typeof(NhAssistantMcpDiscoverRequest))]
+[JsonSerializable(typeof(NhAssistantMcpDiscoveryDto))]
+[JsonSerializable(typeof(NhAssistantMcpAuthorizeRequest))]
+[JsonSerializable(typeof(NhAssistantMcpAuthorizationStartDto))]
+[JsonSerializable(typeof(NhAssistantMcpCompleteRequest))]
+[JsonSerializable(typeof(NhAssistantMcpCompletionDto))]
+[JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))]
+[JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))]
 public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;
 
 public sealed record NhAssistantPreferencesDto(
@@ -612,7 +620,99 @@ public sealed record NhAssistantMcpServerInputDto(
     /// keeps the stored value; a new server starts at <c>streamable-http</c>.
     /// </summary>
     public string? Transport { get; init; }
+
+    /// <summary>
+    /// For <c>oauth</c>: <c>organization</c> (one connection for everyone) or <c>user</c> (each person
+    /// connects). Omitted or null keeps the stored value; a new server starts at <c>organization</c>.
+    /// </summary>
+    public string? ConnectionScope { get; init; }
+
+    /// <summary>The OAuth settings of <c>oauth</c> and <c>oauth-client-credentials</c>.</summary>
+    [JsonPropertyName("oauth")]
+    public NhAssistantMcpOAuthInputDto? OAuth { get; init; }
 }
+
+/// <summary>
+/// OAuth settings of an MCP server. <see cref="ClientSecret"/> is write-only. Omitted or null values
+/// keep the stored value, an empty string clears it. <see cref="ConfirmAuthorization"/> runs discovery
+/// again and pins the authorization server and resource it finds; a new OAuth server and a changed
+/// address need it.
+/// </summary>
+public sealed record NhAssistantMcpOAuthInputDto(
+    string? ClientId,
+    string? ClientSecret,
+    string? ClientSecretReference,
+    string? Scopes,
+    string? OrganizationAccountLabel,
+    bool? ConfirmAuthorization);
+
+/// <summary>The OAuth settings of an MCP server as returned: never the client secret.</summary>
+public sealed record NhAssistantMcpOAuthDto(
+    string? ClientId,
+    bool HasClientSecret,
+    string? ClientSecretReference,
+    string? Scopes,
+    string? OrganizationAccountLabel);
+
+/// <summary>The authorization server and resource an administrator confirmed (pinned).</summary>
+public sealed record NhAssistantMcpAuthorizationDto(
+    string Issuer,
+    string Resource,
+    DateTimeOffset ConfirmedAt,
+    string? ConfirmedBy);
+
+/// <summary>
+/// The organization's OAuth connection of a server: <c>not-connected</c>, <c>active</c>,
+/// <c>reauthorization-required</c> or <c>issuer-changed</c>, without tokens.
+/// </summary>
+public sealed record NhAssistantMcpOrganizationConnectionDto(
+    string Status,
+    DateTimeOffset? ConnectedAt,
+    string? ConnectedBy,
+    string? GrantedScopes,
+    string? RequiredScopes,
+    DateTimeOffset? AccessTokenExpiresAt,
+    string? LastFailureCode);
+
+public sealed record NhAssistantMcpDiscoverRequest(string? Url);
+
+/// <summary>
+/// The result of discovery for an MCP server URL; nothing is stored. Saving the server with
+/// <c>oauth.confirmAuthorization</c> pins the authorization server and resource.
+/// </summary>
+public sealed record NhAssistantMcpDiscoveryDto(
+    string Resource,
+    string Issuer,
+    IReadOnlyList<string> AuthorizationServers,
+    IReadOnlyList<string> ChallengedScopes,
+    IReadOnlyList<string> ScopesSupported,
+    IReadOnlyList<string> GrantTypesSupported,
+    bool PkceSupported,
+    bool ClientIdMetadataDocumentSupported,
+    bool DynamicRegistrationSupported,
+    IReadOnlyList<string> TokenEndpointAuthMethods);
+
+/// <summary>
+/// The start of an authorization. <see cref="ReturnUrl"/> chooses redirect mode: the callback returns
+/// there with the flow and completion code in the fragment; its origin must be allowed. For a personal
+/// connection <see cref="AllowBackgroundUse"/> records the consent to background use with it.
+/// </summary>
+public sealed record NhAssistantMcpAuthorizeRequest(string? ReturnUrl, bool? AllowBackgroundUse);
+
+/// <summary>
+/// The flow and the URL the owner's browser opens; it expires at <see cref="ExpiresAt"/>. The page
+/// accepts the callback's message only from <see cref="CallbackOrigin"/>, the origin of the redirect URI.
+/// </summary>
+public sealed record NhAssistantMcpAuthorizationStartDto(Guid FlowId, string AuthorizationUrl, DateTimeOffset ExpiresAt, string CallbackOrigin);
+
+/// <summary>The flow and the one-time completion code the callback page handed to the starter's browser.</summary>
+public sealed record NhAssistantMcpCompleteRequest(Guid? FlowId, string? CompletionCode);
+
+/// <summary>The connection a completed authorization activated.</summary>
+public sealed record NhAssistantMcpCompletionDto(string ServerId, string OwnerKind, string Status, string? GrantedScopes);
+
+/// <summary>The personal connections of a server per status.</summary>
+public sealed record NhAssistantMcpConnectionsSummaryDto(int Active, int ReauthorizationRequired, int IssuerChanged);
 
 public sealed record NhAssistantMcpServerDto(
     string Id,
@@ -661,6 +761,19 @@ public sealed record NhAssistantMcpServerDto(
     /// <c>streamable-http</c> or <c>auto</c> (<see cref="NhAssistantMcpTransports"/>).
     /// </summary>
     public string Transport { get; init; } = NhAssistantMcpTransports.StreamableHttp;
+
+    /// <summary><c>organization</c>, or <c>user</c> for an <c>oauth</c> server each person connects to.</summary>
+    public string ConnectionScope { get; init; } = NhAssistantMcpConnectionScopes.Organization;
+
+    /// <summary>The OAuth settings of an OAuth server; null for other modes.</summary>
+    [JsonPropertyName("oauth")]
+    public NhAssistantMcpOAuthDto? OAuth { get; init; }
+
+    /// <summary>The confirmed authorization server and resource; null until an administrator confirmed them.</summary>
+    public NhAssistantMcpAuthorizationDto? Authorization { get; init; }
+
+    /// <summary>The organization's OAuth connection; null for servers without one.</summary>
+    public NhAssistantMcpOrganizationConnectionDto? OrganizationConnection { get; init; }
 }
 
 /// <summary>
@@ -673,7 +786,26 @@ public sealed record NhAssistantMcpConnectionDto(
     string Host,
     bool AllowBackgroundUse,
     DateTimeOffset? ConsentedAt,
-    IReadOnlyList<string> AgentIds);
+    IReadOnlyList<string> AgentIds)
+{
+    /// <summary>
+    /// For a server each person connects to with OAuth: <c>not-connected</c>, <c>active</c>,
+    /// <c>reauthorization-required</c> or <c>issuer-changed</c>; null for a server that forwards the
+    /// caller's token.
+    /// </summary>
+    public string? ConnectionStatus { get; init; }
+
+    /// <summary>The scopes the caller's connection grants.</summary>
+    public string? GrantedScopes { get; init; }
+
+    /// <summary>Scopes the server asked for that the connection lacks; connecting again adds them.</summary>
+    public string? RequiredScopes { get; init; }
+
+    public DateTimeOffset? ConnectedAt { get; init; }
+
+    /// <summary>Whether background use is offered for the server (<c>personal</c> headless use).</summary>
+    public bool OffersBackgroundUse { get; init; } = true;
+}
 
 public sealed record NhAssistantUpdateMcpConnectionRequest(bool? AllowBackgroundUse);
 

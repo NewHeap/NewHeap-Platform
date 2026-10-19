@@ -4,8 +4,8 @@ title: "Add a governed assistant with durable conversations and in-chat approval
 area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291"]
-public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout"]
+sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299"]
+public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -184,6 +184,37 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   assistant's own host accepts no such token. The token is signed with the host's
   symmetric key, so every host that can validate it can also mint tokens; use it only
   between hosts that already share that key.
+- **MCP servers with OAuth.** `oauth-client-credentials` connects the organization with
+  the host's own client (`oauth.clientId` with a write-only `clientSecret`, a
+  `clientSecretReference` or, for `private_key_jwt`, the `clientCertificateReference`);
+  the first use obtains a token. `oauth` with `connectionScope: organization` needs an
+  administrator to authorize the organization's account once, named by
+  `organizationAccountLabel` because everyone using the server's agents then acts as it.
+  Before saving, `POST admin/mcp-servers/discover` shows what the server's challenge and
+  protected resource metadata (RFC 9728) name; saving with `oauth.confirmAuthorization`
+  pins that issuer and the canonical resource, and a new server or address needs it.
+  Tokens are requested from the pinned issuer only, always with `resource`; PKCE `S256`
+  is required and the `iss` of the redirect is checked (RFC 9207). A server that later
+  names another authorization server suspends its connections (`issuer-changed`) until
+  an administrator confirms again. Configure `NhAssistantMcpOptions.OAuth`:
+  `RedirectUri` is the public `<prefix>/mcp/oauth/callback` (required for `oauth`,
+  otherwise `assistant-mcp-oauth-not-configured`), `ReturnOrigins` the origins of the
+  pages that start an authorization, and optionally `ClientMetadataDocumentUri` for
+  `<prefix>/mcp/oauth/client-metadata.json`; without a client id the host uses that
+  document or registers itself dynamically, once per issuer. The administrator starts
+  with `POST admin/mcp-servers/{id}/connection/authorize` and opens the URL in a popup;
+  the anonymous callback exchanges the code and its page posts a one-time completion
+  code to the opener, which `POST mcp-connections/complete` turns into the connection
+  with the starter's own session and the admin policy. Tokens are protected with Data
+  Protection, renewed once across instances before expiry (a database lease) and after a
+  `401`; `insufficient_scope` asks client credentials for the union of scopes within
+  `oauth.scopes` (`assistant-mcp-scope-not-allowed` otherwise). A refused refresh ends
+  the connection with `assistant-mcp-reauthorization-required`. Disconnecting
+  (`DELETE .../connection`), changing the address, mode, scopes, client or issuer, and
+  deleting the server revoke the tokens (RFC 7009). Discovery, metadata and token
+  endpoints pass the host guard and never reach private networks unless the host is in
+  `AllowedHosts`; `BlockPrivateNetworks` applies that to MCP servers too. Connecting,
+  disconnecting and ending are audited (`McpConnection*`) without tokens.
 - Every administration change is a content-free audit event
   (`AdminContextUpdated`, `AdminAgent*`, `AdminMcpServer*`, `AdminMcpToolUpdated`).
 
@@ -375,6 +406,11 @@ or output of the running turn, also not text written before an approval pause.
   assistant's own host `Accept` delegated MCP tokens on more than its MCP endpoint.
 - Writing a secret resolver that maps a reference name to arbitrary settings, files or
   environment variables; a name selects one secret of one source.
+- Connecting an organization `oauth` server with a personal or administrator account;
+  everyone using the server's agents acts as it. Connect a service account and name it in
+  `organizationAccountLabel`.
+- Confirming an authorization server that the administration did not expect, or adding
+  the host's own pages to `ReturnOrigins` from configuration that users control.
 - Putting permissions, approval rules or scope decisions in the application context or
   the preferences; they explain the domain and shape style only.
 - Listing the application's entities in the application context; use the application map.
@@ -422,7 +458,13 @@ absent from responses, logs and audit. For background runs, assert on both provi
 that a `never` server is not contacted, an `organization` server is offered and
 called through a code grant or a person's rights, `requiredPolicy` is evaluated for
 that person, an approved deferred MCP proposal executes once, and a server set back to
-`never` fails it with `assistant-mcp-headless-not-allowed` without a call. For a
+`never` fails it with `assistant-mcp-headless-not-allowed` without a call. For OAuth, run `NhAiTestAuthorizationServer` with an `NhAiTestProtectedResource` in
+front of the MCP server and assert on both providers that nothing is pinned without
+confirmation, client credentials request one token for the resource, `insufficient_scope`
+steps up within the allowed scopes, an authorization completes only for its starter with
+the admin policy after the `state`, `iss` and expiry checks, concurrent renewals send one
+refresh request, a refused refresh requires reauthorization, another issuer suspends the
+connection and disconnecting revokes the tokens (SPM-299). For a
 `personal` server, assert on both providers that it is skipped without consent, that
 every request then carries a fresh delegated token of the person with the invocation
 marker and the server's origin, that a withdrawn consent or a changed URL stops it, and

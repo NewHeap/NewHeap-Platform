@@ -5,6 +5,7 @@ import {
   AssistantStatus,
   ClientContext,
   Conversation,
+  McpDiscovery,
   McpServerInput,
   AssistantAccount,
   RunCatalog,
@@ -107,9 +108,11 @@ export interface NhAssistantMockRemoteTool {
   readOnlyHint?: boolean | null;
 }
 
-/** A simulated MCP server. The mock stores `secret` but never returns it. */
+/** A simulated MCP server. The mock stores `secret` and `oauth.clientSecret` but never returns them. */
 export interface NhAssistantMockMcpServer extends McpServerInput {
   remoteTools?: NhAssistantMockRemoteTool[];
+  /** An `oauth` organization server starts connected. */
+  organizationConnected?: boolean;
 }
 
 /** A preconfigured agent. Code agents default to the scenario's chat agents. */
@@ -147,6 +150,16 @@ export interface NhAssistantMockAdminScenario {
   clientCertificates?: string[];
   /** The caller's consent to background use of personal servers (`mcp-connections`). Default: none. */
   mcpConnections?: { serverId: string; allowBackgroundUse: boolean }[];
+  /**
+   * What the mock authorization window answers to an MCP authorization: the person approves
+   * (default), denies, or closes the window. `NhAssistantMockBackend.setMcpAuthorizationOutcome`
+   * changes it.
+   */
+  mcpAuthorization?: 'approve' | 'deny' | 'cancel';
+  /** Discovery results per server host, over the mock's defaults (`https://auth.<host>`, PKCE, dynamic registration). */
+  mcpDiscovery?: Record<string, Partial<McpDiscovery>>;
+  /** Origins an authorization may return to in redirect mode. Default: any. */
+  mcpReturnOrigins?: string[];
   /**
    * The building blocks in code that run configuration as data names. Default: none, with
    * `policies` as the approval policies.

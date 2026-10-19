@@ -22,6 +22,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { Observable, Subject } from 'rxjs';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
+import { NhAssistantMockAuthorizationWindow } from './nh-assistant-mock-authorization';
 import {
   NhAssistantMockApprovalStep,
   NhAssistantMockPerson,
@@ -159,6 +160,25 @@ export class NhAssistantMockBackend {
   /** Replaces the tools a simulated MCP server lists; the next sync picks them up. */
   setRemoteTools(serverId: string, tools: NhAssistantMockRemoteTool[]): void {
     this.admin.setRemoteTools(serverId, tools);
+  }
+
+  /**
+   * The window the assistant components open for MCP authorizations; `provideNhAssistantMockApi`
+   * provides it as `NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW`.
+   */
+  readonly authorizationWindow = new NhAssistantMockAuthorizationWindow(flowId => this.admin.authorizeFlow(flowId));
+
+  /** What the mock authorization window answers next: the person approves, denies or closes it. */
+  setMcpAuthorizationOutcome(outcome: 'approve' | 'deny' | 'cancel'): void {
+    this.admin.setMcpAuthorizationOutcome(outcome);
+  }
+
+  /**
+   * Simulates an OAuth connection that ended outside the application: a refused refresh
+   * (`reauthorization-required`) or another authorization server (`issuer-changed`).
+   */
+  setMcpConnectionStatus(serverId: string, status: 'reauthorization-required' | 'issuer-changed'): void {
+    this.admin.setMcpConnectionStatus(serverId, status);
   }
 
   /** A `fetch` implementation that answers the assistant endpoints below `apiBaseUrl`. */

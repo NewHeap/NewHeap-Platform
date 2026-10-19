@@ -390,7 +390,8 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         var server = await ReadJsonAsync(created);
         AssertNames(server, "id", "displayName", "url", "authMode", "headerName", "hasSecret", "requiredPolicy", "isEnabled",
             "lastSyncAt", "lastSyncStatus", "assignedAgentIds", "headlessUse", "lastConnectAt", "lastConnectCode",
-            "userName", "secretReference", "clientCertificateReference", "transport");
+            "userName", "secretReference", "clientCertificateReference", "transport", "connectionScope", "oauth", "authorization",
+            "organizationConnection");
         Assert.Equal("streamable-http", server.GetProperty("transport").GetString());
         Assert.True(server.GetProperty("hasSecret").GetBoolean());
         Assert.Equal("never", server.GetProperty("headlessUse").GetString());
@@ -642,7 +643,8 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         using var notSignedIn = await anonymous.GetAsync("/api/assistant/mcp-connections");
 
         var listed = Assert.Single(before.EnumerateArray());
-        AssertNames(listed, "serverId", "displayName", "host", "allowBackgroundUse", "consentedAt", "agentIds");
+        AssertNames(listed, "serverId", "displayName", "host", "allowBackgroundUse", "consentedAt", "agentIds",
+            "connectionStatus", "grantedScopes", "requiredScopes", "connectedAt", "offersBackgroundUse");
         Assert.Equal("localhost", listed.GetProperty("host").GetString());
         Assert.False(listed.GetProperty("allowBackgroundUse").GetBoolean());
         Assert.Equal(JsonValueKind.Null, listed.GetProperty("consentedAt").ValueKind);

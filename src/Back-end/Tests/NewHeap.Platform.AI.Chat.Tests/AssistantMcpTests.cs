@@ -504,7 +504,7 @@ public sealed class AssistantMcpTests(AssistantDatabaseFixture database)
             return ValueTask.FromResult(Credential());
         }
 
-        public ValueTask<Common.Models.TaskResult<NhAssistantMcpCredential>> RenewAsync(AssistantMcpServer server, NhAssistantMcpCredentialSubject subject, CancellationToken cancellationToken)
+        public ValueTask<Common.Models.TaskResult<NhAssistantMcpCredential>> RenewAsync(AssistantMcpServer server, NhAssistantMcpCredentialSubject subject, NhAssistantMcpChallenge challenge, CancellationToken cancellationToken)
         {
             Renewals++;
             _token = "renewed-token";

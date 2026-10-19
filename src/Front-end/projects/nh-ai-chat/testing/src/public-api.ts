@@ -4,4 +4,5 @@
 export * from './nh-assistant-mock.models';
 export * from './nh-assistant-mock-backend';
 export * from './nh-assistant-mock-live';
+export * from './nh-assistant-mock-authorization';
 export * from './provide-nh-assistant-mock-api';

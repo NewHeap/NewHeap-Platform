@@ -4630,6 +4630,33 @@
         "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-picker.component.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
       ]
+    },
+    {
+      "id": "SPM-299",
+      "categoryId": "18",
+      "title": "An administrator connects OAuth-protected MCP servers for the organization",
+      "surface": "Auth modes `oauth` with `connectionScope` `organization` and `oauth-client-credentials` (`NhAssistantMcpAuthModes`, `NhAssistantMcpConnectionScopes`); the `oauth` settings of `admin/mcp-servers` (`clientId`, write-only `clientSecret`, `clientSecretReference`, `scopes`, `organizationAccountLabel`, `confirmAuthorization`) and the returned `authorization` and `organizationConnection`; `POST admin/mcp-servers/discover`; `GET`, `DELETE admin/mcp-servers/{id}/connection` and `POST admin/mcp-servers/{id}/connection/authorize`; `POST mcp-connections/complete`; the anonymous `mcp/oauth/callback` and `mcp/oauth/client-metadata.json`; `NhAssistantMcpOptions.OAuth` (`NhAssistantMcpOAuthOptions`: `RedirectUri`, `ReturnOrigins`, `ClientMetadataDocumentUri`, `FlowLifetime`, `RefreshSkew`, `RefreshLeaseDuration`, `ConnectionRetention`, `MaxPendingFlowsPerActor`) and `BlockPrivateNetworks`; the audit kinds `McpConnectionConnected`, `McpConnectionDisconnected`, `McpConnectionReauthorizationRequired` and `AdminMcpServerAuthorizationConfirmed`; the McpOAuthConnections migrations for SQL Server and PostgreSQL; `NhAiTestAuthorizationServer` and `NhAiTestProtectedResource`; the OAuth part of the server editor and the connection state of the server list in `@newheap/platform-ai-chat/admin`, `NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW` with `nhAssistantConnectMcp`, and `mcpAuthorization`, `mcpDiscovery` and `organizationConnected` of the mock scenario",
+      "outcome": "An administrator reads which authorization server protects a planning server's address, from its challenge and protected resource metadata, and confirms it when saving: the assistant then asks only that issuer for tokens, for the server's own address (`resource`), and suspends the connections when the server later names another one until an administrator confirms again. With client credentials the host's own client obtains a token on first use and reuses it; the planning server sees the sample's client, never a person. With an organization connection the administrator authorizes the organization's account once in a popup: the callback checks the state, the issuer and PKCE, exchanges the code and hands a one-time completion code to the administrator's page, which completes the connection with the administrator's own session; nobody else can complete it. Everyone using the server's agents then acts as that labelled account. Tokens are protected with ASP.NET Data Protection, renewed once across instances before they expire, and revoked at the authorization server when the administrator disconnects, changes the server or deletes it; a refused refresh ends the connection with an audited reauthorization. No secret, code or token reaches a response, a log or an audit event.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpDiscovery.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthClient.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpAuthorizationFlows.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpOAuthEndpoints.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpOAuthStore.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestAuthorizationServer.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpOAuthTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-server-editor.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-servers.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-mcp-authorization.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts"
+      ]
     }
   ]
 }

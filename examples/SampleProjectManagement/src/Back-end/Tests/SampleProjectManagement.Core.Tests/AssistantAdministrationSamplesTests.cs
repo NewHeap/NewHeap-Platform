@@ -262,6 +262,191 @@ public sealed partial class AssistantSamplesTests
         }
     }
 
+    [Fact]
+    public async Task SPM_299_an_administrator_connects_an_oauth_server_with_the_hosts_client_credentials()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync();
+        authorization.RegisterClient("sample-assistant", "sample-spm-299-client-secret");
+        await using var planning = await SampleMcpServer.StartProtectedAsync(authorization, resource => resource.ChallengeScope = "planning:read");
+        using var admin = Host.CreateClient("spm-299-admin", admin: true);
+        using var user = Host.CreateClient("spm-299-user");
+
+        // The administrator reads which authorization server protects the address before trusting it.
+        using var discovered = await admin.PostAsync(
+            "/api/assistant/admin/mcp-servers/discover",
+            AssistantSampleHost.Json(new { url = planning.Url }),
+            cancellation);
+        var discovery = await AssistantSampleHost.ReadJsonAsync(discovered);
+        using var unconfirmed = await admin.PostAsync("/api/assistant/admin/mcp-servers", AssistantSampleHost.Json(new
+        {
+            id = "oauth-planning",
+            displayName = "Planning (OAuth)",
+            url = planning.Url,
+            authMode = "oauth-client-credentials",
+            isEnabled = true,
+            oauth = new { clientId = "sample-assistant", clientSecret = "sample-spm-299-client-secret", scopes = "planning:read" }
+        }), cancellation);
+        // Saving with confirmAuthorization pins that authorization server: tokens are requested there only.
+        using var created = await admin.PostAsync("/api/assistant/admin/mcp-servers", AssistantSampleHost.Json(new
+        {
+            id = "oauth-planning",
+            displayName = "Planning (OAuth)",
+            url = planning.Url,
+            authMode = "oauth-client-credentials",
+            isEnabled = true,
+            oauth = new { clientId = "sample-assistant", clientSecret = "sample-spm-299-client-secret", scopes = "planning:read", confirmAuthorization = true }
+        }), cancellation);
+        var server = await AssistantSampleHost.ReadJsonAsync(created);
+        using var sync = await admin.PostAsync("/api/assistant/admin/mcp-servers/oauth-planning/sync", null, cancellation);
+        using var enable = await admin.PutAsync(
+            "/api/assistant/admin/mcp-servers/oauth-planning/tools/next_milestone",
+            AssistantSampleHost.Json(new { isEnabled = true, effect = "read-only", descriptionOverride = (string?)null }),
+            cancellation);
+        using var agent = await admin.PostAsync("/api/assistant/admin/agents", AssistantSampleHost.Json(new
+        {
+            id = "oauth-planning-helper",
+            displayName = "OAuth planning helper",
+            description = "Answers milestone questions from the protected planning server.",
+            instructions = "Answer milestone questions with the planning tool.",
+            toolSelectors = new[] { "projects.search" },
+            mcpServerIds = new[] { "oauth-planning" },
+            requiredPolicy = (string?)null,
+            autonomy = "observe",
+            isEnabled = true
+        }), cancellation);
+        Host.Model.Use(new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("mcp_oauth_planning_next_milestone", new { project = "PRJ-1" })
+            .RespondWithText("PRJ-1 reaches its next milestone on Friday."));
+        var conversation = await CreateConversationAsync(user, "oauth-planning-helper");
+        var events = await Host.SendAsync(user, conversation, "When is the next milestone of PRJ-1?");
+        var connection = await Host.GetJsonAsync(admin, "/api/assistant/admin/mcp-servers/oauth-planning/connection");
+        var listed = await (await admin.GetAsync("/api/assistant/admin/mcp-servers", cancellation)).Content.ReadAsStringAsync(cancellation);
+        using var disconnected = await admin.DeleteAsync("/api/assistant/admin/mcp-servers/oauth-planning/connection", cancellation);
+
+        Assert.Equal(authorization.Issuer, discovery.GetProperty("issuer").GetString());
+        Assert.Equal("planning:read", discovery.GetProperty("challengedScopes")[0].GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, unconfirmed.StatusCode);
+        Assert.Equal("required", (await AssistantSampleHost.ReadJsonAsync(unconfirmed)).GetProperty("errors").GetProperty("oauth.confirmAuthorization")[0].GetString());
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.Equal(authorization.Issuer, server.GetProperty("authorization").GetProperty("issuer").GetString());
+        Assert.True(server.GetProperty("oauth").GetProperty("hasClientSecret").GetBoolean());
+        Assert.Equal(HttpStatusCode.OK, sync.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, enable.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, agent.StatusCode);
+        Assert.Equal("succeeded", events.Single(evt => evt.Name == "tool.completed").Data.GetProperty("status").GetString());
+        Assert.Equal(["PRJ-1"], planning.Calls);
+        // One token for the server's own address, reused for the sync and the turn.
+        var tokenRequest = Assert.Single(authorization.TokenRequests);
+        Assert.Equal("client_credentials", tokenRequest.GrantType);
+        Assert.Equal(planning.Url, tokenRequest.Resource);
+        Assert.All(planning.Resource!.Requests, request => Assert.Equal("sample-assistant", request.Subject));
+        Assert.Equal("active", connection.GetProperty("status").GetString());
+        Assert.Equal("client-credentials", connection.GetProperty("connectedBy").GetString());
+        Assert.DoesNotContain("sample-spm-299-client-secret", listed);
+        Assert.Equal(HttpStatusCode.NoContent, disconnected.StatusCode);
+        Assert.Contains("access_token", authorization.Revocations);
+    }
+
+    [Fact]
+    public async Task SPM_299_an_administrator_connects_the_organizations_account_and_the_agent_acts_as_that_account()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync(options => options.Subject = "planning-service-account");
+        authorization.RegisterClient("sample-assistant-web", "sample-spm-299-web-secret", AssistantSampleHost.OAuthRedirectUri);
+        await using var planning = await SampleMcpServer.StartProtectedAsync(authorization);
+        using var admin = Host.CreateClient("spm-299-org-admin", admin: true);
+        using var user = Host.CreateClient("spm-299-org-user");
+        using var browser = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { BaseAddress = admin.BaseAddress };
+
+        using var created = await admin.PostAsync("/api/assistant/admin/mcp-servers", AssistantSampleHost.Json(new
+        {
+            id = "planning-account",
+            displayName = "Planning (organization account)",
+            url = planning.Url,
+            authMode = "oauth",
+            connectionScope = "organization",
+            isEnabled = true,
+            oauth = new
+            {
+                clientId = "sample-assistant-web",
+                clientSecret = "sample-spm-299-web-secret",
+                scopes = "planning:read",
+                // Everyone using the server's agents acts as this account; the label says which one.
+                organizationAccountLabel = "Planning service account",
+                confirmAuthorization = true
+            }
+        }), cancellation);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.False(await TestAsync(admin, "planning-account"));
+
+        // The administrator's browser opens the authorization URL; the authorization server redirects
+        // to the assistant's callback, whose page hands a one-time completion code to the opener.
+        using var started = await admin.PostAsync("/api/assistant/admin/mcp-servers/planning-account/connection/authorize", null, cancellation);
+        var start = await AssistantSampleHost.ReadJsonAsync(started);
+        using var authorize = await browser.GetAsync(start.GetProperty("authorizationUrl").GetString(), cancellation);
+        var redirect = authorize.Headers.Location!;
+        Assert.StartsWith(AssistantSampleHost.OAuthRedirectUri, redirect.ToString(), StringComparison.Ordinal);
+        using var callback = await browser.GetAsync("/api/assistant/mcp/oauth/callback" + redirect.Query, cancellation);
+        var page = await callback.Content.ReadAsStringAsync(cancellation);
+        var completionCode = System.Text.RegularExpressions.Regex.Match(page, "\"completionCode\":\"([^\"]+)\"").Groups[1].Value;
+        // The code alone completes nothing: the starter completes with their own session.
+        using var byUser = await user.PostAsync(
+            "/api/assistant/mcp-connections/complete",
+            AssistantSampleHost.Json(new { flowId = start.GetProperty("flowId").GetString(), completionCode }),
+            cancellation);
+        using var completed = await admin.PostAsync(
+            "/api/assistant/mcp-connections/complete",
+            AssistantSampleHost.Json(new { flowId = start.GetProperty("flowId").GetString(), completionCode }),
+            cancellation);
+
+        Assert.Equal(HttpStatusCode.OK, callback.StatusCode);
+        Assert.Contains("frame-ancestors 'none'", callback.Headers.GetValues("Content-Security-Policy").Single(), StringComparison.Ordinal);
+        Assert.NotEmpty(completionCode);
+        Assert.Equal(HttpStatusCode.BadRequest, byUser.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, completed.StatusCode);
+        Assert.Equal("active", (await AssistantSampleHost.ReadJsonAsync(completed)).GetProperty("status").GetString());
+
+        using var sync = await admin.PostAsync("/api/assistant/admin/mcp-servers/planning-account/sync", null, cancellation);
+        using var enable = await admin.PutAsync(
+            "/api/assistant/admin/mcp-servers/planning-account/tools/next_milestone",
+            AssistantSampleHost.Json(new { isEnabled = true, effect = "read-only", descriptionOverride = (string?)null }),
+            cancellation);
+        using var agent = await admin.PostAsync("/api/assistant/admin/agents", AssistantSampleHost.Json(new
+        {
+            id = "planning-account-helper",
+            displayName = "Planning account helper",
+            description = "Answers milestone questions as the planning service account.",
+            instructions = "Answer milestone questions with the planning tool.",
+            toolSelectors = new[] { "projects.search" },
+            mcpServerIds = new[] { "planning-account" },
+            requiredPolicy = (string?)null,
+            autonomy = "observe",
+            isEnabled = true
+        }), cancellation);
+        Host.Model.Use(new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("mcp_planning_account_next_milestone", new { project = "PRJ-2" })
+            .RespondWithText("PRJ-2 reaches its next milestone on Friday."));
+        var conversation = await CreateConversationAsync(user, "planning-account-helper");
+        var events = await Host.SendAsync(user, conversation, "When is the next milestone of PRJ-2?");
+        var listed = await Host.GetJsonAsync(admin, "/api/assistant/admin/mcp-servers");
+        using var disconnected = await admin.DeleteAsync("/api/assistant/admin/mcp-servers/planning-account/connection", cancellation);
+
+        Assert.Equal(HttpStatusCode.OK, sync.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, enable.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, agent.StatusCode);
+        Assert.Equal("succeeded", events.Single(evt => evt.Name == "tool.completed").Data.GetProperty("status").GetString());
+        Assert.Equal(["PRJ-2"], planning.Calls);
+        // The user asked, the planning server saw the organization's account.
+        Assert.All(planning.Resource!.Requests, request => Assert.Equal("planning-service-account", request.Subject));
+        var connection = listed.EnumerateArray().Single(item => item.GetProperty("id").GetString() == "planning-account").GetProperty("organizationConnection");
+        Assert.Equal("active", connection.GetProperty("status").GetString());
+        Assert.Equal("spm-299-org-admin", connection.GetProperty("connectedBy").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, disconnected.StatusCode);
+        Assert.Contains("refresh_token", authorization.Revocations);
+        Assert.False(await TestAsync(admin, "planning-account"));
+    }
+
     private static async Task<bool> TestAsync(HttpClient admin, string serverId)
     {
         using var response = await admin.PostAsync($"/api/assistant/admin/mcp-servers/{serverId}/test", null, TestContext.Current.CancellationToken);
@@ -323,8 +508,9 @@ public sealed partial class AssistantSamplesTests
 }
 
 /// <summary>
-/// A real Streamable HTTP MCP server built with the official SDK. It requires an API key, or the
-/// credential a test accepts, and records the API keys and `Authorization` headers it receives.
+/// A real Streamable HTTP MCP server built with the official SDK. It requires an API key, the
+/// credential a test accepts or an OAuth access token, and records the API keys and
+/// `Authorization` headers it receives.
 /// </summary>
 public sealed class SampleMcpServer : IAsyncDisposable
 {
@@ -356,8 +542,43 @@ public sealed class SampleMcpServer : IAsyncDisposable
         return StartAsync(request => string.Equals(request.Headers["X-Api-Key"].ToString(), apiKey, StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// The protected resource in front of a server started with <see cref="StartProtectedAsync"/>;
+    /// null for other servers.
+    /// </summary>
+    public NhAiTestProtectedResource? Resource { get; private set; }
+
+    /// <summary>
+    /// SPM-299: a server that is a resource server of an OAuth authorization server. It publishes its
+    /// protected resource metadata and requires an access token of <paramref name="authorization"/>
+    /// for its own address, answering <c>401</c> with a challenge or <c>403 insufficient_scope</c>.
+    /// </summary>
+    public static async Task<SampleMcpServer> StartProtectedAsync(
+        NhAiTestAuthorizationServer authorization,
+        Action<NhAiTestProtectedResource>? configure = null)
+    {
+        SampleMcpServer? server = null;
+        server = await StartAsync((context, next) => server!.Resource!.InvokeAsync(context, next));
+        server.Resource = new NhAiTestProtectedResource(authorization, server.Url, "/mcp");
+        configure?.Invoke(server.Resource);
+        return server;
+    }
+
     /// <summary>A server that answers only the requests <paramref name="accepts"/> allows.</summary>
-    public static async Task<SampleMcpServer> StartAsync(Func<HttpRequest, bool> accepts)
+    public static Task<SampleMcpServer> StartAsync(Func<HttpRequest, bool> accepts)
+    {
+        return StartAsync((context, next) =>
+        {
+            if (!accepts(context.Request))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            }
+            return next();
+        });
+    }
+
+    private static async Task<SampleMcpServer> StartAsync(Func<HttpContext, Func<Task>, Task> guard)
     {
         var calls = new ConcurrentQueue<string>();
         var apiKeys = new ConcurrentQueue<string>();
@@ -387,12 +608,7 @@ public sealed class SampleMcpServer : IAsyncDisposable
         {
             apiKeys.Enqueue(context.Request.Headers["X-Api-Key"].ToString());
             authorizations.Enqueue(context.Request.Headers.Authorization.ToString());
-            if (!accepts(context.Request))
-            {
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                return;
-            }
-            await next(context);
+            await guard(context, () => next(context));
         });
         app.MapMcp("/mcp");
         await app.StartAsync();

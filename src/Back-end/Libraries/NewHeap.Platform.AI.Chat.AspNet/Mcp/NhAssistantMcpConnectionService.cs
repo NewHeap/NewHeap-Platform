@@ -113,7 +113,7 @@ internal sealed class NhAssistantMcpConnectionService(
     {
         return server.IsEnabled
             && server.HeadlessUse == NhAssistantMcpHeadlessUses.Personal
-            && NhAssistantMcpHeadlessUses.FitsAuthMode(server.HeadlessUse, server.AuthMode);
+            && NhAssistantMcpHeadlessUses.FitsAuthMode(server.HeadlessUse, server.AuthMode, server.ConnectionScope);
     }
 
     private async Task<bool> PassesPolicyAsync(AssistantMcpServer server, ClaimsPrincipal user)

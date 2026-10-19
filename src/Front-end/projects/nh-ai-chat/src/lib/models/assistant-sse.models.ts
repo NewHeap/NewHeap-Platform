@@ -99,7 +99,11 @@ export const NhAssistantClientErrorCodes = {
   streamInterrupted: 'assistant-stream-interrupted',
   server: 'assistant-server',
   /** The open conversation was deleted by its owner, or the user left or was removed. */
-  conversationRemoved: 'assistant-conversation-removed'
+  conversationRemoved: 'assistant-conversation-removed',
+  /** The person closed the authorization window of an MCP connection before it finished. */
+  mcpAuthorizationCancelled: 'assistant-mcp-authorization-cancelled',
+  /** The browser blocked the authorization window of an MCP connection. */
+  mcpPopupBlocked: 'assistant-mcp-popup-blocked'
 } as const;
 
 export type NhAssistantClientErrorCode = typeof NhAssistantClientErrorCodes[keyof typeof NhAssistantClientErrorCodes];

@@ -233,3 +233,94 @@ secret removes the stored one.
 |---|---|
 | `McpServer` has the required fields `userName`, `secretReference`, `clientCertificateReference` and `transport`, and `McpAuthMode` and `McpHeadlessUse` have new values. | Add the fields to hand-built `McpServer` objects and handle the new values in exhaustive switches. |
 | The mock API refuses `bearer`, `api-key` and `basic` servers without a secret or reference, and the server editor has no **Clear** button for a secret. | Give such servers a secret in mock scenarios and tests; tests that clicked **Clear** choose another mode instead. |
+
+## NewHeap.Platform.AI.Test, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: MCP servers with OAuth for the organization
+
+MCP servers gain the authentication modes `oauth-client-credentials` and `oauth`
+(`NhAssistantMcpAuthModes`). With client credentials the host's own client (`oauth.clientId` with a
+write-only `clientSecret`, a `clientSecretReference` or, for `private_key_jwt`, the
+`clientCertificateReference`) obtains a token on first use. With `oauth` and `connectionScope`
+`organization` (`NhAssistantMcpConnectionScopes`) an administrator authorizes the organization's
+account once, named in `organizationAccountLabel`, because everyone using the server's agents then acts
+as it.
+
+`POST admin/mcp-servers/discover` reads what a server's challenge and protected resource metadata
+(RFC 9728) name and the authorization server's metadata (RFC 8414 or OpenID Connect), and stores
+nothing. Saving with `oauth.confirmAuthorization` pins that issuer and the canonical resource; a new
+server or address needs it, and `AdminMcpServerAuthorizationConfirmed` audits it. Tokens are requested
+from the pinned issuer only, always with `resource` (RFC 8707); PKCE `S256` is required and the `iss` of
+the redirect is checked (RFC 9207). A server that later names another authorization server suspends its
+connections (`issuer-changed`) until an administrator confirms again. Without a client id the host
+identifies itself by its Client ID Metadata Document (`<prefix>/mcp/oauth/client-metadata.json`, when
+`ClientMetadataDocumentUri` is set) or registers itself dynamically once per issuer.
+
+`POST admin/mcp-servers/{id}/connection/authorize` starts the authorization; the anonymous
+`<prefix>/mcp/oauth/callback` checks the state, exchanges the code and hands a one-time completion code to
+the starter's page, which `POST mcp-connections/complete` turns into the connection with the starter's own
+session and the admin policy. `GET` and `DELETE admin/mcp-servers/{id}/connection` show and remove it;
+`GET admin/mcp-servers/{id}/connections/summary` and `DELETE admin/mcp-servers/{id}/connections` count and
+revoke personal connections. Tokens are protected with ASP.NET Data Protection, renewed once across
+instances before they expire and after a `401` (a lease in the database), and revoked at the
+authorization server (RFC 7009) when the connection is removed, when the address, mode, scopes, client or
+issuer change and when the server is deleted. `insufficient_scope` asks client credentials for the union
+of scopes within `oauth.scopes`. A refused refresh ends the connection with
+`assistant-mcp-reauthorization-required` and `McpConnectionReauthorizationRequired`; connecting and
+disconnecting are audited as `McpConnectionConnected` and `McpConnectionDisconnected`. Expired
+authorizations are removed in the background.
+
+`NhAssistantMcpOptions.OAuth` (`NhAssistantMcpOAuthOptions`) sets `RedirectUri` (required for `oauth`,
+otherwise `assistant-mcp-oauth-not-configured`), `ReturnOrigins`, `ClientMetadataDocumentUri`,
+`ClientName`, `ClientUri`, `FlowLifetime`, `RefreshSkew`, `RefreshLeaseDuration`, `ConnectionRetention`
+and `MaxPendingFlowsPerActor`; the host checks them at startup. Discovery, metadata, token and
+revocation requests pass the host guard and never reach private networks unless the host is in
+`AllowedHosts`; the new `BlockPrivateNetworks` applies that to MCP servers too. The opt-in health check
+`AddNewHeapAssistantMcpHealthCheck` reports servers whose last connection failed and connections that
+wait for someone, and the `NewHeap.Platform.AI` meter counts `nh.ai.mcp.requests`,
+`nh.ai.mcp.token_requests` and `nh.ai.mcp.authorizations` by outcome. The new codes are
+`assistant-mcp-connection-required`, `assistant-mcp-reauthorization-required`,
+`assistant-mcp-scope-not-allowed`, `assistant-mcp-authorization-failed`,
+`assistant-mcp-authorization-expired`, `assistant-mcp-authorization-invalid`,
+`assistant-mcp-discovery-failed`, `assistant-mcp-pkce-unsupported`,
+`assistant-mcp-client-registration-required`, `assistant-mcp-token-request-failed`,
+`assistant-mcp-issuer-changed`, `assistant-mcp-authorization-not-confirmed`,
+`assistant-mcp-oauth-not-configured` and `assistant-mcp-too-many-authorizations`. The
+`McpOAuthConnections` migrations add the server and connection columns and the
+`AssistantMcpAuthorizationFlow` and `AssistantMcpClientRegistration` tables on SQL Server and PostgreSQL.
+
+`NewHeap.Platform.AI.Test` adds `NhAiTestAuthorizationServer`, an OAuth authorization server on
+loopback with PKCE, refresh rotation with reuse detection, client credentials, `private_key_jwt`,
+dynamic registration, Client ID Metadata Documents and revocation, and `NhAiTestProtectedResource`,
+which puts protected resource metadata and bearer validation in front of a test MCP server.
+
+| Breaking change | Required action |
+|---|---|
+| New columns and tables. | Apply the `McpOAuthConnections` migration. |
+| The server DTO has the new fields `connectionScope`, `oauth`, `authorization` and `organizationConnection`, and the `mcp-connections` DTO has `connectionStatus`, `grantedScopes`, `requiredScopes`, `connectedAt` and `offersBackgroundUse`. | Clients that reject unknown fields accept them. |
+| Startup fails when `NhAssistantMcpOptions.OAuth` has an invalid URL or limit. | None when OAuth is not configured. |
+
+## @newheap/platform-ai-chat: OAuth for MCP servers
+
+The MCP server editor offers **OAuth (authorization)** and **OAuth client credentials**: it reads the
+server's authorization, shows the authorization server, resource, offered scopes and how the host
+registers, and saves only after the administrator confirmed it. It asks the connected account's label
+for an organization connection, the scopes, a client id and a write-only client secret or a reference
+to one. The server list shows the organization connection with **Connect**, **Connect again** and
+**Disconnect**, the connected account and who connected it. `NhAssistantAdminApiService` gains
+`discoverMcpServer`, `getMcpOrganizationConnection`, `authorizeMcpOrganizationConnection`,
+`disconnectMcpOrganizationConnection`, `getMcpConnectionsSummary`, `revokeMcpConnections` and
+`completeMcpAuthorization`. `NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW` opens the authorization; the default
+`NhAssistantMcpPopupAuthorizationWindow` opens a popup in the click handler and accepts only the message
+of that popup for the started flow, `nhAssistantConnectMcp` runs start, window and completion, and
+`nhAssistantMcpAuthorizationFromFragment` reads a redirect-mode return. The models `McpConnectionScope`,
+`McpConnectionStatus`, `McpOAuthInput`, `McpOAuthSettings`, `McpAuthorization`,
+`McpOrganizationConnection`, `McpDiscovery`, `McpAuthorizeRequest`, `McpAuthorizationStart`,
+`McpCompleteRequest`, `McpCompletion` and `McpConnectionsSummary` are new, and the new codes, including
+the client codes `assistant-mcp-authorization-cancelled` and `assistant-mcp-popup-blocked`, are bundled
+in English and Dutch. The mock API discovers `https://auth.<host>`, validates OAuth servers like the
+server, plays authorizations through `NhAssistantMockAuthorizationWindow` (`mcpAuthorization` of the
+scenario: `approve`, `deny` or `cancel`), connects client credentials on first use and accepts
+`organizationConnected`, `mcpDiscovery` and `mcpReturnOrigins`.
+
+| Breaking change | Required action |
+|---|---|
+| `McpServer` has the required fields `connectionScope`, `oauth`, `authorization` and `organizationConnection`, `McpConnection` has `connectionStatus`, `grantedScopes`, `requiredScopes`, `connectedAt` and `offersBackgroundUse`, and `McpAuthMode` has new values. | Add the fields to hand-built objects and handle the new values in exhaustive switches. |

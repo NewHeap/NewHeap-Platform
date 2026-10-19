@@ -36,7 +36,8 @@ internal sealed class HttpMcpTestServer : IAsyncDisposable
 
     public static async Task<HttpMcpTestServer> StartAsync(
         Func<IEnumerable<McpServerTool>> tools,
-        bool legacySse = false)
+        bool legacySse = false,
+        Func<HttpContext, Func<Task>, Task>? guard = null)
     {
         var requests = new ConcurrentQueue<HttpMcpTestRequest>();
         var builder = WebApplication.CreateBuilder();
@@ -63,6 +64,11 @@ internal sealed class HttpMcpTestServer : IAsyncDisposable
                 context.Request.Headers.Authorization.ToString()));
             await next(context);
         });
+        if (guard is not null)
+        {
+            // For example an NhAiTestProtectedResource that requires OAuth tokens.
+            app.Use((context, next) => guard(context, () => next(context)));
+        }
         app.MapMcp("/planning");
         await app.StartAsync();
         var origin = app.Urls.First().Replace("127.0.0.1", "localhost", StringComparison.Ordinal).TrimEnd('/');

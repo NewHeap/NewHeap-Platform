@@ -85,7 +85,9 @@ internal sealed record NhAssistantMcpConnectionPlan(
 
 /// <summary>
 /// SSRF rules for MCP servers: https unless loopback in Development, the optional host allow-list,
-/// blocked metadata names and blocked address ranges after DNS resolution.
+/// blocked metadata names and blocked address ranges after DNS resolution. OAuth URLs, which come
+/// from remote documents, always need https (http only to loopback in Development) and never reach
+/// a private network unless their host is in the allow-list.
 /// </summary>
 internal sealed class NhAssistantMcpHostGuard(
     IOptionsMonitor<NhAssistantOptions> options,
@@ -181,18 +183,81 @@ internal sealed class NhAssistantMcpHostGuard(
 
     /// <summary>
     /// Resolves the host and returns the addresses that may be contacted; empty when all are blocked.
+    /// Private networks are blocked when <see cref="NhAssistantMcpOptions.BlockPrivateNetworks"/> is on
+    /// and the host is not in the allow-list.
     /// </summary>
-    public async Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(string host, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(string host, CancellationToken cancellationToken)
+    {
+        return ResolveAllowedAsync(host, options.CurrentValue.Mcp.BlockPrivateNetworks && !IsExplicitlyAllowed(host), cancellationToken);
+    }
+
+    /// <summary>
+    /// Resolves the host of an OAuth URL: private networks are blocked unless the host is in the
+    /// allow-list.
+    /// </summary>
+    public Task<IReadOnlyList<IPAddress>> ResolveAllowedForOAuthAsync(string host, CancellationToken cancellationToken)
+    {
+        return ResolveAllowedAsync(host, !IsExplicitlyAllowed(host), cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(string host, bool blockPrivateNetworks, CancellationToken cancellationToken)
     {
         var addresses = IPAddress.TryParse(host, out var literal)
             ? [literal]
             : await Dns.GetHostAddressesAsync(host, cancellationToken);
-        if (addresses.Any(IsBlocked))
+        if (addresses.Any(address => IsBlocked(address) || (blockPrivateNetworks && IsPrivate(address))))
         {
             // One blocked answer blocks the host, so DNS answers cannot mix in an internal target.
             return [];
         }
         return addresses;
+    }
+
+    /// <summary>
+    /// Returns an error code when an OAuth URL (metadata, token, registration, revocation or the
+    /// authorization endpoint) is not allowed: <see cref="CheckUri"/> plus https, with http only to
+    /// loopback in Development.
+    /// </summary>
+    public string? CheckOAuthUri(Uri uri)
+    {
+        if (!uri.IsAbsoluteUri)
+        {
+            return NhAssistantAdminErrorCodes.McpHostBlocked;
+        }
+        var host = uri.IdnHost.TrimEnd('.').ToLowerInvariant();
+        var loopbackName = host == "localhost" || (IPAddress.TryParse(host, out var literal) && IPAddress.IsLoopback(literal));
+        if (uri.Scheme != Uri.UriSchemeHttps && !(uri.Scheme == Uri.UriSchemeHttp && loopbackName && AllowsLoopback))
+        {
+            return NhAssistantAdminErrorCodes.McpHostBlocked;
+        }
+        return CheckUri(uri);
+    }
+
+    /// <summary>
+    /// Whether an address is in a private network: 10/8, 172.16/12, 192.168/16, the shared address
+    /// space 100.64/10 or an IPv6 unique local address (fc00::/7).
+    /// </summary>
+    public static bool IsPrivate(IPAddress address)
+    {
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+        var bytes = address.GetAddressBytes();
+        if (address.AddressFamily == AddressFamily.InterNetwork)
+        {
+            return bytes[0] == 10
+                || (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+                || (bytes[0] == 192 && bytes[1] == 168)
+                || (bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127);
+        }
+        return (bytes[0] & 0xFE) == 0xFC;
+    }
+
+    private bool IsExplicitlyAllowed(string host)
+    {
+        var normalized = host.TrimEnd('.').ToLowerInvariant();
+        return options.CurrentValue.Mcp.AllowedHosts.Any(pattern => MatchesHost(pattern, normalized));
     }
 
     public static bool MatchesHost(string pattern, string host)
@@ -283,7 +348,7 @@ internal sealed class NhAssistantMcpConnectionPlanner(
             server.Id,
             endpoint,
             credential.Data!.Headers,
-            !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode))
+            !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope))
         {
             Credentials = credentials,
             Transport = server.Transport,
@@ -564,7 +629,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             var plan = await planner.PlanAsync(server, SubjectOf(request), cancellationToken);
             if (!plan.Success)
             {
-                await SkipAsync(server, skipped, FirstCode(plan), perCaller: !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode));
+                await SkipAsync(server, skipped, FirstCode(plan), perCaller: !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope));
                 continue;
             }
             var lease = await cache.ConnectAsync(server, plan.Data, bypassCache: false, cancellationToken);
@@ -601,7 +666,7 @@ internal sealed partial class NhAssistantMcpToolSource(
     public static bool AllowsHeadlessUse(AssistantMcpServer server)
     {
         return server.HeadlessUse == NhAssistantMcpHeadlessUses.Organization
-            && NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode);
+            && NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope);
     }
 
     /// <summary>
@@ -620,7 +685,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             return null;
         }
         if (server.HeadlessUse != NhAssistantMcpHeadlessUses.Personal
-            || !NhAssistantMcpHeadlessUses.FitsAuthMode(server.HeadlessUse, server.AuthMode)
+            || !NhAssistantMcpHeadlessUses.FitsAuthMode(server.HeadlessUse, server.AuthMode, server.ConnectionScope)
             || request.PersonActorId is not { } person)
         {
             return NhAssistantAdminErrorCodes.McpHeadlessNotAllowed;

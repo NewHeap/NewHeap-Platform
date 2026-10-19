@@ -53,6 +53,17 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddSingleton<NhAssistantMcpClientCertificates>();
             services.TryAddScoped<NhAssistantMcpConnectionService>();
             services.TryAddScoped<NhAssistantMcpDelegatedTokenLedger>();
+            // OAuth connections: discovery, the host as client, flows and tokens (M3, M4).
+            services.TryAddSingleton<NhAssistantMcpOAuthHttp>();
+            services.TryAddSingleton<NhAssistantMcpDiscovery>();
+            services.TryAddSingleton<NhAssistantMcpTokenProtector>();
+            services.TryAddSingleton<NhAssistantMcpTokenCache>();
+            services.TryAddSingleton<NhAssistantMcpRenewalGate>();
+            services.TryAddScoped<NhAssistantMcpOAuthClient>();
+            services.TryAddScoped<NhAssistantMcpOAuthConnections>();
+            services.TryAddScoped<NhAssistantMcpAuthorizationFlows>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantMcpMaintenance>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAssistantMcpCredentialProvider, NhAssistantMcpOAuthCredentialProvider>());
             // Delegated MCP tokens that this host mints are never accepted by the host itself.
             services.AddNewHeapPlatformAIMcpDelegatedTokens();
             // Credentials are asked per request; a cached connection keeps only singleton providers.
@@ -207,6 +218,9 @@ internal sealed class NhAssistantStartupValidator(
             throw new InvalidOperationException(
                 "NewHeap:AI:Assistant:Mcp:ForwardedTokenLifetime must be longer than zero and at most 5 minutes.");
         }
+        // Invalid OAuth URLs or limits fail here instead of at the first authorization.
+        options.Value.Mcp.OAuth.Validate(
+            scope.ServiceProvider.GetService<IHostEnvironment>()?.IsDevelopment() == true);
 
         var accessPolicy = NhAssistantEndpointOptions.ResolveAccessPolicy(state, options.Value);
         if (await policyProvider.GetPolicyAsync(accessPolicy) is null)

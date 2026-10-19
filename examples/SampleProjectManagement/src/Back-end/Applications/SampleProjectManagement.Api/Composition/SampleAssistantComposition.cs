@@ -129,6 +129,12 @@ public static class SampleAssistantComposition
                 mcp.RequireHttps = true;
                 mcp.ToolListCacheDuration = TimeSpan.FromMinutes(5);
                 mcp.ConnectTimeout = TimeSpan.FromSeconds(10);
+                // SPM-299: OAuth servers need the public address of the assistant's callback,
+                // <prefix>/mcp/oauth/callback, and the origins of the pages that start an
+                // authorization. The sample reads them from NewHeap:AI:Assistant:Mcp:OAuth
+                // (appsettings.Development.json); a host without them cannot add an `oauth` server.
+                // Client credentials need neither: the host asks the authorization server for a
+                // token with its own client id and secret.
             })
             .UseChatProfile(ProfileName)
             // Every turn starts with the date and time in Amsterdam and who the user is, so the model

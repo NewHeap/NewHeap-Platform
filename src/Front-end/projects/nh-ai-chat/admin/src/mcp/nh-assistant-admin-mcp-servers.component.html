@@ -53,6 +53,26 @@
                   </span>
                 }
               }
+              @if (server.authMode === 'oauth') {
+                <span>{{ 'nh-assistant.admin.mcp.connection-scope.' + server.connectionScope | translate }}</span>
+              }
+              @if (server.organizationConnection; as connection) {
+                <span
+                  class="badge"
+                  [class.success]="connection.status === 'active'"
+                  [class.warning]="connection.status === 'reauthorization-required' || connection.status === 'issuer-changed'">
+                  {{ 'nh-assistant.admin.mcp.connection-status.' + connection.status | translate }}
+                </span>
+                @if (server.oauth?.organizationAccountLabel; as account) {
+                  <span>{{ 'nh-assistant.admin.mcp.organization-account' | translate: { account: account } }}</span>
+                }
+                @if (connection.status === 'active' && connection.connectedAt) {
+                  <span>{{ 'nh-assistant.admin.mcp.connected-by' | translate: { actor: connection.connectedBy ?? '', date: (connection.connectedAt | date: 'medium') } }}</span>
+                }
+                @if (connection.requiredScopes; as scopes) {
+                  <span>{{ 'nh-assistant.admin.mcp.required-scopes' | translate: { scopes: scopes } }}</span>
+                }
+              }
               @if (server.clientCertificateReference; as certificate) {
                 <span class="badge">{{ 'nh-assistant.admin.mcp.client-certificate' | translate: { name: certificate } }}</span>
               }
@@ -86,6 +106,15 @@
               }
             </div>
 
+            @if (server.organizationConnection?.status === 'issuer-changed') {
+              <p class="message warning" role="note"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.mcp.issuer-changed' | translate }}</p>
+            }
+            @if (connecting() === server.id) {
+              <p class="muted" role="status">{{ 'nh-assistant.admin.mcp.connecting' | translate }}</p>
+            } @else if (notice()?.serverId === server.id) {
+              <p class="message success" role="status"><nh-assistant-icon name="check" />{{ notice()!.key | translate }}</p>
+            }
+
             @if (testState(server.id); as state) {
               @if (state.running) {
                 <p class="muted" role="status">{{ 'nh-assistant.admin.mcp.testing' | translate }}</p>
@@ -102,6 +131,19 @@
                 <nh-assistant-icon name="link" />{{ 'nh-assistant.admin.mcp.test' | translate }}
               </button>
               <button class="secondary" type="button" (click)="toolsOf.set(server)"><nh-assistant-icon name="tool" />{{ 'nh-assistant.admin.mcp.tools' | translate }}</button>
+              @if (authorizesOrganization(server)) {
+                <button class="secondary" type="button" [disabled]="connecting() !== null" (click)="connect(server)">
+                  <nh-assistant-icon name="link" />{{ (server.organizationConnection?.status === 'not-connected' ? 'nh-assistant.admin.mcp.connect' : 'nh-assistant.admin.mcp.reconnect') | translate }}
+                </button>
+              }
+              @if (server.organizationConnection && server.organizationConnection.status !== 'not-connected') {
+                @if (confirmingDisconnect() === server.id) {
+                  <button class="danger" type="button" (click)="disconnect(server)">{{ 'nh-assistant.admin.mcp.confirm-disconnect' | translate }}</button>
+                  <button class="secondary" type="button" (click)="confirmingDisconnect.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                } @else {
+                  <button class="secondary" type="button" (click)="confirmingDisconnect.set(server.id)">{{ 'nh-assistant.admin.mcp.disconnect' | translate }}</button>
+                }
+              }
               @if (confirmingDelete() === server.id) {
                 <button class="danger" type="button" (click)="remove(server)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
                 <button class="secondary" type="button" (click)="confirmingDelete.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>

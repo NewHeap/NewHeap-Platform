@@ -5,8 +5,10 @@ import { Subscription } from 'rxjs';
 import {
   McpServer,
   McpServerTestResult,
+  NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW,
   NhAssistantAdminApiService,
   NhAssistantError,
+  nhAssistantConnectMcp,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   nhAssistantErrorMessageKey,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
@@ -25,8 +27,8 @@ interface TestState {
 let nextId = 0;
 
 /**
- * MCP server administration: list, connection test, tool sync, the server editor and the
- * tool table of one server.
+ * MCP server administration: list, connection test, tool sync, the organization's OAuth connection,
+ * the server editor and the tool table of one server.
  */
 @Component({
   selector: 'nh-assistant-admin-mcp-servers',
@@ -45,6 +47,7 @@ let nextId = 0;
 })
 export class NhAssistantAdminMcpServersComponent {
   private readonly admin = inject(NhAssistantAdminApiService);
+  private readonly authorizationWindow = inject(NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW);
   private subscription?: Subscription;
   private readonly actions = new Subscription();
 
@@ -57,6 +60,11 @@ export class NhAssistantAdminMcpServersComponent {
   readonly toolsOf = signal<McpServer | null>(null);
   readonly tests = signal<Record<string, TestState>>({});
   readonly confirmingDelete = signal<string | null>(null);
+  /** The server whose organization connection is being authorized. */
+  readonly connecting = signal<string | null>(null);
+  readonly confirmingDisconnect = signal<string | null>(null);
+  /** The latest connection result to announce, per server. */
+  readonly notice = signal<{ serverId: string; key: string } | null>(null);
   readonly error = signal<NhAssistantError | null>(null);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
 
@@ -127,6 +135,51 @@ export class NhAssistantAdminMcpServersComponent {
 
   testErrorKeys(code: string | null): string[] {
     return code ? [nhAssistantErrorMessageKey(code), 'nh-assistant.errors.generic'] : ['nh-assistant.errors.generic'];
+  }
+
+  /** Whether an administrator connects the organization's account to the server. */
+  authorizesOrganization(server: McpServer): boolean {
+    return server.authMode === 'oauth' && server.connectionScope === 'organization';
+  }
+
+  /**
+   * Authorizes the organization's account in a window opened right away, so popup blockers allow
+   * it, and completes the connection with this administrator's session.
+   */
+  connect(server: McpServer): void {
+    const handle = this.authorizationWindow.open();
+    this.error.set(null);
+    this.notice.set(null);
+    this.connecting.set(server.id);
+    this.actions.add(nhAssistantConnectMcp(
+      handle,
+      this.admin.authorizeMcpOrganizationConnection(server.id),
+      request => this.admin.completeMcpAuthorization(request)
+    ).subscribe({
+      next: () => {
+        this.connecting.set(null);
+        this.notice.set({ serverId: server.id, key: 'nh-assistant.admin.mcp.connect-done' });
+        this.refresh();
+      },
+      error: (error: unknown) => {
+        this.connecting.set(null);
+        this.error.set(toNhAssistantError(error));
+      }
+    }));
+  }
+
+  /** Removes the organization connection; the server revokes its tokens. */
+  disconnect(server: McpServer): void {
+    this.confirmingDisconnect.set(null);
+    this.error.set(null);
+    this.notice.set(null);
+    this.actions.add(this.admin.disconnectMcpOrganizationConnection(server.id).subscribe({
+      complete: () => {
+        this.notice.set({ serverId: server.id, key: 'nh-assistant.admin.mcp.disconnect-done' });
+        this.refresh();
+      },
+      error: (error: unknown) => this.error.set(toNhAssistantError(error))
+    }));
   }
 
   remove(server: McpServer): void {

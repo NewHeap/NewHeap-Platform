@@ -18,7 +18,7 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
 | --- | --- |
 | M1 | Implemented, not yet released: the per-request credential pipeline, `headlessUse` per server (`never`, `organization`), executable deferred MCP proposals, per-caller tool lists that leave the catalog alone, connection health, the `McpConnectionPolicy` migrations, the editor and list, the mock API, the texts and SPM-251. See [implementation notes](#implementation-notes-m1). |
 | M2 | Implemented, not yet released: basic authentication, the three secret sources, client certificates, the transport choice, the per-person background-use consent (moved forward from M4), the headless `forward-user-token` variant with `AddNewHeapPlatformAIMcpDelegatedTokens`, the `McpServerCredentials` migrations, the editor, the preferences, the mock API, the texts and SPM-251. See [implementation notes](#implementation-notes-m2). |
-| M3 | Proposed: OAuth discovery and client registration, organization connections (authorization code and client credentials), token storage, refresh and revocation. |
+| M3 | Implemented, not yet released: discovery and pinning, registration (pre-registered, Client ID Metadata Document, dynamic), the organization authorization code flow, `oauth-client-credentials` with a secret or `private_key_jwt`, token storage, single-flight refresh, step-up for client credentials, revocation, the callback and metadata document endpoints, the admin endpoints, the opt-in health check, metrics, retention, `NhAiTestAuthorizationServer`, the `McpOAuthConnections` migrations, the editor and list, the mock API, the texts and SPM-299. See [implementation notes](#implementation-notes-m3). |
 | M4 | Proposed: personal OAuth connections in the chat, background use by agent runs, step-up consent. |
 
 ## Implementation notes (M1)
@@ -102,6 +102,61 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
   admin UI, preferences and mock specs, and the SPM-251 sample tests
   `SPM_251_mcp_secrets_can_stay_with_the_application_and_basic_authentication_sends_a_user_name` and
   `SPM_251_a_background_run_reaches_a_first_party_server_with_a_delegated_token_once_the_participant_consents`.
+
+## Implementation notes (M3)
+
+- **Code layout.** The OAuth client lives in `NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth`:
+  `NhAssistantMcpOAuthHttp` (no redirects, 64 KiB bodies, the connect timeout and the host guard, which
+  always blocks private networks for OAuth URLs unless the host is in `AllowedHosts`, Q9),
+  `NhAssistantMcpDiscovery` (RFC 9728 from the challenge or the well-known URIs, RFC 8414 then OpenID
+  Connect metadata with the issuer checked, cached for ten minutes per issuer and read again on
+  confirmation), `NhAssistantMcpOAuthClient` (registration in the order of Q6, the token, refresh, client
+  credentials and revocation requests, `client_secret_basic`, `client_secret_post` or
+  `private_key_jwt`), `NhAssistantMcpOAuthConnections` (credentials, renewal, step-up, the issuer check,
+  disconnect with revocation), `NhAssistantMcpAuthorizationFlows` (start, callback, completion) and the
+  credential provider for both OAuth modes. Persistence is `NhAssistantMcpOAuthStore` in
+  `NewHeap.Platform.AI.Chat`.
+- **Pinning.** Saving an OAuth server with `oauth.confirmAuthorization` runs discovery again (the
+  pinned issuer is preferred while the server still names it) and audits
+  `AdminMcpServerAuthorizationConfirmed`. A new server, a changed address or a switch to OAuth needs it.
+  A `401` whose `resource_metadata` names other authorization servers suspends every connection of the
+  server as `issuer-changed`; confirming the same issuer again reactivates them, another issuer revokes
+  them as a server change.
+- **Single flight.** A semaphore per connection in the process and a lease on the row
+  (`RefreshLeaseUntil`, `RefreshLeaseOwner`, a conditional `ExecuteUpdate` that also bumps `Version`).
+  An instance that finds the lease taken polls the row every 100 ms for up to `RefreshLeaseDuration` and
+  uses the tokens the other instance stored. Renewed tokens are written only while the writer still
+  holds the lease. The test simulates the other instance on the same row (see I6).
+- **Endings.** `invalid_grant` on refresh and a refresh token that no longer unprotects make the
+  connection `reauthorization-required` with its tokens removed and audit; other failures keep it
+  active, record `LastFailureCode` and fail the call with `assistant-mcp-token-request-failed`. Client
+  credentials never end: the next use asks for a new token.
+- **Completion.** `POST mcp-connections/complete` is one endpoint for both owner kinds on the access
+  policy; it checks the starter, the completion code (hashed, compared in fixed time) and, for an
+  organization flow, the admin policy. The token response waits protected in the flow between the
+  callback and the completion and is cleared then. The authorization start returns `callbackOrigin`,
+  the origin of the redirect URI, and the default window accepts only that popup's message from that
+  origin for the started flow. The callback page addresses its message to every allowed origin (I5).
+- **Endpoint status codes.** `connection-required`, `reauthorization-required`, `issuer-changed` and
+  `authorization-not-confirmed` answer `409`, `discovery-failed` and `token-request-failed` `502`,
+  `too-many-authorizations` `429`, `forbidden` `403`, the rest `400`.
+- **Options.** `NhAssistantMcpOAuthOptions.Validate` runs at startup: absolute https URLs (http on
+  loopback or a `.localhost` name in Development), return origins without a path, bounded durations
+  and at most 50 pending flows per person.
+- **Maintenance.** `NhAssistantMcpMaintenance`, a background service of its own, deletes expired flows
+  and removes personal connections unused for `ConnectionRetention` with revocation and audit
+  (`retention`), at the run maintenance interval and at least every minute (I7).
+- **Health and metrics.** `AddNewHeapAssistantMcpHealthCheck` (opt-in) reports enabled servers whose last
+  connection failed and connections that need someone, with counts and server ids only. The
+  `NewHeap.Platform.AI` meter counts `nh.ai.mcp.requests` (`ok`, `renewed`, `http-<status>` or a code),
+  `nh.ai.mcp.token_requests` (grant and outcome) and `nh.ai.mcp.authorizations`.
+- **Evidence.** `AssistantMcpOAuthTests` (client credentials, step-up, the authorization code flow,
+  refresh, lease, endings and maintenance on SQL Server and PostgreSQL; `private_key_jwt`, issuer
+  changes, discovery refusals, the metadata document, the endpoints and the options on PostgreSQL), the
+  headless client credentials test in `AssistantMcpHeadlessTests` on both providers, the endpoint names
+  in `AssistantAdminEndpointTests`, the Angular editor, list, window and mock specs, and the SPM-299
+  sample tests `SPM_299_an_administrator_connects_an_oauth_server_with_the_hosts_client_credentials` and
+  `SPM_299_an_administrator_connects_the_organizations_account_and_the_agent_acts_as_that_account`.
 
 ## Problem
 
@@ -256,6 +311,12 @@ through M4 without waiting. Where a choice came up, the implementer decided as b
 | I1 | Decided by the implementer on 2026-10-19, for Lars to review: after merging `main`, the `McpConnectionPolicy` and `McpServerCredentials` migrations were regenerated with the EF CLI on top of `AgentChatAvailability`, with the same names and new timestamps. | Their designer models lacked `main`'s columns; regenerating keeps every migration's target model correct. Neither was released. |
 | I2 | Decided by the implementer on 2026-10-19, for Lars to review: delegated token issuing is audited per service scope, which is one turn of a run or one proposal execution, as `McpDelegatedTokenIssued` with the new public `NhAssistantAuditEvent.TokenCount`; the planning token serves the connection's first request outside a tool call while it is valid for 30 more seconds. | A run normally has one turn; flushing when the turn releases its MCP tools avoids writing audit events while a service scope is disposed. A tool call always gets its own token, bound to its invocation. |
 | I3 | Decided by the implementer on 2026-10-19, for Lars to review: the server editor no longer offers **Clear** for a secret. | The server has always refused `bearer`, `api-key` and `basic` without a secret, which the stricter mock now shows; choosing a reference or a mode without a secret removes the stored secret. |
+| I4 | Decided by the implementer on 2026-10-20, for Lars to review: `private_key_jwt` signs with the certificate that the server's `clientCertificateReference` names; there is no separate key reference. The same certificate is presented for mutual TLS when the MCP server asks for one. | One reference per server keeps the editor simple, and a host that registers a key at an authorization server usually also uses it for TLS. A separate reference can be added without a migration of meaning. |
+| I5 | Decided by the implementer on 2026-10-20, for Lars to review: the callback page posts its message to each origin in `ReturnOrigins` (or the redirect URI's origin); the browser delivers it only to the opener's origin. The start response names `callbackOrigin`, and the window accepts the message only from its own popup and that origin. | Applications often serve several front-ends from other origins than the API, as the sample does; recording the opener's origin per flow would need another column for no extra safety, because the completion code is useless without the starter's session. |
+| I6 | Decided by the implementer on 2026-10-20, for Lars to review: the cross-instance single flight is verified by a second lease owner on the same row, not by two hosts. | Each test host owns its own schema; the lease, the conditional writes and the waiting path are the same code either way. |
+| I7 | Decided by the implementer on 2026-10-20, for Lars to review: expired flows and stale personal connections are removed by `NhAssistantMcpMaintenance`, not by the run maintenance (D18). | The run maintenance only runs when agent runs are registered, while MCP OAuth also serves hosts without them. |
+| I8 | Decided by the implementer on 2026-10-20, for Lars to review: `INhAssistantMcpCredentialProvider` and `AddMcpCredentialProvider<T>` stay internal after M3 (D1, M1 notes). | The provider contract (subject, challenge, renewal) changes again with personal connections in M4; publishing it afterwards avoids a breaking change. Token exchange stays out of scope. |
+| I9 | Decided by the implementer on 2026-10-20, for Lars to review: the counters live on a `NewHeap.Platform.AI` meter instance of `NewHeap.Platform.AI.Chat.AspNet`, because the existing instance is internal to `NewHeap.Platform.AI.Common`; listeners subscribe by meter name, so both report together. | No new public surface in AI.Common for three counters. |
 
 ## Design
 

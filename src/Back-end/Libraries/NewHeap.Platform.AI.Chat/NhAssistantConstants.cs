@@ -785,9 +785,30 @@ public static class NhAssistantMcpAuthModes
     /// </summary>
     public const string Basic = "basic";
 
+    /// <summary>
+    /// OAuth 2.1 authorization code with PKCE and refresh tokens, against the authorization server
+    /// that an administrator confirmed. The connection belongs to the organization or to each person
+    /// (<see cref="NhAssistantMcpConnectionScopes"/>).
+    /// </summary>
+    public const string OAuth = "oauth";
+
+    /// <summary>
+    /// OAuth client credentials of a pre-registered client: one token of the organization for all
+    /// callers, without a browser.
+    /// </summary>
+    public const string OAuthClientCredentials = "oauth-client-credentials";
+
     public static bool IsValid(string? value)
     {
-        return value is None or Bearer or ApiKeyHeader or ForwardUserToken or Basic;
+        return value is None or Bearer or ApiKeyHeader or ForwardUserToken or Basic or OAuth or OAuthClientCredentials;
+    }
+
+    /// <summary>
+    /// Whether the mode obtains its tokens from an OAuth authorization server.
+    /// </summary>
+    public static bool IsOAuth(string? value)
+    {
+        return value is OAuth or OAuthClientCredentials;
     }
 
     /// <summary>
@@ -800,12 +821,54 @@ public static class NhAssistantMcpAuthModes
 
     /// <summary>
     /// Whether every caller of the server shares one credential that belongs to the organization,
-    /// rather than each person bringing their own.
+    /// rather than each person bringing their own. For <see cref="OAuth"/> this depends on the
+    /// connection scope; use the overload with it.
     /// </summary>
     public static bool IsOrganizationCredential(string? value)
     {
-        return value is None or Bearer or ApiKeyHeader or Basic;
+        return value is None or Bearer or ApiKeyHeader or Basic or OAuthClientCredentials;
     }
+
+    /// <summary>
+    /// Whether every caller of a server with this mode and connection scope shares one credential
+    /// of the organization.
+    /// </summary>
+    public static bool IsOrganizationCredential(string? value, string? connectionScope)
+    {
+        return IsOrganizationCredential(value)
+            || (value == OAuth && connectionScope != NhAssistantMcpConnectionScopes.User);
+    }
+}
+
+/// <summary>
+/// Whether one OAuth connection serves everyone or each person connects their own account.
+/// </summary>
+public static class NhAssistantMcpConnectionScopes
+{
+    /// <summary>One connection of the organization, made by an administrator. The default.</summary>
+    public const string Organization = "organization";
+
+    /// <summary>Each person connects their own account.</summary>
+    public const string User = "user";
+
+    public static bool IsValid(string? value)
+    {
+        return value is Organization or User;
+    }
+}
+
+/// <summary>
+/// The state of an MCP connection with OAuth tokens.
+/// </summary>
+public static class NhAssistantMcpConnectionStatuses
+{
+    public const string Active = "active";
+
+    /// <summary>The tokens can no longer be renewed; the owner connects again.</summary>
+    public const string ReauthorizationRequired = "reauthorization-required";
+
+    /// <summary>The server named another authorization server; an administrator confirms it first.</summary>
+    public const string IssuerChanged = "issuer-changed";
 }
 
 /// <summary>
@@ -845,15 +908,27 @@ public static class NhAssistantMcpHeadlessUses
     /// </summary>
     public static bool FitsAuthMode(string headlessUse, string authMode)
     {
+        return FitsAuthMode(headlessUse, authMode, NhAssistantMcpConnectionScopes.Organization);
+    }
+
+    /// <summary>
+    /// Whether the headless use fits the authentication mode and connection scope of the server:
+    /// <see cref="Organization"/> needs a credential of the organization, <see cref="Personal"/> a
+    /// forwarded token or a personal OAuth connection.
+    /// </summary>
+    public static bool FitsAuthMode(string headlessUse, string authMode, string? connectionScope)
+    {
         if (headlessUse == Never)
         {
             return true;
         }
         if (headlessUse == Organization)
         {
-            return NhAssistantMcpAuthModes.IsOrganizationCredential(authMode);
+            return NhAssistantMcpAuthModes.IsOrganizationCredential(authMode, connectionScope);
         }
-        return headlessUse == Personal && authMode == NhAssistantMcpAuthModes.ForwardUserToken;
+        return headlessUse == Personal
+            && (authMode == NhAssistantMcpAuthModes.ForwardUserToken
+                || (authMode == NhAssistantMcpAuthModes.OAuth && connectionScope == NhAssistantMcpConnectionScopes.User));
     }
 }
 
@@ -1001,6 +1076,48 @@ public static class NhAssistantAdminErrorCodes
     /// The client certificate reference names no configured certificate with a private key.
     /// </summary>
     public const string McpCertificateReferenceInvalid = "assistant-mcp-certificate-reference-invalid";
+
+    /// <summary>The caller has no active connection to a server that needs one.</summary>
+    public const string McpConnectionRequired = "assistant-mcp-connection-required";
+
+    /// <summary>The connection's tokens can no longer be renewed; its owner connects again.</summary>
+    public const string McpReauthorizationRequired = "assistant-mcp-reauthorization-required";
+
+    /// <summary>The server asked for a scope that the administrator did not allow.</summary>
+    public const string McpScopeNotAllowed = "assistant-mcp-scope-not-allowed";
+
+    /// <summary>The authorization server ended the authorization with an error, for example a denial.</summary>
+    public const string McpAuthorizationFailed = "assistant-mcp-authorization-failed";
+
+    /// <summary>The authorization is unknown, already used or expired.</summary>
+    public const string McpAuthorizationExpired = "assistant-mcp-authorization-expired";
+
+    /// <summary>The authorization response or its completion does not belong to this flow.</summary>
+    public const string McpAuthorizationInvalid = "assistant-mcp-authorization-invalid";
+
+    /// <summary>No usable protected resource or authorization server metadata was found.</summary>
+    public const string McpDiscoveryFailed = "assistant-mcp-discovery-failed";
+
+    /// <summary>The authorization server does not support PKCE with <c>S256</c>.</summary>
+    public const string McpPkceUnsupported = "assistant-mcp-pkce-unsupported";
+
+    /// <summary>The authorization server offers no registration the host can use; enter a client id.</summary>
+    public const string McpClientRegistrationRequired = "assistant-mcp-client-registration-required";
+
+    /// <summary>The token endpoint could not be reached or answered with an unexpected error.</summary>
+    public const string McpTokenRequestFailed = "assistant-mcp-token-request-failed";
+
+    /// <summary>The server names another authorization server than the confirmed one.</summary>
+    public const string McpIssuerChanged = "assistant-mcp-issuer-changed";
+
+    /// <summary>An OAuth server is used before an administrator confirmed its authorization server.</summary>
+    public const string McpAuthorizationNotConfirmed = "assistant-mcp-authorization-not-confirmed";
+
+    /// <summary>The host has no OAuth redirect URI (<c>NewHeap:AI:Assistant:Mcp:OAuth:RedirectUri</c>).</summary>
+    public const string McpOAuthNotConfigured = "assistant-mcp-oauth-not-configured";
+
+    /// <summary>The caller has too many unfinished authorizations.</summary>
+    public const string McpTooManyAuthorizations = "assistant-mcp-too-many-authorizations";
 
     public const string InstructionsTooLong = "assistant-instructions-too-long";
     public const string ContextNotFound = "assistant-context-not-found";

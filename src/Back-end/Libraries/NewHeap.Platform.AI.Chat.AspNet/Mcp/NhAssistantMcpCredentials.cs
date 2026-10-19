@@ -55,7 +55,7 @@ internal interface INhAssistantMcpCredentialProvider
 
     /// <summary>
     /// Whether <see cref="RenewAsync"/> can produce a new credential after the server answered
-    /// <c>401</c>. The request is then repeated once.
+    /// <c>401</c>, or <c>403</c> with <c>insufficient_scope</c>. The request is then repeated once.
     /// </summary>
     bool CanRenew { get; }
 
@@ -67,6 +67,7 @@ internal interface INhAssistantMcpCredentialProvider
     ValueTask<TaskResult<NhAssistantMcpCredential>> RenewAsync(
         AssistantMcpServer server,
         NhAssistantMcpCredentialSubject subject,
+        NhAssistantMcpChallenge challenge,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -117,9 +118,9 @@ internal sealed class NhAssistantMcpCredentialSource(
         return provider.GetAsync(server, subject, cancellationToken);
     }
 
-    public ValueTask<TaskResult<NhAssistantMcpCredential>> RenewAsync(CancellationToken cancellationToken)
+    public ValueTask<TaskResult<NhAssistantMcpCredential>> RenewAsync(NhAssistantMcpChallenge challenge, CancellationToken cancellationToken)
     {
-        return provider.RenewAsync(server, subject, cancellationToken);
+        return provider.RenewAsync(server, subject, challenge, cancellationToken);
     }
 
     public TaskResult AuthorizeCall(NhAiMcpCallContext call)
@@ -212,7 +213,7 @@ internal sealed class NhAssistantMcpStaticCredentialProvider(NhAssistantMcpSecre
 
     public bool Supports(string authMode)
     {
-        return NhAssistantMcpAuthModes.IsOrganizationCredential(authMode);
+        return authMode is NhAssistantMcpAuthModes.None or NhAssistantMcpAuthModes.Bearer or NhAssistantMcpAuthModes.ApiKeyHeader or NhAssistantMcpAuthModes.Basic;
     }
 
     public async ValueTask<TaskResult<NhAssistantMcpCredential>> GetAsync(
@@ -251,6 +252,7 @@ internal sealed class NhAssistantMcpStaticCredentialProvider(NhAssistantMcpSecre
     public ValueTask<TaskResult<NhAssistantMcpCredential>> RenewAsync(
         AssistantMcpServer server,
         NhAssistantMcpCredentialSubject subject,
+        NhAssistantMcpChallenge challenge,
         CancellationToken cancellationToken)
     {
         return ValueTask.FromResult(NhAssistantMcpCredentialResults.Failed(NhAssistantAdminErrorCodes.McpUnauthorized));
@@ -313,6 +315,7 @@ internal sealed partial class NhAssistantMcpForwardedTokenCredentialProvider(
     public ValueTask<TaskResult<NhAssistantMcpCredential>> RenewAsync(
         AssistantMcpServer server,
         NhAssistantMcpCredentialSubject subject,
+        NhAssistantMcpChallenge challenge,
         CancellationToken cancellationToken)
     {
         return ValueTask.FromResult(NhAssistantMcpCredentialResults.Failed(NhAssistantAdminErrorCodes.McpUnauthorized));
@@ -555,15 +558,37 @@ internal static class NhAssistantMcpCredentialResults
 /// <summary>
 /// Authenticates every request of an MCP client: it checks the request target, the person a
 /// governed call was authorized for and the credential, renews a renewable credential once after
-/// <c>401</c> and turns <c>403 insufficient_scope</c> into its own code. Credentials never reach a
-/// log; failures carry stable codes only.
+/// <c>401</c> or <c>403 insufficient_scope</c> (step-up) and repeats the request once, and otherwise
+/// turns <c>403 insufficient_scope</c> into its own code. Credentials never reach a log; failures
+/// carry stable codes only.
 /// </summary>
 internal sealed class NhAssistantMcpCredentialHandler(
     NhAssistantMcpCredentialSource credentials,
     Uri endpoint,
     NhAssistantMcpHostGuard guard) : DelegatingHandler
 {
+    private const string Renewed = "renewed";
+
     protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var (response, renewed) = await SendCoreAsync(request, cancellationToken);
+            NhAssistantMcpMetrics.Request(response.IsSuccessStatusCode
+                ? renewed ? Renewed : NhAssistantMcpMetrics.Ok
+                : "http-" + ((int)response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return response;
+        }
+        catch (NhAssistantMcpException exception)
+        {
+            NhAssistantMcpMetrics.Request(exception.Code);
+            throw;
+        }
+    }
+
+    private async Task<(HttpResponseMessage Response, bool Renewed)> SendCoreAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
@@ -591,7 +616,7 @@ internal sealed class NhAssistantMcpCredentialHandler(
 
         if (!credentials.CanRenew)
         {
-            return Inspect(await base.SendAsync(request, cancellationToken));
+            return (Inspect(await base.SendAsync(request, cancellationToken)), false);
         }
 
         // The body is read again for the one repeat after a renewal.
@@ -600,20 +625,38 @@ internal sealed class NhAssistantMcpCredentialHandler(
             await request.Content.LoadIntoBufferAsync(cancellationToken);
         }
         var response = await base.SendAsync(request, cancellationToken);
-        if (response.StatusCode != HttpStatusCode.Unauthorized)
+        var challenge = response.StatusCode switch
         {
-            return Inspect(response);
+            HttpStatusCode.Unauthorized => NhAssistantMcpChallenge.Parse(401, response.Headers.WwwAuthenticate),
+            HttpStatusCode.Forbidden when IsInsufficientScope(response.Headers.WwwAuthenticate) => NhAssistantMcpChallenge.Parse(403, response.Headers.WwwAuthenticate),
+            _ => null
+        };
+        if (challenge is null)
+        {
+            return (Inspect(response), false);
         }
 
-        var renewed = await credentials.RenewAsync(cancellationToken);
+        var renewed = await credentials.RenewAsync(challenge, cancellationToken);
         if (!renewed.Success)
         {
-            return response;
+            var code = NhAssistantMcpCredentialResults.FirstCode(renewed);
+            if (challenge.Status == 403 || code is NhAssistantAdminErrorCodes.McpReauthorizationRequired
+                or NhAssistantAdminErrorCodes.McpIssuerChanged
+                or NhAssistantAdminErrorCodes.McpConnectionRequired
+                or NhAssistantAdminErrorCodes.McpTokenRequestFailed
+                or NhAssistantAdminErrorCodes.McpScopeNotAllowed)
+            {
+                response.Dispose();
+                throw new NhAssistantMcpException(
+                    code ?? NhAssistantAdminErrorCodes.McpInsufficientScope,
+                    "The MCP credential could not be renewed.");
+            }
+            return (response, false);
         }
         response.Dispose();
         using var repeat = await CloneAsync(request, cancellationToken);
         Apply(repeat, renewed.Data!);
-        return Inspect(await base.SendAsync(repeat, cancellationToken));
+        return (Inspect(await base.SendAsync(repeat, cancellationToken)), true);
     }
 
     private static void Apply(HttpRequestMessage request, NhAssistantMcpCredential credential)

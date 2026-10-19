@@ -22,6 +22,7 @@ export { NhAssistantPushService, NhAssistantPushState } from './lib/services/nh-
 export * from './lib/services/nh-assistant-panel.service';
 export * from './lib/services/nh-assistant-subject-summary.service';
 export * from './lib/services/nh-assistant-share-link';
+export * from './lib/services/nh-assistant-mcp-authorization';
 export { NH_ASSISTANT_ICONS, NhAssistantIconName } from './lib/internal/nh-assistant-icon.component';
 export * from './lib/components/launcher/nh-assistant-launcher.component';
 export * from './lib/components/panel/nh-assistant-panel.component';

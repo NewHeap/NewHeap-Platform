@@ -214,6 +214,9 @@ public class AssistantSampleHost : IAsyncLifetime
 {
     protected const string ManagePolicy = "app.active-division.project.manage";
 
+    /// <summary>The assistant's OAuth callback that authorization servers redirect to (SPM-299).</summary>
+    public const string OAuthRedirectUri = "https://sample-project-management-api.dev.localhost:5281/api/assistant/mcp/oauth/callback";
+
     private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:16-alpine").Build();
     private WebApplication? _app;
     private Uri? _baseAddress;
@@ -240,7 +243,9 @@ public class AssistantSampleHost : IAsyncLifetime
         {
             ["Database:ConnectionStringName"] = "DefaultConnection",
             ["ConnectionStrings:DefaultConnection"] = _database.GetConnectionString(),
-            ["NewHeap:AI:Assistant:Enabled"] = "true"
+            ["NewHeap:AI:Assistant:Enabled"] = "true",
+            // SPM-299: as in appsettings.Development.json; the tests play the browser themselves.
+            ["NewHeap:AI:Assistant:Mcp:OAuth:RedirectUri"] = OAuthRedirectUri
         };
         ConfigureSettings(settings);
         builder.Configuration.AddInMemoryCollection(settings);

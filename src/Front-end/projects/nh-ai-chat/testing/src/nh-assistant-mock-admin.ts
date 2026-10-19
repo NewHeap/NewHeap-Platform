@@ -11,13 +11,21 @@ import {
   AssistantAutonomy,
   AssistantPreferences,
   McpAuthMode,
+  McpAuthorization,
+  McpAuthorizationStart,
+  McpCompletion,
   McpConnection,
+  McpConnectionScope,
+  McpConnectionStatus,
+  McpDiscovery,
   McpHeadlessUse,
+  McpOrganizationConnection,
   McpServer,
   McpServerInput,
   McpServerTestResult,
   McpTool,
   McpToolEffect,
+  NhAssistantMcpAuthorizationOutcome,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminAgent, NhAssistantMockRemoteTool, NhAssistantMockScenario } from './nh-assistant-mock.models';
@@ -30,11 +38,25 @@ export interface NhAssistantMockResult {
 }
 
 interface StoredServer {
-  server: Omit<McpServer, 'hasSecret' | 'assignedAgentIds'>;
+  server: Omit<McpServer, 'hasSecret' | 'assignedAgentIds' | 'organizationConnection'>;
   /** A stored secret; a secret reference is `server.secretReference`. They exclude each other. */
   secret: string | null;
+  /** The OAuth client secret; never returned. */
+  oauthSecret: string | null;
+  /** The organization's OAuth connection; null while not connected. */
+  organization: McpOrganizationConnection | null;
   remoteTools: NhAssistantMockRemoteTool[];
   tools: Map<string, McpTool & { inputSchemaHash: string }>;
+}
+
+/** An authorization the mock started; the mock authorization window plays its callback. */
+interface StoredFlow {
+  serverId: string;
+  owner: 'organization' | 'user';
+  completionCode: string;
+  status: 'pending' | 'exchanged' | 'completed' | 'failed';
+  allowBackgroundUse: boolean;
+  expiresAt: number;
 }
 
 interface StoredAgent {
@@ -48,8 +70,12 @@ const styles = ['default', 'direct', 'personal', 'detailed'];
 const addressForms = ['informal', 'formal'];
 const responseLengths = ['short', 'normal', 'long'];
 const autonomyLevels: AssistantAutonomy[] = ['observe', 'explain', 'propose', 'simulate', 'execute'];
-const authModes = ['none', 'bearer', 'api-key', 'basic', 'forward-user-token'];
+const authModes = ['none', 'bearer', 'api-key', 'basic', 'forward-user-token', 'oauth', 'oauth-client-credentials'];
 const secretModes = ['bearer', 'api-key', 'basic'];
+const oauthModes = ['oauth', 'oauth-client-credentials'];
+const connectionScopes: McpConnectionScope[] = ['organization', 'user'];
+const scopeTokens = /^[\x21\x23-\x5B\x5D-\x7E]+( [\x21\x23-\x5B\x5D-\x7E]+)*$/;
+const flowLifetimeMs = 10 * 60_000;
 const headlessUses: McpHeadlessUse[] = ['never', 'organization', 'personal'];
 const transports = ['streamable-http', 'auto'];
 const secretReference = /^[a-z][a-z0-9-]{0,31}:[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/;
@@ -79,12 +105,17 @@ export class NhAssistantMockAdmin {
   private readonly contextVersions: (ApplicationContextVersion & { text: string })[] = [];
   /** The caller's consent per server, with the server's address and authentication it holds for. */
   private readonly consents = new Map<string, { fingerprint: string; consentedAt: string }>();
+  /** Authorizations started through the mock, by flow id. */
+  private readonly flows = new Map<string, StoredFlow>();
+  /** What the mock authorization window answers: the person approves, denies or closes the window. */
+  private authorizationOutcome: 'approve' | 'deny' | 'cancel';
   private preferences: AssistantPreferences;
   private canAdminister: boolean;
 
   constructor(private readonly scenario: NhAssistantMockScenario, private readonly now: () => string) {
     const admin = scenario.admin ?? {};
     this.canAdminister = admin.canAdminister ?? true;
+    this.authorizationOutcome = admin.mcpAuthorization ?? 'approve';
     this.preferences = { ...defaultPreferences, ...scenario.preferences };
 
     this.contextVersions.push({ version: 1, hash: hashText(admin.context ?? ''), updatedAt: now(), updatedBy: null, text: admin.context ?? '' });
@@ -130,13 +161,26 @@ export class NhAssistantMockAdmin {
       },
       now);
 
-    for (const { remoteTools, secret, ...input } of admin.mcpServers ?? []) {
-      this.servers.set(input.id, {
-        server: { ...toServerFields(input), ...newServerState(input) },
+    for (const { remoteTools, secret, organizationConnected, ...input } of admin.mcpServers ?? []) {
+      const stored: StoredServer = {
+        server: { ...toServerFields(input), ...newServerState(input), ...oauthFields(input, null, null) },
         secret: secret ?? null,
+        oauthSecret: input.oauth?.clientSecret || null,
+        organization: null,
         remoteTools: remoteTools ?? [],
         tools: new Map()
-      });
+      };
+      if (oauthModes.includes(input.authMode)) {
+        // A preconfigured OAuth server was confirmed by an administrator before.
+        const found = this.discovery(input.url);
+        stored.server.authorization = typeof found === 'string'
+          ? null
+          : { issuer: found.issuer, resource: found.resource, confirmedAt: now(), confirmedBy: 'current-user' };
+        if (organizationConnected) {
+          stored.organization = activeConnection(now(), 'current-user', input.oauth?.scopes ?? null);
+        }
+      }
+      this.servers.set(input.id, stored);
     }
     for (const consent of admin.mcpConnections ?? []) {
       const stored = this.servers.get(consent.serverId);
@@ -152,6 +196,43 @@ export class NhAssistantMockAdmin {
 
   setCanAdminister(value: boolean): void {
     this.canAdminister = value;
+  }
+
+  /** What the mock authorization window answers next. */
+  setMcpAuthorizationOutcome(outcome: 'approve' | 'deny' | 'cancel'): void {
+    this.authorizationOutcome = outcome;
+  }
+
+  /**
+   * Simulates what happens to a server's OAuth connections outside the application: the
+   * authorization server refused a refresh (`reauthorization-required`), or the server named another
+   * authorization server (`issuer-changed`).
+   */
+  setMcpConnectionStatus(serverId: string, status: Exclude<McpConnectionStatus, 'not-connected' | 'active'>): void {
+    const stored = this.servers.get(serverId);
+    if (stored?.organization) {
+      stored.organization = { ...stored.organization, status, lastFailureCode: status === 'reauthorization-required' ? 'assistant-mcp-reauthorization-required' : null };
+    }
+  }
+
+  /**
+   * Plays the callback of a started authorization as the authorization server and the callback page
+   * would: the person approves, denies or closes the window.
+   */
+  authorizeFlow(flowId: string): NhAssistantMcpAuthorizationOutcome {
+    const flow = this.flows.get(flowId);
+    if (!flow || flow.status !== 'pending' || flow.expiresAt < Date.parse(this.now())) {
+      return { flowId: null, code: 'assistant-mcp-authorization-expired' };
+    }
+    if (this.authorizationOutcome === 'cancel') {
+      return { flowId, code: 'assistant-mcp-authorization-cancelled' };
+    }
+    if (this.authorizationOutcome === 'deny') {
+      flow.status = 'failed';
+      return { flowId, code: 'assistant-mcp-authorization-failed' };
+    }
+    flow.status = 'exchanged';
+    return { flowId, completionCode: flow.completionCode };
   }
 
   /** Replaces the tool list of a simulated remote server; the next sync picks it up. */
@@ -216,6 +297,9 @@ export class NhAssistantMockAdmin {
    * and authentication as they were; a change shows it as not allowed again.
    */
   handleMcpConnections(method: string, segments: string[], body: unknown): NhAssistantMockResult {
+    if (segments.length === 2 && segments[1] === 'complete') {
+      return method === 'POST' ? this.complete(body) : { status: 405 };
+    }
     const personal = this.personalServers();
     if (segments.length === 1) {
       return method === 'GET' ? { status: 200, body: personal } : { status: 405 };
@@ -710,6 +794,14 @@ export class NhAssistantMockAdmin {
     body: unknown,
     length: number
   ): NhAssistantMockResult {
+    if (id === 'discover' && length === 3 && method === 'POST') {
+      const url = (body as { url?: unknown } | undefined)?.url;
+      if (typeof url !== 'string' || url.trim().length === 0) {
+        return failure(400, 'assistant-validation', { url: ['required'] });
+      }
+      const found = this.discovery(url.trim());
+      return typeof found === 'string' ? failure(discoveryStatus(found), found) : { status: 200, body: found };
+    }
     if (id === undefined) {
       if (method === 'GET') {
         return { status: 200, body: [...this.servers.values()].map(stored => this.toServer(stored)) };
@@ -729,10 +821,16 @@ export class NhAssistantMockAdmin {
       if (credentialFailure) {
         return credentialFailure;
       }
+      const oauth = this.oauthCheck(input, null);
+      if ('failure' in oauth) {
+        return oauth.failure;
+      }
 
       const stored: StoredServer = {
-        server: { ...toServerFields(input), ...newServerState(input) },
+        server: { ...toServerFields(input), ...newServerState(input), ...oauthFields(input, null, oauth.authorization) },
         secret: secretModes.includes(input.authMode) && input.secret ? input.secret : null,
+        oauthSecret: oauthModes.includes(input.authMode) && input.oauth?.clientSecret ? input.oauth.clientSecret : null,
+        organization: null,
         remoteTools: [],
         tools: new Map()
       };
@@ -753,19 +851,40 @@ export class NhAssistantMockAdmin {
         }
         // An omitted headless use, transport or user name keeps the stored value, as on the server.
         const headlessUse = input.headlessUse ?? stored.server.headlessUse;
-        if (!fitsHeadlessUse(headlessUse, input.authMode)) {
+        if (!fitsHeadlessUse(headlessUse, input.authMode, input.connectionScope ?? stored.server.connectionScope)) {
           return validationFailure('headlessUse');
         }
         const credentialFailure = this.credentialFailure(input, stored);
         if (credentialFailure) {
           return credentialFailure;
         }
+        const oauth = this.oauthCheck(input, stored);
+        if ('failure' in oauth) {
+          return oauth.failure;
+        }
+        const before = stored.server;
         stored.server = {
           ...stored.server,
           ...toServerFields(input, stored.server),
+          ...oauthFields(input, stored.server, oauth.authorization),
           headlessUse,
           transport: input.transport ?? stored.server.transport
         };
+        if (!oauthModes.includes(input.authMode)) {
+          stored.oauthSecret = null;
+        } else if (input.oauth?.clientSecret) {
+          stored.oauthSecret = input.oauth.clientSecret;
+        } else if (input.oauth?.clientSecretReference) {
+          stored.oauthSecret = null;
+        }
+        stored.server = { ...stored.server, oauth: stored.server.oauth && { ...stored.server.oauth, hasClientSecret: stored.oauthSecret !== null } };
+        if (oauthChanged(before, stored.server)) {
+          // The tokens no longer fit the server: they are revoked and everyone connects again.
+          stored.organization = null;
+        } else if (oauth.authorization !== null && before.authorization?.issuer === oauth.authorization.issuer &&
+          stored.organization?.status === 'issuer-changed') {
+          stored.organization = { ...stored.organization, status: 'active' };
+        }
         if (!secretModes.includes(input.authMode)) {
           stored.secret = null;
           stored.server.secretReference = null;
@@ -788,6 +907,26 @@ export class NhAssistantMockAdmin {
         return { status: 204 };
       }
       return { status: 405 };
+    }
+
+    if (action === 'connection' && length === 4) {
+      if (method === 'GET') {
+        return { status: 200, body: this.toServer(stored).organizationConnection ?? notConnected() };
+      }
+      if (method === 'DELETE') {
+        stored.organization = null;
+        return { status: 204 };
+      }
+      return { status: 405 };
+    }
+    if (action === 'connection' && child === 'authorize' && length === 5) {
+      return method === 'POST' ? this.startAuthorization(stored, body) : { status: 405 };
+    }
+    if (action === 'connections' && length === 4) {
+      return method === 'DELETE' ? { status: 204 } : { status: 405 };
+    }
+    if (action === 'connections' && child === 'summary' && length === 5) {
+      return method === 'GET' ? { status: 200, body: { active: 0, reauthorizationRequired: 0, issuerChanged: 0 } } : { status: 405 };
     }
 
     if (length === 4 && action === 'test' && method === 'POST') {
@@ -888,7 +1027,187 @@ export class NhAssistantMockAdmin {
     }
   }
 
+  /**
+   * The OAuth part of a server change, as on the server: the connection scope, the scopes, a client
+   * id and secret where needed, the account label of an organization connection, and discovery the
+   * administrator confirms for a new server or a new address. Returns the authorization to pin.
+   */
+  private oauthCheck(input: McpServerInput, stored: StoredServer | null): { failure: NhAssistantMockResult } | { authorization: McpAuthorization | null } {
+    if (!oauthModes.includes(input.authMode)) {
+      return { authorization: null };
+    }
+    const scope = input.connectionScope ?? stored?.server.connectionScope ?? 'organization';
+    if (!connectionScopes.includes(scope) || (input.authMode !== 'oauth' && scope !== 'organization')) {
+      return { failure: validationFailure('connectionScope') };
+    }
+    const settings = stored?.server.oauth ?? null;
+    const clientId = effective(input.oauth?.clientId, settings?.clientId ?? null);
+    const scopes = effective(input.oauth?.scopes, settings?.scopes ?? null);
+    const label = effective(input.oauth?.organizationAccountLabel, settings?.organizationAccountLabel ?? null);
+    const reference = effective(input.oauth?.clientSecretReference, settings?.clientSecretReference ?? null);
+    if (scopes !== null && (scopes.length > 1_024 || !scopeTokens.test(scopes.trim()))) {
+      return { failure: validationFailure('oauth.scopes') };
+    }
+    if (input.authMode === 'oauth' && scope === 'organization' && (label === null || label.trim().length === 0)) {
+      return { failure: failure(400, 'assistant-validation', { 'oauth.organizationAccountLabel': ['required'] }) };
+    }
+    if (input.authMode === 'oauth-client-credentials') {
+      if (clientId === null || clientId.trim().length === 0) {
+        return { failure: failure(400, 'assistant-validation', { 'oauth.clientId': ['required'] }) };
+      }
+      const hasSecret = input.oauth?.clientSecret === undefined || input.oauth?.clientSecret === null
+        ? stored?.oauthSecret != null && !input.oauth?.clientSecretReference
+        : input.oauth.clientSecret.length > 0;
+      const certificate = input.clientCertificateReference === undefined || input.clientCertificateReference === null
+        ? stored?.server.clientCertificateReference ?? null
+        : input.clientCertificateReference || null;
+      if (!hasSecret && reference === null && certificate === null) {
+        return { failure: failure(400, 'assistant-validation', { 'oauth.clientSecret': ['required'] }) };
+      }
+    }
+    const pinned = stored !== null && oauthModes.includes(stored.server.authMode) ? stored.server.authorization : null;
+    if (input.oauth?.confirmAuthorization !== true) {
+      return pinned !== null && stored!.server.url === input.url.trim()
+        ? { authorization: pinned }
+        : { failure: failure(400, 'assistant-validation', { 'oauth.confirmAuthorization': ['required'] }) };
+    }
+    const found = this.discovery(input.url.trim());
+    if (typeof found === 'string') {
+      return { failure: failure(discoveryStatus(found), found) };
+    }
+    if (input.authMode === 'oauth' && !found.pkceSupported) {
+      return { failure: failure(400, 'assistant-mcp-pkce-unsupported') };
+    }
+    return { authorization: { issuer: found.issuer, resource: found.resource, confirmedAt: this.now(), confirmedBy: 'current-user' } };
+  }
+
+  /**
+   * What discovery finds for an address: a host with `no-oauth` has no protected resource metadata,
+   * `no-pkce` an authorization server without PKCE; `admin.mcpDiscovery` overrides per host.
+   */
+  private discovery(url: string): McpDiscovery | string {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return 'assistant-validation';
+    }
+    const host = parsed.hostname.toLowerCase();
+    if (host.startsWith('169.254.') || host.startsWith('[fe80') || host.includes('metadata')) {
+      return 'assistant-mcp-host-blocked';
+    }
+    if (host.includes('no-oauth') || host.includes('unreachable')) {
+      return 'assistant-mcp-discovery-failed';
+    }
+    const issuer = `https://auth.${host}`;
+    const path = parsed.pathname.replace(/\/+$/, '');
+    return {
+      resource: `${parsed.protocol}//${parsed.host.toLowerCase()}${path}${parsed.search}`,
+      issuer,
+      authorizationServers: [issuer],
+      challengedScopes: ['mcp:read'],
+      scopesSupported: ['mcp:read', 'mcp:write', 'offline_access'],
+      grantTypesSupported: ['authorization_code', 'refresh_token', 'client_credentials'],
+      pkceSupported: !host.includes('no-pkce'),
+      clientIdMetadataDocumentSupported: false,
+      dynamicRegistrationSupported: true,
+      tokenEndpointAuthMethods: ['client_secret_basic', 'private_key_jwt', 'none'],
+      ...this.scenario.admin?.mcpDiscovery?.[host]
+    };
+  }
+
+  /** `POST admin/mcp-servers/{id}/connection/authorize`: starts the organization's authorization. */
+  private startAuthorization(stored: StoredServer, body: unknown): NhAssistantMockResult {
+    if (stored.server.authMode !== 'oauth' || stored.server.connectionScope !== 'organization') {
+      return validationFailure('authMode');
+    }
+    const returnUrl = (body as { returnUrl?: unknown } | undefined)?.returnUrl;
+    if (returnUrl !== undefined && returnUrl !== null && !this.allowedReturnUrl(returnUrl)) {
+      return validationFailure('returnUrl');
+    }
+    return this.startFlow(stored, 'organization', false);
+  }
+
+  private startFlow(stored: StoredServer, owner: 'organization' | 'user', allowBackgroundUse: boolean): NhAssistantMockResult {
+    const authorization = stored.server.authorization;
+    if (authorization === null) {
+      return failure(409, 'assistant-mcp-authorization-not-confirmed');
+    }
+    const flowId = uuid();
+    const expiresAt = Date.parse(this.now()) + flowLifetimeMs;
+    this.flows.set(flowId, {
+      serverId: stored.server.id,
+      owner,
+      completionCode: `mock-completion-${flowId.replace(/-/g, '')}`,
+      status: 'pending',
+      allowBackgroundUse,
+      expiresAt
+    });
+    const query = new URLSearchParams({
+      response_type: 'code',
+      client_id: stored.server.oauth?.clientId ?? 'mock-registered-client',
+      resource: authorization.resource,
+      state: flowId
+    });
+    const start: McpAuthorizationStart = {
+      flowId,
+      authorizationUrl: `${authorization.issuer}/authorize?${query.toString()}`,
+      expiresAt: new Date(expiresAt).toISOString(),
+      callbackOrigin: 'https://assistant.mock.local'
+    };
+    return { status: 200, body: start };
+  }
+
+  /** `POST mcp-connections/complete`: activates the connection of a flow the caller started. */
+  private complete(body: unknown): NhAssistantMockResult {
+    const request = body as { flowId?: unknown; completionCode?: unknown } | undefined;
+    if (typeof request?.flowId !== 'string' || request.flowId.length === 0) {
+      return failure(400, 'assistant-validation', { flowId: ['required'] });
+    }
+    if (typeof request.completionCode !== 'string' || request.completionCode.length === 0) {
+      return failure(400, 'assistant-validation', { completionCode: ['required'] });
+    }
+    const flow = this.flows.get(request.flowId);
+    if (!flow || flow.status !== 'exchanged' || flow.expiresAt < Date.parse(this.now())) {
+      return failure(400, 'assistant-mcp-authorization-expired');
+    }
+    if (flow.completionCode !== request.completionCode) {
+      return failure(400, 'assistant-mcp-authorization-invalid');
+    }
+    if (flow.owner === 'organization' && !this.canAdminister) {
+      return failure(403, 'assistant-forbidden');
+    }
+    const stored = this.servers.get(flow.serverId);
+    if (!stored) {
+      return failure(404, 'assistant-mcp-server-not-found');
+    }
+    flow.status = 'completed';
+    const connection = activeConnection(this.now(), 'current-user', stored.server.oauth?.scopes ?? null);
+    stored.organization = connection;
+    const completion: McpCompletion = { serverId: stored.server.id, ownerKind: flow.owner, status: 'active', grantedScopes: connection.grantedScopes };
+    return { status: 200, body: completion };
+  }
+
+  /** By default every http(s) address; `admin.mcpReturnOrigins` limits the origins. */
+  private allowedReturnUrl(value: unknown): boolean {
+    if (typeof value !== 'string') {
+      return false;
+    }
+    try {
+      const url = new URL(value);
+      const origins = this.scenario.admin?.mcpReturnOrigins;
+      return (url.protocol === 'https:' || url.protocol === 'http:') && url.hash.length === 0 &&
+        (origins === undefined || origins.includes(url.origin));
+    } catch {
+      return false;
+    }
+  }
+
   private connectionFailure(stored: StoredServer): string | null {
+    const oauthFailure = this.oauthConnectionFailure(stored);
+    if (oauthFailure !== undefined) {
+      return oauthFailure;
+    }
     let url: URL;
     try {
       url = new URL(stored.server.url);
@@ -910,6 +1229,38 @@ export class NhAssistantMockAdmin {
       return 'assistant-mcp-unauthorized';
     }
     return null;
+  }
+
+  /**
+   * The state of an OAuth server's organization connection for a test or sync: client credentials
+   * connect on first use; an authorization needs an administrator to connect first. `undefined` for
+   * servers without OAuth.
+   */
+  private oauthConnectionFailure(stored: StoredServer): string | null | undefined {
+    const server = stored.server;
+    if (!oauthModes.includes(server.authMode)) {
+      return undefined;
+    }
+    if (server.authorization === null) {
+      return 'assistant-mcp-authorization-not-confirmed';
+    }
+    if (server.authMode === 'oauth-client-credentials' && stored.organization === null) {
+      stored.organization = activeConnection(this.now(), 'client-credentials', server.oauth?.scopes ?? null);
+    }
+    if (server.authMode === 'oauth' && server.connectionScope === 'user') {
+      // The test runs as the organization; a personal server has no organization connection.
+      return 'assistant-mcp-connection-required';
+    }
+    switch (stored.organization?.status ?? 'not-connected') {
+      case 'not-connected':
+        return 'assistant-mcp-connection-required';
+      case 'reauthorization-required':
+        return 'assistant-mcp-reauthorization-required';
+      case 'issuer-changed':
+        return 'assistant-mcp-issuer-changed';
+      default:
+        return null;
+    }
   }
 
   /**
@@ -987,7 +1338,12 @@ export class NhAssistantMockAdmin {
         host,
         allowBackgroundUse: allowed,
         consentedAt: allowed ? consent.consentedAt : null,
-        agentIds
+        agentIds,
+        connectionStatus: null,
+        grantedScopes: null,
+        requiredScopes: null,
+        connectedAt: null,
+        offersBackgroundUse: true
       });
     }
     return result;
@@ -1087,8 +1443,12 @@ export class NhAssistantMockAdmin {
   }
 
   private toServer(stored: StoredServer): McpServer {
+    const server = stored.server;
+    const organizationCredential = server.authMode === 'oauth-client-credentials' ||
+      (server.authMode === 'oauth' && server.connectionScope === 'organization');
     return {
       ...stored.server,
+      organizationConnection: organizationCredential ? stored.organization ?? notConnected() : null,
       hasSecret: stored.secret !== null,
       assignedAgentIds: [...this.agents.values()]
         .filter(agent => agent.agent.mcpServerIds.includes(stored.server.id))
@@ -1149,7 +1509,7 @@ function shadowRequest(body: unknown): { mode: 'shadow' | 'live' | 'code'; reaso
 
 function toServerFields(
   input: McpServerInput,
-  stored?: Omit<McpServer, 'hasSecret' | 'assignedAgentIds'>
+  stored?: Omit<McpServer, 'hasSecret' | 'assignedAgentIds' | 'organizationConnection'>
 ): Pick<McpServer, 'id' | 'displayName' | 'url' | 'authMode' | 'headerName' | 'requiredPolicy' | 'isEnabled' | 'userName' | 'secretReference' | 'clientCertificateReference'> {
   const usesSecret = secretModes.includes(input.authMode);
   const reference = input.secretReference === undefined || input.secretReference === null
@@ -1170,6 +1530,84 @@ function toServerFields(
     secretReference: usesSecret ? reference : null,
     clientCertificateReference: certificate
   };
+}
+
+/**
+ * The OAuth fields of a server after an input: the connection scope, the settings without the
+ * client secret, and the confirmed authorization.
+ */
+function oauthFields(
+  input: McpServerInput,
+  stored: Omit<McpServer, 'hasSecret' | 'assignedAgentIds' | 'organizationConnection'> | null,
+  authorization: McpAuthorization | null
+): Pick<McpServer, 'connectionScope' | 'oauth' | 'authorization'> {
+  if (!oauthModes.includes(input.authMode)) {
+    return { connectionScope: 'organization', oauth: null, authorization: null };
+  }
+  const settings = stored?.oauth ?? null;
+  const scope = input.authMode === 'oauth' ? input.connectionScope ?? stored?.connectionScope ?? 'organization' : 'organization';
+  const clientId = effective(input.oauth?.clientId, settings?.clientId ?? null)?.trim() || null;
+  const scopes = effective(input.oauth?.scopes, settings?.scopes ?? null)?.trim() || null;
+  const label = input.authMode === 'oauth' && scope === 'organization'
+    ? effective(input.oauth?.organizationAccountLabel, settings?.organizationAccountLabel ?? null)?.trim() || null
+    : null;
+  const reference = clientId === null || input.oauth?.clientSecret
+    ? null
+    : effective(input.oauth?.clientSecretReference, settings?.clientSecretReference ?? null) || null;
+  return {
+    connectionScope: scope,
+    oauth: {
+      clientId,
+      hasClientSecret: clientId !== null && (!!input.oauth?.clientSecret || (input.oauth?.clientSecret !== '' && reference === null && (settings?.hasClientSecret ?? false))),
+      clientSecretReference: reference,
+      scopes: scopes === null ? null : scopes.split(' ').filter(Boolean).join(' '),
+      organizationAccountLabel: label
+    },
+    authorization
+  };
+}
+
+/** Whether a change makes the server's stored tokens unusable. */
+function oauthChanged(
+  before: Omit<McpServer, 'hasSecret' | 'assignedAgentIds' | 'organizationConnection'>,
+  after: Omit<McpServer, 'hasSecret' | 'assignedAgentIds' | 'organizationConnection'>
+): boolean {
+  return before.url !== after.url || before.authMode !== after.authMode || before.connectionScope !== after.connectionScope ||
+    before.authorization?.issuer !== after.authorization?.issuer || before.oauth?.scopes !== after.oauth?.scopes ||
+    before.oauth?.clientId !== after.oauth?.clientId;
+}
+
+/** The value after an input: undefined or null keeps the stored value, `""` clears it. */
+function effective(input: string | null | undefined, stored: string | null): string | null {
+  if (input === undefined || input === null) {
+    return stored;
+  }
+  return input.length === 0 ? null : input;
+}
+
+function notConnected(): McpOrganizationConnection {
+  return { status: 'not-connected', connectedAt: null, connectedBy: null, grantedScopes: null, requiredScopes: null, accessTokenExpiresAt: null, lastFailureCode: null };
+}
+
+function activeConnection(now: string, connectedBy: string, scopes: string | null): McpOrganizationConnection {
+  return {
+    status: 'active',
+    connectedAt: now,
+    connectedBy,
+    grantedScopes: scopes ?? 'mcp:read',
+    requiredScopes: null,
+    accessTokenExpiresAt: new Date(Date.parse(now) + 3_600_000).toISOString(),
+    lastFailureCode: null
+  };
+}
+
+/** A blocked address is a configuration error; a failed discovery an upstream error. */
+function discoveryStatus(code: string): number {
+  return code === 'assistant-mcp-discovery-failed' ? 502 : 400;
+}
+
+function uuid(): string {
+  return globalThis.crypto?.randomUUID?.() ?? 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
 }
 
 /** What a person's consent holds for: the server, its address and its authentication. */
@@ -1193,10 +1631,11 @@ function newServerState(input: McpServerInput): Pick<McpServer, 'lastSyncAt' | '
  * `organization` needs a credential of the organization; `personal` is the forwarded token of the
  * person a run acts for.
  */
-function fitsHeadlessUse(headlessUse: McpHeadlessUse, authMode: McpAuthMode): boolean {
+function fitsHeadlessUse(headlessUse: McpHeadlessUse, authMode: McpAuthMode, connectionScope: McpConnectionScope = 'organization'): boolean {
+  const personal = authMode === 'forward-user-token' || (authMode === 'oauth' && connectionScope === 'user');
   return headlessUse === 'never'
-    || (headlessUse === 'organization' && authMode !== 'forward-user-token')
-    || (headlessUse === 'personal' && authMode === 'forward-user-token');
+    || (headlessUse === 'organization' && !personal)
+    || (headlessUse === 'personal' && personal);
 }
 
 function validServer(input: McpServerInput | undefined): boolean {
@@ -1206,7 +1645,7 @@ function validServer(input: McpServerInput | undefined): boolean {
     return false;
   }
   if (input.headlessUse !== undefined && input.headlessUse !== null &&
-    (!headlessUses.includes(input.headlessUse) || !fitsHeadlessUse(input.headlessUse, input.authMode))) {
+    (!headlessUses.includes(input.headlessUse) || !fitsHeadlessUse(input.headlessUse, input.authMode, input.connectionScope))) {
     return false;
   }
   if (input.transport !== undefined && input.transport !== null && !transports.includes(input.transport)) {

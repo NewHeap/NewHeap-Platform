@@ -209,7 +209,35 @@ public enum NhAssistantAuditEventKind
     /// A person gave or withdrew consent to background use of an MCP server.
     /// <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>allowed</c> or <c>withdrawn</c>.
     /// </summary>
-    McpBackgroundUseChanged = 54
+    McpBackgroundUseChanged = 54,
+
+    /// <summary>
+    /// A personal or organization OAuth connection became active. <see cref="NhAssistantAuditEvent.ObjectId"/>
+    /// is the server, <see cref="NhAssistantAuditEvent.ActorId"/> the person who connected it and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>organization</c> or <c>user</c>.
+    /// </summary>
+    McpConnectionConnected = 55,
+
+    /// <summary>
+    /// An OAuth connection was removed; <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>person</c>,
+    /// <c>administrator</c>, <c>server-changed</c> or <c>retention</c>.
+    /// </summary>
+    McpConnectionDisconnected = 56,
+
+    /// <summary>
+    /// Renewing an OAuth connection failed permanently; its owner has to connect again.
+    /// </summary>
+    McpConnectionReauthorizationRequired = 57,
+
+    /// <summary>
+    /// An administrator revoked all personal connections of a server.
+    /// </summary>
+    AdminMcpConnectionsRevoked = 58,
+
+    /// <summary>
+    /// An administrator confirmed a server's authorization server and resource after discovery.
+    /// </summary>
+    AdminMcpServerAuthorizationConfirmed = 59
 }
 
 /// <summary>
