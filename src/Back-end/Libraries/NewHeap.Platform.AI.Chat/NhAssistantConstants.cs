@@ -775,10 +775,113 @@ public static class NhAssistantMcpAuthModes
     public const string ApiKeyHeader = "api-key";
     public const string ForwardUserToken = "forward-user-token";
 
+    /// <summary>
+    /// HTTP basic authentication with a user name and a password (the server's secret).
+    /// </summary>
+    public const string Basic = "basic";
+
     public static bool IsValid(string? value)
     {
-        return value is None or Bearer or ApiKeyHeader or ForwardUserToken;
+        return value is None or Bearer or ApiKeyHeader or ForwardUserToken or Basic;
     }
+
+    /// <summary>
+    /// Whether the mode sends a secret: the stored secret or its reference.
+    /// </summary>
+    public static bool UsesSecret(string? value)
+    {
+        return value is Bearer or ApiKeyHeader or Basic;
+    }
+
+    /// <summary>
+    /// Whether every caller of the server shares one credential that belongs to the organization,
+    /// rather than each person bringing their own.
+    /// </summary>
+    public static bool IsOrganizationCredential(string? value)
+    {
+        return value is None or Bearer or ApiKeyHeader or Basic;
+    }
+}
+
+/// <summary>
+/// Whether the tools of an MCP server are offered in turns that no person's request carries:
+/// headless agent runs and the execution of their deferred proposals. A person's chat turn and a
+/// person typing in an agent thread are not affected.
+/// </summary>
+public static class NhAssistantMcpHeadlessUses
+{
+    /// <summary>
+    /// Never in headless turns. The default for every server.
+    /// </summary>
+    public const string Never = "never";
+
+    /// <summary>
+    /// In headless turns with the server's organization credential. Only for servers whose
+    /// credential belongs to the organization (<c>none</c>, <c>bearer</c>, <c>api-key</c> and
+    /// <c>basic</c>). The tools then also accept a code grant of the agent registration
+    /// (<c>mcp.&lt;server&gt;.*</c>).
+    /// </summary>
+    public const string Organization = "organization";
+
+    /// <summary>
+    /// In headless turns with the credential of the person the run acts for, only when that person
+    /// consented to background use of the server. For <c>forward-user-token</c>: a short-lived
+    /// delegated NewHeap token for the person, sent only to hosts in <c>ForwardUserTokenHosts</c>.
+    /// </summary>
+    public const string Personal = "personal";
+
+    public static bool IsValid(string? value)
+    {
+        return value is Never or Organization or Personal;
+    }
+
+    /// <summary>
+    /// Whether the headless use fits the authentication mode of the server.
+    /// </summary>
+    public static bool FitsAuthMode(string headlessUse, string authMode)
+    {
+        if (headlessUse == Never)
+        {
+            return true;
+        }
+        if (headlessUse == Organization)
+        {
+            return NhAssistantMcpAuthModes.IsOrganizationCredential(authMode);
+        }
+        return headlessUse == Personal && authMode == NhAssistantMcpAuthModes.ForwardUserToken;
+    }
+}
+
+/// <summary>
+/// How the assistant talks to an MCP server.
+/// </summary>
+public static class NhAssistantMcpTransports
+{
+    /// <summary>
+    /// Streamable HTTP only. The default.
+    /// </summary>
+    public const string StreamableHttp = "streamable-http";
+
+    /// <summary>
+    /// Streamable HTTP first, then the deprecated HTTP+SSE transport for older servers. Every request,
+    /// including the one to the SSE <c>endpoint</c> event, stays on the configured origin.
+    /// </summary>
+    public const string Auto = "auto";
+
+    public static bool IsValid(string? value)
+    {
+        return value is StreamableHttp or Auto;
+    }
+}
+
+/// <summary>
+/// Who an MCP connection record belongs to.
+/// </summary>
+public static class NhAssistantMcpConnectionOwners
+{
+    public const string Organization = "organization";
+
+    public const string User = "user";
 }
 
 public static class NhAssistantMcpToolEffects
@@ -853,6 +956,47 @@ public static class NhAssistantAdminErrorCodes
     public const string McpHostBlocked = "assistant-mcp-host-blocked";
     public const string McpSchemaChanged = "assistant-mcp-schema-changed";
     public const string McpToolDisabled = "assistant-mcp-tool-disabled";
+
+    /// <summary>
+    /// The MCP server answered <c>403</c> with <c>error="insufficient_scope"</c>: the credential is
+    /// valid but lacks a permission the call needs.
+    /// </summary>
+    public const string McpInsufficientScope = "assistant-mcp-insufficient-scope";
+
+    /// <summary>
+    /// The MCP server's tools are not offered in headless turns (its headless use is <c>never</c>,
+    /// or a person's credential is needed).
+    /// </summary>
+    public const string McpHeadlessNotAllowed = "assistant-mcp-headless-not-allowed";
+
+    /// <summary>
+    /// The call was authorized for someone other than the person whose credential the connection
+    /// carries, so the request was not sent.
+    /// </summary>
+    public const string McpCredentialMismatch = "assistant-mcp-credential-mismatch";
+
+    /// <summary>
+    /// A headless run needs the person's consent to background use of the server, and there is none
+    /// for the server as it is configured now.
+    /// </summary>
+    public const string McpConsentRequired = "assistant-mcp-consent-required";
+
+    /// <summary>
+    /// No delegated token could be issued for the person, for example because the account may not
+    /// sign in, or because the host does not restrict delegated tokens in every bearer scheme.
+    /// </summary>
+    public const string McpDelegatedTokenUnavailable = "assistant-mcp-delegated-token-unavailable";
+
+    /// <summary>
+    /// The secret reference does not name a registered source, or the source has no value for it.
+    /// </summary>
+    public const string McpSecretReferenceInvalid = "assistant-mcp-secret-reference-invalid";
+
+    /// <summary>
+    /// The client certificate reference names no configured certificate with a private key.
+    /// </summary>
+    public const string McpCertificateReferenceInvalid = "assistant-mcp-certificate-reference-invalid";
+
     public const string InstructionsTooLong = "assistant-instructions-too-long";
     public const string ContextNotFound = "assistant-context-not-found";
 }

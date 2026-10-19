@@ -151,6 +151,34 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Resolves MCP secret references with the prefix <paramref name="prefix"/>
+    /// (<c>&lt;prefix&gt;:&lt;name&gt;</c>) through <typeparamref name="TResolver"/>, for example from a
+    /// vault. The prefix is dash-case and <c>config</c> is reserved for the configuration section
+    /// <see cref="NhAssistantMcpSecretReferences.ConfigurationSection"/>.
+    /// </summary>
+    public NhAssistantBuilder AddMcpSecretResolver<TResolver>(string prefix)
+        where TResolver : class, INhAssistantMcpSecretResolver
+    {
+        if (!NhAssistantMcpSecretReferences.IsValidPrefix(prefix))
+        {
+            throw new ArgumentException("A secret reference prefix is dash-case, starts with a letter and has at most 32 characters.", nameof(prefix));
+        }
+        if (prefix == NhAssistantMcpSecretReferences.ConfigurationPrefix)
+        {
+            throw new ArgumentException("The prefix 'config' is reserved for the configuration section.", nameof(prefix));
+        }
+        if (Services.Any(descriptor => descriptor.ImplementationInstance is NhAssistantMcpSecretResolverRegistration registration
+            && registration.Prefix == prefix))
+        {
+            throw new InvalidOperationException($"An MCP secret resolver for the prefix '{prefix}' is already registered.");
+        }
+
+        Services.TryAddSingleton<TResolver>();
+        Services.AddSingleton(new NhAssistantMcpSecretResolverRegistration(prefix, typeof(TResolver)));
+        return this;
+    }
+
+    /// <summary>
     /// Configures Web Push notifications. Applied after the <c>NewHeap:AI:Assistant:Push</c>
     /// configuration. Without VAPID keys push notifications stay off.
     /// </summary>

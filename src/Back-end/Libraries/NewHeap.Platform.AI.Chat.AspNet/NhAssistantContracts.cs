@@ -462,6 +462,9 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantMcpToolDto))]
 [JsonSerializable(typeof(NhAssistantMcpToolDto[]))]
 [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))]
+[JsonSerializable(typeof(NhAssistantMcpConnectionDto))]
+[JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))]
+[JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))]
 public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;
 
 public sealed record NhAssistantPreferencesDto(
@@ -569,7 +572,38 @@ public sealed record NhAssistantMcpServerInputDto(
     string? HeaderName,
     string? Secret,
     string? RequiredPolicy,
-    bool? IsEnabled);
+    bool? IsEnabled)
+{
+    /// <summary>
+    /// Whether the tools are offered in headless runs: <c>never</c> or <c>organization</c>
+    /// (<see cref="NhAssistantMcpHeadlessUses"/>). Omitted or null keeps the stored value; a new
+    /// server starts at <c>never</c>.
+    /// </summary>
+    public string? HeadlessUse { get; init; }
+
+    /// <summary>
+    /// The user name of <c>basic</c> authentication. Omitted or null keeps the stored value.
+    /// </summary>
+    public string? UserName { get; init; }
+
+    /// <summary>
+    /// A reference to the secret instead of a stored one, <c>config:&lt;name&gt;</c> or a prefix the
+    /// application registered. Omitted or null keeps the stored value, an empty string clears it.
+    /// </summary>
+    public string? SecretReference { get; init; }
+
+    /// <summary>
+    /// The name of a configured client certificate for mutual TLS. Omitted or null keeps the stored
+    /// value, an empty string clears it.
+    /// </summary>
+    public string? ClientCertificateReference { get; init; }
+
+    /// <summary>
+    /// <c>streamable-http</c> or <c>auto</c> (<see cref="NhAssistantMcpTransports"/>). Omitted or null
+    /// keeps the stored value; a new server starts at <c>streamable-http</c>.
+    /// </summary>
+    public string? Transport { get; init; }
+}
 
 public sealed record NhAssistantMcpServerDto(
     string Id,
@@ -582,7 +616,57 @@ public sealed record NhAssistantMcpServerDto(
     bool IsEnabled,
     DateTimeOffset? LastSyncAt,
     string? LastSyncStatus,
-    IReadOnlyList<string> AssignedAgentIds);
+    IReadOnlyList<string> AssignedAgentIds)
+{
+    /// <summary>
+    /// Whether the tools are offered in headless runs (<see cref="NhAssistantMcpHeadlessUses"/>).
+    /// </summary>
+    public string HeadlessUse { get; init; } = NhAssistantMcpHeadlessUses.Never;
+
+    /// <summary>
+    /// When an administrator's test or sync, or a turn with the shared credential, last connected.
+    /// </summary>
+    public DateTimeOffset? LastConnectAt { get; init; }
+
+    /// <summary>
+    /// The failure code of that connection; null when it succeeded or never ran.
+    /// </summary>
+    public string? LastConnectCode { get; init; }
+
+    /// <summary>
+    /// The user name of <c>basic</c> authentication; the password is a secret and never returned.
+    /// </summary>
+    public string? UserName { get; init; }
+
+    /// <summary>
+    /// The secret reference; it names where the secret is, it is not the secret.
+    /// </summary>
+    public string? SecretReference { get; init; }
+
+    /// <summary>
+    /// The name of the configured client certificate for mutual TLS.
+    /// </summary>
+    public string? ClientCertificateReference { get; init; }
+
+    /// <summary>
+    /// <c>streamable-http</c> or <c>auto</c> (<see cref="NhAssistantMcpTransports"/>).
+    /// </summary>
+    public string Transport { get; init; } = NhAssistantMcpTransports.StreamableHttp;
+}
+
+/// <summary>
+/// An MCP server that agents may use in background runs with the caller's own credential once the
+/// caller consents, and the caller's decision.
+/// </summary>
+public sealed record NhAssistantMcpConnectionDto(
+    string ServerId,
+    string DisplayName,
+    string Host,
+    bool AllowBackgroundUse,
+    DateTimeOffset? ConsentedAt,
+    IReadOnlyList<string> AgentIds);
+
+public sealed record NhAssistantUpdateMcpConnectionRequest(bool? AllowBackgroundUse);
 
 public sealed record NhAssistantMcpServerTestResultDto(
     bool Ok,

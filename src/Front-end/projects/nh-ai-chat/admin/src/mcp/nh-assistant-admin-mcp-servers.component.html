@@ -44,10 +44,20 @@
             <span class="mono muted url">{{ server.url }}</span>
             <div class="meta">
               <span>{{ 'nh-assistant.admin.mcp.auth.' + server.authMode | translate }}</span>
-              @if (server.authMode === 'bearer' || server.authMode === 'api-key') {
-                <span class="badge" [class.success]="server.hasSecret" [class.warning]="!server.hasSecret">
-                  {{ (server.hasSecret ? 'nh-assistant.admin.mcp.secret-set' : 'nh-assistant.admin.mcp.no-secret') | translate }}
-                </span>
+              @if (server.authMode === 'bearer' || server.authMode === 'api-key' || server.authMode === 'basic') {
+                @if (server.secretReference; as reference) {
+                  <span class="badge success">{{ 'nh-assistant.admin.mcp.secret-reference' | translate: { reference: reference } }}</span>
+                } @else {
+                  <span class="badge" [class.success]="server.hasSecret" [class.warning]="!server.hasSecret">
+                    {{ (server.hasSecret ? 'nh-assistant.admin.mcp.secret-set' : 'nh-assistant.admin.mcp.no-secret') | translate }}
+                  </span>
+                }
+              }
+              @if (server.clientCertificateReference; as certificate) {
+                <span class="badge">{{ 'nh-assistant.admin.mcp.client-certificate' | translate: { name: certificate } }}</span>
+              }
+              @if (server.transport === 'auto') {
+                <span class="badge warning">{{ 'nh-assistant.admin.mcp.transport-fallback' | translate }}</span>
               }
               <span>
                 @if (server.lastSyncAt) {
@@ -63,6 +73,17 @@
                   {{ 'nh-assistant.admin.mcp.unassigned' | translate }}
                 }
               </span>
+              <span>{{ 'nh-assistant.admin.mcp.headless.' + (server.headlessUse ?? 'never') | translate }}</span>
+              @if (server.lastConnectAt; as connectedAt) {
+                @if (server.lastConnectCode; as code) {
+                  <span class="badge danger">{{ 'nh-assistant.admin.mcp.connect-failed' | translate: { date: (connectedAt | date: 'medium') } }}</span>
+                  <span>{{ testErrorKeys(code) | nhAssistantTranslate: code }}</span>
+                } @else {
+                  <span>{{ 'nh-assistant.admin.mcp.connected' | translate: { date: (connectedAt | date: 'medium') } }}</span>
+                }
+              } @else {
+                <span>{{ 'nh-assistant.admin.mcp.never-connected' | translate }}</span>
+              }
             </div>
 
             @if (testState(server.id); as state) {

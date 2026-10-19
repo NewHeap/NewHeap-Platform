@@ -1,8 +1,11 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
@@ -155,6 +158,118 @@ public sealed partial class AssistantSamplesTests
     }
 
     [Fact]
+    public async Task SPM_251_mcp_secrets_can_stay_with_the_application_and_basic_authentication_sends_a_user_name()
+    {
+        // SPM-251: an administrator names a secret that the application holds instead of storing
+        // one. config:<name> reads NewHeap:AI:Assistant:Mcp:Secrets:<name>, and secret-file:<name>
+        // reads a mounted secret file through the sample's resolver. Both are read for every
+        // connection, so a rotated secret applies at once; a reference never reaches other settings.
+        var configuration = Host.Services.GetRequiredService<IConfiguration>();
+        var secrets = Directory.CreateTempSubdirectory("spm-251-secrets-");
+        var basic = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes("planner:spm-251-basic-password"));
+        await using var planning = await SampleMcpServer.StartAsync(request =>
+            request.Headers["X-Api-Key"].ToString() is "spm-251-configured-key" or "spm-251-mounted-key" or "spm-251-rotated-key"
+            || request.Headers.Authorization.ToString() == basic);
+        using var admin = Host.CreateClient("spm-251-secrets-admin", admin: true);
+        var server = new
+        {
+            id = "secured-planning",
+            displayName = "Secured planning",
+            url = planning.Url,
+            authMode = "api-key",
+            headerName = (string?)null,
+            requiredPolicy = (string?)null,
+            isEnabled = true,
+            secretReference = "config:spm-251-key"
+        };
+        try
+        {
+            configuration[NhAssistantMcpSecretReferences.ConfigurationSection + ":spm-251-key"] = "spm-251-configured-key";
+            configuration[SampleMountedSecretResolver.DirectoryKey] = secrets.FullName;
+            await File.WriteAllTextAsync(Path.Combine(secrets.FullName, "spm-251-key"), "spm-251-mounted-key", TestContext.Current.CancellationToken);
+
+            using var created = await admin.PostAsync("/api/assistant/admin/mcp-servers", AssistantSampleHost.Json(server), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            var stored = await AssistantSampleHost.ReadJsonAsync(created);
+            Assert.False(stored.GetProperty("hasSecret").GetBoolean());
+            Assert.Equal("config:spm-251-key", stored.GetProperty("secretReference").GetString());
+            Assert.True(await TestAsync(admin, "secured-planning"));
+            Assert.Equal("spm-251-configured-key", planning.ApiKeys.Last());
+
+            using var mounted = await admin.PutAsync(
+                "/api/assistant/admin/mcp-servers/secured-planning",
+                AssistantSampleHost.Json(server with { secretReference = "secret-file:spm-251-key" }),
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, mounted.StatusCode);
+            Assert.True(await TestAsync(admin, "secured-planning"));
+            Assert.Equal("spm-251-mounted-key", planning.ApiKeys.Last());
+
+            // The platform rotates the mounted file; the next connection sends the new key.
+            await File.WriteAllTextAsync(Path.Combine(secrets.FullName, "spm-251-key"), "spm-251-rotated-key", TestContext.Current.CancellationToken);
+            Assert.True(await TestAsync(admin, "secured-planning"));
+            Assert.Equal("spm-251-rotated-key", planning.ApiKeys.Last());
+
+            using var otherSetting = await admin.PutAsync(
+                "/api/assistant/admin/mcp-servers/secured-planning",
+                AssistantSampleHost.Json(server with { secretReference = "config:ConnectionStrings:DefaultConnection" }),
+                TestContext.Current.CancellationToken);
+            using var climbing = await admin.PutAsync(
+                "/api/assistant/admin/mcp-servers/secured-planning",
+                AssistantSampleHost.Json(server with { secretReference = "secret-file:../spm-251-key" }),
+                TestContext.Current.CancellationToken);
+            using var missing = await admin.PutAsync(
+                "/api/assistant/admin/mcp-servers/secured-planning",
+                AssistantSampleHost.Json(server with { secretReference = "secret-file:spm-251-missing" }),
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, otherSetting.StatusCode);
+            Assert.Equal("invalid", (await AssistantSampleHost.ReadJsonAsync(otherSetting)).GetProperty("errors").GetProperty("secretReference")[0].GetString());
+            Assert.Equal(HttpStatusCode.BadRequest, climbing.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+            Assert.Equal("assistant-mcp-secret-reference-invalid", (await AssistantSampleHost.ReadJsonAsync(missing)).GetProperty("code").GetString());
+
+            // Basic authentication: the user name is shown, the password is a write-only secret that
+            // replaces the reference.
+            using var withBasic = await admin.PutAsync("/api/assistant/admin/mcp-servers/secured-planning", AssistantSampleHost.Json(new
+            {
+                server.id,
+                server.displayName,
+                server.url,
+                authMode = "basic",
+                userName = "planner",
+                secret = "spm-251-basic-password",
+                server.requiredPolicy,
+                server.isEnabled
+            }), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, withBasic.StatusCode);
+            var basicServer = await AssistantSampleHost.ReadJsonAsync(withBasic);
+            Assert.Equal("planner", basicServer.GetProperty("userName").GetString());
+            Assert.True(basicServer.GetProperty("hasSecret").GetBoolean());
+            Assert.Equal(JsonValueKind.Null, basicServer.GetProperty("secretReference").ValueKind);
+            Assert.True(await TestAsync(admin, "secured-planning"));
+            Assert.Equal(basic, planning.Authorizations.Last());
+
+            var listed = await (await admin.GetAsync("/api/assistant/admin/mcp-servers", TestContext.Current.CancellationToken)).Content
+                .ReadAsStringAsync(TestContext.Current.CancellationToken);
+            Assert.DoesNotContain("spm-251-basic-password", listed);
+            Assert.DoesNotContain("spm-251-mounted-key", listed);
+            Assert.DoesNotContain("spm-251-configured-key", listed);
+        }
+        finally
+        {
+            using var deleted = await admin.DeleteAsync("/api/assistant/admin/mcp-servers/secured-planning", TestContext.Current.CancellationToken);
+            configuration[SampleMountedSecretResolver.DirectoryKey] = null;
+            secrets.Delete(recursive: true);
+        }
+    }
+
+    private static async Task<bool> TestAsync(HttpClient admin, string serverId)
+    {
+        using var response = await admin.PostAsync($"/api/assistant/admin/mcp-servers/{serverId}/test", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await AssistantSampleHost.ReadJsonAsync(response)).GetProperty("ok").GetBoolean();
+    }
+
+    [Fact]
     public async Task SPM_252_an_edited_context_and_personal_preferences_shape_the_instructions()
     {
         var model = new NhAiScriptedChatClient().RespondWithText("Graag gedaan.");
@@ -208,17 +323,23 @@ public sealed partial class AssistantSamplesTests
 }
 
 /// <summary>
-/// A real Streamable HTTP MCP server built with the official SDK. It requires an API key.
+/// A real Streamable HTTP MCP server built with the official SDK. It requires an API key, or the
+/// credential a test accepts, and records the API keys and `Authorization` headers it receives.
 /// </summary>
 public sealed class SampleMcpServer : IAsyncDisposable
 {
     private readonly WebApplication _app;
 
-    private SampleMcpServer(WebApplication app, ConcurrentQueue<string> calls, ConcurrentQueue<string> apiKeys)
+    private SampleMcpServer(
+        WebApplication app,
+        ConcurrentQueue<string> calls,
+        ConcurrentQueue<string> apiKeys,
+        ConcurrentQueue<string> authorizations)
     {
         _app = app;
         Calls = calls;
         ApiKeys = apiKeys;
+        Authorizations = authorizations;
         Url = app.Urls.First() + "/mcp";
     }
 
@@ -228,10 +349,19 @@ public sealed class SampleMcpServer : IAsyncDisposable
 
     public ConcurrentQueue<string> ApiKeys { get; }
 
-    public static async Task<SampleMcpServer> StartAsync(string apiKey)
+    public ConcurrentQueue<string> Authorizations { get; }
+
+    public static Task<SampleMcpServer> StartAsync(string apiKey)
+    {
+        return StartAsync(request => string.Equals(request.Headers["X-Api-Key"].ToString(), apiKey, StringComparison.Ordinal));
+    }
+
+    /// <summary>A server that answers only the requests <paramref name="accepts"/> allows.</summary>
+    public static async Task<SampleMcpServer> StartAsync(Func<HttpRequest, bool> accepts)
     {
         var calls = new ConcurrentQueue<string>();
         var apiKeys = new ConcurrentQueue<string>();
+        var authorizations = new ConcurrentQueue<string>();
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         builder.Logging.ClearProviders();
@@ -255,9 +385,9 @@ public sealed class SampleMcpServer : IAsyncDisposable
         var app = builder.Build();
         app.Use(async (context, next) =>
         {
-            var presented = context.Request.Headers["X-Api-Key"].ToString();
-            apiKeys.Enqueue(presented);
-            if (!string.Equals(presented, apiKey, StringComparison.Ordinal))
+            apiKeys.Enqueue(context.Request.Headers["X-Api-Key"].ToString());
+            authorizations.Enqueue(context.Request.Headers.Authorization.ToString());
+            if (!accepts(context.Request))
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 return;
@@ -266,7 +396,7 @@ public sealed class SampleMcpServer : IAsyncDisposable
         });
         app.MapMcp("/mcp");
         await app.StartAsync();
-        return new SampleMcpServer(app, calls, apiKeys);
+        return new SampleMcpServer(app, calls, apiKeys, authorizations);
     }
 
     public async ValueTask DisposeAsync()

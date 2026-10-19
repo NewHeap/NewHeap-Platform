@@ -10,6 +10,9 @@ import {
   ApplicationContextVersion,
   AssistantAutonomy,
   AssistantPreferences,
+  McpAuthMode,
+  McpConnection,
+  McpHeadlessUse,
   McpServer,
   McpServerInput,
   McpServerTestResult,
@@ -28,6 +31,7 @@ export interface NhAssistantMockResult {
 
 interface StoredServer {
   server: Omit<McpServer, 'hasSecret' | 'assignedAgentIds'>;
+  /** A stored secret; a secret reference is `server.secretReference`. They exclude each other. */
   secret: string | null;
   remoteTools: NhAssistantMockRemoteTool[];
   tools: Map<string, McpTool & { inputSchemaHash: string }>;
@@ -44,7 +48,12 @@ const styles = ['default', 'direct', 'personal', 'detailed'];
 const addressForms = ['informal', 'formal'];
 const responseLengths = ['short', 'normal', 'long'];
 const autonomyLevels: AssistantAutonomy[] = ['observe', 'explain', 'propose', 'simulate', 'execute'];
-const authModes = ['none', 'bearer', 'api-key', 'forward-user-token'];
+const authModes = ['none', 'bearer', 'api-key', 'basic', 'forward-user-token'];
+const secretModes = ['bearer', 'api-key', 'basic'];
+const headlessUses: McpHeadlessUse[] = ['never', 'organization', 'personal'];
+const transports = ['streamable-http', 'auto'];
+const secretReference = /^[a-z][a-z0-9-]{0,31}:[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/;
+const certificateName = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 
 const maxInstructions = 20_000;
 const maxStateReason = 500;
@@ -68,6 +77,8 @@ export class NhAssistantMockAdmin {
   private readonly replays = new Map<string, AgentReplay[]>();
   private readonly runConfiguration: NhAssistantMockRunConfiguration;
   private readonly contextVersions: (ApplicationContextVersion & { text: string })[] = [];
+  /** The caller's consent per server, with the server's address and authentication it holds for. */
+  private readonly consents = new Map<string, { fingerprint: string; consentedAt: string }>();
   private preferences: AssistantPreferences;
   private canAdminister: boolean;
 
@@ -121,11 +132,17 @@ export class NhAssistantMockAdmin {
 
     for (const { remoteTools, secret, ...input } of admin.mcpServers ?? []) {
       this.servers.set(input.id, {
-        server: { ...toServerFields(input), lastSyncAt: null, lastSyncStatus: null },
+        server: { ...toServerFields(input), ...newServerState(input) },
         secret: secret ?? null,
         remoteTools: remoteTools ?? [],
         tools: new Map()
       });
+    }
+    for (const consent of admin.mcpConnections ?? []) {
+      const stored = this.servers.get(consent.serverId);
+      if (stored && consent.allowBackgroundUse) {
+        this.consents.set(consent.serverId, { fingerprint: consentFingerprint(stored), consentedAt: now() });
+      }
     }
   }
 
@@ -190,6 +207,36 @@ export class NhAssistantMockAdmin {
       customInstructions: instructions && instructions.trim().length > 0 ? instructions : null
     };
     return { status: 200, body: this.preferences };
+  }
+
+  /**
+   * `GET mcp-connections` and `PUT mcp-connections/{serverId}`: the caller's consent to background
+   * use of servers that run with the caller's own account. A consent holds for the server's address
+   * and authentication as they were; a change shows it as not allowed again.
+   */
+  handleMcpConnections(method: string, segments: string[], body: unknown): NhAssistantMockResult {
+    const personal = this.personalServers();
+    if (segments.length === 1) {
+      return method === 'GET' ? { status: 200, body: personal } : { status: 405 };
+    }
+    if (segments.length !== 2 || method !== 'PUT') {
+      return segments.length === 2 ? { status: 405 } : failure(404, 'assistant-not-found');
+    }
+
+    const serverId = segments[1];
+    if (!personal.some(connection => connection.serverId === serverId)) {
+      return failure(404, 'assistant-mcp-server-not-found');
+    }
+    const allow = (body as { allowBackgroundUse?: unknown } | undefined)?.allowBackgroundUse;
+    if (typeof allow !== 'boolean') {
+      return failure(400, 'assistant-validation', { allowBackgroundUse: ['required'] });
+    }
+    if (allow) {
+      this.consents.set(serverId, { fingerprint: consentFingerprint(this.servers.get(serverId)!), consentedAt: this.now() });
+    } else {
+      this.consents.delete(serverId);
+    }
+    return { status: 200, body: this.personalServers().find(connection => connection.serverId === serverId) };
   }
 
   handleAdmin(method: string, segments: string[], body: unknown, query = new URLSearchParams()): NhAssistantMockResult {
@@ -675,10 +722,14 @@ export class NhAssistantMockAdmin {
       if (this.servers.has(input.id)) {
         return failure(409, 'assistant-mcp-server-exists');
       }
+      const credentialFailure = this.credentialFailure(input, null);
+      if (credentialFailure) {
+        return credentialFailure;
+      }
 
       const stored: StoredServer = {
-        server: { ...toServerFields(input), lastSyncAt: null, lastSyncStatus: null },
-        secret: input.secret ? input.secret : null,
+        server: { ...toServerFields(input), ...newServerState(input) },
+        secret: secretModes.includes(input.authMode) && input.secret ? input.secret : null,
         remoteTools: [],
         tools: new Map()
       };
@@ -697,9 +748,32 @@ export class NhAssistantMockAdmin {
         if (!validServer(input) || input.id !== id) {
           return validationFailure();
         }
-        stored.server = { ...stored.server, ...toServerFields(input) };
-        if (input.secret !== undefined) {
-          stored.secret = input.secret ? input.secret : null;
+        // An omitted headless use, transport or user name keeps the stored value, as on the server.
+        const headlessUse = input.headlessUse ?? stored.server.headlessUse;
+        if (!fitsHeadlessUse(headlessUse, input.authMode)) {
+          return validationFailure('headlessUse');
+        }
+        const credentialFailure = this.credentialFailure(input, stored);
+        if (credentialFailure) {
+          return credentialFailure;
+        }
+        stored.server = {
+          ...stored.server,
+          ...toServerFields(input, stored.server),
+          headlessUse,
+          transport: input.transport ?? stored.server.transport
+        };
+        if (!secretModes.includes(input.authMode)) {
+          stored.secret = null;
+          stored.server.secretReference = null;
+        } else if (input.secret) {
+          stored.secret = input.secret;
+          stored.server.secretReference = null;
+        } else if (input.secret === '') {
+          stored.secret = null;
+        }
+        if (input.secretReference && secretModes.includes(input.authMode)) {
+          stored.secret = null;
         }
         return { status: 200, body: this.toServer(stored) };
       }
@@ -718,11 +792,19 @@ export class NhAssistantMockAdmin {
       const result: McpServerTestResult = code
         ? { ok: false, code, toolCount: null }
         : { ok: true, code: null, toolCount: stored.remoteTools.length };
+      stored.server = { ...stored.server, lastConnectAt: this.now(), lastConnectCode: code };
       return { status: 200, body: result };
     }
     if (length === 4 && action === 'sync' && method === 'POST') {
       const code = this.connectionFailure(stored);
-      stored.server = { ...stored.server, lastSyncAt: this.now(), lastSyncStatus: code ? 'failed' : 'ok' };
+      const syncedAt = this.now();
+      stored.server = {
+        ...stored.server,
+        lastSyncAt: syncedAt,
+        lastSyncStatus: code ? 'failed' : 'ok',
+        lastConnectAt: syncedAt,
+        lastConnectCode: code
+      };
       if (code) {
         // A blocked host is a configuration error; connection failures are upstream errors.
         return failure(code === 'assistant-mcp-host-blocked' ? 400 : 502, code);
@@ -821,10 +903,81 @@ export class NhAssistantMockAdmin {
     if (host.includes('unreachable')) {
       return 'assistant-mcp-unreachable';
     }
-    if ((stored.server.authMode === 'bearer' || stored.server.authMode === 'api-key') && !stored.secret) {
+    if (secretModes.includes(stored.server.authMode) && !stored.secret && !stored.server.secretReference) {
       return 'assistant-mcp-unauthorized';
     }
     return null;
+  }
+
+  /**
+   * The contract failure of the input's credential: a basic user name, a reference that names an
+   * available secret, and a configured client certificate.
+   */
+  private credentialFailure(input: McpServerInput, stored: StoredServer | null): NhAssistantMockResult | null {
+    const admin = this.scenario.admin ?? {};
+    const userName = input.userName ?? stored?.server.userName ?? null;
+    if (input.authMode === 'basic' && (!userName || userName.trim().length === 0)) {
+      return failure(400, 'assistant-validation', { userName: ['required'] });
+    }
+    if (userName && (userName.length > 256 || userName.includes(':'))) {
+      return failure(400, 'assistant-validation', { userName: ['invalid'] });
+    }
+    if (input.secret && input.secretReference) {
+      return failure(400, 'assistant-validation', { secretReference: ['invalid'] });
+    }
+    const reference = input.secretReference === undefined || input.secretReference === null
+      ? (input.secret ? null : stored?.server.secretReference ?? null)
+      : input.secretReference || null;
+    if (reference !== null && (!secretReference.test(reference) || reference.includes('..'))) {
+      return failure(400, 'assistant-validation', { secretReference: ['invalid'] });
+    }
+    // By default every config: reference resolves; a scenario can name the ones that do.
+    if (secretModes.includes(input.authMode) && reference !== null &&
+      !(admin.secretReferences?.includes(reference) ?? reference.startsWith('config:'))) {
+      return failure(400, 'assistant-mcp-secret-reference-invalid');
+    }
+    const certificate = input.clientCertificateReference === undefined || input.clientCertificateReference === null
+      ? stored?.server.clientCertificateReference ?? null
+      : input.clientCertificateReference || null;
+    if (certificate !== null && !certificateName.test(certificate)) {
+      return failure(400, 'assistant-validation', { clientCertificateReference: ['invalid'] });
+    }
+    if (certificate !== null && !(admin.clientCertificates ?? []).includes(certificate)) {
+      return failure(400, 'assistant-mcp-certificate-reference-invalid');
+    }
+    return null;
+  }
+
+  /** Servers with the caller's own account for background runs, on an agent the caller may use. */
+  private personalServers(): McpConnection[] {
+    const visible = new Set(this.chatAgents().map(agent => agent.id));
+    const result: McpConnection[] = [];
+    for (const stored of this.servers.values()) {
+      const server = stored.server;
+      const agentIds = [...this.agents.values()]
+        .filter(agent => visible.has(agent.agent.id) && agent.agent.mcpServerIds.includes(server.id))
+        .map(agent => agent.agent.id);
+      if (!server.isEnabled || server.headlessUse !== 'personal' || server.authMode !== 'forward-user-token' || agentIds.length === 0) {
+        continue;
+      }
+      const consent = this.consents.get(server.id);
+      const allowed = consent !== undefined && consent.fingerprint === consentFingerprint(stored);
+      let host = '';
+      try {
+        host = new URL(server.url).hostname;
+      } catch {
+        host = '';
+      }
+      result.push({
+        serverId: server.id,
+        displayName: server.displayName,
+        host,
+        allowBackgroundUse: allowed,
+        consentedAt: allowed ? consent.consentedAt : null,
+        agentIds
+      });
+    }
+    return result;
   }
 
   /** The contract failure for an invalid agent, or null when the agent is valid. */
@@ -977,7 +1130,17 @@ function shadowRequest(body: unknown): { mode: 'shadow' | 'live' | 'code'; reaso
   return reason !== null && reason.length > maxStateReason ? null : { mode: request.mode, reason };
 }
 
-function toServerFields(input: McpServerInput): Pick<McpServer, 'id' | 'displayName' | 'url' | 'authMode' | 'headerName' | 'requiredPolicy' | 'isEnabled'> {
+function toServerFields(
+  input: McpServerInput,
+  stored?: Omit<McpServer, 'hasSecret' | 'assignedAgentIds'>
+): Pick<McpServer, 'id' | 'displayName' | 'url' | 'authMode' | 'headerName' | 'requiredPolicy' | 'isEnabled' | 'userName' | 'secretReference' | 'clientCertificateReference'> {
+  const usesSecret = secretModes.includes(input.authMode);
+  const reference = input.secretReference === undefined || input.secretReference === null
+    ? (input.secret ? null : stored?.secretReference ?? null)
+    : input.secretReference || null;
+  const certificate = input.clientCertificateReference === undefined || input.clientCertificateReference === null
+    ? stored?.clientCertificateReference ?? null
+    : input.clientCertificateReference || null;
   return {
     id: input.id,
     displayName: input.displayName,
@@ -985,14 +1148,51 @@ function toServerFields(input: McpServerInput): Pick<McpServer, 'id' | 'displayN
     authMode: input.authMode,
     headerName: input.authMode === 'api-key' ? (input.headerName || 'X-Api-Key') : null,
     requiredPolicy: input.requiredPolicy,
-    isEnabled: input.isEnabled
+    isEnabled: input.isEnabled,
+    userName: input.authMode === 'basic' ? (input.userName ?? stored?.userName ?? null)?.trim() ?? null : null,
+    secretReference: usesSecret ? reference : null,
+    clientCertificateReference: certificate
   };
+}
+
+/** What a person's consent holds for: the server, its address and its authentication. */
+function consentFingerprint(stored: StoredServer): string {
+  return [stored.server.id, stored.server.url.trim(), stored.server.authMode].join('\n');
+}
+
+/** The state of a server that was just added: never in headless runs unless the input says so. */
+function newServerState(input: McpServerInput): Pick<McpServer, 'lastSyncAt' | 'lastSyncStatus' | 'headlessUse' | 'lastConnectAt' | 'lastConnectCode' | 'transport'> {
+  return {
+    lastSyncAt: null,
+    lastSyncStatus: null,
+    headlessUse: input.headlessUse ?? 'never',
+    lastConnectAt: null,
+    lastConnectCode: null,
+    transport: input.transport ?? 'streamable-http'
+  };
+}
+
+/**
+ * `organization` needs a credential of the organization; `personal` is the forwarded token of the
+ * person a run acts for.
+ */
+function fitsHeadlessUse(headlessUse: McpHeadlessUse, authMode: McpAuthMode): boolean {
+  return headlessUse === 'never'
+    || (headlessUse === 'organization' && authMode !== 'forward-user-token')
+    || (headlessUse === 'personal' && authMode === 'forward-user-token');
 }
 
 function validServer(input: McpServerInput | undefined): boolean {
   if (!input || typeof input.id !== 'string' || input.id.length > 40 || !dashCase.test(input.id) ||
     typeof input.displayName !== 'string' || input.displayName.trim().length === 0 ||
     !authModes.includes(input.authMode) || typeof input.isEnabled !== 'boolean') {
+    return false;
+  }
+  if (input.headlessUse !== undefined && input.headlessUse !== null &&
+    (!headlessUses.includes(input.headlessUse) || !fitsHeadlessUse(input.headlessUse, input.authMode))) {
+    return false;
+  }
+  if (input.transport !== undefined && input.transport !== null && !transports.includes(input.transport)) {
     return false;
   }
 

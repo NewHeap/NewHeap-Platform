@@ -125,6 +125,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .AddEndpointFilter(RequireEnabledAsync);
         AgentRuns.NhAssistantWebhookEndpoints.Map(webhooks);
         NhAssistantAdminEndpoints.Map(enabled, NhAssistantEndpointOptions.ResolveAdminPolicy(state, options));
+        NhAssistantMcpConnectionEndpoints.Map(enabled);
 
         if (!string.IsNullOrWhiteSpace(options.HubPath))
         {

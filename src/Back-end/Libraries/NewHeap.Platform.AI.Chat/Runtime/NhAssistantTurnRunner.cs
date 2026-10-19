@@ -664,8 +664,8 @@ internal sealed partial class NhAssistantTurnRunner(
             return new NhAssistantProposalExecutionResult(false, NhAssistantErrorCodes.ApprovalInvalid);
         }
 
-        var function = FindGovernedFunction(invocation);
-        if (function is null)
+        var governed = FindGovernedFunction(invocation);
+        if (governed is null && !IsMcpTool(invocation))
         {
             // The tool contract changed since the proposal; the approval no longer applies.
             return new NhAssistantProposalExecutionResult(false, NhAssistantErrorCodes.ApprovalInvalid);
@@ -701,7 +701,43 @@ internal sealed partial class NhAssistantTurnRunner(
                 CancellationToken.None)
         };
 
-        var (aiFunction, descriptor) = function.Value;
+        if (governed is not null)
+        {
+            return await ExecuteStoredInvocationAsync(state, approval, invocation, governed.Value, cancellationToken);
+        }
+
+        // An MCP tool is imported again under the rules of a headless turn: its server must still
+        // allow headless use, and an unchanged contract executes.
+        try
+        {
+            var imported = await FindMcpFunctionAsync(state, invocation, cancellationToken);
+            if (imported is null)
+            {
+                var code = state.McpTools?.SkippedCodeOf(invocation.ToolId) ?? NhAssistantErrorCodes.ApprovalInvalid;
+                return new NhAssistantProposalExecutionResult(false, code);
+            }
+            return await ExecuteStoredInvocationAsync(state, approval, invocation, imported.Value, cancellationToken);
+        }
+        finally
+        {
+            await ReleaseMcpToolsAsync(state);
+        }
+    }
+
+    private static bool IsMcpTool(AssistantToolInvocation invocation)
+    {
+        return invocation.ToolId.StartsWith("mcp.", StringComparison.Ordinal);
+    }
+
+    private async Task<NhAssistantProposalExecutionResult> ExecuteStoredInvocationAsync(
+        NhAssistantTurnState state,
+        AssistantApproval approval,
+        AssistantToolInvocation invocation,
+        (AIFunction Function, NhAiToolDescriptor Descriptor) function,
+        CancellationToken cancellationToken)
+    {
+        var (aiFunction, descriptor) = function;
+        var conversation = state.Conversation;
         invocation.Status = NhAssistantToolCallStatuses.Running;
         await store.UpdateToolInvocationAsync(invocation, CancellationToken.None);
         await state.EmitAsync(new NhAssistantToolStartedEvent(
@@ -1695,7 +1731,7 @@ internal sealed partial class NhAssistantTurnRunner(
         {
             return NhAssistantMcpToolSet.Empty;
         }
-        var loaded = await mcpToolSource.GetToolsAsync(state.EffectiveAgent, cancellationToken);
+        var loaded = await mcpToolSource.GetToolsAsync(CreateMcpToolRequest(state), cancellationToken);
         if (state.Scope.Agent.CanMutate)
         {
             return loaded;
@@ -1703,7 +1739,43 @@ internal sealed partial class NhAssistantTurnRunner(
         var readOnly = loaded.Functions
             .Where(function => function is INhAiGovernedAIFunction { Descriptor.Effect: NhAiToolEffect.ReadOnly })
             .ToArray();
-        return new NhAssistantMcpToolSet(readOnly, loaded.DisposeAsync);
+        return new NhAssistantMcpToolSet(readOnly, loaded.DisposeAsync)
+        {
+            SkippedServers = loaded.SkippedServers
+        };
+    }
+
+    /// <summary>
+    /// Who the turn's MCP tools are for. A turn that no person's request carries is headless: a
+    /// background run, and the execution of a deferred proposal. It uses the person whose rights
+    /// the turn uses, as the invocation gate decides them.
+    /// </summary>
+    private static NhAssistantMcpToolRequest CreateMcpToolRequest(NhAssistantTurnState state)
+    {
+        if (state.AgentTurn is not { IsRequestTurn: false } agentTurn || CreateAgentScope(state) is not { } scope)
+        {
+            return new NhAssistantMcpToolRequest(state.EffectiveAgent);
+        }
+
+        string? person = null;
+        var personGrantSource = NhAiGrantSource.None;
+        if (scope.DelegateFromInitiator && !string.IsNullOrWhiteSpace(scope.InitiatorActorId))
+        {
+            person = scope.InitiatorActorId;
+            personGrantSource = NhAiGrantSource.Delegated;
+        }
+        else if (scope.ActWithAccountableRights)
+        {
+            person = scope.AccountableOwnerId;
+            personGrantSource = NhAiGrantSource.Accountable;
+        }
+        return new NhAssistantMcpToolRequest(state.EffectiveAgent)
+        {
+            IsHeadless = true,
+            PersonActorId = person,
+            PersonGrantSource = personGrantSource,
+            Subject = agentTurn.Subject
+        };
     }
 
     private async Task<(AIFunction Function, NhAiToolDescriptor Descriptor)?> FindMcpFunctionAsync(

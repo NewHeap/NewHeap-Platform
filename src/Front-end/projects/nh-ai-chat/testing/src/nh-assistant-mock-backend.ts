@@ -206,6 +206,9 @@ export class NhAssistantMockBackend {
     if (path === 'preferences') {
       return this.result(this.admin.handlePreferences(method, body));
     }
+    if (segments[0] === 'mcp-connections') {
+      return this.result(this.admin.handleMcpConnections(method, segments, body));
+    }
     if (path === 'notifications') {
       if (method === 'PUT') {
         this.pushEnabled = (body as { pushEnabled?: boolean } | undefined)?.pushEnabled === true;

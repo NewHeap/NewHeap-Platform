@@ -14,8 +14,10 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import {
   McpAuthMode,
+  McpHeadlessUse,
   McpServer,
   McpServerInput,
+  McpTransport,
   ɵNH_ASSISTANT_DASH_CASE as NH_ASSISTANT_DASH_CASE,
   NhAssistantAdminApiService,
   NhAssistantError,
@@ -31,9 +33,19 @@ import {
  */
 export type NhAssistantSecretAction = 'keep' | 'replace' | 'clear';
 
+/** Where the secret is: stored here, encrypted, or a reference to a secret of the application. */
+export type NhAssistantSecretSource = 'stored' | 'reference';
+
+/** `<prefix>:<name>` as the server accepts it; the name never climbs a path. */
+const secretReferencePattern = /^[a-z][a-z0-9-]{0,31}:[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/;
+const certificateNamePattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+
 let nextId = 0;
 
-/** Creates or edits one MCP server with a write-only secret. */
+/**
+ * Creates or edits one MCP server: the authentication with a write-only secret or a reference to
+ * one, an optional client certificate, the transport and the use in background runs.
+ */
 @Component({
   selector: 'nh-assistant-admin-mcp-server-editor',
   standalone: true,
@@ -52,7 +64,9 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly cancelled = output<void>();
 
   readonly id = `nh-assistant-server-editor-${nextId++}`;
-  readonly authModes: readonly McpAuthMode[] = ['none', 'bearer', 'api-key', 'forward-user-token'];
+  readonly authModes: readonly McpAuthMode[] = ['none', 'bearer', 'api-key', 'basic', 'forward-user-token'];
+  readonly transports: readonly McpTransport[] = ['streamable-http', 'auto'];
+  readonly secretSources: readonly NhAssistantSecretSource[] = ['stored', 'reference'];
 
   readonly serverId = signal('');
   readonly displayName = signal('');
@@ -61,6 +75,12 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly headerName = signal('');
   readonly requiredPolicy = signal('');
   readonly isEnabled = signal(true);
+  readonly headlessUse = signal<McpHeadlessUse>('never');
+  readonly userName = signal('');
+  readonly secretSource = signal<NhAssistantSecretSource>('stored');
+  readonly secretReference = signal('');
+  readonly clientCertificateReference = signal('');
+  readonly transport = signal<McpTransport>('streamable-http');
   readonly secretAction = signal<NhAssistantSecretAction>('keep');
   /** The new secret while typing. Never filled from the server. */
   readonly secret = signal('');
@@ -69,13 +89,30 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly error = signal<NhAssistantError | null>(null);
 
   readonly isNew = computed(() => this.server() === null);
+  /** A stored secret that a save keeps; a reference replaces it. */
   readonly hasSecret = computed(() => this.server()?.hasSecret === true);
-  readonly usesSecret = computed(() => this.authMode() === 'bearer' || this.authMode() === 'api-key');
-  readonly showSecretInput = computed(() => this.usesSecret() && (!this.hasSecret() || this.secretAction() === 'replace'));
+  readonly usesSecret = computed(() => this.authMode() === 'bearer' || this.authMode() === 'api-key' || this.authMode() === 'basic');
+  readonly usesReference = computed(() => this.usesSecret() && this.secretSource() === 'reference');
+  /**
+   * The organization's credential may serve background runs; a forwarded user token only as the
+   * short-lived token of the person a run acts for, after that person allowed it.
+   */
+  readonly headlessUses = computed<readonly McpHeadlessUse[]>(() =>
+    this.authMode() === 'forward-user-token' ? ['never', 'personal'] : ['never', 'organization']);
+  readonly effectiveHeadlessUse = computed(() => this.headlessUses().includes(this.headlessUse()) ? this.headlessUse() : 'never');
+  readonly showSecretInput = computed(() => this.usesSecret() && !this.usesReference() && (!this.hasSecret() || this.secretAction() === 'replace'));
   readonly idInvalid = computed(() => this.isNew() && (this.serverId().length > 40 || !NH_ASSISTANT_DASH_CASE.test(this.serverId())));
   readonly nameMissing = computed(() => this.displayName().trim().length === 0);
   readonly urlInvalid = computed(() => !isAllowedUrl(this.url().trim()));
-  readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.urlInvalid());
+  readonly userNameInvalid = computed(() => this.authMode() === 'basic' &&
+    (this.userName().trim().length === 0 || this.userName().length > 256 || this.userName().includes(':')));
+  readonly secretReferenceInvalid = computed(() => this.usesReference() && !isSecretReference(this.secretReference().trim()));
+  readonly certificateInvalid = computed(() => {
+    const name = this.clientCertificateReference().trim();
+    return name.length > 0 && !certificateNamePattern.test(name);
+  });
+  readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.urlInvalid() &&
+    !this.userNameInvalid() && !this.secretReferenceInvalid() && !this.certificateInvalid());
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
 
   constructor() {
@@ -98,6 +135,12 @@ export class NhAssistantAdminMcpServerEditorComponent {
   setSecretAction(action: NhAssistantSecretAction): void {
     this.secretAction.set(action);
     this.secret.set('');
+  }
+
+  setSecretSource(source: NhAssistantSecretSource): void {
+    this.secretSource.set(source);
+    this.secret.set('');
+    this.secretAction.set('keep');
   }
 
   onSecretInput(event: Event): void {
@@ -123,17 +166,36 @@ export class NhAssistantAdminMcpServerEditorComponent {
       authMode,
       headerName: authMode === 'api-key' && header.length > 0 ? header : null,
       requiredPolicy: policy.length > 0 ? policy : null,
-      isEnabled: this.isEnabled()
+      isEnabled: this.isEnabled(),
+      headlessUse: this.effectiveHeadlessUse(),
+      transport: this.transport(),
+      // "" clears the certificate; the server ignores the user name outside basic authentication.
+      clientCertificateReference: this.clientCertificateReference().trim(),
+      userName: authMode === 'basic' ? this.userName().trim() : null
     };
 
-    // Write-only secret: omitted keeps the stored value, "" clears it.
+    // Write-only secret: omitted keeps the stored value, "" clears it. A reference and a stored
+    // secret exclude each other: sending one replaces the other.
     const action = this.secretAction();
-    if (!this.usesSecret() && this.hasSecret()) {
-      input.secret = '';
-    } else if (action === 'clear') {
-      input.secret = '';
-    } else if (action === 'replace' && this.secret().length > 0) {
-      input.secret = this.secret();
+    const storedReference = this.server()?.secretReference ?? null;
+    if (this.usesReference()) {
+      input.secretReference = this.secretReference().trim();
+    } else if (!this.usesSecret()) {
+      if (this.hasSecret()) {
+        input.secret = '';
+      }
+      if (storedReference !== null) {
+        input.secretReference = '';
+      }
+    } else {
+      if (storedReference !== null) {
+        input.secretReference = '';
+      }
+      if (action === 'clear') {
+        input.secret = '';
+      } else if (action === 'replace' && this.secret().length > 0) {
+        input.secret = this.secret();
+      }
     }
 
     const existing = this.server();
@@ -163,11 +225,21 @@ export class NhAssistantAdminMcpServerEditorComponent {
     this.headerName.set(server?.headerName ?? '');
     this.requiredPolicy.set(server?.requiredPolicy ?? '');
     this.isEnabled.set(server?.isEnabled ?? true);
+    this.headlessUse.set(server?.headlessUse ?? 'never');
+    this.userName.set(server?.userName ?? '');
+    this.secretSource.set(server?.secretReference ? 'reference' : 'stored');
+    this.secretReference.set(server?.secretReference ?? '');
+    this.clientCertificateReference.set(server?.clientCertificateReference ?? '');
+    this.transport.set(server?.transport ?? 'streamable-http');
     this.secretAction.set('keep');
     this.secret.set('');
     this.submitted.set(false);
     this.error.set(null);
   }
+}
+
+function isSecretReference(value: string): boolean {
+  return secretReferencePattern.test(value) && !value.includes('..');
 }
 
 function isAllowedUrl(value: string): boolean {

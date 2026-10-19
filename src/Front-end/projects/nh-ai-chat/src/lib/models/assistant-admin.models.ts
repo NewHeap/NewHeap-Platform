@@ -21,6 +21,28 @@ export interface AssistantPreferences {
   customInstructions: string | null;
 }
 
+/**
+ * An MCP server that agents may use in background runs with the caller's own account once the
+ * caller allows it (`GET mcp-connections`). The consent holds for the server as it is configured
+ * now; a changed address or authentication shows it as not allowed again.
+ */
+export interface McpConnection {
+  serverId: string;
+  displayName: string;
+  /** The server's host name, for example `planning.example.org`. */
+  host: string;
+  allowBackgroundUse: boolean;
+  /** When the caller allowed it; `null` while not allowed. */
+  consentedAt: string | null;
+  /** The agents the caller may use that have the server. */
+  agentIds: string[];
+}
+
+/** Body of `PUT mcp-connections/{serverId}`. */
+export interface UpdateMcpConnectionRequest {
+  allowBackgroundUse: boolean;
+}
+
 export interface ApplicationContext {
   text: string;
   version: number;
@@ -201,7 +223,21 @@ export interface SetAgentStateRequest {
   reason?: string | null;
 }
 
-export type McpAuthMode = 'none' | 'bearer' | 'api-key' | 'forward-user-token';
+export type McpAuthMode = 'none' | 'bearer' | 'api-key' | 'basic' | 'forward-user-token';
+
+/**
+ * Whether a server's tools are offered in background runs. `organization` is only valid for
+ * `none`, `bearer`, `api-key` and `basic`; the agent then also needs a grant in code
+ * (`mcp.<server>.*`). `personal` is only valid for `forward-user-token`: the run then sends a
+ * short-lived token of the person it acts for, once that person allowed it (`McpConnection`).
+ */
+export type McpHeadlessUse = 'never' | 'organization' | 'personal';
+
+/**
+ * `streamable-http`, or `auto` to fall back to the deprecated HTTP+SSE transport for servers
+ * that do not offer Streamable HTTP yet.
+ */
+export type McpTransport = 'streamable-http' | 'auto';
 
 export interface McpServerInput {
   id: string;
@@ -213,6 +249,19 @@ export interface McpServerInput {
   secret?: string | null;
   requiredPolicy: string | null;
   isEnabled: boolean;
+  /** Omit to keep the stored value; a new server starts at `never`. */
+  headlessUse?: McpHeadlessUse;
+  /** The user name of `basic`; the password is `secret`. Omit to keep the stored value. */
+  userName?: string | null;
+  /**
+   * Where the secret is instead of storing it: `config:<name>` or a prefix the application
+   * registered. Omit to keep, `""` to clear; a new stored secret replaces it and vice versa.
+   */
+  secretReference?: string | null;
+  /** The name of a client certificate the host configured for mutual TLS. Omit to keep, `""` to clear. */
+  clientCertificateReference?: string | null;
+  /** Omit to keep the stored value; a new server starts at `streamable-http`. */
+  transport?: McpTransport;
 }
 
 export interface McpServer {
@@ -227,6 +276,17 @@ export interface McpServer {
   lastSyncAt: string | null;
   lastSyncStatus: 'ok' | 'failed' | null;
   assignedAgentIds: string[];
+  headlessUse: McpHeadlessUse;
+  /** When a test, a sync or a turn with the shared credential last connected. */
+  lastConnectAt: string | null;
+  /** The failure code of that connection; `null` when it succeeded or never ran. */
+  lastConnectCode: string | null;
+  /** The user name of `basic`; the password is never returned. */
+  userName: string | null;
+  /** The secret reference; it names where the secret is, it is not the secret. */
+  secretReference: string | null;
+  clientCertificateReference: string | null;
+  transport: McpTransport;
 }
 
 export interface McpServerTestResult {

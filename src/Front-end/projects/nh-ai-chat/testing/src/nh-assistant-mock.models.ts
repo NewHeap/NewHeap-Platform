@@ -140,6 +140,12 @@ export interface NhAssistantMockAdminScenario {
   policies?: string[];
   /** Hosts that may receive the user's token (`forward-user-token`). Default: none. */
   forwardUserTokenHosts?: string[];
+  /** Secret references that name an available secret. Default: every `config:` reference. */
+  secretReferences?: string[];
+  /** Client certificate names the host configured. Default: none. */
+  clientCertificates?: string[];
+  /** The caller's consent to background use of personal servers (`mcp-connections`). Default: none. */
+  mcpConnections?: { serverId: string; allowBackgroundUse: boolean }[];
   /**
    * The building blocks in code that run configuration as data names. Default: none, with
    * `policies` as the approval policies.

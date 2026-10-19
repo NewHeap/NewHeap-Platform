@@ -80,4 +80,10 @@ public sealed class NhAssistantMcpOptions
     /// Maximum time to connect to a server and list its tools.
     /// </summary>
     public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// The lifetime of a delegated NewHeap token that a headless run sends to a
+    /// <c>forward-user-token</c> server for the person it acts for: 2 minutes by default, at most 5.
+    /// </summary>
+    public TimeSpan ForwardedTokenLifetime { get; set; } = TimeSpan.FromMinutes(2);
 }

@@ -106,10 +106,17 @@ public static class SampleAssistantComposition
             .UseAccessPolicy(AccessPolicy)
             .UseAdminPolicy(AdminPolicy)
             .UseDefaultApplicationContext(DefaultApplicationContext)
+            // SPM-251: an administrator may name a secret instead of storing it: config:<name> reads
+            // NewHeap:AI:Assistant:Mcp:Secrets:<name>, and secret-file:<name> a mounted secret file.
+            .AddMcpSecretResolver<SampleMountedSecretResolver>(SampleMountedSecretResolver.Prefix)
             .ConfigureMcp(mcp =>
             {
                 // Administrators may connect any https host that is not blocked; plain http is only
-                // accepted for loopback in Development. No host receives forwarded user tokens.
+                // accepted for loopback in Development. Only hosts in
+                // NewHeap:AI:Assistant:Mcp:ForwardUserTokenHosts receive a person's token, none by default.
+                // SPM-251: background runs use a server only after an administrator sets its
+                // headlessUse to organization, or to personal for a forwarded token, which then needs
+                // the consent of the person a run acts for; every server starts at never.
                 mcp.RequireHttps = true;
                 mcp.ToolListCacheDuration = TimeSpan.FromMinutes(5);
                 mcp.ConnectTimeout = TimeSpan.FromSeconds(10);

@@ -69,6 +69,19 @@ the tool contract that approvals bind to, and a failed binding stops the call
 with an audited result code. Metadata is provenance, not authorization: the
 remote server keeps its own credentials and scope checks.
 
+Imported tools accept no agent grants by default. Set `AllowAgentGrant` on the
+import policy only when the server's credential belongs to the organization, not
+to a person, and an agent may use it without one; a code grant of the agent
+registration then allows the tool. It becomes part of the tool contract only when
+it is `true`, so other contracts and their approvals keep their hashes.
+
+While `McpClientTool.CallAsync` runs inside the invoker, `NhAiMcpCallContext.Current`
+carries the descriptor and the authorized `NhAiInvocationContext`, including its
+grant source. An HTTP handler of the client's transport uses it to decide which
+credential a request may carry, and refuses a request of a call that was authorized
+for someone other than the credential's owner. It is `null` while a client
+connects or lists tools and holds no credentials or arguments.
+
 ## Avoid
 
 - Passing every tool returned by `ListToolsAsync` directly to a model.
@@ -82,6 +95,8 @@ remote server keeps its own credentials and scope checks.
 - Registering a run-specific imported catalog as a singleton or building it at startup.
 - Asking the model for identity or conversation context that a reviewed invocation binder should add.
 - Registering an invocation binder for every server or for tools an administrator can add without review.
+- Allowing agent grants on a tool whose server receives a person's credential.
+- Choosing a credential from model arguments instead of `NhAiMcpCallContext`.
 
 ## Verification
 
@@ -98,7 +113,10 @@ must list only the generated tools. For an invocation binder, read `_meta` in
 the server's call handler: assert that it arrives only for the opted-in tool,
 that denied authorization or a missing approval never runs the binder, that
 oversized metadata fails with `ai-tool-input-too-large` before the remote call
-and that a failed binding is audited with its code. Call one tool that succeeds
+and that a failed binding is audited with its code. Record
+`NhAiMcpCallContext.Current` in the client's message stream: it is set, with the
+authorized grant source, only while the call is sent. A policy with
+`AllowAgentGrant` has a different contract hash and an agent-grantable descriptor. Call one tool that succeeds
 and one whose server returns `isError`: the first returns `success` with the remote
 result as `data`, the second `ai-mcp-remote-tool-error` with the remote result as
 `data` and the same code in the audit record. SPM-228 is the executable

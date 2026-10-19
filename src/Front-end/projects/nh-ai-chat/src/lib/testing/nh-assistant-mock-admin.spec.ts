@@ -225,6 +225,77 @@ describe('provideNhAssistantMockApi administration', () => {
     expect((await firstValueFrom(admin.getMcpServers())).find(server => server.id === 'keyless')?.headerName).toBe('X-Api-Key');
   });
 
+  it('keeps headless use per server and records the connection state like the server', async () => {
+    const base = { displayName: 'Server', headerName: null, requiredPolicy: null, isEnabled: true, authMode: 'none' as const };
+    const created = await firstValueFrom(admin.createMcpServer({ ...base, id: 'docs', url: 'https://docs.example.com/mcp' }));
+    const allowed = await firstValueFrom(admin.updateMcpServer('docs', {
+      ...base, id: 'docs', url: 'https://docs.example.com/mcp', headlessUse: 'organization'
+    }));
+    const kept = await firstValueFrom(admin.updateMcpServer('docs', { ...base, id: 'docs', url: 'https://docs.example.com/mcp' }));
+    const forwarded = await failure(firstValueFrom(admin.updateMcpServer('docs', {
+      ...base, id: 'docs', url: 'https://docs.example.com/mcp', authMode: 'forward-user-token'
+    })));
+    await firstValueFrom(admin.testMcpServer('docs'));
+    const [server] = (await firstValueFrom(admin.getMcpServers())).filter(item => item.id === 'docs');
+
+    expect(created.headlessUse).toBe('never');
+    expect(created.lastConnectAt).toBeNull();
+    expect(allowed.headlessUse).toBe('organization');
+    expect(kept.headlessUse).toBe('organization');
+    expect(forwarded).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-validation' }));
+    expect(server.lastConnectAt).not.toBeNull();
+    expect(server.lastConnectCode).toBeNull();
+  });
+
+  it('validates basic authentication, secret references and client certificates like the server', async () => {
+    const base = { displayName: 'Vault', headerName: null, requiredPolicy: null, isEnabled: true, id: 'vault', url: 'https://vault.example.com/mcp' };
+    const noUser = await failure(firstValueFrom(admin.createMcpServer({ ...base, authMode: 'basic', secret: 'basic-password' })));
+    const basic = await firstValueFrom(admin.createMcpServer({ ...base, authMode: 'basic', userName: 'planner', secret: 'basic-password' }));
+    const referenced = await firstValueFrom(admin.updateMcpServer('vault', { ...base, authMode: 'bearer', secretReference: 'config:vault-token' }));
+    const unknownPrefix = await failure(firstValueFrom(admin.updateMcpServer('vault', { ...base, authMode: 'bearer', secretReference: 'vault:token' })));
+    const climbing = await failure(firstValueFrom(admin.updateMcpServer('vault', { ...base, authMode: 'bearer', secretReference: 'config:a/../b' })));
+    const certificate = await failure(firstValueFrom(admin.updateMcpServer('vault', { ...base, authMode: 'none', clientCertificateReference: 'missing' })));
+    const auto = await firstValueFrom(admin.updateMcpServer('vault', { ...base, authMode: 'none', transport: 'auto' }));
+
+    expect(noUser).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-validation' }));
+    expect(basic.userName).toBe('planner');
+    expect(basic.hasSecret).toBeTrue();
+    expect(basic.transport).toBe('streamable-http');
+    expect(JSON.stringify(basic)).not.toContain('basic-password');
+    expect(referenced.secretReference).toBe('config:vault-token');
+    expect(referenced.hasSecret).toBeFalse();
+    expect(referenced.userName).toBeNull();
+    expect(unknownPrefix.code).toBe('assistant-mcp-secret-reference-invalid');
+    expect(climbing.code).toBe('assistant-validation');
+    expect(certificate.code).toBe('assistant-mcp-certificate-reference-invalid');
+    expect(auto.transport).toBe('auto');
+    expect(auto.secretReference).toBeNull();
+  });
+
+  it('records the caller\'s consent to a personal server until its address or authentication changes', async () => {
+    const planning = {
+      id: 'planning', displayName: 'Planning', url: 'https://planning.example.com/mcp', authMode: 'forward-user-token' as const,
+      headerName: null, requiredPolicy: null, isEnabled: true, headlessUse: 'personal' as const
+    };
+    await firstValueFrom(admin.createMcpServer(planning));
+    const unassigned = await firstValueFrom(api.getMcpConnections());
+    await firstValueFrom(admin.createAgent({ ...newAgent, mcpServerIds: ['planning'] }));
+    const [listed] = await firstValueFrom(api.getMcpConnections());
+    const allowed = await firstValueFrom(api.updateMcpConnection('planning', { allowBackgroundUse: true }));
+    const notPersonal = await failure(firstValueFrom(api.updateMcpConnection('files', { allowBackgroundUse: true })));
+    await firstValueFrom(admin.updateMcpServer('planning', { ...planning, url: 'https://planning.example.com/mcp/v2' }));
+    const [moved] = await firstValueFrom(api.getMcpConnections());
+
+    expect(unassigned).toEqual([]);
+    expect(listed).toEqual({
+      serverId: 'planning', displayName: 'Planning', host: 'planning.example.com', allowBackgroundUse: false, consentedAt: null, agentIds: ['support-agent']
+    });
+    expect(allowed.allowBackgroundUse).toBeTrue();
+    expect(allowed.consentedAt).not.toBeNull();
+    expect(notPersonal).toEqual(jasmine.objectContaining({ status: 404, code: 'assistant-mcp-server-not-found' }));
+    expect(moved.allowBackgroundUse).toBeFalse();
+  });
+
   it('answers with the specific contract codes for duplicates, missing items and resets', async () => {
     await firstValueFrom(admin.createAgent(newAgent));
     const [server] = await firstValueFrom(admin.getMcpServers());

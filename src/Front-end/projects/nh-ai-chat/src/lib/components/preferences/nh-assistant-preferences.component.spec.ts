@@ -17,7 +17,7 @@ function flush(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve));
 }
 
-async function configure(config: Partial<NhAssistantConfig> = {}, canAdminister = true): Promise<void> {
+async function configure(config: Partial<NhAssistantConfig> = {}, canAdminister = true, personalServer = false): Promise<void> {
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
@@ -27,7 +27,20 @@ async function configure(config: Partial<NhAssistantConfig> = {}, canAdminister 
         agents: [{ id: 'projects', version: 1, displayNameKey: 'agents.projects', descriptionKey: 'agents.projects', canMutate: true }],
         turns: [],
         preferences: { style: 'personal', addressForm: 'formal', responseLength: 'long', customInstructions: 'Use bullet points.' },
-        admin: { canAdminister }
+        admin: personalServer
+          ? {
+            canAdminister,
+            forwardUserTokenHosts: ['planning.example.com'],
+            agents: [{
+              source: 'code', id: 'projects', displayName: 'Projects', description: '', instructions: '', toolSelectors: [],
+              mcpServerIds: ['planning'], requiredPolicy: null, autonomy: 'execute'
+            }],
+            mcpServers: [{
+              id: 'planning', displayName: 'Planning', url: 'https://planning.example.com/mcp', authMode: 'forward-user-token',
+              headerName: null, requiredPolicy: null, isEnabled: true, headlessUse: 'personal'
+            }]
+          }
+          : { canAdminister }
       })
     ]
   });
@@ -135,6 +148,55 @@ describe('NhAssistantPreferencesComponent', () => {
 
     expect(load).toHaveBeenCalledTimes(2);
     expect(radio(element, 'style', 'default').checked).toBeTrue();
+  });
+
+  it('shows no background use section without a server that asks for consent', async () => {
+    await configure();
+    const element = await render();
+    const backend = TestBed.inject(NhAssistantMockBackend);
+    for (let attempt = 0; attempt < 10 && !backend.requests.some(request => request.path === 'mcp-connections'); attempt++) {
+      await flush();
+      fixture.detectChanges();
+    }
+
+    expect(element.querySelector('nh-assistant-mcp-connections fieldset')).toBeNull();
+    expect(backend.requests.some(request => request.path === 'mcp-connections')).toBeTrue();
+  });
+
+  it('allows and withdraws background use of a server with the user\'s own account', async () => {
+    await configure({}, true, true);
+    const element = await render();
+    for (let attempt = 0; attempt < 10 && !element.querySelector('nh-assistant-mcp-connections fieldset'); attempt++) {
+      await flush();
+      fixture.detectChanges();
+    }
+
+    const section = element.querySelector('nh-assistant-mcp-connections fieldset') as HTMLElement;
+    expect(section.querySelector('legend')?.textContent?.trim()).toBe('Background use with your account');
+    expect(section.textContent).toContain('planning.example.com');
+    expect(section.textContent).toContain('Not allowed');
+    const toggle = section.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(toggle.checked).toBeFalse();
+    expect(toggle.closest('label')?.textContent).toContain('Allow Planning in background runs');
+
+    toggle.click();
+    for (let attempt = 0; attempt < 10 && !section.textContent?.includes('Allowed since'); attempt++) {
+      await flush();
+      fixture.detectChanges();
+    }
+    expect(section.textContent).toContain('Allowed since');
+
+    (section.querySelector('input[type="checkbox"]') as HTMLInputElement).click();
+    for (let attempt = 0; attempt < 10 && !section.textContent?.includes('Not allowed'); attempt++) {
+      await flush();
+      fixture.detectChanges();
+    }
+
+    const bodies = TestBed.inject(NhAssistantMockBackend).requests
+      .filter(request => request.method === 'PUT' && request.path === 'mcp-connections/planning')
+      .map(request => request.body);
+    expect(bodies).toEqual([{ allowBackgroundUse: true }, { allowBackgroundUse: false }]);
+    expect(section.textContent).toContain('Not allowed');
   });
 });
 

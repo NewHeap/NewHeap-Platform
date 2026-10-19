@@ -34,6 +34,7 @@ export * from './lib/components/approval-card/nh-assistant-approval-card.compone
 export * from './lib/components/proposal-feedback/nh-assistant-proposal-feedback.component';
 export * from './lib/components/agent-picker/nh-assistant-agent-picker.component';
 export * from './lib/components/preferences/nh-assistant-preferences.component';
+export * from './lib/components/preferences/nh-assistant-mcp-connections.component';
 export * from './lib/components/share/nh-assistant-share.component';
 export * from './lib/components/activity/nh-assistant-activity.component';
 export * from './lib/components/subject-badge/nh-assistant-subject-badge.component';

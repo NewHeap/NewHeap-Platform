@@ -1536,7 +1536,9 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolResult.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolResultTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolResultTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpCallContext.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpCallContextTests.cs"
     ],
     "SPM-220": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs",
@@ -1808,11 +1810,24 @@
     "SPM-251": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpHeadlessTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMountedSecretResolver.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleFirstPartyMcpServer.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpDelegatedTokens.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantMcpSecrets.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnectionService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpClientCertificates.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpCredentialTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMcpDelegatedTokenTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-mcp-connections.component.ts"
     ],
     "SPM-252": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",

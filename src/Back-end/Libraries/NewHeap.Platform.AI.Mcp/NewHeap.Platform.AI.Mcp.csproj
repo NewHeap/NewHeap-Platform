@@ -18,4 +18,8 @@
   <ItemGroup>
     <ProjectReference Include="..\NewHeap.Platform.AI.Common\NewHeap.Platform.AI.Common.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Tests" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.Tests" />
+  </ItemGroup>
 </Project>

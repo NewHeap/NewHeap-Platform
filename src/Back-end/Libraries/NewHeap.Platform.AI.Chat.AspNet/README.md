@@ -51,6 +51,9 @@ approvals and tools without a presenter.
 | `NewHeap:AI:Assistant:Mcp:ForwardUserTokenHosts` | empty | Exact hosts that may receive the caller's token (`forward-user-token`). |
 | `NewHeap:AI:Assistant:Mcp:ToolListCacheDuration` | `00:05:00` | Cache duration of remote tool lists. |
 | `NewHeap:AI:Assistant:Mcp:ConnectTimeout` | `00:00:10` | Connect timeout for MCP servers. |
+| `NewHeap:AI:Assistant:Mcp:ForwardedTokenLifetime` | `00:02:00` | Lifetime of the delegated token a background run sends to a `personal` server; at most 5 minutes. |
+| `NewHeap:AI:Assistant:Mcp:Secrets:<name>` | none | Secrets that a server names as `config:<name>` instead of storing one. |
+| `NewHeap:AI:Assistant:Mcp:ClientCertificates:<name>` | none | Client certificates for mutual TLS: `Path` and `Password` of a PKCS#12 file, or `Thumbprint`, `StoreLocation` and `StoreName`. |
 
 ## Endpoints
 
@@ -66,6 +69,7 @@ approvals and tools without a presenter.
 | `POST conversations/{id}/approvals/{approvalId}/decide` `{ decision, expectedProposalHash, reason? }` | `text/event-stream` of the resumed turn |
 | `POST conversations/{id}/cancel` | `202` |
 | `GET` / `PUT preferences` | the caller's style preferences |
+| `GET mcp-connections`, `PUT mcp-connections/{serverId}` `{ allowBackgroundUse }` | MCP servers that background runs may use with the caller's own account, and the caller's consent |
 
 Administration endpoints additionally require the admin policy:
 

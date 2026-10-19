@@ -141,19 +141,96 @@ public sealed class AssistantMcpServer
 
     public string? ProtectedSecret { get; set; }
 
+    /// <summary>
+    /// A reference to the secret instead of a stored one (<see cref="NhAssistantMcpSecretReferences"/>).
+    /// </summary>
+    public string? SecretReference { get; set; }
+
+    /// <summary>
+    /// The user name of <c>basic</c> authentication; the password is the server's secret.
+    /// </summary>
+    public string? UserName { get; set; }
+
+    /// <summary>
+    /// The name of a client certificate under <c>NewHeap:AI:Assistant:Mcp:ClientCertificates</c>,
+    /// sent for mutual TLS.
+    /// </summary>
+    public string? ClientCertificateReference { get; set; }
+
+    /// <summary>
+    /// One of <see cref="NhAssistantMcpTransports"/>.
+    /// </summary>
+    public string Transport { get; set; } = NhAssistantMcpTransports.StreamableHttp;
+
     public string? RequiredPolicy { get; set; }
 
     public bool IsEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Whether the tools are offered in headless turns: one of <see cref="NhAssistantMcpHeadlessUses"/>.
+    /// </summary>
+    public string HeadlessUse { get; set; } = NhAssistantMcpHeadlessUses.Never;
+
     public DateTimeOffset? LastSyncAt { get; set; }
 
     public string? LastSyncStatus { get; set; }
+
+    /// <summary>
+    /// When an administrator's test or sync, or a turn with the shared credential, last connected.
+    /// </summary>
+    public DateTimeOffset? LastConnectAt { get; set; }
+
+    /// <summary>
+    /// The failure code of that connection; <see langword="null"/> when it succeeded.
+    /// </summary>
+    public string? LastConnectCode { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
 
     public List<AssistantMcpTool> Tools { get; set; } = [];
+}
+
+/// <summary>
+/// A person's or the organization's relation to an MCP server. In this version it records a person's
+/// consent to background use: <see cref="AllowBackgroundUse"/> applies only while
+/// <see cref="ConsentHash"/> matches the server as it is configured now. One row per server, owner and
+/// tenant key; <see cref="OwnerActorId"/> and <see cref="TenantKey"/> are empty instead of null so the
+/// unique index behaves the same on every provider.
+/// </summary>
+public sealed class AssistantMcpConnection
+{
+    public Guid Id { get; set; }
+
+    public string ServerId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// One of <see cref="NhAssistantMcpConnectionOwners"/>.
+    /// </summary>
+    public string OwnerKind { get; set; } = NhAssistantMcpConnectionOwners.User;
+
+    public string OwnerActorId { get; set; } = string.Empty;
+
+    public string TenantKey { get; set; } = string.Empty;
+
+    public bool AllowBackgroundUse { get; set; }
+
+    /// <summary>
+    /// The hash of the server's id, URL and authentication mode when consent was given.
+    /// </summary>
+    public string? ConsentHash { get; set; }
+
+    public DateTimeOffset? ConsentedAt { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Concurrency token, incremented with every change.
+    /// </summary>
+    public int Version { get; set; }
 }
 
 /// <summary>

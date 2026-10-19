@@ -109,7 +109,11 @@ export class NhAssistantAdminMcpServersComponent {
   test(server: McpServer): void {
     this.setTest(server.id, { running: true, result: null });
     this.actions.add(this.admin.testMcpServer(server.id).subscribe({
-      next: result => this.setTest(server.id, { running: false, result }),
+      next: result => {
+        this.setTest(server.id, { running: false, result });
+        // The test records the connection state of the server.
+        this.refresh();
+      },
       error: (error: unknown) => {
         const failure = toNhAssistantError(error);
         this.setTest(server.id, { running: false, result: { ok: false, code: failure.code, toolCount: null } });

@@ -727,11 +727,139 @@ describe('NhAssistantAdminMcpServersComponent', () => {
   it('tests the connection and shows the result', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+    expect(element.textContent).toContain('Not connected yet');
 
     button(element, 'Test connection').click();
     await settle(fixture);
 
     expect(element.querySelector('[role="status"]')?.textContent).toContain('The connection works: 2 tools.');
+    expect(element.textContent).toContain('Last connection');
+    expect(element.textContent).not.toContain('Not connected yet');
+  });
+
+  it('offers background runs with the organization credential, or with the person\'s own account for a forwarded token', async () => {
+    await configure();
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+    expect(element.textContent).toContain('Not in background runs');
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    const headless = element.querySelector('select[id$="-headless"]') as HTMLSelectElement;
+    expect(headless.disabled).toBeFalse();
+    expect(headless.value).toBe('never');
+    headless.value = 'organization';
+    headless.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    expect(element.textContent).toContain('Background runs with this credential');
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    const auth = element.querySelector('select[id$="-auth"]') as HTMLSelectElement;
+    auth.value = 'forward-user-token';
+    auth.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const personal = element.querySelector('select[id$="-headless"]') as HTMLSelectElement;
+    // The organization's credential does not exist for a forwarded token.
+    expect(Array.from(personal.options).map(option => option.value)).toEqual(['never', 'personal']);
+    expect(personal.value).toBe('never');
+    expect(element.textContent).toContain('only after that person allowed it in their preferences');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    choose(element, 'select[id$="-headless"]', 'personal');
+    fixture.detectChanges();
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as { headlessUse?: string }[];
+    expect(bodies.map(body => body.headlessUse)).toEqual(['organization', 'never', 'personal']);
+    expect(element.textContent).toContain("Background runs with the person's own account, after consent");
+  });
+
+  it('asks a user name for basic authentication and keeps the password write-only', async () => {
+    await configure();
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    choose(element, 'select[id$="-auth"]', 'basic');
+    fixture.detectChanges();
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.textContent).toContain('Enter a user name without a colon');
+    expect(requestBodies('PUT', 'admin/mcp-servers/files')).toEqual([]);
+
+    type(element, 'input[id$="-user"]', 'planner');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    const [body] = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
+    expect(body['authMode']).toBe('basic');
+    expect(body['userName']).toBe('planner');
+    expect(Object.keys(body)).not.toContain('secret');
+    expect(element.textContent).toContain('User name and password');
+    expect(element.textContent).toContain('Secret set');
+    expect(element.innerHTML).not.toContain(secretValue);
+  });
+
+  it('refers to a secret of the application instead of storing one', async () => {
+    const script = scenario();
+    script.admin!.secretReferences = ['config:files-token'];
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    check(element, 'input[type="radio"][value="reference"]');
+    fixture.detectChanges();
+    expect(element.querySelector('input[type="password"]')).toBeNull();
+    type(element, 'input[id$="-secret-reference"]', 'config:../files');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.textContent).toContain('Enter a reference such as config:planning-token.');
+
+    type(element, 'input[id$="-secret-reference"]', 'vault:files');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('The secret reference names no available secret.');
+
+    type(element, 'input[id$="-secret-reference"]', 'config:files-token');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
+    expect(bodies.map(body => body['secretReference'])).toEqual(['vault:files', 'config:files-token']);
+    expect(bodies.every(body => !('secret' in body))).toBeTrue();
+    expect(element.textContent).toContain('Secret from config:files-token');
+  });
+
+  it('names a client certificate and chooses the HTTP+SSE fallback', async () => {
+    const script = scenario();
+    script.admin!.clientCertificates = ['files-client'];
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    type(element, 'input[id$="-certificate"]', 'unknown-client');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('The client certificate is not configured or has no private key.');
+
+    type(element, 'input[id$="-certificate"]', 'files-client');
+    choose(element, 'select[id$="-transport"]', 'auto');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
+    expect(bodies[bodies.length - 1]).toEqual(jasmine.objectContaining({ clientCertificateReference: 'files-client', transport: 'auto' }));
+    expect(element.textContent).toContain('Client certificate files-client');
+    expect(element.textContent).toContain('HTTP+SSE fallback');
   });
 
   it('syncs tools disabled as changes, shows hints as hints and enables a tool as read-only', async () => {

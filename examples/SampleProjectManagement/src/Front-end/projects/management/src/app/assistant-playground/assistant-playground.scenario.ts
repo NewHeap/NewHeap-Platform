@@ -166,7 +166,7 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         description: 'Follows up completed tasks and judges deadline risks.',
         instructions: "Follow the project's tasks and deadline. Propose status changes; never apply them without approval.",
         toolSelectors: ['sample-api.project.*'],
-        mcpServerIds: [],
+        mcpServerIds: ['team-calendar'],
         requiredPolicy: 'app.project.view',
         autonomy: 'execute',
         skills: [
@@ -196,6 +196,21 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         secret: 'sample-only-key',
         requiredPolicy: 'app.project.view',
         isEnabled: true,
+        // SPM-251: background runs may use the server's own key; the editor shows the choice.
+        headlessUse: 'organization',
+        remoteTools: PLAYGROUND_REMOTE_TOOLS
+      },
+      {
+        id: 'team-calendar',
+        displayName: 'Team calendar',
+        url: 'https://planning.sample.localhost/mcp',
+        authMode: 'forward-user-token',
+        headerName: null,
+        requiredPolicy: null,
+        isEnabled: true,
+        // SPM-251: the planner's background runs may use the person's own account once that person
+        // allows it in the assistant's preferences.
+        headlessUse: 'personal',
         remoteTools: PLAYGROUND_REMOTE_TOOLS
       }
     ]

@@ -36,6 +36,14 @@ public sealed record NhAiMcpImportedToolPolicy(
     /// The import fails when no matching binder is registered.
     /// </summary>
     public string? InvocationBinderId { get; init; }
+
+    /// <summary>
+    /// Lets a code grant of an agent registration allow this tool for an agent that acts without a
+    /// person (<see cref="NhAiToolDescriptor.AllowAgentGrant"/>). Set it only when the server's
+    /// credential belongs to the organization rather than to a person. Defaults to <see langword="false"/>;
+    /// a tool that allows agent grants has a different contract hash than one that does not.
+    /// </summary>
+    public bool AllowAgentGrant { get; init; }
 }
 
 public sealed record NhAiMcpImportOptions(
@@ -360,6 +368,15 @@ internal sealed record NhAiImportedMcpTool(
                 InvocationBinder = new { binding.BinderId, binding.Version }
             });
         }
+        if (policy.AllowAgentGrant)
+        {
+            // Who may allow the tool is part of its contract; tools without agent grants keep theirs.
+            contractHash = NhAiCanonicalJson.ComputeHash(new
+            {
+                contractHash,
+                policy.AllowAgentGrant
+            });
+        }
         return new NhAiToolDescriptor(
             id,
             policy.Version,
@@ -387,7 +404,8 @@ internal sealed record NhAiImportedMcpTool(
             MaxResultBytes = policy.MaxResultBytes,
             DataClassification = policy.DataClassification,
             RetentionCategory = policy.RetentionCategory,
-            RequiredCapabilities = policy.RequiredCapabilities.ToArray()
+            RequiredCapabilities = policy.RequiredCapabilities.ToArray(),
+            AllowAgentGrant = policy.AllowAgentGrant
         };
     }
 }
@@ -451,11 +469,15 @@ internal sealed class NhAiGovernedMcpClientFunction(
                     }
                     requestOptions = new RequestOptions { Meta = bound.Data };
                 }
-                var result = await imported.Remote.CallAsync(
-                    remoteArguments,
-                    progress: null,
-                    options: requestOptions,
-                    cancellationToken: invocationCancellationToken);
+                CallToolResult result;
+                using (NhAiMcpCallContext.Enter(imported.ServerId, imported.Policy.RemoteName, imported.Descriptor, context))
+                {
+                    result = await imported.Remote.CallAsync(
+                        remoteArguments,
+                        progress: null,
+                        options: requestOptions,
+                        cancellationToken: invocationCancellationToken);
+                }
                 return result.IsError is true
                     ? TaskResult<CallToolResult>
                         .Failed(NhAiMcpImportedToolCodes.RemoteError, "The imported MCP tool reported an execution error.")

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, Subscriber } from 'rxjs';
-import { AssistantPreferences } from '../models/assistant-admin.models';
+import { AssistantPreferences, McpConnection, UpdateMcpConnectionRequest } from '../models/assistant-admin.models';
 import {
   AgentSummary,
   AssistantStatus,
@@ -144,6 +144,16 @@ export class NhAssistantApiService {
   /** Replaces the caller's own assistant preferences and returns the stored values. */
   updatePreferences(preferences: AssistantPreferences): Observable<AssistantPreferences> {
     return this.transport.json<AssistantPreferences>('PUT', 'preferences', preferences);
+  }
+
+  /** MCP servers that agents may use in background runs with the caller's own account. */
+  getMcpConnections(): Observable<McpConnection[]> {
+    return this.transport.json<McpConnection[]>('GET', 'mcp-connections');
+  }
+
+  /** Allows or withdraws background use of an MCP server with the caller's own account. */
+  updateMcpConnection(serverId: string, request: UpdateMcpConnectionRequest): Observable<McpConnection> {
+    return this.transport.json<McpConnection>('PUT', `mcp-connections/${encodeURIComponent(serverId)}`, request);
   }
 
   private requestStream(path: string, body: unknown): Observable<NhAssistantSseEvent> {

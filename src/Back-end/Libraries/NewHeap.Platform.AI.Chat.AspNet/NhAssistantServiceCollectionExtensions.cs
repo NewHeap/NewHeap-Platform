@@ -49,6 +49,14 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddSingleton<NhAssistantMcpContextBindings>();
             services.TryAddSingleton<INhAssistantMcpClientFactory, NhAssistantHttpMcpClientFactory>();
             services.TryAddSingleton<NhAssistantMcpConnectionCache>();
+            services.TryAddSingleton<NhAssistantMcpSecretSource>();
+            services.TryAddSingleton<NhAssistantMcpClientCertificates>();
+            services.TryAddScoped<NhAssistantMcpConnectionService>();
+            // Delegated MCP tokens that this host mints are never accepted by the host itself.
+            services.AddNewHeapPlatformAIMcpDelegatedTokens();
+            // Credentials are asked per request; a cached connection keeps only singleton providers.
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAssistantMcpCredentialProvider, NhAssistantMcpStaticCredentialProvider>());
+            services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAssistantMcpCredentialProvider, NhAssistantMcpForwardedTokenCredentialProvider>());
             services.TryAddScoped<NhAssistantMcpConnectionPlanner>();
             services.TryAddScoped<NhAssistantMcpAdministration>();
             services.Replace(ServiceDescriptor.Scoped<INhAssistantMcpToolSource, NhAssistantMcpToolSource>());
@@ -192,6 +200,12 @@ internal sealed class NhAssistantStartupValidator(
 
         // Invalid push keys or limits fail here instead of at the first notification.
         options.Value.Push.Validate();
+        var forwardedTokenLifetime = options.Value.Mcp.ForwardedTokenLifetime;
+        if (forwardedTokenLifetime <= TimeSpan.Zero || forwardedTokenLifetime > NhAiMcpDelegatedTokenDefaults.MaxLifetime)
+        {
+            throw new InvalidOperationException(
+                "NewHeap:AI:Assistant:Mcp:ForwardedTokenLifetime must be longer than zero and at most 5 minutes.");
+        }
 
         var accessPolicy = NhAssistantEndpointOptions.ResolveAccessPolicy(state, options.Value);
         if (await policyProvider.GetPolicyAsync(accessPolicy) is null)

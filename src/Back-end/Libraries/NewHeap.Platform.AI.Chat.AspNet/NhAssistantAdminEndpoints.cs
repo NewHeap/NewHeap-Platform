@@ -166,14 +166,14 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("mcp-servers", CreateMcpServerAsync)
             .WithName("NhAssistantAdminCreateMcpServer")
             .WithSummary("Connect an MCP server")
-            .WithDescription("Stores an MCP server; the secret is protected and never returned.")
+            .WithDescription("Stores an MCP server; the secret is protected and never returned. headlessUse starts at never unless the body sets organization.")
             .Produces<NhAssistantMcpServerDto>(StatusCodes.Status201Created)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPut("mcp-servers/{id}", UpdateMcpServerAsync)
             .WithName("NhAssistantAdminUpdateMcpServer")
             .WithSummary("Update an MCP server")
-            .WithDescription("Updates a server. An omitted secret is kept and an empty secret is cleared.")
+            .WithDescription("Updates a server. An omitted secret is kept and an empty secret is cleared; an omitted headlessUse is kept.")
             .Produces<NhAssistantMcpServerDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
@@ -186,7 +186,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("mcp-servers/{id}/test", TestMcpServerAsync)
             .WithName("NhAssistantAdminTestMcpServer")
             .WithSummary("Test an MCP server")
-            .WithDescription("Connects and lists the remote tools without storing them.")
+            .WithDescription("Connects and lists the remote tools without storing them, and records the outcome as the server's connection state.")
             .Produces<NhAssistantMcpServerTestResultDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapPost("mcp-servers/{id}/sync", SyncMcpServerAsync)
@@ -790,7 +790,14 @@ internal static class NhAssistantAdminEndpoints
             string.IsNullOrWhiteSpace(body.HeaderName) ? null : body.HeaderName,
             body.Secret,
             string.IsNullOrWhiteSpace(body.RequiredPolicy) ? null : body.RequiredPolicy,
-            body.IsEnabled!.Value), errors);
+            body.IsEnabled!.Value,
+            body.HeadlessUse)
+        {
+            UserName = body.UserName,
+            SecretReference = body.SecretReference,
+            ClientCertificateReference = body.ClientCertificateReference,
+            Transport = body.Transport
+        }, errors);
     }
 
     private static NhAssistantPreferencesDto ToDto(NhAssistantPreferences preferences)
@@ -853,7 +860,16 @@ internal static class NhAssistantAdminEndpoints
             server.IsEnabled,
             server.LastSyncAt,
             server.LastSyncStatus,
-            agentIds);
+            agentIds)
+        {
+            HeadlessUse = server.HeadlessUse,
+            LastConnectAt = server.LastConnectAt,
+            LastConnectCode = server.LastConnectCode,
+            UserName = server.UserName,
+            SecretReference = server.SecretReference,
+            ClientCertificateReference = server.ClientCertificateReference,
+            Transport = server.Transport
+        };
     }
 
     private static NhAssistantMcpToolDto ToDto(AssistantMcpTool tool)
@@ -949,7 +965,9 @@ internal static class NhAssistantAdminEndpoints
                 or NhAssistantAdminErrorCodes.CodeAgentNotDeletable
                 or NhAssistantAdminErrorCodes.NotCodeAgent => StatusCodes.Status409Conflict,
             NhAssistantAdminErrorCodes.McpUnreachable
-                or NhAssistantAdminErrorCodes.McpUnauthorized => StatusCodes.Status502BadGateway,
+                or NhAssistantAdminErrorCodes.McpUnauthorized
+                or NhAssistantAdminErrorCodes.McpInsufficientScope
+                or NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable => StatusCodes.Status502BadGateway,
             _ => StatusCodes.Status400BadRequest
         };
         return Error(status, code, fieldErrors.Count == 0 ? null : fieldErrors);

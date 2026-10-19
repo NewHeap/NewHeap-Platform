@@ -194,7 +194,21 @@ public enum NhAssistantAuditEventKind
     /// the administration. <c>ObjectId</c> is the agent and <c>AgentVersion</c> the settings'
     /// version; <c>ResultCode</c> is <c>created</c>, <c>changed</c> or <c>removed</c>.
     /// </summary>
-    AdminAgentRunSettingsChanged = 52
+    AdminAgentRunSettingsChanged = 52,
+
+    /// <summary>
+    /// A headless request to a <c>forward-user-token</c> MCP server received a delegated token for the
+    /// person the run acts for, or was refused one. <see cref="NhAssistantAuditEvent.ObjectId"/> is the
+    /// server, <see cref="NhAssistantAuditEvent.ActorId"/> the person and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>issued</c> or the refusal code.
+    /// </summary>
+    McpDelegatedTokenIssued = 53,
+
+    /// <summary>
+    /// A person gave or withdrew consent to background use of an MCP server.
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>allowed</c> or <c>withdrawn</c>.
+    /// </summary>
+    McpBackgroundUseChanged = 54
 }
 
 /// <summary>

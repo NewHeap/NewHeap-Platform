@@ -128,7 +128,14 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-mcp-unauthorized',
   'assistant-mcp-host-blocked',
   'assistant-mcp-schema-changed',
-  'assistant-mcp-tool-disabled'
+  'assistant-mcp-tool-disabled',
+  'assistant-mcp-insufficient-scope',
+  'assistant-mcp-headless-not-allowed',
+  'assistant-mcp-credential-mismatch',
+  'assistant-mcp-consent-required',
+  'assistant-mcp-delegated-token-unavailable',
+  'assistant-mcp-secret-reference-invalid',
+  'assistant-mcp-certificate-reference-invalid'
 ];
 
 /** Every code the assistant UI can show: server codes and client-side transport codes. */

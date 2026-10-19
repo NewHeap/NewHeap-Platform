@@ -1,0 +1,48 @@
+@if (connections().length > 0) {
+  <fieldset class="connections" [attr.aria-busy]="busy() !== null">
+    <legend>{{ 'nh-assistant.preferences.mcp.title' | translate }}</legend>
+    <p class="hint">{{ 'nh-assistant.preferences.mcp.description' | translate }}</p>
+    <ul class="list">
+      @for (connection of connections(); track connection.serverId) {
+        <li class="item">
+          <label class="switch">
+            <input
+              type="checkbox"
+              [checked]="connection.allowBackgroundUse"
+              [disabled]="busy() !== null"
+              [attr.aria-describedby]="id + '-' + connection.serverId"
+              (change)="toggle(connection, $event)" />
+            <span>{{ 'nh-assistant.preferences.mcp.allow' | translate: { name: connection.displayName } }}</span>
+          </label>
+          <p class="hint details" [id]="id + '-' + connection.serverId">
+            <span class="host">{{ connection.host }}</span>
+            <span>
+              @if (connection.allowBackgroundUse && connection.consentedAt) {
+                {{ 'nh-assistant.preferences.mcp.allowed-since' | translate: { date: (connection.consentedAt | date: 'medium') } }}
+              } @else {
+                {{ 'nh-assistant.preferences.mcp.not-allowed' | translate }}
+              }
+            </span>
+            <span>
+              {{ 'nh-assistant.preferences.mcp.used-by' | translate }}
+              @for (key of agentKeys(connection); track $index) {
+                <span class="agent">{{ [key] | nhAssistantTranslate: key }}</span>
+              }
+            </span>
+          </p>
+        </li>
+      }
+    </ul>
+    @if (error(); as failure) {
+      <p class="message error" role="alert">
+        <nh-assistant-icon name="warning" />
+        {{ errorKeys() | nhAssistantTranslate: failure.code }}
+      </p>
+    }
+  </fieldset>
+} @else if (loadFailed()) {
+  <div class="load-failed" role="alert">
+    <span>{{ 'nh-assistant.preferences.mcp.load-failed' | translate }}</span>
+    <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.preferences.retry' | translate }}</button>
+  </div>
+}

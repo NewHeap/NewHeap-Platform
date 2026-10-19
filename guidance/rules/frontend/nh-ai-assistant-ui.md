@@ -5,7 +5,7 @@ area: frontend
 reference: ai-assistant-ui
 summary: "Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, let users run several conversations at once, share them and get desktop notifications, route to the lazily loaded administration page behind the admin permission, and test against the scripted mock API instead of a live model."
 sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-295", "SPM-296", "SPM-297"]
-public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService", "getRequestHeaders", "NhAssistantAgentRunApiService", "NhAssistantAgentInboxComponent", "NhAssistantAgentThreadViewComponent", "NhAssistantAgentProposalsComponent", "NhAssistantRunTimelineComponent", "NhAssistantAgentMemoryComponent", "NhAssistantAgentArtifactsComponent", "NhAssistantAgentConsultationsComponent", "getHubQueryParameters", "NhAssistantApprovalRight", "NhAssistantApprovalChoice", "ConversationThread", "NhAssistantProposalFeedbackComponent", "NhAssistantProposalFeedbackSaved", "NhAssistantAgentFeedbackReportComponent", "NhAssistantFeedbackPeriod", "AgentProposalFeedback", "AgentProposalFeedbackCategory", "AgentProposalFeedbackGroup", "AgentFeedbackOutcome", "AgentFeedbackSummary", "AgentFeedbackSummaryRow", "AgentFeedbackItem", "AgentFeedbackList", "AgentFeedbackFilter", "NH_ASSISTANT_FEEDBACK_CATEGORIES", "NH_ASSISTANT_FEEDBACK_GROUPS", "NH_ASSISTANT_MAX_FEEDBACK_TEXT", "NH_ASSISTANT_MAX_BULK_FEEDBACK", "LiveAgentWorkChanged", "LiveAgentWorkReason", "NhAssistantSubjectBadgeComponent", "NhAssistantSubjectSummaryService", "NhAssistantSubjectSuggestionsComponent", "AgentSubjectWork", "AgentSubjectSummary", "AgentProposalDecisionRight", "NH_ASSISTANT_MAX_SUBJECT_SUMMARY", "NhAssistantAgentRunConfigurationComponent", "RunCatalog", "AgentRunConfiguration", "DataSkill", "DataTrigger", "AgentRunSettings", "NhAssistantError"]
+public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantMcpConnectionsComponent", "McpConnection", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService", "getRequestHeaders", "NhAssistantAgentRunApiService", "NhAssistantAgentInboxComponent", "NhAssistantAgentThreadViewComponent", "NhAssistantAgentProposalsComponent", "NhAssistantRunTimelineComponent", "NhAssistantAgentMemoryComponent", "NhAssistantAgentArtifactsComponent", "NhAssistantAgentConsultationsComponent", "getHubQueryParameters", "NhAssistantApprovalRight", "NhAssistantApprovalChoice", "ConversationThread", "NhAssistantProposalFeedbackComponent", "NhAssistantProposalFeedbackSaved", "NhAssistantAgentFeedbackReportComponent", "NhAssistantFeedbackPeriod", "AgentProposalFeedback", "AgentProposalFeedbackCategory", "AgentProposalFeedbackGroup", "AgentFeedbackOutcome", "AgentFeedbackSummary", "AgentFeedbackSummaryRow", "AgentFeedbackItem", "AgentFeedbackList", "AgentFeedbackFilter", "NH_ASSISTANT_FEEDBACK_CATEGORIES", "NH_ASSISTANT_FEEDBACK_GROUPS", "NH_ASSISTANT_MAX_FEEDBACK_TEXT", "NH_ASSISTANT_MAX_BULK_FEEDBACK", "LiveAgentWorkChanged", "LiveAgentWorkReason", "NhAssistantSubjectBadgeComponent", "NhAssistantSubjectSummaryService", "NhAssistantSubjectSuggestionsComponent", "AgentSubjectWork", "AgentSubjectSummary", "AgentProposalDecisionRight", "NH_ASSISTANT_MAX_SUBJECT_SUMMARY", "NhAssistantAgentRunConfigurationComponent", "RunCatalog", "AgentRunConfiguration", "DataSkill", "DataTrigger", "AgentRunSettings", "NhAssistantError"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: high
@@ -71,7 +71,12 @@ Personal preferences need no host code: the panel header opens
 `nh-assistant-preferences`, which stores style, form of address, answer length and
 the user's own instructions through the preferences endpoints. Preferences only
 steer style; the server keeps them below the application context and the agent
-instructions.
+instructions. When an administrator allows an MCP server that forwards the user's token
+in background runs (`headlessUse: 'personal'`), the preferences also show
+`nh-assistant-mcp-connections`: one switch per server of an agent the user may use,
+which allows or withdraws background use with the user's own account at once
+(`GET` and `PUT mcp-connections`). It renders nothing without such servers; a host
+may place it on its own profile page instead.
 
 Route to `NhAssistantAdminComponent` from `@newheap/platform-ai-chat/admin` with a
 lazy route guarded by the host's admin permission (for example
@@ -326,6 +331,11 @@ the administration route under the same parent to share that scope.
   it.
 - Enabling remote MCP tools by default or deriving their effect from remote
   annotations such as `readOnlyHint`; they are untrusted hints.
+- Offering background runs with the server's own credential (`headlessUse: 'organization'`)
+  for a server that forwards the user's token; it only offers `personal`, which needs the
+  person's consent in `nh-assistant-mcp-connections`.
+- Sending a stored MCP secret and a `secretReference` together; the editor sends one of
+  them, and a new one replaces the other.
 - Retrying an administration save after `assistant-version-conflict` without
   reloading the latest version.
 - Offering free text for events, subject sets, rules, policies or profiles in a custom run
@@ -367,8 +377,11 @@ event fields. The preference tests save, validate the 1,000-character limit and 
 failures; the administration tests save context versions and report conflicts,
 create, disable, reset and delete agents after confirmation, put an agent and a skill in
 shadow and back and replace and restore a technical account, never render a stored
-secret and send it only on replace or clear, keep synced MCP tools disabled as
-changes, show remote hints as hints and warn after a remote schema change. The run
+secret and send it only on replace or clear, ask a user name for `basic`, send a
+`secretReference` instead of a secret and show the server's reference, certificate and
+fallback transport, offer `personal` only for a forwarded token, keep synced MCP tools
+disabled as changes, show remote hints as hints and warn after a remote schema change. The
+preference tests also allow and withdraw background use of a personal server. The run
 configuration tests give an administration agent run settings, show refused fields and an
 account that may not sign in, add a skill that starts in shadow and a trigger that is put
 live, keep the run settings while skills or triggers remain, keep skills and triggers in

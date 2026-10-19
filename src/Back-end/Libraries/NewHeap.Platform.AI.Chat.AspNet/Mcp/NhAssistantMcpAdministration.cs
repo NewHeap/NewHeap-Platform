@@ -7,8 +7,12 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 
 /// <summary>
-/// Administrator input for an MCP server. <see cref="Secret"/>: null keeps the stored secret,
-/// an empty string clears it, any other value replaces it.
+/// Administrator input for an MCP server. <see cref="Secret"/>, <see cref="SecretReference"/> and
+/// <see cref="ClientCertificateReference"/>: null keeps the stored value, an empty string clears it,
+/// any other value replaces it; a stored secret and a reference exclude each other.
+/// <see cref="HeadlessUse"/>, <see cref="Transport"/> and <see cref="UserName"/>: null keeps the stored
+/// value; a new server starts at <see cref="NhAssistantMcpHeadlessUses.Never"/> and
+/// <see cref="NhAssistantMcpTransports.StreamableHttp"/>.
 /// </summary>
 internal sealed record NhAssistantMcpServerInput(
     string Id,
@@ -18,7 +22,17 @@ internal sealed record NhAssistantMcpServerInput(
     string? HeaderName,
     string? Secret,
     string? RequiredPolicy,
-    bool IsEnabled);
+    bool IsEnabled,
+    string? HeadlessUse = null)
+{
+    public string? UserName { get; init; }
+
+    public string? SecretReference { get; init; }
+
+    public string? ClientCertificateReference { get; init; }
+
+    public string? Transport { get; init; }
+}
 
 internal sealed record NhAssistantMcpTestResult(bool Ok, string? Code, int? ToolCount);
 
@@ -32,6 +46,8 @@ internal sealed partial class NhAssistantMcpAdministration(
     NhAssistantMcpConnectionPlanner planner,
     NhAssistantMcpConnectionCache cache,
     NhAssistantMcpHostGuard guard,
+    NhAssistantMcpSecretSource secretSource,
+    NhAssistantMcpClientCertificates certificates,
     IAuthorizationPolicyProvider policies,
     IEnumerable<INhAssistantBusinessAuditSink> auditSinks)
 {
@@ -48,7 +64,7 @@ internal sealed partial class NhAssistantMcpAdministration(
         string actorId,
         CancellationToken cancellationToken)
     {
-        var validation = await ValidateAsync(input, hasStoredSecret: false, cancellationToken);
+        var validation = await ValidateAsync(input, existing: null, cancellationToken);
         if (!validation.Success)
         {
             return TaskResult<AssistantMcpServer>.Failed(validation);
@@ -81,7 +97,7 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             return NotFound<AssistantMcpServer>();
         }
-        var validation = await ValidateAsync(input, existing.ProtectedSecret is not null, cancellationToken);
+        var validation = await ValidateAsync(input, existing, cancellationToken);
         if (!validation.Success)
         {
             return TaskResult<AssistantMcpServer>.Failed(validation);
@@ -113,10 +129,13 @@ internal sealed partial class NhAssistantMcpAdministration(
         var lease = await ConnectAsync(server, cancellationToken);
         if (!lease.Success)
         {
-            return TaskResult<NhAssistantMcpTestResult>.Succeeded(new NhAssistantMcpTestResult(false, FirstCode(lease), null));
+            var code = FirstCode(lease);
+            await RecordConnectAsync(server.Id, code ?? NhAssistantAdminErrorCodes.McpUnreachable);
+            return TaskResult<NhAssistantMcpTestResult>.Succeeded(new NhAssistantMcpTestResult(false, code, null));
         }
         await using (lease.Data)
         {
+            await RecordConnectAsync(server.Id, null);
             return TaskResult<NhAssistantMcpTestResult>.Succeeded(new NhAssistantMcpTestResult(true, null, lease.Data.Tools.Count));
         }
     }
@@ -142,6 +161,8 @@ internal sealed partial class NhAssistantMcpAdministration(
             {
                 item.LastSyncAt = DateTimeOffset.UtcNow;
                 item.LastSyncStatus = "failed";
+                item.LastConnectAt = item.LastSyncAt;
+                item.LastConnectCode = FirstCode(lease) ?? NhAssistantAdminErrorCodes.McpUnreachable;
             }, cancellationToken);
             return TaskResult<IReadOnlyList<AssistantMcpTool>>.Failed(lease);
         }
@@ -168,6 +189,8 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             item.LastSyncAt = DateTimeOffset.UtcNow;
             item.LastSyncStatus = "ok";
+            item.LastConnectAt = item.LastSyncAt;
+            item.LastConnectCode = null;
         }, cancellationToken);
         await cache.InvalidateAsync(id);
         await AuditAsync(NhAssistantAuditEventKind.AdminMcpServerSynced, id, actorId, cancellationToken);
@@ -237,11 +260,21 @@ internal sealed partial class NhAssistantMcpAdministration(
         return await cache.ConnectAsync(server, perCall, bypassCache: true, cancellationToken);
     }
 
+    private async Task RecordConnectAsync(string serverId, string? code)
+    {
+        await store.RecordMcpConnectAsync(serverId, DateTimeOffset.UtcNow, code, CancellationToken.None);
+    }
+
     private async Task<TaskResult> ValidateAsync(
         NhAssistantMcpServerInput input,
-        bool hasStoredSecret,
+        AssistantMcpServer? existing,
         CancellationToken cancellationToken)
     {
+        var headlessUse = input.HeadlessUse ?? existing?.HeadlessUse ?? NhAssistantMcpHeadlessUses.Never;
+        var transport = input.Transport ?? existing?.Transport ?? NhAssistantMcpTransports.StreamableHttp;
+        var userName = input.UserName ?? existing?.UserName;
+        var reference = Effective(input.SecretReference, existing?.SecretReference);
+        var certificate = Effective(input.ClientCertificateReference, existing?.ClientCertificateReference);
         var urlValid = !string.IsNullOrWhiteSpace(input.Url)
             && Uri.TryCreate(input.Url, UriKind.Absolute, out var uri)
             && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
@@ -261,7 +294,23 @@ internal sealed partial class NhAssistantMcpAdministration(
                 "headerName",
                 NhAssistantFieldErrors.Invalid)
             .Require(input.Secret is not { Length: > 2_000 }, "secret", NhAssistantFieldErrors.TooLong)
-            .Require(input.RequiredPolicy is not { Length: 0 or > 256 }, "requiredPolicy", NhAssistantFieldErrors.Invalid);
+            .Require(input.Secret is not { Length: > 0 } || input.SecretReference is not { Length: > 0 }, "secretReference", NhAssistantFieldErrors.Invalid)
+            .Require(reference is null || NhAssistantMcpSecretReferences.TryParse(reference, out _, out _), "secretReference", NhAssistantFieldErrors.Invalid)
+            .Require(
+                input.AuthMode != NhAssistantMcpAuthModes.Basic || !string.IsNullOrWhiteSpace(userName),
+                "userName",
+                NhAssistantFieldErrors.Required)
+            .Require(userName is not { Length: > 256 } && userName?.Contains(':', StringComparison.Ordinal) != true, "userName", NhAssistantFieldErrors.Invalid)
+            .Require(certificate is null || NhAssistantMcpClientCertificates.IsValidName(certificate), "clientCertificateReference", NhAssistantFieldErrors.Invalid)
+            .Require(NhAssistantMcpTransports.IsValid(transport), "transport", NhAssistantFieldErrors.Invalid)
+            .Require(input.RequiredPolicy is not { Length: 0 or > 256 }, "requiredPolicy", NhAssistantFieldErrors.Invalid)
+            .Require(NhAssistantMcpHeadlessUses.IsValid(headlessUse), "headlessUse", NhAssistantFieldErrors.Invalid)
+            .Require(
+                !NhAssistantMcpHeadlessUses.IsValid(headlessUse)
+                    || !NhAssistantMcpAuthModes.IsValid(input.AuthMode)
+                    || NhAssistantMcpHeadlessUses.FitsAuthMode(headlessUse, input.AuthMode),
+                "headlessUse",
+                NhAssistantFieldErrors.Invalid);
         if (!errors.IsEmpty)
         {
             return errors.ToResult();
@@ -270,11 +319,29 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             return TaskResult.Failed(blocked, "The MCP server address is not allowed.");
         }
-        var needsSecret = input.AuthMode is NhAssistantMcpAuthModes.Bearer or NhAssistantMcpAuthModes.ApiKeyHeader;
-        var willHaveSecret = input.Secret is null ? hasStoredSecret : input.Secret.Length > 0;
-        if (needsSecret && !willHaveSecret)
+        if (NhAssistantMcpAuthModes.UsesSecret(input.AuthMode))
         {
-            return NhAssistantValidationErrors.Failed("secret", NhAssistantFieldErrors.Required);
+            // A new stored secret replaces a reference, a new reference replaces a stored secret.
+            var willHaveStoredSecret = input.Secret is null
+                ? existing?.ProtectedSecret is not null && input.SecretReference is not { Length: > 0 }
+                : input.Secret.Length > 0;
+            var willHaveReference = reference is not null && input.Secret is not { Length: > 0 };
+            if (!willHaveStoredSecret && !willHaveReference)
+            {
+                return NhAssistantValidationErrors.Failed("secret", NhAssistantFieldErrors.Required);
+            }
+            if (willHaveReference && !(await secretSource.ResolveReferenceAsync(reference!, cancellationToken)).Success)
+            {
+                return TaskResult.Failed(
+                    NhAssistantAdminErrorCodes.McpSecretReferenceInvalid,
+                    "The secret reference names no available secret.");
+            }
+        }
+        if (certificate is not null && !certificates.Load(certificate).Success)
+        {
+            return TaskResult.Failed(
+                NhAssistantAdminErrorCodes.McpCertificateReferenceInvalid,
+                "The client certificate is not configured or has no private key.");
         }
         if (input.RequiredPolicy is { } policy && await policies.GetPolicyAsync(policy) is null)
         {
@@ -293,14 +360,54 @@ internal sealed partial class NhAssistantMcpAdministration(
             : null;
         server.RequiredPolicy = string.IsNullOrWhiteSpace(input.RequiredPolicy) ? null : input.RequiredPolicy;
         server.IsEnabled = input.IsEnabled;
-        if (input.AuthMode is NhAssistantMcpAuthModes.None or NhAssistantMcpAuthModes.ForwardUserToken)
+        if (input.HeadlessUse is not null)
+        {
+            server.HeadlessUse = input.HeadlessUse;
+        }
+        if (input.Transport is not null)
+        {
+            server.Transport = input.Transport;
+        }
+        server.UserName = input.AuthMode == NhAssistantMcpAuthModes.Basic
+            ? (input.UserName ?? server.UserName)?.Trim()
+            : null;
+        server.ClientCertificateReference = Effective(input.ClientCertificateReference, server.ClientCertificateReference);
+        if (!NhAssistantMcpAuthModes.UsesSecret(input.AuthMode))
         {
             server.ProtectedSecret = null;
+            server.SecretReference = null;
+            return;
+        }
+        if (input.Secret is { Length: > 0 })
+        {
+            server.ProtectedSecret = secrets.Protect(input.Secret);
+            server.SecretReference = null;
         }
         else if (input.Secret is not null)
         {
-            server.ProtectedSecret = input.Secret.Length == 0 ? null : secrets.Protect(input.Secret);
+            server.ProtectedSecret = null;
         }
+        if (input.SecretReference is { Length: > 0 })
+        {
+            server.SecretReference = input.SecretReference;
+            server.ProtectedSecret = null;
+        }
+        else if (input.SecretReference is not null)
+        {
+            server.SecretReference = null;
+        }
+    }
+
+    /// <summary>
+    /// The value after the input: null keeps the stored value and an empty string clears it.
+    /// </summary>
+    private static string? Effective(string? input, string? stored)
+    {
+        if (input is null)
+        {
+            return stored;
+        }
+        return input.Length == 0 ? null : input;
     }
 
     private async Task AuditAsync(NhAssistantAuditEventKind kind, string objectId, string actorId, CancellationToken cancellationToken)

@@ -47,6 +47,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantMcpTool> McpTools => Set<AssistantMcpTool>();
 
+    public DbSet<AssistantMcpConnection> McpConnections => Set<AssistantMcpConnection>();
+
     public DbSet<AssistantUserPreference> UserPreferences => Set<AssistantUserPreference>();
 
     public DbSet<AssistantConversationParticipant> Participants => Set<AssistantConversationParticipant>();
@@ -522,8 +524,20 @@ public sealed class NhAssistantDbContext : DbContext
             server.Property(item => item.AuthMode).HasMaxLength(32).IsRequired();
             server.Property(item => item.HeaderName).HasMaxLength(128);
             server.Property(item => item.ProtectedSecret).HasMaxLength(4_000);
+            server.Property(item => item.SecretReference).HasMaxLength(NhAssistantMcpSecretReferences.MaxLength);
+            server.Property(item => item.UserName).HasMaxLength(256);
+            server.Property(item => item.ClientCertificateReference).HasMaxLength(128);
+            server.Property(item => item.Transport)
+                .HasMaxLength(32)
+                .IsRequired()
+                .HasDefaultValue(NhAssistantMcpTransports.StreamableHttp);
             server.Property(item => item.RequiredPolicy).HasMaxLength(256);
+            server.Property(item => item.HeadlessUse)
+                .HasMaxLength(32)
+                .IsRequired()
+                .HasDefaultValue(NhAssistantMcpHeadlessUses.Never);
             server.Property(item => item.LastSyncStatus).HasMaxLength(16);
+            server.Property(item => item.LastConnectCode).HasMaxLength(64);
             server.HasMany(item => item.Tools)
                 .WithOne()
                 .HasForeignKey(item => item.ServerId)
@@ -633,6 +647,24 @@ public sealed class NhAssistantDbContext : DbContext
             assignment.HasOne<AssistantMcpServer>()
                 .WithMany()
                 .HasForeignKey(item => item.McpServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantMcpConnection>(connection =>
+        {
+            connection.ToTable("AssistantMcpConnection");
+            connection.HasKey(item => item.Id);
+            connection.Property(item => item.ServerId).HasMaxLength(40).IsRequired();
+            connection.Property(item => item.OwnerKind).HasMaxLength(16).IsRequired();
+            connection.Property(item => item.OwnerActorId).HasMaxLength(128).IsRequired();
+            connection.Property(item => item.TenantKey).HasMaxLength(128).IsRequired();
+            connection.Property(item => item.ConsentHash).HasMaxLength(64);
+            connection.Property(item => item.Version).IsConcurrencyToken();
+            connection.HasIndex(item => new { item.ServerId, item.OwnerKind, item.OwnerActorId, item.TenantKey }).IsUnique();
+            connection.HasIndex(item => new { item.OwnerActorId, item.OwnerKind });
+            connection.HasOne<AssistantMcpServer>()
+                .WithMany()
+                .HasForeignKey(item => item.ServerId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

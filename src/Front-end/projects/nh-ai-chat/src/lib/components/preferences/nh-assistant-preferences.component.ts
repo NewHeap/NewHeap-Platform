@@ -8,6 +8,7 @@ import {
   AssistantStyle
 } from '../../models/assistant-admin.models';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
+import { NhAssistantMcpConnectionsComponent } from './nh-assistant-mcp-connections.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NhAssistantApiService } from '../../services/nh-assistant-api.service';
 import { NhAssistantPushService } from '../../services/nh-assistant-push.service';
@@ -20,15 +21,16 @@ export const NH_ASSISTANT_MAX_CUSTOM_INSTRUCTIONS = 1_000;
 let nextId = 0;
 
 /**
- * The user's own assistant preferences: desktop notifications, style, form of address,
- * answer length and optional instructions. Notifications apply immediately; the other
+ * The user's own assistant preferences: desktop notifications, background use of MCP servers
+ * with the user's own account, style, form of address, answer length and optional instructions.
+ * Notifications and background use apply immediately; the other
  * preferences steer style only and are saved together, below the application context and
  * agent instructions.
  */
 @Component({
   selector: 'nh-assistant-preferences',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantMcpConnectionsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-preferences.component.html',
   styleUrl: './nh-assistant-preferences.component.scss'

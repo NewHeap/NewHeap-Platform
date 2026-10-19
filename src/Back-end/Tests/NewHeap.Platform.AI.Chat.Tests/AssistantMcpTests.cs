@@ -8,9 +8,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.AspNet.Mcp;
+using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
+using NewHeap.Platform.AI.Mcp;
 using NewHeap.Platform.AI.Test;
 using Xunit;
 
@@ -237,10 +239,299 @@ public sealed class AssistantMcpTests(AssistantDatabaseFixture database)
             true);
     }
 
+    [Fact]
+    public async Task A_per_caller_tool_list_never_changes_the_reviewed_catalog()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithText("I cannot look up orders for you.")
+            .RespondWithText("The lookup is available again.");
+        var listsLookup = true;
+        var servers = new InMemoryMcpServers();
+        servers.Register(ServerUrl, () => listsLookup
+            ? servers.PlanningTools()
+            : servers.PlanningTools().Where(tool => tool.ProtocolTool.Name != "Lookup_Order").ToArray());
+        await using var host = await CreateHostAsync(model, servers, forwardHosts: ["localhost"]);
+        await WithAdministrationAsync(host, async administration =>
+        {
+            Assert.True((await administration.CreateAsync(Server(NhAssistantMcpAuthModes.ForwardUserToken), "admin-1", CancellationToken.None)).Success);
+            return await administration.SyncAsync("planning", "admin-1", CancellationToken.None);
+        });
+        await UpdateToolAsync(host, "Lookup_Order", enabled: true, NhAssistantMcpToolEffects.ReadOnly);
+        await AssignPlanningServerAsync(host);
+        var conversation = await host.CreateConversationAsync();
+
+        listsLookup = false;
+        var withoutLookup = await host.SendAsync(conversation.Id, "When is order A-100 planned?");
+
+        Assert.Equal(NhAssistantTurnStatuses.Completed, Assert.IsType<NhAssistantTurnCompletedEvent>(withoutLookup.Events[^1]).Status);
+        Assert.DoesNotContain(model.Requests[0].Options?.Tools ?? [], tool => tool.Name == LookupFunction);
+        var stored = Assert.Single(await ListToolsAsync(host), tool => tool.RemoteName == "Lookup_Order");
+        Assert.True(stored.IsEnabled);
+        Assert.Equal(NhAssistantMcpToolStatuses.Available, stored.Status);
+        Assert.Contains(host.Logs.Messages, message => message.Contains("skipped for this caller (missing)", StringComparison.Ordinal));
+
+        listsLookup = true;
+        await host.SendAsync(conversation.Id, "And now?");
+
+        Assert.Contains(model.Requests[1].Options!.Tools!, tool => tool.Name == LookupFunction);
+    }
+
+    [Fact]
+    public async Task Insufficient_scope_gets_its_own_code_and_is_recorded_as_the_connection_state()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.Logging.ClearProviders();
+        await using var remote = builder.Build();
+        remote.MapPost("/mcp", (HttpContext context) =>
+        {
+            context.Response.Headers.WWWAuthenticate =
+                "Bearer error=\"insufficient_scope\", scope=\"planning:write\", resource_metadata=\"https://planning.example.org/.well-known/oauth-protected-resource\"";
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        });
+        await remote.StartAsync();
+        var url = remote.Urls.First().Replace("127.0.0.1", "localhost", StringComparison.Ordinal) + "/mcp";
+        await using var host = await CreateHostAsync(new NhAiScriptedChatClient(), mcpFactory: null);
+
+        var result = await WithAdministrationAsync(host, async administration =>
+        {
+            await administration.CreateAsync(
+                Server(NhAssistantMcpAuthModes.Bearer) with { Url = url, Secret = "planning-read-token" },
+                "admin-1",
+                CancellationToken.None);
+            return await administration.TestAsync("planning", CancellationToken.None);
+        });
+
+        Assert.False(result.Data!.Ok);
+        Assert.Equal(NhAssistantAdminErrorCodes.McpInsufficientScope, result.Data.Code);
+        var server = await host.Services.GetRequiredService<NhAssistantAdminStore>().FindMcpServerAsync("planning", CancellationToken.None);
+        Assert.NotNull(server!.LastConnectAt);
+        Assert.Equal(NhAssistantAdminErrorCodes.McpInsufficientScope, server.LastConnectCode);
+        Assert.DoesNotContain(host.Logs.Messages, message => message.Contains("planning-read-token", StringComparison.Ordinal));
+        await remote.StopAsync();
+    }
+
+    [Fact]
+    public async Task A_renewable_credential_is_renewed_once_and_each_request_is_repeated_once_after_401()
+    {
+        var received = new List<string>();
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.Logging.ClearProviders();
+        await using var remote = builder.Build();
+        remote.MapPost("/mcp", (HttpContext context) =>
+        {
+            lock (received)
+            {
+                received.Add(context.Request.Headers.Authorization.ToString());
+            }
+            return Results.StatusCode(StatusCodes.Status401Unauthorized);
+        });
+        await remote.StartAsync();
+        var url = remote.Urls.First().Replace("127.0.0.1", "localhost", StringComparison.Ordinal) + "/mcp";
+        var renewing = new RenewingCredentialProvider();
+        await using var host = await CreateHostAsync(
+            new NhAiScriptedChatClient(),
+            mcpFactory: null,
+            configure: services => services.AddSingleton<INhAssistantMcpCredentialProvider>(renewing));
+
+        var result = await WithAdministrationAsync(host, async administration =>
+        {
+            await administration.CreateAsync(
+                Server(NhAssistantMcpAuthModes.Bearer) with { Url = url, Secret = "unused" },
+                "admin-1",
+                CancellationToken.None);
+            return await administration.TestAsync("planning", CancellationToken.None);
+        });
+
+        Assert.False(result.Data!.Ok);
+        Assert.Equal(NhAssistantAdminErrorCodes.McpUnauthorized, result.Data.Code);
+        Assert.True(renewing.Renewals >= 1);
+        Assert.Equal("Bearer expired-token", received[0]);
+        Assert.Equal("Bearer renewed-token", received[1]);
+        // One repeat per refused request: never a loop of renewals.
+        Assert.Equal(2 * renewing.Renewals, received.Count);
+        await remote.StopAsync();
+    }
+
+    [Fact]
+    public async Task Every_request_target_is_checked_against_the_planned_origin_and_the_allowed_hosts()
+    {
+        await using var restricted = await CreateHostAsync(new NhAiScriptedChatClient(), mcpFactory: null, allowedHosts: ["planning.example.org"]);
+        var blockedInner = new RecordingHandler();
+        using var blockedClient = CreateHandlerClient(restricted, Server(NhAssistantMcpAuthModes.None), blockedInner);
+
+        var outsideAllowedHosts = await Assert.ThrowsAnyAsync<Exception>(() => blockedClient.PostAsync(ServerUrl, new StringContent("{}")));
+
+        Assert.Equal(NhAssistantAdminErrorCodes.McpHostBlocked, NhAssistantMcpFailures.Classify(outsideAllowedHosts));
+        Assert.Empty(blockedInner.Requests);
+
+        await using var open = await CreateHostAsync(new NhAiScriptedChatClient(), mcpFactory: null, allowedHosts: ["localhost"]);
+        var protector = open.Services.GetRequiredService<NhAssistantMcpSecretProtector>();
+        var inner = new RecordingHandler();
+        using var client = CreateHandlerClient(
+            open,
+            Server(NhAssistantMcpAuthModes.Bearer) with { Secret = null },
+            inner,
+            protectedSecret: protector.Protect("planning-token"));
+
+        var otherOrigin = await Assert.ThrowsAnyAsync<Exception>(() => client.PostAsync("http://localhost:5555/planning/mcp", new StringContent("{}")));
+        using var allowed = await client.PostAsync(ServerUrl, new StringContent("{}"));
+
+        Assert.Equal(NhAssistantAdminErrorCodes.McpHostBlocked, NhAssistantMcpFailures.Classify(otherOrigin));
+        Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+        var sent = Assert.Single(inner.Requests);
+        Assert.Equal("Bearer planning-token", sent.Authorization);
+    }
+
+    [Fact]
+    public async Task A_forwarded_token_is_sent_only_for_a_call_authorized_for_the_requesting_person()
+    {
+        await using var host = await CreateHostAsync(new NhAiScriptedChatClient(), mcpFactory: null, forwardHosts: ["localhost"]);
+        await using var scope = host.Services.CreateAsyncScope();
+        AssistantTestHost.EnterUser(scope.ServiceProvider, "member-1");
+        var provider = scope.ServiceProvider.GetServices<INhAssistantMcpCredentialProvider>()
+            .Last(candidate => candidate.Supports(NhAssistantMcpAuthModes.ForwardUserToken));
+        var server = new AssistantMcpServer
+        {
+            Id = "planning",
+            Url = ServerUrl,
+            AuthMode = NhAssistantMcpAuthModes.ForwardUserToken
+        };
+        var inner = new RecordingHandler();
+        using var client = new HttpClient(new NhAssistantMcpCredentialHandler(
+            new NhAssistantMcpCredentialSource(provider, server, NhAssistantMcpCredentialSubject.Request),
+            new Uri(ServerUrl),
+            host.Services.GetRequiredService<NhAssistantMcpHostGuard>())
+        {
+            InnerHandler = inner
+        });
+        var descriptor = new NhAiToolDescriptor(
+            "mcp.planning.lookup-order",
+            1,
+            "Looks up an order.",
+            typeof(object),
+            typeof(object),
+            NhAiToolEffect.ReadOnly,
+            NhAiToolExposure.Agent,
+            true,
+            ["app.assistant.access"]);
+
+        Exception? refused;
+        using (NhAiMcpCallContext.Enter("planning", "Lookup_Order", descriptor, Invocation(NhAiGrantSource.Agent)))
+        {
+            refused = await Record.ExceptionAsync(() => client.PostAsync(ServerUrl, new StringContent("{}")));
+        }
+        using (NhAiMcpCallContext.Enter("planning", "Lookup_Order", descriptor, Invocation(NhAiGrantSource.Delegated)))
+        {
+            using var delegated = await client.PostAsync(ServerUrl, new StringContent("{}"));
+            Assert.Equal(HttpStatusCode.OK, delegated.StatusCode);
+        }
+        using var chat = await client.PostAsync(ServerUrl, new StringContent("{}"));
+
+        Assert.NotNull(refused);
+        Assert.Equal(NhAssistantAdminErrorCodes.McpCredentialMismatch, NhAssistantMcpFailures.Classify(refused));
+        Assert.True(NhAssistantMcpFailures.StoppedBeforeSending(NhAssistantAdminErrorCodes.McpCredentialMismatch));
+        Assert.Equal(["Bearer token-of-member-1", "Bearer token-of-member-1"], inner.Requests.Select(request => request.Authorization));
+    }
+
+    private static NhAiInvocationContext Invocation(NhAiGrantSource grantSource)
+    {
+        return new NhAiInvocationContext("assistant-agent:project-assistant", "assistant", new Dictionary<string, string>())
+        {
+            ActorKind = NhAiActorKind.Agent,
+            GrantSource = grantSource
+        };
+    }
+
+    private static HttpClient CreateHandlerClient(
+        AssistantTestHost host,
+        NhAssistantMcpServerInput input,
+        RecordingHandler inner,
+        string? protectedSecret = null)
+    {
+        var server = new AssistantMcpServer
+        {
+            Id = input.Id,
+            Url = input.Url,
+            AuthMode = input.AuthMode,
+            ProtectedSecret = protectedSecret
+        };
+        var provider = new NhAssistantMcpStaticCredentialProvider(host.Services.GetRequiredService<NhAssistantMcpSecretSource>());
+        return new HttpClient(new NhAssistantMcpCredentialHandler(
+            new NhAssistantMcpCredentialSource(provider, server, NhAssistantMcpCredentialSubject.Request),
+            new Uri(input.Url),
+            host.Services.GetRequiredService<NhAssistantMcpHostGuard>())
+        {
+            InnerHandler = inner
+        });
+    }
+
+    private sealed record SentRequest(Uri? Target, string? Authorization);
+
+    /// <summary>
+    /// Answers every request with <c>200</c> and records its target and credential.
+    /// </summary>
+    private sealed class RecordingHandler : HttpMessageHandler
+    {
+        public List<SentRequest> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(new SentRequest(request.RequestUri, request.Headers.Authorization?.ToString()));
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        }
+    }
+
+    /// <summary>
+    /// A bearer credential that expires: the first token is refused and one renewal yields another.
+    /// </summary>
+    private sealed class RenewingCredentialProvider : INhAssistantMcpCredentialProvider
+    {
+        private string _token = "expired-token";
+
+        public int Renewals { get; private set; }
+
+        public bool CanRenew => true;
+
+        public bool Supports(string authMode)
+        {
+            return authMode == NhAssistantMcpAuthModes.Bearer;
+        }
+
+        public ValueTask<Common.Models.TaskResult<NhAssistantMcpCredential>> GetAsync(AssistantMcpServer server, NhAssistantMcpCredentialSubject subject, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(Credential());
+        }
+
+        public ValueTask<Common.Models.TaskResult<NhAssistantMcpCredential>> RenewAsync(AssistantMcpServer server, NhAssistantMcpCredentialSubject subject, CancellationToken cancellationToken)
+        {
+            Renewals++;
+            _token = "renewed-token";
+            return ValueTask.FromResult(Credential());
+        }
+
+        public Common.Models.TaskResult AuthorizeCall(AssistantMcpServer server, NhAssistantMcpCredentialSubject subject, NhAiMcpCallContext call)
+        {
+            return Common.Models.TaskResult.Succeeded();
+        }
+
+        private Common.Models.TaskResult<NhAssistantMcpCredential> Credential()
+        {
+            return Common.Models.TaskResult<NhAssistantMcpCredential>.Succeeded(new NhAssistantMcpCredential(
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Authorization"] = "Bearer " + _token
+                }));
+        }
+    }
+
     private Task<AssistantTestHost> CreateHostAsync(
         NhAiScriptedChatClient model,
         InMemoryMcpServers? mcpFactory,
-        IReadOnlyList<string>? forwardHosts = null)
+        IReadOnlyList<string>? forwardHosts = null,
+        IReadOnlyList<string>? allowedHosts = null,
+        Action<IServiceCollection>? configure = null)
     {
         return AssistantTestHost.CreateAsync(
             database,
@@ -252,12 +543,42 @@ public sealed class AssistantMcpTests(AssistantDatabaseFixture database)
                 {
                     services.Replace(ServiceDescriptor.Singleton<INhAssistantMcpClientFactory>(mcpFactory));
                 }
+                configure?.Invoke(services);
             },
             assistantBuilder: assistant => assistant.ConfigureMcp(mcp =>
             {
                 mcp.RequireHttps = true;
                 mcp.ForwardUserTokenHosts = forwardHosts?.ToList() ?? [];
+                mcp.AllowedHosts = allowedHosts?.ToList() ?? [];
             }));
+    }
+
+    private static async Task AssignPlanningServerAsync(AssistantTestHost host)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var agents = scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>();
+        var catalog = scope.ServiceProvider.GetRequiredService<NhAssistantAgentCatalog>();
+        var agent = (await catalog.FindAsync("project-assistant", includeDisabled: true, CancellationToken.None))!;
+        var assigned = await agents.UpdateAsync(
+            new NhAssistantAgentInput(
+                agent.Id,
+                agent.Definition.DisplayNameKey,
+                agent.Definition.DescriptionKey,
+                agent.Definition.Instructions.Content,
+                agent.Definition.ToolSelectors,
+                ["planning"],
+                agent.Definition.RequiredPolicy,
+                agent.Definition.Autonomy),
+            agent.Definition.Version,
+            "admin-1",
+            CancellationToken.None);
+        Assert.True(assigned.Success);
+    }
+
+    private static async Task<IReadOnlyList<Entities.AssistantMcpTool>> ListToolsAsync(AssistantTestHost host)
+    {
+        var result = await WithAdministrationAsync(host, administration => administration.ListToolsAsync("planning", CancellationToken.None));
+        return result.Data!;
     }
 
     private static async Task ConnectPlanningServerAsync(AssistantTestHost host)

@@ -255,6 +255,13 @@
       "assistant-mcp-host-blocked": "This host is not allowed for MCP servers or for forwarding the user's token.",
       "assistant-mcp-schema-changed": "The tool's input changed on the server. Review it and enable it again.",
       "assistant-mcp-tool-disabled": "This tool is disabled.",
+      "assistant-mcp-insufficient-scope": "The MCP server accepted the credentials, but they lack a permission this action needs.",
+      "assistant-mcp-headless-not-allowed": "This MCP server may not be used in background runs.",
+      "assistant-mcp-credential-mismatch": "The MCP call was not sent because it was authorized for someone other than the person whose token the connection carries.",
+      "assistant-mcp-consent-required": "The person this background run acts for has not allowed this MCP server with their own account.",
+      "assistant-mcp-delegated-token-unavailable": "No short-lived token could be issued for the person this background run acts for.",
+      "assistant-mcp-secret-reference-invalid": "The secret reference names no available secret. Check the prefix and the name.",
+      "assistant-mcp-certificate-reference-invalid": "The client certificate is not configured or has no private key.",
       "assistant-instructions-too-long": "The text is too long. Shorten it to at most 20,000 characters.",
       "assistant-context-not-found": "The application context was not found. Reload the page.",
       "assistant-mcp-server-not-found": "The MCP server no longer exists. Reload the list.",
@@ -411,6 +418,15 @@
         "blocked": "Your browser blocks notifications for this site. Allow them in the browser settings.",
         "off": "Notifications are off for all your devices.",
         "unavailable": "Notifications are not available."
+      },
+      "mcp": {
+        "title": "Background use with your account",
+        "description": "Agents may use these services in runs without you, with your own account. Allow it per service; you can withdraw it at any time. A changed service asks for your permission again.",
+        "allow": "Allow {{name}} in background runs",
+        "allowed-since": "Allowed since {{date}}",
+        "not-allowed": "Not allowed",
+        "used-by": "Used by:",
+        "load-failed": "The services that ask for your permission could not be loaded."
       }
     },
     "admin": {
@@ -619,11 +635,27 @@
         "unassigned": "Not assigned to an agent",
         "secret-set": "Secret set",
         "no-secret": "No secret",
+        "secret-reference": "Secret from {{reference}}",
+        "client-certificate": "Client certificate {{name}}",
+        "transport-fallback": "HTTP+SSE fallback",
+        "connected": "Last connection {{date}}",
+        "connect-failed": "Last connection failed {{date}}",
+        "never-connected": "Not connected yet",
+        "headless": {
+          "never": "Not in background runs",
+          "organization": "Background runs with this credential",
+          "personal": "Background runs with the person's own account, after consent"
+        },
         "auth": {
           "none": "No authentication",
           "bearer": "Bearer token",
           "api-key": "API key",
+          "basic": "User name and password",
           "forward-user-token": "Forward the user's token"
+        },
+        "transport": {
+          "streamable-http": "Streamable HTTP",
+          "auto": "Streamable HTTP with fallback to HTTP+SSE (deprecated)"
         }
       },
       "server-editor": {
@@ -638,6 +670,9 @@
         "auth-mode": "Authentication",
         "header-name": "Header name",
         "header-name-hint": "Default X-Api-Key.",
+        "user-name": "User name",
+        "user-name-hint": "Sent with the secret as basic authentication.",
+        "user-name-invalid": "Enter a user name without a colon, at most 256 characters.",
         "secret": "Secret",
         "secret-hint": "Stored encrypted and never shown again.",
         "secret-set": "A secret is set.",
@@ -647,7 +682,21 @@
         "secret-will-clear": "The secret will be cleared when you save.",
         "secret-undo": "Keep the current secret",
         "secret-new": "New secret",
+        "secret-source": "Where the secret is",
+        "secret-source-stored": "Stored here, encrypted",
+        "secret-source-reference": "A secret of the application",
+        "secret-reference": "Secret reference",
+        "secret-reference-hint": "config:<name> reads NewHeap:AI:Assistant:Mcp:Secrets:<name> from the configuration; another prefix is a source the application registered, such as a vault. The secret is read for every connection, so a rotation applies at once.",
+        "secret-reference-invalid": "Enter a reference such as config:planning-token.",
+        "client-certificate": "Client certificate",
+        "client-certificate-hint": "Optional. The name of a certificate that the application configured under NewHeap:AI:Assistant:Mcp:ClientCertificates, presented for mutual TLS.",
+        "client-certificate-invalid": "Use letters, digits, dots, underscores and dashes.",
+        "transport": "Transport",
+        "transport-hint": "Choose the fallback only for a server that does not offer Streamable HTTP yet.",
         "forward-warning": "The signed-in user's token is sent to this server. The server's host must be on the allow-list of the application.",
+        "headless-use": "Background runs",
+        "headless-use-hint": "Agents that work without a person may use the tools with this server's own credential. The call still needs the rights of the person the agent works for, or, for an agent that acts for itself, a grant in the application code (mcp.<server id>.*).",
+        "headless-use-personal": "Background runs may use the server with a short-lived token of the person the run acts for, only after that person allowed it in their preferences.",
         "required-policy": "Required policy",
         "required-policy-hint": "Optional. The server's tools are only available to users who pass this policy.",
         "enabled": "Server is enabled"

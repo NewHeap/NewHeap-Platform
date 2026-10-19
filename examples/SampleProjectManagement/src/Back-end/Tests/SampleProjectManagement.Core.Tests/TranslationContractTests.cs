@@ -104,7 +104,10 @@ public class TranslationContractTests
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !Directory.Exists(Path.Combine(directory.FullName, ".git")))
+        // A clone has a .git directory; a git worktree has a .git file that points to the clone.
+        while (directory is not null
+            && !Directory.Exists(Path.Combine(directory.FullName, ".git"))
+            && !File.Exists(Path.Combine(directory.FullName, ".git")))
         {
             directory = directory.Parent;
         }

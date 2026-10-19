@@ -133,7 +133,57 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   schema disables a tool again. Enabled tools of the servers assigned to an agent are
   imported per turn with `INhAiMcpClientToolImporter` (`mcp.<server>.<tool>`), so
   approval, idempotency, budget and audit apply unchanged. An unreachable server is
-  skipped for the turn.
+  skipped for the turn. The client attaches the credential to every HTTP request and
+  checks each request against the planned origin and `AllowedHosts`; a `403` with
+  `error="insufficient_scope"` reports `assistant-mcp-insufficient-scope`. A tool list
+  seen with one caller's forwarded token never disables a tool for everyone; only an
+  administrator's sync writes `missing` and `schema-changed`. Test, sync and turns
+  with the shared credential record `lastConnectAt` and `lastConnectCode`.
+- **MCP credentials.** Besides `none`, `bearer`, `api-key` and `forward-user-token`,
+  a server can use `basic` (`userName` plus the write-only secret as password). A
+  secret is stored with Data Protection or named by `secretReference`:
+  `config:<name>` reads `NewHeap:AI:Assistant:Mcp:Secrets:<name>`, another prefix needs
+  an `INhAssistantMcpSecretResolver` registered with `AddMcpSecretResolver<T>(prefix)`
+  (for example a vault). A reference is resolved for every request, so a rotation applies
+  at once; its name has no `:` or `..`, so it never reaches other configuration. A blank
+  value or one with an unresolved `${...}` reference counts as missing. A stored secret
+  and a reference replace each other. `clientCertificateReference` names
+  a certificate under `NewHeap:AI:Assistant:Mcp:ClientCertificates:<name>` (`Path` and
+  `Password` of a PKCS#12 file, or `Thumbprint` in a store) with a private key, which the
+  client presents for mutual TLS. `transport` is `streamable-http`, or `auto` for a
+  server that only offers the deprecated HTTP+SSE transport; the SSE `endpoint` event
+  must stay on the configured origin. Invalid references fail with
+  `assistant-mcp-secret-reference-invalid` and `assistant-mcp-certificate-reference-invalid`.
+- **MCP in background runs.** A server's tools are offered in headless runs (and in
+  the execution of their deferred proposals) only when an administrator sets its
+  `headlessUse` (`NhAssistantMcpHeadlessUses`); every server starts at `never`.
+  `organization` is for `none`, `bearer`, `api-key` and `basic`: the server's own
+  credential serves the run. The call is authorized like any agent call: with the
+  initiator's rights (`Delegated`), the accountable account's rights (`Accountable`)
+  or a code grant (`Grant("mcp.<server>.*")`), which such tools accept. `requiredPolicy`
+  is checked for the person whose rights the run uses; a run that acts for the agent
+  alone does not get servers with a required policy. An approved deferred proposal
+  imports the tool again under the same rules and executes it once; a server that no
+  longer allows headless use fails it with `assistant-mcp-headless-not-allowed`.
+- **Personal servers in background runs.** `personal` is for `forward-user-token`
+  servers of the same trust domain: a run sends a short-lived delegated NewHeap token of
+  the person whose rights it uses (`INhAiMcpDelegatedTokenIssuer`, at most
+  `ForwardedTokenLifetime`, two minutes by default and five at most), minted per request
+  for hosts in `ForwardUserTokenHosts` only, marked with the invocation and bound to the
+  server's origin. It needs that person's consent: `GET mcp-connections` lists the
+  personal servers of agents the caller may use, `PUT mcp-connections/{serverId}`
+  `{ allowBackgroundUse }` records or withdraws it, and a changed URL or authentication
+  needs consent again. Without it the server is skipped with
+  `assistant-mcp-consent-required`; a person who may not sign in, an issuer failure or a
+  JWT bearer scheme of the host that does not restrict delegated tokens gives
+  `assistant-mcp-delegated-token-unavailable`. A call that the gate authorized with any
+  other grant source than that person's is refused with `assistant-mcp-credential-mismatch`
+  before it is sent. Issuing (`McpDelegatedTokenIssued`) and consent
+  (`McpBackgroundUseChanged`) are audited without the token. The receiving server calls
+  `AddNewHeapPlatformAIMcpDelegatedTokens(tokens => tokens.Accept(origin, "/mcp"))`; the
+  assistant's own host accepts no such token. The token is signed with the host's
+  symmetric key, so every host that can validate it can also mint tokens; use it only
+  between hosts that already share that key.
 - Every administration change is a content-free audit event
   (`AdminContextUpdated`, `AdminAgent*`, `AdminMcpServer*`, `AdminMcpToolUpdated`).
 
@@ -319,6 +369,12 @@ or output of the running turn, also not text written before an approval pause.
   administrator only. Mark a remote tool read-only only after reviewing it.
 - Forwarding user tokens to hosts outside `ForwardUserTokenHosts`, or allowing plain
   http, link-local or metadata addresses for MCP servers.
+- Setting `headlessUse` to `organization` for a server whose credential lets an agent
+  do more than the people it works for may; background runs then act with it.
+- Using `personal` for a host outside the trust domain of the signing key, or letting the
+  assistant's own host `Accept` delegated MCP tokens on more than its MCP endpoint.
+- Writing a secret resolver that maps a reference name to arbitrary settings, files or
+  environment variables; a name selects one secret of one source.
 - Putting permissions, approval rules or scope decisions in the application context or
   the preferences; they explain the domain and shape style only.
 - Listing the application's entities in the application context; use the application map.
@@ -362,7 +418,17 @@ page text never reach audit or logs (SPM-254).
 For MCP, use an official SDK server (in memory or Streamable HTTP): tools are off after
 sync and visible only to the assigned agent after activation, mutations pause for
 approval, schema changes disable tools, blocked hosts are rejected and secrets are
-absent from responses, logs and audit. SPM-245, SPM-246, SPM-247, SPM-250, SPM-251 and
+absent from responses, logs and audit. For background runs, assert on both providers
+that a `never` server is not contacted, an `organization` server is offered and
+called through a code grant or a person's rights, `requiredPolicy` is evaluated for
+that person, an approved deferred MCP proposal executes once, and a server set back to
+`never` fails it with `assistant-mcp-headless-not-allowed` without a call. For a
+`personal` server, assert on both providers that it is skipped without consent, that
+every request then carries a fresh delegated token of the person with the invocation
+marker and the server's origin, that a withdrawn consent or a changed URL stops it, and
+that a refused, unbound or failing issuer sends nothing. For secret references, rotate
+the configured or resolved value between two connections and assert that names with
+`:` or `..` are refused. SPM-245, SPM-246, SPM-247, SPM-250, SPM-251 and
 SPM-252 and SPM-254 are the executable references. SPM-249 is the end-to-end reference: one agent
 over the API bridge and curated tools, an administrator agent with an MCP tool, and a
 viewer who is offered no mutating tools.
@@ -417,8 +483,8 @@ division, and that audit and logs carry its hash but not its content (SPM-291).
 - SPM-251 — Administrator-connected MCP servers assigned to agents
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs)
-  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs)
-  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
 - SPM-252 — Editable application context and personal assistant preferences
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs)

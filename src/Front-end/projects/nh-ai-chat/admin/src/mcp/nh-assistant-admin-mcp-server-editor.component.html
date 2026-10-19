@@ -85,6 +85,26 @@
         <p class="hint" [id]="id + '-header-hint'">{{ 'nh-assistant.admin.server-editor.header-name-hint' | translate }}</p>
       </div>
     }
+
+    @if (authMode() === 'basic') {
+      <div class="field">
+        <label [for]="id + '-user'">{{ 'nh-assistant.admin.server-editor.user-name' | translate }}</label>
+        <input
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          [id]="id + '-user'"
+          [value]="userName()"
+          [attr.aria-describedby]="id + '-user-hint'"
+          [attr.aria-invalid]="submitted() && userNameInvalid() ? true : null"
+          (input)="userName.set(value($event))" />
+        <p class="hint" [id]="id + '-user-hint'">
+          <span [class.error-text]="submitted() && userNameInvalid()">
+            {{ (submitted() && userNameInvalid() ? 'nh-assistant.admin.server-editor.user-name-invalid' : 'nh-assistant.admin.server-editor.user-name-hint') | translate }}
+          </span>
+        </p>
+      </div>
+    }
   </div>
 
   @if (authMode() === 'forward-user-token') {
@@ -94,7 +114,37 @@
   @if (usesSecret()) {
     <fieldset class="field">
       <legend>{{ 'nh-assistant.admin.server-editor.secret' | translate }}</legend>
-      @if (hasSecret()) {
+      <div class="inline" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.server-editor.secret-source' | translate">
+        @for (source of secretSources; track source) {
+          <label class="check">
+            <input
+              type="radio"
+              [name]="id + '-secret-source'"
+              [value]="source"
+              [checked]="secretSource() === source"
+              (change)="setSecretSource(source)" />
+            <span>{{ 'nh-assistant.admin.server-editor.secret-source-' + source | translate }}</span>
+          </label>
+        }
+      </div>
+      @if (usesReference()) {
+        <label [for]="id + '-secret-reference'">{{ 'nh-assistant.admin.server-editor.secret-reference' | translate }}</label>
+        <input
+          type="text"
+          class="mono"
+          spellcheck="false"
+          placeholder="config:planning-token"
+          [id]="id + '-secret-reference'"
+          [value]="secretReference()"
+          [attr.aria-describedby]="id + '-secret-reference-hint'"
+          [attr.aria-invalid]="submitted() && secretReferenceInvalid() ? true : null"
+          (input)="secretReference.set(value($event))" />
+        <p class="hint" [id]="id + '-secret-reference-hint'">
+          <span [class.error-text]="submitted() && secretReferenceInvalid()">
+            {{ (submitted() && secretReferenceInvalid() ? 'nh-assistant.admin.server-editor.secret-reference-invalid' : 'nh-assistant.admin.server-editor.secret-reference-hint') | translate }}
+          </span>
+        </p>
+      } @else if (hasSecret()) {
         <div class="meta secret-state">
           @switch (secretAction()) {
             @case ('clear') {
@@ -128,9 +178,41 @@
           [value]="secret()"
           (input)="onSecretInput($event)" />
       }
-      <p class="hint" [id]="id + '-secret-hint'">{{ 'nh-assistant.admin.server-editor.secret-hint' | translate }}</p>
+      @if (!usesReference()) {
+        <p class="hint" [id]="id + '-secret-hint'">{{ 'nh-assistant.admin.server-editor.secret-hint' | translate }}</p>
+      }
     </fieldset>
   }
+
+  <div class="grid">
+    <div class="field">
+      <label [for]="id + '-certificate'">{{ 'nh-assistant.admin.server-editor.client-certificate' | translate }}</label>
+      <input
+        type="text"
+        class="mono"
+        spellcheck="false"
+        [id]="id + '-certificate'"
+        [value]="clientCertificateReference()"
+        [attr.aria-describedby]="id + '-certificate-hint'"
+        [attr.aria-invalid]="submitted() && certificateInvalid() ? true : null"
+        (input)="clientCertificateReference.set(value($event))" />
+      <p class="hint" [id]="id + '-certificate-hint'">
+        <span [class.error-text]="submitted() && certificateInvalid()">
+          {{ (submitted() && certificateInvalid() ? 'nh-assistant.admin.server-editor.client-certificate-invalid' : 'nh-assistant.admin.server-editor.client-certificate-hint') | translate }}
+        </span>
+      </p>
+    </div>
+
+    <div class="field">
+      <label [for]="id + '-transport'">{{ 'nh-assistant.admin.server-editor.transport' | translate }}</label>
+      <select [id]="id + '-transport'" [attr.aria-describedby]="id + '-transport-hint'" (change)="transport.set($any(value($event)))">
+        @for (option of transports; track option) {
+          <option [value]="option" [selected]="transport() === option">{{ 'nh-assistant.admin.mcp.transport.' + option | translate }}</option>
+        }
+      </select>
+      <p class="hint" [id]="id + '-transport-hint'">{{ 'nh-assistant.admin.server-editor.transport-hint' | translate }}</p>
+    </div>
+  </div>
 
   <div class="field">
     <label [for]="id + '-policy'">{{ 'nh-assistant.admin.server-editor.required-policy' | translate }}</label>
@@ -142,6 +224,21 @@
       [attr.aria-describedby]="id + '-policy-hint'"
       (input)="requiredPolicy.set(value($event))" />
     <p class="hint" [id]="id + '-policy-hint'">{{ 'nh-assistant.admin.server-editor.required-policy-hint' | translate }}</p>
+  </div>
+
+  <div class="field">
+    <label [for]="id + '-headless'">{{ 'nh-assistant.admin.server-editor.headless-use' | translate }}</label>
+    <select
+      [id]="id + '-headless'"
+      [attr.aria-describedby]="id + '-headless-hint'"
+      (change)="headlessUse.set($any(value($event)))">
+      @for (use of headlessUses(); track use) {
+        <option [value]="use" [selected]="effectiveHeadlessUse() === use">{{ 'nh-assistant.admin.mcp.headless.' + use | translate }}</option>
+      }
+    </select>
+    <p class="hint" [id]="id + '-headless-hint'">
+      {{ (authMode() === 'forward-user-token' ? 'nh-assistant.admin.server-editor.headless-use-personal' : 'nh-assistant.admin.server-editor.headless-use-hint') | translate }}
+    </p>
   </div>
 
   <label class="check">
