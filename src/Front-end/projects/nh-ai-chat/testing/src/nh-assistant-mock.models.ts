@@ -6,6 +6,7 @@ import {
   ClientContext,
   Conversation,
   McpServerInput,
+  RunCatalog,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 
@@ -139,6 +140,13 @@ export interface NhAssistantMockAdminScenario {
   policies?: string[];
   /** Hosts that may receive the user's token (`forward-user-token`). Default: none. */
   forwardUserTokenHosts?: string[];
+  /**
+   * The building blocks in code that run configuration as data names. Default: none, with
+   * `policies` as the approval policies.
+   */
+  runCatalog?: Partial<RunCatalog>;
+  /** Triggers in code, per agent; they cannot change in the administration. */
+  codeTriggers?: { agentId: string; triggerId: string; source: 'event' | 'schedule' | 'webhook'; skillId?: string | null }[];
 }
 
 /** A person in the simulated organization. */

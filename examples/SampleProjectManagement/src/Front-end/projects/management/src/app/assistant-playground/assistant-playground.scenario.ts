@@ -15,6 +15,8 @@ export const PLAYGROUND_REMOTE_TOOLS: NhAssistantMockRemoteTool[] = [
 export const PLAYGROUND_CHANGED_REMOTE_TOOLS: NhAssistantMockRemoteTool[] = PLAYGROUND_REMOTE_TOOLS.map(tool =>
   tool.remoteName === 'searchDocuments' ? { ...tool, inputSchemaHash: 'search-v2' } : tool);
 export const CATALOG_GUIDE_ID = 'sample-catalog-guide';
+/** SPM-295: the planner whose skills and triggers the administration adds as data. */
+export const PROJECT_PLANNER_ID = 'sample-project-planner';
 
 /** Projects the playground can open as a simulated project page. */
 export const PLAYGROUND_PROJECT_PAGES: readonly ClientContext[] = [
@@ -119,6 +121,26 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
     ].join('\n'),
     policies: ['app.project.view', 'app.project.manage'],
     forwardUserTokenHosts: ['planning.sample.localhost'],
+    // SPM-295 to SPM-297: the building blocks the API registers, which skills, triggers and run
+    // settings defined as data in the administration name.
+    runCatalog: {
+      triggerEvents: [
+        { name: 'project.task-completed', description: 'A task of a project was completed.' },
+        { name: 'project.created', description: 'A project was created.' }
+      ],
+      subjectSets: [{ name: 'active-projects-with-deadline-soon', description: 'Active projects with a deadline in the next two weeks.' }],
+      ruleHandlers: [
+        { name: 'project-progress-note', description: "Notes how many of the project's tasks are completed, without a model." },
+        { name: 'project-progress-percentage', description: "Notes which share of the project's tasks is completed, without a model." },
+        { name: 'project-kickoff', description: 'Proposes to start a project that was created as a draft, without a model.' }
+      ],
+      approvalPolicies: ['project-intake', 'project-planning', 'project-closing'],
+      profiles: ['project-assistant-chat']
+    },
+    codeTriggers: [
+      { agentId: PROJECT_PLANNER_ID, triggerId: 'project-task-completed-planner', source: 'event', skillId: 'task-follow-up' },
+      { agentId: PROJECT_PLANNER_ID, triggerId: 'daily-deadline-check', source: 'schedule', skillId: null }
+    ],
     tools: [
       { id: 'sample-api.project.list', source: 'bridge', effect: 'read-only', description: 'Lists projects with paging and filters.' },
       { id: 'sample-api.project.get-by-key', source: 'bridge', effect: 'read-only', description: 'Reads one project by key.' },
@@ -136,6 +158,21 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         mcpServerIds: [],
         requiredPolicy: 'app.project.view',
         autonomy: 'execute'
+      },
+      {
+        source: 'code',
+        id: PROJECT_PLANNER_ID,
+        displayName: 'Project planner',
+        description: 'Follows up completed tasks and judges deadline risks.',
+        instructions: "Follow the project's tasks and deadline. Propose status changes; never apply them without approval.",
+        toolSelectors: ['sample-api.project.*'],
+        mcpServerIds: [],
+        requiredPolicy: 'app.project.view',
+        autonomy: 'execute',
+        skills: [
+          { skillId: 'task-follow-up', description: 'Follows up completed tasks by rule.' },
+          { skillId: 'deadline-risk', description: 'Judges whether an active project will miss its deadline.' }
+        ]
       },
       {
         source: 'code',

@@ -36607,7 +36607,14 @@
       "AgentSubjectWork",
       "AgentSubjectSummary",
       "AgentProposalDecisionRight",
-      "NH_ASSISTANT_MAX_SUBJECT_SUMMARY"
+      "NH_ASSISTANT_MAX_SUBJECT_SUMMARY",
+      "NhAssistantAgentRunConfigurationComponent",
+      "RunCatalog",
+      "AgentRunConfiguration",
+      "DataSkill",
+      "DataTrigger",
+      "AgentRunSettings",
+      "NhAssistantError"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

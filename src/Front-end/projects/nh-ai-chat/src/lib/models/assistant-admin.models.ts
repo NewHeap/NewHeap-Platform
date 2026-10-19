@@ -514,3 +514,294 @@ export interface AgentFeedbackList {
   items: AgentFeedbackItem[];
   total: number;
 }
+
+/** A building block registered in code that run configuration as data names. */
+export interface RunBlock {
+  name: string;
+  description: string;
+}
+
+/** Response of `GET admin/run-catalog`: what skills, triggers and run settings defined as data can name. */
+export interface RunCatalog {
+  triggerEvents: RunBlock[];
+  subjectSets: RunBlock[];
+  ruleHandlers: RunBlock[];
+  approvalPolicies: string[];
+  /** Chat profiles with function calling and streaming. */
+  profiles: string[];
+}
+
+/** Which part of the run configuration a problem concerns. */
+export type RunConfigurationProblemKind = 'agent' | 'skill' | 'candidate' | 'trigger';
+
+/**
+ * Data that is out of effect because it no longer fits the code, for example after a deploy removed
+ * a profile, policy, rule handler, event or subject set it names.
+ */
+export interface RunConfigurationProblem {
+  agentId: string;
+  kind: RunConfigurationProblemKind;
+  /** The agent, skill or trigger id. */
+  id: string;
+  /** Such as `unknown-event` or `tool-not-covered`. */
+  code: string;
+}
+
+/** Whom an agent answers to. */
+export type AgentAccountability = 'agent' | 'subject-responsible' | 'service-account';
+
+/** Reads with rights beyond the thread's readers: shielded from them, or refused. */
+export type AgentElevatedReads = 'restricted' | 'deny';
+
+/**
+ * The run settings of an agent created in the administration. Grants are never data: in headless
+ * runs the agent acts with the rights of the account it answers to, within its tool selectors.
+ */
+export interface AgentRunSettings {
+  version: number;
+  accountability: AgentAccountability;
+  serviceAccountActorId: string | null;
+  delegateFromInitiator: boolean;
+  allowGatewayReads: boolean;
+  elevatedReads: AgentElevatedReads;
+  approvalPolicy: string | null;
+  retryCount: number;
+  dailyToolCalls: number | null;
+  dailyTokens: number | null;
+  maxConcurrentRuns: number;
+  maxRunsPerSubjectPerDay: number;
+  maxTokensPerRun: number | null;
+  triageProfile: string | null;
+  ruleHandler: string | null;
+  changedAt: string;
+  changedBy: string;
+  reason: string | null;
+  inEffect: boolean;
+  problem: string | null;
+}
+
+/** Body of `PUT admin/agents/{id}/run-settings`. */
+export interface AgentRunSettingsRequest {
+  accountability: AgentAccountability;
+  /** For `service-account` only: an account that exists and may sign in. */
+  serviceAccountActorId?: string | null;
+  delegateFromInitiator?: boolean;
+  /** Not for an agent that answers to itself. */
+  allowGatewayReads?: boolean;
+  elevatedReads?: AgentElevatedReads;
+  approvalPolicy?: string | null;
+  /** 0 to 10; 3 by default. */
+  retryCount?: number | null;
+  /** With `dailyTokens`, the daily budget per scope. */
+  dailyToolCalls?: number | null;
+  dailyTokens?: number | null;
+  /** 1 to 100; 4 by default. */
+  maxConcurrentRuns?: number | null;
+  /** 1 to 1,000; 10 by default. */
+  maxRunsPerSubjectPerDay?: number | null;
+  maxTokensPerRun?: number | null;
+  triageProfile?: string | null;
+  ruleHandler?: string | null;
+  /** The settings' current version; `null` for new settings. */
+  expectedVersion?: number | null;
+  /** Optional, at most 500 characters. */
+  reason?: string | null;
+}
+
+/** A skill the agent declares in code; it cannot change here. */
+export interface CodeSkill {
+  skillId: string;
+  description: string;
+}
+
+/** A trigger registered in code; it cannot change here. */
+export interface CodeTrigger {
+  triggerId: string;
+  source: 'event' | 'schedule' | 'webhook';
+  skillId: string | null;
+}
+
+/** One version of a skill defined as data. */
+export interface DataSkill {
+  skillId: string;
+  version: number;
+  description: string;
+  instructions: string | null;
+  instructionsHash: string | null;
+  tools: string[];
+  profile: string | null;
+  ruleHandler: string | null;
+  maxTokensPerRun: number | null;
+  dailyToolCalls: number | null;
+  dailyTokens: number | null;
+  approvalPolicy: string | null;
+  changedAt: string;
+  changedBy: string;
+  reason: string | null;
+  /** `false` with `problem` when the version no longer fits the code. */
+  inEffect: boolean;
+  problem: string | null;
+  /** The candidate that runs in shadow next to this live version; missing or null without one. */
+  candidate?: DataSkill | null;
+}
+
+/** How a change of a skill takes effect: at once, or as a candidate in shadow next to the live version. */
+export type SkillApplyMode = 'live' | 'shadow';
+
+/** Body of `PUT admin/agents/{id}/skills/{skillId}`. */
+export interface DataSkillRequest {
+  /** At most 300 characters; triage and `use_skill` choose by it. */
+  description: string;
+  /** At most 20,000 characters. */
+  instructions?: string | null;
+  /** Within the agent's own tool selectors; empty uses the agent's. */
+  tools?: string[];
+  profile?: string | null;
+  ruleHandler?: string | null;
+  maxTokensPerRun?: number | null;
+  dailyToolCalls?: number | null;
+  dailyTokens?: number | null;
+  approvalPolicy?: string | null;
+  /** The live version the change was made on; `null` for a new skill. */
+  expectedVersion?: number | null;
+  reason?: string | null;
+  /** For a change of a skill; `live` by default. */
+  apply?: SkillApplyMode;
+}
+
+export type DataSkillVersionStatus = 'live' | 'candidate' | 'superseded' | 'discarded';
+
+/** One version in the history of a skill defined as data. */
+export interface DataSkillVersion {
+  version: number;
+  status: DataSkillVersionStatus;
+  description: string;
+  instructionsHash: string | null;
+  createdAt: string;
+  createdBy: string;
+  reason: string | null;
+}
+
+/** Body of `POST admin/agents/{id}/skills/{skillId}/candidate/promote` and `.../discard`. */
+export interface SkillCandidateRequest {
+  /** The candidate version the change is for. */
+  version: number;
+  reason?: string | null;
+}
+
+/** The runs of one version in a comparison. */
+export interface SkillVersionStats {
+  version: number;
+  runs: number;
+  completed: number;
+  failed: number;
+  proposals: number;
+  toolCalls: number;
+  tokens: number;
+}
+
+/** The proposals of both versions for one tool. */
+export interface SkillComparisonTool {
+  toolId: string;
+  liveProposals: number;
+  candidateProposals: number;
+  liveApproved: number;
+  liveRejected: number;
+}
+
+/** Response of `GET admin/agents/{id}/skills/{skillId}/candidate/comparison`. Counts only. */
+export interface SkillComparison {
+  agentId: string;
+  skillId: string;
+  from: string;
+  to: string;
+  live: SkillVersionStats;
+  candidate: SkillVersionStats;
+  /** The events both versions handled. */
+  pairedEvents: number;
+  tools: SkillComparisonTool[];
+}
+
+/** Optional period of a comparison; it starts when the candidate was saved by default. */
+export interface SkillComparisonFilter {
+  from?: string;
+  to?: string;
+}
+
+/** What happens to an event while a run on the subject is active. */
+export type TriggerConflict = 'coalesce' | 'queue' | 'supersede' | 'ignore';
+
+/** A trigger defined as data: a named event or a schedule that starts the agent. */
+export interface DataTrigger {
+  triggerId: string;
+  skillId: string | null;
+  source: 'event' | 'schedule';
+  event: string | null;
+  cron: string | null;
+  timeZone: string | null;
+  subjectSet: string | null;
+  message: string | null;
+  conflict: TriggerConflict;
+  debounceSeconds: number;
+  /** In shadow its runs work in the agent's shadow threads. A new trigger starts in shadow. */
+  shadow: boolean;
+  version: number;
+  changedAt: string;
+  changedBy: string;
+  reason: string | null;
+  inEffect: boolean;
+  problem: string | null;
+}
+
+/** Body of `PUT admin/agents/{id}/triggers/{triggerId}`. */
+export interface DataTriggerRequest {
+  source: 'event' | 'schedule';
+  /** The skill the runs work in; empty lets the agent's rules or triage choose. */
+  skill?: string | null;
+  /** For an event trigger: a registered trigger event. */
+  event?: string | null;
+  /** For a schedule: a five- or six-field cron expression. */
+  cron?: string | null;
+  /** For a schedule: an IANA or Windows time zone; UTC by default. */
+  timeZone?: string | null;
+  /** For a schedule: a registered subject set. */
+  subjectSet?: string | null;
+  /** For a schedule: what every run receives, at most 2,000 characters. */
+  message?: string | null;
+  conflict?: TriggerConflict | null;
+  /** For an event trigger: at most 3,600; 120 by default. */
+  debounceSeconds?: number | null;
+  /** The trigger's current version; `null` for a new trigger. */
+  expectedVersion?: number | null;
+  reason?: string | null;
+}
+
+/** Body of `POST admin/agents/{id}/triggers/{triggerId}/shadow`. */
+export interface DataTriggerShadowRequest {
+  mode: 'shadow' | 'live';
+  reason?: string | null;
+}
+
+/** Query of the removals of run settings, data skills and data triggers. */
+export interface RunConfigurationRemoval {
+  expectedVersion?: number | null;
+  reason?: string | null;
+}
+
+/**
+ * Response of `GET admin/agents/{id}/configuration`: the agent's run settings, skills and triggers,
+ * in code and as data, and the data that no longer fits the code.
+ */
+export interface AgentRunConfiguration {
+  agentId: string;
+  /** The agent's own tool selectors; a data skill's tools stay within them. */
+  toolSelectors: string[];
+  codeSkills: CodeSkill[];
+  dataSkills: DataSkill[];
+  codeTriggers: CodeTrigger[];
+  dataTriggers: DataTrigger[];
+  problems: RunConfigurationProblem[];
+  source: 'code' | 'admin';
+  /** The run settings of an agent created in the administration; `null` for an agent in code and one that only chats. */
+  runSettings: AgentRunSettings | null;
+}

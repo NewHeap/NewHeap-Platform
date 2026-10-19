@@ -9,7 +9,12 @@ export class NhAssistantApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
-    readonly messageKey: string
+    readonly messageKey: string,
+    /**
+     * The field errors of an `assistant-validation` response: camelCase field names with stable
+     * values such as `required`, `invalid`, `too-long` or `not-found`. Empty otherwise.
+     */
+    readonly fieldErrors: Readonly<Record<string, readonly string[]>> = {}
   ) {
     super(code);
     this.name = 'NhAssistantApiError';
@@ -49,6 +54,7 @@ export function nhAssistantCodeForStatus(status: number): string {
 export type NhAssistantStatusCodes = Partial<Record<number, string>>;
 
 const safeCode = /^[a-z0-9][a-z0-9.-]{0,79}$/;
+const safeField = /^[a-zA-Z][a-zA-Z0-9.]{0,63}$/;
 
 /**
  * Shared transport of the assistant services: `fetch` with the host's token, the current
@@ -82,18 +88,40 @@ export class NhAssistantTransport {
    * endpoint's status mapping, then the generic mapping. Response text is never used.
    */
   async failureCode(response: Response, statusCodes: NhAssistantStatusCodes = {}): Promise<string> {
+    return (await this.failure(response, statusCodes)).code;
+  }
+
+  /**
+   * The failure code of a response and the field errors of its body, both checked against safe
+   * patterns. Response text is never used.
+   */
+  private async failure(
+    response: Response,
+    statusCodes: NhAssistantStatusCodes
+  ): Promise<{ code: string; fieldErrors: Record<string, string[]> }> {
+    const fieldErrors: Record<string, string[]> = {};
     try {
       const text = await response.text();
       const body = text.length > 0 ? JSON.parse(text) as unknown : null;
-      const code = body && typeof body === 'object' ? (body as Record<string, unknown>)['code'] : null;
+      const record = body && typeof body === 'object' ? body as Record<string, unknown> : null;
+      const errors = record?.['errors'];
+      if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
+        for (const [field, values] of Object.entries(errors as Record<string, unknown>)) {
+          const safe = Array.isArray(values) ? values.filter((value): value is string => typeof value === 'string' && safeCode.test(value)) : [];
+          if (safeField.test(field) && safe.length > 0) {
+            fieldErrors[field] = safe;
+          }
+        }
+      }
+      const code = record?.['code'];
       if (typeof code === 'string' && safeCode.test(code)) {
-        return code;
+        return { code, fieldErrors };
       }
     } catch {
       // A non-JSON error body carries no code.
     }
 
-    return statusCodes[response.status] ?? nhAssistantCodeForStatus(response.status);
+    return { code: statusCodes[response.status] ?? nhAssistantCodeForStatus(response.status), fieldErrors };
   }
 
   private async executeJson<T>(
@@ -115,8 +143,8 @@ export class NhAssistantTransport {
     }
 
     if (!response.ok) {
-      const code = await this.failureCode(response, statusCodes);
-      subscriber.error(createApiError(response.status, code));
+      const failure = await this.failure(response, statusCodes);
+      subscriber.error(createApiError(response.status, failure.code, failure.fieldErrors));
       return;
     }
 
@@ -164,8 +192,8 @@ export class NhAssistantTransport {
   }
 }
 
-function createApiError(status: number, code: string): NhAssistantApiError {
-  return new NhAssistantApiError(status, code, nhAssistantErrorMessageKey(code));
+function createApiError(status: number, code: string, fieldErrors: Record<string, string[]> = {}): NhAssistantApiError {
+  return new NhAssistantApiError(status, code, nhAssistantErrorMessageKey(code), fieldErrors);
 }
 
 const reservedRequestHeaders = new Set(['authorization', 'accept', 'accept-language', 'content-type']);

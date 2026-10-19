@@ -5,7 +5,9 @@ import { NhAssistantApiError, nhAssistantErrorMessageKey } from '../services/nh-
 /** Converts any failure into a user-facing code and translation key, never raw text. */
 export function toNhAssistantError(error: unknown): NhAssistantError {
   if (error instanceof NhAssistantApiError) {
-    return { code: error.code, messageKey: error.messageKey };
+    return Object.keys(error.fieldErrors).length > 0
+      ? { code: error.code, messageKey: error.messageKey, fieldErrors: error.fieldErrors }
+      : { code: error.code, messageKey: error.messageKey };
   }
 
   return { code: NhAssistantClientErrorCodes.server, messageKey: nhAssistantErrorMessageKey(NhAssistantClientErrorCodes.server) };

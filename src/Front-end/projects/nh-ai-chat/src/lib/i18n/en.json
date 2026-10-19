@@ -557,7 +557,8 @@
             "set": "Confirm account",
             "code": "Confirm"
           }
-        }
+        },
+        "run-config": "Run configuration"
       },
       "agent-editor": {
         "new-title": "New agent",
@@ -795,6 +796,180 @@
           "stopped": "Stopped"
         },
         "replay-progress": "{{replayed}} of at most {{max}} runs replayed, {{skipped}} skipped"
+      },
+      "run-config": {
+        "back": "Back to agents",
+        "title": "Run configuration of {{name}}",
+        "description": "Skills and triggers that the administration adds without a deploy, made of the building blocks the application registers. New skills and triggers start in shadow, where nobody is notified and nothing executes.",
+        "problems": {
+          "title": "Some settings no longer fit the application and are out of effect:",
+          "kind": {
+            "agent": "Run settings:",
+            "skill": "Skill {{id}}:",
+            "candidate": "Candidate of skill {{id}}:",
+            "trigger": "Trigger {{id}}:"
+          },
+          "code": {
+            "unknown-agent": "the agent can no longer run on its own.",
+            "conflicts-with-code": "the application now declares one with the same id.",
+            "too-many-skills": "the agent has more skills than allowed.",
+            "tool-not-covered": "a tool is outside the agent's own tools.",
+            "unknown-profile": "the model profile no longer exists.",
+            "unknown-policy": "the approval policy no longer exists.",
+            "unknown-rule-handler": "the rules no longer exist.",
+            "unknown-event": "the event no longer exists.",
+            "unknown-subject-set": "the set of subjects no longer exists.",
+            "unknown-skill": "the skill no longer exists.",
+            "invalid-schedule": "the schedule or its time zone is not valid.",
+            "invalid": "a value is not valid."
+          }
+        },
+        "field-errors": {
+          "required": "Required.",
+          "invalid": "Not valid here.",
+          "too-long": "Too long.",
+          "not-found": "The application does not know this name."
+        },
+        "settings": {
+          "title": "Run settings",
+          "empty": "This agent only chats. Give it run settings to let it work on its own, with skills and triggers.",
+          "rights": "It has no rights of its own: in runs without a person it uses what the account it answers to may use, within its tools.",
+          "add": "Add run settings",
+          "edit": "Change run settings",
+          "remove": "Remove run settings",
+          "remove-explain": "The agent then only chats. Remove its skills and triggers first.",
+          "saved": "The run settings are saved.",
+          "removed": "The agent only chats again.",
+          "accountability-label": "Answers to",
+          "accountability": {
+            "agent": "The agent itself",
+            "subject-responsible": "The person responsible for the subject",
+            "service-account": "A technical account"
+          },
+          "accountability-hint": "The agent acts with this account's rights. An agent that answers to itself has none and can only propose.",
+          "service-account": "Technical account",
+          "triage": "Triage profile",
+          "triage-hint": "A cheap model that chooses the skill of a run that no trigger or rule routed.",
+          "retries": "Retries after a failure",
+          "max-concurrent": "Runs at the same time",
+          "max-per-subject": "Runs per subject per day",
+          "elevated-reads": "Reads with the account's rights",
+          "elevated": {
+            "restricted": "Shield from readers without the right",
+            "deny": "Refuse"
+          },
+          "gateway-reads": "Read through the application's data gateway with the account's rights",
+          "delegate": "Also use what the person who starts a run may use"
+        },
+        "rule-handler": "Rules",
+        "rule-handler-value": "Rules: {{name}}",
+        "policy-value": "Approval: {{name}}",
+        "profile-value": "Model: {{name}}",
+        "approval-policy": "Approval policy",
+        "model": "The model, no rules",
+        "none": "None",
+        "choose": "Choose…",
+        "max-tokens": "Tokens per run",
+        "daily-tool-calls": "Tool calls per day",
+        "daily-tokens": "Tokens per day",
+        "budget-hint": "Leave empty for no limit. A daily budget needs both tool calls and tokens.",
+        "out-of-effect": "Out of effect",
+        "changed": "Changed by {{user}} on {{date}}.",
+        "needs-settings": "Give the agent run settings before you add skills and triggers.",
+        "skills": {
+          "description": "Skills in code come from the application. Skills added here have versions; a change goes live at once or runs in shadow next to the live version first.",
+          "add": "Add skill",
+          "added": "The skill is added. It starts in shadow; put it live from the agent's list.",
+          "saved": "The new version of the skill is live.",
+          "saved-candidate": "The new version runs in shadow next to the live version.",
+          "removed": "The skill is removed; its versions stay as history.",
+          "empty": "The agent has no skills yet.",
+          "new-title": "New skill",
+          "edit-title": "Change skill {{skill}} (version {{version}})",
+          "id": "Skill id",
+          "id-hint": "Lowercase letters, digits and dashes, such as progress-note.",
+          "description-label": "What the skill is for",
+          "description-hint": "Triage and the model choose the skill by this description.",
+          "instructions": "Instructions",
+          "instructions-hint": "Read after the agent's own instructions while it works in the skill.",
+          "tools": "Tools",
+          "tools-hint": "Narrow the agent's tools for this skill. None selected: the agent's tools.",
+          "profile": "Model profile",
+          "agent-profile": "The agent's profile",
+          "agent-policy": "The agent's policy",
+          "apply": "How the change takes effect",
+          "apply-shadow": "Evaluate in shadow next to the live version first",
+          "apply-live": "Put live at once",
+          "starts-in-shadow": "A new skill starts in shadow.",
+          "versions": "Versions",
+          "remove-explain": "Its versions stay as history. A trigger that starts it must go first."
+        },
+        "candidate": {
+          "badge": "Candidate v{{version}}",
+          "explain": "Version {{version}} runs in shadow next to the live version on the same events: {{description}}",
+          "compare": "Compare",
+          "promote": "Promote",
+          "confirm-promote": "Confirm promote",
+          "discard": "Discard",
+          "confirm-discard": "Confirm discard",
+          "promoted": "The candidate is the live version now.",
+          "discarded": "The candidate is discarded; it stays as history.",
+          "comparison": "Live version and candidate of {{skill}}",
+          "live-column": "Live (v{{version}})",
+          "candidate-column": "Candidate (v{{version}})",
+          "runs": "Runs",
+          "completed": "Completed",
+          "failed": "Failed",
+          "proposals": "Proposals",
+          "tokens": "Tokens",
+          "paired": "Both handled {{count}} of the same events since {{date}}."
+        },
+        "status": {
+          "live": "Live",
+          "candidate": "Candidate",
+          "superseded": "Earlier",
+          "discarded": "Discarded"
+        },
+        "triggers": {
+          "title": "Triggers",
+          "description": "Triggers in code come from the application. Triggers added here start the agent on the application's events or on a schedule.",
+          "add": "Add trigger",
+          "added": "The trigger is added. It starts in shadow.",
+          "saved": "The trigger is saved.",
+          "removed": "The trigger is removed.",
+          "live": "The trigger works live.",
+          "in-shadow": "The trigger works in shadow.",
+          "empty": "No triggers start the agent yet.",
+          "new-title": "New trigger",
+          "edit-title": "Change trigger {{trigger}}",
+          "id": "Trigger id",
+          "source": "Starts on",
+          "source-event": "An event of the application",
+          "source-schedule": "A schedule",
+          "event": "Event",
+          "debounce": "Wait for more events (seconds)",
+          "cron": "Schedule (cron)",
+          "cron-hint": "Five fields, such as 0 7 * * 1 for Mondays at seven.",
+          "time-zone": "Time zone",
+          "subject-set": "Subjects",
+          "message": "Message to every run",
+          "skill": "Skill",
+          "agent-routes": "The agent chooses the skill",
+          "skill-value": "Skill: {{skill}}",
+          "conflict": "While a run is busy",
+          "conflicts": {
+            "coalesce": "Merge into the waiting run",
+            "queue": "Wait for the run",
+            "supersede": "Replace the run",
+            "ignore": "Skip"
+          },
+          "sources": {
+            "event": "Event",
+            "schedule": "Schedule",
+            "webhook": "Webhook"
+          },
+          "starts-in-shadow": "A new trigger starts in shadow."
+        }
       }
     },
     "page-context": {

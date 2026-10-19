@@ -9,7 +9,7 @@ administration, with versions that an administrator puts live directly or evalua
 
 ## Status
 
-Accepted on 2026-10-19; in progress. Lars decided the [questions](#decision-record). Phases A1 to A4 follow the
+Accepted on 2026-10-19; implemented. Lars decided the [questions](#decision-record). Phases A1 to A4 follow the
 [delivery order](#delivery-order).
 
 | Phase | Status |
@@ -17,7 +17,7 @@ Accepted on 2026-10-19; in progress. Lars decided the [questions](#decision-reco
 | A1 | Implemented: building blocks, data skills and data triggers on agents in code, the snapshot with its stamp, the store, the `AgentRunConfiguration` migrations, `INhAssistantAgentConfiguration` with the admin endpoints, data schedules, and SPM-295. |
 | A2 | Implemented: run settings as data for agents created in the administration, the `Accountable` grant source with `ActWithAccountableRights()`, the `AgentRunSettings` migrations and SPM-296. |
 | A3 | Implemented: the choice at save, candidates in shadow next to the live version with their own runs and inputs, promotion, discarding, the comparison, the `AgentSkillCandidates` migrations and SPM-297. |
-| A4 | Open: the administration screens and the mock API. |
+| A4 | Implemented: `NhAssistantAgentRunConfigurationComponent` in the administration with run settings, skills, candidates and triggers, the admin API methods, field errors on `NhAssistantError`, the run configuration in the mock API with `runCatalog` and `codeTriggers`, the texts, and the project planner in the sample playground. |
 
 ## Problem
 

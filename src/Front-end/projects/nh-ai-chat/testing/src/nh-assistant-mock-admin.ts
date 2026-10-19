@@ -18,6 +18,7 @@ import {
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminAgent, NhAssistantMockRemoteTool, NhAssistantMockScenario } from './nh-assistant-mock.models';
+import { NhAssistantMockRunConfiguration } from './nh-assistant-mock-run-configuration';
 
 /** A mock response: status plus optional JSON body. */
 export interface NhAssistantMockResult {
@@ -65,6 +66,7 @@ export class NhAssistantMockAdmin {
   private readonly agents = new Map<string, StoredAgent>();
   private readonly servers = new Map<string, StoredServer>();
   private readonly replays = new Map<string, AgentReplay[]>();
+  private readonly runConfiguration: NhAssistantMockRunConfiguration;
   private readonly contextVersions: (ApplicationContextVersion & { text: string })[] = [];
   private preferences: AssistantPreferences;
   private canAdminister: boolean;
@@ -108,6 +110,14 @@ export class NhAssistantMockAdmin {
         codeDefinition: source === 'code' ? structuredClone(input) : null
       });
     }
+
+    this.runConfiguration = new NhAssistantMockRunConfiguration(
+      admin,
+      {
+        find: agentId => this.agents.get(agentId)?.agent,
+        setDataSkill: (agentId, skillId, description) => this.setDataSkill(agentId, skillId, description)
+      },
+      now);
 
     for (const { remoteTools, secret, ...input } of admin.mcpServers ?? []) {
       this.servers.set(input.id, {
@@ -193,6 +203,8 @@ export class NhAssistantMockAdmin {
         return this.context(method, id, body);
       case 'tools':
         return method === 'GET' && segments.length === 2 ? { status: 200, body: this.toolCatalog() } : failure(404, 'assistant-not-found');
+      case 'run-catalog':
+        return segments.length === 2 ? this.runConfiguration.runCatalog(method) : failure(404, 'assistant-not-found');
       case 'agents':
         if (id !== undefined && action === 'feedback') {
           return this.agentFeedback(method, id, child, segments.length);
@@ -202,6 +214,12 @@ export class NhAssistantMockAdmin {
         }
         if (id !== undefined && (action === 'replay' || action === 'replays') && segments.length === 4) {
           return this.agentReplay(method, id, action, body);
+        }
+        if (id !== undefined && action !== undefined) {
+          const configured = this.runConfiguration.handle(method, id, segments.slice(3), body, query);
+          if (configured) {
+            return configured;
+          }
         }
         if (id !== undefined && action === 'skills' && child !== undefined && segments[5] === 'state' && segments.length === 6) {
           return this.skillStateEndpoint(method, id, child, body);
@@ -861,6 +879,40 @@ export class NhAssistantMockAdmin {
       shadowOf: previous?.shadowOf ?? null,
       shadow: previous?.shadow ?? shadowState(false, false, null, false),
       serviceAccount: previous?.serviceAccount ?? null
+    };
+  }
+
+  /**
+   * A skill defined as data shows among the agent's skills as a skill in shadow by default, as the
+   * server shows it; removing it takes its state along.
+   */
+  private setDataSkill(agentId: string, skillId: string, description: string | null): void {
+    const stored = this.agents.get(agentId);
+    if (!stored) {
+      return;
+    }
+    const others = (stored.agent.skills ?? []).filter(skill => skill.skillId !== skillId);
+    const existing = (stored.agent.skills ?? []).find(skill => skill.skillId === skillId);
+    stored.agent = {
+      ...stored.agent,
+      skills: description === null
+        ? others
+        : [...others, existing ? { ...existing, description } : {
+          skillId,
+          description,
+          runState: 'active',
+          changedAt: null,
+          changedBy: null,
+          reason: null,
+          waitingInputs: 0,
+          toolCallsToday: 0,
+          tokensToday: 0,
+          dailyToolCalls: null,
+          dailyTokens: null,
+          cancelledRuns: 0,
+          startedRuns: 0,
+          shadow: shadowState(true, true, null, stored.agent.shadow?.locked ?? false)
+        }]
     };
   }
 

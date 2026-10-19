@@ -3,6 +3,9 @@ import { Observable } from 'rxjs';
 import {
   AdminAgent,
   AdminAgentInput,
+  AgentRunConfiguration,
+  AgentRunSettings,
+  AgentRunSettingsRequest,
   AgentEvaluation,
   AgentEvaluationFilter,
   AgentFeedbackExportFilter,
@@ -16,14 +19,25 @@ import {
   AgentSkillState,
   AgentState,
   ApplicationContext,
+  DataSkill,
+  DataSkillRequest,
+  DataSkillVersion,
+  DataTrigger,
+  DataTriggerRequest,
+  DataTriggerShadowRequest,
   ApplicationContextVersion,
   McpServer,
   McpServerInput,
   McpServerTestResult,
   McpTool,
+  RunCatalog,
+  RunConfigurationRemoval,
   SetAgentServiceAccountRequest,
   SetAgentShadowRequest,
   SetAgentStateRequest,
+  SkillCandidateRequest,
+  SkillComparison,
+  SkillComparisonFilter,
   ToolCatalogEntry,
   UpdateAdminAgentRequest,
   UpdateApplicationContextRequest,
@@ -225,6 +239,80 @@ export class NhAssistantAdminApiService {
     return this.request<AgentReplayList>('GET', `${agentPath(variantId)}/replays`);
   }
 
+  /** The building blocks in code that run settings, skills and triggers defined as data can name. */
+  getRunCatalog(): Observable<RunCatalog> {
+    return this.request<RunCatalog>('GET', 'admin/run-catalog');
+  }
+
+  /**
+   * The agent's run settings, skills and triggers, in code and as data, and the data that no longer
+   * fits the code. An agent in code without a run configuration answers `assistant-agent-not-found`.
+   */
+  getAgentConfiguration(agentId: string): Observable<AgentRunConfiguration> {
+    return this.request<AgentRunConfiguration>('GET', `${agentPath(agentId)}/configuration`);
+  }
+
+  /**
+   * Adds or changes the run settings of an agent created in the administration. An agent in code
+   * fails with `assistant-run-settings-in-code`; an unknown technical account with
+   * `assistant-service-account-not-found`.
+   */
+  saveRunSettings(agentId: string, request: AgentRunSettingsRequest): Observable<AgentRunSettings> {
+    return this.request<AgentRunSettings>('PUT', `${agentPath(agentId)}/run-settings`, request);
+  }
+
+  /** Removes the run settings; while data skills or triggers belong to the agent, `assistant-run-settings-in-use`. */
+  removeRunSettings(agentId: string, removal: RunConfigurationRemoval = {}): Observable<void> {
+    return this.request<void>('DELETE', withQuery(`${agentPath(agentId)}/run-settings`, removal));
+  }
+
+  /**
+   * Adds a skill defined as data, which starts in shadow, or stores its next version: with `apply`
+   * `live` at once, with `shadow` as the candidate that runs in shadow next to the live version.
+   */
+  saveDataSkill(agentId: string, skillId: string, request: DataSkillRequest): Observable<DataSkill> {
+    return this.request<DataSkill>('PUT', skillPath(agentId, skillId), request);
+  }
+
+  /** Takes a skill defined as data out of effect; while a data trigger names it, `assistant-skill-in-use`. */
+  removeDataSkill(agentId: string, skillId: string, removal: RunConfigurationRemoval = {}): Observable<void> {
+    return this.request<void>('DELETE', withQuery(skillPath(agentId, skillId), removal));
+  }
+
+  /** Every version of a skill defined as data, newest first. */
+  getDataSkillVersions(agentId: string, skillId: string): Observable<DataSkillVersion[]> {
+    return this.request<DataSkillVersion[]>('GET', `${skillPath(agentId, skillId)}/versions`);
+  }
+
+  /** Makes the candidate the live version of its skill. */
+  promoteSkillCandidate(agentId: string, skillId: string, request: SkillCandidateRequest): Observable<DataSkill> {
+    return this.request<DataSkill>('POST', `${skillPath(agentId, skillId)}/candidate/promote`, request);
+  }
+
+  /** Discards the candidate; it stays as history. */
+  discardSkillCandidate(agentId: string, skillId: string, request: SkillCandidateRequest): Observable<void> {
+    return this.request<void>('POST', `${skillPath(agentId, skillId)}/candidate/discard`, request);
+  }
+
+  /** Compares the candidate with the live version on the runs they made in the period. */
+  compareSkillCandidate(agentId: string, skillId: string, filter: SkillComparisonFilter = {}): Observable<SkillComparison> {
+    return this.request<SkillComparison>('GET', withQuery(`${skillPath(agentId, skillId)}/candidate/comparison`, filter));
+  }
+
+  /** Adds a trigger defined as data, which starts in shadow, or changes one in the mode it has. */
+  saveDataTrigger(agentId: string, triggerId: string, request: DataTriggerRequest): Observable<DataTrigger> {
+    return this.request<DataTrigger>('PUT', triggerPath(agentId, triggerId), request);
+  }
+
+  removeDataTrigger(agentId: string, triggerId: string, removal: RunConfigurationRemoval = {}): Observable<void> {
+    return this.request<void>('DELETE', withQuery(triggerPath(agentId, triggerId), removal));
+  }
+
+  /** Puts a trigger defined as data in shadow or live. */
+  setDataTriggerShadow(agentId: string, triggerId: string, request: DataTriggerShadowRequest): Observable<DataTrigger> {
+    return this.request<DataTrigger>('POST', `${triggerPath(agentId, triggerId)}/shadow`, request);
+  }
+
   private async download(path: string): Promise<Blob> {
     let response: Response;
     try {
@@ -252,6 +340,14 @@ function feedbackPath(agentId: string): string {
 
 function agentPath(agentId: string): string {
   return `admin/agents/${encodeURIComponent(agentId)}`;
+}
+
+function skillPath(agentId: string, skillId: string): string {
+  return `${agentPath(agentId)}/skills/${encodeURIComponent(skillId)}`;
+}
+
+function triggerPath(agentId: string, triggerId: string): string {
+  return `${agentPath(agentId)}/triggers/${encodeURIComponent(triggerId)}`;
 }
 
 /** Appends the filter values that are set as query parameters. */

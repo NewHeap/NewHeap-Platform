@@ -53,6 +53,8 @@ import { NhAssistantUiState } from './nh-assistant-ui-state';
 export interface NhAssistantError {
   code: string;
   messageKey: string;
+  /** The field errors of an `assistant-validation` failure, by camelCase field name. */
+  fieldErrors?: Readonly<Record<string, readonly string[]>>;
 }
 
 /**

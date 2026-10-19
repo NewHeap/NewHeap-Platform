@@ -557,7 +557,8 @@
             "set": "Account bevestigen",
             "code": "Bevestigen"
           }
-        }
+        },
+        "run-config": "Runconfiguratie"
       },
       "agent-editor": {
         "new-title": "Nieuwe agent",
@@ -795,6 +796,180 @@
           "stopped": "Gestopt"
         },
         "replay-progress": "{{replayed}} van hoogstens {{max}} runs herhaald, {{skipped}} overgeslagen"
+      },
+      "run-config": {
+        "back": "Terug naar agents",
+        "title": "Runconfiguratie van {{name}}",
+        "description": "Vaardigheden en triggers die het beheer zonder deploy toevoegt, gemaakt van de bouwstenen die de applicatie registreert. Nieuwe vaardigheden en triggers starten in schaduw, waar niemand een melding krijgt en niets wordt uitgevoerd.",
+        "problems": {
+          "title": "Sommige instellingen passen niet meer bij de applicatie en werken niet:",
+          "kind": {
+            "agent": "Runinstellingen:",
+            "skill": "Vaardigheid {{id}}:",
+            "candidate": "Kandidaat van vaardigheid {{id}}:",
+            "trigger": "Trigger {{id}}:"
+          },
+          "code": {
+            "unknown-agent": "de agent kan niet meer zelfstandig werken.",
+            "conflicts-with-code": "de applicatie declareert er nu een met dezelfde id.",
+            "too-many-skills": "de agent heeft meer vaardigheden dan toegestaan.",
+            "tool-not-covered": "een tool valt buiten de eigen tools van de agent.",
+            "unknown-profile": "het modelprofiel bestaat niet meer.",
+            "unknown-policy": "het goedkeuringsbeleid bestaat niet meer.",
+            "unknown-rule-handler": "de regels bestaan niet meer.",
+            "unknown-event": "de gebeurtenis bestaat niet meer.",
+            "unknown-subject-set": "de set onderwerpen bestaat niet meer.",
+            "unknown-skill": "de vaardigheid bestaat niet meer.",
+            "invalid-schedule": "het schema of de tijdzone is niet geldig.",
+            "invalid": "een waarde is niet geldig."
+          }
+        },
+        "field-errors": {
+          "required": "Verplicht.",
+          "invalid": "Hier niet geldig.",
+          "too-long": "Te lang.",
+          "not-found": "De applicatie kent deze naam niet."
+        },
+        "settings": {
+          "title": "Runinstellingen",
+          "empty": "Deze agent chat alleen. Geef hem runinstellingen om hem zelfstandig te laten werken, met vaardigheden en triggers.",
+          "rights": "Hij heeft geen eigen rechten: in runs zonder persoon gebruikt hij wat het account waaraan hij verantwoording aflegt mag, binnen zijn tools.",
+          "add": "Runinstellingen toevoegen",
+          "edit": "Runinstellingen wijzigen",
+          "remove": "Runinstellingen verwijderen",
+          "remove-explain": "De agent chat daarna alleen. Verwijder eerst zijn vaardigheden en triggers.",
+          "saved": "De runinstellingen zijn opgeslagen.",
+          "removed": "De agent chat weer alleen.",
+          "accountability-label": "Legt verantwoording af aan",
+          "accountability": {
+            "agent": "De agent zelf",
+            "subject-responsible": "De verantwoordelijke van het onderwerp",
+            "service-account": "Een technisch account"
+          },
+          "accountability-hint": "De agent handelt met de rechten van dit account. Een agent die aan zichzelf verantwoording aflegt heeft er geen en kan alleen voorstellen.",
+          "service-account": "Technisch account",
+          "triage": "Triageprofiel",
+          "triage-hint": "Een goedkoop model dat de vaardigheid kiest van een run die geen trigger of regel heeft gerouteerd.",
+          "retries": "Nieuwe pogingen na een fout",
+          "max-concurrent": "Runs tegelijk",
+          "max-per-subject": "Runs per onderwerp per dag",
+          "elevated-reads": "Lezen met de rechten van het account",
+          "elevated": {
+            "restricted": "Afschermen voor lezers zonder het recht",
+            "deny": "Weigeren"
+          },
+          "gateway-reads": "Lezen via de datagateway van de applicatie met de rechten van het account",
+          "delegate": "Ook gebruiken wat de persoon die een run start mag"
+        },
+        "rule-handler": "Regels",
+        "rule-handler-value": "Regels: {{name}}",
+        "policy-value": "Goedkeuring: {{name}}",
+        "profile-value": "Model: {{name}}",
+        "approval-policy": "Goedkeuringsbeleid",
+        "model": "Het model, geen regels",
+        "none": "Geen",
+        "choose": "Kies…",
+        "max-tokens": "Tokens per run",
+        "daily-tool-calls": "Toolaanroepen per dag",
+        "daily-tokens": "Tokens per dag",
+        "budget-hint": "Laat leeg voor geen limiet. Een dagbudget vraagt zowel toolaanroepen als tokens.",
+        "out-of-effect": "Werkt niet",
+        "changed": "Gewijzigd door {{user}} op {{date}}.",
+        "needs-settings": "Geef de agent runinstellingen voordat je vaardigheden en triggers toevoegt.",
+        "skills": {
+          "description": "Vaardigheden in code komen uit de applicatie. Vaardigheden die je hier toevoegt hebben versies; een wijziging gaat direct live of draait eerst in schaduw naast de live versie.",
+          "add": "Vaardigheid toevoegen",
+          "added": "De vaardigheid is toegevoegd. Ze start in schaduw; zet haar live vanuit de lijst van de agent.",
+          "saved": "De nieuwe versie van de vaardigheid is live.",
+          "saved-candidate": "De nieuwe versie draait in schaduw naast de live versie.",
+          "removed": "De vaardigheid is verwijderd; haar versies blijven bewaard.",
+          "empty": "De agent heeft nog geen vaardigheden.",
+          "new-title": "Nieuwe vaardigheid",
+          "edit-title": "Vaardigheid {{skill}} wijzigen (versie {{version}})",
+          "id": "Id van de vaardigheid",
+          "id-hint": "Kleine letters, cijfers en streepjes, zoals progress-note.",
+          "description-label": "Waarvoor de vaardigheid dient",
+          "description-hint": "Triage en het model kiezen de vaardigheid op deze omschrijving.",
+          "instructions": "Instructies",
+          "instructions-hint": "Gelezen na de eigen instructies van de agent zolang hij in de vaardigheid werkt.",
+          "tools": "Tools",
+          "tools-hint": "Beperk de tools van de agent voor deze vaardigheid. Niets gekozen: de tools van de agent.",
+          "profile": "Modelprofiel",
+          "agent-profile": "Het profiel van de agent",
+          "agent-policy": "Het beleid van de agent",
+          "apply": "Hoe de wijziging ingaat",
+          "apply-shadow": "Eerst in schaduw beoordelen naast de live versie",
+          "apply-live": "Direct live zetten",
+          "starts-in-shadow": "Een nieuwe vaardigheid start in schaduw.",
+          "versions": "Versies",
+          "remove-explain": "Haar versies blijven bewaard. Een trigger die haar start moet eerst weg."
+        },
+        "candidate": {
+          "badge": "Kandidaat v{{version}}",
+          "explain": "Versie {{version}} draait in schaduw naast de live versie op dezelfde gebeurtenissen: {{description}}",
+          "compare": "Vergelijken",
+          "promote": "Promoveren",
+          "confirm-promote": "Promoveren bevestigen",
+          "discard": "Verwerpen",
+          "confirm-discard": "Verwerpen bevestigen",
+          "promoted": "De kandidaat is nu de live versie.",
+          "discarded": "De kandidaat is verworpen; hij blijft bewaard.",
+          "comparison": "Live versie en kandidaat van {{skill}}",
+          "live-column": "Live (v{{version}})",
+          "candidate-column": "Kandidaat (v{{version}})",
+          "runs": "Runs",
+          "completed": "Afgerond",
+          "failed": "Mislukt",
+          "proposals": "Voorstellen",
+          "tokens": "Tokens",
+          "paired": "Beide behandelden {{count}} dezelfde gebeurtenissen sinds {{date}}."
+        },
+        "status": {
+          "live": "Live",
+          "candidate": "Kandidaat",
+          "superseded": "Eerder",
+          "discarded": "Verworpen"
+        },
+        "triggers": {
+          "title": "Triggers",
+          "description": "Triggers in code komen uit de applicatie. Triggers die je hier toevoegt starten de agent op gebeurtenissen van de applicatie of volgens een schema.",
+          "add": "Trigger toevoegen",
+          "added": "De trigger is toegevoegd. Hij start in schaduw.",
+          "saved": "De trigger is opgeslagen.",
+          "removed": "De trigger is verwijderd.",
+          "live": "De trigger werkt live.",
+          "in-shadow": "De trigger werkt in schaduw.",
+          "empty": "Nog geen triggers starten de agent.",
+          "new-title": "Nieuwe trigger",
+          "edit-title": "Trigger {{trigger}} wijzigen",
+          "id": "Id van de trigger",
+          "source": "Start bij",
+          "source-event": "Een gebeurtenis van de applicatie",
+          "source-schedule": "Een schema",
+          "event": "Gebeurtenis",
+          "debounce": "Wachten op meer gebeurtenissen (seconden)",
+          "cron": "Schema (cron)",
+          "cron-hint": "Vijf velden, zoals 0 7 * * 1 voor maandag om zeven uur.",
+          "time-zone": "Tijdzone",
+          "subject-set": "Onderwerpen",
+          "message": "Bericht aan elke run",
+          "skill": "Vaardigheid",
+          "agent-routes": "De agent kiest de vaardigheid",
+          "skill-value": "Vaardigheid: {{skill}}",
+          "conflict": "Terwijl een run bezig is",
+          "conflicts": {
+            "coalesce": "Samenvoegen met de wachtende run",
+            "queue": "Wachten op de run",
+            "supersede": "De run vervangen",
+            "ignore": "Overslaan"
+          },
+          "sources": {
+            "event": "Gebeurtenis",
+            "schedule": "Schema",
+            "webhook": "Webhook"
+          },
+          "starts-in-shadow": "Een nieuwe trigger start in schaduw."
+        }
       }
     },
     "page-context": {

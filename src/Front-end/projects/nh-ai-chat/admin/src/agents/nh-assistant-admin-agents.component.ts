@@ -33,6 +33,7 @@ import {
 import { NhAssistantAdminAgentEditorComponent } from './nh-assistant-admin-agent-editor.component';
 import { NhAssistantAgentEvaluationComponent } from './nh-assistant-agent-evaluation.component';
 import { NhAssistantAgentFeedbackReportComponent } from './nh-assistant-agent-feedback-report.component';
+import { NhAssistantAgentRunConfigurationComponent } from './nh-assistant-agent-run-configuration.component';
 
 let nextId = 0;
 
@@ -46,8 +47,9 @@ const maxStateReason = 500;
  * and for every agent its run state with pause, stop and resume, its shadow mode and that of each
  * skill, and the technical account of an agent that answers to one, each with an optional reason.
  * Editing opens `nh-assistant-admin-agent-editor`; the feedback action opens
- * `nh-assistant-agent-feedback-report` for the agent, and the evaluation action of an agent with
- * shadow variants opens `nh-assistant-agent-evaluation`.
+ * `nh-assistant-agent-feedback-report` for the agent, the evaluation action of an agent with
+ * shadow variants opens `nh-assistant-agent-evaluation`, and the run configuration action opens
+ * `nh-assistant-agent-run-configuration` for the skills, triggers and run settings defined as data.
  */
 @Component({
   selector: 'nh-assistant-admin-agents',
@@ -59,7 +61,8 @@ const maxStateReason = 500;
     NhAssistantIconComponent,
     NhAssistantAdminAgentEditorComponent,
     NhAssistantAgentEvaluationComponent,
-    NhAssistantAgentFeedbackReportComponent
+    NhAssistantAgentFeedbackReportComponent,
+    NhAssistantAgentRunConfigurationComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-agents.component.html',
@@ -87,6 +90,8 @@ export class NhAssistantAdminAgentsComponent {
   readonly reporting = signal<AdminAgent | null>(null);
   /** The agent whose comparison with its shadow variants is shown instead of the list. */
   readonly evaluating = signal<AdminAgent | null>(null);
+  /** The agent whose run configuration is shown instead of the list. */
+  readonly configuring = signal<AdminAgent | null>(null);
   readonly confirming = signal<{ agentId: string; action: 'delete' | 'reset' } | null>(null);
   readonly busyAgentId = signal<string | null>(null);
   /** The state change whose reason is being entered, of the agent or one of its skills. */
@@ -158,6 +163,36 @@ export class NhAssistantAdminAgentsComponent {
     this.confirming.set(null);
     this.evaluating.set(agent);
     afterNextRender(() => this.backButton()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /**
+   * Whether the agent can run on its own and so has a run configuration: an agent in code with runs,
+   * or any agent created here, which gets run settings as data.
+   */
+  hasRunConfiguration(agent: AdminAgent): boolean {
+    return agent.source === 'admin' || (agent.shadow !== null && agent.shadow !== undefined);
+  }
+
+  /** Shows the agent's skills, triggers and run settings defined as data. */
+  openRunConfiguration(agent: AdminAgent): void {
+    this.error.set(null);
+    this.confirming.set(null);
+    this.configuring.set(agent);
+    afterNextRender(() => this.backButton()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /** Returns to the list, refreshed, and to the run configuration action of the agent. */
+  closeRunConfiguration(): void {
+    const agentId = this.configuring()?.id;
+    this.configuring.set(null);
+    this.refreshAgents();
+    if (agentId !== undefined) {
+      afterNextRender(() => {
+        const action = Array.from(this.host.nativeElement.querySelectorAll<HTMLButtonElement>('[data-run-config-agent]'))
+          .find(item => item.dataset['runConfigAgent'] === agentId);
+        action?.focus();
+      }, { injector: this.injector });
+    }
   }
 
   /** Returns to the list and to the evaluation action of the agent whose comparison was open. */
@@ -392,6 +427,19 @@ export class NhAssistantAdminAgentsComponent {
 
   private replace(agent: AdminAgent): void {
     this.agents.update(agents => agents.map(item => item.id === agent.id ? agent : item));
+  }
+
+  /**
+   * Reloads the agents behind the visible list, for example their skills after the run
+   * configuration changed; the list stays as it is when that fails.
+   */
+  private refreshAgents(): void {
+    this.subscription?.unsubscribe();
+    this.subscription = this.admin.getAgents().subscribe({
+      next: agents => this.agents.set(agents),
+      error: () => undefined
+    });
+    this.refreshChat();
   }
 
   /** Agent changes affect the agent picker of the panel. */

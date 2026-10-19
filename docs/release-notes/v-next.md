@@ -144,9 +144,28 @@ Apply the `AgentSkillCandidates` migration of `NewHeap.Platform.AI.Chat.SqlServe
 | Database schema change. | Apply the `AgentSkillCandidates` migration. |
 | A run of a candidate counts against the agent's and the skill's budget and run limits. | Allow for one extra run per event of the triggers that name a skill while it has a candidate. |
 
-## @newheap/platform-ai-chat: texts for the run configuration as data
+## @newheap/platform-ai-chat: run configuration in the administration
 
-The texts of the error codes `assistant-skill-in-code`, `assistant-trigger-in-code`,
+Each agent in `NhAssistantAdminAgentsComponent` gains **Run configuration**, which opens the new
+`NhAssistantAgentRunConfigurationComponent` of `@newheap/platform-ai-chat/admin`. It lists the skills
+and triggers in code read only, lets an administrator give an agent created in the administration run
+settings, and adds, changes, removes and versions skills and triggers as data, made of the names the
+application registers. New skills and triggers start in shadow, and a trigger is put live or back in
+shadow from its row. A change of a skill runs in shadow by default as its candidate; the screen
+compares it with the live version and promotes or discards it after confirmation. Settings that
+no longer fit the application are listed with their problem.
+
+`NhAssistantAdminApiService` gains `getRunCatalog`, `getAgentConfiguration`, `saveRunSettings`,
+`removeRunSettings`, `saveDataSkill`, `removeDataSkill`, `getDataSkillVersions`,
+`promoteSkillCandidate`, `discardSkillCandidate`, `compareSkillCandidate`, `saveDataTrigger`,
+`removeDataTrigger` and `setDataTriggerShadow`, with the models `RunCatalog`,
+`AgentRunConfiguration`, `AgentRunSettings`, `DataSkill`, `DataSkillVersion`, `SkillComparison`,
+`DataTrigger` and their requests. An `assistant-validation` refusal now carries the refused fields
+in `NhAssistantError.fieldErrors`, by camelCase field name. The mock API of
+`@newheap/platform-ai-chat/testing` serves the run configuration endpoints; give the administration
+scenario `runCatalog` and `codeTriggers` to name the building blocks and triggers in code.
+
+The texts of the screen and of the error codes `assistant-skill-in-code`, `assistant-trigger-in-code`,
 `assistant-skill-in-use`, `assistant-configuration-limit`, `assistant-run-settings-in-code`,
 `assistant-run-settings-in-use`, `assistant-skill-candidate-not-found` and
 `assistant-skill-version-gone` are bundled in English and Dutch. `AgentRun` gains `skillVersion` and

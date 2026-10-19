@@ -4520,7 +4520,7 @@
       "id": "SPM-295",
       "categoryId": "18",
       "title": "An administrator adds a progress note skill and its trigger to the project planner without a deploy, reads it in shadow and puts it live",
-      "surface": "`NhAssistantBuilder.AddTriggerEvent` with `NhAssistantTriggerEventBuilder`, `AddSubjectSet` and `AddRuleHandler` as building blocks; `INhAssistantAgentConfiguration` with `NhAssistantDataSkillRequest`, `NhAssistantDataTriggerRequest`, `NhAssistantDataSkillDto`, `NhAssistantDataTriggerDto` and `NhAssistantAgentConfigurationDto`; `GET admin/run-catalog`, `GET admin/agents/{id}/configuration`, `PUT` and `DELETE admin/agents/{id}/skills/{skillId}` and `admin/agents/{id}/triggers/{triggerId}`, `GET admin/agents/{id}/skills/{skillId}/versions` and `POST admin/agents/{id}/triggers/{triggerId}/shadow`; `NhAssistantRunConfigurationProblems`; `assistant-skill-in-code`, `assistant-trigger-in-code`, `assistant-skill-in-use` and `assistant-configuration-limit`; `AdminAgentSkillDefinitionChanged` and `AdminAgentTriggerDefinitionChanged`; the AgentRunConfiguration migrations for SQL Server and PostgreSQL",
+      "surface": "`NhAssistantBuilder.AddTriggerEvent` with `NhAssistantTriggerEventBuilder`, `AddSubjectSet` and `AddRuleHandler` as building blocks; `INhAssistantAgentConfiguration` with `NhAssistantDataSkillRequest`, `NhAssistantDataTriggerRequest`, `NhAssistantDataSkillDto`, `NhAssistantDataTriggerDto` and `NhAssistantAgentConfigurationDto`; `GET admin/run-catalog`, `GET admin/agents/{id}/configuration`, `PUT` and `DELETE admin/agents/{id}/skills/{skillId}` and `admin/agents/{id}/triggers/{triggerId}`, `GET admin/agents/{id}/skills/{skillId}/versions` and `POST admin/agents/{id}/triggers/{triggerId}/shadow`; `NhAssistantRunConfigurationProblems`; `assistant-skill-in-code`, `assistant-trigger-in-code`, `assistant-skill-in-use` and `assistant-configuration-limit`; `AdminAgentSkillDefinitionChanged` and `AdminAgentTriggerDefinitionChanged`; the AgentRunConfiguration migrations for SQL Server and PostgreSQL; `NhAssistantAgentRunConfigurationComponent` in `NhAssistantAdminAgentsComponent`, with `NhAssistantAdminApiService.getRunCatalog`, `getAgentConfiguration`, `saveDataSkill`, `removeDataSkill`, `getDataSkillVersions`, `saveDataTrigger`, `removeDataTrigger` and `setDataTriggerShadow`; `fieldErrors` on `NhAssistantError`; `runCatalog` and `codeTriggers` of `NhAssistantMockAdminScenario`",
       "outcome": "The planner's composition registers the completed-task event, the active projects with a deadline soon and the progress-note rules under names. The application imports the progress note as data: a skill that works by the progress-note rules and a trigger on the completed-task event. Both start in shadow, so a completed task gets its note in the planner's shadow thread, which only administrators see, while the planner's own follow-up stays live. Once the operator puts the trigger and the skill live, the next completed task gets its note in the live thread after the follow-up, without a deploy. Removing the note takes it out of effect and keeps its versions.",
       "implementation": "implemented",
       "evidence": [
@@ -4532,14 +4532,21 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfigurationEndpoints.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunConfigurationTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunConfigurationTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-run-configuration.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-run-configuration.component.html",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-transport.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
       ]
     },
     {
       "id": "SPM-296",
       "categoryId": "18",
       "title": "An administrator creates a project starter in the administration that proposes with the rights of its technical account",
-      "surface": "`INhAssistantAgentConfiguration.SaveRunSettingsAsync` and `RemoveRunSettingsAsync` with `NhAssistantAgentRunSettingsRequest` and `NhAssistantAgentRunSettingsDto`; `PUT` and `DELETE admin/agents/{id}/run-settings`; `RunSettings` and `Source` on `NhAssistantAgentConfigurationDto`; `NhAiGrantSource.Accountable` and `ActWithAccountableRights` on `NhAiAgentInvocationScope`; `NhAssistantAgentRunBuilder.ActWithAccountableRights`; `grantSource` `accountable` on tool calls; `assistant-run-settings-in-code` and `assistant-run-settings-in-use`; `AdminAgentRunSettingsChanged`; the AgentRunSettings migrations for SQL Server and PostgreSQL",
+      "surface": "`INhAssistantAgentConfiguration.SaveRunSettingsAsync` and `RemoveRunSettingsAsync` with `NhAssistantAgentRunSettingsRequest` and `NhAssistantAgentRunSettingsDto`; `PUT` and `DELETE admin/agents/{id}/run-settings`; `RunSettings` and `Source` on `NhAssistantAgentConfigurationDto`; `NhAiGrantSource.Accountable` and `ActWithAccountableRights` on `NhAiAgentInvocationScope`; `NhAssistantAgentRunBuilder.ActWithAccountableRights`; `grantSource` `accountable` on tool calls; `assistant-run-settings-in-code` and `assistant-run-settings-in-use`; `AdminAgentRunSettingsChanged`; the AgentRunSettings migrations for SQL Server and PostgreSQL; the run settings of `NhAssistantAgentRunConfigurationComponent`, with `NhAssistantAdminApiService.saveRunSettings` and `removeRunSettings`",
       "outcome": "The project starter composition registers the project-created event and the kickoff rules under names. An administrator creates the project starter in the administration with only the status tool, and the application gives it run settings as data: it answers to the operations account and works by the kickoff rules, and its trigger starts it on every created project. It has no grants: when a project is created as a draft, its rules propose to start it with the operations account's rights, recorded as the grant source accountable, and the project's approver decides. Removing its trigger and run settings lets it only chat again.",
       "implementation": "implemented",
       "evidence": [
@@ -4551,14 +4558,19 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunConfigurationTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantGatewayReadTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAgentInvocationGateTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAgentInvocationGateTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-run-configuration.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
       ]
     },
     {
       "id": "SPM-297",
       "categoryId": "18",
       "title": "A changed progress note is evaluated in shadow next to the live note, compared and promoted",
-      "surface": "`NhAssistantDataSkillRequest.Apply` with `NhAssistantSkillApplyModes`; the `candidate` status and `Candidate` on `NhAssistantDataSkillDto`; `INhAssistantAgentConfiguration.PromoteSkillCandidateAsync`, `DiscardSkillCandidateAsync` and `CompareSkillCandidateAsync` with `NhAssistantSkillComparisonDto`; `POST admin/agents/{id}/skills/{skillId}/candidate/promote` and `.../discard` with `NhAssistantSkillCandidateRequest` and `GET .../candidate/comparison`; `skillVersion` and `skillCandidate` on `NhAssistantRunDto`; `assistant-skill-candidate-not-found` and `assistant-skill-version-gone`; the AgentSkillCandidates migrations for SQL Server and PostgreSQL",
+      "surface": "`NhAssistantDataSkillRequest.Apply` with `NhAssistantSkillApplyModes`; the `candidate` status and `Candidate` on `NhAssistantDataSkillDto`; `INhAssistantAgentConfiguration.PromoteSkillCandidateAsync`, `DiscardSkillCandidateAsync` and `CompareSkillCandidateAsync` with `NhAssistantSkillComparisonDto`; `POST admin/agents/{id}/skills/{skillId}/candidate/promote` and `.../discard` with `NhAssistantSkillCandidateRequest` and `GET .../candidate/comparison`; `skillVersion` and `skillCandidate` on `NhAssistantRunDto`; `assistant-skill-candidate-not-found` and `assistant-skill-version-gone`; the AgentSkillCandidates migrations for SQL Server and PostgreSQL; the candidate of a skill in `NhAssistantAgentRunConfigurationComponent`, with `NhAssistantAdminApiService.compareSkillCandidate`, `promoteSkillCandidate` and `discardSkillCandidate`",
       "outcome": "The progress note of the planner is live. The application saves its change, which notes the share of completed tasks by the progress-percentage rules, for shadow: it becomes the note's candidate. A completed task then gets the live note in the planner's live thread and the candidate's note in its shadow thread, each run recording its version. The comparison counts one run of each and one event both handled. Once promoted, the candidate notes the next completed task live, as the note's new live version.",
       "implementation": "implemented",
       "evidence": [
@@ -4568,7 +4580,12 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunConfigurationTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunConfigurationTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-run-configuration.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
       ]
     }
   ]
