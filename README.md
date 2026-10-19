@@ -114,7 +114,9 @@ Install .NET 10, Node.js 22 or later, npm and Docker. Follow the
 [sample setup](examples/SampleProjectManagement/README.md#run-the-sample) to run
 the complete Aspire environment.
 
-Run the backend verification from the repository root:
+While developing, `npm run test:affected` runs only the tests your changes reach
+(`--dry-run` shows the plan). Run the complete backend verification from the
+repository root before merging:
 
 ```text
 dotnet test src/Back-end/NewHeap.Platform.sln

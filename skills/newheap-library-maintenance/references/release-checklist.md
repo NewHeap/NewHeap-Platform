@@ -1,6 +1,6 @@
 # Release checklist
 
-Run the commands applicable to the changed surface and record anything not run.
+Run the commands applicable to the changed surface and record anything not run. During development `npm run test:affected` runs the tests a change reaches (one database provider unless persistence changed); a release runs the full suites below on both providers.
 
 ```text
 npm run guidance:generate
