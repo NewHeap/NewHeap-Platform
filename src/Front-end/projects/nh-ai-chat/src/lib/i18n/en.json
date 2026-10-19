@@ -524,22 +524,29 @@
           "action": {
             "shadow": "Put in shadow",
             "live": "Put live",
-            "code": "Follow the code"
+            "code": "Follow the code",
+            "own": "Back to its own setting"
           },
           "explain": {
             "shadow": "New runs work in shadow threads that only administrators see: nobody is notified and nothing proposed there executes. Running work finishes as it started; the live threads and their open proposals stay.",
             "live": "New runs work live: people see them, are notified and decide their proposals.",
-            "code": "The mode in code decides again."
+            "code": "The mode in code decides again.",
+            "own": "The agent's own setting decides again: {{mode}}."
           },
           "skill-explain": {
             "shadow": "Work that reaches the skill {{skill}} goes to the shadow threads; the other skills keep their mode.",
             "live": "The skill {{skill}} works live again, unless its agent works in shadow.",
-            "code": "The mode in code decides again for the skill {{skill}}."
+            "code": "The mode in code decides again for the skill {{skill}}.",
+            "own": "The own setting of the skill {{skill}} decides again: {{mode}}."
           },
           "confirm": {
             "shadow": "Confirm shadow",
             "live": "Confirm live",
             "code": "Confirm"
+          },
+          "mode": {
+            "shadow": "in shadow",
+            "live": "live"
           }
         },
         "service-account": {

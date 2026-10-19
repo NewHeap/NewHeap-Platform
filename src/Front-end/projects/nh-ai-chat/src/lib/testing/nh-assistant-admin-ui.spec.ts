@@ -842,6 +842,29 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(element.querySelector(`#${note.getAttribute('aria-describedby')}`)?.textContent).toContain('The agent does not read it.');
   });
 
+  it('offers an agent created here its own setting instead of the code to return to', async () => {
+    await configure();
+    const { fixture } = await render(NhAssistantAdminAgentsComponent);
+    const list = fixture.componentInstance;
+    const shadow = (configured: boolean) => ({ shadow: false, configured, override: false, locked: false, changedAt: null, changedBy: null, reason: null });
+    const [codeAgent] = list.agents();
+    const created = {
+      ...codeAgent,
+      source: 'admin' as const,
+      shadow: shadow(true),
+      skills: [{ ...(codeAgent.skills?.[0] ?? {}), skillId: 'kickoff', description: 'Starts projects.', shadow: shadow(true) }]
+    } as typeof codeAgent;
+    const translate = TestBed.inject(TranslateService);
+
+    expect(translate.instant(list.shadowActionKey(codeAgent, 'code'))).toBe('Follow the code');
+    expect(translate.instant(list.shadowActionKey(created, 'code'))).toBe('Back to its own setting');
+    expect(translate.instant(list.shadowExplainKey(created, 'code', true), {
+      skill: 'Kickoff',
+      mode: translate.instant(list.ownShadowModeKey(created, 'kickoff'))
+    })).toBe('The own setting of the skill Kickoff decides again: in shadow.');
+    expect(translate.instant(list.shadowExplainKey(created, 'live', false))).toContain('New runs work live');
+  });
+
   it('deletes an admin agent only after confirmation', async () => {
     await configure();
     await firstValueFrom(TestBed.inject(NhAssistantAdminApiService).createAgent({

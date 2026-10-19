@@ -320,6 +320,30 @@ export class NhAssistantAdminAgentsComponent {
     afterNextRender(() => this.reasonInput()?.nativeElement.focus(), { injector: this.injector });
   }
 
+  /**
+   * The label of a shadow action. An agent created here has no code: returning to its "code" mode
+   * means returning to the mode it was set up with.
+   */
+  shadowActionKey(agent: AdminAgent, mode: AgentShadowMode): string {
+    return mode === 'code' && agent.source !== 'code'
+      ? 'nh-assistant.admin.agents.shadow.action.own'
+      : `nh-assistant.admin.agents.shadow.action.${mode}`;
+  }
+
+  /** The explanation of a shadow change of the agent or one of its skills. */
+  shadowExplainKey(agent: AdminAgent, mode: AgentShadowMode, skill: boolean): string {
+    const group = skill ? 'skill-explain' : 'explain';
+    return `nh-assistant.admin.agents.shadow.${group}.${mode === 'code' && agent.source !== 'code' ? 'own' : mode}`;
+  }
+
+  /** The mode the agent, or one of its skills, was set up with: what returning to it means. */
+  ownShadowModeKey(agent: AdminAgent, skillId?: string): string {
+    const shadow = skillId === undefined
+      ? agent.shadow
+      : agent.skills?.find(skill => skill.skillId === skillId)?.shadow;
+    return shadow?.configured ? 'nh-assistant.admin.agents.shadow.mode.shadow' : 'nh-assistant.admin.agents.shadow.mode.live';
+  }
+
   isChangingShadow(agentId: string, mode: AgentShadowMode, skillId?: string): boolean {
     const change = this.changingShadow();
     return change?.agentId === agentId && change.mode === mode && change.skillId === skillId;

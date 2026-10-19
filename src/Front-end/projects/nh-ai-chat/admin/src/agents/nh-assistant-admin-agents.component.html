@@ -169,7 +169,7 @@
                     [attr.aria-expanded]="isChangingShadow(agent.id, mode)"
                     [disabled]="busyAgentId() !== null"
                     (click)="askShadow(agent, mode)">
-                    {{ 'nh-assistant.admin.agents.shadow.action.' + mode | translate }}
+                    {{ shadowActionKey(agent, mode) | translate }}
                   </button>
                 }
               }
@@ -278,11 +278,11 @@
                             class="secondary"
                             type="button"
                             [attr.data-shadow-action]="mode"
-                            [attr.aria-label]="('nh-assistant.admin.agents.shadow.action.' + mode | translate) + ' ' + (skillNameKeys(agent.id, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId))"
+                            [attr.aria-label]="(shadowActionKey(agent, mode) | translate) + ' ' + (skillNameKeys(agent.id, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId))"
                             [attr.aria-expanded]="isChangingShadow(agent.id, mode, skill.skillId)"
                             [disabled]="busyAgentId() !== null"
                             (click)="askShadow(agent, mode, skill)">
-                            {{ 'nh-assistant.admin.agents.shadow.action.' + mode | translate }}
+                            {{ shadowActionKey(agent, mode) | translate }}
                           </button>
                         }
                       </div>
@@ -325,9 +325,9 @@
               @if (change.agentId === agent.id) {
                 <form class="stack" data-shadow-form (submit)="$event.preventDefault(); applyShadow(agent)">
                   @if (change.skillId) {
-                    <p class="muted">{{ 'nh-assistant.admin.agents.shadow.skill-explain.' + change.mode | translate: { skill: (skillNameKeys(agent.id, change.skillId) | nhAssistantTranslate: readableId(change.skillId)) } }}</p>
+                    <p class="muted">{{ shadowExplainKey(agent, change.mode, true) | translate: { skill: (skillNameKeys(agent.id, change.skillId) | nhAssistantTranslate: readableId(change.skillId)), mode: (ownShadowModeKey(agent, change.skillId) | translate) } }}</p>
                   } @else {
-                    <p class="muted">{{ 'nh-assistant.admin.agents.shadow.explain.' + change.mode | translate }}</p>
+                    <p class="muted">{{ shadowExplainKey(agent, change.mode, false) | translate: { mode: (ownShadowModeKey(agent) | translate) } }}</p>
                   }
                   <div class="field">
                     <label [for]="id + '-' + agent.id + '-shadow-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>

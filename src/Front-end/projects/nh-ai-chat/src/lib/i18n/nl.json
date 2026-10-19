@@ -524,22 +524,29 @@
           "action": {
             "shadow": "In schaduw zetten",
             "live": "Live zetten",
-            "code": "Code laten beslissen"
+            "code": "Code laten beslissen",
+            "own": "Terug naar de eigen instelling"
           },
           "explain": {
             "shadow": "Nieuwe runs werken in schaduwthreads die alleen beheerders zien: niemand krijgt een melding en niets wat daar wordt voorgesteld, wordt uitgevoerd. Lopend werk wordt afgemaakt zoals het begon; de live threads en hun open voorstellen blijven.",
             "live": "Nieuwe runs werken live: mensen zien ze, krijgen meldingen en beslissen over de voorstellen.",
-            "code": "De modus in de code beslist weer."
+            "code": "De modus in de code beslist weer.",
+            "own": "De eigen instelling van de agent beslist weer: {{mode}}."
           },
           "skill-explain": {
             "shadow": "Werk dat bij de vaardigheid {{skill}} komt, gaat naar de schaduwthreads; de andere vaardigheden houden hun modus.",
             "live": "De vaardigheid {{skill}} werkt weer live, tenzij haar agent in schaduw werkt.",
-            "code": "De modus in de code beslist weer voor de vaardigheid {{skill}}."
+            "code": "De modus in de code beslist weer voor de vaardigheid {{skill}}.",
+            "own": "De eigen instelling van de skill {{skill}} beslist weer: {{mode}}."
           },
           "confirm": {
             "shadow": "Schaduw bevestigen",
             "live": "Live bevestigen",
             "code": "Bevestigen"
+          },
+          "mode": {
+            "shadow": "in shadow",
+            "live": "live"
           }
         },
         "service-account": {

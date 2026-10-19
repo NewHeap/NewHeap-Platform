@@ -78,6 +78,8 @@ application:
   `tools`) and says where an agent started by a trigger writes its answer.
 - The reason of a change is labelled as a note for other administrators that the agent does not
   read, and confirmations offer "Cancel" instead of "Keep".
+- An agent created in the administration, and its skills, return to their own setting instead of
+  offering "Follow the code", and the confirmation says which mode that setting is.
 
 `AdminAgent` and `AdminAgentInput` gain `offeredInChat`, `RunCatalog` gains `approvalPolicySummaries`
 and `accountSearch`, and `AssistantAccount`, `ApprovalPolicySummary` and `ApproverSummary` are new.
