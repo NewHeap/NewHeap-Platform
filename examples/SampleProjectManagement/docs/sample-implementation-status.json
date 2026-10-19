@@ -2074,7 +2074,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunCancellation.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentTriggerTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentTriggerTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ConfigurationSecretsSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NhConfigurationSecrets.cs"
     ],
     "SPM-276": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiReviewTools.cs",

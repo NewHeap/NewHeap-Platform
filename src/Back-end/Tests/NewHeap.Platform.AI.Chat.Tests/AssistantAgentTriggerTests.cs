@@ -95,6 +95,16 @@ public sealed class AssistantAgentTriggerTests(AssistantDatabaseFixture database
         Assert.False(NhAssistantWebhookEndpoints.Verify(secret, timestamp, "delivery-1", signature["sha256=".Length..], body, now));
     }
 
+    [Fact]
+    public void A_webhook_refuses_a_short_secret_and_a_secret_reference_left_as_text()
+    {
+        Assert.True(NhAssistantWebhookEndpoints.IsUsableSecret(new string('s', 40)));
+        Assert.False(NhAssistantWebhookEndpoints.IsUsableSecret(null));
+        Assert.False(NhAssistantWebhookEndpoints.IsUsableSecret(new string('s', 31)));
+        // A missing secret leaves its appsettings reference as text, long enough but readable by anyone.
+        Assert.False(NhAssistantWebhookEndpoints.IsUsableSecret("${Secrets:Application:ReviewBoard:WebhookSecret}"));
+    }
+
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]

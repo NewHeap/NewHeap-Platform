@@ -33,6 +33,7 @@ using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AI;
 using SampleProjectManagement.Api.Controllers;
+using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.AI.AspNet.Mvc;
 using NewHeap.Platform.AI.AspNet;
@@ -2325,7 +2326,8 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
     {
         settings["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = JwtIssuer;
         settings["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = JwtKey;
-        settings[SampleIntakeReviewerComposition.ReviewBoardSecretKey] = ReviewBoardSecret;
+        // As the sample's secrets.json provides it: NewHeap configuration loads that file under "Secrets".
+        settings[$"{NhConfigurationSecrets.Prefix}:{SampleIntakeReviewerComposition.ReviewBoardSecretKey}"] = ReviewBoardSecret;
         // SPM-290: the bridge calls this host itself; the handler below sends it to the real port.
         settings[SampleAiBridgeComposition.SelfBaseUrlKey] = "http://sample.test/";
     }

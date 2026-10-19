@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "173294433ac5c88df8272777f9510bee615fa2ca53ebcf7105c8f30d6b3cde68",
-    "declarationCount": 8119,
+    "hash": "bee7a1558440b057c80f6628732e673a67aaf44e6d0ed314936f2fd1b2e4eeb6",
+    "declarationCount": 8131,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -21402,6 +21402,26 @@
         "declaration": "public static IHostBuilder AddNewHeapAspNetObservability(this IHostBuilder builder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKey.cs",
+        "declaration": "public static class NhJwtSigningKey {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKey.cs",
+        "declaration": "public const string ConfigurationKey = \"NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKey.cs",
+        "declaration": "public const int MinimumBytes = 32;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKey.cs",
+        "declaration": "public static string Read(IConfiguration configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKey.cs",
+        "declaration": "public static SymmetricSecurityKey Create(IConfiguration configuration) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/ServiceCollectionExtensions.cs",
         "declaration": "public static partial class ServiceCollectionExtensions {"
       },
@@ -28210,6 +28230,26 @@
         "declaration": "public static IHttpClientBuilder AddNhApiClient<TApi, TAccessTokenProvider>( this IServiceCollection services, Action<NhApiClientOptions> configure) where TApi : class where TAccessTokenProvider : class, INhApiAccessTokenProvider<TApi> {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NhConfigurationSecrets.cs",
+        "declaration": "public static partial class NhConfigurationSecrets {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NhConfigurationSecrets.cs",
+        "declaration": "public const string Prefix = \"Secrets\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NhConfigurationSecrets.cs",
+        "declaration": "public static string? Read(IConfiguration configuration, string key) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NhConfigurationSecrets.cs",
+        "declaration": "public static bool IsUnresolvedReference(string? value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NhConfigurationSecrets.cs",
+        "declaration": "public static IReadOnlyList<string> FindUnresolvedReferences(IConfiguration configuration) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/QueryableExtensions.cs",
         "declaration": "public static partial class QueryableExtensions {"
       },
@@ -30064,6 +30104,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
         "declaration": "public virtual async Task SendAsync( MailMessage mailMessage, MailAddress? fromMailAddress = null, string? formDisplayName = null, CancellationToken cancellationToken = default ) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhUnresolvedConfigurationReferenceReporter.cs",
+        "declaration": "public Task StartAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhUnresolvedConfigurationReferenceReporter.cs",
+        "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/ValidationService.cs",
@@ -36756,7 +36804,9 @@
       "ConfigureNhCommonConfiguration",
       "UseNhCommonConfiguration",
       "UseNewHeapAspnetCommonConfiguration",
-      "CreateConfigurationRoot"
+      "CreateConfigurationRoot",
+      "NhConfigurationSecrets",
+      "NhJwtSigningKey"
     ],
     "nh-media-storage-contract": [
       "UseFileSystemMediaStorage",

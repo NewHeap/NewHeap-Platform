@@ -71,7 +71,9 @@ example `C:\NewHeapAppSecrets`. Then copy
 `C:\NewHeapAppSecrets\SampleProjectManagement\secrets.json`. Configure at least
 the RabbitMQ values and
 `NewHeap.PlatformAspNetCommon.Authorization.JWT.Token.Key`. Generate a unique
-64-byte Base64 JWT key for every installation. Set
+64-byte Base64 JWT key for every installation; the API refuses to start without a key of
+at least 32 bytes, and warns at startup about every other `${Secrets:…}` reference whose
+secret is missing. Set
 `SampleProjectManagement.ReviewBoard.WebhookSecret` (at least 32 characters) to
 let the review board call the intake reviewer's webhook trigger; without it the
 webhook refuses every call.

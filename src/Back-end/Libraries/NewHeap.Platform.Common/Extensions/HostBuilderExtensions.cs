@@ -201,7 +201,7 @@ public static partial class HostBuilderExtensions
         }
 
         configBuilder
-            .WithPrefix("Secrets",
+            .WithPrefix(NhConfigurationSecrets.Prefix,
                 c => c
                     .AddJsonFile(Environment.ExpandEnvironmentVariables(Path.Combine(directoryPath, $"{secretsFileName}.json")),
                         true)

@@ -13,6 +13,28 @@ for an actor's id. The assistant's administration uses it to choose the account 
 |---|---|
 | None; the interface and its registration are new. | Register `AddNewHeapActorSearch<T>()` in an application without NewHeap Identity to offer accounts by name. |
 
+## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: secrets that fail closed
+
+A `${Secrets:…}` reference in appsettings whose secret is missing from the secrets file stays as
+literal text. For the JWT signing key that text, which anyone can read in appsettings, became the key
+tokens were signed and validated with. `NhJwtSigningKey` now refuses a missing key, an unresolved
+reference and a key shorter than 32 bytes, so `AddNewHeapPlatformAspNetCommon` (and
+`ConfigureNhJwtBearerValidationOptions` and `NhAuthenticationService`) stop with a message that names
+the setting, never its value. The key is read from the setting itself or else from `Secrets:` in the
+secrets file.
+
+`NhConfigurationSecrets.Read(configuration, key)` reads any secret the same way and returns `null` for a
+blank value or an unresolved reference; `IsUnresolvedReference` and `FindUnresolvedReferences` (keys
+only) are available for other checks. `AddNewHeapPlatformCommon` registers a startup check that logs a
+warning naming every setting that still holds an unresolved reference. Webhook triggers of
+`NewHeap.Platform.AI.Chat.AspNet` refuse a secret that is still such a reference, as they refuse one
+shorter than 32 characters.
+
+| Breaking change | Required action |
+|---|---|
+| The application no longer starts when the JWT signing key is missing, an unresolved `${Secrets:…}` reference or shorter than 32 bytes. | Set a random key of at least 32 bytes, for example 64 random bytes in Base64, as `NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key` in the secrets file, and replace every token signed with the old value. |
+| A webhook trigger whose secret is an unresolved reference refuses its calls. | Configure the secret. |
+
 ## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: agents outside the chat, accounts by name and agents created by applications
 
 An agent that only works on its own can be kept out of the chat: `ConfigureAgent(id, run =>

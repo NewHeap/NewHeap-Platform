@@ -1,6 +1,7 @@
 using System.ClientModel;
 using System.Globalization;
 using Microsoft.Extensions.AI;
+using NewHeap.Platform.Common;
 using OpenAI;
 
 namespace SampleProjectManagement.Api.Composition;
@@ -25,11 +26,6 @@ public sealed class SampleAssistantModel
     public const string SectionName = "SampleProjectManagement:Assistant:Model";
     public const string OpenAiProvider = "openai";
     public const string DefaultRegion = "external";
-
-    /// <summary>
-    /// NewHeap configuration loads the sample's <c>secrets.json</c> under this prefix.
-    /// </summary>
-    private const string SecretsPrefix = "Secrets";
 
     private readonly string _apiKey;
 
@@ -139,17 +135,11 @@ public sealed class SampleAssistantModel
 
     /// <summary>
     /// Appsettings, environment variables and command-line arguments use the key itself and win over
-    /// the secrets file.
+    /// the secrets file (<see cref="NhConfigurationSecrets"/>).
     /// </summary>
     private static string? Read(IConfiguration configuration, string name)
     {
-        var value = configuration[$"{SectionName}:{name}"];
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            value = configuration[$"{SecretsPrefix}:{SectionName}:{name}"];
-        }
-
-        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        return NhConfigurationSecrets.Read(configuration, $"{SectionName}:{name}")?.Trim();
     }
 
     /// <summary>
