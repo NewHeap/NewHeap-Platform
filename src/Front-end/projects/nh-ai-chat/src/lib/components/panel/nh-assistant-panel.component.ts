@@ -84,11 +84,15 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   readonly conversation = this.store.activeConversation;
   private readonly conversationId = computed(() => this.conversation()?.id ?? null);
   readonly messages = computed(() => this.conversation()?.messages ?? []);
-  readonly closed = computed(() => {
-    const status = this.conversation()?.status;
-    return status === 'failed' || status === 'archived';
-  });
+  /** An archived conversation takes no new messages. A failed one does: the person asks again. */
+  readonly closed = computed(() => this.conversation()?.status === 'archived');
   readonly busy = computed(() => this.store.streaming() || this.conversation()?.status === 'running');
+  /**
+   * The last turn failed and no error bar explains it, for example after the conversation was
+   * reopened. The panel then says so, while the composer stays available.
+   */
+  readonly lastTurnFailed = computed(() => this.conversation()?.status === 'failed'
+    && !this.busy() && this.store.error() === null);
   readonly composerDisabled = computed(() => !this.store.canSubmit());
   readonly editingQueuedId = signal<string | null>(null);
   readonly queuedDraft = signal('');

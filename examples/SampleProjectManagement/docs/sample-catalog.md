@@ -84,7 +84,9 @@ application's analytics without its text.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a
 badge per project from one summary request, the project dialog shows the open proposals of
 every agent on the project with the viewer's decision rights, and opening the conversation with
-the reviewer about a project creates its thread without starting a run.
+the reviewer about a project creates its thread without starting a run. Whoever starts the
+reviewer by hand hears over the assistant hub that its run started and ended, also on a new
+project whose members nobody changed yet, so the page refreshes without a reload.
 
 None of this requires NewHeap Identity (SPM-281). The sample's tests host a partner portal with
 its own EF context and its own users: it maps background operations into schema `nhops` and

@@ -13,6 +13,8 @@ using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
+using NSubstitute;
 using Xunit;
 
 namespace NewHeap.Platform.AI.Chat.Tests;
@@ -20,7 +22,8 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// <summary>
 /// How the work of an agent thread reaches people: proposals presented in each viewer's language,
 /// tool calls that stop waiting once their proposal closed, live updates for everyone on the
-/// subject, and names instead of ids, on both relational providers.
+/// subject and for the person who started a run by hand, and names instead of ids, on both
+/// relational providers.
 /// </summary>
 [Collection(AssistantDatabaseCollection.Name)]
 public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database)
@@ -29,6 +32,8 @@ public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database)
     private const string ChangeStatusFunction = "projects_change_status_v1";
     private const string Approver = "approver-1";
     private const string Member = "member-1";
+    private const string Manager = "manager-1";
+    private const string Administrator = "admin-1";
 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -110,6 +115,90 @@ public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database)
         Assert.False(names.ContainsKey("stranger"));
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_person_who_starts_an_agent_by_hand_hears_when_its_run_runs_and_ends(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient().RespondWithText("Nothing to change."));
+        var live = host.Services.GetRequiredService<RecordedLiveUpdates>();
+        var permissions = host.Services.GetRequiredService<SubjectPermissions>();
+        // The manager has a role on every project through a permission, so no member list names them.
+        permissions.Roles[Manager] = NhAiSubjectRole.Participant;
+        var projectId = Guid.NewGuid();
+
+        var started = await StartByHandAsync(host, projectId, Manager);
+        Assert.Equal(NhAssistantTriggerOutcomes.Started, started.Outcome);
+        var conversationId = started.ConversationId!.Value;
+        var runId = started.RunId!.Value;
+        // Nobody refreshed the project's members: the thread has no member snapshot yet.
+        Assert.Null((await RunStore(host).FindThreadByConversationAsync(conversationId, CancellationToken.None))!.MembersRefreshedAt);
+
+        live.Clear();
+        await ExecuteAsync(host, runId);
+
+        // The run proposed nothing, so no notification filled the snapshot. The live updates for
+        // running and for the end still reach the starter and, from the snapshot the first update
+        // filled, the people on the project.
+        Assert.Equal(NhAssistantRunStatuses.Completed, (await RunStore(host).FindRunAsync(runId, CancellationToken.None))!.Status);
+        var updates = RunUpdates(live, runId);
+        Assert.Equal(2, updates.Length);
+        Assert.All(updates, update =>
+        {
+            Assert.Equal(conversationId, update.Event.ConversationId);
+            Assert.Contains(Manager, update.ActorIds);
+            Assert.Contains(Approver, update.ActorIds);
+            Assert.Contains(Member, update.ActorIds);
+        });
+        Assert.NotNull((await RunStore(host).FindThreadByConversationAsync(conversationId, CancellationToken.None))!.MembersRefreshedAt);
+        Assert.DoesNotContain(
+            await RunStore(host).GetMembersAsync(NhAiSubjectInfo.CreateScopeKey(null, null), Subject(projectId), CancellationToken.None),
+            member => member.ActorId == Manager);
+
+        // Once the manager lost the role, updates about the run no longer reach them.
+        permissions.Roles.TryRemove(Manager, out _);
+        live.Clear();
+        await PublishRunUpdateAsync(host, conversationId, runId);
+
+        var update = Assert.Single(RunUpdates(live, runId));
+        Assert.DoesNotContain(Manager, update.ActorIds);
+        Assert.Contains(Approver, update.ActorIds);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_shadow_thread_that_an_administrator_starts_by_hand_tells_only_its_own_audience(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient().RespondWithText("Nothing to change."));
+        var live = host.Services.GetRequiredService<RecordedLiveUpdates>();
+        host.Services.GetRequiredService<SubjectPermissions>().Roles[Administrator] = NhAiSubjectRole.Approver;
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            Assert.True((await scope.ServiceProvider.GetRequiredService<INhAssistantAgentControl>()
+                .SetShadowAsync(AgentId, true, Administrator)).Success);
+        }
+
+        var started = await StartByHandAsync(host, Guid.NewGuid(), Administrator);
+        var shadowThread = (await RunStore(host).FindThreadByConversationAsync(started.ConversationId!.Value, CancellationToken.None))!;
+        Assert.True(shadowThread.Shadow);
+
+        live.Clear();
+        await ExecuteAsync(host, started.RunId!.Value);
+
+        // Neither the administrator who started it nor the people on the project hear about it
+        // beyond the shadow thread's own audience, and its first update fills no member snapshot.
+        var updates = RunUpdates(live, started.RunId.Value);
+        Assert.Equal(2, updates.Length);
+        Assert.All(updates, update =>
+        {
+            Assert.DoesNotContain(Administrator, update.ActorIds);
+            Assert.DoesNotContain(Approver, update.ActorIds);
+            Assert.DoesNotContain(Member, update.ActorIds);
+        });
+        Assert.Null((await RunStore(host).FindThreadByConversationAsync(shadowThread.ConversationId, CancellationToken.None))!.MembersRefreshedAt);
+    }
+
     private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, NhAiScriptedChatClient model)
     {
         return await AssistantTestHost.CreateAsync(
@@ -119,6 +208,9 @@ public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database)
             configure: services =>
             {
                 services.AddSingleton(new TestSubjects());
+                services.AddSingleton<SubjectPermissions>();
+                services.AddSingleton<RecordingOperations>();
+                services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
                 services.AddSingleton<RecordedLiveUpdates>();
                 services.Replace(ServiceDescriptor.Singleton<INhAssistantLiveUpdateTransport>(provider => provider.GetRequiredService<RecordedLiveUpdates>()));
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, TestPrincipalFactory>());
@@ -184,6 +276,48 @@ public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database)
         Assert.True(decided.Success);
     }
 
+    /// <summary>
+    /// Starts the agent for a person as <c>POST threads/start</c> does.
+    /// </summary>
+    private static async Task<NhAssistantTriggerReceipt> StartByHandAsync(AssistantTestHost host, Guid projectId, string actorId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<NhAssistantAgentTriggers>()
+            .StartNowAsync(AgentId, Subject(projectId), actorId, "Have a look at this project.", CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Executes the run's background operation once.
+    /// </summary>
+    private static async Task ExecuteAsync(AssistantTestHost host, Guid runId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var operation = ActivatorUtilities.CreateInstance<NhAssistantAgentRunOperation>(scope.ServiceProvider);
+        var result = await operation.ExecuteAsync(
+            new NhAssistantAgentRunRequest(runId),
+            Substitute.For<INhBackgroundOperationContext>(),
+            CancellationToken.None);
+        Assert.True(result.Success);
+    }
+
+    private static async Task PublishRunUpdateAsync(AssistantTestHost host, Guid conversationId, Guid runId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<NhAssistantAgentWorkUpdates>()
+            .PublishAsync(conversationId, NhAssistantAgentWorkReasons.Run, runId: runId, cancellationToken: CancellationToken.None);
+    }
+
+    private static (IReadOnlyCollection<string> ActorIds, NhAssistantLiveAgentWorkChanged Event)[] RunUpdates(
+        RecordedLiveUpdates live,
+        Guid runId)
+    {
+        return live.Sent
+            .Where(sent => sent.Event is NhAssistantLiveAgentWorkChanged { Reason: NhAssistantAgentWorkReasons.Run } work
+                && work.RunId == runId)
+            .Select(sent => (sent.ActorIds, (NhAssistantLiveAgentWorkChanged)sent.Event))
+            .ToArray();
+    }
+
     private static NhAssistantRunStore RunStore(AssistantTestHost host)
     {
         return host.Services.GetRequiredService<NhAssistantRunStore>();
@@ -195,9 +329,19 @@ public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database)
     }
 
     /// <summary>
-    /// The test subjects with readable member names.
+    /// People with a role on every test project through a permission rather than a membership: the
+    /// resolver grants the role, the member list does not name them.
     /// </summary>
-    private sealed class NamedSubjectResolver(TestSubjects subjects) : INhAiSubjectAccessResolver
+    private sealed class SubjectPermissions
+    {
+        public ConcurrentDictionary<string, NhAiSubjectRole> Roles { get; } = new();
+    }
+
+    /// <summary>
+    /// The test subjects with readable member names, plus the people of
+    /// <see cref="SubjectPermissions"/>.
+    /// </summary>
+    private sealed class NamedSubjectResolver(TestSubjects subjects, SubjectPermissions permissions) : INhAiSubjectAccessResolver
     {
         private readonly TestSubjectResolver _inner = new(subjects);
 
@@ -210,6 +354,11 @@ public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database)
 
         public ValueTask<NhAiSubjectAccess> ResolveAsync(NhAiSubjectRef subject, string actorId, CancellationToken cancellationToken = default)
         {
+            if (permissions.Roles.TryGetValue(actorId, out var role))
+            {
+                return ValueTask.FromResult(new NhAiSubjectAccess(role));
+            }
+
             return _inner.ResolveAsync(subject, actorId, cancellationToken);
         }
 

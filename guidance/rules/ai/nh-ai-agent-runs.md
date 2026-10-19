@@ -62,8 +62,14 @@ without running shows `rejected` or `not-executed` instead of waiting.
 Agent-run clients refresh through the live hub: `AgentWorkChanged` tells the thread's
 participants and everyone in the subject's member snapshot that a run, a proposal or
 its feedback changed, without content, so an approval inbox updates before its owner
-opened the thread. `decidedByDisplayName` and the report's `authorDisplayName` come from
-the member snapshot; show the id when they are missing.
+opened the thread. An update that names a run, about the run or one of its proposals, also
+reaches the person who started that run while `ResolveAsync` still gives them a role on the
+subject, also when no member list names them, and the first update of a thread whose member
+snapshot was never filled fills it. A person who starts an agent by hand therefore sees its
+run start and end live, also when the run proposes nothing; reload on those updates instead
+of polling the run. A shadow thread's updates reach only its own audience.
+`decidedByDisplayName` and the report's `authorDisplayName` come from the member snapshot;
+show the id when they are missing.
 
 Read the proposal an update names by its id, not through its thread. `GET approvals/{approvalId}`
 returns one proposal of an agent thread in any status as `NhAssistantSubjectProposalDto`: the
@@ -93,8 +99,10 @@ Describe each kind of subject with one `INhAiSubjectAccessResolver` registered
 through `AddSubjectType`. `DescribeAsync` returns the scope key, division,
 version and responsible person; `ResolveAsync` returns the live role of one
 person and is called on every request; `ListMembersAsync` feeds the member
-snapshot that listings and notifications use. Call
-`INhAiSubjectAccess.RefreshAsync` after the people on a subject change.
+snapshot that listings, notifications and live updates use. Both also run inside
+background operations, for notifications and live updates, so keep them free of
+request-only state. Call `INhAiSubjectAccess.RefreshAsync` after the people on a
+subject change.
 
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
@@ -470,7 +478,10 @@ profile and instructions that answer questions about the rules' proposals from t
 - Presenting a proposal in only one language in a multilingual application, or building
   presentation text from the request culture of whoever happened to start the run.
 - Polling agent-run endpoints for changes instead of reloading on `AgentWorkChanged`, or
-  putting content in a live update.
+  putting content in a live update. A run a person started by hand reports its start and end
+  to that person too; poll it only as a fallback for a missing hub connection.
+- Resolvers whose `ResolveAsync` or `ListMembersAsync` depend on the current HTTP request; live
+  updates and notifications call them from background operations.
 - Calling the thread lookup once per agent or the subject work once per list row; use the
   subject work for one subject and the summary for lists.
 - Starting a run just to open the conversation about a subject; use `threads/open`.
@@ -523,8 +534,12 @@ distinct authors per tool and agent version on both providers, and that forgetti
 subject deletes the feedback. Make a proposal in a headless run in one culture and read it
 in each supported culture; close a deferred proposal by rejection and by expiry and assert
 that its tool call reads `rejected` and `not-executed`; decide a proposal and assert that
-`AgentWorkChanged` reaches the subject's members. Read a subject's work as an approver, the
-initiator, a participant and an outsider and assert the decision rights and the refusal;
+`AgentWorkChanged` reaches the subject's members. Start an agent by hand on a subject without a
+member snapshot, as a person no member list names, let the run propose nothing and assert that
+`AgentWorkChanged` reaches that person and the subject's members when the run runs and when it
+ends, that it no longer reaches the person once their role is gone, and that a shadow thread
+started by hand reaches only its own audience and fills no snapshot. Read a subject's work as an
+approver, the initiator, a participant and an outsider and assert the decision rights and the refusal;
 summarize several subjects in one request and assert the counts per role; open a thread for a
 subject without work and assert that no run started. Change an object by hand, revalidate by
 subject and by key and assert that only the guarded proposal closes with its kind, reason code

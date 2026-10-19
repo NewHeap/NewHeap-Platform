@@ -399,6 +399,73 @@ public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database)
     }
 
     [Fact]
+    public async Task A_transient_provider_error_before_any_output_is_retried_once()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithProviderError("server_is_overloaded")
+            .RespondWithText("The roadmap project is active.");
+        await using var host = await AssistantTestHost.CreateAsync(database, AssistantTestProvider.PostgreSql, model);
+        var conversation = await host.CreateConversationAsync();
+
+        var turn = await host.SendAsync(conversation.Id, "How is the roadmap project?");
+
+        var end = Assert.IsType<NhAssistantTurnCompletedEvent>(turn.Events[^1]);
+        Assert.Equal(NhAssistantTurnStatuses.Completed, end.Status);
+        Assert.Null(end.ErrorCode);
+        Assert.Equal("The roadmap project is active.", turn.Text);
+        Assert.Equal(2, model.Requests.Count);
+        Assert.Equal(NhAssistantConversationStatuses.Idle, (await host.ReloadAsync(conversation.Id)).Status);
+        Assert.Contains(host.Logs.Messages, message => message.Contains("calls the model once more", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_repeated_transient_provider_error_fails_the_turn_and_the_conversation_takes_the_next_message()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithProviderError("server_is_overloaded")
+            .RespondWithProviderError("server_is_overloaded")
+            .RespondWithText("The roadmap project is active.");
+        await using var host = await AssistantTestHost.CreateAsync(database, AssistantTestProvider.PostgreSql, model);
+        var conversation = await host.CreateConversationAsync();
+
+        var failed = await host.SendAsync(conversation.Id, "How is the roadmap project?");
+
+        var end = Assert.IsType<NhAssistantTurnCompletedEvent>(failed.Events[^1]);
+        Assert.Equal(NhAssistantTurnStatuses.Failed, end.Status);
+        Assert.Equal(NhAssistantErrorCodes.ModelUnavailable, end.ErrorCode);
+        Assert.Equal(2, model.Requests.Count);
+        Assert.Equal(NhAssistantConversationStatuses.Failed, (await host.ReloadAsync(conversation.Id)).Status);
+
+        var next = await host.SendAsync(conversation.Id, "Please try again.");
+
+        Assert.True(next.Start.Success);
+        Assert.Equal(NhAssistantTurnStatuses.Completed, Assert.IsType<NhAssistantTurnCompletedEvent>(next.Events[^1]).Status);
+        Assert.Equal("The roadmap project is active.", next.Text);
+        Assert.Equal(NhAssistantConversationStatuses.Idle, (await host.ReloadAsync(conversation.Id)).Status);
+    }
+
+    [Theory]
+    [InlineData("insufficient_quota", null)]
+    [InlineData("server_is_overloaded", "Let me look")]
+    public async Task A_provider_error_that_is_not_transient_or_follows_output_is_not_retried(string code, string? textBefore)
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithProviderError(code, textBefore)
+            .RespondWithText("This answer must not be requested.");
+        await using var host = await AssistantTestHost.CreateAsync(database, AssistantTestProvider.PostgreSql, model);
+        var conversation = await host.CreateConversationAsync();
+
+        var turn = await host.SendAsync(conversation.Id, "How is the roadmap project?");
+
+        var end = Assert.IsType<NhAssistantTurnCompletedEvent>(turn.Events[^1]);
+        Assert.Equal(NhAssistantTurnStatuses.Failed, end.Status);
+        Assert.Equal(NhAssistantErrorCodes.ModelUnavailable, end.ErrorCode);
+        Assert.Equal(textBefore ?? string.Empty, turn.Text);
+        Assert.Single(model.Requests);
+        Assert.Equal(1, model.RemainingSteps);
+    }
+
+    [Fact]
     public async Task Approval_is_bound_to_the_expected_proposal_hash_and_never_to_the_agent()
     {
         var model = new NhAiScriptedChatClient()

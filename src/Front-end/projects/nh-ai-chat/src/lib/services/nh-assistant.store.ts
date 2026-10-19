@@ -134,6 +134,14 @@ interface NhAssistantSession {
   lastUsage: TurnUsage | null;
 }
 
+/**
+ * True when the server accepts a new message in a conversation with this status. A failed turn
+ * leaves the conversation open: the person can ask again in the same conversation or agent thread.
+ */
+function acceptsMessage(status: ConversationStatus | undefined): boolean {
+  return status === 'idle' || status === 'failed';
+}
+
 const conversationPageSize = 50;
 const cancelGracePeriodMs = 5_000;
 const maxSessions = 20;
@@ -246,10 +254,13 @@ export class NhAssistantStore {
   readonly pageContextExcluded = this.pageContextExcludedState.asReadonly();
   /** Whether the drawer was open when this account last left the application. */
   readonly restorePanelOpen = this.restorePanelOpenState.asReadonly();
-  /** True while the user can send: enabled, an agent is chosen and no turn runs or waits. */
+  /**
+   * True while the user can send: enabled, an agent is chosen and no turn runs or waits. A
+   * conversation whose last turn failed accepts a new message; an archived one does not.
+   */
   readonly canSend = computed(() => {
     const conversation = this.activeConversation();
-    const blocked = conversation !== null && conversation.status !== 'idle';
+    const blocked = conversation !== null && !acceptsMessage(conversation.status);
     return this.enabled() && this.selectedAgentIdState() !== null && !this.streaming() && !this.conversationLoadingState() && !blocked;
   });
   /** Messages not yet accepted by the server, for the open conversation. Never persisted. */
@@ -258,7 +269,7 @@ export class NhAssistantStore {
   /** Sending or queueing is available during a turn and while an approval waits. */
   readonly canSubmit = computed(() => (this.canSend() && !this.submittingState()) || (this.enabled()
     && !this.conversationLoading() && this.activeConversation() !== null
-    && ['idle', 'running', 'waiting-for-approval'].includes(this.activeConversation()!.status)));
+    && ['idle', 'failed', 'running', 'waiting-for-approval'].includes(this.activeConversation()!.status)));
   readonly queuePaused = computed(() => this.pausedQueuesState().has(this.activeIdState() ?? '') || this.error() !== null);
   /** Steering cancels the active turn before sending the selected correction. */
   readonly canSteer = computed(() => {
@@ -396,7 +407,7 @@ export class NhAssistantStore {
         const session = sessions.get(item.conversationId);
         return item.state === 'queued' && !paused.has(item.conversationId)
           && !queued.slice(0, index).some(previous => previous.conversationId === item.conversationId)
-          && session?.conversation.status === 'idle' && !session.streaming && !session.deciding && !session.error;
+          && acceptsMessage(session?.conversation.status) && !session?.streaming && !session?.deciding && !session?.error;
       });
       if (next) {
         untracked(() => void this.dispatchQueued(next));
@@ -584,9 +595,15 @@ export class NhAssistantStore {
     return this.sendMessage(text);
   }
 
-  /** Sends immediately when idle, otherwise appends to the conversation's FIFO queue. */
+  /**
+   * Sends immediately when the conversation accepts a message, otherwise appends to the
+   * conversation's FIFO queue. A shown error alone does not hold a message back while nothing is
+   * queued: the person asks again, for example after a failed turn. Queued messages still wait
+   * for an explicit `resumeQueue` after Stop or a failure.
+   */
   async submit(text: string): Promise<boolean> {
-    if (this.canSend() && this.queuedMessages().length === 0 && !this.queuePaused() && !this.submittingState()) {
+    const stopped = this.pausedQueuesState().has(this.activeIdState() ?? newConversationKey);
+    if (this.canSend() && this.queuedMessages().length === 0 && !stopped && !this.submittingState()) {
       const revision = this.accountRevision;
       this.submittingState.set(true);
       try {
@@ -696,7 +713,7 @@ export class NhAssistantStore {
     let conversation = queued ? this.sessionsState().get(queued.conversationId)?.conversation ?? null : this.activeConversation();
     const session = queued ? this.sessionsState().get(queued.conversationId) : null;
     const available = queued ? this.enabled() && !this.pausedQueuesState().has(queued.conversationId)
-      && conversation?.status === 'idle' && !session?.streaming
+      && acceptsMessage(conversation?.status) && !session?.streaming
       && !session?.deciding && this.agents().some(agent => agent.id === conversation?.agentId) : this.canSend();
     const maxChars = this.limits()?.maxMessageChars ?? Number.MAX_SAFE_INTEGER;
     if (trimmed.length === 0 || trimmed.length > maxChars || !available) {

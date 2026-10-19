@@ -112,6 +112,14 @@ an explicit send and restore it after a disappearing composer-owned control only
 the user has not moved focus elsewhere; skip automatic restoration on coarse pointers.
 Use a compact localized approval status; do not show the old sending-unavailable notice.
 
+A turn that fails leaves the conversation open, as the server does: the error bar keeps the
+translated failure, the composer stays available and the next message starts a new turn in
+the same conversation or agent thread. An explicit send goes out directly while nothing is
+queued, even with the error bar shown; queued messages still wait for `resumeQueue`. When a
+conversation whose last turn failed is reopened, the panel says that the last answer could
+not be completed. Only an archived conversation is closed for new messages. Custom layouts
+gate sending with `canSend`/`canSubmit` instead of blocking on the `failed` status.
+
 Let the thread render tool calls. Consecutive calls collapse into one
 `nh-assistant-tool-call-group` line that names the tool that runs now and counts
 finished calls, and afterwards summarizes how many tools were used and how many

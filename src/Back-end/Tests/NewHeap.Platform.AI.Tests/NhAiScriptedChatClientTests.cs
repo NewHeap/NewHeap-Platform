@@ -71,6 +71,26 @@ public sealed class NhAiScriptedChatClientTests
         Assert.Equal(2, client.Requests.Count);
     }
 
+    [Fact]
+    public async Task A_provider_error_ends_the_stream_after_its_text()
+    {
+        var client = new NhAiScriptedChatClient()
+            .RespondWithProviderError("server_is_overloaded", "Let me look")
+            .RespondWithText("Done.");
+
+        var updates = new List<ChatResponseUpdate>();
+        await foreach (var update in client.GetStreamingResponseAsync([new ChatMessage(ChatRole.User, "Find roadmap projects")]))
+        {
+            updates.Add(update);
+        }
+
+        Assert.Equal(["Let ", "me ", "look"], updates.Where(update => update.Text.Length > 0).Select(update => update.Text));
+        var error = Assert.IsType<ErrorContent>(Assert.Single(updates[^1].Contents));
+        Assert.Equal("server_is_overloaded", error.ErrorCode);
+        Assert.Empty(updates.SelectMany(update => update.Contents).OfType<UsageContent>());
+        Assert.Equal(1, client.RemainingSteps);
+    }
+
     private static async Task<IReadOnlyList<string>> PlayScriptAsync()
     {
         var client = new NhAiScriptedChatClient()

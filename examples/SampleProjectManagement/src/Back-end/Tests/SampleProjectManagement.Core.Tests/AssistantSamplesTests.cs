@@ -64,6 +64,38 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
     }
 
     [Fact]
+    public async Task SPM_245_a_transient_provider_error_is_retried_once_and_a_failed_turn_keeps_the_conversation_open()
+    {
+        host.Model.Use(new NhAiScriptedChatClient()
+            .RespondWithProviderError("server_is_overloaded")
+            .RespondWithText("One roadmap project is visible in your division.")
+            .RespondWithProviderError("server_is_overloaded")
+            .RespondWithProviderError("server_is_overloaded")
+            .RespondWithText("The roadmap project is active."));
+        using var client = host.CreateClient("spm-245-provider-user");
+        var conversationId = await host.CreateConversationAsync(client);
+
+        // The provider was overloaded once before it answered: the turn calls the model again.
+        var retried = await host.SendAsync(client, conversationId, "Which roadmap projects exist?");
+
+        Assert.Equal("completed", retried[^1].Data.GetProperty("status").GetString());
+
+        // It stays overloaded: the turn fails, but the conversation takes the next question.
+        var failed = await host.SendAsync(client, conversationId, "Is the roadmap project active?");
+
+        Assert.Equal("failed", failed[^1].Data.GetProperty("status").GetString());
+        Assert.Equal("assistant-model-unavailable", failed[^1].Data.GetProperty("errorCode").GetString());
+        var afterFailure = await host.GetJsonAsync(client, $"/api/assistant/conversations/{conversationId}");
+        Assert.Equal("failed", afterFailure.GetProperty("status").GetString());
+
+        var asked = await host.SendAsync(client, conversationId, "Is the roadmap project active?");
+
+        Assert.Equal("completed", asked[^1].Data.GetProperty("status").GetString());
+        var conversation = await host.GetJsonAsync(client, $"/api/assistant/conversations/{conversationId}");
+        Assert.Equal("idle", conversation.GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task SPM_246_a_status_change_pauses_for_approval_and_resumes_with_verification()
     {
         var projectId = Guid.NewGuid();

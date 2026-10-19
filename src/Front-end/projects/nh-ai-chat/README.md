@@ -125,6 +125,11 @@ conversation opens, and live only in this tab's memory. They clear on account ch
 loss of access, deletion or leaving a conversation. Standalone composers preserve their
 default behavior; opt into the extra send button with `[queueWhileBusy]="true"` and
 connect it to `NhAssistantStore.submit` using `canSubmit`.
+A failed turn leaves the conversation open, as on the server: the error bar keeps the
+translated failure and the next message starts a new turn in the same conversation or agent
+thread. While nothing is queued, that message is sent directly even with the error bar shown.
+A reopened conversation whose last turn failed says that the last answer could not be
+completed. Only an archived conversation is closed for new messages.
 Explicit send returns focus to the
 editor. Automatic focus restoration happens only when a disappearing composer control
 owned focus, never after the user chose another control, and is skipped for coarse

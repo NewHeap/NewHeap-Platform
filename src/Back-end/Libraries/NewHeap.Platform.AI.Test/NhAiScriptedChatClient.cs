@@ -6,7 +6,7 @@ namespace NewHeap.Platform.AI.Test;
 
 /// <summary>
 /// A deterministic <see cref="IChatClient"/> that plays a script of model responses: text,
-/// function calls, or both. Every response that follows a function call first verifies that the
+/// function calls, both, or a provider error inside the stream. Every response that follows a function call first verifies that the
 /// incoming messages contain a <see cref="FunctionResultContent"/> for each call it issued, so a
 /// test proves the tool result actually reached the model. Streaming splits text into word chunks
 /// and ends with usage content; non-streaming returns the same response in one piece.
@@ -82,6 +82,18 @@ public sealed class NhAiScriptedChatClient : IChatClient
     }
 
     /// <summary>
+    /// Adds a response that fails inside its stream, as a provider reports an overload, a rate limit or
+    /// a quota problem after the response started: optional <paramref name="text"/> first, then an
+    /// <see cref="ErrorContent"/> with <paramref name="errorCode"/>, for example
+    /// <c>server_is_overloaded</c>. A streamed response ends after the error.
+    /// </summary>
+    public NhAiScriptedChatClient RespondWithProviderError(string errorCode, string? text = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
+        return Add(new ScriptStep(text, [], errorCode));
+    }
+
+    /// <summary>
     /// Adds a response that calls one function. <paramref name="arguments"/> is serialized with web
     /// defaults and its top-level properties become the call arguments, for example
     /// <c>new { input = new { query = "roadmap" } }</c> for a generated NewHeap tool.
@@ -148,6 +160,11 @@ public sealed class NhAiScriptedChatClient : IChatClient
                 await Task.Yield();
                 cancellationToken.ThrowIfCancellationRequested();
                 yield return Update(played, content);
+                if (content is ErrorContent)
+                {
+                    // A provider error ends the stream, as it does with a real provider.
+                    yield break;
+                }
             }
         }
 
@@ -204,6 +221,10 @@ public sealed class NhAiScriptedChatClient : IChatClient
                 var callId = call.CallId ?? $"scripted-call-{++_generatedCallIds}";
                 _pendingCallIds.Add(callId);
                 contents.Add(new FunctionCallContent(callId, call.FunctionName, new Dictionary<string, object?>(call.Arguments)));
+            }
+            if (step.ProviderErrorCode is not null)
+            {
+                contents.Add(new ErrorContent("The scripted provider could not answer.") { ErrorCode = step.ProviderErrorCode });
             }
 
             var inputCharacters = received.Sum(message => (long)message.Text.Length)
@@ -280,7 +301,8 @@ public sealed class NhAiScriptedChatClient : IChatClient
 
     private sealed record ScriptStep(
         string? Text,
-        IReadOnlyList<ScriptedCall> Calls);
+        IReadOnlyList<ScriptedCall> Calls,
+        string? ProviderErrorCode = null);
 
     private sealed record PlayedResponse(
         ChatMessage Message,

@@ -25,6 +25,7 @@
       "empty-title": "How can I help?",
       "empty-description": "Ask a question or describe a task. Actions that change data always ask for your approval first.",
       "conversation-closed": "This conversation cannot continue. Start a new conversation.",
+      "last-turn-failed": "The last answer could not be completed. Send your message again to continue.",
       "dismiss-error": "Dismiss message",
       "usage": "{{inputTokens}} input tokens, {{outputTokens}} output tokens, {{toolCalls}} tool calls",
       "open-preferences": "Your assistant preferences",

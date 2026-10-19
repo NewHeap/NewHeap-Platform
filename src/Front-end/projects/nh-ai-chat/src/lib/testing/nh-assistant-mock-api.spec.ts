@@ -43,6 +43,7 @@ const scenario: NhAssistantMockScenario = {
       ]
     },
     { match: /broken/i, steps: [{ error: { code: 'assistant-server', messageKey: 'nh-assistant.errors.assistant-server' } }] },
+    { match: /overloaded/i, steps: [{ text: 'Checking.' }, { fail: { errorCode: 'assistant-model-unavailable' } }] },
     { match: 'slow', steps: [{ text: 'one two three four five six seven eight nine ten' }] },
     {
       steps: [
@@ -155,6 +156,24 @@ describe('provideNhAssistantMockApi', () => {
     expect((await firstValueFrom(api.getConversation(id))).status).toBe('idle');
   });
 
+  it('accepts the next message after a failed turn, like the server', async () => {
+    const id = await newConversation();
+
+    const failed = await firstValueFrom(api.sendMessage(id, { text: 'Model overloaded', clientMessageId: 'c1' }).pipe(toArray()));
+    const completed = failed[failed.length - 1];
+
+    expect(completed.type).toBe('turn.completed');
+    expect(completed.data).toEqual(jasmine.objectContaining({ status: 'failed', errorCode: 'assistant-model-unavailable' }));
+    expect((await firstValueFrom(api.getConversation(id))).status).toBe('failed');
+
+    const next = await firstValueFrom(api.sendMessage(id, { text: 'Show projects', clientMessageId: 'c2' }).pipe(toArray()));
+
+    expect(next.map(event => event.type)).toContain('message.delta');
+    const stored = await firstValueFrom(api.getConversation(id));
+    expect(stored.status).toBe('idle');
+    expect(stored.messages.map(message => message.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
+  });
+
   it('cancels a running turn with turn.completed cancelled', async () => {
     TestBed.resetTestingModule();
     setup({ ...scenario, timing: { firstEventDelayMs: 0, eventDelayMs: 20, chunkSize: 7 } });
@@ -194,6 +213,26 @@ describe('provideNhAssistantMockApi', () => {
     expect(parts.map(part => part.type)).toEqual(['text', 'tool-call', 'approval', 'text']);
     expect(parts[2]).toEqual(jasmine.objectContaining({ status: 'rejected' }));
     expect(store.activeConversation()!.status).toBe('idle');
+  });
+
+  it('lets the store ask again in the same conversation after a failed turn', async () => {
+    const store = TestBed.inject(NhAssistantStore);
+    await store.initialize();
+
+    await store.submit('Model overloaded');
+    await waitFor(() => !store.streaming() && store.error() !== null);
+
+    expect(store.error()?.code).toBe('assistant-model-unavailable');
+    expect(store.activeConversation()!.status).toBe('failed');
+    expect(store.canSend()).toBeTrue();
+    const conversationId = store.activeConversation()!.id;
+
+    expect(await store.submit('Show projects')).toBeTrue();
+    await waitFor(() => !store.streaming() && store.activeConversation()!.status === 'idle');
+
+    expect(store.activeConversation()!.id).toBe(conversationId);
+    expect(store.error()).toBeNull();
+    expect(store.activeConversation()!.messages.map(message => message.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
   });
 });
 

@@ -167,6 +167,8 @@
       <footer class="footer" (focusin)="refreshPageContext()">
         @if (closed()) {
           <p class="notice">{{ 'nh-assistant.panel.conversation-closed' | translate }}</p>
+        } @else if (lastTurnFailed()) {
+          <p class="notice">{{ 'nh-assistant.panel.last-turn-failed' | translate }}</p>
         }
         @if (store.collaboration() || store.pageContext()) {
           <div class="conversation-actions">

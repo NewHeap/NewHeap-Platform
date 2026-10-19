@@ -301,7 +301,7 @@
     "assistant-prompt-forbidden": "Failed tool call",
     "assistant-prompt-long": "Long answer to cancel",
     "assistant-prompt-unsafe": "Unsafe HTML",
-    "assistant-prompt-error": "Error message",
+    "assistant-prompt-error": "Failed turn, then ask again",
     "assistant-state-title": "Store state",
     "assistant-admin-permission": "User has the assistant admin permission",
     "assistant-admin-title": "Administration",

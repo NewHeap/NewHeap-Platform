@@ -111,7 +111,7 @@ export class NhAssistantMockBackend {
    */
   async simulateParticipantTurn(conversationId: string, person: NhAssistantMockPerson, text: string): Promise<void> {
     const conversation = this.conversations.get(conversationId);
-    if (!conversation || conversation.status !== 'idle') {
+    if (!conversation || !acceptsMessage(conversation.status)) {
       return;
     }
 
@@ -334,7 +334,7 @@ export class NhAssistantMockBackend {
     if (text.length === 0 || text.length > limit || !request.clientMessageId) {
       return this.empty(400);
     }
-    if (conversation.status !== 'idle') {
+    if (!acceptsMessage(conversation.status)) {
       return this.empty(409);
     }
 
@@ -751,6 +751,11 @@ export class NhAssistantMockBackend {
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+/** Like the server: a new message starts in an idle conversation or after a failed turn. */
+function acceptsMessage(status: Conversation['status']): boolean {
+  return status === 'idle' || status === 'failed';
 }
 
 /** Numbers messages in order, as the server does, keeping numbers that are already set. */

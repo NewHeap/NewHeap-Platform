@@ -26,6 +26,9 @@ services.AddKeyedSingleton<IChatClient>("project-assistant-chat-model", model);
   verified results are available through `FunctionResults`.
 - Streaming splits text into word chunks and ends with a `UsageContent` update
   with deterministic token counts; non-streaming returns the same response.
+- `RespondWithProviderError("server_is_overloaded")` fails a response inside its
+  stream with an `ErrorContent`, after optional text, as a provider does when it is
+  overloaded or out of quota after the response started. The stream ends there.
 - An exhausted script throws `InvalidOperationException`. Pass `loop: true` to
   restart the script instead, for example in a runnable sample host.
 - `Requests` records every received message list and the chat options.

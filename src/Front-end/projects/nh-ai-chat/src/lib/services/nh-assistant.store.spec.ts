@@ -515,6 +515,85 @@ describe('NhAssistantStore', () => {
     expect(store.activeConversation()!.status).toBe('failed');
   });
 
+  it('keeps a failed conversation open for the next message while its error stays visible', async () => {
+    const store = setup();
+    await store.initialize();
+    const sent = store.submit('Hello');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    stream.next({ type: 'turn.completed', data: { turnId: 't1', status: 'failed', usage, errorCode: 'assistant-model-unavailable' } });
+    stream.complete();
+    await sent;
+
+    expect(store.error()?.code).toBe('assistant-model-unavailable');
+    expect(store.activeConversation()!.status).toBe('failed');
+    expect(store.canSend()).toBeTrue();
+    expect(store.canSubmit()).toBeTrue();
+
+    stream = new Subject<NhAssistantSseEvent>();
+    const again = store.submit('Hello again');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't2', userMessageId: 'u2', assistantMessageId: 'a2' } });
+
+    expect(await again).toBeTrue();
+    expect(store.queuedMessages()).toEqual([]);
+    expect(api.createConversation).toHaveBeenCalledTimes(1);
+    expect(api.sendMessage.calls.mostRecent().args[0]).toBe('c1');
+    expect(api.sendMessage.calls.mostRecent().args[1].text).toBe('Hello again');
+    expect(store.error()).toBeNull();
+    expect(store.activeConversation()!.status).toBe('running');
+  });
+
+  it('accepts a new message in a reopened agent thread whose last turn failed', async () => {
+    const store = setup();
+    await store.initialize();
+    api.getConversation.and.returnValue(of({ ...conversation(), kind: 'thread', status: 'failed' }));
+    await store.openConversation('c1');
+
+    expect(store.isAgentThread()).toBeTrue();
+    expect(store.error()).toBeNull();
+    expect(store.canSend()).toBeTrue();
+
+    const sent = store.submit('Is the order ready?');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+
+    expect(await sent).toBeTrue();
+    expect(api.sendMessage).toHaveBeenCalledOnceWith('c1', jasmine.objectContaining({ text: 'Is the order ready?' }));
+  });
+
+  it('keeps an archived conversation closed', async () => {
+    const store = setup();
+    await store.initialize();
+    api.getConversation.and.returnValue(of({ ...conversation(), status: 'archived' }));
+    await store.openConversation('c1');
+
+    expect(store.canSend()).toBeFalse();
+    expect(store.canSubmit()).toBeFalse();
+    expect(await store.submit('Hello')).toBeFalse();
+    expect(api.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('holds queued messages after a failed turn until the queue is resumed', async () => {
+    const store = setup();
+    await startTurn(store);
+    await store.submit('Next');
+    const next = new Subject<NhAssistantSseEvent>();
+    api.sendMessage.and.returnValue(next);
+    stream.next({ type: 'turn.completed', data: { turnId: 't1', status: 'failed', usage, errorCode: 'assistant-model-unavailable' } });
+    stream.complete();
+    await processQueue();
+
+    expect(store.queuePaused()).toBeTrue();
+    expect(api.sendMessage).toHaveBeenCalledTimes(1);
+
+    store.resumeQueue();
+    await processQueue();
+
+    expect(api.sendMessage).toHaveBeenCalledTimes(2);
+    expect(api.sendMessage.calls.mostRecent().args[1].text).toBe('Next');
+  });
+
   it('shows the code of a completed turn as a notice and keeps the conversation usable', async () => {
     const store = setup();
     await store.initialize();

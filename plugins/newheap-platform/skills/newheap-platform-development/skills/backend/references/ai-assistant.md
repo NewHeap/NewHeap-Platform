@@ -156,6 +156,14 @@ tool id, version, an argument preview of 160 characters (redacted for confidenti
 restricted tools), status, result code and a truncation flag. Results are never replayed
 or logged, and the summary counts against the history budget.
 
+A provider error inside the model stream ends the turn as `failed` with
+`assistant-model-unavailable`; the provider's HTTP retry does not cover such errors. A
+transient one (`server_is_overloaded`, `server_error` or `rate_limit_exceeded`) that
+arrives before the model wrote text or called a tool is retried once after a short wait,
+so a brief overload does not reach the user. A failed conversation stays open: the next
+message starts a new turn in the same conversation or agent thread; only an archived
+conversation takes no messages.
+
 ## Situational and page context
 
 Give the model the moment and the user without a tool call. `UseTimeZone("Europe/Amsterdam")`
@@ -335,7 +343,10 @@ Drive turns with `NhAiScriptedChatClient` against real SQL Server and PostgreSQL
 a read-only turn with one tool call, a mutation that pauses for approval and
 resumes after approve, a reject that closes without executing, an expired
 proposal, an exhausted daily budget, the tool-call limit, cancel and a disabled
-flag. At the tool-call limit, assert a closing answer from a request with tool choice
+flag. Script a provider error inside the stream with
+`RespondWithProviderError("server_is_overloaded")` and assert that one retry answers, that
+a repeated or non-transient error fails the turn with `assistant-model-unavailable`, and
+that the failed conversation accepts the next message. At the tool-call limit, assert a closing answer from a request with tool choice
 `none` that carries every call's result, no further tool execution, and a follow-up
 turn whose history holds the tool-call summary but no result content. Send one call with flat arguments and one with `input` mixed with another
 property, and assert the first succeeds and the second returns `ai-tool-input-invalid`

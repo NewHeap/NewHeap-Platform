@@ -61,6 +61,22 @@ internal sealed partial class NhAssistantTurnRunner(
     ];
 
     /// <summary>
+    /// Provider error codes inside a model stream that usually pass within seconds: the provider is
+    /// overloaded or failed on its side, or a rate limit applies.
+    /// </summary>
+    private static readonly HashSet<string> TransientProviderErrorCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "server_is_overloaded",
+        "server_error",
+        "rate_limit_exceeded"
+    };
+
+    /// <summary>
+    /// The wait before the one retry of a model call that failed transiently before it produced anything.
+    /// </summary>
+    private static readonly TimeSpan TransientProviderRetryDelay = TimeSpan.FromSeconds(2);
+
+    /// <summary>
     /// A tool selector that matches no tool, for a consultation that may use none.
     /// </summary>
     private const string NoToolsSelector = "assistant.no-tools";
@@ -1966,6 +1982,8 @@ internal sealed partial class NhAssistantTurnRunner(
     /// <summary>
     /// Streams one agent run: usage is counted, text is appended to the assistant message and emitted as
     /// <c>message.delta</c>. Returns <see langword="true"/> when the provider reported an error in the stream.
+    /// The provider's HTTP retry does not cover an error inside the stream, so a transient provider error
+    /// that arrives before the run wrote text or called a tool is retried once after a short wait.
     /// </summary>
     private async Task<bool> StreamModelAsync(
         NhAssistantTurnState state,
@@ -1975,6 +1993,37 @@ internal sealed partial class NhAssistantTurnRunner(
         List<AgentResponseUpdate>? updates,
         CancellationToken cancellationToken)
     {
+        var attempt = await StreamModelAttemptAsync(state, agent, messages, options, updates, mayRetry: true, cancellationToken);
+        if (attempt == ModelStreamAttempt.TransientFailureBeforeOutput)
+        {
+            logger.LogInformation(
+                "Assistant turn {TurnId} of agent {AgentId} calls the model once more after a transient provider error.",
+                state.Scope.TurnId,
+                state.Scope.Agent.Id);
+            await Task.Delay(TransientProviderRetryDelay, cancellationToken);
+            attempt = await StreamModelAttemptAsync(state, agent, messages, options, updates, mayRetry: false, cancellationToken);
+        }
+
+        return attempt != ModelStreamAttempt.Completed;
+    }
+
+    /// <summary>
+    /// One call of <see cref="StreamModelAsync"/>. When <paramref name="mayRetry"/> is set and a transient
+    /// provider error arrives before any text or tool call, the updates of this call are removed and
+    /// <see cref="ModelStreamAttempt.TransientFailureBeforeOutput"/> asks the caller to call again.
+    /// </summary>
+    private async Task<ModelStreamAttempt> StreamModelAttemptAsync(
+        NhAssistantTurnState state,
+        AIAgent agent,
+        IReadOnlyList<ChatMessage> messages,
+        AgentRunOptions? options,
+        List<AgentResponseUpdate>? updates,
+        bool mayRetry,
+        CancellationToken cancellationToken)
+    {
+        var firstUpdate = updates?.Count ?? 0;
+        var toolCallsBefore = state.ToolCalls;
+        var produced = false;
         await foreach (var update in agent.RunStreamingAsync(messages, null, options, cancellationToken))
         {
             updates?.Add(update);
@@ -1994,17 +2043,39 @@ internal sealed partial class NhAssistantTurnRunner(
                     state.Scope.TurnId,
                     state.Scope.Agent.Id,
                     providerError.ErrorCode ?? "unknown");
-                return true;
+
+                var nothingHappened = !produced && state.ToolCalls == toolCallsBefore;
+                if (mayRetry && nothingHappened && IsTransientProviderError(providerError))
+                {
+                    updates?.RemoveRange(firstUpdate, updates.Count - firstUpdate);
+                    return ModelStreamAttempt.TransientFailureBeforeOutput;
+                }
+                return ModelStreamAttempt.Failed;
+            }
+
+            if (update.Contents.Any(content => content is FunctionCallContent or FunctionResultContent))
+            {
+                produced = true;
             }
 
             var delta = update.Text;
             if (!string.IsNullOrEmpty(delta) && update.Role != ChatRole.Tool)
             {
+                produced = true;
                 state.AppendText(delta);
                 await state.EmitAsync(new NhAssistantMessageDeltaEvent(state.AssistantMessageId, delta));
             }
         }
-        return false;
+        return ModelStreamAttempt.Completed;
+    }
+
+    /// <summary>
+    /// True for a provider error code that usually passes within seconds: an overloaded or failing
+    /// provider, or a rate limit. Quota, credit, content-filter and request errors are not transient.
+    /// </summary>
+    private static bool IsTransientProviderError(ErrorContent error)
+    {
+        return error.ErrorCode is { } code && TransientProviderErrorCodes.Contains(code);
     }
 
     /// <summary>
@@ -2528,6 +2599,16 @@ internal sealed partial class NhAssistantTurnRunner(
     private static TaskResult<NhAssistantTurnHandle> Failed(string code, string message)
     {
         return TaskResult<NhAssistantTurnHandle>.Failed(code, message);
+    }
+
+    /// <summary>
+    /// How one model call of <see cref="StreamModelAttemptAsync"/> ended.
+    /// </summary>
+    private enum ModelStreamAttempt
+    {
+        Completed,
+        Failed,
+        TransientFailureBeforeOutput
     }
 }
 

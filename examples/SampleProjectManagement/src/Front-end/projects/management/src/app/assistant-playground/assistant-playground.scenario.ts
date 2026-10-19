@@ -268,10 +268,12 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       ]
     },
     {
+      // Like the server when the model stays unavailable: the turn ends as failed and the error
+      // bar explains it, while the same conversation takes the next question.
       match: /\b(unavailable|error|fail)\b/i,
       steps: [
         { text: 'Let me check that.' },
-        { error: { code: 'assistant-model-unavailable', messageKey: 'nh-assistant.errors.assistant-model-unavailable' } }
+        { fail: { errorCode: 'assistant-model-unavailable' } }
       ]
     },
     {

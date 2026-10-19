@@ -4,7 +4,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Resources;
 using System.Text.Json;
+using System.Threading.Channels;
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR.Client;
 using System.Security.Claims;
 using Hangfire;
 using Hangfire.InMemory;
@@ -19,6 +23,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
+using NewHeap.Platform.AI.Chat.AspNet.Live;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
@@ -1699,6 +1704,77 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Equal(lookup.Thread.ConversationId, again.Thread!.ConversationId);
     }
 
+    [Fact]
+    public async Task The_owner_who_starts_the_intake_reviewer_by_hand_sees_its_run_start_and_end_live()
+    {
+        // SPM-280: the project page refreshes its suggestions and run timeline on AgentWorkChanged.
+        // Nobody changed the members of a new project, so the assistant has no member snapshot of
+        // it yet, and the owner never opened the reviewer's thread.
+        var project = await host.CreateProjectAsync("LIVE-START", ownerId: host.OwnerId);
+        var updates = Channel.CreateUnbounded<NhAssistantLiveAgentWorkDto>();
+        await using var hub = await host.ConnectAssistantHubAsync(host.OwnerId.ToString());
+        hub.On<NhAssistantLiveAgentWorkDto>(nameof(INhAssistantHubClient.AgentWorkChanged), update => updates.Writer.TryWrite(update));
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+
+        // The reviewer looks and proposes nothing, so no notification reaches anyone.
+        host.Model.Use(new NhAiScriptedChatClient().RespondWithText("The project needs nothing from me yet."));
+        try
+        {
+            var started = await owner.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new NhAssistantStartAgentRequest(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type, project.ToString("D"), "Have a look at this project."),
+                Json);
+            Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+            var receipt = (await started.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!;
+
+            // The owner still hears that the run started and that it ended, without reloading.
+            var seen = await ReadRunUpdatesAsync(updates.Reader, receipt.RunId!.Value, count: 2);
+            Assert.All(seen, update =>
+            {
+                Assert.Equal(receipt.ConversationId, update.ConversationId);
+                Assert.Equal(ProjectSubjects.Type, update.SubjectType);
+                Assert.Equal(project.ToString("D"), update.SubjectId);
+            });
+
+            // Reloading on the update shows the ended run.
+            var completed = await WaitForRunAsync(owner, receipt.ConversationId!.Value, NhAssistantRunStatuses.Completed);
+            Assert.Equal(receipt.RunId, completed.Id);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
+    /// <summary>
+    /// Reads live updates until <paramref name="count"/> of them named the run.
+    /// </summary>
+    private static async Task<NhAssistantLiveAgentWorkDto[]> ReadRunUpdatesAsync(
+        ChannelReader<NhAssistantLiveAgentWorkDto> updates,
+        Guid runId,
+        int count)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        var seen = new List<NhAssistantLiveAgentWorkDto>();
+        try
+        {
+            while (seen.Count < count)
+            {
+                var update = await updates.ReadAsync(timeout.Token);
+                if (update.Reason == "run" && update.RunId == runId)
+                {
+                    seen.Add(update);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            throw new TimeoutException($"{seen.Count} of {count} live updates about run {runId} arrived.");
+        }
+
+        return seen.ToArray();
+    }
+
     /// <summary>
     /// Waits until the thread has at least <paramref name="count"/> runs and every run has ended.
     /// </summary>
@@ -2202,6 +2278,27 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         }
 
         throw new TimeoutException($"Operation {operationId} stayed {current} instead of {status}.");
+    }
+
+    /// <summary>
+    /// SPM-280: connects to the assistant hub as the person, as the management portal does, and
+    /// returns once the hub put the connection in that person's group.
+    /// </summary>
+    public async Task<HubConnection> ConnectAssistantHubAsync(string user)
+    {
+        var connection = new HubConnectionBuilder()
+            .WithUrl(new Uri(BaseAddress, "/hub/assistant"), options =>
+            {
+                options.Transports = HttpTransportType.LongPolling;
+                options.Headers[SampleTestAuthenticationHandler.UserHeader] = user;
+            })
+            .Build();
+        await connection.StartAsync();
+
+        // The hub takes no calls. It answers one only after it handled the connection, so the
+        // refusal shows that live updates for the person reach this connection from now on.
+        await Assert.ThrowsAsync<HubException>(() => connection.InvokeAsync("Ready"));
+        return connection;
     }
 
     /// <summary>

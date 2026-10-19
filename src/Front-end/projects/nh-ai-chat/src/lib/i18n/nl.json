@@ -25,6 +25,7 @@
       "empty-title": "Waarmee kan ik helpen?",
       "empty-description": "Stel een vraag of beschrijf een taak. Acties die gegevens wijzigen vragen altijd eerst om je goedkeuring.",
       "conversation-closed": "Dit gesprek kan niet verder. Begin een nieuw gesprek.",
+      "last-turn-failed": "Het laatste antwoord kon niet worden afgemaakt. Stuur je bericht opnieuw om verder te gaan.",
       "dismiss-error": "Melding sluiten",
       "usage": "{{inputTokens}} invoertokens, {{outputTokens}} uitvoertokens, {{toolCalls}} toolaanroepen",
       "open-preferences": "Je assistentvoorkeuren",

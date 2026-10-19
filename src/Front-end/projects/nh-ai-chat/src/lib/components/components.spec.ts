@@ -894,6 +894,64 @@ describe('NhAssistantPanelComponent', () => {
     expect(alert?.textContent).toContain('The assistant could not complete the request.');
   });
 
+  it('keeps the composer available after a failed turn and shows its error', async () => {
+    await open();
+    const store = TestBed.inject(NhAssistantStore);
+    void store.submit('Hello');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    stream.next({
+      type: 'turn.completed',
+      data: { turnId: 't1', status: 'failed', usage: { inputTokens: 0, outputTokens: 0, toolCalls: 0 }, errorCode: 'assistant-model-unavailable' }
+    });
+    stream.complete();
+    await flush();
+    fixture.detectChanges();
+
+    expect(overlay.querySelector('[role="alert"]')?.textContent).toContain('The language model is temporarily unavailable');
+    expect(overlay.textContent).not.toContain('This conversation cannot continue');
+    expect(overlay.textContent).not.toContain('The last answer could not be completed');
+    const input = overlay.querySelector('nh-assistant-composer textarea') as HTMLTextAreaElement;
+    expect(input.disabled).toBeFalse();
+
+    api.sendMessage.and.returnValue(new Subject<NhAssistantSseEvent>());
+    input.value = 'Try again';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flush();
+
+    expect(api.sendMessage).toHaveBeenCalledTimes(2);
+    expect(api.sendMessage.calls.mostRecent().args).toEqual(['c1', jasmine.objectContaining({ text: 'Try again' })]);
+  });
+
+  it('says that the last answer failed when a failed agent thread is reopened', async () => {
+    api.getConversation.and.returnValue(of({
+      id: 'c1', agentId: 'projects', agentVersion: 1, title: 'Order 42', status: 'failed', kind: 'thread',
+      createdAt: '', updatedAt: '', messages: [], pendingApproval: null
+    }));
+    await open();
+    await TestBed.inject(NhAssistantStore).openConversation('c1');
+    fixture.detectChanges();
+
+    expect(overlay.querySelector('[role="alert"]')).toBeNull();
+    expect(overlay.textContent).toContain('The last answer could not be completed. Send your message again to continue.');
+    expect((overlay.querySelector('nh-assistant-composer textarea') as HTMLTextAreaElement).disabled).toBeFalse();
+  });
+
+  it('keeps an archived conversation closed', async () => {
+    api.getConversation.and.returnValue(of({
+      id: 'c1', agentId: 'projects', agentVersion: 1, title: 'Old', status: 'archived',
+      createdAt: '', updatedAt: '', messages: [], pendingApproval: null
+    }));
+    await open();
+    await TestBed.inject(NhAssistantStore).openConversation('c1');
+    fixture.detectChanges();
+
+    expect(overlay.textContent).toContain('This conversation cannot continue. Start a new conversation.');
+    expect((overlay.querySelector('nh-assistant-composer textarea') as HTMLTextAreaElement).disabled).toBeTrue();
+  });
+
   it('shows the unavailable state when the assistant is switched off', async () => {
     api.status.and.returnValue(of({ ...status, enabled: false, agents: [] }));
 

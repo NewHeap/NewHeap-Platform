@@ -301,7 +301,7 @@
     "assistant-prompt-forbidden": "Mislukte toolaanroep",
     "assistant-prompt-long": "Lang antwoord om te stoppen",
     "assistant-prompt-unsafe": "Onveilige HTML",
-    "assistant-prompt-error": "Foutmelding",
+    "assistant-prompt-error": "Mislukte beurt, daarna opnieuw vragen",
     "assistant-state-title": "Store-toestand",
     "assistant-admin-permission": "Gebruiker heeft de beheerpermissie van de assistent",
     "assistant-admin-title": "Beheer",
