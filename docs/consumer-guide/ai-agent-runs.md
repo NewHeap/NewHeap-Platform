@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, and put an agent or a skill in shadow and change its technical account at runtime.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, and add skills and triggers to an agent as data without a deploy.
 
 ## Preferred approach
 
@@ -182,6 +182,32 @@ allowed to sign in according to `INhAiPrincipalFactory` (`assistant-service-acco
 New runs and the agent's threads answer to it; runs that started and the proposals they made keep
 the account they were made with. The account lends its rights to gateway reads: choose one with
 no more rights than the agent needs.
+
+Add skills and triggers to an agent configured in code as data, without a deploy, when an
+application manages them in screens or imports them from packages. Code registers the building
+blocks under dash-case names joined by dots: `AddTriggerEvent<TEvent>(name, ...)` for an event a
+data trigger can start a skill on (its `Subject`, `Message`, `Initiator`, `Dedupe`, `Payload` and
+`When` are what every trigger on it receives; one published event serves code and data triggers
+alike), `AddSubjectSet(name, description, subjects)` for the subjects a data schedule starts a
+skill for, and `AddRuleHandler<THandler>(name, description)` for rules a data skill works by.
+Approval policies, model profiles and subject types are named by their ids as in code.
+`INhAssistantAgentConfiguration`, or `PUT admin/agents/{id}/skills/{skillId}` and `PUT
+admin/agents/{id}/triggers/{triggerId}`, stores a data skill (description, instructions with their
+hash, tools within the agent's own selectors, profile, rule handler, ceiling, budget and approval
+policy) and a data trigger (an event or a schedule with cron, time zone, subject set and message,
+the skill, conflict and debounce). Saving checks the data as startup checks code and answers with
+field errors; a skill or trigger in code cannot change (`assistant-skill-in-code`,
+`assistant-trigger-in-code`), and grants never become data. A new skill and a new trigger start in
+shadow: put the skill live with `SetSkillShadowAsync` and the trigger with `SetTriggerShadowAsync`
+or `POST admin/agents/{id}/triggers/{triggerId}/shadow`. A changed skill is the next version
+(`expectedVersion`, otherwise `assistant-version-conflict`), which takes effect at once; versions
+stay as history (`GET admin/agents/{id}/skills/{skillId}/versions`). Remove a trigger before the
+skill it names (`assistant-skill-in-use`). Every change is audited (`AdminAgentSkillDefinitionChanged`,
+`AdminAgentTriggerDefinitionChanged`) and reaches every host: the snapshot of code and data that
+every reader uses reloads when a stamp changes, checked before every fire and run start at most
+once per second and every half minute in the background, and data schedules get recurring jobs of
+their own. Data that no longer fits the code after a deploy, such as a removed event, is left out
+and shown as a problem in `GET admin/agents/{id}/configuration` instead of failing startup.
 
 People outside the thread hear about waiting proposals, due reminders,
 escalations, unknown outcomes and failed runs through Web Push and every
@@ -427,6 +453,9 @@ profile and instructions that answer questions about the rules' proposals from t
 - Stopping an agent for an import or a migration that should lose no events; pause it.
 - Deploying to put an agent or a skill live after an evaluation in shadow, or to replace its
   technical account; change it at runtime with `INhAssistantAgentControl`.
+- Registering a skill or trigger in code that administrators are meant to change; register its
+  building blocks and let them define it as data. Putting a data skill or trigger live without
+  reading its shadow runs first.
 - A technical account with more rights than the agent needs: it lends them to gateway reads.
 - Letting the model read a subject's basic facts through tool calls in every run; brief it.
 - Splitting one role into several agents with their own threads only to give its tasks separate
@@ -598,7 +627,13 @@ that waiting events move along on the resume, that `use_skill` in a live thread 
 skill, that members see the live thread and its open proposals but neither the shadow thread nor a
 manual start, that a variant cannot change and that `code` follows the code again; replace a
 technical account and assert that an unknown account is refused, that new runs and the threads
-answer to the new one while earlier runs keep theirs, on both providers. Assert that a `ShadowOf`
+answer to the new one while earlier runs keep theirs, on both providers. Add a data skill and a data
+trigger and assert that both start in shadow, that the trigger's runs work in the shadow thread in
+the skill by its named rules until both are live, that saving refuses names code does not register,
+tools outside the agent's selectors and skills or triggers in code with field errors and conflicts,
+that every change is a version and audited, that a change stored by another host is followed through
+the stamp, that data which no longer fits is reported instead of loaded and that a data schedule
+starts its skill for every subject of its set, on both providers. Assert that a `ShadowOf`
 variant receives every event, tick and webhook of the live agent once, notifies nobody and executes nothing while its own triggers work; that the
 evaluation pairs runs of the same event, counts agreed, live-only and variant-only proposals with the
 live decisions and holds no message or argument; and that a replay fires the recorded inputs oldest
@@ -608,7 +643,7 @@ with its inputs and subject, as the agent with the subject's scopes, on both pro
 a run with gateway reads records `DelegatedRead`, reads with its starter's rights when a person
 started it, shows the result only to the person whose rights it used, also with `ElevatedReads.Deny`,
 and that startup fails without an accountable person or an issuer. SPM-268 to
-SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-294 are the executable references.
+SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-295 are the executable references.
 
 ## Executable evidence
 
@@ -737,3 +772,8 @@ SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-294 are the executable references
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+- SPM-295 — An administrator adds a progress note skill and its trigger to the project planner without a deploy, reads it in shadow and puts it live
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs)

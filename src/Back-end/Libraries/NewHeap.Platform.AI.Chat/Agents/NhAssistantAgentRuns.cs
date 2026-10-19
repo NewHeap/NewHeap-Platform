@@ -36,7 +36,7 @@ public sealed class NhAssistantAgentRunOptions
 {
     private readonly List<NhAiAgentGrant> _grants = [];
     private readonly Dictionary<string, string> _toolApprovalPolicies = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, NhAssistantSkillOptions> _skills = new(StringComparer.Ordinal);
+    private Dictionary<string, NhAssistantSkillOptions> _skills = new(StringComparer.Ordinal);
 
     /// <summary>
     /// The most skills one agent declares.
@@ -145,6 +145,22 @@ public sealed class NhAssistantAgentRunOptions
         var skill = new NhAssistantSkillOptions(AgentId, skillId);
         _skills.Add(skillId, skill);
         return skill;
+    }
+
+    /// <summary>
+    /// A copy of the options with the skills defined as data next to those in code. The options in
+    /// code stay as they are; everything else is shared, because nothing changes it after startup.
+    /// </summary>
+    internal NhAssistantAgentRunOptions WithDataSkills(IEnumerable<NhAssistantSkillOptions> dataSkills)
+    {
+        var copy = (NhAssistantAgentRunOptions)MemberwiseClone();
+        copy._skills = new Dictionary<string, NhAssistantSkillOptions>(_skills, StringComparer.Ordinal);
+        foreach (var skill in dataSkills)
+        {
+            copy._skills.Add(skill.Id, skill);
+        }
+
+        return copy;
     }
 
     /// <summary>
@@ -706,6 +722,22 @@ internal sealed class NhAssistantTriggerDefinition
     /// The small typed payload stored with each event for the agent's rule handler.
     /// </summary>
     public Func<object, object?>? Payload { get; init; }
+
+    /// <summary>
+    /// The version of a trigger defined as data; <see langword="null"/> for a trigger in code.
+    /// </summary>
+    public int? DataVersion { get; init; }
+
+    /// <summary>
+    /// The trigger event or subject set a trigger defined as data names.
+    /// </summary>
+    public string? BlockName { get; init; }
+
+    /// <summary>
+    /// The trigger's runs work in the agent's shadow thread, whatever the agent's and the skill's
+    /// mode. Only a trigger defined as data has a mode of its own; it starts in shadow.
+    /// </summary>
+    public bool Shadow { get; init; }
 }
 
 /// <summary>
@@ -839,6 +871,14 @@ public sealed class NhAssistantScheduleBuilder
         return this;
     }
 
+    /// <summary>
+    /// The dedupe key of one tick: a repeated job in the same minute starts no second run.
+    /// </summary>
+    internal static string TickKey(NhAssistantScheduledTick tick)
+    {
+        return "tick:" + tick.Tick.UtcDateTime.ToString("yyyyMMddHHmm", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     internal NhAssistantTriggerDefinition Build(string id)
     {
         if (_agentId is null || _cron is null || _subjects is null || _message is null)
@@ -855,7 +895,7 @@ public sealed class NhAssistantScheduleBuilder
             AgentId = _agentId,
             Subject = evt => ((NhAssistantScheduledTick)evt).Subject,
             Message = evt => message((NhAssistantScheduledTick)evt),
-            Dedupe = evt => "tick:" + ((NhAssistantScheduledTick)evt).Tick.UtcDateTime.ToString("yyyyMMddHHmm", System.Globalization.CultureInfo.InvariantCulture),
+            Dedupe = evt => TickKey((NhAssistantScheduledTick)evt),
             Conflict = _conflict,
             Debounce = TimeSpan.Zero,
             ApprovalPolicyId = _approvalPolicyId,

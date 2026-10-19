@@ -58,6 +58,17 @@ public sealed class NhAssistantSkillOptions
     /// </summary>
     public bool Shadow { get; internal set; }
 
+    /// <summary>
+    /// The version of a skill defined as data in the administration; <see langword="null"/> for a
+    /// skill in code.
+    /// </summary>
+    public int? DataVersion { get; internal set; }
+
+    /// <summary>
+    /// The name a skill defined as data gives its rule handler.
+    /// </summary>
+    public string? RuleHandlerName { get; internal set; }
+
     internal void SetToolSelectors(IEnumerable<string> selectors)
     {
         _toolSelectors.Clear();

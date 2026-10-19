@@ -47,3 +47,48 @@ own audience.
 | The first agent work update of a thread without a member snapshot calls `INhAiSubjectAccessResolver.ListMembersAsync`, and an update about a run that a person started calls `ResolveAsync` for that person, inside background operations as well. | Keep both resolver methods free of request-only state, as agent notifications already require. |
 | A run started by hand now reports its start and end through `AgentWorkChanged`, also when it proposes nothing. | Reload on the update; keep polling such a run only as a fallback for a missing hub connection. |
 | No migration, no configuration and no public API change. | None. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: skills and triggers as data
+
+Skills, and the triggers that start them, can now be added to an agent configured in code as data,
+without a deploy. Code registers the building blocks data names: `AddTriggerEvent<TEvent>(name, ...)`
+with `NhAssistantTriggerEventBuilder` (subject, message, initiator, dedupe key, payload and filter of
+every trigger on the event; one published event serves code and data triggers),
+`AddSubjectSet(name, description, subjects)` for data schedules and
+`AddRuleHandler<THandler>(name, description)` for data skills that work by rules. Names are dash-case
+segments joined by dots, at most 100 characters. `INhAssistantAgentConfiguration` and the endpoints
+`GET admin/run-catalog`, `GET admin/agents/{id}/configuration`, `PUT`/`DELETE
+admin/agents/{id}/skills/{skillId}`, `GET admin/agents/{id}/skills/{skillId}/versions`,
+`PUT`/`DELETE admin/agents/{id}/triggers/{triggerId}` and `POST
+admin/agents/{id}/triggers/{triggerId}/shadow` store data skills (description, instructions with
+their SHA-256 hash, tools within the agent's own selectors, profile, rule handler, ceiling, budget
+and approval policy) and data triggers (an event or a schedule with cron, time zone, subject set and
+message, the skill, conflict and debounce). Saving checks the data as startup checks code; skills
+and triggers in code cannot change (`assistant-skill-in-code`, `assistant-trigger-in-code`), a skill
+a data trigger names stays (`assistant-skill-in-use`) and an agent holds at most 20 skills and 20 data
+triggers (`assistant-configuration-limit`). Grants never become data. A new skill and a new trigger
+start in shadow; put the skill live with `SetSkillShadowAsync` and the trigger with
+`SetTriggerShadowAsync`. A change of a skill is its next version, which takes effect at once; versions
+stay as history. Changes are audited as `AdminAgentSkillDefinitionChanged` and
+`AdminAgentTriggerDefinitionChanged`.
+
+Every reader works on one snapshot of code and data, which reloads in every host when the run
+configuration's stamp changed: checked before every fire and run start at most once per second and
+every 30 seconds by a background service. Data schedules get Hangfire recurring jobs under the
+prefix `nh-assistant-data-trigger-`. Data that no longer fits the code, such as a trigger on an event
+a deploy removed, is left out of effect and listed under `problems` in the agent's configuration
+instead of failing startup. `NhAssistantSkillOptions` gains `DataVersion` and `RuleHandlerName`.
+
+Apply the `AgentRunConfiguration` migration of `NewHeap.Platform.AI.Chat.SqlServer` or
+`NewHeap.Platform.AI.Chat.PostgreSql`: it adds the tables `AssistantAgentSkillDefinition`,
+`AssistantAgentTriggerDefinition` and `AssistantRunConfigurationStamp`.
+
+| Breaking change | Required action |
+|---|---|
+| Database schema change. | Apply the `AgentRunConfiguration` migration. |
+| Hosts with agent runs read the run configuration's stamp before fires and run starts and every 30 seconds. | Nothing; apply the migration before the host starts firing triggers. |
+
+## @newheap/platform-ai-chat: texts for the run configuration as data
+
+The texts of the error codes `assistant-skill-in-code`, `assistant-trigger-in-code`,
+`assistant-skill-in-use` and `assistant-configuration-limit` are bundled in English and Dutch.

@@ -171,7 +171,23 @@ public enum NhAssistantAuditEventKind
     /// agent's runs. <c>ObjectId</c> is the account that answers now; <c>ResultCode</c> is
     /// <c>set</c>, or <c>code</c> when the account in code answers again.
     /// </summary>
-    AdminAgentServiceAccountChanged = 49
+    AdminAgentServiceAccountChanged = 49,
+
+    /// <summary>
+    /// An administrator or the application saved or removed a skill defined as data.
+    /// <c>ObjectId</c> and <c>SkillId</c> are the skill, <c>AgentVersion</c> its version and
+    /// <c>InstructionsHash</c> the hash of its instructions; <c>ResultCode</c> is <c>created</c>,
+    /// <c>changed</c> or <c>removed</c>.
+    /// </summary>
+    AdminAgentSkillDefinitionChanged = 50,
+
+    /// <summary>
+    /// An administrator or the application saved, removed or put in shadow or live a trigger defined
+    /// as data. <c>ObjectId</c> and <c>TriggerId</c> are the trigger, <c>SkillId</c> the skill it
+    /// starts and <c>AgentVersion</c> its version; <c>ResultCode</c> is <c>created</c>,
+    /// <c>changed</c>, <c>removed</c>, <c>shadow</c> or <c>live</c>.
+    /// </summary>
+    AdminAgentTriggerDefinitionChanged = 51
 }
 
 /// <summary>

@@ -150,6 +150,7 @@ internal static class NhAssistantAdminEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         AgentRuns.NhAssistantProposalFeedbackEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentEvaluationEndpoints.MapAdmin(admin);
+        AgentRuns.NhAssistantAgentConfigurationEndpoints.MapAdmin(admin);
         admin.MapDelete("agents/{id}", DeleteAgentAsync)
             .WithName("NhAssistantAdminDeleteAgent")
             .WithSummary("Delete an agent")
@@ -879,7 +880,7 @@ internal static class NhAssistantAdminEndpoints
         };
     }
 
-    private static async Task<string?> ActorAsync(HttpContext httpContext)
+    internal static async Task<string?> ActorAsync(HttpContext httpContext)
     {
         var resolved = await httpContext.RequestServices
             .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
@@ -887,7 +888,7 @@ internal static class NhAssistantAdminEndpoints
         return resolved.Success ? resolved.Data.ActorId : null;
     }
 
-    private static async Task<T?> ReadAsync<T>(HttpContext httpContext, JsonTypeInfo<T> typeInfo)
+    internal static async Task<T?> ReadAsync<T>(HttpContext httpContext, JsonTypeInfo<T> typeInfo)
         where T : class
     {
         if (!httpContext.Request.HasJsonContentType())
@@ -904,7 +905,7 @@ internal static class NhAssistantAdminEndpoints
         }
     }
 
-    private static IResult Failure(TaskResult result)
+    internal static IResult Failure(TaskResult result)
     {
         var items = result.GetResultItems();
         var code = items
@@ -927,6 +928,7 @@ internal static class NhAssistantAdminEndpoints
         {
             NhAssistantErrorCodes.AgentNotFound
                 or NhAssistantErrorCodes.SkillNotFound
+                or NhAssistantErrorCodes.TriggerNotFound
                 or NhAssistantAdminErrorCodes.NotFound
                 or NhAssistantAdminErrorCodes.ContextNotFound
                 or NhAssistantAdminErrorCodes.McpServerNotFound
@@ -934,6 +936,11 @@ internal static class NhAssistantAdminEndpoints
             NhAssistantAdminErrorCodes.VersionConflict
                 or NhAssistantErrorCodes.ShadowVariant
                 or NhAssistantErrorCodes.ServiceAccountNotUsed
+                or NhAssistantErrorCodes.AgentNotConfigured
+                or NhAssistantErrorCodes.SkillInCode
+                or NhAssistantErrorCodes.TriggerInCode
+                or NhAssistantErrorCodes.SkillInUse
+                or NhAssistantErrorCodes.ConfigurationLimit
                 or NhAssistantAdminErrorCodes.AgentExists
                 or NhAssistantAdminErrorCodes.McpServerExists
                 or NhAssistantAdminErrorCodes.CodeAgentNotDeletable
@@ -945,17 +952,17 @@ internal static class NhAssistantAdminEndpoints
         return Error(status, code, fieldErrors.Count == 0 ? null : fieldErrors);
     }
 
-    private static IResult Validation()
+    internal static IResult Validation()
     {
         return Error(StatusCodes.Status400BadRequest, NhAssistantAdminErrorCodes.ValidationFailed);
     }
 
-    private static IResult MissingField(string field)
+    internal static IResult MissingField(string field)
     {
         return Failure(NhAssistantValidationErrors.Failed(field, NhAssistantFieldErrors.Required));
     }
 
-    private static IResult ContextUnavailable()
+    internal static IResult ContextUnavailable()
     {
         return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.ContextUnavailable);
     }
@@ -968,7 +975,7 @@ internal static class NhAssistantAdminEndpoints
             statusCode: statusCode);
     }
 
-    private static IResult Json<T>(T value, JsonTypeInfo<T> typeInfo)
+    internal static IResult Json<T>(T value, JsonTypeInfo<T> typeInfo)
     {
         return TypedResults.Json(value, typeInfo);
     }

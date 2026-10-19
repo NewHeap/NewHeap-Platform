@@ -31,6 +31,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// bridge gateway in its headless runs, with the owner's rights: every call gets a short-lived
 /// delegated read credential of the owner, which this API's own bearer scheme validates and the
 /// library restricts to the gateway's GET calls.
+/// SPM-295: the building blocks that skills and triggers defined as data name: the completed-task
+/// event, the active projects with a deadline soon and the progress-note rules. An administrator
+/// combines them into a skill of the planner and its trigger at runtime, without a deploy.
 /// </summary>
 public static class SampleProjectPlannerComposition
 {
@@ -41,6 +44,13 @@ public static class SampleProjectPlannerComposition
     public const string DeadlineCheckTriggerId = "daily-deadline-check";
     public const string TriageProfileName = "project-planner-triage";
     public const string FollowUpPolicyId = "project-planning";
+
+    /// <summary>
+    /// SPM-295: the names data refers to.
+    /// </summary>
+    public const string TaskCompletedEvent = "project.task-completed";
+    public const string ActiveProjectsSet = "active-projects-with-deadline-soon";
+    public const string ProgressNoteRules = "project-progress-note";
 
     public static IServiceCollection AddSampleProjectPlanner(this IServiceCollection services)
     {
@@ -114,7 +124,17 @@ public static class SampleProjectPlannerComposition
                 .Subjects(ActiveProjectsWithDeadlineSoon)
                 .Message(tick => $"Daily deadline check of project {tick.Subject.Id}.")
                 .MaxSubjectsPerTick(50)
-                .OnBusy(NhAssistantTriggerConflict.Ignore)));
+                .OnBusy(NhAssistantTriggerConflict.Ignore))
+            // SPM-295: building blocks for the run configuration as data. The event says what every
+            // trigger on it receives, as a trigger in code does; one event serves both.
+            .AddTriggerEvent<ProjectTaskUpdatedEvent>(TaskCompletedEvent, evt => evt
+                .Description("A task of a project was completed.")
+                .When(change => change.IsCompleted)
+                .Subject(change => ProjectSubjects.For(change.ProjectId))
+                .Message(change => $"Task {change.ProjectTaskId:D} of project {change.ProjectId:D} was completed.")
+                .Dedupe(change => change.EventId.ToString("N")))
+            .AddSubjectSet(ActiveProjectsSet, "Active projects with a deadline in the next two weeks.", ActiveProjectsWithDeadlineSoon)
+            .AddRuleHandler<ProjectProgressNoteRules>(ProgressNoteRules, "Notes how many of the project's tasks are completed, without a model."));
         return services;
     }
 
@@ -135,6 +155,24 @@ public static class SampleProjectPlannerComposition
         {
             yield return ProjectSubjects.For(projectId);
         }
+    }
+}
+
+/// <summary>
+/// SPM-295: the rules of the progress note, a skill an administrator adds to the planner as data.
+/// They count the project's tasks and note how far it is; they propose nothing and call no model.
+/// </summary>
+public sealed class ProjectProgressNoteRules(
+    SampleProjectManagementDbContext dbContext,
+    IStringLocalizer<SampleAssistantToolPresenter> localizer) : INhAssistantAgentRuleHandler
+{
+    public async Task<NhAssistantRuleResult> RunAsync(NhAssistantRuleContext context, CancellationToken cancellationToken)
+    {
+        var projectId = Guid.Parse(context.Subject.Subject.Id);
+        var tasks = dbContext.ProjectTasks.AsNoTracking().Where(task => task.ProjectId == projectId);
+        var total = await tasks.CountAsync(cancellationToken);
+        var completed = await tasks.CountAsync(task => task.IsCompleted, cancellationToken);
+        return NhAssistantRuleResult.Done(localizer["PlannerProgressNote", completed, total].Value);
     }
 }
 

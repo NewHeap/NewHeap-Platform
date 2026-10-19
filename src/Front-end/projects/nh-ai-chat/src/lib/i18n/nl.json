@@ -351,7 +351,11 @@
       "assistant-moved-to-shadow": "Het werk is naar de schaduwthread van de agent gegaan, waar een run in schaduw het oppakt.",
       "assistant-shadow-variant": "Een schaduwvariant werkt altijd in schaduw.",
       "assistant-service-account-not-used": "Deze agent werkt niet onder een technisch account.",
-      "assistant-service-account-not-found": "Er bestaat geen account met deze id dat mag inloggen."
+      "assistant-service-account-not-found": "Er bestaat geen account met deze id dat mag inloggen.",
+      "assistant-skill-in-code": "Deze vaardigheid staat in de code en kan hier niet veranderen.",
+      "assistant-trigger-in-code": "Deze trigger staat in de code en kan hier niet veranderen.",
+      "assistant-skill-in-use": "Een trigger start deze vaardigheid nog. Pas de trigger eerst aan of verwijder hem.",
+      "assistant-configuration-limit": "Deze agent heeft al zoveel vaardigheden of triggers als is toegestaan."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",

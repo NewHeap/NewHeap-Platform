@@ -577,6 +577,55 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task An_administrator_adds_a_progress_note_to_the_planner_without_a_deploy_and_puts_it_live_after_shadow()
+    {
+        // SPM-295
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string note = SampleAgentConfigurationService.ProgressNoteSkill;
+        var evaluated = await host.CreateProjectAsync("NOTE-SHADOW", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        var live = await host.CreateProjectAsync("NOTE-LIVE", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        await host.AddMemberAsync(live, host.ColleagueId, ProjectMemberRole.Approver);
+        var draft = await host.CreateTaskAsync(evaluated, "Draft the plan");
+        await host.CreateTaskAsync(evaluated, "Review the plan");
+        var handover = await host.CreateTaskAsync(live, "Hand the plan over");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            // The application imports the progress note: a skill and its trigger, made of building
+            // blocks the planner's composition registered. Both start in shadow.
+            Assert.True((await ConfigureAgentsAsync(service => service.AddProgressNoteAsync(host.OwnerId, CancellationToken.None))).Success);
+            var configured = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{planner}/configuration", Json))!;
+            var skill = Assert.Single(configured.DataSkills);
+            Assert.Equal((note, 1, SampleProjectPlannerComposition.ProgressNoteRules, true), (skill.SkillId, skill.Version, skill.RuleHandler, skill.InEffect));
+            var trigger = Assert.Single(configured.DataTriggers);
+            Assert.Equal((SampleProjectPlannerComposition.TaskCompletedEvent, note, true), (trigger.Event, trigger.SkillId, trigger.Shadow));
+            Assert.True(Assert.Single((await AgentStateAsync(planner)).Skills, state => state.SkillId == note).Shadow.Shadow);
+
+            // A completed task starts the note in the planner's shadow thread, which only
+            // administrators see; the planner's own follow-up stays live.
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(draft, host.ParticipantId));
+            var shadowThread = await WaitForShadowThreadAsync(administrator, evaluated, planner);
+            var shadowNote = await WaitForRunWithTriggerAsync(administrator, shadowThread, SampleAgentConfigurationService.ProgressNoteTriggerId);
+            Assert.Equal((NhAssistantRunStatuses.Completed, note, true, NhAssistantRunKinds.Rule), (shadowNote.Status, shadowNote.Skill, shadowNote.Shadow, shadowNote.Kind));
+            Assert.Contains("1", shadowNote.Summary);
+
+            // The team agrees with the notes: the operator puts the trigger and the skill live, and
+            // the next completed task gets its note in the live thread after the follow-up.
+            Assert.True((await ConfigureAgentsAsync(service => service.PutProgressNoteLiveAsync(host.OwnerId, "The notes are right", CancellationToken.None))).Success);
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(handover, host.ParticipantId));
+            var liveThread = await WaitForThreadAsync(colleague, live, planner);
+            var liveNote = await WaitForRunWithTriggerAsync(colleague, liveThread, SampleAgentConfigurationService.ProgressNoteTriggerId);
+            Assert.Equal((NhAssistantRunStatuses.Completed, note, false), (liveNote.Status, liveNote.Skill, liveNote.Shadow));
+        }
+        finally
+        {
+            // Other samples share the host and its planner.
+            Assert.True((await ConfigureAgentsAsync(service => service.RemoveProgressNoteAsync(host.OwnerId, CancellationToken.None))).Success);
+        }
+    }
+
+    [Fact]
     public async Task An_operator_pauses_the_project_closer_for_an_import_and_stops_it_without_losing_approved_work()
     {
         // SPM-284
@@ -1947,6 +1996,12 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         return changed.Data!;
     }
 
+    private async Task<TaskResult> ConfigureAgentsAsync(Func<SampleAgentConfigurationService, Task<TaskResult>> action)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await action(scope.ServiceProvider.GetRequiredService<SampleAgentConfigurationService>());
+    }
+
     private async Task<TaskResult<NhAssistantAgentState>> ChangeServiceAccountAsync(string agentId, Guid? accountId, string? reason)
     {
         await using var scope = host.Services.CreateAsyncScope();
@@ -2203,6 +2258,7 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         services.AddScoped<ProjectTaskService>();
         // SPM-284: the operator pauses, stops and resumes the closer through the maintenance page.
         services.AddScoped<SampleAgentMaintenanceService>();
+        services.AddScoped<SampleAgentConfigurationService>();
         services.AddSingleton(Substitute.For<INhEventPublisher>());
         services.AddSingleton<SampleEventLog>();
         // SPM-290: the planner reads the project's tasks through the gateway over this host's own

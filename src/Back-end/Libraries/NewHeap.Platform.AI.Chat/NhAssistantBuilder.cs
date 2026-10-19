@@ -340,6 +340,52 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Registers an application event that data-defined triggers can start a skill of an agent on,
+    /// under a name such as <c>project.task-completed</c>. Publish it with
+    /// <c>INhAssistantAgentTriggers.PublishAsync</c>, as for a trigger in code; one event may serve
+    /// both.
+    /// </summary>
+    public NhAssistantBuilder AddTriggerEvent<TEvent>(string name, Action<NhAssistantTriggerEventBuilder<TEvent>> configure)
+        where TEvent : class
+    {
+        NhAssistantBlockNames.Validate(name, nameof(name));
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new NhAssistantTriggerEventBuilder<TEvent>();
+        configure(builder);
+        _state.AddTriggerEvent(builder.Build(name));
+        return this;
+    }
+
+    /// <summary>
+    /// Registers the subjects a data-defined schedule can start a skill for on every tick, under a
+    /// name such as <c>active-projects</c>. The query runs in a scope of its own.
+    /// </summary>
+    public NhAssistantBuilder AddSubjectSet(
+        string name,
+        string description,
+        Func<IServiceProvider, CancellationToken, IAsyncEnumerable<NhAiSubjectRef>> subjects)
+    {
+        NhAssistantBlockNames.Validate(name, nameof(name));
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        ArgumentNullException.ThrowIfNull(subjects);
+        _state.AddSubjectSet(new NhAssistantSubjectSetDefinition(name, description.Trim(), subjects));
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a rule handler under a name, so a data-defined skill can work by its rules.
+    /// </summary>
+    public NhAssistantBuilder AddRuleHandler<THandler>(string name, string description)
+        where THandler : class, INhAssistantAgentRuleHandler
+    {
+        NhAssistantBlockNames.Validate(name, nameof(name));
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        Services.TryAddScoped<THandler>();
+        _state.AddRuleHandler(new NhAssistantRuleHandlerDefinition(name, description.Trim(), typeof(THandler)));
+        return this;
+    }
+
+    /// <summary>
     /// Registers an application guard for the proposals of the tools that
     /// <paramref name="toolSelectors"/> select (an exact tool id or a <c>prefix.*</c> selector). The
     /// guard names the objects a proposal changes and checks whether it still fits when the
@@ -478,6 +524,10 @@ internal sealed class NhAssistantRegistrationState
     private readonly Dictionary<string, NhAssistantAgentContextOptions> _agentContexts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAiApprovalPolicy> _approvalPolicies = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantTriggerDefinition> _triggers = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantTriggerEventDefinition> _triggerEvents = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantSubjectSetDefinition> _subjectSets = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantRuleHandlerDefinition> _ruleHandlers = new(StringComparer.Ordinal);
+    private NhAssistantRunSnapshot? _snapshot;
     private readonly List<Runs.NhAssistantProposalGuardRegistration> _proposalGuards = [];
     private readonly List<NhAssistantRevalidationDefinition> _revalidations = [];
 
@@ -499,7 +549,80 @@ internal sealed class NhAssistantRegistrationState
 
     public IReadOnlyCollection<NhAssistantAgentDefinition> Agents => _agents.Values;
 
-    public IReadOnlyDictionary<string, NhAssistantAgentRunOptions> AgentRuns => _agentRuns;
+    public bool TryGetAgent(string agentId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out NhAssistantAgentDefinition? agent)
+    {
+        return _agents.TryGetValue(agentId, out agent);
+    }
+
+    /// <summary>
+    /// The run configuration in effect: the code configuration with the data-defined skills and
+    /// triggers of the last loaded snapshot.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantAgentRunOptions> AgentRuns => Volatile.Read(ref _snapshot)?.AgentRuns ?? _agentRuns;
+
+    /// <summary>
+    /// The run configuration of code only, as composition registered it.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantAgentRunOptions> CodeAgentRuns => _agentRuns;
+
+    /// <summary>
+    /// The snapshot in effect, or <see langword="null"/> before data was loaded.
+    /// </summary>
+    public NhAssistantRunSnapshot? Snapshot => Volatile.Read(ref _snapshot);
+
+    public IReadOnlyDictionary<string, NhAssistantTriggerEventDefinition> TriggerEvents => _triggerEvents;
+
+    public IReadOnlyDictionary<string, NhAssistantSubjectSetDefinition> SubjectSets => _subjectSets;
+
+    public IReadOnlyDictionary<string, NhAssistantRuleHandlerDefinition> RuleHandlers => _ruleHandlers;
+
+    /// <summary>
+    /// Puts a snapshot of code and data into effect for every reader at once.
+    /// </summary>
+    public void ApplySnapshot(NhAssistantRunSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        Volatile.Write(ref _snapshot, snapshot);
+    }
+
+    public void AddTriggerEvent(NhAssistantTriggerEventDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        if (_triggerEvents.TryGetValue(definition.Name, out var existing))
+        {
+            if (existing.EventType != definition.EventType)
+            {
+                throw new InvalidOperationException($"Trigger event '{definition.Name}' is already registered for another event type.");
+            }
+            return;
+        }
+
+        _triggerEvents.Add(definition.Name, definition);
+    }
+
+    public void AddSubjectSet(NhAssistantSubjectSetDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        if (!_subjectSets.TryAdd(definition.Name, definition))
+        {
+            throw new InvalidOperationException($"Subject set '{definition.Name}' is already registered.");
+        }
+    }
+
+    public void AddRuleHandler(NhAssistantRuleHandlerDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        if (_ruleHandlers.TryGetValue(definition.Name, out var existing))
+        {
+            if (existing.HandlerType != definition.HandlerType)
+            {
+                throw new InvalidOperationException($"Rule handler '{definition.Name}' is already registered for another type.");
+            }
+            return;
+        }
+
+        _ruleHandlers.Add(definition.Name, definition);
+    }
 
     public IReadOnlyDictionary<string, NhAssistantAgentContextOptions> AgentContexts => _agentContexts;
 
@@ -516,7 +639,15 @@ internal sealed class NhAssistantRegistrationState
 
     public IReadOnlyDictionary<string, NhAiApprovalPolicy> ApprovalPolicies => _approvalPolicies;
 
-    public IReadOnlyDictionary<string, NhAssistantTriggerDefinition> Triggers => _triggers;
+    /// <summary>
+    /// The triggers in effect: those in code and the data-defined ones of the last loaded snapshot.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantTriggerDefinition> Triggers => Volatile.Read(ref _snapshot)?.Triggers ?? _triggers;
+
+    /// <summary>
+    /// The triggers registered in code.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantTriggerDefinition> CodeTriggers => _triggers;
 
     /// <summary>
     /// Proposal guards in registration order.
@@ -543,6 +674,15 @@ internal sealed class NhAssistantRegistrationState
     {
         ArgumentNullException.ThrowIfNull(revalidation);
         _revalidations.Add(revalidation);
+    }
+
+    /// <summary>
+    /// The run configuration in effect for an agent, or an empty one for an agent without; never
+    /// changes the registration, so it is safe at runtime.
+    /// </summary>
+    public NhAssistantAgentRunOptions RunOptionsOf(string agentId)
+    {
+        return AgentRuns.TryGetValue(agentId, out var options) ? options : new NhAssistantAgentRunOptions(agentId);
     }
 
     public NhAssistantAgentRunOptions GetOrAddAgentRun(string agentId)
@@ -688,7 +828,7 @@ internal sealed class NhAssistantRegistrationState
     /// Whether the agent's selector covers a skill's selector: the same tool, or a prefix selector
     /// that includes it.
     /// </summary>
-    private static bool Covers(string agentSelector, string skillSelector)
+    internal static bool Covers(string agentSelector, string skillSelector)
     {
         if (string.Equals(agentSelector, skillSelector, StringComparison.Ordinal))
         {

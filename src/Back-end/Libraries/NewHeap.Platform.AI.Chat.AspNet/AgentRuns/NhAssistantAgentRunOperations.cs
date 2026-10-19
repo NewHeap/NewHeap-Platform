@@ -222,6 +222,7 @@ internal sealed class NhAssistantAgentRunOperation(
     NhAssistantAgentWorkUpdates workUpdates,
     NhAssistantHandOffService handOffs,
     NhAssistantAgentTriggers triggers,
+    NhAssistantRunConfigurations configurations,
     IOptions<RequestLocalizationOptions> localization,
     IOptionsMonitor<NhAssistantOptions> assistantOptions,
     ILogger<NhAssistantAgentRunOperation> logger) : INhBackgroundOperationHandler<NhAssistantAgentRunRequest>
@@ -247,6 +248,8 @@ internal sealed class NhAssistantAgentRunOperation(
         CancellationToken cancellationToken)
     {
         using var culture = NhAssistantRunCulture.Use(localization.Value);
+        // A run may start on another host than the one that changed a data skill.
+        await configurations.EnsureCurrentAsync(cancellationToken);
         var run = await runs.FindRunAsync(request.RunId, cancellationToken);
         if (run is null)
         {

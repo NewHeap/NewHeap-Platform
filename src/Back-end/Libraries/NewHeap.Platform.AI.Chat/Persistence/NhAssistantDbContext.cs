@@ -75,6 +75,12 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantApprovalKey> ApprovalKeys => Set<AssistantApprovalKey>();
 
+    public DbSet<AssistantAgentSkillDefinition> AgentSkillDefinitions => Set<AssistantAgentSkillDefinition>();
+
+    public DbSet<AssistantAgentTriggerDefinition> AgentTriggerDefinitions => Set<AssistantAgentTriggerDefinition>();
+
+    public DbSet<AssistantRunConfigurationStamp> RunConfigurationStamps => Set<AssistantRunConfigurationStamp>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(_storageOptions.Schema);
@@ -520,6 +526,62 @@ public sealed class NhAssistantDbContext : DbContext
                 .WithOne()
                 .HasForeignKey(item => item.ServerId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAgentSkillDefinition>(definition =>
+        {
+            definition.ToTable("AssistantAgentSkillDefinition");
+            definition.HasKey(item => item.Id);
+            definition.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
+            definition.Property(item => item.SkillId).HasMaxLength(64).IsRequired();
+            definition.Property(item => item.Status).HasMaxLength(16).IsRequired();
+            definition.Property(item => item.Description).HasMaxLength(NhAssistantSkillBuilder.MaxDescriptionLength).IsRequired();
+            definition.Property(item => item.Instructions).HasMaxLength(NhAssistantAgentConfigurationLimits.MaxSkillInstructionsLength);
+            definition.Property(item => item.InstructionsHash).HasMaxLength(64);
+            definition.Property(item => item.ToolSelectorsJson).HasMaxLength(NhAssistantLimits.MaxStoredToolSelectorCharacters).IsRequired();
+            definition.Property(item => item.ProfileName).HasMaxLength(128);
+            definition.Property(item => item.RuleHandlerName).HasMaxLength(NhAssistantBlockNames.MaxLength);
+            definition.Property(item => item.ApprovalPolicyId).HasMaxLength(128);
+            definition.Property(item => item.CreatedBy).HasMaxLength(256).IsRequired();
+            definition.Property(item => item.Reason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            definition.HasIndex(item => new { item.AgentId, item.SkillId, item.Version }).IsUnique();
+            definition.HasIndex(item => new { item.AgentId, item.Status });
+            definition.HasOne<AssistantAgent>()
+                .WithMany()
+                .HasForeignKey(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAgentTriggerDefinition>(trigger =>
+        {
+            trigger.ToTable("AssistantAgentTriggerDefinition");
+            trigger.HasKey(item => item.Id);
+            trigger.Property(item => item.Id).HasMaxLength(64);
+            trigger.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
+            trigger.Property(item => item.SkillId).HasMaxLength(64);
+            trigger.Property(item => item.Source).HasMaxLength(16).IsRequired();
+            trigger.Property(item => item.EventName).HasMaxLength(NhAssistantBlockNames.MaxLength);
+            trigger.Property(item => item.Cron).HasMaxLength(128);
+            trigger.Property(item => item.TimeZone).HasMaxLength(64);
+            trigger.Property(item => item.SubjectSetName).HasMaxLength(NhAssistantBlockNames.MaxLength);
+            trigger.Property(item => item.Message).HasMaxLength(NhAssistantAgentConfigurationLimits.MaxTriggerMessageLength);
+            trigger.Property(item => item.Conflict).HasMaxLength(16).IsRequired();
+            trigger.Property(item => item.CreatedBy).HasMaxLength(256).IsRequired();
+            trigger.Property(item => item.UpdatedBy).HasMaxLength(256).IsRequired();
+            trigger.Property(item => item.Reason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            trigger.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
+            trigger.HasIndex(item => item.AgentId);
+            trigger.HasOne<AssistantAgent>()
+                .WithMany()
+                .HasForeignKey(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantRunConfigurationStamp>(stamp =>
+        {
+            stamp.ToTable("AssistantRunConfigurationStamp");
+            stamp.HasKey(item => item.Id);
+            stamp.Property(item => item.Id).ValueGeneratedNever();
         });
 
         modelBuilder.Entity<AssistantAgentSkillState>(skill =>

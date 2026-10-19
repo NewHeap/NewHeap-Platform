@@ -58,6 +58,10 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantAdminStore>();
         services.TryAddScoped<NhAssistantAgentCatalog>();
         services.TryAddScoped<NhAssistantShadowModes>();
+        // The run configuration defined as data and the snapshot that puts it into effect.
+        services.TryAddSingleton<NhAssistantRunConfigurationStore>();
+        services.TryAddSingleton<NhAssistantRunConfigurationValidator>();
+        services.TryAddSingleton<NhAssistantRunConfigurations>();
         services.TryAddScoped<NhAssistantAgentAdministration>();
         services.TryAddScoped<NhAssistantPersonalization>();
         services.TryAddScoped<NhAssistantTurnContextCollector>();

@@ -356,6 +356,7 @@ builder.Services.AddScoped<ProjectMediaSampleService>();
 builder.Services.AddScoped<AccountSampleService>();
 builder.Services.AddScoped<OperationsSampleService>();
 builder.Services.AddScoped<SampleAgentMaintenanceService>();
+builder.Services.AddScoped<SampleAgentConfigurationService>();
 builder.Services.AddScoped<ObservabilitySampleService>();
 builder.Services.AddSingleton<NewHeap.Platform.AspNet.Common.Utilities.IStartupConfiguration, SampleStartupConfiguration>();
 builder.Services.AddScoped<ProjectMaintenanceJob>();

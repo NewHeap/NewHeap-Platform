@@ -175,6 +175,7 @@ internal sealed class NhAssistantAgentTriggers(
     NhAssistantAgentEvents events,
     IOptionsMonitor<NhAssistantOptions> assistantOptions,
     NhAssistantAdminStore admin,
+    NhAssistantRunConfigurations configurations,
     IServiceProvider services,
     ILogger<NhAssistantAgentTriggers> logger) : INhAssistantAgentTriggers
 {
@@ -195,6 +196,7 @@ internal sealed class NhAssistantAgentTriggers(
         where TEvent : class
     {
         ArgumentNullException.ThrowIfNull(evt);
+        await configurations.EnsureCurrentAsync(cancellationToken);
         var matching = registration.Triggers.Values
             .Where(trigger => trigger.Source == NhAssistantTriggerSource.Event && trigger.EventType == typeof(TEvent))
             .ToArray();
@@ -251,6 +253,14 @@ internal sealed class NhAssistantAgentTriggers(
         }
 
         return receipts;
+    }
+
+    /// <summary>
+    /// Whether the trigger is defined as data and in shadow: its runs work in the shadow thread.
+    /// </summary>
+    internal bool IsTriggerShadow(string? triggerId)
+    {
+        return triggerId is not null && registration.Triggers.TryGetValue(triggerId, out var trigger) && trigger.Shadow;
     }
 
     /// <summary>
@@ -890,7 +900,7 @@ internal sealed class NhAssistantAgentTriggers(
         }
 
         var shadowModes = services.GetRequiredService<NhAssistantShadowModes>();
-        if (!await shadowModes.IsShadowAsync(thread.AgentId, run.SkillId, cancellationToken))
+        if (!IsTriggerShadow(run.TriggerId) && !await shadowModes.IsShadowAsync(thread.AgentId, run.SkillId, cancellationToken))
         {
             return null;
         }
@@ -1014,6 +1024,8 @@ internal sealed class NhAssistantAgentTriggers(
         {
             return Rejected(fire, null, NhAssistantErrorCodes.Disabled);
         }
+
+        await configurations.EnsureCurrentAsync(cancellationToken);
         if (!registration.AgentRuns.TryGetValue(fire.AgentId, out var options))
         {
             return Rejected(fire, null, NhAssistantErrorCodes.AgentNotConfigured);
@@ -1042,11 +1054,13 @@ internal sealed class NhAssistantAgentTriggers(
             return Rejected(fire, null, NhAssistantErrorCodes.SkillStopped);
         }
 
-        // Work of an agent or a skill in shadow goes to the agent's shadow thread of the subject.
+        // Work of an agent, a skill or a data trigger in shadow goes to the agent's shadow thread of
+        // the subject.
         var shadow = NhAssistantShadowModes.IsAgentShadow(options, agent.ShadowOverride)
             || (fire.SkillId is { } shadowSkill
                 && options.Skills.TryGetValue(shadowSkill, out var skillOptions)
-                && NhAssistantShadowModes.IsSkillShadow(skillOptions, skillRow));
+                && NhAssistantShadowModes.IsSkillShadow(skillOptions, skillRow))
+            || IsTriggerShadow(fire.TriggerId);
 
         // A paused agent or a paused skill lets the event wait.
         var paused = (agent.RunState == NhAssistantAgentRunStates.Paused || skillState == NhAssistantAgentRunStates.Paused)

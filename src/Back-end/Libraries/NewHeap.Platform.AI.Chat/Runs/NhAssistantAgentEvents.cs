@@ -469,6 +469,46 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    public Task SkillDefinitionChangedAsync(
+        string agentId,
+        string skillId,
+        int version,
+        string? instructionsHash,
+        string change,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentSkillDefinitionChanged, Guid.Empty, Guid.Empty, actorId, agentId, version, DateTimeOffset.UtcNow)
+            {
+                ObjectId = skillId,
+                SkillId = skillId,
+                InstructionsHash = instructionsHash,
+                ResultCode = change
+            },
+            cancellationToken);
+    }
+
+    public Task TriggerDefinitionChangedAsync(
+        string agentId,
+        string triggerId,
+        string? skillId,
+        int version,
+        string change,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentTriggerDefinitionChanged, Guid.Empty, Guid.Empty, actorId, agentId, version, DateTimeOffset.UtcNow)
+            {
+                ObjectId = triggerId,
+                TriggerId = triggerId,
+                SkillId = skillId,
+                ResultCode = change
+            },
+            cancellationToken);
+    }
+
     public Task EvaluationExportedAsync(string agentId, string variantId, string actorId, CancellationToken cancellationToken)
     {
         return RecordAsync(

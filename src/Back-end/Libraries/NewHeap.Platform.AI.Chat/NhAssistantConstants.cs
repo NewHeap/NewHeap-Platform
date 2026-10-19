@@ -545,6 +545,26 @@ public static class NhAssistantErrorCodes
     public const string ServiceAccountNotFound = "assistant-service-account-not-found";
 
     /// <summary>
+    /// The skill is declared in code; only skills defined as data change at runtime.
+    /// </summary>
+    public const string SkillInCode = "assistant-skill-in-code";
+
+    /// <summary>
+    /// The trigger is registered in code; only triggers defined as data change at runtime.
+    /// </summary>
+    public const string TriggerInCode = "assistant-trigger-in-code";
+
+    /// <summary>
+    /// A trigger defined as data names the skill; change or remove the trigger first.
+    /// </summary>
+    public const string SkillInUse = "assistant-skill-in-use";
+
+    /// <summary>
+    /// The agent already has as many skills or triggers defined as data as allowed.
+    /// </summary>
+    public const string ConfigurationLimit = "assistant-configuration-limit";
+
+    /// <summary>
     /// <c>use_skill</c> named a skill that is not active or is the current one.
     /// </summary>
     public const string SkillNotAvailable = "assistant-skill-not-available";

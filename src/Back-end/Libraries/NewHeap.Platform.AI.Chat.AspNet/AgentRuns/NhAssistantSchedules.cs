@@ -17,6 +17,7 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 internal sealed class NhAssistantScheduledTriggerJob(
     IServiceProvider services,
     NhAssistantRegistrationState registration,
+    NhAssistantRunConfigurations configurations,
     NhAssistantAgentTriggers triggers,
     ILogger<NhAssistantScheduledTriggerJob> logger)
 {
@@ -31,6 +32,7 @@ internal sealed class NhAssistantScheduledTriggerJob(
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        await configurations.EnsureCurrentAsync(cancellationToken);
         if (!registration.Triggers.TryGetValue(triggerId, out var trigger)
             || trigger.Source != NhAssistantTriggerSource.Schedule
             || trigger.ScheduledSubjects is null)
@@ -103,7 +105,8 @@ internal sealed class NhAssistantScheduledTriggerJob(
 }
 
 /// <summary>
-/// Registers a Hangfire recurring job for every scheduled trigger at startup.
+/// Registers a Hangfire recurring job for every scheduled trigger in code at startup. Data schedules
+/// have jobs of their own; see <see cref="NhAssistantDataScheduleSync"/>.
 /// </summary>
 internal sealed class NhAssistantScheduleRegistration(
     IServiceProvider services,
@@ -114,7 +117,7 @@ internal sealed class NhAssistantScheduleRegistration(
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        var schedules = registration.Triggers.Values
+        var schedules = registration.CodeTriggers.Values
             .Where(trigger => trigger.Source == NhAssistantTriggerSource.Schedule)
             .ToArray();
         if (schedules.Length == 0)

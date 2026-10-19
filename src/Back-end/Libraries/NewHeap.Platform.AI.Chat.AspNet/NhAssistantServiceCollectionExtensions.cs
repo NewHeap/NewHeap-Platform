@@ -91,6 +91,15 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<INhAiSubjectRetention, NhAssistantSubjectRetention>();
             services.TryAddScoped<NhAssistantScheduledTriggerJob>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantScheduleRegistration>());
+
+            // Run configuration as data: the administration service, the recurring jobs of data
+            // schedules and the background refresh of the snapshot.
+            services.TryAddScoped<NhAssistantAgentConfiguration>();
+            services.TryAddScoped<INhAssistantAgentConfiguration>(provider => provider.GetRequiredService<NhAssistantAgentConfiguration>());
+            services.TryAddSingleton<NhAssistantDataScheduleSync>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAssistantRunSnapshotListener, NhAssistantDataScheduleSync>(
+                provider => provider.GetRequiredService<NhAssistantDataScheduleSync>()));
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantRunConfigurationRefresh>());
             services.TryAddEnumerable(ServiceDescriptor.Scoped<
                 NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.INhBackgroundOperationAccess,
                 NhAssistantBackgroundOperationAccess>());
@@ -213,7 +222,7 @@ internal sealed class NhAssistantStartupValidator(
                     $"Agent '{context.AgentId}' retrieves context from source '{sourceId}', which is not registered with AddContextSource.");
             }
         }
-        foreach (var (agentId, runOptions) in state.AgentRuns)
+        foreach (var (agentId, runOptions) in state.CodeAgentRuns)
         {
             // A skill's own profile does what the agent's does; triage only needs chat.
             foreach (var skill in runOptions.Skills.Values.Where(skill => skill.ProfileName is not null))
@@ -257,7 +266,7 @@ internal sealed class NhAssistantStartupValidator(
                 }
             }
         }
-        if (state.AgentRuns.Count > 0)
+        if (state.CodeAgentRuns.Count > 0)
         {
             var operations = provider.GetService<NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.NhBackgroundOperationRegistry>();
             if (operations is null
@@ -270,7 +279,7 @@ internal sealed class NhAssistantStartupValidator(
             }
 
             var subjectTypes = provider.GetRequiredService<NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService>();
-            foreach (var trigger in state.Triggers.Values)
+            foreach (var trigger in state.CodeTriggers.Values)
             {
                 if (subjectTypes.SubjectTypes.Count == 0)
                 {

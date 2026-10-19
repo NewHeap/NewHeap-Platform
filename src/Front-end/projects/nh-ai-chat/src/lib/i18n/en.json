@@ -351,7 +351,11 @@
       "assistant-moved-to-shadow": "The work went to the agent's shadow thread, where a run in shadow takes it.",
       "assistant-shadow-variant": "A shadow variant always works in shadow.",
       "assistant-service-account-not-used": "This agent does not answer to a technical account.",
-      "assistant-service-account-not-found": "No account that may sign in exists with this id."
+      "assistant-service-account-not-found": "No account that may sign in exists with this id.",
+      "assistant-skill-in-code": "This skill is part of the code and cannot change here.",
+      "assistant-trigger-in-code": "This trigger is part of the code and cannot change here.",
+      "assistant-skill-in-use": "A trigger still starts this skill. Change or remove the trigger first.",
+      "assistant-configuration-limit": "This agent already has as many skills or triggers as allowed."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",

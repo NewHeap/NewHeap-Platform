@@ -155,7 +155,7 @@ internal sealed class NhAssistantThreadService(
             return TaskResult<AssistantThread>.Failed(accountable);
         }
 
-        var options = registration.GetOrAddAgentRun(agent.Id);
+        var options = registration.RunOptionsOf(agent.Id);
         var now = DateTimeOffset.UtcNow;
         var conversation = new AssistantConversation
         {
@@ -203,7 +203,7 @@ internal sealed class NhAssistantThreadService(
         NhAssistantAgent agent,
         NhAiSubjectInfo subject)
     {
-        var options = registration.GetOrAddAgentRun(agent.Id);
+        var options = registration.RunOptionsOf(agent.Id);
         switch (options.Accountability)
         {
             case NhAiAgentAccountability.SubjectResponsible:

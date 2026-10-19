@@ -4454,5 +4454,24 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRuntimeOverrideTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.ts"
     ]
+  },
+  {
+    "id": "SPM-295",
+    "title": "An administrator adds a progress note skill and its trigger to the project planner without a deploy, reads it in shadow and puts it live",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantBuilder.AddTriggerEvent with NhAssistantTriggerEventBuilder, AddSubjectSet and AddRuleHandler as building blocks; INhAssistantAgentConfiguration with NhAssistantDataSkillRequest, NhAssistantDataTriggerRequest, NhAssistantDataSkillDto, NhAssistantDataTriggerDto and NhAssistantAgentConfigurationDto; GET admin/run-catalog, GET admin/agents/{id}/configuration, PUT and DELETE admin/agents/{id}/skills/{skillId} and admin/agents/{id}/triggers/{triggerId}, GET admin/agents/{id}/skills/{skillId}/versions and POST admin/agents/{id}/triggers/{triggerId}/shadow; NhAssistantRunConfigurationProblems; assistant-skill-in-code, assistant-trigger-in-code, assistant-skill-in-use and assistant-configuration-limit; AdminAgentSkillDefinitionChanged and AdminAgentTriggerDefinitionChanged; the AgentRunConfiguration migrations for SQL Server and PostgreSQL",
+    "outcome": "The planner's composition registers the completed-task event, the active projects with a deadline soon and the progress-note rules under names. The application imports the progress note as data: a skill that works by the progress-note rules and a trigger on the completed-task event. Both start in shadow, so a completed task gets its note in the planner's shadow thread, which only administrators see, while the planner's own follow-up stays live. Once the operator puts the trigger and the skill live, the next completed task gets its note in the live thread after the follow-up, without a deploy. Removing the note takes it out of effect and keeps its versions.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfigurationEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunConfigurationTests.cs"
+    ]
   }
 ] as const;
