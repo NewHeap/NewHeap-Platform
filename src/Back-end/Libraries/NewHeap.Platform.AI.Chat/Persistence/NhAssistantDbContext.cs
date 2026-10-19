@@ -505,6 +505,15 @@ public sealed class NhAssistantDbContext : DbContext
             agent.Property(item => item.ServiceAccountActorId).HasMaxLength(256);
             agent.Property(item => item.ServiceAccountChangedBy).HasMaxLength(256);
             agent.Property(item => item.ServiceAccountReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            agent.Property(item => item.WorksOnSubjectTypesJson)
+                .HasMaxLength(NhAssistantAgentWorksOn.MaxStoredSubjectTypeCharacters)
+                .IsRequired()
+                .HasDefaultValue("[]");
+            // Agents that existed before they said what they work on work on every object type; the
+            // sentinel lets EF send false and leave true to the default.
+            agent.Property(item => item.WorksOnAllSubjects).HasDefaultValue(true).HasSentinel(true);
+            agent.Property(item => item.RunPolicy).HasMaxLength(NhAssistantAgentWorksOn.MaxPolicyLength);
+            agent.Property(item => item.ViewPolicy).HasMaxLength(NhAssistantAgentWorksOn.MaxPolicyLength);
             agent.Property(item => item.Version).IsConcurrencyToken();
             agent.HasMany(item => item.McpServers)
                 .WithOne()

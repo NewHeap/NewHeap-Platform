@@ -222,6 +222,10 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
             services.AddScoped<NhAssistantAdminStore>();
             services.AddScoped<NhAssistantAgentCatalog>();
             services.AddScoped<NhAssistantAgentAdministration>();
+            // What an agent works on is checked against the registered subject types.
+            services.AddSingleton<NhAssistantWorksOnRule>();
+            services.AddScoped<NhAssistantRunStore>();
+            services.AddScoped<NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService>();
             // Changes of administration agents reach the run configuration defined as data.
             services.AddLogging();
             services.AddSingleton<NhAssistantRunConfigurationStore>();

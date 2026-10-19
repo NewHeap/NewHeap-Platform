@@ -4642,6 +4642,32 @@
         "../../src/Front-end/projects/nh-ai-chat/src/lib/components/subject-links.spec.ts",
         "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-subjects.ts"
       ]
+    },
+    {
+      "id": "SPM-302",
+      "categoryId": "18",
+      "title": "The project follow-up is created as data and works on projects and the whole application; every agent says what it works on",
+      "surface": "`NhAssistantAgentRunBuilder.WorksOn`, `WorksOnAllObjects`, `WorksOnApplication`, `PerDivision`, `RunPolicy` and `ViewPolicy` with `NhAssistantAgentWorksOn` and `NhAiSubjectRef.SystemType`; `NhAssistantBuilder.AddAgentPolicy` with `AgentPolicies` and `Divisions` on `NhAssistantRunCatalogDto`; `Subject(type, id)` on `NhAssistantTriggerBuilder` and `NhAssistantTriggerEventBuilder` with `SubjectType` on `NhAssistantRunBlockDto`; `WorksOnSubjectTypes`, `WorksOnAllSubjects`, `WorksOnApplication`, `PerDivision`, `RunPolicy` and `ViewPolicy` on `NhAssistantAgentRequest`, `NhAssistantAdminAgentInputDto` and `NhAssistantAdminAgentDto`, with `WorksOnDeclared` and `KnownSubjectTypes`; `assistant-agent-does-not-work-on` from triggers, schedules, `POST threads/start`, `POST threads/open`, hand-offs and consultations; the `not-worked-on` run configuration problem; the AgentWorkOnObjects migrations for SQL Server and PostgreSQL; the works-on question of `NhAssistantAdminAgentEditorComponent`, the works-on line of the agent cards and the typed events of the trigger forms; `worksOnDeclared` and `knownSubjectTypes` of the mock administration scenario",
+      "outcome": "The sample's agents in code say that they work on projects, and their triggers name the project type up front, so startup checks them. The composition lists the project managers and the project readers as the policies an administrator may choose. In development the sample creates the project follow-up as data: an agent kept out of the chat that works on projects and on the whole application, that project managers may run for the whole application and whose results there everyone who reads projects sees, answering to the operations account. A project participant may start it on a project. An administrator who narrows it to the whole application gets errors at the fields for an unknown type and an unlisted policy, then sees that people can no longer start it on a project (assistant-agent-does-not-work-on) and that a trigger on created projects no longer fits it; back on projects it starts again. The playground's administration shows the planner working on projects and the project assistant on all objects with projects as known. The follow-up's weekly schedule for the whole application, its proposals at each project and its results are added by later phases of the plan.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261019221610_AgentWorkOnObjects.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261019221614_AgentWorkOnObjects.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentWorksOnTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agent-editor.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-works-on.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-works-on.ts"
+      ]
     }
   ]
 }

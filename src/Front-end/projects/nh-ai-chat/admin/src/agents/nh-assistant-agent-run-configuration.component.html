@@ -45,6 +45,7 @@
             [agentId]="config.agentId"
             [agentName]="agentName()"
             [catalog]="catalog()"
+            [worksOn]="agent()"
             [toolSelectors]="config.toolSelectors"
             [toolCatalog]="tools()"
             [takenSkillIds]="skillIds()"
@@ -299,6 +300,7 @@
         <nh-assistant-trigger-form
           [agentId]="config.agentId"
           [catalog]="catalog()"
+          [worksOn]="agent()"
           [skills]="skillOptions()"
           [trigger]="editingTrigger()"
           [takenIds]="triggerIds()"

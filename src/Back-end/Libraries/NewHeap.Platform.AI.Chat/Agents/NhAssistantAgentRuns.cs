@@ -99,6 +99,14 @@ public sealed class NhAssistantAgentRunOptions
     public bool HiddenFromChat { get; internal set; }
 
     /// <summary>
+    /// What the agent works on: in code from <c>WorksOn</c>, <c>WorksOnAllObjects</c>,
+    /// <c>WorksOnApplication</c>, <c>PerDivision</c>, <c>RunPolicy</c> and <c>ViewPolicy</c>; for an
+    /// agent created in the administration as its administrator stored it. Without a statement the
+    /// agent works on all object types and not on the application.
+    /// </summary>
+    public NhAssistantAgentWorksOn WorksOn { get; internal set; } = NhAssistantAgentWorksOn.Undeclared;
+
+    /// <summary>
     /// The agent starts in shadow mode: its runs work in shadow threads, where proposals are recorded
     /// as shadow proposals that nobody is notified about and that never execute. Administrators
     /// switch a live agent at runtime with <c>INhAssistantAgentControl.SetShadowAsync</c>; a shadow
@@ -652,6 +660,140 @@ public sealed class NhAssistantAgentRunBuilder
     }
 
     /// <summary>
+    /// Says which object types the agent works on, by their registered type ids; repeated calls add
+    /// types, at most <see cref="NhAssistantAgentWorksOn.MaxSubjectTypes"/>. Triggers, manual starts,
+    /// hand-offs, consultations and requests start the agent only on these types, and startup fails
+    /// for a trigger, hand-off or consultation that names another. An agent that says nothing works on
+    /// all object types and not on the application. Excludes <see cref="WorksOnAllObjects"/>.
+    /// </summary>
+    public NhAssistantAgentRunBuilder WorksOn(params string[] subjectTypes)
+    {
+        ArgumentNullException.ThrowIfNull(subjectTypes);
+        if (subjectTypes.Length == 0)
+        {
+            throw new ArgumentException("Name at least one object type.", nameof(subjectTypes));
+        }
+        foreach (var subjectType in subjectTypes)
+        {
+            if (!NhAiSubjectRef.IsValidType(subjectType))
+            {
+                throw new ArgumentException("An object type is a dash-case identifier.", nameof(subjectTypes));
+            }
+            if (NhAiSubjectRef.IsReservedType(subjectType))
+            {
+                throw new ArgumentException(
+                    $"'{subjectType}' belongs to the platform; use WorksOnApplication for the whole application.",
+                    nameof(subjectTypes));
+            }
+        }
+
+        var current = Declared();
+        if (current.AllSubjects)
+        {
+            throw new InvalidOperationException(
+                $"Agent '{_options.AgentId}' already works on all object types; WorksOn names types instead.");
+        }
+
+        var types = NhAssistantAgentWorksOn.Normalize(current.SubjectTypes.Concat(subjectTypes));
+        if (types.Count > NhAssistantAgentWorksOn.MaxSubjectTypes)
+        {
+            throw new InvalidOperationException(
+                $"An agent works on at most {NhAssistantAgentWorksOn.MaxSubjectTypes} object types; choose WorksOnAllObjects.");
+        }
+
+        _options.WorksOn = current with { SubjectTypes = types };
+        return this;
+    }
+
+    /// <summary>
+    /// Says the agent works on every object type the application registers, now and later. This is
+    /// what an agent that says nothing does, chosen on purpose. Excludes <see cref="WorksOn"/>.
+    /// </summary>
+    public NhAssistantAgentRunBuilder WorksOnAllObjects()
+    {
+        var current = Declared();
+        if (current.SubjectTypes.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Agent '{_options.AgentId}' already works on named object types; WorksOnAllObjects replaces them.");
+        }
+
+        _options.WorksOn = current with { AllSubjects = true };
+        return this;
+    }
+
+    /// <summary>
+    /// Says the agent also works on the whole application (the platform's
+    /// <see cref="NhAiSubjectRef.SystemType"/> subject), for runs that concern no single object, such
+    /// as weekly statistics. Combine it with <see cref="WorksOn"/> or <see cref="WorksOnAllObjects"/>
+    /// for objects; alone the agent works on the application only.
+    /// </summary>
+    public NhAssistantAgentRunBuilder WorksOnApplication()
+    {
+        _options.WorksOn = Declared() with { Application = true };
+        return this;
+    }
+
+    /// <summary>
+    /// Makes the agent work per division instead of app-wide: its runs, threads and pages for the
+    /// whole application then exist per division. Use it only when the application lists its
+    /// divisions; app-wide is the default.
+    /// </summary>
+    public NhAssistantAgentRunBuilder PerDivision(bool enabled = true)
+    {
+        _options.WorksOn = _options.WorksOn with { PerDivision = enabled };
+        return this;
+    }
+
+    /// <summary>
+    /// The authorization policy a person needs to run the agent for the whole application; without
+    /// it the assistant's administration policy decides. Starts on an object keep their own rule: a
+    /// participant of the object who may use the agent. Startup fails when the policy is not
+    /// registered.
+    /// </summary>
+    public NhAssistantAgentRunBuilder RunPolicy(string policyName)
+    {
+        _options.WorksOn = _options.WorksOn with { RunPolicy = ValidatePolicyName(policyName) };
+        return this;
+    }
+
+    /// <summary>
+    /// The authorization policy a person needs to see the agent's results for the whole application;
+    /// without it the agent's required policy decides. Results on an object follow the object's own
+    /// access. Startup fails when the policy is not registered.
+    /// </summary>
+    public NhAssistantAgentRunBuilder ViewPolicy(string policyName)
+    {
+        _options.WorksOn = _options.WorksOn with { ViewPolicy = ValidatePolicyName(policyName) };
+        return this;
+    }
+
+    /// <summary>
+    /// The statement so far, declared: the first <c>WorksOn*</c> call replaces "all object types" of
+    /// an agent that said nothing, and keeps per division and the policies.
+    /// </summary>
+    private NhAssistantAgentWorksOn Declared()
+    {
+        var current = _options.WorksOn;
+        return current.Declared
+            ? current
+            : current with { Declared = true, AllSubjects = false, SubjectTypes = [], Application = false };
+    }
+
+    private static string ValidatePolicyName(string policyName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
+        if (policyName.Length > NhAssistantAgentWorksOn.MaxPolicyLength || policyName.Trim() != policyName)
+        {
+            throw new ArgumentException(
+                $"A policy name has at most {NhAssistantAgentWorksOn.MaxPolicyLength} characters without surrounding whitespace.",
+                nameof(policyName));
+        }
+
+        return policyName;
+    }
+
+    /// <summary>
     /// Lets other assistants consult the agent about subjects of <paramref name="subjectType"/>.
     /// This generates the governed tool <c>assistant.consult.{agentId}.{subjectType}</c>, and with
     /// <see cref="NhAssistantConsultationBuilder.AllowRequests"/> also
@@ -747,6 +889,12 @@ internal sealed class NhAssistantTriggerDefinition
     public Func<object, bool>? When { get; init; }
 
     public required Func<object, NhAiSubjectRef> Subject { get; init; }
+
+    /// <summary>
+    /// The subject type the trigger names up front, so startup checks it against what the agent works
+    /// on; <see langword="null"/> when the type is known only when it fires.
+    /// </summary>
+    public string? SubjectType { get; init; }
 
     public Func<object, string?> Initiator { get; init; } = _ => null;
 
@@ -1140,6 +1288,7 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
 {
     private string? _agentId;
     private Func<TEvent, NhAiSubjectRef>? _subject;
+    private string? _subjectType;
     private Func<TEvent, string?> _initiator = _ => null;
     private Func<TEvent, string>? _message;
     private Func<TEvent, string?> _dedupe = _ => null;
@@ -1174,9 +1323,29 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
         return this;
     }
 
+    /// <summary>
+    /// The subject of an event, whose type is known only when the trigger fires; a start on a type
+    /// the agent does not work on is refused then with <c>assistant-agent-does-not-work-on</c>. Prefer
+    /// <see cref="Subject(string, Func{TEvent, string})"/> when the type is fixed.
+    /// </summary>
     public NhAssistantTriggerBuilder<TEvent> Subject(Func<TEvent, NhAiSubjectRef> subject)
     {
         _subject = subject ?? throw new ArgumentNullException(nameof(subject));
+        _subjectType = null;
+        return this;
+    }
+
+    /// <summary>
+    /// The subject of an event as a fixed type and the id the event names, such as
+    /// <c>Subject("project", e =&gt; e.ProjectId.ToString())</c>. The type is known up front, so
+    /// startup fails when the agent does not work on it.
+    /// </summary>
+    public NhAssistantTriggerBuilder<TEvent> Subject(string subjectType, Func<TEvent, string> id)
+    {
+        NhAssistantTriggerSubjects.ValidateType(subjectType);
+        ArgumentNullException.ThrowIfNull(id);
+        _subject = evt => new NhAiSubjectRef(subjectType, id(evt));
+        _subjectType = subjectType;
         return this;
     }
 
@@ -1286,6 +1455,7 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
             AgentId = _agentId,
             When = when is null ? null : evt => when((TEvent)evt),
             Subject = evt => subject((TEvent)evt),
+            SubjectType = _subjectType,
             Initiator = evt => initiator((TEvent)evt),
             Message = evt => message((TEvent)evt),
             Dedupe = evt => dedupe((TEvent)evt),

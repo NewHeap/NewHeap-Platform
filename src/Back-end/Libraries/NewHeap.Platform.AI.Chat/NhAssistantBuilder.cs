@@ -407,6 +407,32 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Lists an authorization policy that administrators may choose as the run policy (who may run an
+    /// agent for the whole application) or the view policy (who sees its results for the whole
+    /// application) of an agent created in the administration, with what it means in at most 300
+    /// characters. Agents in code name any policy with <c>RunPolicy</c> and <c>ViewPolicy</c>.
+    /// Startup fails when the policy is not registered.
+    /// </summary>
+    public NhAssistantBuilder AddAgentPolicy(string policyName, string description)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        if (policyName.Length > NhAssistantAgentWorksOn.MaxPolicyLength || policyName.Trim() != policyName)
+        {
+            throw new ArgumentException(
+                $"A policy name has at most {NhAssistantAgentWorksOn.MaxPolicyLength} characters without surrounding whitespace.",
+                nameof(policyName));
+        }
+        if (description.Length > NhAssistantSkillBuilder.MaxDescriptionLength)
+        {
+            throw new ArgumentOutOfRangeException(nameof(description));
+        }
+
+        _state.AddAgentPolicy(new NhAssistantAgentPolicyDefinition(policyName, description.Trim()));
+        return this;
+    }
+
+    /// <summary>
     /// Registers an application guard for the proposals of the tools that
     /// <paramref name="toolSelectors"/> select (an exact tool id or a <c>prefix.*</c> selector). The
     /// guard names the objects a proposal changes and checks whether it still fits when the
@@ -548,6 +574,7 @@ internal sealed class NhAssistantRegistrationState
     private readonly Dictionary<string, NhAssistantTriggerEventDefinition> _triggerEvents = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantSubjectSetDefinition> _subjectSets = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantRuleHandlerDefinition> _ruleHandlers = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantAgentPolicyDefinition> _agentPolicies = new(StringComparer.Ordinal);
     private readonly Dictionary<Type, NhAssistantSubjectTypeOptions> _subjectTypes = [];
     private NhAssistantRunSnapshot? _snapshot;
     private readonly List<Runs.NhAssistantProposalGuardRegistration> _proposalGuards = [];
@@ -603,6 +630,30 @@ internal sealed class NhAssistantRegistrationState
     public IReadOnlyDictionary<string, NhAssistantSubjectSetDefinition> SubjectSets => _subjectSets;
 
     public IReadOnlyDictionary<string, NhAssistantRuleHandlerDefinition> RuleHandlers => _ruleHandlers;
+
+    /// <summary>
+    /// The policies administrators may choose as run and view policies of agents created in the
+    /// administration, by name.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantAgentPolicyDefinition> AgentPolicies => _agentPolicies;
+
+    /// <summary>
+    /// Lists a policy once; the same policy with another description is refused.
+    /// </summary>
+    public void AddAgentPolicy(NhAssistantAgentPolicyDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        if (_agentPolicies.TryGetValue(definition.Name, out var existing))
+        {
+            if (!string.Equals(existing.Description, definition.Description, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"Agent policy '{definition.Name}' is already listed with another description.");
+            }
+            return;
+        }
+
+        _agentPolicies.Add(definition.Name, definition);
+    }
 
     /// <summary>
     /// The subject type configurations by resolver class, as <c>AddSubjectType</c> registered them.
@@ -828,6 +879,17 @@ internal sealed class NhAssistantRegistrationState
                     throw new InvalidOperationException(
                         $"Agent '{agentId}' accepts hand-offs from '{source}', which is not configured with ConfigureAgent.");
                 }
+                if (!options.WorksOn.Covers(handOff.SubjectType))
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' accepts hand-offs about '{handOff.SubjectType}', which it does not work on. Add the type to WorksOn.");
+                }
+            }
+
+            foreach (var consultation in options.Consultations.Where(consultation => !options.WorksOn.Covers(consultation.SubjectType)))
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{agentId}' allows consultation about '{consultation.SubjectType}', which it does not work on. Add the type to WorksOn.");
             }
 
             foreach (var skill in options.Skills.Values)
@@ -869,6 +931,12 @@ internal sealed class NhAssistantRegistrationState
             {
                 throw new InvalidOperationException(
                     $"Trigger '{trigger.Id}' runs skill '{skillId}', which agent '{trigger.AgentId}' does not declare.");
+            }
+            // A trigger that names its subject type up front is checked now; others when they fire.
+            if (trigger.SubjectType is { } subjectType && !_agentRuns[trigger.AgentId].WorksOn.Covers(subjectType))
+            {
+                throw new InvalidOperationException(
+                    $"Trigger '{trigger.Id}' starts agent '{trigger.AgentId}' on '{subjectType}', which the agent does not work on. Add the type to WorksOn.");
             }
         }
 

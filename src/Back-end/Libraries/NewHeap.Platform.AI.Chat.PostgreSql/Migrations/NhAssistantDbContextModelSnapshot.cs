@@ -74,12 +74,19 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<bool>("IsOverridden")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("PerDivision")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("ProfileName")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
                     b.Property<string>("RequiredPolicy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("RunPolicy")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
@@ -150,6 +157,25 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<int>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("integer");
+
+                    b.Property<string>("ViewPolicy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<bool>("WorksOnAllSubjects")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("WorksOnApplication")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("WorksOnSubjectTypesJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2100)
+                        .HasColumnType("character varying(2100)")
+                        .HasDefaultValue("[]");
 
                     b.HasKey("Id");
 

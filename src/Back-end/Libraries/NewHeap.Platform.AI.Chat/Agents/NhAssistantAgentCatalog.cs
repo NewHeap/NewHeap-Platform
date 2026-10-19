@@ -58,6 +58,12 @@ internal sealed record NhAssistantAgent(
     /// Whether people can choose the agent in the chat; see <c>HideFromChat()</c>.
     /// </summary>
     public bool OfferedInChat { get; init; } = true;
+
+    /// <summary>
+    /// What the agent works on: the statement in code for an agent in code, the stored one for an
+    /// agent created in the administration.
+    /// </summary>
+    public NhAssistantAgentWorksOn WorksOn { get; init; } = NhAssistantAgentWorksOn.Undeclared;
 }
 
 /// <summary>
@@ -170,7 +176,10 @@ internal sealed class NhAssistantAgentCatalog(
             ServiceAccountReason = row.ServiceAccountReason,
             OfferedInChat = row.Source == NhAssistantAgentSources.Code
                 ? !(registration.AgentRuns.TryGetValue(row.Id, out var runOptions) && runOptions.HiddenFromChat)
-                : !row.HiddenFromChat
+                : !row.HiddenFromChat,
+            WorksOn = row.Source == NhAssistantAgentSources.Code
+                ? registration.CodeAgentRuns.TryGetValue(row.Id, out var codeOptions) ? codeOptions.WorksOn : NhAssistantAgentWorksOn.Undeclared
+                : NhAssistantAgentWorksOn.FromRow(row)
         };
     }
 

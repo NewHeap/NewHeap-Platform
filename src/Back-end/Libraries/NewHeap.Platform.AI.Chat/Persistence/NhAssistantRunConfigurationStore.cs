@@ -6,14 +6,19 @@ namespace NewHeap.Platform.AI.Chat.Persistence;
 /// <summary>
 /// The skills and triggers defined as data, read together into a snapshot.
 /// </summary>
-/// <param name="AdminAgentSelectors">The tool selectors of every agent created in the
-/// administration, as JSON, by agent id.</param>
+/// <param name="AdminAgents">The tool selectors, as JSON, and what it works on of every agent created
+/// in the administration, by agent id.</param>
 internal sealed record NhAssistantStoredRunConfiguration(
     Guid? Stamp,
     IReadOnlyList<AssistantAgentRunConfiguration> AgentRuns,
-    IReadOnlyDictionary<string, string> AdminAgentSelectors,
+    IReadOnlyDictionary<string, NhAssistantStoredAdminAgent> AdminAgents,
     IReadOnlyList<AssistantAgentSkillDefinition> Skills,
     IReadOnlyList<AssistantAgentTriggerDefinition> Triggers);
+
+/// <summary>
+/// What the run configuration reads of an agent created in the administration.
+/// </summary>
+internal sealed record NhAssistantStoredAdminAgent(string ToolSelectorsJson, NhAssistantAgentWorksOn WorksOn);
 
 /// <summary>
 /// Persistence of the run configuration defined as data: the versions of data skills and the data
@@ -50,11 +55,25 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             .AsNoTracking()
             .OrderBy(item => item.AgentId)
             .ToListAsync(cancellationToken);
-        var adminAgents = await context.Agents
-            .AsNoTracking()
-            .Where(agent => agent.Source == NhAssistantAgentSources.Admin)
-            .Select(agent => new { agent.Id, agent.ToolSelectorsJson })
-            .ToDictionaryAsync(agent => agent.Id, agent => agent.ToolSelectorsJson, StringComparer.Ordinal, cancellationToken);
+        var adminAgents = (await context.Agents
+                .AsNoTracking()
+                .Where(agent => agent.Source == NhAssistantAgentSources.Admin)
+                .Select(agent => new AssistantAgent
+                {
+                    Id = agent.Id,
+                    ToolSelectorsJson = agent.ToolSelectorsJson,
+                    WorksOnSubjectTypesJson = agent.WorksOnSubjectTypesJson,
+                    WorksOnAllSubjects = agent.WorksOnAllSubjects,
+                    WorksOnApplication = agent.WorksOnApplication,
+                    PerDivision = agent.PerDivision,
+                    RunPolicy = agent.RunPolicy,
+                    ViewPolicy = agent.ViewPolicy
+                })
+                .ToListAsync(cancellationToken))
+            .ToDictionary(
+                agent => agent.Id,
+                agent => new NhAssistantStoredAdminAgent(agent.ToolSelectorsJson, NhAssistantAgentWorksOn.FromRow(agent)),
+                StringComparer.Ordinal);
         var skills = await context.AgentSkillDefinitions
             .AsNoTracking()
             .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live

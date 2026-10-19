@@ -28,7 +28,7 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapPost("threads/start", StartAgentAsync)
             .WithName("NhAssistantStartAgent")
             .WithSummary("Start an agent on a subject")
-            .WithDescription("Starts a run of the agent with the caller as initiator. The caller needs at least the participant role on the subject.")
+            .WithDescription("Starts a run of the agent with the caller as initiator. The caller needs at least the participant role on the subject, and the agent must work on the subject's type (409 assistant-agent-does-not-work-on otherwise).")
             .Produces<NhAssistantTriggerReceiptDto>(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
@@ -173,7 +173,7 @@ internal static class NhAssistantAgentRunEndpoints
             && runOptions.Enabled
             && access.Has(NhAiSubjectRole.Participant)
             && await agentAccess.CanUseAsync(httpContext.User, agent.Definition)
-            && await MayStartAsync(httpContext, runOptions, agent);
+            && await MayStartAsync(httpContext, runOptions, agent, subject!.Type);
         // People open the live thread; a shadow variant has shadow threads only.
         var thread = await runs.FindThreadAsync(info.ScopeKey, agentId!, subject!, cancellationToken, runOptions.ShadowOfAgentId is not null);
         NhAssistantThreadDto? threadDto = null;
@@ -220,9 +220,16 @@ internal static class NhAssistantAgentRunEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
         }
         var agent = await agents.FindAsync(request.AgentId!, includeDisabled: false, cancellationToken);
-        if (agent is null
-            || !await agentAccess.CanUseAsync(httpContext.User, agent.Definition)
-            || !await MayStartAsync(httpContext, registration.AgentRuns[request.AgentId!], agent))
+        if (agent is null || !await agentAccess.CanUseAsync(httpContext.User, agent.Definition))
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
+        }
+        // An agent starts only on what it works on, by hand as from a trigger.
+        if (httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().RefusalOf(agent.Id, subject!.Type) is { } notWorkedOn)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status409Conflict, notWorkedOn);
+        }
+        if (!await MayStartAsync(httpContext, registration.AgentRuns[request.AgentId!], agent, subject.Type))
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
         }
@@ -232,14 +239,21 @@ internal static class NhAssistantAgentRunEndpoints
     }
 
     /// <summary>
-    /// Whether the caller may start the agent by hand: an agent in shadow works in shadow threads,
-    /// which only administrators see, so only they start it.
+    /// Whether the caller may start the agent by hand on a subject of <paramref name="subjectType"/>:
+    /// the agent works on the type, and an agent in shadow works in shadow threads, which only
+    /// administrators see, so only they start it.
     /// </summary>
     internal static async Task<bool> MayStartAsync(
         HttpContext httpContext,
         NhAssistantAgentRunOptions runOptions,
-        NhAssistantAgent agent)
+        NhAssistantAgent agent,
+        string subjectType)
     {
+        if (!httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().Allows(agent.Id, subjectType))
+        {
+            return false;
+        }
+
         return !NhAssistantShadowModes.IsAgentShadow(runOptions, agent.ShadowOverride)
             || await NhAssistantEndpointRouteBuilderExtensions.IsAdministratorAsync(httpContext);
     }

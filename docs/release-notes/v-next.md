@@ -167,3 +167,61 @@ in English and Dutch.
 | Breaking change | Required action |
 |---|---|
 | A proposal card's subject and the thread view's heading render through a link component and may contain a link. | Update tests and styles that read the plain `strong` text or the heading text of these components. |
+
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: what an agent works on
+
+An agent says what it works on: `ConfigureAgent(id, run => run.WorksOn("project", "quote"))` names
+registered object types (at most 20), `WorksOnAllObjects()` chooses every type on purpose and
+`WorksOnApplication()` adds the whole application, the platform's subject type
+`NhAiSubjectRef.SystemType` (`nh-system`), for work that concerns no single object. `PerDivision()`,
+`RunPolicy(name)` (who may run it for the whole application; by default the administration policy)
+and `ViewPolicy(name)` (who sees its results there; by default its required policy) complete the
+statement (`NhAssistantAgentWorksOn`, `NhAssistantAgentRunOptions.WorksOn`). An agent that says
+nothing works on all object types and not on the application, as before.
+
+Agents created in the administration store the same statement: `NhAssistantAgentRequest`,
+`NhAssistantAdminAgentInputDto` and `NhAssistantAdminAgentDto` gain `WorksOnSubjectTypes`,
+`WorksOnAllSubjects`, `WorksOnApplication`, `PerDivision`, `RunPolicy` and `ViewPolicy`, sent together
+(omitted keeps the statement; a new agent works on all object types), and the DTO adds
+`WorksOnDeclared` and `KnownSubjectTypes`, the types an agent is known to work on (its hand-offs,
+consultations, typed triggers and threads). Run and view policies are chosen from the policies the
+application lists with `AddAgentPolicy(name, description)`; the run catalog shows them as
+`AgentPolicies` and reports `Divisions`, which stays `false` until the application lists divisions.
+Saving answers with field errors `worksOn`, `worksOnSubjectTypes`, `perDivision`, `runPolicy` and
+`viewPolicy`.
+
+One rule enforces the statement: trigger fires (events, schedules, webhooks, follow-ups, requests and
+hand-offs), `POST threads/start`, `POST threads/open` for a new thread, hand-offs and consultations on
+a type the agent does not work on are refused with the new code `assistant-agent-does-not-work-on`
+(`409` from the endpoints, audited as a rejected trigger), and `canStart` reads `false`. Triggers and
+trigger events that know their type say so with the new `Subject("project", e => e.ProjectId.ToString())`
+overload: startup then checks them, the run catalog shows the type on the event
+(`NhAssistantRunBlockDto.SubjectType`), a data trigger on it is refused for an agent that does not work
+on the type, and one that no longer fits is out of effect with the problem `not-worked-on`.
+
+| Breaking change | Required action |
+|---|---|
+| The migration `AgentWorkOnObjects` adds what an agent works on to `AssistantAgent`; existing agents work on all object types, not on the application, app-wide, without policies. | Apply the migrations of `NewHeap.Platform.AI.Chat.SqlServer` or `NewHeap.Platform.AI.Chat.PostgreSql`, or let `RunMigrations` apply them. |
+| `NhAssistantAgentRequest` and `NhAssistantAdminAgentInputDto` gained optional constructor parameters. | Recompile code that constructs them; named arguments stay valid. |
+| Startup fails for `AcceptHandOffs`, `AllowConsultation` or a typed trigger on a type the agent's `WorksOn` does not list, for an unknown type in `WorksOn`, and for an unregistered run, view or listed agent policy. | Add the type to `WorksOn` or remove the declaration; register the policy. |
+
+## @newheap/platform-ai-chat: what an agent works on
+
+The agent editor asks "What does this agent work on?" for agents created in the administration: all
+objects or chosen kinds of objects by the names of the run catalog's `subjectTypes`, the whole
+application, per division only when the catalog reports `divisions`, and the run and view policy from
+the catalog's new `agentPolicies`. It sends `worksOnSubjectTypes`, `worksOnAllSubjects`,
+`worksOnApplication`, `perDivision`, `runPolicy` and `viewPolicy` together and shows the server's field
+errors at their fields; `NhAssistantAdminAgentEditorComponent` takes the run catalog as the new input
+`catalog`, which `NhAssistantAdminAgentsComponent` passes. The agent cards show what an agent works on;
+an agent in code shows its code setting, and one that does not say shows "All objects" with the kinds
+it is known to work on (`knownSubjectTypes`). The trigger forms offer an event that names its kind of
+object (`RunBlock.subjectType`) only to agents that work on it. `AdminAgentInput`, `AdminAgent`,
+`RunCatalog` and `RunBlock` gain the optional fields; the mock API checks the statement as the server
+does and the scenario's admin agents accept `worksOnDeclared` and `knownSubjectTypes`. The texts,
+including `assistant-agent-does-not-work-on`, are bundled in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| The agent editor has a works-on section with radio buttons, check boxes and two policy selects after the use choice, and agent cards have a works-on line. | Update tests and styles that select the editor's controls or the card's paragraphs by position. |
+| The editor of an agent created in the administration sends what it works on with every save. | Pass the run catalog to `NhAssistantAdminAgentEditorComponent` with `catalog` when you host it yourself, so administrators can choose kinds of objects and policies. |

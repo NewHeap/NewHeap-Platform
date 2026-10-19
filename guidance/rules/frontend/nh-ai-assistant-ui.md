@@ -4,7 +4,7 @@ title: "Host the NewHeap assistant panel in an Angular application"
 area: frontend
 reference: ai-assistant-ui
 summary: "Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, let users run several conversations at once, share them and get desktop notifications, route to the lazily loaded administration page behind the admin permission, and test against the scripted mock API instead of a live model."
-sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-295", "SPM-296", "SPM-297", "SPM-298", "SPM-301"]
+sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-295", "SPM-296", "SPM-297", "SPM-298", "SPM-301", "SPM-302"]
 public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService", "getRequestHeaders", "NhAssistantAgentRunApiService", "NhAssistantAgentInboxComponent", "NhAssistantAgentThreadViewComponent", "NhAssistantAgentProposalsComponent", "NhAssistantRunTimelineComponent", "NhAssistantAgentMemoryComponent", "NhAssistantAgentArtifactsComponent", "NhAssistantAgentConsultationsComponent", "getHubQueryParameters", "NhAssistantApprovalRight", "NhAssistantApprovalChoice", "ConversationThread", "NhAssistantProposalFeedbackComponent", "NhAssistantProposalFeedbackSaved", "NhAssistantAgentFeedbackReportComponent", "NhAssistantFeedbackPeriod", "AgentProposalFeedback", "AgentProposalFeedbackCategory", "AgentProposalFeedbackGroup", "AgentFeedbackOutcome", "AgentFeedbackSummary", "AgentFeedbackSummaryRow", "AgentFeedbackItem", "AgentFeedbackList", "AgentFeedbackFilter", "NH_ASSISTANT_FEEDBACK_CATEGORIES", "NH_ASSISTANT_FEEDBACK_GROUPS", "NH_ASSISTANT_MAX_FEEDBACK_TEXT", "NH_ASSISTANT_MAX_BULK_FEEDBACK", "LiveAgentWorkChanged", "LiveAgentWorkReason", "NhAssistantSubjectBadgeComponent", "NhAssistantSubjectSummaryService", "NhAssistantSubjectSuggestionsComponent", "AgentSubjectWork", "AgentSubjectSummary", "AgentProposalDecisionRight", "NH_ASSISTANT_MAX_SUBJECT_SUMMARY", "NhAssistantAgentRunConfigurationComponent", "RunCatalog", "AgentRunConfiguration", "DataSkill", "DataTrigger", "AgentRunSettings", "NhAssistantError", "AssistantAccount", "ApprovalPolicySummary", "ApproverSummary", "AgentSubjectType", "AgentSubjectSearch", "AgentSubjectSearchResult", "NH_ASSISTANT_SUBJECT_SEARCH", "NhAssistantSubjectLinkBuilder", "NhAssistantSubjectRef", "NhAssistantMockSubjectType", "NhAssistantMockSubject"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
@@ -237,7 +237,17 @@ approval policies and profiles. Every choice is a searchable picker that shows a
 means, approval policies with a sentence built from `approvalPolicySummaries`, and the technical
 account is found by name through `searchAccounts` when the catalog reports `accountSearch`
 (otherwise by its id, with the name `getAccounts` knows). The editor of a new agent asks how it is
-used: in the chat, on its own (`offeredInChat: false`, kept out of the agent picker) or both; an
+used: in the chat, on its own (`offeredInChat: false`, kept out of the agent picker) or both, and
+what it works on: "All objects" or chosen kinds of objects by the names of the run catalog's
+`subjectTypes`, "The whole application", "Per division" only when the catalog reports `divisions`,
+and the run and view policy for the whole application from the catalog's `agentPolicies`. It sends
+`worksOnSubjectTypes`, `worksOnAllSubjects`, `worksOnApplication`, `perDivision`, `runPolicy` and
+`viewPolicy` together, shows the server's field errors (`worksOn`, `worksOnSubjectTypes`,
+`perDivision`, `runPolicy`, `viewPolicy`) at their fields and refuses a choice of kinds of objects
+without any. An agent in code says what it works on in its code; its card shows it read only, and an
+agent that does not say shows "All objects" with the kinds it is known to work on
+(`knownSubjectTypes`). The trigger forms offer an event that names its kind of object
+(`RunBlock.subjectType`) only to an agent that works on it. An
 agent that works on its own continues in its run configuration's guided setup, which asks when it
 starts, what it does, on whose behalf, who approves and its limits, and saves run settings, a skill
 and a trigger in shadow or puts them live at once. Run settings read as questions with the rarely
@@ -367,6 +377,8 @@ the administration route under the same parent to share that scope.
   a refused save only at the top of the page instead of at its fields and next to the save button.
 - Offering an agent that only works on its own in the chat; keep it out with `offeredInChat: false`
   or `HideFromChat()`.
+- Typing object type ids or policy names in a custom agent screen; offer the run catalog's
+  `subjectTypes` by name and its `agentPolicies`, and send what an agent works on as one set of fields.
 - Blocking new conversations while a turn runs, or rebuilding a second status list
   next to `activity`, `runningCount` and `unreadCount`.
 - Marking conversations as read on arrival instead of when the user sees them.
@@ -462,5 +474,11 @@ type and open the server's link through the router, keep a modified click for th
 host's `subjectLinks` override, refuse links that are neither in the application nor `https`, and
 search a type's readable subjects by name or name a subject given by id through the mock API. In the
 portal, follow a project's link in the intake reviews inbox and see that project selected (SPM-301).
-SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298 and SPM-301 are the executable
-references.
+The works-on tests show an agent in code with its statement and one that does not say with its known
+kinds, create an agent that works on tasks and the whole application with a run policy, refuse a
+choice without kinds of objects before the server is called, edit it back to all objects, offer per
+division only with divisions, offer a typed event only to agents that work on its kind, and check the
+mock API's field errors. In the assistant playground's administration, the project planner shows that
+it works on projects and the project assistant shows all objects with projects as known (SPM-302).
+SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298, SPM-301 and SPM-302 are the
+executable references.

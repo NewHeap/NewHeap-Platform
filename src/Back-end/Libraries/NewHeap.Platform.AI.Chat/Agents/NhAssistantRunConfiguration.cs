@@ -127,6 +127,9 @@ public static class NhAssistantRunConfigurationProblems
     /// <summary>The schedule's cron expression or time zone is invalid.</summary>
     public const string InvalidSchedule = "invalid-schedule";
 
+    /// <summary>The trigger event names a subject type up front that the agent does not work on.</summary>
+    public const string NotWorkedOn = "not-worked-on";
+
     /// <summary>The stored definition is invalid in another way.</summary>
     public const string Invalid = "invalid";
 }
@@ -336,9 +339,15 @@ internal sealed class NhAssistantRunConfigurationValidator(
         switch (trigger.Source)
         {
             case NhAssistantDataTriggerSources.Event:
-                return trigger.EventName is { } eventName && registration.TriggerEvents.ContainsKey(eventName)
-                    ? null
-                    : NhAssistantRunConfigurationProblems.UnknownEvent;
+                if (trigger.EventName is not { } eventName || !registration.TriggerEvents.TryGetValue(eventName, out var triggerEvent))
+                {
+                    return NhAssistantRunConfigurationProblems.UnknownEvent;
+                }
+
+                // An event that names its subject type up front fits only an agent that works on it.
+                return triggerEvent.SubjectType is { } subjectType && !options.WorksOn.Covers(subjectType)
+                    ? NhAssistantRunConfigurationProblems.NotWorkedOn
+                    : null;
             case NhAssistantDataTriggerSources.Schedule:
                 if (trigger.SubjectSetName is not { } setName || !registration.SubjectSets.ContainsKey(setName))
                 {
@@ -544,9 +553,9 @@ internal sealed class NhAssistantRunConfigurations(
             IReadOnlyList<string>? agentSelectors = null;
             var problem = registration.CodeAgentRuns.ContainsKey(settings.AgentId) || registration.TryGetAgent(settings.AgentId, out _)
                 ? NhAssistantRunConfigurationProblems.ConflictsWithCode
-                : !stored.AdminAgentSelectors.TryGetValue(settings.AgentId, out var selectorsJson)
+                : !stored.AdminAgents.TryGetValue(settings.AgentId, out var adminAgent)
                     ? NhAssistantRunConfigurationProblems.UnknownAgent
-                    : (agentSelectors = ReadSelectors(selectorsJson)) is null
+                    : (agentSelectors = ReadSelectors(adminAgent.ToolSelectorsJson)) is null
                         ? NhAssistantRunConfigurationProblems.Invalid
                         : validator.ValidateRunSettings(settings);
             if (problem is not null)
@@ -555,7 +564,8 @@ internal sealed class NhAssistantRunConfigurations(
                 continue;
             }
 
-            agentRuns[settings.AgentId] = ToOptions(settings);
+            // What the agent works on is part of its definition; its runs follow it.
+            agentRuns[settings.AgentId] = ToOptions(settings, stored.AdminAgents[settings.AgentId].WorksOn);
             runAgents[settings.AgentId] = new NhAssistantRunAgent([], agentSelectors!);
         }
 
@@ -644,7 +654,7 @@ internal sealed class NhAssistantRunConfigurations(
     /// The run options of an agent created in the administration. It has no grants: it acts with the
     /// rights of the account it answers to.
     /// </summary>
-    private NhAssistantAgentRunOptions ToOptions(AssistantAgentRunConfiguration settings)
+    private NhAssistantAgentRunOptions ToOptions(AssistantAgentRunConfiguration settings, NhAssistantAgentWorksOn worksOn)
     {
         NhAssistantAccountabilities.TryParse(settings.Accountability, out var accountability);
         NhAssistantElevatedReadNames.TryParse(settings.ElevatedReads, out var elevatedReads);
@@ -664,7 +674,8 @@ internal sealed class NhAssistantRunConfigurations(
             TriageProfileName = settings.TriageProfileName,
             RuleHandlerType = settings.RuleHandlerName is { } handler ? registration.RuleHandlers[handler].HandlerType : null,
             ActWithAccountableRights = true,
-            DataVersion = settings.Version
+            DataVersion = settings.Version,
+            WorksOn = worksOn
         };
     }
 
@@ -720,6 +731,7 @@ internal sealed class NhAssistantRunConfigurations(
                 AgentId = row.AgentId,
                 When = source.When,
                 Subject = source.Subject,
+                SubjectType = source.SubjectType,
                 Initiator = source.Initiator,
                 Message = source.Message,
                 Dedupe = source.Dedupe,

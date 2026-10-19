@@ -305,6 +305,11 @@ provideNhAssistant({
 `NhAssistantAgentRunApiService.searchSubjects(type, query, limit?)` finds the subjects of a type
 that the caller may read by name; the run catalog's `subjectTypes` say which types can be searched.
 
+The administration's agent editor asks what an agent created there works on: all objects or chosen
+kinds of objects by name, the whole application, per division when the run catalog reports
+`divisions`, and the run and view policy from the catalog's `agentPolicies`. Agent cards show what
+every agent works on; an agent in code shows its code setting.
+
 With live updates the inbox, the thread view and its tabs reload by themselves when the hub
 reports `AgentWorkChanged` for work they show, debounced, and after every reconnect. The
 update names the thread, its subject (`subjectType`, `subjectId`) and whether a run, a

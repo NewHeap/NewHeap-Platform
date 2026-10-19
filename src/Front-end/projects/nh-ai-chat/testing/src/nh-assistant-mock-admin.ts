@@ -19,6 +19,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminAgent, NhAssistantMockRemoteTool, NhAssistantMockScenario } from './nh-assistant-mock.models';
 import { NhAssistantMockRunConfiguration } from './nh-assistant-mock-run-configuration';
+import { mockUndeclaredWorksOn, mockWorksOnErrors, mockWorksOnFromInput } from './nh-assistant-mock-works-on';
 
 /** A mock response: status plus optional JSON body. */
 export interface NhAssistantMockResult {
@@ -80,11 +81,15 @@ export class NhAssistantMockAdmin {
 
     const agents: NhAssistantMockAdminAgent[] = admin.agents
       ?? scenario.agents.map(agent => ({ ...codeAgentFromSummary(agent), source: 'code' as const }));
-    for (const { source, skills, shadowOf, shadow, serviceAccount, ...input } of agents) {
+    for (const { source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, ...input } of agents) {
       const agentShadow = shadowOf !== undefined || shadow === true;
+      const initial = this.toAgent(input, source, 1, false);
       this.agents.set(input.id, {
         agent: {
-          ...this.toAgent(input, source, 1, false),
+          ...initial,
+          // Code says what its agents work on; a scenario agent that says nothing works on all objects.
+          ...(source === 'code' ? { ...(mockWorksOnFromInput(input) ?? mockUndeclaredWorksOn), worksOnDeclared: worksOnDeclared ?? mockWorksOnFromInput(input) !== null } : {}),
+          knownSubjectTypes: knownSubjectTypes ?? [],
           shadowOf: shadowOf ?? null,
           shadow: shadowState(agentShadow, shadowOf !== undefined || shadow === true, null, shadowOf !== undefined),
           serviceAccount: serviceAccount === undefined
@@ -291,7 +296,7 @@ export class NhAssistantMockAdmin {
       }
 
       const input = body as AdminAgentInput;
-      const invalid = this.agentFailure(input);
+      const invalid = this.agentFailure(input, 'admin');
       if (invalid) {
         return invalid;
       }
@@ -341,7 +346,7 @@ export class NhAssistantMockAdmin {
 
     if (method === 'PUT') {
       const input = body as AdminAgentInput & { expectedVersion?: number };
-      const invalid = input?.id !== id ? validationFailure() : this.agentFailure(input);
+      const invalid = input?.id !== id ? validationFailure() : this.agentFailure(input, stored.agent.source);
       if (invalid) {
         return invalid;
       }
@@ -830,13 +835,30 @@ export class NhAssistantMockAdmin {
     return null;
   }
 
-  /** The contract failure for an invalid agent, or null when the agent is valid. */
-  private agentFailure(input: AdminAgentInput | undefined): NhAssistantMockResult | null {
+  /**
+   * The contract failure for an invalid agent, or null when the agent is valid. What an agent created
+   * here works on is checked as the server checks it; an agent in code takes it from its code.
+   */
+  private agentFailure(input: AdminAgentInput | undefined, source: 'code' | 'admin'): NhAssistantMockResult | null {
     if (typeof input?.instructions === 'string' && input.instructions.length > maxInstructions) {
       return failure(400, 'assistant-instructions-too-long');
     }
+    if (!this.validAgent(input)) {
+      return validationFailure();
+    }
 
-    return this.validAgent(input) ? null : validationFailure();
+    const worksOn = source === 'admin' ? mockWorksOnFromInput(input!) : null;
+    if (worksOn) {
+      const errors = mockWorksOnErrors(
+        worksOn,
+        (this.scenario.subjectTypes ?? []).map(type => type.id),
+        this.runConfiguration.agentPolicyNames,
+        this.runConfiguration.divisionsListed);
+      if (Object.keys(errors).length > 0) {
+        return failure(400, 'assistant-validation', errors);
+      }
+    }
+    return null;
   }
 
   private validAgent(input: AdminAgentInput | undefined): boolean {
@@ -885,7 +907,12 @@ export class NhAssistantMockAdmin {
       // Code decides for its agents; an agent created here keeps its choice when it is omitted.
       offeredInChat: source === 'code' && previous
         ? previous.offeredInChat ?? true
-        : input.offeredInChat ?? previous?.offeredInChat ?? true
+        : input.offeredInChat ?? previous?.offeredInChat ?? true,
+      // The same for what it works on: omitted keeps it, and a new agent works on all objects.
+      ...(source === 'code' && previous
+        ? pickWorksOn(previous)
+        : mockWorksOnFromInput(input) ?? (previous ? pickWorksOn(previous) : { ...mockUndeclaredWorksOn, worksOnDeclared: true })),
+      knownSubjectTypes: previous?.knownSubjectTypes ?? []
     };
   }
 
@@ -1026,6 +1053,19 @@ function toContext(version: ApplicationContextVersion & { text: string }): Appli
 /** A contract error response: `{ code, messageKey, errors? }`, never free text. */
 function failure(status: number, code: string, errors?: Record<string, string[]>): NhAssistantMockResult {
   return { status, body: { code, messageKey: `nh-assistant.errors.${code}`, ...(errors ? { errors } : {}) } };
+}
+
+/** What a stored agent works on, carried over to its next version. */
+function pickWorksOn(agent: AdminAgent): Partial<AdminAgent> {
+  return {
+    worksOnSubjectTypes: agent.worksOnSubjectTypes ?? [],
+    worksOnAllSubjects: agent.worksOnAllSubjects ?? true,
+    worksOnApplication: agent.worksOnApplication ?? false,
+    perDivision: agent.perDivision ?? false,
+    runPolicy: agent.runPolicy ?? null,
+    viewPolicy: agent.viewPolicy ?? null,
+    worksOnDeclared: agent.worksOnDeclared ?? true
+  };
 }
 
 function validationFailure(field?: string): NhAssistantMockResult {

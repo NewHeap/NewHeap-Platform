@@ -15,8 +15,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// administration rather than in code. The composition registers what its run settings and its
 /// trigger name: the project-created event and the kickoff rules. The agent itself, whom it answers
 /// to and when it starts are data; it has no grants and acts with the rights of the technical account
-/// it answers to. Call it after <c>AddSampleIntakeReviewer</c>, which registers the project subject
-/// type.
+/// it answers to. SPM-302: it also lists the policies an administrator may choose as the run and view
+/// policy of such an agent. Call it after <c>AddSampleIntakeReviewer</c>, which registers the project
+/// subject type.
 /// </summary>
 public static class SampleProjectStarterComposition
 {
@@ -26,12 +27,22 @@ public static class SampleProjectStarterComposition
     public const string ProjectCreatedEvent = "project.created";
     public const string KickoffRules = "project-kickoff";
 
+    /// <summary>
+    /// SPM-302: who may run an agent created here for the whole application, and who sees its results.
+    /// </summary>
+    public const string ProjectManagePolicy = "app.project.manage";
+    public const string ProjectViewPolicy = "app.project.view";
+
     public static IServiceCollection AddSampleProjectStarterBlocks(this IServiceCollection services)
     {
         services.AddNewHeapAssistant(assistant => assistant
+            // SPM-302: the agent editor offers these as run and view policies; startup checks that
+            // the policies are registered.
+            .AddAgentPolicy(ProjectManagePolicy, "Project managers: people who may change projects.")
+            .AddAgentPolicy(ProjectViewPolicy, "Everyone who may read the projects.")
             .AddTriggerEvent<ProjectCreatedEvent>(ProjectCreatedEvent, evt => evt
                 .Description("A project was created.")
-                .Subject(created => ProjectSubjects.For(created.ProjectId))
+                .Subject(ProjectSubjects.Type, created => ProjectSubjects.IdOf(created.ProjectId))
                 .Initiator(created => created.CreatedByUserId?.ToString("D"))
                 .Message(created => $"Project {created.ProjectKey} was created.")
                 .Dedupe(created => created.EventId.ToString("N")))

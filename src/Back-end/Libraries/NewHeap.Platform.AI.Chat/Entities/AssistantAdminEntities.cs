@@ -51,6 +51,41 @@ public sealed class AssistantAgent
     public bool HiddenFromChat { get; set; }
 
     /// <summary>
+    /// The object types an agent created in the administration works on, as a JSON array of type
+    /// ids; empty when it works on all object types or only on the application. Agents in code take
+    /// what they work on from <c>WorksOn</c> instead.
+    /// </summary>
+    public string WorksOnSubjectTypesJson { get; set; } = "[]";
+
+    /// <summary>
+    /// The agent works on every object type. Rows that existed before agents said what they work on
+    /// read <see langword="true"/>.
+    /// </summary>
+    public bool WorksOnAllSubjects { get; set; } = true;
+
+    /// <summary>
+    /// The agent works on the whole application, the platform's <c>nh-system</c> subject.
+    /// </summary>
+    public bool WorksOnApplication { get; set; }
+
+    /// <summary>
+    /// The agent works per division instead of app-wide.
+    /// </summary>
+    public bool PerDivision { get; set; }
+
+    /// <summary>
+    /// The authorization policy a person needs to run the agent for the whole application;
+    /// <see langword="null"/> uses the assistant's administration policy.
+    /// </summary>
+    public string? RunPolicy { get; set; }
+
+    /// <summary>
+    /// The authorization policy a person needs to see the agent's results for the whole application;
+    /// <see langword="null"/> uses the agent's required policy.
+    /// </summary>
+    public string? ViewPolicy { get; set; }
+
+    /// <summary>
     /// One of <see cref="NhAssistantAgentRunStates.Active"/>, <see cref="NhAssistantAgentRunStates.Paused"/>
     /// or <see cref="NhAssistantAgentRunStates.Stopped"/>. Changing it never changes <see cref="Version"/>.
     /// An agent with <see cref="IsEnabled"/> <see langword="false"/> reads as stopped, which keeps the

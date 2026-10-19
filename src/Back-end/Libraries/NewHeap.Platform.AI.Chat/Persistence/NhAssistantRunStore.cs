@@ -47,6 +47,34 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 cancellationToken);
     }
 
+    /// <summary>
+    /// The subject types the agents have threads about, each pair once, ordered by agent and type;
+    /// <paramref name="agentIds"/> limits the agents, <see langword="null"/> reads every agent. At
+    /// most <paramref name="limit"/> pairs.
+    /// </summary>
+    public async Task<IReadOnlyList<(string AgentId, string SubjectType)>> ListThreadSubjectTypesAsync(
+        IReadOnlyCollection<string>? agentIds,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var threads = context.Threads.AsNoTracking();
+        if (agentIds is not null)
+        {
+            var ids = agentIds.Distinct(StringComparer.Ordinal).ToArray();
+            threads = threads.Where(thread => ids.Contains(thread.AgentId));
+        }
+
+        var pairs = await threads
+            .Select(thread => new { thread.AgentId, thread.SubjectType })
+            .Distinct()
+            .OrderBy(pair => pair.AgentId)
+            .ThenBy(pair => pair.SubjectType)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+        return pairs.Select(pair => (pair.AgentId, pair.SubjectType)).ToArray();
+    }
+
     public async Task<AssistantThread?> FindThreadByConversationAsync(
         Guid conversationId,
         CancellationToken cancellationToken)

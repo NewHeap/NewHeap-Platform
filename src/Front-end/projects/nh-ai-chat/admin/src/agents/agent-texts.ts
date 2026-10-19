@@ -35,3 +35,53 @@ export function readableId(id: string): string {
   const words = id.split('-').filter(word => word.length > 0).join(' ');
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
+
+/** What an agent works on, ready to show: object types by name, all objects and the application. */
+export interface WorksOnSummary {
+  /** The names of the object types it works on; empty with `all`. */
+  types: string[];
+  /** It works on every object type. */
+  all: boolean;
+  /** It works on the whole application. */
+  application: boolean;
+  perDivision: boolean;
+  /** An agent in code that does not say what it works on. */
+  undeclared: boolean;
+  /** The names of the object types it is known to work on, as a hint next to "All objects". */
+  known: string[];
+  runPolicy: string | null;
+  viewPolicy: string | null;
+}
+
+/**
+ * What an agent works on, with object types named as the run catalog names several of them in the
+ * reader's language, and their ids otherwise. An older server that does not say reads as all objects.
+ */
+export function worksOnSummary(
+  agent: {
+    worksOnSubjectTypes?: string[];
+    worksOnAllSubjects?: boolean;
+    worksOnApplication?: boolean;
+    perDivision?: boolean;
+    worksOnDeclared?: boolean;
+    knownSubjectTypes?: string[];
+    runPolicy?: string | null;
+    viewPolicy?: string | null;
+  },
+  subjectTypes: readonly { id: string; name: string; pluralName?: string | null }[] | null | undefined
+): WorksOnSummary {
+  const names = new Map((subjectTypes ?? []).map(type => [type.id, type.pluralName ?? type.name]));
+  const name = (id: string): string => names.get(id) ?? id;
+  const types = agent.worksOnSubjectTypes ?? [];
+  const all = agent.worksOnAllSubjects ?? (types.length === 0 && agent.worksOnApplication !== true);
+  return {
+    types: all ? [] : types.map(name),
+    all,
+    application: agent.worksOnApplication === true,
+    perDivision: agent.perDivision === true,
+    undeclared: agent.worksOnDeclared === false,
+    known: (agent.knownSubjectTypes ?? []).map(name),
+    runPolicy: agent.runPolicy ?? null,
+    viewPolicy: agent.viewPolicy ?? null
+  };
+}

@@ -49,6 +49,13 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
   binds it to its entity and links to where the application shows a subject. A resolver that
   also implements `INhAiSubjectSearch` lets people find subjects by name; the platform keeps
   only what `ResolveAsync` lets the person read. Types starting with `nh-` are reserved.
+- **What an agent works on** — `ConfigureAgent(id, run => run.WorksOn("project")
+  .WorksOnApplication().RunPolicy("...").ViewPolicy("..."))` says which object types, all objects
+  (`WorksOnAllObjects`) and/or the whole application an agent works on; triggers, starts, hand-offs
+  and consultations on other types are refused with `assistant-agent-does-not-work-on`. An agent
+  that says nothing works on all object types. `AddAgentPolicy(name, description)` lists the policies
+  administrators may choose for agents created in the administration, and
+  `Subject("project", e => ...)` lets startup check a trigger's type.
 - **Consultations** — `AllowConsultation(subjectType, ...)` in `ConfigureAgent` lets other
   assistants consult the agent about a subject through the generated tools
   `assistant.consult.{agentId}.{subjectType}` (an answer in the same turn) and, with

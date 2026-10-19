@@ -111,8 +111,32 @@ export function ruleOptions(catalog: RunCatalog | null): NhAssistantPickerOption
   return (catalog?.ruleHandlers ?? []).map(block => ({ value: block.name, label: block.name, description: block.description }));
 }
 
-export function eventOptions(catalog: RunCatalog | null): NhAssistantPickerOption[] {
-  return (catalog?.triggerEvents ?? []).map(block => ({ value: block.name, label: block.name, description: block.description }));
+/** What an agent works on, as far as the trigger events it is offered depend on it. */
+export interface WorksOnStatement {
+  worksOnSubjectTypes?: string[];
+  worksOnAllSubjects?: boolean;
+  worksOnApplication?: boolean;
+}
+
+/** Whether an agent works on subjects of the type, as the server's rule decides it. */
+export function worksOnCovers(statement: WorksOnStatement | null | undefined, subjectType: string): boolean {
+  if (subjectType === 'nh-system') {
+    return statement?.worksOnApplication === true;
+  }
+  if (subjectType.startsWith('nh-')) {
+    return false;
+  }
+  return !statement || statement.worksOnAllSubjects !== false || (statement.worksOnSubjectTypes ?? []).includes(subjectType);
+}
+
+/**
+ * The trigger events an agent can start on: an event that names its object type up front is offered
+ * only to an agent that works on that type.
+ */
+export function eventOptions(catalog: RunCatalog | null, worksOn?: WorksOnStatement | null): NhAssistantPickerOption[] {
+  return (catalog?.triggerEvents ?? [])
+    .filter(block => !block.subjectType || worksOnCovers(worksOn, block.subjectType))
+    .map(block => ({ value: block.name, label: block.name, description: block.description }));
 }
 
 export function subjectSetOptions(catalog: RunCatalog | null): NhAssistantPickerOption[] {

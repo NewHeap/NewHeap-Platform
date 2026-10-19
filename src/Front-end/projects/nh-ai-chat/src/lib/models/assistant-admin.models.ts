@@ -73,6 +73,24 @@ export interface AdminAgentInput {
    * update; a new agent is offered. An agent that is not offered keeps working on its triggers.
    */
   offeredInChat?: boolean;
+  /**
+   * The object types an agent created in the administration works on, from the run catalog's
+   * `subjectTypes`, at most 20. What an agent works on is sent together: omitting all of
+   * `worksOnSubjectTypes`, `worksOnAllSubjects`, `worksOnApplication`, `perDivision`, `runPolicy`
+   * and `viewPolicy` keeps it on update and lets a new agent work on all object types. Agents in
+   * code take it from their code.
+   */
+  worksOnSubjectTypes?: string[];
+  /** The agent works on every object type; not next to `worksOnSubjectTypes`. */
+  worksOnAllSubjects?: boolean;
+  /** The agent works on the whole application. */
+  worksOnApplication?: boolean;
+  /** The agent works per division; only when the run catalog reports `divisions`. */
+  perDivision?: boolean;
+  /** Who may run the agent for the whole application, from the run catalog's `agentPolicies`; `null`: the administration policy. */
+  runPolicy?: string | null;
+  /** Who sees its results for the whole application, from the run catalog's `agentPolicies`; `null`: the agent's required policy. */
+  viewPolicy?: string | null;
 }
 
 /** Body of `PUT admin/agents/{id}`. */
@@ -112,6 +130,17 @@ export interface AdminAgent extends AdminAgentInput {
    * it with `HideFromChat()`.
    */
   offeredInChat?: boolean;
+  /**
+   * Whether the agent says what it works on: always for an agent created here, for an agent in code
+   * only with `WorksOn`, `WorksOnAllObjects` or `WorksOnApplication`. An agent that does not say
+   * works on all object types; missing on older servers.
+   */
+  worksOnDeclared?: boolean;
+  /**
+   * The object types the agent is known to work on, as a hint next to "All objects": those it
+   * accepts hand-offs and consultations about, those its triggers name and those of its threads.
+   */
+  knownSubjectTypes?: string[];
 }
 
 /** The shadow modes an administrator chooses; `code` lets the mode in code decide again. */
@@ -529,6 +558,11 @@ export interface AgentFeedbackList {
 export interface RunBlock {
   name: string;
   description: string;
+  /**
+   * For a trigger event that names its object type up front, that type: data triggers on it fit only
+   * agents that work on it. Missing or `null` when the type is known only when the event fires.
+   */
+  subjectType?: string | null;
 }
 
 /** Response of `GET admin/run-catalog`: what skills, triggers and run settings defined as data can name. */
@@ -545,6 +579,13 @@ export interface RunCatalog {
   accountSearch?: boolean;
   /** The subject types the application registered, by id; missing on older servers. */
   subjectTypes?: AgentSubjectType[];
+  /**
+   * The policies the application lists for the run and view policy of agents created here, by name;
+   * missing on older servers.
+   */
+  agentPolicies?: RunBlock[];
+  /** Whether the application lists its divisions, so an agent may work per division. */
+  divisions?: boolean;
 }
 
 /** A subject type as people see it, from the run catalog. */

@@ -299,6 +299,7 @@
       "assistant-subject-not-found": "The subject no longer exists.",
       "assistant-subject-type-unknown": "This kind of subject is not known to the assistant.",
       "assistant-subject-search-unavailable": "This kind of object cannot be searched; give its id.",
+      "assistant-agent-does-not-work-on": "This agent does not work on this kind of object.",
       "assistant-subject-access-denied": "Your role on this subject does not allow this.",
       "assistant-no-accountable-owner": "Nobody answers for this agent on this subject.",
       "assistant-agent-disabled": "This agent has been stopped.",
@@ -575,7 +576,18 @@
         "version-label": "Version",
         "tool-count-one": "{{count}} tool selector",
         "server-count-one": "{{count}} MCP server",
-        "required-policy": "Requires:"
+        "required-policy": "Requires:",
+        "works-on": {
+          "label": "Works on:",
+          "all": "All objects",
+          "application": "The whole application",
+          "and-application": "and the whole application",
+          "per-division": "per division",
+          "undeclared": "(not stated in code)",
+          "known": "Known to work on: {{types}}.",
+          "run-policy": "Run for the whole application by: {{policy}}.",
+          "view-policy": "Results for the whole application seen by: {{policy}}."
+        }
       },
       "agent-editor": {
         "new-title": "New agent",
@@ -613,6 +625,28 @@
           "both": "Both",
           "both-hint": "Offered in the chat, and it also starts on events or a schedule.",
           "next": "After saving, a short setup asks when the agent starts, what it does and on whose behalf."
+        },
+        "works-on": {
+          "title": "What does this agent work on?",
+          "hint": "Events, schedules, people and other agents start it only on what it works on.",
+          "all": "All objects",
+          "all-hint": "Every kind of object the application has, now and later.",
+          "types": "Chosen kinds of objects",
+          "types-hint": "Only the kinds of objects you tick below.",
+          "no-types": "The application has no kinds of objects to choose from.",
+          "too-many": "Choose at most 20 kinds of objects, or All objects.",
+          "known": "Known to work on: {{types}}.",
+          "application": "The whole application",
+          "application-hint": "Work that concerns no single object, such as a weekly overview.",
+          "per-division": "Per division",
+          "per-division-hint": "Its work for the whole application happens separately for every division.",
+          "missing": "Choose at least one kind of object, or the whole application.",
+          "run-policy": "Who may run it for the whole application",
+          "run-policy-default": "Administrators (default)",
+          "run-policy-hint": "People who pass this may start the agent for the whole application.",
+          "view-policy": "Who sees its results for the whole application",
+          "view-policy-default": "Everyone who may use the agent (default)",
+          "view-policy-hint": "Results on an object follow who may read that object."
         }
       },
       "effect": {
@@ -848,7 +882,8 @@
             "unknown-subject-set": "the set of subjects no longer exists.",
             "unknown-skill": "the skill no longer exists.",
             "invalid-schedule": "the schedule or its time zone is not valid.",
-            "invalid": "a value is not valid."
+            "invalid": "a value is not valid.",
+            "not-worked-on": "the event concerns a kind of object the agent does not work on."
           }
         },
         "field-errors": {

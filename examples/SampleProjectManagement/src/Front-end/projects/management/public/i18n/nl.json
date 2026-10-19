@@ -580,7 +580,9 @@
       }
     },
     "policies": {
-      "app.active-division.project.view": "projecten bekijken in de actieve divisie"
+      "app.active-division.project.view": "projecten bekijken in de actieve divisie",
+      "app.project.manage": "projectmanagers",
+      "app.project.view": "iedereen die projecten mag lezen"
     }
   },
   "nh-two-factor": {

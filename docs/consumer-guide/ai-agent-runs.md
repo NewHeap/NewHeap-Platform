@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, and let agents created in the administration run with the rights of the account they answer to.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, and say what every agent works on.
 
 ## Preferred approach
 
@@ -126,6 +126,36 @@ conversation-thread DTOs carry `SubjectTypeName` (only for a named type) and `Su
 fails for a type starting with `nh-` (`NhAiSubjectRef.ReservedTypePrefix`), which the platform
 reserves for its own subjects, for two resolvers of one type and for a configuration whose resolver
 is not registered; the parameterless `AddSubjectType<TResolver>()` stays valid.
+
+Say what each agent works on: `ConfigureAgent(id, run => run.WorksOn("project", "quote"))` names
+registered object types (at most 20), `WorksOnAllObjects()` chooses every type on purpose, and
+`WorksOnApplication()` adds the whole application (`NhAiSubjectRef.SystemType`, `nh-system`) for work
+that concerns no single object; an agent that says nothing works on all object types and not on the
+application (`NhAssistantAgentWorksOn.Undeclared`), as before. `PerDivision()` makes its work for the
+whole application exist per division, only for an application that lists its divisions;
+`RunPolicy(name)` decides who may run it for the whole application (by default the administration
+policy) and `ViewPolicy(name)` who sees its results there (by default its required policy); starts on
+an object keep their own rule. An agent created in the administration stores the same statement:
+`worksOnSubjectTypes`, `worksOnAllSubjects`, `worksOnApplication`, `perDivision`, `runPolicy` and
+`viewPolicy` on `NhAssistantAdminAgentInputDto` and `NhAssistantAgentRequest`, sent together (all
+omitted keeps it, a new agent works on all object types), with run and view policies chosen from the
+policies the application lists with `AddAgentPolicy(name, description)` (the run catalog's
+`AgentPolicies`; `Divisions` says whether per division is offered). Saving answers with field errors
+(`worksOn`, `worksOnSubjectTypes`, `perDivision`, `runPolicy`, `viewPolicy`); the migration
+`AgentWorkOnObjects` lets existing agents work on all object types. One rule enforces it: every
+trigger fire (events, schedules, webhooks, follow-ups, requests and hand-offs), `POST threads/start`,
+`POST threads/open` for a new thread, a hand-off and a consultation on a type the agent does not work
+on is refused with `assistant-agent-does-not-work-on` and the refused start is audited; `canStart`
+reads `false`. A trigger or trigger event that knows its type up front says so with
+`Subject("project", e => e.ProjectId.ToString())`: startup then fails when the agent does not work
+on it, the run catalog shows the type on the event (`NhAssistantRunBlockDto.SubjectType`), saving a
+data trigger on it for another agent answers `event: invalid`, and a data trigger that no longer
+fits after an agent's statement changed is out of effect with problem `not-worked-on`. Startup also
+fails for `AcceptHandOffs` and `AllowConsultation` on a type the agent does not work on, for an
+unknown type in `WorksOn` and for an unregistered run, view or listed policy. The administration
+DTO (`NhAssistantAdminAgentDto`) returns the statement, `WorksOnDeclared` for an agent in code that
+said it, and `KnownSubjectTypes`, the types it accepts hand-offs and consultations about, its triggers
+name and its threads concern, as a hint next to "all objects".
 
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
@@ -604,6 +634,10 @@ profile and instructions that answer questions about the rules' proposals from t
   person's own subjects server-side within the limit, and leave access to `ResolveAsync`.
 - Naming subject types in the client's own texts, or registering an application type that starts
   with `nh-`; name the type with `Named` where it is registered.
+- Leaving an agent that works on a few object types without `WorksOn`, or checking in a tool or
+  page whether an agent may work on a type; declare it and let the platform refuse other starts.
+- `Subject(e => new NhAiSubjectRef("project", ...))` on a trigger whose type is fixed; use
+  `Subject("project", e => ...)` so startup checks it.
 
 ## Verification
 
@@ -727,8 +761,18 @@ member, an outsider and an approver and assert that only readable subjects of th
 return, once each and within the limit, that a short query, an unknown type and a type without
 search answer their codes, and that the catalog and the thread, proposal and work DTOs name the type
 in the reader's language and link to the subject, on both providers; assert that startup refuses an
-`nh-` type, two resolvers of one type and a configuration without its resolver. SPM-268 to
-SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297 and SPM-301 are the executable references.
+`nh-` type, two resolvers of one type and a configuration without its resolver. Declare what an
+agent works on and assert, on both providers, that an event, a schedule tick, a manual start and a
+hand-off on another type are refused with `assistant-agent-does-not-work-on` and audited without a
+thread, that an agent created in the administration stores its statement, keeps it when an update
+omits it, refuses unknown and reserved types, types next to all objects, nothing, per division without
+divisions and unlisted policies at their fields, that its runs follow the statement, that a typed data
+trigger is refused for an agent that does not work on its type and goes out of effect when the
+statement narrows, and that the hints name the types of typed triggers, hand-offs and threads; assert
+that startup refuses typed triggers, hand-offs and consultations on types the agent does not work on,
+unknown types and unregistered policies, and that the endpoints answer `409` and `canStart: false`.
+SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 and SPM-302 are the executable
+references.
 
 ## Executable evidence
 
@@ -882,3 +926,8 @@ SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297 and SPM-301 are the executable r
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+- SPM-302 — The project follow-up is created as data and works on projects and the whole application; every agent says what it works on
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)

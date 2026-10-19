@@ -19,6 +19,7 @@ import {
   cronExamples,
   dashCase,
   eventOptions,
+  WorksOnStatement,
   requireText,
   runConfigLimits,
   subjectSetOptions,
@@ -47,6 +48,8 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
 
   readonly agentId = input.required<string>();
   readonly catalog = input<RunCatalog | null>(null);
+  /** What the agent works on: events about other object types are not offered. */
+  readonly worksOn = input<WorksOnStatement | null>(null);
   /** The agent's skills, in code and as data, a trigger can start. */
   readonly skills = input<readonly NhAssistantPickerOption[]>([]);
   /** The trigger to change; `null` adds one. */
@@ -77,7 +80,7 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
   readonly reason = signal('');
 
   readonly editing = computed(() => this.trigger() !== null);
-  readonly events = computed(() => eventOptions(this.catalog()));
+  readonly events = computed(() => eventOptions(this.catalog(), this.worksOn()));
   readonly subjectSets = computed(() => subjectSetOptions(this.catalog()));
   readonly conflictOptions = computed<NhAssistantPickerOption[]>(() => {
     this.language();

@@ -188,7 +188,8 @@ internal sealed class NhAssistantAgentTriggers(
     NhAssistantAdminStore admin,
     NhAssistantRunConfigurations configurations,
     IServiceProvider services,
-    ILogger<NhAssistantAgentTriggers> logger) : INhAssistantAgentTriggers
+    ILogger<NhAssistantAgentTriggers> logger,
+    NhAssistantWorksOnRule worksOn) : INhAssistantAgentTriggers
 {
     /// <summary>
     /// The threads one resume starts runs for per batch; a resume continues with further batches.
@@ -255,15 +256,34 @@ internal sealed class NhAssistantAgentTriggers(
                 PayloadJson = PayloadOf(trigger, evt),
                 SkillId = trigger.SkillId
             };
-            receipts.Add(live ?? await FireOrDeferAsync(fire, cancellationToken));
+            receipts.Add(live ?? await FireOrRefuseAsync(fire, cancellationToken));
             foreach (var variant in variants)
             {
                 // A variant gets the same event; publishers read the live agent's receipt.
-                await FireOrDeferAsync(fire with { AgentId = variant, SkillId = SkillFor(trigger, variant) }, cancellationToken);
+                await FireOrRefuseAsync(fire with { AgentId = variant, SkillId = SkillFor(trigger, variant) }, cancellationToken);
             }
         }
 
         return receipts;
+    }
+
+    /// <summary>
+    /// Fires or defers a published event, or refuses it at once when the agent does not work on the
+    /// event's subject type: the type is known only now, and a refusal needs no background operation.
+    /// The refusal is audited like every fire.
+    /// </summary>
+    private async Task<NhAssistantTriggerReceipt> FireOrRefuseAsync(
+        NhAssistantTriggerFire fire,
+        CancellationToken cancellationToken)
+    {
+        if (worksOn.RefusalOf(fire.AgentId, fire.Subject.Type) is { } refusal)
+        {
+            var receipt = Rejected(fire, null, refusal);
+            await AuditFireAsync(fire, receipt, cancellationToken);
+            return receipt;
+        }
+
+        return await FireOrDeferAsync(fire, cancellationToken);
     }
 
     /// <summary>
@@ -575,7 +595,9 @@ internal sealed class NhAssistantAgentTriggers(
                     started++;
                     progress++;
                 }
-                else if (receipt.ReasonCode is NhAssistantErrorCodes.SubjectNotFound or NhAssistantErrorCodes.NoAccountableOwner)
+                else if (receipt.ReasonCode is NhAssistantErrorCodes.SubjectNotFound
+                         or NhAssistantErrorCodes.NoAccountableOwner
+                         or NhAssistantErrorCodes.AgentDoesNotWorkOn)
                 {
                     logger.LogWarning(
                         "The inputs that waited in thread {ConversationId} of agent {AgentId} were dropped ({Reason}).",
@@ -1120,6 +1142,13 @@ internal sealed class NhAssistantAgentTriggers(
         if (agent.RunState == NhAssistantAgentRunStates.Stopped)
         {
             return Rejected(fire, null, NhAssistantErrorCodes.AgentStopped);
+        }
+
+        // Every start, from events, schedules, webhooks, people, requests, hand-offs and follow-ups,
+        // is on a subject type the agent works on; nothing waits for a type it does not.
+        if (worksOn.RefusalOf(fire.AgentId, fire.Subject.Type) is { } notWorkedOn)
+        {
+            return Rejected(fire, null, notWorkedOn);
         }
 
         var skillRow = fire.SkillId is { } skillId

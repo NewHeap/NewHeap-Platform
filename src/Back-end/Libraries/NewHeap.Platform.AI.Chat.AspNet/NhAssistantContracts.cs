@@ -511,7 +511,23 @@ public sealed record NhAssistantToolCatalogEntryDto(
 /// changes with <c>POST admin/agents/{id}/state</c>, and a new agent starts active.
 /// <see cref="OfferedInChat"/> applies to agents created in the administration: omitted keeps it on
 /// update and offers a new agent in the chat; agents in code take it from <c>HideFromChat()</c>.
+/// What the agent works on (<see cref="WorksOnSubjectTypes"/>, <see cref="WorksOnAllSubjects"/>,
+/// <see cref="WorksOnApplication"/>, <see cref="PerDivision"/>, <see cref="RunPolicy"/> and
+/// <see cref="ViewPolicy"/>) also applies to agents created in the administration and is sent
+/// together: when all six are omitted an update keeps it and a new agent works on all object types;
+/// otherwise the omitted ones read as not chosen, and without types, all objects or the application
+/// the agent works on all object types. Agents in code take it from <c>WorksOn</c>.
 /// </summary>
+/// <param name="WorksOnSubjectTypes">Registered object types, at most 20; field errors
+/// <c>worksOnSubjectTypes</c>.</param>
+/// <param name="WorksOnAllSubjects">Every object type; not next to types (field error
+/// <c>worksOn</c>).</param>
+/// <param name="WorksOnApplication">The whole application.</param>
+/// <param name="PerDivision">Per division; only when the run catalog reports <c>divisions</c>.</param>
+/// <param name="RunPolicy">A policy of the run catalog's <c>agentPolicies</c>, or empty for the
+/// administration policy.</param>
+/// <param name="ViewPolicy">A policy of the run catalog's <c>agentPolicies</c>, or empty for the
+/// agent's required policy.</param>
 public sealed record NhAssistantAdminAgentInputDto(
     string? Id,
     string? DisplayName,
@@ -523,7 +539,13 @@ public sealed record NhAssistantAdminAgentInputDto(
     string? Autonomy,
     bool? IsEnabled,
     int? ExpectedVersion = null,
-    bool? OfferedInChat = null);
+    bool? OfferedInChat = null,
+    IReadOnlyList<string>? WorksOnSubjectTypes = null,
+    bool? WorksOnAllSubjects = null,
+    bool? WorksOnApplication = null,
+    bool? PerDivision = null,
+    string? RunPolicy = null,
+    string? ViewPolicy = null);
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
 /// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c> or <c>configured-off</c>.</param>
@@ -576,6 +598,53 @@ public sealed record NhAssistantAdminAgentDto(
     /// its triggers and in its subject threads.
     /// </summary>
     public bool OfferedInChat { get; init; } = true;
+
+    /// <summary>
+    /// The object types the agent works on, ordered by id; empty with
+    /// <see cref="WorksOnAllSubjects"/> or for an agent that works on the application only.
+    /// </summary>
+    public IReadOnlyList<string> WorksOnSubjectTypes { get; init; } = [];
+
+    /// <summary>
+    /// Whether the agent works on every object type.
+    /// </summary>
+    public bool WorksOnAllSubjects { get; init; } = true;
+
+    /// <summary>
+    /// Whether the agent works on the whole application.
+    /// </summary>
+    public bool WorksOnApplication { get; init; }
+
+    /// <summary>
+    /// Whether the agent works per division instead of app-wide.
+    /// </summary>
+    public bool PerDivision { get; init; }
+
+    /// <summary>
+    /// Who may run the agent for the whole application; <see langword="null"/>: the administration
+    /// policy.
+    /// </summary>
+    public string? RunPolicy { get; init; }
+
+    /// <summary>
+    /// Who sees the agent's results for the whole application; <see langword="null"/>: the agent's
+    /// required policy.
+    /// </summary>
+    public string? ViewPolicy { get; init; }
+
+    /// <summary>
+    /// Whether the agent says what it works on: always for an agent created in the administration;
+    /// for an agent in code only with <c>WorksOn</c>, <c>WorksOnAllObjects</c> or
+    /// <c>WorksOnApplication</c>. An agent that does not say works on all object types.
+    /// </summary>
+    public bool WorksOnDeclared { get; init; } = true;
+
+    /// <summary>
+    /// The object types the agent is known to work on, as a hint next to "all objects": those it
+    /// accepts hand-offs and consultations about, those its triggers name up front and those of its
+    /// existing threads, ordered by id.
+    /// </summary>
+    public IReadOnlyList<string> KnownSubjectTypes { get; init; } = [];
 }
 
 /// <summary>

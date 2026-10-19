@@ -24,9 +24,11 @@ import {
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError,
+  RunCatalog,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import { NH_ASSISTANT_MAX_INSTRUCTIONS } from '../context/nh-assistant-admin-context.component';
+import { policyKeys, worksOnSummary } from './agent-texts';
 
 /** True when a tool id matches a selector glob (`*` matches any characters). */
 export function nhAssistantSelectorMatches(toolId: string, selector: string): boolean {
@@ -45,14 +47,23 @@ interface KeyedText {
 /** How an agent created in the administration is used: chosen in the chat, working on its own, or both. */
 export type AgentUse = 'chat' | 'background' | 'both';
 
+/** Whether an agent created in the administration works on every object type or on chosen ones. */
+export type WorksOnScope = 'all' | 'types';
+
+/** The most object types one agent works on, as the server allows. */
+const maxWorksOnTypes = 20;
+
 let nextId = 0;
 
 /**
  * Creates or edits one agent: how it is used (offered in the chat, working on its own, or both),
- * texts, autonomy, policy, tool selectors chosen from the tool catalog or typed as patterns, and
- * assigned MCP servers. A new agent meant to work on its own continues with `workRequested`. An
- * agent in code names and describes itself with translation keys: the editor shows their translation
- * and sends the key back unless the administrator changed the text, so the agent stays translated.
+ * what it works on (all objects or chosen object types, the whole application, per division when
+ * the application lists divisions, and who may run it and see its results for the whole
+ * application), texts, autonomy, policy, tool selectors chosen from the tool catalog or typed as
+ * patterns, and assigned MCP servers. A new agent meant to work on its own continues with
+ * `workRequested`. An agent in code names and describes itself with translation keys: the editor
+ * shows their translation and sends the key back unless the administrator changed the text, so the
+ * agent stays translated; what it works on comes from its code and is not edited here.
  */
 @Component({
   selector: 'nh-assistant-admin-agent-editor',
@@ -73,6 +84,8 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly agent = input<AdminAgent | null>(null);
   readonly tools = input<readonly ToolCatalogEntry[]>([]);
   readonly servers = input<readonly McpServer[]>([]);
+  /** The run catalog: the object types by name, the policies to choose and whether divisions are listed. */
+  readonly catalog = input<RunCatalog | null>(null);
   readonly saved = output<AdminAgent>();
   /**
    * A new agent meant to work on its own was created; the host continues with its run
@@ -96,6 +109,13 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly requiredPolicy = signal('');
   readonly toolSelectors = signal<string[]>([]);
   readonly mcpServerIds = signal<string[]>([]);
+  /** What the agent works on: all objects or the chosen object types. */
+  readonly worksOnScope = signal<WorksOnScope>('all');
+  readonly worksOnTypes = signal<string[]>([]);
+  readonly worksOnApplication = signal(false);
+  readonly perDivision = signal(false);
+  readonly runPolicy = signal('');
+  readonly viewPolicy = signal('');
   readonly newSelector = signal('');
   readonly catalogFilter = signal('');
   readonly submitted = signal(false);
@@ -109,7 +129,31 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly nameMissing = computed(() => this.displayName().trim().length === 0);
   readonly tooLong = computed(() => this.instructions().length > this.max);
   readonly selectorInvalid = computed(() => this.newSelector().trim().length > 0 && !selectorPattern.test(this.newSelector().trim()));
-  readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.tooLong());
+  /**
+   * The application's own object types, by name; the platform's types are chosen otherwise. A stored
+   * type the application no longer registers stays listed by its id, so it can be unticked.
+   */
+  readonly subjectTypes = computed(() => {
+    const registered = (this.catalog()?.subjectTypes ?? []).filter(type => !type.isSystem);
+    const stored = (this.agent()?.worksOnSubjectTypes ?? [])
+      .filter(id => !registered.some(type => type.id === id))
+      .map(id => ({ id, name: id, pluralName: null as string | null }));
+    return [...registered, ...stored];
+  });
+  readonly agentPolicies = computed(() => this.catalog()?.agentPolicies ?? []);
+  /** Per division is offered only when the application lists its divisions. */
+  readonly divisionsListed = computed(() => this.catalog()?.divisions === true);
+  /** The object types the agent is known to work on, by name, as a hint next to "All objects". */
+  readonly knownTypes = computed(() => {
+    const agent = this.agent();
+    return agent ? worksOnSummary(agent, this.catalog()?.subjectTypes).known : [];
+  });
+  /** Chosen object types without a type, and not the application either: the agent would work on nothing. */
+  readonly worksOnMissing = computed(() =>
+    this.choosesUse() && this.worksOnScope() === 'types' && this.worksOnTypes().length === 0 && !this.worksOnApplication());
+  readonly tooManyTypes = computed(() => this.worksOnScope() === 'types' && this.worksOnTypes().length > maxWorksOnTypes);
+  readonly policyKeys = policyKeys;
+  readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.tooLong() && !this.worksOnMissing() && !this.tooManyTypes());
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   readonly filteredTools = computed(() => {
     const filter = this.catalogFilter().trim().toLowerCase();
@@ -163,6 +207,10 @@ export class NhAssistantAdminAgentEditorComponent {
     this.toolSelectors.update(selectors => selectors.filter(item => item !== selector));
   }
 
+  toggleWorksOnType(typeId: string, checked: boolean): void {
+    this.worksOnTypes.update(types => checked ? [...types.filter(type => type !== typeId), typeId] : types.filter(type => type !== typeId));
+  }
+
   toggleServer(serverId: string, checked: boolean): void {
     this.mcpServerIds.update(ids => checked ? [...ids.filter(id => id !== serverId), serverId] : ids.filter(id => id !== serverId));
   }
@@ -197,7 +245,7 @@ export class NhAssistantAdminAgentEditorComponent {
       mcpServerIds: this.mcpServerIds(),
       requiredPolicy: policy.length > 0 ? policy : null,
       autonomy: this.autonomy(),
-      ...(this.choosesUse() ? { offeredInChat: this.use() !== 'background' } : {})
+      ...(this.choosesUse() ? { offeredInChat: this.use() !== 'background', ...this.worksOnInput() } : {})
     };
     const startsWork = this.isNew() && this.use() !== 'chat';
 
@@ -225,6 +273,20 @@ export class NhAssistantAdminAgentEditorComponent {
     });
   }
 
+  /** What the agent works on, as the six fields the server reads together. */
+  private worksOnInput(): Pick<AdminAgentInput,
+    'worksOnSubjectTypes' | 'worksOnAllSubjects' | 'worksOnApplication' | 'perDivision' | 'runPolicy' | 'viewPolicy'> {
+    const all = this.worksOnScope() === 'all';
+    return {
+      worksOnSubjectTypes: all ? [] : [...this.worksOnTypes()].sort(),
+      worksOnAllSubjects: all,
+      worksOnApplication: this.worksOnApplication(),
+      perDivision: this.divisionsListed() && this.perDivision(),
+      runPolicy: this.runPolicy() || null,
+      viewPolicy: this.viewPolicy() || null
+    };
+  }
+
   private reset(agent: AdminAgent | null): void {
     this.agentId.set(agent?.id ?? '');
     this.keyedName = agent?.source === 'code' ? this.keyed(agent.displayName) : null;
@@ -237,6 +299,13 @@ export class NhAssistantAdminAgentEditorComponent {
     this.requiredPolicy.set(agent?.requiredPolicy ?? '');
     this.toolSelectors.set([...(agent?.toolSelectors ?? [])]);
     this.mcpServerIds.set([...(agent?.mcpServerIds ?? [])]);
+    const worksOn = worksOnSummary(agent ?? {}, null);
+    this.worksOnScope.set(worksOn.all ? 'all' : 'types');
+    this.worksOnTypes.set([...(worksOn.all ? [] : agent?.worksOnSubjectTypes ?? [])]);
+    this.worksOnApplication.set(worksOn.application);
+    this.perDivision.set(worksOn.perDivision);
+    this.runPolicy.set(worksOn.runPolicy ?? '');
+    this.viewPolicy.set(worksOn.viewPolicy ?? '');
     this.submitted.set(false);
     this.error.set(null);
   }

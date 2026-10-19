@@ -123,6 +123,13 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
   shadow?: boolean;
   /** The technical account in code, as with `ServiceAccount(actorId)`. */
   serviceAccount?: string;
+  /**
+   * Whether a code agent says what it works on, as with `WorksOn`; by default it does when the
+   * scenario gives `worksOnSubjectTypes`, `worksOnAllSubjects` or `worksOnApplication`.
+   */
+  worksOnDeclared?: boolean;
+  /** The object types the agent is known to work on, shown as a hint next to "All objects". */
+  knownSubjectTypes?: string[];
 }
 
 /**

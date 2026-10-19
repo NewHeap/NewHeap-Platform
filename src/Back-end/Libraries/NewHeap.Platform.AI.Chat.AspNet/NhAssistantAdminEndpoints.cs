@@ -319,10 +319,12 @@ internal static class NhAssistantAdminEndpoints
     private static async Task<IResult> GetAgentsAsync(HttpContext httpContext, NhAssistantAgentCatalog catalog)
     {
         var agents = await catalog.ListAsync(includeDisabled: true, httpContext.RequestAborted);
+        // The hints of every agent in one read of the threads.
+        var known = await KnownSubjectTypesAsync(httpContext, null);
         var dtos = new List<NhAssistantAdminAgentDto>(agents.Count);
         foreach (var agent in agents)
         {
-            dtos.Add(await ToDtoAsync(agent, httpContext));
+            dtos.Add(await ToDtoAsync(agent, httpContext, known));
         }
         return Json(dtos.ToArray(), Context.NhAssistantAdminAgentDtoArray);
     }
@@ -766,7 +768,14 @@ internal static class NhAssistantAdminEndpoints
             body.McpServerIds ?? [],
             requiredPolicy,
             autonomy,
-            body.OfferedInChat), errors);
+            body.OfferedInChat,
+            NhAssistantAgentWorksOn.FromInput(
+                body.WorksOnSubjectTypes,
+                body.WorksOnAllSubjects,
+                body.WorksOnApplication,
+                body.PerDivision,
+                body.RunPolicy,
+                body.ViewPolicy)), errors);
     }
 
     private static (NhAssistantMcpServerInput? Input, NhAssistantValidationErrors Errors) ToInput(
@@ -804,10 +813,30 @@ internal static class NhAssistantAdminEndpoints
         return new NhAssistantApplicationContextDto(context.Text, context.Version, context.Hash, context.UpdatedAt, context.UpdatedBy);
     }
 
-    private static async Task<NhAssistantAdminAgentDto> ToDtoAsync(NhAssistantAgent agent, HttpContext httpContext)
+    private static async Task<NhAssistantAdminAgentDto> ToDtoAsync(
+        NhAssistantAgent agent,
+        HttpContext httpContext,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? known = null)
     {
         var control = httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantAgentControl>();
-        return ToDto(agent, await control.StateOfAsync(agent, httpContext.RequestAborted));
+        known ??= await KnownSubjectTypesAsync(httpContext, [agent.Id]);
+        return ToDto(agent, await control.StateOfAsync(agent, httpContext.RequestAborted)) with
+        {
+            KnownSubjectTypes = known.GetValueOrDefault(agent.Id) ?? []
+        };
+    }
+
+    /// <summary>
+    /// The object types agents are known to work on, from the run configuration in effect and their
+    /// threads.
+    /// </summary>
+    private static async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> KnownSubjectTypesAsync(
+        HttpContext httpContext,
+        IReadOnlyCollection<string>? agentIds)
+    {
+        var services = httpContext.RequestServices;
+        await services.GetRequiredService<NhAssistantRunConfigurations>().EnsureCurrentAsync(httpContext.RequestAborted);
+        return await services.GetRequiredService<NhAssistantAgentKnownSubjectTypes>().ListAsync(agentIds, httpContext.RequestAborted);
     }
 
     private static NhAssistantAdminAgentDto ToDto(NhAssistantAgent agent, AgentRuns.NhAssistantAgentState state)
@@ -838,7 +867,14 @@ internal static class NhAssistantAdminEndpoints
             ShadowOf = state.ShadowOf,
             Shadow = state.Shadow,
             ServiceAccount = state.ServiceAccount,
-            OfferedInChat = agent.OfferedInChat
+            OfferedInChat = agent.OfferedInChat,
+            WorksOnSubjectTypes = agent.WorksOn.SubjectTypes,
+            WorksOnAllSubjects = agent.WorksOn.AllSubjects,
+            WorksOnApplication = agent.WorksOn.Application,
+            PerDivision = agent.WorksOn.PerDivision,
+            RunPolicy = agent.WorksOn.RunPolicy,
+            ViewPolicy = agent.WorksOn.ViewPolicy,
+            WorksOnDeclared = agent.WorksOn.Declared
         };
     }
 

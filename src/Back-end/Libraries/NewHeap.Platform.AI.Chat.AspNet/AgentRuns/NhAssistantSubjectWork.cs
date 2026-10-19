@@ -140,7 +140,7 @@ internal sealed class NhAssistantSubjectWork(
         foreach (var id in agentIds.Order(StringComparer.Ordinal))
         {
             var thread = threads.GetValueOrDefault(id);
-            var canStart = await CanStartAsync(id, access, user, administrator, cancellationToken);
+            var canStart = await CanStartAsync(id, subject.Type, access, user, administrator, cancellationToken);
             var shadowThread = shadowThreads.GetValueOrDefault(id);
             agentEntries.Add(new NhAssistantSubjectAgentDto(
                 id,
@@ -219,18 +219,19 @@ internal sealed class NhAssistantSubjectWork(
     }
 
     /// <summary>
-    /// Whether the caller may start the agent on the subject: an agent in shadow only by an
-    /// administrator, since its work goes to shadow threads.
+    /// Whether the caller may start the agent on the subject: the agent works on its type, and an
+    /// agent in shadow only by an administrator, since its work goes to shadow threads.
     /// </summary>
     private async Task<bool> CanStartAsync(
         string agentId,
+        string subjectType,
         NhAiSubjectAccess access,
         ClaimsPrincipal user,
         bool administrator,
         CancellationToken cancellationToken)
     {
         var options = registration.AgentRuns[agentId];
-        if (!access.Has(NhAiSubjectRole.Participant) || !options.Enabled)
+        if (!access.Has(NhAiSubjectRole.Participant) || !options.Enabled || !options.WorksOn.Covers(subjectType))
         {
             return false;
         }

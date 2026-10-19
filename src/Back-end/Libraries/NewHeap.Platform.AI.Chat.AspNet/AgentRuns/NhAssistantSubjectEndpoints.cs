@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 
@@ -39,11 +40,12 @@ internal static class NhAssistantSubjectEndpoints
         group.MapPost("threads/open", OpenThreadAsync)
             .WithName("NhAssistantOpenThread")
             .WithSummary("Open the conversation with an agent about a subject")
-            .WithDescription("Returns the agent's thread about the subject and creates it, without starting a run, when it does not exist yet. Readers may open an existing thread; creating one needs the participant role and the agent's required policy.")
+            .WithDescription("Returns the agent's thread about the subject and creates it, without starting a run, when it does not exist yet. Readers may open an existing thread; creating one needs the participant role and the agent's required policy, and the agent must work on the subject's type (409 assistant-agent-does-not-work-on otherwise).")
             .Produces<NhAssistantThreadLookupDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
     }
 
     private static async Task<IResult> GetWorkAsync(
@@ -186,10 +188,17 @@ internal static class NhAssistantSubjectEndpoints
         if (thread is null)
         {
             // A new thread holds the conversation people start; no run and no model call happen here.
-            // An agent in shadow gets no new live thread from anyone but an administrator.
+            // An agent gets no new thread about a type it does not work on, and an agent in shadow no
+            // new live thread from anyone but an administrator.
+            if (access.Has(NhAiSubjectRole.Participant)
+                && mayUse
+                && httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().RefusalOf(agentId, subject!.Type) is { } notWorkedOn)
+            {
+                return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status409Conflict, notWorkedOn);
+            }
             if (!access.Has(NhAiSubjectRole.Participant)
                 || !mayUse
-                || !await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!))
+                || !await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!, subject!.Type))
             {
                 return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
             }
@@ -207,7 +216,7 @@ internal static class NhAssistantSubjectEndpoints
         var canStart = mayUse
             && runOptions.Enabled
             && access.Has(NhAiSubjectRole.Participant)
-            && await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!);
+            && await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!, subject!.Type);
         return TypedResults.Json(
             new NhAssistantThreadLookupDto(
                 await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(thread, access.Role, runs, subjects, cancellationToken),

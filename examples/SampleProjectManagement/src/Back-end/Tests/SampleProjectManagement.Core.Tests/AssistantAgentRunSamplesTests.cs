@@ -795,6 +795,119 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_project_follow_up_says_what_it_works_on_and_people_start_it_only_there()
+    {
+        // SPM-302: what an agent works on, in code and as data.
+        const string followUp = SampleRuntimeAgentSeeder.FollowUpAgentId;
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        try
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedFollowUpAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+                // A second start finds the agent and changes nothing.
+                Assert.True((await SampleRuntimeAgentSeeder.SeedFollowUpAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+            }
+
+            // The administration lists the policies to choose and the project type the events name.
+            var catalog = await administrator.GetFromJsonAsync<JsonElement>("/api/assistant/admin/run-catalog", Json);
+            Assert.Equal(
+                [SampleProjectStarterComposition.ProjectManagePolicy, SampleProjectStarterComposition.ProjectViewPolicy],
+                catalog.GetProperty("agentPolicies").EnumerateArray().Select(policy => policy.GetProperty("name").GetString()));
+            Assert.False(catalog.GetProperty("divisions").GetBoolean());
+            Assert.Equal(ProjectSubjects.Type, catalog.GetProperty("triggerEvents").EnumerateArray()
+                .Single(item => item.GetProperty("name").GetString() == SampleProjectStarterComposition.ProjectCreatedEvent)
+                .GetProperty("subjectType").GetString());
+
+            // The follow-up works on projects and the whole application; the reviewer in code on projects.
+            var agents = (await administrator.GetFromJsonAsync<JsonElement>("/api/assistant/admin/agents", Json)).EnumerateArray()
+                .ToDictionary(agent => agent.GetProperty("id").GetString()!);
+            var stored = agents[followUp];
+            Assert.Equal([ProjectSubjects.Type], stored.GetProperty("worksOnSubjectTypes").EnumerateArray().Select(type => type.GetString()));
+            Assert.Equal((false, true, false), (stored.GetProperty("worksOnAllSubjects").GetBoolean(), stored.GetProperty("worksOnApplication").GetBoolean(), stored.GetProperty("offeredInChat").GetBoolean()));
+            Assert.Equal((SampleProjectStarterComposition.ProjectManagePolicy, SampleProjectStarterComposition.ProjectViewPolicy),
+                (stored.GetProperty("runPolicy").GetString(), stored.GetProperty("viewPolicy").GetString()));
+            var reviewer = agents[SampleIntakeReviewerComposition.AgentId];
+            Assert.Equal([ProjectSubjects.Type], reviewer.GetProperty("worksOnSubjectTypes").EnumerateArray().Select(type => type.GetString()));
+            Assert.True(reviewer.GetProperty("worksOnDeclared").GetBoolean());
+            Assert.Contains(ProjectSubjects.Type, reviewer.GetProperty("knownSubjectTypes").EnumerateArray().Select(type => type.GetString()));
+
+            // A participant of a project may start it there.
+            var project = await host.CreateProjectAsync("FOLLOW", ownerId: host.OwnerId);
+            await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Participant);
+            var lookup = $"/api/assistant/threads?agentId={followUp}&subjectType={ProjectSubjects.Type}&subjectId={project:D}";
+            Assert.True((await colleague.GetFromJsonAsync<JsonElement>(lookup, Json)).GetProperty("canStart").GetBoolean());
+
+            // The editor's round trip: errors at their fields, then the whole application only.
+            var input = new Dictionary<string, object?>
+            {
+                ["id"] = followUp,
+                ["displayName"] = stored.GetProperty("displayName").GetString(),
+                ["description"] = stored.GetProperty("description").GetString(),
+                ["instructions"] = stored.GetProperty("instructions").GetString(),
+                ["toolSelectors"] = stored.GetProperty("toolSelectors").EnumerateArray().Select(item => item.GetString()).ToArray(),
+                ["mcpServerIds"] = Array.Empty<string>(),
+                ["requiredPolicy"] = null,
+                ["autonomy"] = stored.GetProperty("autonomy").GetString(),
+                ["worksOnSubjectTypes"] = new[] { "invoice" },
+                ["worksOnAllSubjects"] = false,
+                ["worksOnApplication"] = true,
+                ["viewPolicy"] = "app.unlisted",
+                ["expectedVersion"] = stored.GetProperty("version").GetInt32()
+            };
+            using (var invalid = await administrator.PutAsJsonAsync($"/api/assistant/admin/agents/{followUp}", input))
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+                var errors = (await invalid.Content.ReadFromJsonAsync<JsonElement>(Json)).GetProperty("errors");
+                Assert.Equal("not-found", errors.GetProperty("worksOnSubjectTypes")[0].GetString());
+                Assert.Equal("not-found", errors.GetProperty("viewPolicy")[0].GetString());
+            }
+
+            input["worksOnSubjectTypes"] = Array.Empty<string>();
+            input["viewPolicy"] = SampleProjectStarterComposition.ProjectViewPolicy;
+            using (var applicationOnly = await administrator.PutAsJsonAsync($"/api/assistant/admin/agents/{followUp}", input))
+            {
+                Assert.Equal(HttpStatusCode.OK, applicationOnly.StatusCode);
+                var body = await applicationOnly.Content.ReadFromJsonAsync<JsonElement>(Json);
+                Assert.Empty(body.GetProperty("worksOnSubjectTypes").EnumerateArray());
+                input["expectedVersion"] = body.GetProperty("version").GetInt32();
+            }
+
+            // Now nobody starts it on a project, and a trigger on created projects does not fit it.
+            Assert.False((await colleague.GetFromJsonAsync<JsonElement>(lookup, Json)).GetProperty("canStart").GetBoolean());
+            using (var start = await colleague.PostAsJsonAsync("/api/assistant/threads/start", new { agentId = followUp, subjectType = ProjectSubjects.Type, subjectId = project.ToString("D") }))
+            {
+                Assert.Equal(HttpStatusCode.Conflict, start.StatusCode);
+                Assert.Equal(NhAssistantErrorCodes.AgentDoesNotWorkOn, (await start.Content.ReadFromJsonAsync<JsonElement>(Json)).GetProperty("code").GetString());
+            }
+            using (var trigger = await administrator.PutAsJsonAsync(
+                $"/api/assistant/admin/agents/{followUp}/triggers/follow-up-created",
+                new { source = "event", @event = SampleProjectStarterComposition.ProjectCreatedEvent }))
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, trigger.StatusCode);
+                Assert.Equal("invalid", (await trigger.Content.ReadFromJsonAsync<JsonElement>(Json)).GetProperty("errors").GetProperty("event")[0].GetString());
+            }
+
+            // Back to projects, and people start it there again.
+            input["worksOnSubjectTypes"] = new[] { ProjectSubjects.Type };
+            using (var projects = await administrator.PutAsJsonAsync($"/api/assistant/admin/agents/{followUp}", input))
+            {
+                Assert.Equal(HttpStatusCode.OK, projects.StatusCode);
+            }
+            Assert.True((await colleague.GetFromJsonAsync<JsonElement>(lookup, Json)).GetProperty("canStart").GetBoolean());
+        }
+        finally
+        {
+            await using var scope = host.Services.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>()
+                .RemoveRunSettingsAsync(followUp, null, host.OwnerId.ToString("D"), cancellationToken: CancellationToken.None);
+            using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{followUp}");
+            Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task An_operator_pauses_the_project_closer_for_an_import_and_stops_it_without_losing_approved_work()
     {
         // SPM-284

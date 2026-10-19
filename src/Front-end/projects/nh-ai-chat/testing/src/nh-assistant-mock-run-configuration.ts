@@ -15,6 +15,7 @@ import {
   SkillComparison
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminScenario } from './nh-assistant-mock.models';
+import { mockWorksOnCovers } from './nh-assistant-mock-works-on';
 
 /** A mock response: status plus optional JSON body. */
 interface MockResult {
@@ -72,9 +73,21 @@ export class NhAssistantMockRunConfiguration {
         fourEyes: false,
         mode: 'deferred'
       })),
-      accountSearch: scenario.runCatalog?.accountSearch ?? this.accounts.length > 0
+      accountSearch: scenario.runCatalog?.accountSearch ?? this.accounts.length > 0,
+      agentPolicies: scenario.runCatalog?.agentPolicies ?? [],
+      divisions: scenario.runCatalog?.divisions ?? false
     };
     this.codeTriggers = (scenario.codeTriggers ?? []).map(trigger => ({ ...trigger, skillId: trigger.skillId ?? null }));
+  }
+
+  /** The policies administrators may choose as run and view policies, by name. */
+  get agentPolicyNames(): string[] {
+    return (this.catalog.agentPolicies ?? []).map(policy => policy.name);
+  }
+
+  /** Whether the scenario lists divisions, so an agent may work per division. */
+  get divisionsListed(): boolean {
+    return this.catalog.divisions === true;
   }
 
   /** `GET admin/run-catalog`. */
@@ -454,6 +467,11 @@ export class NhAssistantMockRunConfiguration {
     }
     if (request.source === 'event') {
       this.requireKnown(errors, 'event', request.event, this.catalog.triggerEvents.map(item => item.name), true);
+      // An event that names its object type up front fits only an agent that works on it.
+      const subjectType = this.catalog.triggerEvents.find(item => item.name === text(request.event))?.subjectType;
+      if (!errors['event'] && subjectType && !mockWorksOnCovers(agent, subjectType)) {
+        errors['event'] = ['invalid'];
+      }
     }
     if (schedule) {
       if ((text(request.cron) ?? '').split(' ').filter(field => field.length > 0).length < 5) {

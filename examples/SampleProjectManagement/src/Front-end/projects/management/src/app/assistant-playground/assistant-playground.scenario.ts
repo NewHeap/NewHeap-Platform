@@ -144,9 +144,11 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
     // SPM-295 to SPM-297: the building blocks the API registers, which skills, triggers and run
     // settings defined as data in the administration name.
     runCatalog: {
+      // SPM-302: both events name the project type up front, so the administration offers them only
+      // to agents that work on projects.
       triggerEvents: [
-        { name: 'project.task-completed', description: 'A task of a project was completed.' },
-        { name: 'project.created', description: 'A project was created.' }
+        { name: 'project.task-completed', description: 'A task of a project was completed.', subjectType: 'project' },
+        { name: 'project.created', description: 'A project was created.', subjectType: 'project' }
       ],
       subjectSets: [{ name: 'active-projects-with-deadline-soon', description: 'Active projects with a deadline in the next two weeks.' }],
       ruleHandlers: [
@@ -155,7 +157,12 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         { name: 'project-kickoff', description: 'Proposes to start a project that was created as a draft, without a model.' }
       ],
       approvalPolicies: ['project-intake', 'project-planning', 'project-closing'],
-      profiles: ['project-assistant-chat']
+      profiles: ['project-assistant-chat'],
+      // SPM-302: the run and view policies an agent created here may choose, as the API lists them.
+      agentPolicies: [
+        { name: 'app.project.manage', description: 'Project managers: people who may change projects.' },
+        { name: 'app.project.view', description: 'Everyone who may read the projects.' }
+      ]
     },
     // The accounts the API's account search finds; agents that work on their own answer to one.
     accounts: [
@@ -182,7 +189,9 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         toolSelectors: ['sample-api.project.*', 'projects.*'],
         mcpServerIds: [],
         requiredPolicy: 'app.project.view',
-        autonomy: 'execute'
+        autonomy: 'execute',
+        // SPM-302: a chat agent that does not say what it works on works on all objects.
+        knownSubjectTypes: ['project']
       },
       {
         source: 'code',
@@ -194,6 +203,8 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         mcpServerIds: [],
         requiredPolicy: 'app.project.view',
         autonomy: 'execute',
+        // SPM-302: the planner works on projects, as its code says.
+        worksOnSubjectTypes: ['project'],
         skills: [
           { skillId: 'task-follow-up', description: 'Follows up completed tasks by rule.' },
           { skillId: 'deadline-risk', description: 'Judges whether an active project will miss its deadline.' }

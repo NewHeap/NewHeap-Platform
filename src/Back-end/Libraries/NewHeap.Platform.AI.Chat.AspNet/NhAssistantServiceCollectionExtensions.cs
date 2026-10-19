@@ -218,6 +218,7 @@ internal sealed class NhAssistantStartupValidator(
         NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService.Validate(
             provider.GetServices<INhAiSubjectAccessResolver>().ToArray(),
             state);
+        await ValidateWorksOnAsync(provider);
         var sourceIds = provider.GetServices<INhAiContextSource>()
             .Select(source => source.Descriptor.Id)
             .ToHashSet(StringComparer.Ordinal);
@@ -301,6 +302,52 @@ internal sealed class NhAssistantStartupValidator(
             }
 
             await ValidateConsultationsAsync(provider, subjectTypes);
+        }
+    }
+
+    /// <summary>
+    /// What agents in code work on names registered application types and policies, triggers and
+    /// trigger events that name their subject type up front name a registered one, and every policy
+    /// listed for administrators is registered.
+    /// </summary>
+    private async Task ValidateWorksOnAsync(IServiceProvider provider)
+    {
+        var subjectTypes = provider.GetRequiredService<NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService>();
+        foreach (var (agentId, runOptions) in state.CodeAgentRuns)
+        {
+            foreach (var subjectType in runOptions.WorksOn.SubjectTypes.Where(type => !subjectTypes.IsKnownType(type)))
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{agentId}' works on '{subjectType}', which has no subject access resolver. Register one with AddSubjectType.");
+            }
+
+            foreach (var policy in new[] { runOptions.WorksOn.RunPolicy, runOptions.WorksOn.ViewPolicy }.OfType<string>())
+            {
+                if (await policyProvider.GetPolicyAsync(policy) is null)
+                {
+                    throw new InvalidOperationException($"Agent '{agentId}' names policy '{policy}', which is not registered.");
+                }
+            }
+        }
+
+        foreach (var trigger in state.CodeTriggers.Values.Where(trigger => trigger.SubjectType is not null && !subjectTypes.IsKnownType(trigger.SubjectType)))
+        {
+            throw new InvalidOperationException(
+                $"Trigger '{trigger.Id}' names subject type '{trigger.SubjectType}', which has no subject access resolver. Register one with AddSubjectType.");
+        }
+
+        foreach (var triggerEvent in state.TriggerEvents.Values.Where(item => item.SubjectType is not null && !subjectTypes.IsKnownType(item.SubjectType)))
+        {
+            throw new InvalidOperationException(
+                $"Trigger event '{triggerEvent.Name}' names subject type '{triggerEvent.SubjectType}', which has no subject access resolver. Register one with AddSubjectType.");
+        }
+
+        foreach (var policy in state.AgentPolicies.Keys)
+        {
+            if (await policyProvider.GetPolicyAsync(policy) is null)
+            {
+                throw new InvalidOperationException($"The agent policy '{policy}' listed with AddAgentPolicy is not registered.");
+            }
         }
     }
 

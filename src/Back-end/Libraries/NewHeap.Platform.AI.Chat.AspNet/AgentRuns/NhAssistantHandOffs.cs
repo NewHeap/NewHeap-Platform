@@ -10,7 +10,7 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// <summary>
 /// Hands work from a run of one agent to another agent and tells the source how it ended. The
 /// checks run in a fixed order: the target takes triggers, accepts the source for the subject type,
-/// the subject belongs to the source's scope key, a shadow run hands off only to a shadow agent, the
+/// works on that type, the subject belongs to the source's scope key, a shadow run hands off only to a shadow agent, the
 /// same run handed the subject off once, the chain stays within its depth and never returns to an
 /// agent in it, and the daily limit per pair and subject holds. The target's run fires as trigger
 /// <see cref="NhAssistantTriggerIds.HandOff"/> without an initiator.
@@ -23,7 +23,8 @@ internal sealed class NhAssistantHandOffService(
     NhAssistantRunStore runs,
     NhAssistantAgentEvents events,
     NhAssistantShadowModes shadowModes,
-    ILogger<NhAssistantHandOffService> logger) : INhAssistantHandOffs
+    ILogger<NhAssistantHandOffService> logger,
+    NhAssistantWorksOnRule worksOn) : INhAssistantHandOffs
 {
     /// <summary>
     /// The longest run summary a follow-up carries to the source.
@@ -56,6 +57,12 @@ internal sealed class NhAssistantHandOffService(
         if (accepted is null)
         {
             return await RefuseAsync(request, sourceRunId, NhAssistantErrorCodes.HandOffNotAccepted);
+        }
+
+        // The target takes work only on what it works on, as for every start.
+        if (worksOn.RefusalOf(targetAgentId, subject.Type) is { } notWorkedOn)
+        {
+            return await RefuseAsync(request, sourceRunId, notWorkedOn);
         }
 
         // No hand-off leaves the tenant or division of the source's subject.

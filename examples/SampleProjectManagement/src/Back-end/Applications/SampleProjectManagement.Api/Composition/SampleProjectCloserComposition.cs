@@ -72,6 +72,8 @@ public static class SampleProjectCloserComposition
                 // again for two weeks, however many tasks change.
                 .RejectionCooldown(TimeSpan.FromDays(14)))
             .ConfigureAgent(AgentId, agent => agent
+                // SPM-302: the closer works on projects, as its hand-offs say.
+                .WorksOn(ProjectSubjects.Type)
                 // Headless runs go to the rules; a person's question in the thread goes to the model.
                 .UseRuleHandler<ProjectCloserRules>()
                 .Grant(ProjectAiTools.ChangeStatusToolId)
@@ -94,7 +96,7 @@ public static class SampleProjectCloserComposition
                 .ServiceAccountFrom(serviceAccountActorId))
             .AddTrigger<ProjectTaskUpdatedEvent>(TriggerId, trigger => trigger
                 .StartAgent(AgentId)
-                .Subject(evt => ProjectSubjects.For(evt.ProjectId))
+                .Subject(ProjectSubjects.Type, evt => ProjectSubjects.IdOf(evt.ProjectId))
                 .Message(evt => evt.IsCompleted
                     ? $"Task {evt.ProjectTaskId:D} of project {evt.ProjectId:D} was completed."
                     : $"Task {evt.ProjectTaskId:D} of project {evt.ProjectId:D} changed.")

@@ -38,6 +38,8 @@ public static class SampleStatusAdvisorComposition
                 .Approvers(NhAiApprovers.Initiator)
                 .OnExpiry(NhAiApprovalExpiryAction.FailRun))
             .ConfigureAgent(AgentId, agent => agent
+                // SPM-302: people start the advisor on a project only.
+                .WorksOn(ProjectSubjects.Type)
                 .DelegateFromInitiator()
                 .UseApprovalPolicy(ApprovalPolicyId)
                 .Retry(2)

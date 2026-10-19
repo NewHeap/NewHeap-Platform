@@ -73,6 +73,16 @@ The same resolver implements `INhAiSubjectSearch` and finds the projects a perso
 member of by key or name, with one provider-neutral query; the assistant keeps only results the
 resolver lets the person read. The inbox, the proposals and the thread view show "Project" next to
 the project's name and link it, and the run catalog lists the type for the administration.
+Every agent of the sample says what it works on (SPM-302): the agents in code call
+`WorksOn(ProjectSubjects.Type)`, and their triggers and trigger events name the project type up
+front with `Subject(ProjectSubjects.Type, e => ProjectSubjects.IdOf(e.ProjectId))`, so startup checks
+them. The project starter, created as data, works on projects. Next to it the sample creates the
+project follow-up as data: it works on projects and on the whole application, project managers may
+run it for the whole application and everyone who reads projects sees its results there, two
+policies the composition lists with `AddAgentPolicy`. A project participant may start it on a
+project; once an administrator narrows it to the whole application, a start on a project answers
+`assistant-agent-does-not-work-on` and a trigger on created projects no longer fits it. Its weekly
+schedule for the whole application and its proposals at each project follow in later phases.
 The project assistant can consult the intake reviewer (SPM-278): the reviewer allows
 consultation about projects with `AllowConsultation`, and the project assistant selects
 the generated `assistant.consult.*` and `assistant.request.*` tools, which the sample's

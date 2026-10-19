@@ -100,7 +100,8 @@ internal sealed class NhAssistantConsultationService(
     INhAssistantTurnRunner runner,
     NhAssistantAgentNotifier notifier,
     NhAssistantAgentEvents events,
-    ILogger<NhAssistantConsultationService> logger)
+    ILogger<NhAssistantConsultationService> logger,
+    NhAssistantWorksOnRule worksOn)
 {
     /// <summary>
     /// Time kept back for the asking turn to use the answer after the consultation returns.
@@ -245,6 +246,12 @@ internal sealed class NhAssistantConsultationService(
         if (agent is null || NhAssistantShadowModes.IsAgentShadow(runOptions, agent.ShadowOverride))
         {
             return Refused(NhAssistantErrorCodes.ConsultAgentUnavailable, "The agent cannot be consulted.");
+        }
+
+        // An agent is consulted only about what it works on; startup checks the declarations too.
+        if (worksOn.RefusalOf(options.AgentId, options.SubjectType) is { } notWorkedOn)
+        {
+            return Refused(notWorkedOn, "The agent does not work on this kind of subject.");
         }
 
         // An unknown subject and a subject the asker may not read look the same to the model.

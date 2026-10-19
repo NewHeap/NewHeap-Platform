@@ -63,6 +63,8 @@ internal static class NhAssistantServiceRegistration
         services.TryAddSingleton<NhAssistantRunConfigurationValidator>();
         services.TryAddSingleton<NhAssistantRunConfigurations>();
         services.TryAddScoped<NhAssistantAgentAdministration>();
+        services.TryAddSingleton<NhAssistantWorksOnRule>();
+        services.TryAddScoped<NhAssistantAgentKnownSubjectTypes>();
         services.TryAddScoped<NhAssistantPersonalization>();
         services.TryAddScoped<NhAssistantTurnContextCollector>();
         services.TryAddScoped<NhAssistantToolPresentationResolver>();

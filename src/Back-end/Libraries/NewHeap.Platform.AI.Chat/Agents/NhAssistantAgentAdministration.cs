@@ -7,8 +7,10 @@ namespace NewHeap.Platform.AI.Chat;
 
 /// <summary>
 /// Administrator input for an agent. It carries no state: pause, stop and resume change that
-/// through the agent control, never the definition. <paramref name="OfferedInChat"/> applies to
-/// agents created in the administration; <see langword="null"/> keeps it, and a new agent is offered.
+/// through the agent control, never the definition. <paramref name="OfferedInChat"/> and
+/// <paramref name="WorksOn"/> apply to agents created in the administration; <see langword="null"/>
+/// keeps them, a new agent is offered in the chat and works on all object types. Agents in code
+/// take both from their code.
 /// </summary>
 internal sealed record NhAssistantAgentInput(
     string Id,
@@ -19,7 +21,8 @@ internal sealed record NhAssistantAgentInput(
     IReadOnlyList<string> McpServerIds,
     string? RequiredPolicy,
     NhAiAutonomyLevel Autonomy,
-    bool? OfferedInChat = null);
+    bool? OfferedInChat = null,
+    NhAssistantAgentWorksOn? WorksOn = null);
 
 /// <summary>
 /// Creates, overrides, resets and deletes agents. Every change is versioned and reported to the
@@ -32,7 +35,9 @@ internal sealed class NhAssistantAgentAdministration(
     NhAssistantRegistrationState state,
     IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
     NhAssistantRunConfigurationStore runConfigurationStore,
-    NhAssistantRunConfigurations runConfigurations)
+    NhAssistantRunConfigurations runConfigurations,
+    NhAssistantWorksOnRule worksOnRule,
+    Runs.NhAssistantSubjectAccessService subjects)
 {
     public const int MaxInstructionsLength = 20_000;
 
@@ -226,6 +231,10 @@ internal sealed class NhAssistantAgentAdministration(
             .Require(input.McpServerIds.Count <= 32, "mcpServerIds", NhAssistantFieldErrors.TooLong)
             .Require(input.RequiredPolicy is not { Length: 0 or > 256 }, "requiredPolicy", NhAssistantFieldErrors.Invalid)
             .Require(Enum.IsDefined(input.Autonomy), "autonomy", NhAssistantFieldErrors.Invalid);
+        if (input.WorksOn is { } worksOn && await IsAdminAgentInputAsync(input.Id, cancellationToken))
+        {
+            worksOnRule.Validate(worksOn, subjects, errors);
+        }
         if (!errors.IsEmpty)
         {
             return errors.ToResult();
@@ -239,6 +248,21 @@ internal sealed class NhAssistantAgentAdministration(
         return TaskResult.Succeeded();
     }
 
+    /// <summary>
+    /// Whether the input is for an agent created in the administration, new or existing; an agent in
+    /// code takes what it works on from its code, so its input is not checked.
+    /// </summary>
+    private async Task<bool> IsAdminAgentInputAsync(string agentId, CancellationToken cancellationToken)
+    {
+        if (registry.TryGet(agentId, out _))
+        {
+            return false;
+        }
+
+        var existing = await store.FindAgentAsync(agentId, cancellationToken);
+        return existing is null || existing.Source == NhAssistantAgentSources.Admin;
+    }
+
     private static void ApplyInput(AssistantAgent row, NhAssistantAgentInput input, int assetVersion)
     {
         var instructions = input.Instructions.Replace("\r\n", "\n", StringComparison.Ordinal);
@@ -250,6 +274,10 @@ internal sealed class NhAssistantAgentAdministration(
         if (input.OfferedInChat is { } offered && row.Source == NhAssistantAgentSources.Admin)
         {
             row.HiddenFromChat = !offered;
+        }
+        if (input.WorksOn is { } worksOn && row.Source == NhAssistantAgentSources.Admin)
+        {
+            worksOn.ApplyTo(row);
         }
         var hash = NhAssistantAgentCatalog.ComputeHash(instructions);
         if (!string.Equals(hash, row.InstructionsHash, StringComparison.Ordinal))

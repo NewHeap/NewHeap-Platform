@@ -546,6 +546,13 @@ public static class NhAssistantErrorCodes
     public const string SubjectSearchUnavailable = "assistant-subject-search-unavailable";
 
     /// <summary>
+    /// The agent does not work on subjects of this type: a trigger, a manual start, a hand-off, a
+    /// consultation or a request named a type its <c>WorksOn</c>, or what an administrator stored,
+    /// does not list. The refused start is audited with this code.
+    /// </summary>
+    public const string AgentDoesNotWorkOn = "assistant-agent-does-not-work-on";
+
+    /// <summary>
     /// The work went to the agent's shadow thread of the subject: the agent or the skill the run
     /// was routed to works in shadow. A run in the shadow thread takes the run's events.
     /// </summary>

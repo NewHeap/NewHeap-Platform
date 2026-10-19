@@ -580,7 +580,9 @@
       }
     },
     "policies": {
-      "app.active-division.project.view": "viewing projects in the active division"
+      "app.active-division.project.view": "viewing projects in the active division",
+      "app.project.manage": "project managers",
+      "app.project.view": "everyone who may read projects"
     }
   },
   "nh-two-factor": {

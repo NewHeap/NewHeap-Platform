@@ -3,6 +3,7 @@
     [agent]="editing() ?? null"
     [tools]="tools()"
     [servers]="servers()"
+    [catalog]="catalog()"
     (saved)="onSaved($event)"
     (workRequested)="onWorkRequested($event)"
     (cancelled)="editing.set(undefined)" />
@@ -127,6 +128,42 @@
                   }
                 }
               </p>
+            }
+            @if (worksOn(agent); as works) {
+              <!-- What the agent works on; an agent in code shows its code setting. -->
+              <p class="muted" data-works-on>
+                <span>{{ 'nh-assistant.admin.agents.works-on.label' | translate }}</span>
+                <strong>
+                  @switch (works.only) {
+                    @case ('all') { {{ 'nh-assistant.admin.agents.works-on.all' | translate }} }
+                    @case ('types') { {{ works.types.join(', ') }} }
+                    @default { {{ 'nh-assistant.admin.agents.works-on.application' | translate }} }
+                  }
+                </strong>
+                @if (works.application && works.only !== 'application') {
+                  <span>{{ 'nh-assistant.admin.agents.works-on.and-application' | translate }}</span>
+                }
+                @if (works.perDivision) {
+                  <span>{{ 'nh-assistant.admin.agents.works-on.per-division' | translate }}</span>
+                }
+                @if (works.undeclared) {
+                  <span>{{ 'nh-assistant.admin.agents.works-on.undeclared' | translate }}</span>
+                }
+              </p>
+              @if (works.all && works.known.length > 0) {
+                <p class="muted" data-known-types>{{ 'nh-assistant.admin.agents.works-on.known' | translate: { types: works.known.join(', ') } }}</p>
+              }
+              @if (works.runPolicy || works.viewPolicy) {
+                <!-- Each policy is an item of its own, wrapping on narrow screens. -->
+                <div class="meta" data-works-on-policies>
+                  @if (works.runPolicy; as policy) {
+                    <span>{{ 'nh-assistant.admin.agents.works-on.run-policy' | translate: { policy: (policyKeys(policy) | nhAssistantTranslate: policy) } }}</span>
+                  }
+                  @if (works.viewPolicy; as policy) {
+                    <span>{{ 'nh-assistant.admin.agents.works-on.view-policy' | translate: { policy: (policyKeys(policy) | nhAssistantTranslate: policy) } }}</span>
+                  }
+                </div>
+              }
             }
             <div class="meta">
               <span>{{ 'nh-assistant.admin.agents.autonomy.' + agent.autonomy | translate }}</span>

@@ -62,6 +62,125 @@
         <p class="hint">{{ 'nh-assistant.admin.agent-editor.use.next' | translate }}</p>
       }
     </fieldset>
+
+    <fieldset
+      class="subsection"
+      data-works-on
+      [attr.aria-describedby]="id + '-works-on-hint ' + id + '-works-on-error'"
+      [attr.aria-invalid]="(submitted() && worksOnMissing()) || fieldError('worksOn') ? true : null">
+      <legend>{{ 'nh-assistant.admin.agent-editor.works-on.title' | translate }}</legend>
+      <p class="muted" [id]="id + '-works-on-hint'">{{ 'nh-assistant.admin.agent-editor.works-on.hint' | translate }}</p>
+      <div class="uses">
+        <label class="use" [class.selected]="worksOnScope() === 'all'">
+          <input type="radio" [name]="id + '-works-on'" value="all" [checked]="worksOnScope() === 'all'" (change)="worksOnScope.set('all')" />
+          <span>
+            <strong>{{ 'nh-assistant.admin.agent-editor.works-on.all' | translate }}</strong>
+            <span class="muted">{{ 'nh-assistant.admin.agent-editor.works-on.all-hint' | translate }}</span>
+          </span>
+        </label>
+        <label class="use" [class.selected]="worksOnScope() === 'types'">
+          <input type="radio" [name]="id + '-works-on'" value="types" [checked]="worksOnScope() === 'types'" (change)="worksOnScope.set('types')" />
+          <span>
+            <strong>{{ 'nh-assistant.admin.agent-editor.works-on.types' | translate }}</strong>
+            <span class="muted">{{ 'nh-assistant.admin.agent-editor.works-on.types-hint' | translate }}</span>
+          </span>
+        </label>
+      </div>
+
+      @if (worksOnScope() === 'types') {
+        <div class="checks" role="group" [attr.aria-label]="'nh-assistant.admin.agent-editor.works-on.types' | translate" data-works-on-types>
+          @for (type of subjectTypes(); track type.id) {
+            <label class="check">
+              <input type="checkbox" [checked]="worksOnTypes().includes(type.id)" (change)="toggleWorksOnType(type.id, checked($event))" />
+              <span>{{ type.pluralName ?? type.name }} <span class="mono muted">{{ type.id }}</span></span>
+            </label>
+          } @empty {
+            <p class="muted">{{ 'nh-assistant.admin.agent-editor.works-on.no-types' | translate }}</p>
+          }
+        </div>
+        @if (fieldError('worksOnSubjectTypes'); as key) {
+          <p class="hint"><span class="error-text">{{ key | translate }}</span></p>
+        } @else if (tooManyTypes()) {
+          <p class="hint"><span class="error-text">{{ 'nh-assistant.admin.agent-editor.works-on.too-many' | translate }}</span></p>
+        }
+      }
+
+      @if (knownTypes().length > 0) {
+        <p class="hint" data-known-types>{{ 'nh-assistant.admin.agent-editor.works-on.known' | translate: { types: knownTypes().join(', ') } }}</p>
+      }
+
+      <label class="check described">
+        <input type="checkbox" [checked]="worksOnApplication()" (change)="worksOnApplication.set(checked($event))" />
+        <span>
+          <strong>{{ 'nh-assistant.admin.agent-editor.works-on.application' | translate }}</strong>
+          <span class="muted">{{ 'nh-assistant.admin.agent-editor.works-on.application-hint' | translate }}</span>
+        </span>
+      </label>
+
+      @if (divisionsListed()) {
+        <label class="check described" data-per-division>
+          <input type="checkbox" [checked]="perDivision()" (change)="perDivision.set(checked($event))" />
+          <span>
+            <strong>{{ 'nh-assistant.admin.agent-editor.works-on.per-division' | translate }}</strong>
+            <span class="muted">{{ 'nh-assistant.admin.agent-editor.works-on.per-division-hint' | translate }}</span>
+          </span>
+        </label>
+        @if (fieldError('perDivision'); as key) {
+          <p class="hint"><span class="error-text">{{ key | translate }}</span></p>
+        }
+      }
+
+      <p class="hint" [id]="id + '-works-on-error'" aria-live="polite">
+        @if (submitted() && worksOnMissing()) {
+          <span class="error-text">{{ 'nh-assistant.admin.agent-editor.works-on.missing' | translate }}</span>
+        } @else if (fieldError('worksOn'); as key) {
+          <span class="error-text">{{ key | translate }}</span>
+        }
+      </p>
+
+      <div class="grid">
+        <div class="field">
+          <label [for]="id + '-run-policy'">{{ 'nh-assistant.admin.agent-editor.works-on.run-policy' | translate }}</label>
+          <select
+            [id]="id + '-run-policy'"
+            [attr.aria-describedby]="id + '-run-policy-hint'"
+            [attr.aria-invalid]="fieldError('runPolicy') ? true : null"
+            (change)="runPolicy.set(value($event))">
+            <option value="" [selected]="runPolicy() === ''">{{ 'nh-assistant.admin.agent-editor.works-on.run-policy-default' | translate }}</option>
+            @for (policy of agentPolicies(); track policy.name) {
+              <option [value]="policy.name" [selected]="runPolicy() === policy.name">{{ policyKeys(policy.name) | nhAssistantTranslate: policy.description }}</option>
+            }
+          </select>
+          <p class="hint" [id]="id + '-run-policy-hint'">
+            @if (fieldError('runPolicy'); as key) {
+              <span class="error-text">{{ key | translate }}</span>
+            } @else {
+              {{ 'nh-assistant.admin.agent-editor.works-on.run-policy-hint' | translate }}
+            }
+          </p>
+        </div>
+        <div class="field">
+          <label [for]="id + '-view-policy'">{{ 'nh-assistant.admin.agent-editor.works-on.view-policy' | translate }}</label>
+          <select
+            [id]="id + '-view-policy'"
+            [attr.aria-describedby]="id + '-view-policy-hint'"
+            [attr.aria-invalid]="fieldError('viewPolicy') ? true : null"
+            (change)="viewPolicy.set(value($event))">
+            <option value="" [selected]="viewPolicy() === ''">{{ 'nh-assistant.admin.agent-editor.works-on.view-policy-default' | translate }}</option>
+            @for (policy of agentPolicies(); track policy.name) {
+              <option [value]="policy.name" [selected]="viewPolicy() === policy.name">{{ policyKeys(policy.name) | nhAssistantTranslate: policy.description }}</option>
+            }
+          </select>
+          <p class="hint" [id]="id + '-view-policy-hint'">
+            @if (fieldError('viewPolicy'); as key) {
+              <span class="error-text">{{ key | translate }}</span>
+            } @else {
+              {{ 'nh-assistant.admin.agent-editor.works-on.view-policy-hint' | translate }}
+            }
+          </p>
+        </div>
+      </div>
+    </fieldset>
   }
 
   <div class="field">

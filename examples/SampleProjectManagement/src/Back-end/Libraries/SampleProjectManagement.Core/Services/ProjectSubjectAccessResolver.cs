@@ -22,7 +22,16 @@ public static class ProjectSubjects
 
     public static NhAiSubjectRef For(Guid projectId)
     {
-        return new NhAiSubjectRef(Type, projectId.ToString("D"));
+        return new NhAiSubjectRef(Type, IdOf(projectId));
+    }
+
+    /// <summary>
+    /// The canonical subject id of a project, for triggers that name the project type up front with
+    /// <c>Subject(ProjectSubjects.Type, evt =&gt; ProjectSubjects.IdOf(evt.ProjectId))</c>.
+    /// </summary>
+    public static string IdOf(Guid projectId)
+    {
+        return projectId.ToString("D");
     }
 }
 

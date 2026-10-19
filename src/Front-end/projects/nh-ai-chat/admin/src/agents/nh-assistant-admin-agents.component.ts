@@ -27,10 +27,11 @@ import {
   NhAssistantStore,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError,
+  RunCatalog,
   SetAgentStateRequest,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
-import { codeTextKeys, policyKeys, readableId, skillDescriptionKeys, skillNameKeys } from './agent-texts';
+import { codeTextKeys, policyKeys, readableId, skillDescriptionKeys, skillNameKeys, WorksOnSummary, worksOnSummary } from './agent-texts';
 import { NhAssistantAdminAgentEditorComponent } from './nh-assistant-admin-agent-editor.component';
 import { NhAssistantAgentEvaluationComponent } from './nh-assistant-agent-evaluation.component';
 import { NhAssistantAgentFeedbackReportComponent } from './nh-assistant-agent-feedback-report.component';
@@ -87,6 +88,8 @@ export class NhAssistantAdminAgentsComponent {
   readonly agents = signal<AdminAgent[]>([]);
   readonly tools = signal<ToolCatalogEntry[]>([]);
   readonly servers = signal<McpServer[]>([]);
+  /** The run catalog: object types by name, policies and divisions; `null` when it could not be read. */
+  readonly catalog = signal<RunCatalog | null>(null);
   /** `undefined`: list; `null`: new agent; an agent: editing that agent. */
   readonly editing = signal<AdminAgent | null | undefined>(undefined);
   /** The agent whose feedback report is shown instead of the list. */
@@ -145,6 +148,7 @@ export class NhAssistantAdminAgentsComponent {
         this.agents.set(agents);
         this.tools.set(tools);
         this.servers.set(servers);
+        this.catalog.set(catalog);
         this.accountSearch.set(catalog?.accountSearch === true);
         this.loading.set(false);
         this.loadAccountNames(agents);
@@ -251,6 +255,15 @@ export class NhAssistantAdminAgentsComponent {
   onWorkRequested(agent: AdminAgent): void {
     this.onSaved(agent);
     this.openRunConfiguration(agent, true);
+  }
+
+  /** What the agent works on, with its object types named as the run catalog names them. */
+  worksOn(agent: AdminAgent): WorksOnSummary & { only: 'all' | 'types' | 'application' } {
+    const summary = worksOnSummary(agent, this.catalog()?.subjectTypes);
+    return {
+      ...summary,
+      only: summary.all ? 'all' : summary.types.length > 0 ? 'types' : 'application'
+    };
   }
 
   /** The name of an account or person, or the id when the application does not know it. */

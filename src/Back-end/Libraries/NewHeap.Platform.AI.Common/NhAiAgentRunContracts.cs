@@ -74,6 +74,12 @@ public sealed partial record NhAiSubjectRef
     /// </summary>
     public const string ReservedTypePrefix = "nh-";
 
+    /// <summary>
+    /// The platform's subject type of the whole application, which agents that work on the
+    /// application run on. People see it as "The whole application".
+    /// </summary>
+    public const string SystemType = "nh-system";
+
     public NhAiSubjectRef(string type, string id)
     {
         if (!IsValidType(type))

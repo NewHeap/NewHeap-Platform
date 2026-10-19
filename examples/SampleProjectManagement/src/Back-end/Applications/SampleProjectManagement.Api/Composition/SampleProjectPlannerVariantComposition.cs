@@ -45,6 +45,7 @@ public static class SampleProjectPlannerVariantComposition
             .ConfigureAgent(AgentId, agent => agent
                 // A shadow of the live planner: its events, no notifications, nothing executes.
                 .ShadowOf(SampleProjectPlannerComposition.AgentId)
+                .WorksOn(ProjectSubjects.Type)
                 .Grant(ProjectAiTools.ChangeStatusToolId)
                 .TriggerOnly()
                 .UseApprovalPolicy(SampleIntakeReviewerComposition.ApprovalPolicyId)

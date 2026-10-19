@@ -299,6 +299,7 @@
       "assistant-subject-not-found": "Het onderwerp bestaat niet meer.",
       "assistant-subject-type-unknown": "Dit soort onderwerp kent de assistent niet.",
       "assistant-subject-search-unavailable": "Dit soort object is niet te doorzoeken; geef de id.",
+      "assistant-agent-does-not-work-on": "Deze agent werkt niet aan dit soort object.",
       "assistant-subject-access-denied": "Je rol op dit onderwerp staat dit niet toe.",
       "assistant-no-accountable-owner": "Niemand staat voor deze agent op dit onderwerp in.",
       "assistant-agent-disabled": "Deze agent is stopgezet.",
@@ -575,7 +576,18 @@
         "version-label": "Versie",
         "tool-count-one": "{{count}} toolselector",
         "server-count-one": "{{count}} MCP-server",
-        "required-policy": "Vereist:"
+        "required-policy": "Vereist:",
+        "works-on": {
+          "label": "Werkt aan:",
+          "all": "Alle objecten",
+          "application": "De hele applicatie",
+          "and-application": "en de hele applicatie",
+          "per-division": "per divisie",
+          "undeclared": "(niet vastgelegd in code)",
+          "known": "Werkt bekend aan: {{types}}.",
+          "run-policy": "Te starten voor de hele applicatie door: {{policy}}.",
+          "view-policy": "Resultaten voor de hele applicatie zichtbaar voor: {{policy}}."
+        }
       },
       "agent-editor": {
         "new-title": "Nieuwe agent",
@@ -613,6 +625,28 @@
           "both": "Allebei",
           "both-hint": "In de chat te kiezen, en hij start ook op gebeurtenissen of een schema.",
           "next": "Na het opslaan vraagt een korte setup wanneer de agent start, wat hij doet en namens wie."
+        },
+        "works-on": {
+          "title": "Waaraan werkt deze agent?",
+          "hint": "Gebeurtenissen, planningen, mensen en andere agents starten hem alleen voor waaraan hij werkt.",
+          "all": "Alle objecten",
+          "all-hint": "Elk soort object dat de applicatie heeft, nu en later.",
+          "types": "Gekozen soorten objecten",
+          "types-hint": "Alleen de soorten objecten die je hieronder aanvinkt.",
+          "no-types": "De applicatie heeft geen soorten objecten om uit te kiezen.",
+          "too-many": "Kies hoogstens 20 soorten objecten, of Alle objecten.",
+          "known": "Werkt bekend aan: {{types}}.",
+          "application": "De hele applicatie",
+          "application-hint": "Werk dat niet over één object gaat, zoals een wekelijks overzicht.",
+          "per-division": "Per divisie",
+          "per-division-hint": "Zijn werk voor de hele applicatie gebeurt apart voor elke divisie.",
+          "missing": "Kies minstens één soort object, of de hele applicatie.",
+          "run-policy": "Wie hem mag starten voor de hele applicatie",
+          "run-policy-default": "Beheerders (standaard)",
+          "run-policy-hint": "Mensen die hieraan voldoen, mogen de agent voor de hele applicatie starten.",
+          "view-policy": "Wie zijn resultaten voor de hele applicatie ziet",
+          "view-policy-default": "Iedereen die de agent mag gebruiken (standaard)",
+          "view-policy-hint": "Resultaten over een object volgen wie dat object mag lezen."
         }
       },
       "effect": {
@@ -848,7 +882,8 @@
             "unknown-subject-set": "de set onderwerpen bestaat niet meer.",
             "unknown-skill": "de vaardigheid bestaat niet meer.",
             "invalid-schedule": "het schema of de tijdzone is niet geldig.",
-            "invalid": "een waarde is niet geldig."
+            "invalid": "een waarde is niet geldig.",
+            "not-worked-on": "de gebeurtenis gaat over een soort object waaraan de agent niet werkt."
           }
         },
         "field-errors": {

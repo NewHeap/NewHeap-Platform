@@ -12,6 +12,7 @@ public sealed class NhAssistantTriggerEventBuilder<TEvent>
 {
     private string _description = string.Empty;
     private Func<TEvent, NhAiSubjectRef>? _subject;
+    private string? _subjectType;
     private Func<TEvent, string?> _initiator = _ => null;
     private Func<TEvent, string>? _message;
     private Func<TEvent, string?> _dedupe = _ => null;
@@ -47,9 +48,29 @@ public sealed class NhAssistantTriggerEventBuilder<TEvent>
         return this;
     }
 
+    /// <summary>
+    /// The subject of an event, whose type is known only when a trigger on it fires; a start on a type
+    /// the agent does not work on is refused then with <c>assistant-agent-does-not-work-on</c>. Prefer
+    /// <see cref="Subject(string, Func{TEvent, string})"/> when the type is fixed.
+    /// </summary>
     public NhAssistantTriggerEventBuilder<TEvent> Subject(Func<TEvent, NhAiSubjectRef> subject)
     {
         _subject = subject ?? throw new ArgumentNullException(nameof(subject));
+        _subjectType = null;
+        return this;
+    }
+
+    /// <summary>
+    /// The subject of an event as a fixed type and the id the event names. The type is known up
+    /// front: the run catalog shows it, the administration offers the event only to agents that work
+    /// on the type, and saving a data trigger for another agent is refused.
+    /// </summary>
+    public NhAssistantTriggerEventBuilder<TEvent> Subject(string subjectType, Func<TEvent, string> id)
+    {
+        NhAssistantTriggerSubjects.ValidateType(subjectType);
+        ArgumentNullException.ThrowIfNull(id);
+        _subject = evt => new NhAiSubjectRef(subjectType, id(evt));
+        _subjectType = subjectType;
         return this;
     }
 
@@ -114,7 +135,10 @@ public sealed class NhAssistantTriggerEventBuilder<TEvent>
             evt => initiator((TEvent)evt),
             evt => message((TEvent)evt),
             evt => dedupe((TEvent)evt),
-            payload is null ? null : evt => payload((TEvent)evt));
+            payload is null ? null : evt => payload((TEvent)evt))
+        {
+            SubjectType = _subjectType
+        };
     }
 }
 
@@ -130,7 +154,32 @@ internal sealed record NhAssistantTriggerEventDefinition(
     Func<object, string?> Initiator,
     Func<object, string> Message,
     Func<object, string?> Dedupe,
-    Func<object, object?>? Payload);
+    Func<object, object?>? Payload)
+{
+    /// <summary>
+    /// The subject type the event names up front; <see langword="null"/> when it is known only when a
+    /// trigger on it fires.
+    /// </summary>
+    public string? SubjectType { get; init; }
+}
+
+/// <summary>
+/// Checks the subject type a trigger names up front.
+/// </summary>
+internal static class NhAssistantTriggerSubjects
+{
+    public static void ValidateType(string subjectType)
+    {
+        if (!NhAiSubjectRef.IsValidType(subjectType))
+        {
+            throw new ArgumentException("A subject type is a dash-case identifier.", nameof(subjectType));
+        }
+        if (NhAiSubjectRef.IsReservedType(subjectType))
+        {
+            throw new ArgumentException($"'{subjectType}' belongs to the platform; a trigger cannot name it.", nameof(subjectType));
+        }
+    }
+}
 
 /// <summary>
 /// The subjects a data-defined schedule starts a skill for on every tick, read in a scope of their own.

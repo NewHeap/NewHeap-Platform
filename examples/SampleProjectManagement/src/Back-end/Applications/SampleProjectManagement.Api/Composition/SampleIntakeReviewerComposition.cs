@@ -104,6 +104,9 @@ public static class SampleIntakeReviewerComposition
                 .Keys(evt => [ProjectTaskProposalGuard.Key(evt.ProjectTaskId)])
                 .ScopeKey(evt => NhAiSubjectInfo.CreateScopeKey(null, evt.DivisionId)))
             .ConfigureAgent(AgentId, agent => agent
+                // SPM-302: the reviewer works on projects only; triggers, starts and consultations
+                // about another type are refused, and startup checks the typed trigger below.
+                .WorksOn(ProjectSubjects.Type)
                 .Grant(
                     ProjectAiTools.ChangeStatusToolId,
                     ProjectAiReviewTools.RequestReviewToolId,
@@ -135,7 +138,7 @@ public static class SampleIntakeReviewerComposition
                     .AllowRequests()))
             .AddTrigger<ProjectCreatedEvent>(TriggerId, trigger => trigger
                 .StartAgent(AgentId)
-                .Subject(evt => ProjectSubjects.For(evt.ProjectId))
+                .Subject(ProjectSubjects.Type, evt => ProjectSubjects.IdOf(evt.ProjectId))
                 .Initiator(evt => evt.CreatedByUserId?.ToString("D"))
                 .Message(evt =>
                     $"New project {evt.ProjectKey} ({evt.ProjectId:D}) needs an intake review. Propose status active when it is ready.")

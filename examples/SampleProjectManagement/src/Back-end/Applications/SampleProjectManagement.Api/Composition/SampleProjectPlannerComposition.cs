@@ -89,6 +89,8 @@ public static class SampleProjectPlannerComposition
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: SampleAssistantComposition.AccessPolicy))
             .ConfigureAgent(AgentId, agent => agent
+                // SPM-302: the planner works on projects.
+                .WorksOn(ProjectSubjects.Type)
                 .Grant(ProjectAiTools.ChangeStatusToolId)
                 .TriggerOnly()
                 .Accountability(NhAiAgentAccountability.SubjectResponsible)
@@ -118,7 +120,7 @@ public static class SampleProjectPlannerComposition
                 .Skill(TaskFollowUpSkill)
                 // Only completed tasks concern the follow-up; other updates evaluate nothing more.
                 .When(evt => evt.IsCompleted)
-                .Subject(evt => ProjectSubjects.For(evt.ProjectId))
+                .Subject(ProjectSubjects.Type, evt => ProjectSubjects.IdOf(evt.ProjectId))
                 .Message(evt => $"Task {evt.ProjectTaskId:D} of project {evt.ProjectId:D} was completed.")
                 .Dedupe(evt => evt.EventId.ToString("N"))
                 .OnBusy(NhAssistantTriggerConflict.Coalesce, TimeSpan.Zero))
@@ -134,7 +136,9 @@ public static class SampleProjectPlannerComposition
             .AddTriggerEvent<ProjectTaskUpdatedEvent>(TaskCompletedEvent, evt => evt
                 .Description("A task of a project was completed.")
                 .When(change => change.IsCompleted)
-                .Subject(change => ProjectSubjects.For(change.ProjectId))
+                // SPM-302: the event names the project type up front; the administration offers it
+                // only to agents that work on projects.
+                .Subject(ProjectSubjects.Type, change => ProjectSubjects.IdOf(change.ProjectId))
                 .Message(change => $"Task {change.ProjectTaskId:D} of project {change.ProjectId:D} was completed.")
                 .Dedupe(change => change.EventId.ToString("N")))
             .AddSubjectSet(ActiveProjectsSet, "Active projects with a deadline in the next two weeks.", ActiveProjectsWithDeadlineSoon)

@@ -208,6 +208,18 @@ public sealed record NhAssistantRunCatalogDto(
     /// their names in the request's language.
     /// </summary>
     public IReadOnlyList<NhAssistantSubjectTypeDto> SubjectTypes { get; init; } = [];
+
+    /// <summary>
+    /// The policies the application lists with <c>AddAgentPolicy</c>, ordered by name: what an
+    /// administrator may choose as the run and view policy of an agent created in the administration.
+    /// </summary>
+    public IReadOnlyList<NhAssistantRunBlockDto> AgentPolicies { get; init; } = [];
+
+    /// <summary>
+    /// Whether the application lists its divisions, so an agent may work per division; without it the
+    /// administration does not offer the choice.
+    /// </summary>
+    public bool Divisions { get; init; }
 }
 
 /// <summary>
@@ -268,6 +280,21 @@ public sealed record NhAssistantAccountDto(string ActorId, string DisplayName, s
 /// An agent to create with <see cref="INhAssistantAgentConfiguration.CreateAgentAsync"/>. Its tool
 /// selectors bound what its skills and runs may use.
 /// </summary>
+/// <param name="WorksOnSubjectTypes">The registered object types the agent works on, at most 20.</param>
+/// <param name="WorksOnAllSubjects">The agent works on every object type; not next to
+/// <paramref name="WorksOnSubjectTypes"/>.</param>
+/// <param name="WorksOnApplication">The agent works on the whole application.</param>
+/// <param name="PerDivision">The agent works per division; only when the application lists its
+/// divisions (<see cref="NhAssistantRunCatalogDto.Divisions"/>).</param>
+/// <param name="RunPolicy">Who may run the agent for the whole application: a policy listed with
+/// <c>AddAgentPolicy</c>; without it the administration policy.</param>
+/// <param name="ViewPolicy">Who sees its results for the whole application: a policy listed with
+/// <c>AddAgentPolicy</c>; without it the agent's required policy.</param>
+/// <remarks>
+/// Without <paramref name="WorksOnSubjectTypes"/>, <paramref name="WorksOnAllSubjects"/> and
+/// <paramref name="WorksOnApplication"/> the agent works on all object types and not on the
+/// application.
+/// </remarks>
 public sealed record NhAssistantAgentRequest(
     string Id,
     string DisplayName,
@@ -276,9 +303,24 @@ public sealed record NhAssistantAgentRequest(
     IReadOnlyList<string> ToolSelectors,
     NhAiAutonomyLevel Autonomy,
     string? RequiredPolicy = null,
-    bool OfferedInChat = true);
+    bool OfferedInChat = true,
+    IReadOnlyList<string>? WorksOnSubjectTypes = null,
+    bool? WorksOnAllSubjects = null,
+    bool? WorksOnApplication = null,
+    bool PerDivision = false,
+    string? RunPolicy = null,
+    string? ViewPolicy = null);
 
-public sealed record NhAssistantRunBlockDto(string Name, string Description);
+/// <param name="Name">The building block's name.</param>
+/// <param name="Description">What it means, for the administration.</param>
+public sealed record NhAssistantRunBlockDto(string Name, string Description)
+{
+    /// <summary>
+    /// For a trigger event that names its subject type up front, that type; data triggers on it fit
+    /// only agents that work on it. <see langword="null"/> when the type is known only when it fires.
+    /// </summary>
+    public string? SubjectType { get; init; }
+}
 
 /// <param name="ToolSelectors">The agent's own tool selectors; a data skill's tools stay within
 /// them.</param>
@@ -559,7 +601,10 @@ internal sealed class NhAssistantAgentConfiguration(
             : [];
         var policies = registration.ApprovalPolicies.Values.OrderBy(policy => policy.Id, StringComparer.Ordinal).ToArray();
         return new NhAssistantRunCatalogDto(
-            registration.TriggerEvents.Values.OrderBy(item => item.Name, StringComparer.Ordinal).Select(item => new NhAssistantRunBlockDto(item.Name, item.Description)).ToArray(),
+            registration.TriggerEvents.Values
+                .OrderBy(item => item.Name, StringComparer.Ordinal)
+                .Select(item => new NhAssistantRunBlockDto(item.Name, item.Description) { SubjectType = item.SubjectType })
+                .ToArray(),
             registration.SubjectSets.Values.OrderBy(item => item.Name, StringComparer.Ordinal).Select(item => new NhAssistantRunBlockDto(item.Name, item.Description)).ToArray(),
             registration.RuleHandlers.Values.OrderBy(item => item.Name, StringComparer.Ordinal).Select(item => new NhAssistantRunBlockDto(item.Name, item.Description)).ToArray(),
             policies.Select(policy => policy.Id).ToArray(),
@@ -577,7 +622,12 @@ internal sealed class NhAssistantAgentConfiguration(
                     type.LinkTemplate,
                     type.Searchable,
                     type.IsSystem))
-                .ToArray()
+                .ToArray(),
+            AgentPolicies = registration.AgentPolicies.Values
+                .OrderBy(item => item.Name, StringComparer.Ordinal)
+                .Select(item => new NhAssistantRunBlockDto(item.Name, item.Description))
+                .ToArray(),
+            Divisions = services.GetRequiredService<NhAssistantWorksOnRule>().DivisionsListed
         };
     }
 
@@ -606,7 +656,14 @@ internal sealed class NhAssistantAgentConfiguration(
                 [],
                 requiredPolicy,
                 request.Autonomy,
-                request.OfferedInChat),
+                request.OfferedInChat,
+                NhAssistantAgentWorksOn.FromInput(
+                    request.WorksOnSubjectTypes,
+                    request.WorksOnAllSubjects,
+                    request.WorksOnApplication,
+                    request.PerDivision ? true : null,
+                    request.RunPolicy,
+                    request.ViewPolicy)),
             actorId,
             cancellationToken);
         if (!created.Success)
@@ -1357,6 +1414,8 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             NhAssistantRunConfigurationProblems.UnknownSkill => NhAssistantValidationErrors.Failed("skill", NhAssistantFieldErrors.NotFound),
             NhAssistantRunConfigurationProblems.UnknownEvent => NhAssistantValidationErrors.Failed("event", NhAssistantFieldErrors.NotFound),
+            // The event names a subject type the agent does not work on.
+            NhAssistantRunConfigurationProblems.NotWorkedOn => NhAssistantValidationErrors.Failed("event", NhAssistantFieldErrors.Invalid),
             NhAssistantRunConfigurationProblems.UnknownSubjectSet => NhAssistantValidationErrors.Failed("subjectSet", NhAssistantFieldErrors.NotFound),
             NhAssistantRunConfigurationProblems.InvalidSchedule => NhAssistantValidationErrors.Failed("cron", NhAssistantFieldErrors.Invalid),
             _ => NhAssistantValidationErrors.Failed("triggerId", NhAssistantFieldErrors.Invalid)

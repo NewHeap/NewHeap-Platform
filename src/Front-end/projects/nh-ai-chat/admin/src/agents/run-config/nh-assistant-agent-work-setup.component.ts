@@ -21,6 +21,7 @@ import {
   dashCase,
   describePolicy,
   eventOptions,
+  WorksOnStatement,
   policyOptions,
   requireText,
   ruleOptions,
@@ -68,6 +69,8 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements
   readonly agentId = input.required<string>();
   readonly agentName = input('');
   readonly catalog = input<RunCatalog | null>(null);
+  /** What the agent works on: events about other object types are not offered. */
+  readonly worksOn = input<WorksOnStatement | null>(null);
   readonly toolSelectors = input<readonly string[]>([]);
   /** The tool catalog, to show what each of the agent's tool selectors offers. */
   readonly toolCatalog = input<readonly ToolCatalogEntry[]>([]);
@@ -123,7 +126,7 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements
     return toDashCase(base).slice(0, 64).replace(/-+$/, '');
   });
   readonly accountSearch = computed(() => this.catalog()?.accountSearch === true);
-  readonly events = computed(() => eventOptions(this.catalog()));
+  readonly events = computed(() => eventOptions(this.catalog(), this.worksOn()));
   readonly subjectSets = computed(() => subjectSetOptions(this.catalog()));
   readonly rules = computed(() => ruleOptions(this.catalog()));
   readonly policies = computed(() => {

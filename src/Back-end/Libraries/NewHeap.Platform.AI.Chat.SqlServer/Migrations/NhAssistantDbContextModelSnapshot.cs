@@ -74,12 +74,19 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<bool>("IsOverridden")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("PerDivision")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ProfileName")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
                     b.Property<string>("RequiredPolicy")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("RunPolicy")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
@@ -150,6 +157,25 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<int>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("int");
+
+                    b.Property<string>("ViewPolicy")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("WorksOnAllSubjects")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("WorksOnApplication")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("WorksOnSubjectTypesJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2100)
+                        .HasColumnType("nvarchar(2100)")
+                        .HasDefaultValue("[]");
 
                     b.HasKey("Id");
 

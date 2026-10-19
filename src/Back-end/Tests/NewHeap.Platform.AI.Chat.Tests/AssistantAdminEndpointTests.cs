@@ -171,7 +171,8 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         AssertNames(code, "id", "displayName", "description", "instructions", "toolSelectors", "mcpServerIds", "requiredPolicy",
             "autonomy", "isEnabled", "version", "source", "isOverridden", "instructionsHash", "updatedAt",
             "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf", "shadow", "serviceAccount",
-            "offeredInChat");
+            "offeredInChat", "worksOnSubjectTypes", "worksOnAllSubjects", "worksOnApplication", "perDivision", "runPolicy", "viewPolicy",
+            "worksOnDeclared", "knownSubjectTypes");
         Assert.Equal("active", code.GetProperty("runState").GetString());
         Assert.Equal("code", code.GetProperty("source").GetString());
         Assert.Equal("execute", code.GetProperty("autonomy").GetString());

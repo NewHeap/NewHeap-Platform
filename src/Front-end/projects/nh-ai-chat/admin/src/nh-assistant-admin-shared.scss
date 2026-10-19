@@ -180,6 +180,23 @@ textarea.large {
   }
 }
 
+/* A check box with a name and an explanation below it. */
+.check.described > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Check boxes of several choices, such as the object types an agent works on. */
+.checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 6px 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

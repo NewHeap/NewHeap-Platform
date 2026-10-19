@@ -9,16 +9,16 @@ application groups them on its own pages. It was written on 2026-10-19 during th
 
 ## Status
 
-Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 is implemented and not released;
-W2 to W7 are designed and not yet implemented; the flow view (U6 of the run configuration UX plan)
-follows on top of them. The
+Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 and W2 are implemented and not
+released; W3 to W7 are designed and not yet implemented; the flow view (U6 of the run configuration
+UX plan) follows on top of them. The
 [MCP connections plan](ai-assistant-mcp-connections-plan.md) uses SPM-299 and SPM-300; this plan
 uses SPM-301 onwards.
 
 | Phase | Status |
 | --- | --- |
 | W1 | Implemented, not released: object types with names, entity binding, search and links. |
-| W2 | Designed: what an agent works on. |
+| W2 | Implemented, not released: what an agent works on. |
 | W3 | Designed: the whole application as a scope. |
 | W4 | Designed: run now. |
 | W5 | Designed: proposals placed at their object. |
@@ -117,6 +117,20 @@ Choices the plan left open, taken during implementation for Lars to review.
 | W1 | `provideNhAssistant({ subjectLinks })` takes a builder per subject type that returns router commands, a URL, `null` (no link) or `undefined` (the server's link) and runs in the assistant's injection context. | One override per type keeps the server's links for the rest. | For Lars to review. |
 | W1 | The sample's project search is provider-neutral `ToLower` and `Contains`; it runs on PostgreSQL in the sample tests and is checked as translated SQL for SQL Server. | The sample test project has no SQL Server container; the library's search filtering runs on both providers. | For Lars to review. |
 | W1 | W1 changes no schema, so it has no migrations. | Names, entities and links live in code. | For Lars to review. |
+| W2 | `NhAiSubjectRef.SystemType` (`nh-system`) is added to AI.Common now; W3 registers its resolver. | The one rule needs the type to decide whether an agent works on the whole application. | For Lars to review. |
+| W2 | The column of the object types is `WorksOnSubjectTypesJson`, like `ToolSelectorsJson`; `WorksOnAllSubjects` defaults to `true` in the database with an EF sentinel, so existing rows work on all object types. | Repository naming of JSON columns; the migration must give existing agents "all object types". | For Lars to review. |
+| W2 | What a data agent works on belongs to its definition (`PUT admin/agents/{id}`), not to its run settings; the run configuration snapshot carries it into the agent's run options, so the rule reads memory only. An agent without run settings cannot run and reads "all object types" at runtime. | One statement for chat and runs; triggers and starts check without a database read. | For Lars to review. |
+| W2 | The six fields travel together: all omitted keeps the statement (a new agent works on all object types); otherwise omitted ones read as not chosen, and without types, all objects or the application the agent works on all object types. | Older clients keep working; a request that only sets a policy does not make the agent work on nothing. | For Lars to review. |
+| W2 | Field errors: `worksOn` `required` (nothing) and `invalid` (types next to all objects); `worksOnSubjectTypes` `invalid`, `not-found` (unknown or `nh-`) and `too-long` (over 20); `perDivision` `invalid` without divisions; `runPolicy` and `viewPolicy` `not-found` when the application does not list them. Agents in code may name any registered policy. | Errors at the editor's fields; data names only what code offers. | For Lars to review. |
+| W2 | The rule is checked in the one place every fire passes (`FireCoreAsync`), and `PublishAsync` refuses at once instead of deferring a refused fire; follow-ups and resumes are refused too, and waiting inputs of a type no longer worked on are dropped like those of a deleted subject. | Every start follows one rule; no background operation for work that will be refused. | For Lars to review. |
+| W2 | `POST threads/start` and `POST threads/open` (new thread) answer `409 assistant-agent-does-not-work-on`; `canStart` is `false` in the thread lookup and the subject work; existing threads stay readable. | It is the agent's configuration, not the caller's rights. | For Lars to review. |
+| W2 | Startup fails for `AcceptHandOffs`, `AllowConsultation` and typed triggers on a type the agent does not work on (core check), and for unknown `WorksOn` types and unregistered run, view or listed policies (ASP.NET check, before the background-operation check). | Contradictions in code surface at deployment, as K5 asks. | For Lars to review. |
+| W2 | A data trigger on an event that names its type is refused for an agent that does not work on it (`event: invalid`); one that no longer fits after the statement narrowed stays stored but is out of effect with the problem `not-worked-on`. | The pattern for data that no longer fits; nothing is deleted behind the administrator's back. | For Lars to review. |
+| W2 | `PerDivision()` in code is accepted without a division directory; data refuses it until the run catalog reports `divisions`, which stays `false` until W3. | K7 offers per division only with listed divisions; W3 adds the directory and its startup check. | For Lars to review. |
+| W2 | Known types come from the run configuration in effect (hand-offs, consultations, typed triggers in code and as data) and the distinct thread types of the agents (one query, at most 2,000 pairs), for every agent in `GET admin/agents`. | The hint of K6 without a query per agent. | For Lars to review. |
+| W2 | The admin DTO carries the statement as flat fields like the input, with `WorksOnDeclared` (false only for an agent in code that says nothing) and `KnownSubjectTypes`. | The Angular `AdminAgent` extends `AdminAgentInput`; data agents always declared what they work on. | For Lars to review. |
+| W2 | The trigger forms offer an event that names its type only to agents that work on it; the editor refuses "chosen kinds" without any kind or the application before calling the server; cards and check boxes use the plural names. | K5: forms offer only what the agent works on. | For Lars to review. |
+| W2 | SPM-302 is registered as `implemented` for what W2 builds, with a title and outcome scoped to it; W3 to W7 extend its title, surface and outcome. The dev seeder creates the project follow-up as data (projects and the whole application, run and view policies, run settings answering to the operations account); the starter composition lists the agent policies, because the other sample hosts do not register those authorization policies. The refused start is shown by narrowing the follow-up to the whole application, since the sample has one application object type. | The guidance generator accepts only implemented cases in consumer guidance (`partial` is refused there), and the plan's target agent starts in W2 with what it works on. | For Lars to review. |
 
 ## Design
 
@@ -176,6 +190,18 @@ may use.
 subjectLinks })` may override links with a router function; the internal picker searches subjects.
 
 ### W2: what an agent works on
+
+**Implementation notes.** Implemented in `NhAssistantAgentWorksOn` (statement, `Covers`), the builder
+methods `WorksOn`, `WorksOnAllObjects`, `WorksOnApplication`, `PerDivision`, `RunPolicy` and
+`ViewPolicy`, `AddAgentPolicy`, the typed `Subject(type, id)` overloads of triggers and trigger
+events, the internal `NhAssistantWorksOnRule` (the one rule, for W3 and W5 to call) and
+`NhAssistantAgentKnownSubjectTypes` (hints). `AssistantAgent` gained the statement with the
+migration `AgentWorkOnObjects` for SQL Server and PostgreSQL; the run configuration snapshot carries
+it to data agents' run options. Enforcement: every trigger fire, `POST threads/start`, `POST
+threads/open`, hand-offs and consultations (`assistant-agent-does-not-work-on`), data trigger
+validation (`not-worked-on`) and startup checks. Angular: the editor's works-on section, the cards'
+works-on line, typed events in the trigger forms, models, texts and the mock API's validation. Sample
+case SPM-302, for its W2 part.
 
 **Code.**
 
