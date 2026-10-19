@@ -1,0 +1,236 @@
+<form class="stack card" data-form="settings" novalidate (submit)="$event.preventDefault(); save()">
+  <h5>{{ (settings() ? 'nh-assistant.admin.run-config.settings.edit-title' : 'nh-assistant.admin.run-config.settings.add-title') | translate }}</h5>
+
+  <fieldset class="group" [attr.aria-describedby]="id + '-who-explain'">
+    <legend>{{ 'nh-assistant.admin.run-config.settings.who.title' | translate }}</legend>
+    <p class="muted" [id]="id + '-who-explain'">{{ 'nh-assistant.admin.run-config.settings.who.explain' | translate }}</p>
+    <div class="choices" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.run-config.settings.who.title' | translate">
+      @for (option of accountabilities; track option) {
+        <label class="choice" [class.selected]="accountability() === option">
+          <input type="radio" [name]="id + '-accountability'" [value]="option" [checked]="accountability() === option" (change)="setAccountability(option)" />
+          <span>
+            <strong>{{ 'nh-assistant.admin.run-config.settings.accountability.' + option | translate }}</strong>
+            <span class="muted">{{ 'nh-assistant.admin.run-config.settings.accountability-explain.' + option | translate }}</span>
+          </span>
+        </label>
+      }
+    </div>
+    @if (errorKey('accountability'); as key) {
+      <p class="field-error" [id]="id + '-accountability-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('accountability')?.params }}</p>
+    }
+    @if (accountability() === 'service-account') {
+      <div class="field">
+        <label [for]="id + '-service-account'">{{ 'nh-assistant.admin.run-config.settings.service-account' | translate }}</label>
+        <nh-assistant-account-picker
+          [inputId]="id + '-service-account'"
+          [value]="serviceAccount()"
+          [searchable]="accountSearch()"
+          [invalid]="fieldError('serviceAccountActorId') !== null"
+          [describedBy]="describedBy(id + '-service-account-hint', 'serviceAccountActorId', id + '-service-account-error')"
+          (valueChange)="serviceAccount.set($event); touch('serviceAccountActorId')" />
+        <p class="hint" [id]="id + '-service-account-hint'">
+          {{ (accountSearch() ? 'nh-assistant.admin.run-config.account.search-hint' : 'nh-assistant.admin.run-config.account.id-hint') | translate }}
+        </p>
+        @if (errorKey('serviceAccountActorId'); as key) {
+          <p class="field-error" [id]="id + '-service-account-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('serviceAccountActorId')?.params }}</p>
+        }
+      </div>
+    }
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>{{ 'nh-assistant.admin.run-config.settings.how.title' | translate }}</legend>
+    <div class="field">
+      <label [for]="id + '-rule-handler'">{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}</label>
+      <nh-assistant-picker
+        [inputId]="id + '-rule-handler'"
+        [options]="rules()"
+        [value]="ruleHandler()"
+        [noneLabel]="'nh-assistant.admin.run-config.model' | translate"
+        [invalid]="fieldError('ruleHandler') !== null"
+        [describedBy]="describedBy(id + '-rule-handler-hint', 'ruleHandler', id + '-rule-handler-error')"
+        (valueChange)="ruleHandler.set($event); touch('ruleHandler')" />
+      <p class="hint" [id]="id + '-rule-handler-hint'">{{ 'nh-assistant.admin.run-config.settings.how.hint' | translate }}</p>
+      @if (errorKey('ruleHandler'); as key) {
+        <p class="field-error" [id]="id + '-rule-handler-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('ruleHandler')?.params }}</p>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>{{ 'nh-assistant.admin.run-config.settings.approval.title' | translate }}</legend>
+    <div class="field">
+      <label [for]="id + '-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}</label>
+      <nh-assistant-picker
+        [inputId]="id + '-policy'"
+        [options]="policies()"
+        [value]="approvalPolicy()"
+        [noneLabel]="'nh-assistant.admin.run-config.settings.approval.default' | translate"
+        [invalid]="fieldError('approvalPolicy') !== null"
+        [describedBy]="describedBy(id + '-policy-hint', 'approvalPolicy', id + '-policy-error')"
+        (valueChange)="approvalPolicy.set($event); touch('approvalPolicy')" />
+      <p class="hint" [id]="id + '-policy-hint'">{{ 'nh-assistant.admin.run-config.settings.approval.hint' | translate }}</p>
+      @if (errorKey('approvalPolicy'); as key) {
+        <p class="field-error" [id]="id + '-policy-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('approvalPolicy')?.params }}</p>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>{{ 'nh-assistant.admin.run-config.limits.title' | translate }}</legend>
+    <p class="muted" [id]="id + '-limits-hint'">{{ 'nh-assistant.admin.run-config.budget-hint' | translate }}</p>
+    <div class="grid">
+      <div class="field">
+        <label [for]="id + '-run-tokens'">{{ 'nh-assistant.admin.run-config.max-tokens' | translate }}</label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-run-tokens'" [value]="maxTokensPerRun()"
+          [attr.aria-invalid]="fieldError('maxTokensPerRun') ? true : null"
+          [attr.aria-describedby]="describedBy(id + '-limits-hint', 'maxTokensPerRun', id + '-run-tokens-error')"
+          (input)="maxTokensPerRun.set(value($event)); touch('maxTokensPerRun')" />
+        @if (errorKey('maxTokensPerRun'); as key) {
+          <p class="field-error" [id]="id + '-run-tokens-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('maxTokensPerRun')?.params }}</p>
+        }
+      </div>
+      <div class="field">
+        <label [for]="id + '-daily-calls'">{{ 'nh-assistant.admin.run-config.daily-tool-calls' | translate }}</label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-daily-calls'" [value]="dailyToolCalls()"
+          [attr.aria-invalid]="fieldError('dailyToolCalls') ? true : null"
+          [attr.aria-describedby]="describedBy(id + '-limits-hint', 'dailyToolCalls', id + '-daily-calls-error')"
+          (input)="dailyToolCalls.set(value($event)); touch('dailyToolCalls'); touch('dailyTokens')" />
+        @if (errorKey('dailyToolCalls'); as key) {
+          <p class="field-error" [id]="id + '-daily-calls-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('dailyToolCalls')?.params }}</p>
+        }
+      </div>
+      <div class="field">
+        <label [for]="id + '-daily-tokens'">{{ 'nh-assistant.admin.run-config.daily-tokens' | translate }}</label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-daily-tokens'" [value]="dailyTokens()"
+          [attr.aria-invalid]="fieldError('dailyTokens') ? true : null"
+          [attr.aria-describedby]="describedBy(id + '-limits-hint', 'dailyTokens', id + '-daily-tokens-error')"
+          (input)="dailyTokens.set(value($event)); touch('dailyTokens'); touch('dailyToolCalls')" />
+        @if (errorKey('dailyTokens'); as key) {
+          <p class="field-error" [id]="id + '-daily-tokens-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('dailyTokens')?.params }}</p>
+        }
+      </div>
+    </div>
+  </fieldset>
+
+  <details class="advanced" data-advanced [open]="advancedOpen() || advancedHasErrors()" (toggle)="advancedOpen.set($any($event.target).open)">
+    <summary>{{ 'nh-assistant.admin.run-config.advanced.title' | translate }}</summary>
+    <div class="stack">
+      <p class="muted">{{ 'nh-assistant.admin.run-config.advanced.explain' | translate }}</p>
+      <div class="grid">
+        <div class="field">
+          <label [for]="id + '-retries'">{{ 'nh-assistant.admin.run-config.settings.retries' | translate }}</label>
+          <input type="number" min="0" max="10" inputmode="numeric" [id]="id + '-retries'" [value]="retryCount()"
+            [attr.aria-invalid]="fieldError('retryCount') ? true : null"
+            [attr.aria-describedby]="describedBy(id + '-retries-hint', 'retryCount', id + '-retries-error')"
+            (input)="retryCount.set(value($event)); touch('retryCount')" />
+          <p class="hint" [id]="id + '-retries-hint'">{{ 'nh-assistant.admin.run-config.settings.retries-hint' | translate }}</p>
+          @if (errorKey('retryCount'); as key) {
+            <p class="field-error" [id]="id + '-retries-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('retryCount')?.params }}</p>
+          }
+        </div>
+        <div class="field">
+          <label [for]="id + '-concurrent'">{{ 'nh-assistant.admin.run-config.settings.max-concurrent' | translate }}</label>
+          <input type="number" min="1" max="100" inputmode="numeric" [id]="id + '-concurrent'" [value]="maxConcurrentRuns()"
+            [attr.aria-invalid]="fieldError('maxConcurrentRuns') ? true : null"
+            [attr.aria-describedby]="describedBy(id + '-concurrent-hint', 'maxConcurrentRuns', id + '-concurrent-error')"
+            (input)="maxConcurrentRuns.set(value($event)); touch('maxConcurrentRuns')" />
+          <p class="hint" [id]="id + '-concurrent-hint'">{{ 'nh-assistant.admin.run-config.settings.max-concurrent-hint' | translate }}</p>
+          @if (errorKey('maxConcurrentRuns'); as key) {
+            <p class="field-error" [id]="id + '-concurrent-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('maxConcurrentRuns')?.params }}</p>
+          }
+        </div>
+        <div class="field">
+          <label [for]="id + '-per-subject'">{{ 'nh-assistant.admin.run-config.settings.max-per-subject' | translate }}</label>
+          <input type="number" min="1" max="1000" inputmode="numeric" [id]="id + '-per-subject'" [value]="maxRunsPerSubjectPerDay()"
+            [attr.aria-invalid]="fieldError('maxRunsPerSubjectPerDay') ? true : null"
+            [attr.aria-describedby]="describedBy(id + '-per-subject-hint', 'maxRunsPerSubjectPerDay', id + '-per-subject-error')"
+            (input)="maxRunsPerSubjectPerDay.set(value($event)); touch('maxRunsPerSubjectPerDay')" />
+          <p class="hint" [id]="id + '-per-subject-hint'">{{ 'nh-assistant.admin.run-config.settings.max-per-subject-hint' | translate }}</p>
+          @if (errorKey('maxRunsPerSubjectPerDay'); as key) {
+            <p class="field-error" [id]="id + '-per-subject-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('maxRunsPerSubjectPerDay')?.params }}</p>
+          }
+        </div>
+      </div>
+      <div class="field">
+        <label [for]="id + '-triage'">{{ 'nh-assistant.admin.run-config.settings.triage' | translate }}</label>
+        <nh-assistant-picker
+          [inputId]="id + '-triage'"
+          [options]="profiles()"
+          [value]="triageProfile()"
+          [noneLabel]="'nh-assistant.admin.run-config.settings.no-triage' | translate"
+          [invalid]="fieldError('triageProfile') !== null"
+          [describedBy]="describedBy(id + '-triage-hint', 'triageProfile', id + '-triage-error')"
+          (valueChange)="triageProfile.set($event); touch('triageProfile')" />
+        <p class="hint" [id]="id + '-triage-hint'">{{ 'nh-assistant.admin.run-config.settings.triage-hint' | translate }}</p>
+        @if (errorKey('triageProfile'); as key) {
+          <p class="field-error" [id]="id + '-triage-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('triageProfile')?.params }}</p>
+        }
+      </div>
+      <fieldset class="field">
+        <legend>{{ 'nh-assistant.admin.run-config.settings.elevated-reads' | translate }}</legend>
+        <p class="hint">{{ 'nh-assistant.admin.run-config.settings.elevated-reads-hint' | translate }}</p>
+        @for (mode of elevatedReadModes; track mode) {
+          <label class="check">
+            <input type="radio" [name]="id + '-elevated'" [value]="mode" [checked]="elevatedReads() === mode" (change)="elevatedReads.set(mode); touch('elevatedReads')" />
+            <span>{{ 'nh-assistant.admin.run-config.settings.elevated.' + mode | translate }}</span>
+          </label>
+        }
+        @if (errorKey('elevatedReads'); as key) {
+          <p class="field-error"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('elevatedReads')?.params }}</p>
+        }
+      </fieldset>
+      <label class="check">
+        <input type="checkbox" [checked]="allowGatewayReads()" [attr.aria-invalid]="fieldError('allowGatewayReads') ? true : null" (change)="allowGatewayReads.set(checked($event)); touch('allowGatewayReads')" />
+        <span>
+          {{ 'nh-assistant.admin.run-config.settings.gateway-reads' | translate }}
+          <span class="muted block">{{ 'nh-assistant.admin.run-config.settings.gateway-reads-hint' | translate }}</span>
+        </span>
+      </label>
+      @if (errorKey('allowGatewayReads'); as key) {
+        <p class="field-error"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('allowGatewayReads')?.params }}</p>
+      }
+      <label class="check">
+        <input type="checkbox" [checked]="delegateFromInitiator()" (change)="delegateFromInitiator.set(checked($event))" />
+        <span>
+          {{ 'nh-assistant.admin.run-config.settings.delegate' | translate }}
+          <span class="muted block">{{ 'nh-assistant.admin.run-config.settings.delegate-hint' | translate }}</span>
+        </span>
+      </label>
+    </div>
+  </details>
+
+  <div class="field">
+    <label [for]="id + '-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>
+    <input type="text" autocomplete="off" [id]="id + '-reason'" [maxLength]="maxReason" [value]="reason()" [attr.aria-describedby]="id + '-reason-hint'" (input)="reason.set(value($event))" />
+    <p class="hint" [id]="id + '-reason-hint'">{{ 'nh-assistant.admin.run-config.note-hint' | translate }}</p>
+  </div>
+
+  @if (hasErrors()) {
+    <div class="form-error" role="alert" data-form-error>
+      <nh-assistant-icon name="warning" />
+      <div>
+        @if (serverError(); as failure) {
+          @if (failure.code === 'assistant-validation') {
+            {{ 'nh-assistant.admin.run-config.check-fields' | translate }}
+          } @else {
+            {{ errorKeys() | nhAssistantTranslate: failure.code }}
+          }
+        } @else {
+          {{ 'nh-assistant.admin.run-config.check-fields' | translate }}
+        }
+        @if (otherFieldErrors().length > 0) {
+          <ul>
+            @for (field of otherFieldErrors(); track field) {
+              <li><span class="mono">{{ field }}</span></li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+  }
+  <div class="actions">
+    <button class="secondary" type="button" (click)="cancelled.emit()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+    <button class="primary" type="submit" [disabled]="busy()">{{ (busy() ? 'nh-assistant.admin.saving' : 'nh-assistant.admin.save') | translate }}</button>
+  </div>
+</form>

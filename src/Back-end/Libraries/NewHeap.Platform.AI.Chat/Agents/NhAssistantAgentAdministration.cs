@@ -7,7 +7,8 @@ namespace NewHeap.Platform.AI.Chat;
 
 /// <summary>
 /// Administrator input for an agent. It carries no state: pause, stop and resume change that
-/// through the agent control, never the definition.
+/// through the agent control, never the definition. <paramref name="OfferedInChat"/> applies to
+/// agents created in the administration; <see langword="null"/> keeps it, and a new agent is offered.
 /// </summary>
 internal sealed record NhAssistantAgentInput(
     string Id,
@@ -17,7 +18,8 @@ internal sealed record NhAssistantAgentInput(
     IReadOnlyList<string> ToolSelectors,
     IReadOnlyList<string> McpServerIds,
     string? RequiredPolicy,
-    NhAiAutonomyLevel Autonomy);
+    NhAiAutonomyLevel Autonomy,
+    bool? OfferedInChat = null);
 
 /// <summary>
 /// Creates, overrides, resets and deletes agents. Every change is versioned and reported to the
@@ -245,6 +247,10 @@ internal sealed class NhAssistantAgentAdministration(
         row.ToolSelectorsJson = JsonSerializer.Serialize(input.ToolSelectors.Distinct(StringComparer.Ordinal).ToArray());
         row.RequiredPolicy = string.IsNullOrWhiteSpace(input.RequiredPolicy) ? null : input.RequiredPolicy;
         row.Autonomy = input.Autonomy;
+        if (input.OfferedInChat is { } offered && row.Source == NhAssistantAgentSources.Admin)
+        {
+            row.HiddenFromChat = !offered;
+        }
         var hash = NhAssistantAgentCatalog.ComputeHash(instructions);
         if (!string.Equals(hash, row.InstructionsHash, StringComparison.Ordinal))
         {

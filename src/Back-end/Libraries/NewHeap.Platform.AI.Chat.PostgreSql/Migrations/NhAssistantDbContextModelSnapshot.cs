@@ -48,6 +48,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<bool>("HiddenFromChat")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Instructions")
                         .IsRequired()
                         .HasColumnType("text");

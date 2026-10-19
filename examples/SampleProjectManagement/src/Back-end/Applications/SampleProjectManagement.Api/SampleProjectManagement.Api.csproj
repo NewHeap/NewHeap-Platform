@@ -2,6 +2,7 @@
   <ItemGroup>
     <PackageReference Include="DotNetCore.CAP.RabbitMQ" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Scalar.AspNetCore" />

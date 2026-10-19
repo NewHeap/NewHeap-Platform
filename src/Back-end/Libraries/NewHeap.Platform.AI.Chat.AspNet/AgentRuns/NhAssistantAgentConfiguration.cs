@@ -1,5 +1,7 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
@@ -26,6 +28,18 @@ public interface INhAssistantAgentConfiguration
     /// The building blocks data can name.
     /// </summary>
     NhAssistantRunCatalogDto GetCatalog();
+
+    /// <summary>
+    /// Creates an agent the way an administrator does in the administration, for example from a
+    /// package import: offered in the chat unless <see cref="NhAssistantAgentRequest.OfferedInChat"/>
+    /// is <see langword="false"/>, active, and without run settings until
+    /// <see cref="SaveRunSettingsAsync"/> gives it some. An existing id fails with
+    /// <c>assistant-agent-exists</c>; invalid input with field errors.
+    /// </summary>
+    Task<TaskResult<NhAssistantAgentConfigurationDto>> CreateAgentAsync(
+        NhAssistantAgentRequest request,
+        string actorId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The agent's run settings, skills and triggers, in code and as data, or <see langword="null"/>
@@ -175,7 +189,64 @@ public sealed record NhAssistantRunCatalogDto(
     IReadOnlyList<NhAssistantRunBlockDto> SubjectSets,
     IReadOnlyList<NhAssistantRunBlockDto> RuleHandlers,
     IReadOnlyList<string> ApprovalPolicies,
-    IReadOnlyList<string> Profiles);
+    IReadOnlyList<string> Profiles)
+{
+    /// <summary>
+    /// Per approval policy, in the order of <see cref="ApprovalPolicies"/>: who decides, how long a
+    /// proposal waits and how, so an administration can explain the choice.
+    /// </summary>
+    public IReadOnlyList<NhAssistantApprovalPolicySummaryDto> ApprovalPolicySummaries { get; init; } = [];
+
+    /// <summary>
+    /// Whether <c>GET admin/accounts</c> searches accounts by name: the application registered an
+    /// <c>INhActorSearch</c>, as NewHeap Identity does.
+    /// </summary>
+    public bool AccountSearch { get; init; }
+}
+
+/// <param name="Name">The policy id.</param>
+/// <param name="Approvers">Who may decide; any of them can.</param>
+/// <param name="LifetimeMinutes">How long a proposal waits for a decision.</param>
+/// <param name="FourEyes">Whether the person who caused a proposal may not decide it.</param>
+/// <param name="Mode"><c>inline</c>: the run waits for the decision; <c>deferred</c>: the run ends and
+/// people decide later.</param>
+public sealed record NhAssistantApprovalPolicySummaryDto(
+    string Name,
+    IReadOnlyList<NhAssistantApproverSummaryDto> Approvers,
+    int LifetimeMinutes,
+    bool FourEyes,
+    string Mode);
+
+/// <param name="Kind"><c>initiator</c> (the person who caused the run), <c>subject-role</c> or
+/// <c>policy</c> (an authorization policy).</param>
+/// <param name="Role">For <c>subject-role</c>: at least <c>reader</c>, <c>participant</c> or
+/// <c>approver</c> on the subject.</param>
+/// <param name="NamedRole">For <c>subject-role</c>: the application's role name, when one is required.</param>
+/// <param name="Policy">For <c>policy</c>: the authorization policy.</param>
+public sealed record NhAssistantApproverSummaryDto(
+    string Kind,
+    string? Role = null,
+    string? NamedRole = null,
+    string? Policy = null);
+
+/// <param name="ActorId">The account's actor id, as run settings store it.</param>
+/// <param name="DisplayName">The name people see.</param>
+/// <param name="Detail">The e-mail address, when the application knows it.</param>
+public sealed record NhAssistantAccountDto(string ActorId, string DisplayName, string? Detail);
+
+/// <summary>
+/// An agent to create with <see cref="INhAssistantAgentConfiguration.CreateAgentAsync"/>. Its tool
+/// selectors bound what its skills and runs may use.
+/// </summary>
+public sealed record NhAssistantAgentRequest(
+    string Id,
+    string DisplayName,
+    string Description,
+    string Instructions,
+    IReadOnlyList<string> ToolSelectors,
+    NhAiAutonomyLevel Autonomy,
+    string? RequiredPolicy = null,
+    bool OfferedInChat = true);
 
 public sealed record NhAssistantRunBlockDto(string Name, string Description);
 
@@ -456,12 +527,71 @@ internal sealed class NhAssistantAgentConfiguration(
                 .Order(StringComparer.Ordinal)
                 .ToArray()
             : [];
+        var policies = registration.ApprovalPolicies.Values.OrderBy(policy => policy.Id, StringComparer.Ordinal).ToArray();
         return new NhAssistantRunCatalogDto(
             registration.TriggerEvents.Values.OrderBy(item => item.Name, StringComparer.Ordinal).Select(item => new NhAssistantRunBlockDto(item.Name, item.Description)).ToArray(),
             registration.SubjectSets.Values.OrderBy(item => item.Name, StringComparer.Ordinal).Select(item => new NhAssistantRunBlockDto(item.Name, item.Description)).ToArray(),
             registration.RuleHandlers.Values.OrderBy(item => item.Name, StringComparer.Ordinal).Select(item => new NhAssistantRunBlockDto(item.Name, item.Description)).ToArray(),
-            registration.ApprovalPolicies.Keys.Order(StringComparer.Ordinal).ToArray(),
-            profiles);
+            policies.Select(policy => policy.Id).ToArray(),
+            profiles)
+        {
+            ApprovalPolicySummaries = policies.Select(Summarize).ToArray(),
+            AccountSearch = services.GetService<IServiceProviderIsService>()?.IsService(typeof(INhActorSearch)) == true
+        };
+    }
+
+    public async Task<TaskResult<NhAssistantAgentConfigurationDto>> CreateAgentAsync(
+        NhAssistantAgentRequest request,
+        string actorId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        var requiredPolicy = string.IsNullOrWhiteSpace(request.RequiredPolicy) ? null : request.RequiredPolicy;
+        if (requiredPolicy is not null
+            && await services.GetRequiredService<IAuthorizationPolicyProvider>().GetPolicyAsync(requiredPolicy) is null)
+        {
+            return TaskResult<NhAssistantAgentConfigurationDto>.Failed(
+                NhAssistantValidationErrors.Failed("requiredPolicy", NhAssistantFieldErrors.NotFound));
+        }
+
+        var created = await services.GetRequiredService<NhAssistantAgentAdministration>().CreateAsync(
+            new NhAssistantAgentInput(
+                request.Id,
+                request.DisplayName,
+                request.Description,
+                request.Instructions,
+                request.ToolSelectors,
+                [],
+                requiredPolicy,
+                request.Autonomy,
+                request.OfferedInChat),
+            actorId,
+            cancellationToken);
+        if (!created.Success)
+        {
+            return TaskResult<NhAssistantAgentConfigurationDto>.Failed(created);
+        }
+
+        return TaskResult<NhAssistantAgentConfigurationDto>.Succeeded((await GetAsync(request.Id, cancellationToken))!);
+    }
+
+    private static NhAssistantApprovalPolicySummaryDto Summarize(NhAiApprovalPolicy policy)
+    {
+        return new NhAssistantApprovalPolicySummaryDto(
+            policy.Id,
+            policy.Approvers.Select(approver => approver switch
+            {
+                NhAiSubjectRoleApproverRule role => new NhAssistantApproverSummaryDto(
+                    "subject-role",
+                    role.Role.ToString().ToLowerInvariant(),
+                    role.NamedRole),
+                NhAiPolicyApproverRule named => new NhAssistantApproverSummaryDto("policy", Policy: named.PolicyName),
+                _ => new NhAssistantApproverSummaryDto("initiator")
+            }).ToArray(),
+            (int)Math.Ceiling(policy.Lifetime.TotalMinutes),
+            policy.FourEyes,
+            policy.Mode == NhAiApprovalMode.Deferred ? "deferred" : "inline");
     }
 
     public async Task<NhAssistantAgentConfigurationDto?> GetAsync(string agentId, CancellationToken cancellationToken = default)

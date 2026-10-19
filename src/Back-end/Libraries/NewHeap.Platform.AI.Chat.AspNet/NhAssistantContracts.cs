@@ -497,6 +497,8 @@ public sealed record NhAssistantToolCatalogEntryDto(
 /// Agent input. <see cref="ExpectedVersion"/> is required on update and ignored on create.
 /// <see cref="IsEnabled"/> is accepted and ignored until the next major version: the run state
 /// changes with <c>POST admin/agents/{id}/state</c>, and a new agent starts active.
+/// <see cref="OfferedInChat"/> applies to agents created in the administration: omitted keeps it on
+/// update and offers a new agent in the chat; agents in code take it from <c>HideFromChat()</c>.
 /// </summary>
 public sealed record NhAssistantAdminAgentInputDto(
     string? Id,
@@ -508,7 +510,8 @@ public sealed record NhAssistantAdminAgentInputDto(
     string? RequiredPolicy,
     string? Autonomy,
     bool? IsEnabled,
-    int? ExpectedVersion = null);
+    int? ExpectedVersion = null,
+    bool? OfferedInChat = null);
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
 /// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c> or <c>configured-off</c>.</param>
@@ -555,6 +558,12 @@ public sealed record NhAssistantAdminAgentDto(
     /// agent that does not answer to one.
     /// </summary>
     public NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantServiceAccountState? ServiceAccount { get; init; }
+
+    /// <summary>
+    /// Whether people can choose the agent in the chat. An agent that is not offered keeps working on
+    /// its triggers and in its subject threads.
+    /// </summary>
+    public bool OfferedInChat { get; init; } = true;
 }
 
 /// <summary>

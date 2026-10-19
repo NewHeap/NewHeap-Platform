@@ -5,6 +5,7 @@ import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMock
 import { firstValueFrom } from 'rxjs';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
+import { NhAssistantStore } from '../services/nh-assistant.store';
 import { NhAssistantAgentPickerComponent } from '../components/agent-picker/nh-assistant-agent-picker.component';
 import {
   NhAssistantAdminAgentsComponent,
@@ -97,6 +98,25 @@ function choose(element: HTMLElement, selector: string, value: string): void {
 function check(element: HTMLElement, selector: string): void {
   const input = element.querySelector(selector) as HTMLInputElement;
   input.click();
+}
+
+/** Chooses an option of a searchable picker: opens it, types the query and clicks the option. */
+async function pick(fixture: ComponentFixture<unknown>, scope: HTMLElement, selector: string, query: string, label: string): Promise<void> {
+  const input = scope.querySelector(selector) as HTMLInputElement;
+  input.click();
+  input.value = query;
+  input.dispatchEvent(new Event('input'));
+  await settle(fixture);
+  // A server search waits a moment after the last key.
+  await new Promise(resolve => setTimeout(resolve, 300));
+  await settle(fixture);
+  const option = Array.from(scope.querySelectorAll<HTMLElement>('[role="option"]'))
+    .find(item => item.querySelector('.label')?.textContent?.trim() === label);
+  if (!option) {
+    throw new Error(`Option "${label}" not found.`);
+  }
+  option.click();
+  await settle(fixture);
 }
 
 /** A scenario with the building blocks in code that run configuration as data names. */
@@ -331,14 +351,14 @@ describe('NhAssistantAdminAgentsComponent', () => {
 
     (skill().querySelector('button.danger') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(element.textContent).toContain('The runs of the skill deadline-risk are cancelled');
+    expect(element.textContent).toContain('The runs of the skill Deadline risk are cancelled');
     type(element, 'input[id$="-reason"]', 'Wrong risks');
     button(element, 'Confirm stop').click();
     await settle(fixture);
 
     expect(requestBodies('POST', 'admin/agents/projects/skills/deadline-risk/state')).toEqual([{ state: 'stopped', reason: 'Wrong risks' }]);
     expect(skill().textContent).toContain('Stopped');
-    expect(skill().textContent).toContain('Reason: Wrong risks');
+    expect(skill().textContent).toContain('Note: Wrong risks');
     expect(element.querySelector('[data-skill="task-follow-up"]')?.textContent).toContain('Active');
     expect(element.querySelector('.card .card-header')?.textContent).toContain('Active');
   });
@@ -373,13 +393,13 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/shadow')).toEqual([{ mode: 'shadow', reason: 'Evaluate the rules' }]);
     expect(header().querySelector('[data-shadow-badge]')).not.toBeNull();
-    expect(card().textContent).toContain('Reason: Evaluate the rules');
+    expect(card().textContent).toContain('Note: Evaluate the rules');
     // Every skill of an agent in shadow works in shadow.
     expect(skill('task-follow-up').querySelector('[data-shadow-badge]')).not.toBeNull();
 
     (skill('deadline-risk').querySelector('[data-shadow-action="live"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(element.textContent).toContain('The skill deadline-risk works live again, unless its agent works in shadow.');
+    expect(element.textContent).toContain('The skill Deadline risk works live again, unless its agent works in shadow.');
     button(element, 'Confirm live').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/skills/deadline-risk/shadow')).toEqual([{ mode: 'live', reason: null }]);
@@ -396,7 +416,10 @@ describe('NhAssistantAdminAgentsComponent', () => {
     // An account that does not exist is refused; another one answers for new runs.
     (card().querySelector('[data-account-action="set"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(button(element, 'Confirm account').disabled).toBeTrue();
+    button(element, 'Confirm account').click();
+    await settle(fixture);
+    expect(card().querySelector('[data-agent-error]')?.textContent).toContain('Required.');
+    expect(requestBodies('POST', 'admin/agents/projects/service-account')).toEqual([]);
     type(element, 'input[id$="-account"]', 'unknown-1');
     await settle(fixture);
     button(element, 'Confirm account').click();
@@ -474,12 +497,12 @@ describe('NhAssistantAdminAgentsComponent', () => {
 
     expect(requestBodies('POST', 'admin/agents/projects/state')).toEqual([{ state: 'paused', reason: 'Nightly import' }]);
     expect(card().textContent).toContain('Paused');
-    expect(card().textContent).toContain('Reason: Nightly import');
+    expect(card().textContent).toContain('Note: Nightly import');
     expect(card().textContent).toContain('0 events wait for the resume.');
 
     button(element, 'Stop').click();
     await settle(fixture);
-    button(element, 'Keep').click();
+    button(element, 'Cancel').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/state').length).toBe(1);
 
@@ -499,8 +522,13 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(card().textContent).toContain('Active');
   });
 
-  it('gives an administration agent run settings, a skill that starts in shadow and a trigger it puts live', async () => {
-    await configure(runScenario());
+  it('gives an administration agent run settings with errors at their fields, a skill that starts in shadow and a trigger it puts live', async () => {
+    const script = runScenario();
+    script.admin!.accounts = [
+      { actorId: 'service-1', displayName: 'Operations account', detail: 'operations@example.test' },
+      { actorId: 'service-2', displayName: 'Finance account', detail: 'finance@example.test' }
+    ];
+    await configure(script);
     await firstValueFrom(TestBed.inject(NhAssistantAdminApiService).createAgent({
       id: 'follower', displayName: 'Project follower', description: 'Follows up new projects.', instructions: 'Follow up.',
       toolSelectors: ['sample-api.project.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'execute'
@@ -509,69 +537,85 @@ describe('NhAssistantAdminAgentsComponent', () => {
     (element.querySelector('[data-run-config-agent="follower"]') as HTMLButtonElement).click();
     await settle(fixture);
     const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
+    const form = () => view().querySelector('[data-form="settings"]') as HTMLElement;
 
-    // It only chats until it has run settings; skills and triggers wait for them.
+    // It only chats until it has run settings; the guided setup is offered first.
     expect(document.activeElement).toBe(button(element, 'Back to agents'));
-    expect(view().textContent).toContain('This agent only chats.');
+    expect(view().querySelector('[data-setup-offer]')?.textContent).toContain('This agent only chats.');
     expect(button(view(), 'Add skill').disabled).toBeTrue();
     expect(button(view(), 'Add trigger').disabled).toBeTrue();
 
-    // A field the server refuses is named; an account that may not sign in is refused.
+    // Errors are checked before sending and shown at their fields and next to the actions.
     button(view(), 'Add run settings').click();
     await settle(fixture);
-    choose(view(), 'select[id$="-accountability"]', 'agent');
-    check(view(), '[data-form="settings"] input[type="checkbox"]');
+    type(form(), 'input[id$="-daily-calls"]', '100');
+    button(form(), 'Save').click();
     await settle(fixture);
-    button(view(), 'Save').click();
-    await settle(fixture);
-    expect(view().querySelector('[data-form="settings"]')?.textContent).toContain('Not valid here.');
-    check(view(), '[data-form="settings"] input[type="checkbox"]');
-    choose(view(), 'select[id$="-accountability"]', 'service-account');
-    await settle(fixture);
-    type(view(), 'input[id$="-service-account"]', 'unknown-1');
-    button(view(), 'Save').click();
-    await settle(fixture);
-    expect(view().querySelector('[role="alert"]')?.textContent).toContain('No account that may sign in exists with this id.');
+    expect(requestBodies('PUT', 'admin/agents/follower/run-settings')).toEqual([]);
+    expect(form().querySelector('input[id$="-service-account"]')?.getAttribute('aria-invalid')).toBe('true');
+    expect(form().textContent).toContain('Required.');
+    expect(form().textContent).toContain('Fill in both daily limits, or neither.');
+    expect(form().querySelector('[data-form-error]')?.textContent).toContain('Check the marked fields.');
+    expect(document.activeElement).toBe(form().querySelector('input[id$="-service-account"]'));
 
-    type(view(), 'input[id$="-service-account"]', 'service-1');
-    choose(view(), 'select[id$="-rule-handler"]', 'project-kickoff');
-    choose(view(), 'select[id$="-policy"]', 'project-review');
-    type(view(), 'input[id$="-settings-reason"]', 'Follow up new projects');
-    button(view(), 'Save').click();
+    // The account is found by name; the policy explains itself.
+    await pick(fixture, form(), 'input[id$="-service-account"]', 'oper', 'Operations account');
+    type(form(), 'input[id$="-daily-tokens"]', '20000');
+    await pick(fixture, form(), 'input[id$="-policy"]', 'review', 'project-review');
+    expect(form().textContent).toContain('Approved by an approver of the subject.');
+    await pick(fixture, form(), 'input[id$="-rule-handler"]', 'kick', 'project-kickoff');
+    button(form(), 'Save').click();
     await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/follower/run-settings').at(-1)).toEqual(jasmine.objectContaining({
-      accountability: 'service-account', serviceAccountActorId: 'service-1', ruleHandler: 'project-kickoff', approvalPolicy: 'project-review',
-      expectedVersion: null, reason: 'Follow up new projects'
+      accountability: 'service-account', serviceAccountActorId: 'service-1', ruleHandler: 'project-kickoff',
+      approvalPolicy: 'project-review', dailyToolCalls: 100, dailyTokens: 20000, expectedVersion: null
     }));
     expect(view().textContent).toContain('The run settings are saved.');
-    expect(view().querySelector('[data-run-settings]')?.textContent).toContain('A technical account');
-    expect(view().textContent).toContain('It has no rights of its own');
+    const summary = view().querySelector('[data-settings-summary]') as HTMLElement;
+    expect(summary.querySelector('[data-account-name]')?.textContent).toContain('Operations account');
+    expect(summary.textContent).toContain('A proposal waits 7 days.');
 
-    // A new skill starts in shadow.
+    // Advanced options stay folded while they keep their defaults.
+    button(view(), 'Change run settings').click();
+    await settle(fixture);
+    expect(form().querySelector('[data-advanced]')?.hasAttribute('open')).toBeFalse();
+    button(form(), 'Cancel').click();
+    await settle(fixture);
+
+    // A new skill starts in shadow; the way of working is chosen from the rules in code.
     button(view(), 'Add skill').click();
     await settle(fixture);
-    expect(view().textContent).toContain('A new skill starts in shadow.');
-    type(view(), 'input[id$="-skill-id"]', 'kickoff');
-    type(view(), 'input[id$="-skill-description"]', 'Starts projects that were created as drafts.');
-    check(view(), '[data-form="skill"] input[type="checkbox"]');
-    choose(view(), 'select[id$="-skill-rules"]', 'project-kickoff');
+    const skillForm = () => view().querySelector('[data-form="skill"]') as HTMLElement;
+    expect(skillForm().textContent).toContain('A new skill starts in shadow.');
+    // The agent's tool pattern says how many tools it offers now.
+    expect(skillForm().textContent).toContain('All tools that match: 2 now.');
+    type(skillForm(), 'input[id$="-skill-id"]', 'Kick off');
+    button(skillForm(), 'Save').click();
     await settle(fixture);
-    button(view(), 'Save').click();
+    expect(skillForm().textContent).toContain('Use lowercase letters, digits and dashes, starting with a letter.');
+    expect(skillForm().textContent).toContain('Required.');
+    type(skillForm(), 'input[id$="-skill-id"]', 'kickoff');
+    type(skillForm(), 'input[id$="-skill-description"]', 'Starts projects that were created as drafts.');
+    check(skillForm(), 'input[type="checkbox"]');
+    await pick(fixture, skillForm(), 'input[id$="-skill-rules"]', 'kick', 'project-kickoff');
+    button(skillForm(), 'Save').click();
     await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/follower/skills/kickoff')).toEqual([jasmine.objectContaining({
       description: 'Starts projects that were created as drafts.', tools: ['sample-api.project.*'], ruleHandler: 'project-kickoff', expectedVersion: null
     })]);
-    expect(requestBodies('PUT', 'admin/agents/follower/skills/kickoff')[0]).not.toEqual(jasmine.objectContaining({ apply: jasmine.anything() }));
     expect(view().querySelector('[data-data-skill="kickoff"]')?.textContent).toContain('Version 1');
 
     // A trigger on the application's event starts in shadow until it is put live.
     button(view(), 'Add trigger').click();
     await settle(fixture);
-    type(view(), 'input[id$="-trigger-id"]', 'project-created');
-    choose(view(), 'select[id$="-trigger-event"]', 'project.created');
-    choose(view(), 'select[id$="-trigger-skill"]', 'kickoff');
+    const triggerForm = () => view().querySelector('[data-form="trigger"]') as HTMLElement;
+    type(triggerForm(), 'input[id$="-trigger-id"]', 'project-created');
+    button(triggerForm(), 'Save').click();
     await settle(fixture);
-    button(view(), 'Save').click();
+    expect(triggerForm().querySelector('input[id$="-trigger-event"]')?.getAttribute('aria-invalid')).toBe('true');
+    await pick(fixture, triggerForm(), 'input[id$="-trigger-event"]', 'created', 'project.created');
+    await pick(fixture, triggerForm(), 'input[id$="-trigger-skill"]', 'kick', 'Kickoff');
+    button(triggerForm(), 'Save').click();
     await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/follower/triggers/project-created')).toEqual([jasmine.objectContaining({
       source: 'event', event: 'project.created', skill: 'kickoff', conflict: 'coalesce', debounceSeconds: 120, expectedVersion: null
@@ -583,12 +627,12 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(requestBodies('POST', 'admin/agents/follower/triggers/project-created/shadow')).toEqual([{ mode: 'live', reason: null }]);
     expect(trigger().querySelector('[data-shadow-badge]')).toBeNull();
 
-    // The run settings stay while skills and triggers belong to the agent.
+    // The run settings stay while skills and triggers belong to the agent; the error shows there.
     button(view(), 'Remove run settings').click();
     await settle(fixture);
     button(view(), 'Confirm delete').click();
     await settle(fixture);
-    expect(view().querySelector('[role="alert"]')?.textContent).toContain('Skills or triggers still belong to this agent.');
+    expect(view().querySelector('[data-run-settings] [role="alert"]')?.textContent).toContain('Skills or triggers still belong to this agent.');
 
     // Back in the list, the skill shows among the agent's skills, in shadow.
     button(element, 'Back to agents').click();
@@ -596,6 +640,82 @@ describe('NhAssistantAdminAgentsComponent', () => {
     const skill = element.querySelector('[data-skill="kickoff"]') as HTMLElement;
     expect(skill.querySelector('[data-shadow-badge]')).not.toBeNull();
     expect(document.activeElement).toBe(element.querySelector('[data-run-config-agent="follower"]'));
+  });
+
+  it('creates an agent that works on its own, out of the chat, through the guided setup', async () => {
+    const script = runScenario();
+    script.admin!.accounts = [{ actorId: 'service-1', displayName: 'Operations account', detail: 'operations@example.test' }];
+    await configure(script);
+    const store = TestBed.inject(NhAssistantStore);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+
+    button(element, 'New agent').click();
+    await settle(fixture);
+    type(element, 'input[id$="-id"]', 'starter');
+    type(element, 'input[id$="-name"]', 'Project starter');
+    check(element, '[data-agent-use] input[value="background"]');
+    await settle(fixture);
+    expect(element.textContent).toContain('After saving, a short setup asks when the agent starts');
+    type(element, 'input.mono[aria-label]', 'sample-api.project.*');
+    await settle(fixture);
+    (element.querySelector('.inline button') as HTMLButtonElement).click();
+    await settle(fixture);
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents').at(-1)).toEqual(jasmine.objectContaining({ id: 'starter', offeredInChat: false }));
+    await store.reloadStatus();
+    expect(store.agents().map(agent => agent.id)).not.toContain('starter');
+
+    // The run configuration opens with the guided setup.
+    const setup = () => element.querySelector('[data-work-setup]') as HTMLElement;
+    expect(setup()).not.toBeNull();
+    expect(setup().querySelector('[aria-current="step"]')?.textContent).toContain('When');
+    button(setup(), 'Next').click();
+    await settle(fixture);
+    expect(setup().querySelector('input[id$="-event"]')?.getAttribute('aria-invalid')).toBe('true');
+    expect(setup().querySelector('[data-form-error]')?.textContent).toContain('Check the marked fields.');
+    await pick(fixture, setup(), 'input[id$="-event"]', 'created', 'project.created');
+    button(setup(), 'Next').click();
+    await settle(fixture);
+
+    type(setup(), 'input[id$="-name"]', 'Start new projects');
+    type(setup(), 'input[id$="-description"]', 'Starts projects that were created as drafts.');
+    await settle(fixture);
+    expect(setup().textContent).toContain('Its id becomes start-new-projects.');
+    button(setup(), 'Next').click();
+    await settle(fixture);
+    // Without fixed rules the model needs instructions.
+    expect(setup().textContent).toContain('Without fixed rules the model works from these instructions');
+    await pick(fixture, setup(), 'input[id$="-rules"]', 'kick', 'project-kickoff');
+    button(setup(), 'Next').click();
+    await settle(fixture);
+
+    await pick(fixture, setup(), 'input[id$="-account"]', 'oper', 'Operations account');
+    button(setup(), 'Next').click();
+    await settle(fixture);
+    await pick(fixture, setup(), 'input[id$="-policy"]', 'review', 'project-review');
+    button(setup(), 'Next').click();
+    await settle(fixture);
+    expect(setup().querySelector('[data-step="review"]')?.textContent).toContain('When project.created happens');
+    button(setup(), 'Save in shadow').click();
+    await settle(fixture);
+
+    expect(requestBodies('PUT', 'admin/agents/starter/run-settings').at(-1)).toEqual(jasmine.objectContaining({
+      accountability: 'service-account', serviceAccountActorId: 'service-1', approvalPolicy: 'project-review'
+    }));
+    expect(requestBodies('PUT', 'admin/agents/starter/skills/start-new-projects').at(-1)).toEqual(jasmine.objectContaining({
+      description: 'Starts projects that were created as drafts.', ruleHandler: 'project-kickoff', tools: ['sample-api.project.*']
+    }));
+    expect(requestBodies('PUT', 'admin/agents/starter/triggers/start-new-projects-project-created').at(-1)).toEqual(jasmine.objectContaining({
+      source: 'event', event: 'project.created', skill: 'start-new-projects'
+    }));
+    const view = element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
+    expect(view.textContent).toContain('The agent works in shadow now');
+    expect(view.querySelector('[data-data-trigger="start-new-projects-project-created"] [data-shadow-badge]')).not.toBeNull();
+
+    button(element, 'Back to agents').click();
+    await settle(fixture);
+    expect(element.querySelector('[data-hidden-from-chat]')?.textContent).toContain('Not in the chat');
   });
 
   it('evaluates a changed skill of a code agent as a candidate and promotes it; skills and triggers in code stay read only', async () => {
@@ -615,7 +735,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(codeSkill.textContent).toContain('Code');
     expect(codeSkill.querySelector('button')).toBeNull();
     expect(view().querySelector('[data-code-skill="progress-note"]')).toBeNull();
-    expect((view().querySelector('[data-code-trigger="task-completed"]') as HTMLElement).textContent).toContain('Skill: task-follow-up');
+    expect((view().querySelector('[data-code-trigger="task-completed"]') as HTMLElement).textContent).toContain('Skill: Task follow up');
     expect(view().querySelector('[data-run-settings]')).toBeNull();
 
     // A change is evaluated in shadow by default.
@@ -652,6 +772,74 @@ describe('NhAssistantAdminAgentsComponent', () => {
     const versions = skill().querySelector('[data-versions]') as HTMLElement;
     expect(versions.textContent).toContain('Live');
     expect(versions.textContent).toContain('Earlier');
+  });
+
+  it('names agents in code, their skills and policies in the language of the user and keeps the keys of an agent in code', async () => {
+    const script = scenario();
+    script.admin!.agents![0] = {
+      ...script.admin!.agents![0],
+      displayName: 'agents.projects.name',
+      description: 'agents.projects.description',
+      requiredPolicy: 'app.project.view',
+      skills: [{ skillId: 'task-follow-up', description: 'Follows up tasks by rule.' }]
+    };
+    await configure(script);
+    TestBed.inject(TranslateService).setTranslation('en', {
+      agents: { projects: { name: 'Project assistant', description: 'Answers questions about projects.' } },
+      'nh-assistant': {
+        agents: { projects: { skills: { 'task-follow-up': { description: 'Follows up completed tasks.' } } } },
+        policies: { 'app.project.view': 'viewing projects' }
+      }
+    }, true);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const card = () => element.querySelector('.card')!;
+
+    expect(card().textContent).toContain('Project assistant');
+    expect(card().textContent).toContain('Answers questions about projects.');
+    expect(card().textContent).not.toContain('agents.projects');
+    expect(card().querySelector('[data-required-policy]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Requires: viewing projects');
+    expect(card().textContent).toContain('1 tool selector');
+    expect(card().textContent).not.toContain('1 tool selectors');
+    const skill = card().querySelector('[data-skill="task-follow-up"]')!;
+    expect(skill.querySelector('strong')?.textContent?.trim()).toBe('Task follow up');
+    expect(skill.textContent).toContain('Follows up completed tasks.');
+
+    // The editor shows the translations and sends the keys back while they are kept.
+    button(element, 'Edit').click();
+    await settle(fixture);
+    expect((element.querySelector('input[id$="-name"]') as HTMLInputElement).value).toBe('Project assistant');
+    expect((element.querySelector('input[id$="-description"]') as HTMLInputElement).value).toBe('Answers questions about projects.');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/projects')).toEqual([jasmine.objectContaining({
+      displayName: 'agents.projects.name',
+      description: 'agents.projects.description'
+    })]);
+
+    // A changed text is the administrator's own.
+    button(element, 'Edit').click();
+    await settle(fixture);
+    type(element, 'input[id$="-name"]', 'Projects helper');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/projects')[1]).toEqual(jasmine.objectContaining({
+      displayName: 'Projects helper',
+      description: 'agents.projects.description'
+    }));
+  });
+
+  it('shows a policy without a translation as it is called in code and explains notes', async () => {
+    const script = scenario();
+    script.admin!.agents![0] = { ...script.admin!.agents![0], requiredPolicy: 'app.project.view' };
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+
+    expect(element.querySelector('[data-required-policy] code')?.textContent).toBe('app.project.view');
+    button(element, 'Pause').click();
+    await settle(fixture);
+    const note = element.querySelector('input[id$="-reason"]') as HTMLInputElement;
+    expect(element.querySelector(`label[for="${note.id}"]`)?.textContent).toContain('Note for other administrators (optional)');
+    expect(element.querySelector(`#${note.getAttribute('aria-describedby')}`)?.textContent).toContain('The agent does not read it.');
   });
 
   it('deletes an admin agent only after confirmation', async () => {

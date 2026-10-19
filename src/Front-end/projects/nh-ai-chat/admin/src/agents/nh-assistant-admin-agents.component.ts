@@ -12,7 +12,7 @@ import {
   viewChild
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
-import { Observable, Subscription, forkJoin } from 'rxjs';
+import { Observable, Subscription, catchError, forkJoin, of } from 'rxjs';
 import {
   AdminAgent,
   AgentShadowMode,
@@ -30,10 +30,12 @@ import {
   SetAgentStateRequest,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
+import { codeTextKeys, policyKeys, readableId, skillDescriptionKeys, skillNameKeys } from './agent-texts';
 import { NhAssistantAdminAgentEditorComponent } from './nh-assistant-admin-agent-editor.component';
 import { NhAssistantAgentEvaluationComponent } from './nh-assistant-agent-evaluation.component';
 import { NhAssistantAgentFeedbackReportComponent } from './nh-assistant-agent-feedback-report.component';
 import { NhAssistantAgentRunConfigurationComponent } from './nh-assistant-agent-run-configuration.component';
+import { NhAssistantAccountPickerComponent } from './run-config/nh-assistant-account-picker.component';
 
 let nextId = 0;
 
@@ -62,7 +64,8 @@ const maxStateReason = 500;
     NhAssistantAdminAgentEditorComponent,
     NhAssistantAgentEvaluationComponent,
     NhAssistantAgentFeedbackReportComponent,
-    NhAssistantAgentRunConfigurationComponent
+    NhAssistantAgentRunConfigurationComponent,
+    NhAssistantAccountPickerComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-agents.component.html',
@@ -101,10 +104,23 @@ export class NhAssistantAdminAgentsComponent {
   /** The change of the technical account being entered: a new account, or the one in code. */
   readonly changingAccount = signal<{ agentId: string; mode: 'set' | 'code' } | null>(null);
   readonly accountId = signal('');
+  /** Whether the application offers an account search for the technical account. */
+  readonly accountSearch = signal(false);
+  /** The names of the technical accounts in the list, by account id. */
+  readonly accountNames = signal<ReadonlyMap<string, string>>(new Map());
+  /** The agent whose last action failed, so its error shows on its card. */
+  readonly errorAgentId = signal<string | null>(null);
+  /** The run configuration opens with the guided setup, for an agent created to work on its own. */
+  readonly setupOnOpen = signal(false);
   readonly stateReason = signal('');
   readonly maxReason = maxStateReason;
   readonly error = signal<NhAssistantError | null>(null);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
+  readonly codeTextKeys = codeTextKeys;
+  readonly skillNameKeys = skillNameKeys;
+  readonly skillDescriptionKeys = skillDescriptionKeys;
+  readonly policyKeys = policyKeys;
+  readonly readableId = readableId;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
@@ -118,12 +134,20 @@ export class NhAssistantAdminAgentsComponent {
     this.loading.set(true);
     this.loadFailed.set(false);
     this.subscription?.unsubscribe();
-    this.subscription = forkJoin([this.admin.getAgents(), this.admin.getTools(), this.admin.getMcpServers()]).subscribe({
-      next: ([agents, tools, servers]) => {
+    this.subscription = forkJoin([
+      this.admin.getAgents(),
+      this.admin.getTools(),
+      this.admin.getMcpServers(),
+      // The account search is a convenience; without the catalog the account is entered by id.
+      this.admin.getRunCatalog().pipe(catchError(() => of(null)))
+    ]).subscribe({
+      next: ([agents, tools, servers, catalog]) => {
         this.agents.set(agents);
         this.tools.set(tools);
         this.servers.set(servers);
+        this.accountSearch.set(catalog?.accountSearch === true);
         this.loading.set(false);
+        this.loadAccountNames(agents);
       },
       error: () => {
         this.loading.set(false);
@@ -174,7 +198,8 @@ export class NhAssistantAdminAgentsComponent {
   }
 
   /** Shows the agent's skills, triggers and run settings defined as data. */
-  openRunConfiguration(agent: AdminAgent): void {
+  openRunConfiguration(agent: AdminAgent, setup = false): void {
+    this.setupOnOpen.set(setup);
     this.error.set(null);
     this.confirming.set(null);
     this.configuring.set(agent);
@@ -220,6 +245,17 @@ export class NhAssistantAdminAgentsComponent {
         action?.focus();
       }, { injector: this.injector });
     }
+  }
+
+  /** A new agent meant to work on its own continues in its run configuration's guided setup. */
+  onWorkRequested(agent: AdminAgent): void {
+    this.onSaved(agent);
+    this.openRunConfiguration(agent, true);
+  }
+
+  /** The name of an account or person, or the id when the application does not know it. */
+  accountName(actorId: string | null | undefined): string {
+    return actorId ? this.accountNames().get(actorId) ?? actorId : '';
   }
 
   onSaved(agent: AdminAgent): void {
@@ -315,7 +351,8 @@ export class NhAssistantAdminAgentsComponent {
   askAccount(agent: AdminAgent, mode: 'set' | 'code'): void {
     this.closeForms();
     this.changingAccount.set({ agentId: agent.id, mode });
-    afterNextRender(() => this.reasonInput()?.nativeElement.focus(), { injector: this.injector });
+    this.accountId.set('');
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('[data-account-form] input')?.focus(), { injector: this.injector });
   }
 
   isChangingAccount(agentId: string, mode: 'set' | 'code'): boolean {
@@ -331,6 +368,8 @@ export class NhAssistantAdminAgentsComponent {
 
     const actorId = change.mode === 'set' ? this.accountId().trim() : null;
     if (actorId === '') {
+      this.error.set({ code: 'assistant-validation', messageKey: 'nh-assistant.admin.run-config.field-errors.required' });
+      this.errorAgentId.set(agent.id);
       return;
     }
     const reason = this.stateReason().trim();
@@ -395,6 +434,7 @@ export class NhAssistantAdminAgentsComponent {
 
   private run<T>(agentId: string, request: Observable<T>, done: (result: T) => void): void {
     this.busyAgentId.set(agentId);
+    this.errorAgentId.set(agentId);
     this.confirming.set(null);
     this.changingState.set(null);
     this.changingShadow.set(null);
@@ -406,11 +446,29 @@ export class NhAssistantAdminAgentsComponent {
       complete: () => {
         this.busyAgentId.set(null);
         this.refreshChat();
+        this.loadAccountNames(this.agents());
       },
       error: (error: unknown) => {
         this.busyAgentId.set(null);
         this.error.set(toNhAssistantError(error));
       }
+    });
+  }
+
+  /** Looks up the names of the technical accounts and of the people who changed an agent's state. */
+  private loadAccountNames(agents: readonly AdminAgent[]): void {
+    const ids = [...new Set(agents.flatMap(agent => [
+      agent.serviceAccount?.actorId,
+      agent.serviceAccount?.configuredActorId,
+      agent.stateChangedBy,
+      agent.shadow?.changedBy
+    ]).filter((id): id is string => typeof id === 'string' && id.length > 0))];
+    if (ids.length === 0) {
+      return;
+    }
+    this.admin.getAccounts(ids).subscribe({
+      next: accounts => this.accountNames.set(new Map(accounts.map(account => [account.actorId, account.displayName]))),
+      error: () => undefined
     });
   }
 

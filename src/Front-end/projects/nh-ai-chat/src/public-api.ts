@@ -46,6 +46,10 @@ export { NhAssistantIconComponent as ɵNhAssistantIconComponent } from './lib/in
 export { NhAssistantTranslatePipe as ɵNhAssistantTranslatePipe } from './lib/internal/nh-assistant-translate.pipe';
 export { nhAssistantReloadOnAgentWork as ɵnhAssistantReloadOnAgentWork } from './lib/internal/nh-assistant-agent-work';
 export {
+  NhAssistantPickerComponent as ɵNhAssistantPickerComponent,
+  type NhAssistantPickerOption as ɵNhAssistantPickerOption
+} from './lib/internal/nh-assistant-picker.component';
+export {
   NH_ASSISTANT_DASH_CASE as ɵNH_ASSISTANT_DASH_CASE,
   nhAssistantErrorKeys as ɵnhAssistantErrorKeys,
   toNhAssistantError as ɵtoNhAssistantError

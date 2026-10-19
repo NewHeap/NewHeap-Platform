@@ -68,6 +68,11 @@ export interface AdminAgentInput {
    * resume an agent with `setAgentState`. A new agent starts active.
    */
   isEnabled?: boolean;
+  /**
+   * Whether people can choose an agent created in the administration in the chat. Omitted keeps it on
+   * update; a new agent is offered. An agent that is not offered keeps working on its triggers.
+   */
+  offeredInChat?: boolean;
 }
 
 /** Body of `PUT admin/agents/{id}`. */
@@ -102,6 +107,11 @@ export interface AdminAgent extends AdminAgentInput {
   shadow?: AgentShadowState | null;
   /** The technical account that answers for the agent's new runs; null when it answers to none. */
   serviceAccount?: AgentServiceAccountState | null;
+  /**
+   * Whether people can choose the agent in the chat; missing means offered. Agents in code decide
+   * it with `HideFromChat()`.
+   */
+  offeredInChat?: boolean;
 }
 
 /** The shadow modes an administrator chooses; `code` lets the mode in code decide again. */
@@ -529,6 +539,42 @@ export interface RunCatalog {
   approvalPolicies: string[];
   /** Chat profiles with function calling and streaming. */
   profiles: string[];
+  /** Per approval policy who decides, how long a proposal waits and how; missing on older servers. */
+  approvalPolicySummaries?: ApprovalPolicySummary[];
+  /** Whether `searchAccounts` can find accounts by name; otherwise an account is chosen by its id. */
+  accountSearch?: boolean;
+}
+
+/** Who may decide a proposal under an approval policy. */
+export interface ApproverSummary {
+  /** `initiator`: the person who caused the run; `subject-role`: a role on the subject; `policy`: an authorization policy. */
+  kind: 'initiator' | 'subject-role' | 'policy' | string;
+  /** For `subject-role`: at least `reader`, `participant` or `approver`. */
+  role?: string | null;
+  /** For `subject-role`: the application's role name, when one is required. */
+  namedRole?: string | null;
+  /** For `policy`: the authorization policy. */
+  policy?: string | null;
+}
+
+/** What an approval policy means, so an administration can explain the choice. */
+export interface ApprovalPolicySummary {
+  name: string;
+  approvers: ApproverSummary[];
+  /** How long a proposal waits for a decision. */
+  lifetimeMinutes: number;
+  /** The person who caused a proposal may not decide it. */
+  fourEyes: boolean;
+  /** `inline`: the run waits for the decision; `deferred`: people decide later. */
+  mode: 'inline' | 'deferred' | string;
+}
+
+/** An account an agent can answer to, from `GET admin/accounts`. */
+export interface AssistantAccount {
+  actorId: string;
+  displayName: string;
+  /** The e-mail address, when the application knows it. */
+  detail: string | null;
 }
 
 /** Which part of the run configuration a problem concerns. */

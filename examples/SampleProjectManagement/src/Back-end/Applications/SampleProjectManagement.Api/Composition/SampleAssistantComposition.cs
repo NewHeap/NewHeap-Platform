@@ -24,7 +24,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// library-owned <c>nhai</c> schema and a business audit sink that keeps content-free events in
 /// <see cref="SampleAssistantAuditLog"/>. Call it after <c>AddSampleProjectManagementAi</c>,
 /// <c>AddNewHeapPlatformAIAspNet</c> and <c>AddSampleAiBridge</c>. Discovery decides per user
-/// which of those tools the agent is offered.
+/// which of those tools the agent is offered. The agents run on the deterministic
+/// <see cref="SampleAssistantChatClient"/> unless the sample's secrets configure a real chat model
+/// through <see cref="SampleAssistantModel"/>.
 /// </summary>
 public static class SampleAssistantComposition
 {
@@ -68,8 +70,14 @@ public static class SampleAssistantComposition
     {
         ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(configuration);
-        // The sample has no model provider. A deterministic local model drives the agent;
-        // hosts and tests register their own keyed client before this call to replace it.
+        // A deterministic local model drives the agents unless the sample's secrets configure a real
+        // one; hosts and tests register their own keyed client before this call to replace either.
+        var model = SampleAssistantModel.FromConfiguration(configuration, environment);
+        if (model is not null)
+        {
+            services.TryAddKeyedSingleton<IChatClient>(ModelKey, (_, _) => model.CreateChatClient());
+            services.AddSingleton(model);
+        }
         services.TryAddKeyedSingleton<IChatClient, SampleAssistantChatClient>(ModelKey);
         services.TryAddSingleton<SampleAssistantAuditLog>();
         services.AddLocalization();
@@ -88,12 +96,13 @@ public static class SampleAssistantComposition
                 .RequireCapabilities(NhAiModelCapability.FunctionCalling)
                 .WithStreaming(NhAiStreamingPolicy.Allowed)
                 .PermitDataClassifications(NhAiDataClassification.Internal)
-                .PermitExecutionRegions("local")
+                .PermitExecutionRegions(ModelExecutionRegions(services))
+                // A real model reads the agent's instructions and the tool schemas with every call.
                 .WithBudget(
-                    maxInputTokens: 8_192,
-                    maxOutputTokens: 1_024,
+                    maxInputTokens: model?.MaxInputTokens ?? 8_192,
+                    maxOutputTokens: model?.MaxOutputTokens ?? 1_024,
                     maxCalls: 16)
-                .WithTimeout(TimeSpan.FromSeconds(30))));
+                .WithTimeout(model?.Timeout ?? TimeSpan.FromSeconds(30))));
 
         services.AddNewHeapAssistant(assistant => assistant
             .UsePostgreSql(
@@ -165,13 +174,39 @@ public static class SampleAssistantComposition
                 limits.MaxToolCallsPerTurn = 4;
                 limits.MaxMessageChars = 4_000;
                 limits.TurnTimeout = TimeSpan.FromSeconds(60);
+                if (model is not null && model.Timeout * 2 > limits.TurnTimeout)
+                {
+                    // A turn holds several model calls; a slow real model gets two of its timeouts.
+                    limits.TurnTimeout = model.Timeout * 2;
+                }
                 limits.DailyToolCallBudgetPerActor = 100;
                 // Agents that list many exact settings actions need more selectors than the
                 // default 128. Prefer prefix selectors; this does not raise MaxToolsPerAgent.
                 limits.MaxToolSelectorsPerAgent = 256;
                 limits.MaxParticipantsPerConversation = 10;
             }));
+
+        if (model is not null)
+        {
+            // Every agent model call, triage included, names the region the real model runs in.
+            services.AddNewHeapAssistant(assistant => assistant.UseExecutionRegion(model.Region));
+        }
+
         return services;
+    }
+
+    /// <summary>
+    /// The execution regions a chat profile on <see cref="ModelKey"/> permits: <c>local</c>, where the
+    /// deterministic model runs, and the region of the real model when the sample's secrets configure
+    /// one. Call it after <see cref="AddSampleAssistant"/>.
+    /// </summary>
+    public static string[] ModelExecutionRegions(IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        var model = services
+            .LastOrDefault(descriptor => descriptor.ServiceType == typeof(SampleAssistantModel))?
+            .ImplementationInstance as SampleAssistantModel;
+        return model is null ? ["local"] : ["local", model.Region];
     }
 
     public static IEndpointRouteBuilder MapSampleAssistant(this IEndpointRouteBuilder endpoints)

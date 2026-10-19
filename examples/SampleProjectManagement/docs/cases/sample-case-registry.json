@@ -3461,7 +3461,7 @@
       "categoryId": "18",
       "title": "Assistant conversation with streamed turn",
       "surface": "`AddNewHeapAssistant`, `NhAssistantBuilder` (`UsePostgreSql`, `UseSqlServer`, `UseAccessPolicy`, `UseChatProfile`, `AddAgent`, `AddBusinessAuditSink`, `WithLimits`), `NhAssistantAgentDefinition`, `MapNewHeapAssistant`, `NhAssistantOptions` (`NewHeap:AI:Assistant:Enabled`, `AccessPolicy`), the assistant HTTP API and server-sent events, `NhAiScriptedChatClient` (`RespondWithProviderError`)",
-      "outcome": "The sample registers one agent over the curated `projects.*` tools with a streaming chat profile, PostgreSQL storage in the library-owned `nhai` schema and the `app.active-division.project.view` access policy. A signed-in user creates a conversation and posts a message; the turn streams `turn.started`, a governed `projects.search` call as `tool.started` and `tool.completed` with a bounded result preview, `message.delta` text and `turn.completed` with usage. The tool runs through the shared invoker as the agent on behalf of the accountable user in the active division, the conversation returns to `idle` and its messages and tool-call parts are persisted. The flag, the access policy and the agent's required policy gate every endpoint. A model that sends the search arguments without the `input` envelope still runs the tool once; an envelope mixed with other properties completes that call with `resultCode` `ai-tool-input-invalid`, and the model's corrected retry succeeds in the same turn. When the turn reaches the sample's limit of four tool calls, the fifth call is refused without running, one tool-free model call answers from the four results as `message.delta` and `turn.completed` keeps `assistant-tool-call-limit-reached`; the follow-up turn replays that answer with a bounded `<tool-call-summary>` data block of the executed calls and no result content. A transient provider error inside the model stream (`server_is_overloaded`, `server_error` or `rate_limit_exceeded`) that arrives before any text or tool call is retried once after a short wait; a repeated or other provider error, scripted with `NhAiScriptedChatClient.RespondWithProviderError`, ends the turn as `failed` with `assistant-model-unavailable`, and the failed conversation accepts the next message.",
+      "outcome": "The sample registers one agent over the curated `projects.*` tools with a streaming chat profile, PostgreSQL storage in the library-owned `nhai` schema and the `app.active-division.project.view` access policy. A signed-in user creates a conversation and posts a message; the turn streams `turn.started`, a governed `projects.search` call as `tool.started` and `tool.completed` with a bounded result preview, `message.delta` text and `turn.completed` with usage. The tool runs through the shared invoker as the agent on behalf of the accountable user in the active division, the conversation returns to `idle` and its messages and tool-call parts are persisted. The flag, the access policy and the agent's required policy gate every endpoint. A model that sends the search arguments without the `input` envelope still runs the tool once; an envelope mixed with other properties completes that call with `resultCode` `ai-tool-input-invalid`, and the model's corrected retry succeeds in the same turn. When the turn reaches the sample's limit of four tool calls, the fifth call is refused without running, one tool-free model call answers from the four results as `message.delta` and `turn.completed` keeps `assistant-tool-call-limit-reached`; the follow-up turn replays that answer with a bounded `<tool-call-summary>` data block of the executed calls and no result content. A transient provider error inside the model stream (`server_is_overloaded`, `server_error` or `rate_limit_exceeded`) that arrives before any text or tool call is retried once after a short wait; a repeated or other provider error, scripted with `NhAiScriptedChatClient.RespondWithProviderError`, ends the turn as `failed` with `assistant-model-unavailable`, and the failed conversation accepts the next message. By default the sample's deterministic model drives the assistant and every test. Optionally, `SampleProjectManagement:Assistant:Model` in the sample's secrets connects an OpenAI-compatible model under the same keyed client with a larger call budget and timeout; startup fails with a message that names a missing API key or model or an invalid endpoint, never the key itself, and the assistant sends the model's execution region (`external` by default) through `NhAssistantBuilder.UseExecutionRegion`, which the assistant's profile and the planner's triage profiles permit next to `local`.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -3479,7 +3479,9 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantEndpointTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRegistrationTests.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolArgumentTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolArgumentTests.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantModel.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantModelSamplesTests.cs"
       ]
     },
     {
@@ -4585,6 +4587,30 @@
         "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-run-configuration.component.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
         "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
+      ]
+    },
+    {
+      "id": "SPM-298",
+      "categoryId": "18",
+      "title": "A complete agent created at runtime starts projects on its own, out of the chat, and administrators manage it by name",
+      "surface": "`INhAssistantAgentConfiguration.CreateAgentAsync` with `NhAssistantAgentRequest`; `NhAssistantAgentRunBuilder.HideFromChat` and `OfferedInChat` on `NhAssistantAdminAgentInputDto` and `NhAssistantAdminAgentDto`; `ApprovalPolicySummaries` and `AccountSearch` on `NhAssistantRunCatalogDto` with `NhAssistantApprovalPolicySummaryDto` and `NhAssistantApproverSummaryDto`; `GET admin/accounts` with `NhAssistantAccountDto` and `assistant-account-search-unavailable`; `INhActorSearch`, `NhActorSearchRequest` and `AddNewHeapActorSearch`; the AgentChatAvailability migrations for SQL Server and PostgreSQL; the guided setup, the searchable pickers, the account picker and the errors at their fields of `NhAssistantAgentRunConfigurationComponent`, the use choice of `NhAssistantAdminAgentEditorComponent`, `NhAssistantAdminApiService.searchAccounts` and `getAccounts`, and `accounts` of the mock administration scenario",
+      "outcome": "In development the sample creates the project starter as data, the way an administrator does: an agent kept out of the chat that answers to the operations account, works by the kickoff rules under the intake approval policy, and whose kickoff skill and trigger on created projects are live. People do not find it in the agent picker and cannot start a chat with it, yet a draft project gets its kickoff proposal for the project's approver, with the operations account's rights. In the portal's assistant administration the project lead sees the account by name, the approval policy explained in a sentence and the skill and trigger; a new agent that works on its own is set up in one guided flow whose errors appear at their fields.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-administration/assistant-administration-page.component.ts",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfigurationEndpoints.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhIdentityActorSearchProviderTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-work-setup.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-picker.component.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
       ]
     }

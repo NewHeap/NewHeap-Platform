@@ -45,6 +45,12 @@ public sealed class AssistantAgent
     public bool IsEnabled { get; set; } = true;
 
     /// <summary>
+    /// <see langword="true"/> when an administrator kept an agent created in the administration out of
+    /// the chat's agent picker. Agents in code take it from <c>HideFromChat()</c> instead.
+    /// </summary>
+    public bool HiddenFromChat { get; set; }
+
+    /// <summary>
     /// One of <see cref="NhAssistantAgentRunStates.Active"/>, <see cref="NhAssistantAgentRunStates.Paused"/>
     /// or <see cref="NhAssistantAgentRunStates.Stopped"/>. Changing it never changes <see cref="Version"/>.
     /// An agent with <see cref="IsEnabled"/> <see langword="false"/> reads as stopped, which keeps the

@@ -535,6 +535,11 @@ public static class NhAssistantErrorCodes
     public const string SkillNotFound = "assistant-skill-not-found";
 
     /// <summary>
+    /// The application registered no <c>INhActorSearch</c>, so accounts cannot be searched by name.
+    /// </summary>
+    public const string AccountSearchUnavailable = "assistant-account-search-unavailable";
+
+    /// <summary>
     /// The work went to the agent's shadow thread of the subject: the agent or the skill the run
     /// was routed to works in shadow. A run in the shadow thread takes the run's events.
     /// </summary>

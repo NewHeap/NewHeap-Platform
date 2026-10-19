@@ -6,7 +6,7 @@ import {
   TransferState
 } from '@angular/core';
 import { registerLocaleData } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, HttpClient } from '@angular/common/http';
 import localeEn from '@angular/common/locales/en';
 import localeNl from '@angular/common/locales/nl';
 import { provideAnimations } from '@angular/platform-browser/animations';
@@ -31,6 +31,7 @@ import {
 } from '@ngx-translate/core';
 import { provideNhToastr } from '@newheap/nh-toastr';
 import { ToastrModule } from 'ngx-toastr';
+import { SAMPLE_API_BASE_URL, SampleApiConnectionInterceptor } from './sample-api-connection-state.service';
 import { SampleAuthService } from './sample-auth.service';
 import { SampleAuthSessionService } from './sample-auth-session.service';
 import { SampleFrontendErrorHandler } from './sample-frontend-error-handler';
@@ -42,8 +43,8 @@ export function provideSampleProjectManagement(routes: Routes = []) {
   const newHeapConfig = new NhCommonModuleConfig({
     appDisplayName: 'Sample Project Management',
     baseUrl: window.location.origin,
-    apiBaseUrl: '/api',
-    authApiBaseUrl: '/api',
+    apiBaseUrl: SAMPLE_API_BASE_URL,
+    authApiBaseUrl: SAMPLE_API_BASE_URL,
     language: 'en',
     defaultLanguage: 'en',
     supportedLanguages: ['en', 'nl'],
@@ -82,6 +83,11 @@ export function provideSampleProjectManagement(routes: Routes = []) {
     {
       provide: NH_ERROR_HANDLERS,
       useClass: SampleFrontendErrorHandler,
+      multi: true
+    },
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: SampleApiConnectionInterceptor,
       multi: true
     },
     provideNhToastr({ positionClass: 'toast-bottom-right' }),

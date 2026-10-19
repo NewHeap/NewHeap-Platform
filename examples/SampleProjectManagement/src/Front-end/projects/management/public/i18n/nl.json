@@ -212,7 +212,7 @@
     "selector-accepted": "selector geaccepteerd",
     "authorization-demo-accounts": "Development-accounts (wachtwoord: Sample123!)",
     "authorization-role-manager": "Manager",
-    "authorization-role-manager-access": "Applicatiebreed bekijken, beheren en vertrouwelijke projecten bekijken.",
+    "authorization-role-manager-access": "Applicatiebreed bekijken, beheren en vertrouwelijke projecten bekijken, plus projectrechten in Sample North en de assistent.",
     "authorization-role-viewer": "Viewer",
     "authorization-role-viewer-access": "Alleen applicatiebreed bekijken; beheer blijft verborgen en geeft 403.",
     "authorization-role-division-editor": "Divisie-editor",
@@ -281,6 +281,8 @@
       "two-factor-loading": "Tweestapsverificatie laden…"
     },
     "assistant-playground-nav": "Assistent",
+    "assistant-administration-nav": "Assistentbeheer",
+    "assistant-administration-intro": "Het echte assistentbeheer. De projectstarter is een hier aangemaakte agent die zelfstandig werkt: hij werkt namens het operations-account, staat niet in de chat en start bij elk nieuw project.",
     "assistant-playground-title": "Assistentpaneel",
     "assistant-playground-description": "Het herbruikbare assistentpaneel streamt antwoorden, toont toolaanroepen en vraagt om goedkeuring voor een wijziging. Deze pagina draait het op een gescripte mock-API, zodat elke toestand reproduceerbaar is zonder taalmodel.",
     "assistant-launcher-label": "Launcher",
@@ -554,12 +556,31 @@
       },
       "sample-project-planner": {
         "name": "Projectplanner",
-        "description": "Volgt afgeronde taken op volgens regels en beoordeelt deadlinerisico's met een model."
+        "description": "Volgt afgeronde taken op volgens regels en beoordeelt deadlinerisico's met een model.",
+        "skills": {
+          "task-follow-up": {
+            "description": "Volgt afgeronde taken op volgens regels: zegt hoeveel taken er nog zijn en welke de volgende is."
+          },
+          "deadline-risk": {
+            "description": "Beoordeelt of een actief project zijn deadline gaat missen en stelt voor het in de wacht te zetten."
+          }
+        }
       },
       "sample-project-planner-v2": {
         "name": "Projectplanner (variant)",
-        "description": "Een schaduwvariant van de projectplanner met een strengere triage, die wordt geëvalueerd voordat hij live gaat."
+        "description": "Een schaduwvariant van de projectplanner met een strengere triage, die wordt geëvalueerd voordat hij live gaat.",
+        "skills": {
+          "task-follow-up": {
+            "description": "Volgt afgeronde taken op volgens regels: zegt hoeveel taken er nog zijn en welke de volgende is."
+          },
+          "deadline-risk": {
+            "description": "Beoordeelt een deadlinerisico alleen als minder dan een derde van de taken van het project is afgerond."
+          }
+        }
       }
+    },
+    "policies": {
+      "app.active-division.project.view": "projecten bekijken in de actieve divisie"
     }
   },
   "nh-two-factor": {

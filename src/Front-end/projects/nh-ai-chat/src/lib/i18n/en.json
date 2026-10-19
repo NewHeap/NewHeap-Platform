@@ -361,7 +361,8 @@
       "assistant-run-settings-in-code": "This agent is part of the code; its runs are configured there.",
       "assistant-run-settings-in-use": "Skills or triggers still belong to this agent. Remove them first.",
       "assistant-skill-candidate-not-found": "This skill has no version being evaluated in shadow.",
-      "assistant-skill-version-gone": "The skill version this run was for is no longer evaluated."
+      "assistant-skill-version-gone": "The skill version this run was for is no longer evaluated.",
+      "assistant-account-search-unavailable": "The application offers no account search; enter the account's id."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",
@@ -434,7 +435,6 @@
       "edit": "Edit",
       "delete": "Delete",
       "confirm-delete": "Confirm delete",
-      "keep": "Keep",
       "enabled": "Enabled",
       "disabled": "Disabled",
       "enable": "Enable",
@@ -486,9 +486,8 @@
           "configured-off": "Off in configuration",
           "configured-off-hint": "Disabled in the application's code until the next deployment; it cannot be resumed here.",
           "changed": "Changed by {{user}} on {{date}}.",
-          "reason": "Reason: {{reason}}",
+          "reason": "Note: {{reason}}",
           "waiting": "{{count}} events wait for the resume.",
-          "reason-label": "Reason (optional)",
           "action": {
             "active": "Resume",
             "paused": "Pause",
@@ -503,7 +502,9 @@
             "active": "Confirm resume",
             "paused": "Confirm pause",
             "stopped": "Confirm stop"
-          }
+          },
+          "note-label": "Note for other administrators (optional)",
+          "note-hint": "Shown on this agent with your name and the time until the next change. The agent does not read it."
         },
         "skills": {
           "title": "Skills",
@@ -556,9 +557,17 @@
           "confirm": {
             "set": "Confirm account",
             "code": "Confirm"
-          }
+          },
+          "input-label-search": "Account"
         },
-        "run-config": "Run configuration"
+        "run-config": "Run configuration",
+        "chat": {
+          "hidden": "Not in the chat"
+        },
+        "version-label": "Version",
+        "tool-count-one": "{{count}} tool selector",
+        "server-count-one": "{{count}} MCP server",
+        "required-policy": "Requires:"
       },
       "agent-editor": {
         "new-title": "New agent",
@@ -586,7 +595,17 @@
         "matches": "{{count}} catalog tools match the selectors.",
         "mcp-servers": "MCP servers",
         "mcp-servers-hint": "Enabled tools of these servers become available to this agent.",
-        "mcp-servers-empty": "No MCP servers are configured."
+        "mcp-servers-empty": "No MCP servers are configured.",
+        "use": {
+          "title": "How is this agent used?",
+          "chat": "In the chat",
+          "chat-hint": "People choose it in the assistant to ask questions and get work done.",
+          "background": "On its own",
+          "background-hint": "It starts on events or a schedule and proposes work; it is not offered in the chat.",
+          "both": "Both",
+          "both-hint": "Offered in the chat, and it also starts on events or a schedule.",
+          "next": "After saving, a short setup asks when the agent starts, what it does and on whose behalf."
+        }
       },
       "effect": {
         "read-only": "Read only",
@@ -828,11 +847,18 @@
           "required": "Required.",
           "invalid": "Not valid here.",
           "too-long": "Too long.",
-          "not-found": "The application does not know this name."
+          "not-found": "The application does not know this name.",
+          "at-least": "Enter a whole number of at least {{min}}.",
+          "between": "Enter a whole number from {{min}} to {{max}}.",
+          "budget-pair": "Fill in both daily limits, or neither.",
+          "dash-case": "Use lowercase letters, digits and dashes, starting with a letter.",
+          "taken": "This id is already in use.",
+          "name-letters": "Use at least one letter in the name.",
+          "instructions-for-model": "Without fixed rules the model works from these instructions; describe what it should do."
         },
         "settings": {
           "title": "Run settings",
-          "empty": "This agent only chats. Give it run settings to let it work on its own, with skills and triggers.",
+          "empty": "This agent only chats. Let it work on its own: it then starts on events or a schedule, works by rules or with the model, and proposes changes that people approve.",
           "rights": "It has no rights of its own: in runs without a person it uses what the account it answers to may use, within its tools.",
           "add": "Add run settings",
           "edit": "Change run settings",
@@ -859,14 +885,42 @@
             "deny": "Refuse"
           },
           "gateway-reads": "Read through the application's data gateway with the account's rights",
-          "delegate": "Also use what the person who starts a run may use"
+          "delegate": "Also use what the person who starts a run may use",
+          "add-title": "Run settings",
+          "edit-title": "Change the run settings",
+          "who": {
+            "title": "On whose behalf does the agent work?",
+            "short": "On behalf of",
+            "explain": "The agent has no rights of its own. In runs without a person it uses what this account may use, within its own tools."
+          },
+          "accountability-explain": {
+            "service-account": "A technical account, for example an operations account. The usual choice.",
+            "subject-responsible": "The person responsible for the project or customer the run is about.",
+            "agent": "The agent itself: it has no rights and can only propose."
+          },
+          "how": {
+            "title": "How does it work?",
+            "hint": "Fixed rules decide without a model and hand doubtful cases to the model. This applies to runs that no skill handles."
+          },
+          "approval": {
+            "title": "Who approves its proposals?",
+            "default": "The application's default",
+            "hint": "Proposals that change data wait for this approval; nothing executes before it."
+          },
+          "no-triage": "No triage",
+          "retries-hint": "How often a failed run is tried again.",
+          "max-concurrent-hint": "Runs of this agent that work at the same time.",
+          "max-per-subject-hint": "Protects a project or customer from too many runs in one day.",
+          "elevated-reads-hint": "What happens when the agent reads data that the reader of its thread may not see.",
+          "gateway-reads-hint": "Lets the agent read through the application's data gateway, such as its API, as the account.",
+          "delegate-hint": "When a person starts a run by hand, the agent may also use that person's rights."
         },
         "rule-handler": "Rules",
         "rule-handler-value": "Rules: {{name}}",
         "policy-value": "Approval: {{name}}",
         "profile-value": "Model: {{name}}",
         "approval-policy": "Approval policy",
-        "model": "The model, no rules",
+        "model": "The model decides (no fixed rules)",
         "none": "None",
         "choose": "Choose…",
         "max-tokens": "Tokens per run",
@@ -893,7 +947,7 @@
           "instructions": "Instructions",
           "instructions-hint": "Read after the agent's own instructions while it works in the skill.",
           "tools": "Tools",
-          "tools-hint": "Narrow the agent's tools for this skill. None selected: the agent's tools.",
+          "tools-hint": "The tools the agent offers; select some to narrow them for this skill. None selected: all of the agent's tools. Add tools to the agent with Edit.",
           "profile": "Model profile",
           "agent-profile": "The agent's profile",
           "agent-policy": "The agent's policy",
@@ -902,7 +956,20 @@
           "apply-live": "Put live at once",
           "starts-in-shadow": "A new skill starts in shadow.",
           "versions": "Versions",
-          "remove-explain": "Its versions stay as history. A trigger that starts it must go first."
+          "remove-explain": "Its versions stay as history. A trigger that starts it must go first.",
+          "what": {
+            "title": "What is the skill for?"
+          },
+          "how": {
+            "title": "How does it work?"
+          },
+          "rules-hint": "The rules decide without a model; a doubtful case goes to the model with the instructions below.",
+          "model-hint": "The model decides with the instructions below and the chosen tools.",
+          "profile-hint": "The model profile it uses; by default the agent's.",
+          "apply-shadow-hint": "The new version runs next to the live one; compare them, then promote or discard it.",
+          "apply-live-hint": "For a small correction: the new version replaces the live one at once.",
+          "tools-pattern": "All tools that match: {{count}} now.",
+          "background-hint": "Started by a trigger the agent works without a chat: what it writes is kept with its run in the thread of what it works on, and changes become proposals."
         },
         "candidate": {
           "badge": "Candidate v{{version}}",
@@ -968,8 +1035,120 @@
             "schedule": "Schedule",
             "webhook": "Webhook"
           },
-          "starts-in-shadow": "A new trigger starts in shadow."
-        }
+          "starts-in-shadow": "A new trigger starts in shadow.",
+          "id-hint": "Lowercase letters, digits and dashes, for example project-created.",
+          "when": {
+            "title": "When does it start?"
+          },
+          "then": {
+            "title": "Then"
+          },
+          "source-event-hint": "Something happens in the application, such as a project being created.",
+          "source-schedule-hint": "At fixed times, for every subject in a set.",
+          "debounce-hint": "Waits this long for more events about the same subject and handles them in one run.",
+          "subject-set-hint": "The projects or customers the schedule handles each time.",
+          "message-hint": "What the agent reads as its task each time.",
+          "examples": "Examples",
+          "example": {
+            "weekdays-8": "Weekdays at 8:00",
+            "daily-7": "Daily at 7:00",
+            "monday-9": "Mondays at 9:00",
+            "hourly": "Every hour"
+          },
+          "conflict-explain": {
+            "coalesce": "Adds the event to the waiting run.",
+            "queue": "Runs again after the busy run.",
+            "supersede": "Replaces the waiting run with this event.",
+            "ignore": "Skips this event or tick."
+          },
+          "live-badge": "Live"
+        },
+        "way-of-working": "Way of working",
+        "check-fields": "Check the marked fields.",
+        "limits": {
+          "title": "Limits"
+        },
+        "advanced": {
+          "title": "Advanced",
+          "explain": "These options have sensible defaults; change them only when you need to."
+        },
+        "account": {
+          "search-placeholder": "Search by name or e-mail address",
+          "id-placeholder": "The account's id",
+          "search-hint": "Choose the account by name or e-mail address. It must be able to sign in.",
+          "id-hint": "The application offers no account search; enter the account's id. It must be able to sign in.",
+          "known": "Account: {{name}}",
+          "unknown": "The application does not know this account."
+        },
+        "policy-summary": {
+          "who": "Approved by {{approvers}}.",
+          "nobody": "Nobody is named to approve.",
+          "or": "or",
+          "wait": "A proposal waits {{duration}}.",
+          "mode": {
+            "inline": "The run waits for the decision.",
+            "deferred": "The run ends; people decide later."
+          },
+          "four-eyes": "Whoever caused the proposal may not approve it.",
+          "approver": {
+            "initiator": "the person who caused it",
+            "named-role": "someone with the role {{role}} on the subject",
+            "subject-role": {
+              "reader": "a reader of the subject",
+              "participant": "a participant of the subject",
+              "approver": "an approver of the subject"
+            },
+            "policy": "someone with the right {{policy}}"
+          },
+          "duration": {
+            "minute": "1 minute",
+            "minutes": "{{count}} minutes",
+            "hour": "1 hour",
+            "hours": "{{count}} hours",
+            "day": "1 day",
+            "days": "{{count}} days"
+          }
+        },
+        "setup": {
+          "start": "Let this agent work on its own",
+          "title": "Let {{name}} work on its own",
+          "explain": "Four short questions. Everything starts in shadow: the agent works, but nobody is notified and nothing executes until you put it live.",
+          "progress": "Steps",
+          "step": {
+            "when": "When",
+            "what": "What",
+            "who": "On whose behalf",
+            "limits": "Approval and limits",
+            "review": "Review"
+          },
+          "when": {
+            "title": "When does the agent start?"
+          },
+          "what": {
+            "title": "What does it do?",
+            "name": "Name of the task",
+            "name-hint": "A short name, for example \"Start new projects\".",
+            "name-id": "Its id becomes {{id}}."
+          },
+          "limits": {
+            "title": "Who approves, and what are its limits?"
+          },
+          "review": {
+            "title": "Review",
+            "event": "When {{event}} happens",
+            "schedule": "On the schedule {{cron}} ({{zone}}), for {{set}}",
+            "shadow": "The task and its trigger start in shadow. Put them live now, or later from the run configuration."
+          },
+          "no-events": "The application registers no events yet; choose a schedule.",
+          "next": "Next",
+          "back": "Back",
+          "save-shadow": "Save in shadow",
+          "save-live": "Save and put live",
+          "done": "Saved.",
+          "saved-shadow": "The agent works in shadow now: it runs, but nobody is notified and nothing executes. Put the task and its trigger live when the results are right.",
+          "saved-live": "The agent works live now."
+        },
+        "note-hint": "Kept with this version in its history, with your name and the time. The agent does not read it."
       }
     },
     "page-context": {
@@ -1180,6 +1359,12 @@
           "failed": "Not answered"
         }
       }
+    },
+    "picker": {
+      "toggle": "Show the choices",
+      "searching": "Searching…",
+      "type-more": "Type at least two characters.",
+      "no-results": "Nothing found."
     }
   }
 }

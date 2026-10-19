@@ -257,6 +257,7 @@ internal static class NhPlatformModuleRegistration
         services.ReplaceActorDefault<INhActorContextAccessor>(typeof(NhIdentityActorContextAccessor));
         services.ReplaceActorDefault<INhDivisionAccess>(typeof(NhIdentityDivisionAccess));
         services.ReplaceActorDefault<INhActorDirectory>(typeof(NhIdentityActorDirectory<TUser>));
+        services.ReplaceActorDefault<INhActorSearch>(typeof(NhIdentityActorSearch<TUser>));
         services.TryAddScoped<INhUserNotificationSink, NhUserNotificationServiceSink>();
         services.TryAddScoped<INhRetention, NhRetention>();
     }

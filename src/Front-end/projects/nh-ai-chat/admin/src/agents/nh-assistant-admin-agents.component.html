@@ -4,6 +4,7 @@
     [tools]="tools()"
     [servers]="servers()"
     (saved)="onSaved($event)"
+    (workRequested)="onWorkRequested($event)"
     (cancelled)="editing.set(undefined)" />
 } @else if (reporting(); as agent) {
   <div class="stack">
@@ -12,7 +13,7 @@
         {{ 'nh-assistant.admin.feedback.back' | translate }}
       </button>
     </div>
-    <p class="muted">{{ 'nh-assistant.admin.feedback.agent' | translate: { name: agent.displayName, id: agent.id } }}</p>
+    <p class="muted">{{ 'nh-assistant.admin.feedback.agent' | translate: { name: (codeTextKeys(agent.source, agent.displayName) | nhAssistantTranslate: agent.displayName), id: agent.id } }}</p>
     <nh-assistant-agent-feedback-report [agentId]="agent.id" />
   </div>
 } @else if (configuring(); as agent) {
@@ -22,7 +23,7 @@
         {{ 'nh-assistant.admin.run-config.back' | translate }}
       </button>
     </div>
-    <nh-assistant-agent-run-configuration [agent]="agent" />
+    <nh-assistant-agent-run-configuration [agent]="agent" [startSetup]="setupOnOpen()" [tools]="tools()" />
   </div>
 } @else if (evaluating(); as agent) {
   <div class="stack">
@@ -31,7 +32,7 @@
         {{ 'nh-assistant.admin.evaluation.back' | translate }}
       </button>
     </div>
-    <p class="muted">{{ 'nh-assistant.admin.feedback.agent' | translate: { name: agent.displayName, id: agent.id } }}</p>
+    <p class="muted">{{ 'nh-assistant.admin.feedback.agent' | translate: { name: (codeTextKeys(agent.source, agent.displayName) | nhAssistantTranslate: agent.displayName), id: agent.id } }}</p>
     <nh-assistant-agent-evaluation [agentId]="agent.id" [variants]="variantsOf(agent)" />
   </div>
 } @else {
@@ -47,7 +48,9 @@
     </header>
 
     @if (error(); as failure) {
-      <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+      @if (errorAgentId() === null) {
+        <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+      }
     }
 
     @if (loading()) {
@@ -64,7 +67,8 @@
         @for (agent of agents(); track agent.id) {
           <li class="card" [class.inactive]="agent.runState !== 'active'" [attr.aria-busy]="busyAgentId() === agent.id">
             <div class="card-header">
-              <strong>{{ agent.displayName }}</strong>
+              <!-- An agent in code names and describes itself with translation keys. -->
+              <strong>{{ (codeTextKeys(agent.source, agent.displayName) | nhAssistantTranslate: agent.displayName) }}</strong>
               <span class="mono muted">{{ agent.id }}</span>
               <span class="badge">{{ (agent.source === 'code' ? 'nh-assistant.admin.agents.source-code' : 'nh-assistant.admin.agents.source-admin') | translate }}</span>
               @if (agent.isOverridden) {
@@ -78,16 +82,19 @@
               @if (agent.shadow?.shadow) {
                 <span class="badge warning" data-shadow-badge>{{ 'nh-assistant.admin.agents.shadow.badge' | translate }}</span>
               }
+              @if (agent.offeredInChat === false) {
+                <span class="badge" data-hidden-from-chat>{{ 'nh-assistant.admin.agents.chat.hidden' | translate }}</span>
+              }
             </div>
             @if (agent.description) {
-              <p class="muted">{{ agent.description }}</p>
+              <p class="muted">{{ codeTextKeys(agent.source, agent.description) | nhAssistantTranslate: agent.description }}</p>
             }
             @if (agent.runState === 'configured-off') {
               <p class="muted">{{ 'nh-assistant.admin.agents.state.configured-off-hint' | translate }}</p>
             } @else if (agent.runState !== 'active') {
               <p class="muted">
                 @if (agent.stateChangedAt) {
-                  {{ 'nh-assistant.admin.agents.state.changed' | translate: { user: agent.stateChangedBy, date: (agent.stateChangedAt | date: 'medium') } }}
+                  {{ 'nh-assistant.admin.agents.state.changed' | translate: { user: accountName(agent.stateChangedBy), date: (agent.stateChangedAt | date: 'medium') } }}
                 }
                 @if (agent.stateReason) {
                   {{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: agent.stateReason } }}
@@ -102,7 +109,7 @@
                 <p class="muted">
                   {{ (shadow.locked ? 'nh-assistant.admin.agents.shadow.locked' : 'nh-assistant.admin.agents.shadow.hint') | translate }}
                   @if (shadow.changedAt && shadow.override !== null) {
-                    {{ 'nh-assistant.admin.agents.shadow.changed' | translate: { user: shadow.changedBy, date: (shadow.changedAt | date: 'medium') } }}
+                    {{ 'nh-assistant.admin.agents.shadow.changed' | translate: { user: accountName(shadow.changedBy), date: (shadow.changedAt | date: 'medium') } }}
                   }
                   @if (shadow.reason && shadow.override !== null) {
                     {{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: shadow.reason } }}
@@ -112,9 +119,9 @@
             }
             @if (agent.serviceAccount; as account) {
               <p class="muted" data-service-account>
-                <span class="mono">{{ 'nh-assistant.admin.agents.service-account.label' | translate: { account: account.actorId } }}</span>
+                <span>{{ 'nh-assistant.admin.agents.service-account.label' | translate: { account: accountName(account.actorId) } }}</span>
                 @if (account.overridden) {
-                  {{ 'nh-assistant.admin.agents.service-account.configured' | translate: { account: account.configuredActorId } }}
+                  {{ 'nh-assistant.admin.agents.service-account.configured' | translate: { account: accountName(account.configuredActorId) } }}
                   @if (account.reason) {
                     {{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: account.reason } }}
                   }
@@ -123,11 +130,19 @@
             }
             <div class="meta">
               <span>{{ 'nh-assistant.admin.agents.autonomy.' + agent.autonomy | translate }}</span>
-              <span>{{ 'nh-assistant.admin.agents.tool-count' | translate: { count: agent.toolSelectors.length } }}</span>
-              <span>{{ 'nh-assistant.admin.agents.server-count' | translate: { count: agent.mcpServerIds.length } }}</span>
+              <span>{{ (agent.toolSelectors.length === 1 ? 'nh-assistant.admin.agents.tool-count-one' : 'nh-assistant.admin.agents.tool-count') | translate: { count: agent.toolSelectors.length } }}</span>
+              <span>{{ (agent.mcpServerIds.length === 1 ? 'nh-assistant.admin.agents.server-count-one' : 'nh-assistant.admin.agents.server-count') | translate: { count: agent.mcpServerIds.length } }}</span>
               <span>{{ 'nh-assistant.admin.agents.version' | translate: { version: agent.version } }}</span>
-              @if (agent.requiredPolicy) {
-                <span class="mono">{{ agent.requiredPolicy }}</span>
+              @if (agent.requiredPolicy; as policy) {
+                <!-- The application may name its policies; otherwise the policy shows as it is called in code. -->
+                <span data-required-policy>
+                  {{ 'nh-assistant.admin.agents.required-policy' | translate }}
+                  @if (policyKeys(policy) | nhAssistantTranslate; as text) {
+                    {{ text }}
+                  } @else {
+                    <code class="mono">{{ policy }}</code>
+                  }
+                </span>
               }
             </div>
             <div class="card-actions">
@@ -197,7 +212,7 @@
                 @if (isConfirming(agent.id, 'reset')) {
                   <span class="muted">{{ 'nh-assistant.admin.agents.reset-keeps-state' | translate }}</span>
                   <button class="danger" type="button" (click)="reset(agent)">{{ 'nh-assistant.admin.agents.confirm-reset' | translate }}</button>
-                  <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.keep' | translate }}</button>
+                  <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
                 } @else {
                   <button class="secondary" type="button" [disabled]="busyAgentId() !== null" (click)="confirm(agent.id, 'reset')">
                     <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.agents.reset' | translate }}
@@ -207,7 +222,7 @@
               @if (agent.source === 'admin') {
                 @if (isConfirming(agent.id, 'delete')) {
                   <button class="danger" type="button" (click)="remove(agent)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
-                  <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.keep' | translate }}</button>
+                  <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
                 } @else {
                   <button class="danger" type="button" [disabled]="busyAgentId() !== null" (click)="confirm(agent.id, 'delete')">
                     <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
@@ -220,7 +235,8 @@
                 @for (skill of agent.skills; track skill.skillId) {
                   <li class="skill" [attr.data-skill]="skill.skillId">
                     <div class="card-header">
-                      <span class="mono">{{ skill.skillId }}</span>
+                      <strong>{{ (skillNameKeys(agent.id, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId)) }}</strong>
+                      <span class="mono muted">{{ skill.skillId }}</span>
                       <span
                         class="badge"
                         [class.success]="skill.runState === 'active'"
@@ -230,7 +246,7 @@
                         <span class="badge warning" data-shadow-badge>{{ 'nh-assistant.admin.agents.shadow.badge' | translate }}</span>
                       }
                     </div>
-                    <p class="muted">{{ skill.description }}</p>
+                    <p class="muted">{{ skillDescriptionKeys(agent.id, skill.skillId) | nhAssistantTranslate: skill.description }}</p>
                     <div class="meta">
                       <span>{{ 'nh-assistant.admin.agents.skills.usage' | translate: { calls: skill.toolCallsToday, tokens: skill.tokensToday } }}</span>
                       @if (skill.dailyToolCalls !== null) {
@@ -250,7 +266,7 @@
                             type="button"
                             [class.secondary]="action !== 'stopped'"
                             [class.danger]="action === 'stopped'"
-                            [attr.aria-label]="('nh-assistant.admin.agents.state.action.' + action | translate) + ' ' + skill.skillId"
+                            [attr.aria-label]="('nh-assistant.admin.agents.state.action.' + action | translate) + ' ' + (skillNameKeys(agent.id, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId))"
                             [attr.aria-expanded]="isChangingState(agent.id, action, skill.skillId)"
                             [disabled]="busyAgentId() !== null"
                             (click)="askState(agent, action, skill)">
@@ -262,7 +278,7 @@
                             class="secondary"
                             type="button"
                             [attr.data-shadow-action]="mode"
-                            [attr.aria-label]="('nh-assistant.admin.agents.shadow.action.' + mode | translate) + ' ' + skill.skillId"
+                            [attr.aria-label]="('nh-assistant.admin.agents.shadow.action.' + mode | translate) + ' ' + (skillNameKeys(agent.id, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId))"
                             [attr.aria-expanded]="isChangingShadow(agent.id, mode, skill.skillId)"
                             [disabled]="busyAgentId() !== null"
                             (click)="askShadow(agent, mode, skill)">
@@ -279,26 +295,28 @@
               @if (change.agentId === agent.id) {
                 <form class="stack" (submit)="$event.preventDefault(); applyState(agent)">
                   @if (change.skillId) {
-                    <p class="muted">{{ 'nh-assistant.admin.agents.skills.explain.' + change.state | translate: { skill: change.skillId } }}</p>
+                    <p class="muted">{{ 'nh-assistant.admin.agents.skills.explain.' + change.state | translate: { skill: (skillNameKeys(agent.id, change.skillId) | nhAssistantTranslate: readableId(change.skillId)) } }}</p>
                   } @else {
                     <p class="muted">{{ 'nh-assistant.admin.agents.state.explain.' + change.state | translate }}</p>
                   }
                   <div class="field">
-                    <label [for]="id + '-' + agent.id + '-reason'">{{ 'nh-assistant.admin.agents.state.reason-label' | translate }}</label>
+                    <label [for]="id + '-' + agent.id + '-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>
                     <input
                       #reasonInput
                       type="text"
                       autocomplete="off"
                       [id]="id + '-' + agent.id + '-reason'"
+                      [attr.aria-describedby]="id + '-' + agent.id + '-reason-hint'"
                       [maxLength]="maxReason"
                       [value]="stateReason()"
                       (input)="stateReason.set(value($event))" />
+                    <p class="hint" [id]="id + '-' + agent.id + '-reason-hint'">{{ 'nh-assistant.admin.agents.state.note-hint' | translate }}</p>
                   </div>
                   <div class="card-actions">
                     <button type="submit" [class.primary]="change.state !== 'stopped'" [class.danger]="change.state === 'stopped'" [disabled]="busyAgentId() !== null">
                       {{ 'nh-assistant.admin.agents.state.confirm.' + change.state | translate }}
                     </button>
-                    <button class="secondary" type="button" (click)="changingState.set(null)">{{ 'nh-assistant.admin.keep' | translate }}</button>
+                    <button class="secondary" type="button" (click)="changingState.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
                   </div>
                 </form>
               }
@@ -307,26 +325,28 @@
               @if (change.agentId === agent.id) {
                 <form class="stack" data-shadow-form (submit)="$event.preventDefault(); applyShadow(agent)">
                   @if (change.skillId) {
-                    <p class="muted">{{ 'nh-assistant.admin.agents.shadow.skill-explain.' + change.mode | translate: { skill: change.skillId } }}</p>
+                    <p class="muted">{{ 'nh-assistant.admin.agents.shadow.skill-explain.' + change.mode | translate: { skill: (skillNameKeys(agent.id, change.skillId) | nhAssistantTranslate: readableId(change.skillId)) } }}</p>
                   } @else {
                     <p class="muted">{{ 'nh-assistant.admin.agents.shadow.explain.' + change.mode | translate }}</p>
                   }
                   <div class="field">
-                    <label [for]="id + '-' + agent.id + '-shadow-reason'">{{ 'nh-assistant.admin.agents.state.reason-label' | translate }}</label>
+                    <label [for]="id + '-' + agent.id + '-shadow-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>
                     <input
                       #reasonInput
                       type="text"
                       autocomplete="off"
                       [id]="id + '-' + agent.id + '-shadow-reason'"
+                      [attr.aria-describedby]="id + '-' + agent.id + '-shadow-reason-hint'"
                       [maxLength]="maxReason"
                       [value]="stateReason()"
                       (input)="stateReason.set(value($event))" />
+                    <p class="hint" [id]="id + '-' + agent.id + '-shadow-reason-hint'">{{ 'nh-assistant.admin.agents.state.note-hint' | translate }}</p>
                   </div>
                   <div class="card-actions">
                     <button type="submit" class="primary" [disabled]="busyAgentId() !== null">
                       {{ 'nh-assistant.admin.agents.shadow.confirm.' + change.mode | translate }}
                     </button>
-                    <button class="secondary" type="button" (click)="changingShadow.set(null)">{{ 'nh-assistant.admin.keep' | translate }}</button>
+                    <button class="secondary" type="button" (click)="changingShadow.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
                   </div>
                 </form>
               }
@@ -334,38 +354,42 @@
             @if (changingAccount(); as change) {
               @if (change.agentId === agent.id) {
                 <form class="stack" data-account-form (submit)="$event.preventDefault(); applyAccount(agent)">
-                  <p class="muted">{{ 'nh-assistant.admin.agents.service-account.explain.' + change.mode | translate: { account: agent.serviceAccount?.configuredActorId } }}</p>
+                  <p class="muted">{{ 'nh-assistant.admin.agents.service-account.explain.' + change.mode | translate: { account: accountName(agent.serviceAccount?.configuredActorId) } }}</p>
                   @if (change.mode === 'set') {
                     <div class="field">
-                      <label [for]="id + '-' + agent.id + '-account'">{{ 'nh-assistant.admin.agents.service-account.input-label' | translate }}</label>
-                      <input
-                        #reasonInput
-                        type="text"
-                        autocomplete="off"
-                        required
-                        [id]="id + '-' + agent.id + '-account'"
-                        maxLength="256"
+                      <label [for]="id + '-' + agent.id + '-account'">{{ (accountSearch() ? 'nh-assistant.admin.agents.service-account.input-label-search' : 'nh-assistant.admin.agents.service-account.input-label') | translate }}</label>
+                      <nh-assistant-account-picker
+                        [inputId]="id + '-' + agent.id + '-account'"
                         [value]="accountId()"
-                        (input)="accountId.set(value($event))" />
+                        [searchable]="accountSearch()"
+                        [invalid]="errorAgentId() === agent.id && error() !== null"
+                        (valueChange)="accountId.set($event)" />
                     </div>
                   }
                   <div class="field">
-                    <label [for]="id + '-' + agent.id + '-account-reason'">{{ 'nh-assistant.admin.agents.state.reason-label' | translate }}</label>
+                    <label [for]="id + '-' + agent.id + '-account-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>
                     <input
                       type="text"
                       autocomplete="off"
                       [id]="id + '-' + agent.id + '-account-reason'"
+                      [attr.aria-describedby]="id + '-' + agent.id + '-account-reason-hint'"
                       [maxLength]="maxReason"
                       [value]="stateReason()"
                       (input)="stateReason.set(value($event))" />
+                    <p class="hint" [id]="id + '-' + agent.id + '-account-reason-hint'">{{ 'nh-assistant.admin.agents.state.note-hint' | translate }}</p>
                   </div>
                   <div class="card-actions">
-                    <button type="submit" class="primary" [disabled]="busyAgentId() !== null || (change.mode === 'set' && accountId().trim() === '')">
+                    <button type="submit" class="primary" [disabled]="busyAgentId() !== null">
                       {{ 'nh-assistant.admin.agents.service-account.confirm.' + change.mode | translate }}
                     </button>
-                    <button class="secondary" type="button" (click)="changingAccount.set(null)">{{ 'nh-assistant.admin.keep' | translate }}</button>
+                    <button class="secondary" type="button" (click)="changingAccount.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
                   </div>
                 </form>
+              }
+            }
+            @if (error(); as failure) {
+              @if (errorAgentId() === agent.id) {
+                <p class="form-error" role="alert" data-agent-error><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
               }
             }
           </li>

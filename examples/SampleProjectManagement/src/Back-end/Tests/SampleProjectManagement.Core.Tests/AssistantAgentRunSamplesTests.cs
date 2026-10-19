@@ -734,6 +734,62 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task A_runtime_agent_created_as_data_starts_projects_without_being_offered_in_the_chat()
+    {
+        // SPM-298
+        const string starter = SampleRuntimeAgentSeeder.AgentId;
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        try
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+                // A second start finds the agent and changes nothing.
+                Assert.True((await SampleRuntimeAgentSeeder.SeedAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+            }
+
+            var configured = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{starter}/configuration", Json))!;
+            Assert.Equal((NhAssistantAgentSources.Admin, NhAssistantAccountabilities.ServiceAccount, host.OperationsAccountId.ToString("D")),
+                (configured.Source, configured.RunSettings!.Accountability, configured.RunSettings.ServiceAccountActorId));
+            Assert.Equal(SampleRuntimeAgentSeeder.KickoffSkill, Assert.Single(configured.DataSkills).SkillId);
+            Assert.False(Assert.Single(configured.DataTriggers).Shadow);
+            var agents = (await administrator.GetFromJsonAsync<JsonElement>("/api/assistant/admin/agents", Json)).EnumerateArray();
+            Assert.False(agents.Single(agent => agent.GetProperty("id").GetString() == starter).GetProperty("offeredInChat").GetBoolean());
+
+            // People do not find it in the chat.
+            var status = await colleague.GetFromJsonAsync<JsonElement>("/api/assistant/status", Json);
+            Assert.DoesNotContain(status.GetProperty("agents").EnumerateArray(), agent => agent.GetProperty("id").GetString() == starter);
+            using var chat = await colleague.PostAsJsonAsync("/api/assistant/conversations", new { agentId = starter });
+            Assert.Equal(HttpStatusCode.NotFound, chat.StatusCode);
+
+            // A draft project gets the kickoff proposal, with the operations account's rights.
+            var project = await host.CreateProjectAsync("RUNTIME", ownerId: host.OwnerId);
+            await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+            var receipt = Assert.Single(
+                await host.PublishAsync(new ProjectCreatedEvent { ProjectId = project, ProjectKey = "RUNTIME", CreatedByUserId = host.OwnerId }),
+                item => item.TriggerId == SampleRuntimeAgentSeeder.TriggerId);
+            Assert.Equal(NhAssistantTriggerOutcomes.Started, receipt.Outcome);
+            var proposal = await WaitForProposalAsync(colleague, receipt.ConversationId!.Value, NhAssistantApprovalStatuses.Pending);
+            Assert.Equal(ProjectAiTools.ChangeStatusToolId, proposal.ToolId);
+            var run = Assert.Single(await WaitForRunCountAsync(colleague, receipt.ConversationId.Value, 1));
+            Assert.Equal((host.OperationsAccountId.ToString("D"), SampleRuntimeAgentSeeder.KickoffSkill),
+                (run.AccountableOwnerId, run.Skill));
+        }
+        finally
+        {
+            await using var scope = host.Services.CreateAsyncScope();
+            var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+            var actor = host.OwnerId.ToString("D");
+            await configuration.RemoveTriggerAsync(starter, SampleRuntimeAgentSeeder.TriggerId, null, actor, cancellationToken: CancellationToken.None);
+            await configuration.RemoveSkillAsync(starter, SampleRuntimeAgentSeeder.KickoffSkill, null, actor, cancellationToken: CancellationToken.None);
+            await configuration.RemoveRunSettingsAsync(starter, null, actor, cancellationToken: CancellationToken.None);
+            using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{starter}");
+            Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task An_operator_pauses_the_project_closer_for_an_import_and_stops_it_without_losing_approved_work()
     {
         // SPM-284

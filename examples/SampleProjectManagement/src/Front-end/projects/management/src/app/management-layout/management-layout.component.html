@@ -20,6 +20,9 @@
         <a class="nav-item" routerLink="/management/background-operation-administration" routerLinkActive="active"><i class="ph ph-list-checks" aria-hidden="true"></i>{{ 'sample-project-management.background-operation-administration.navigation' | translate }}</a>
       }
       <a class="nav-item" routerLink="/management/assistant" routerLinkActive="active"><i class="ph ph-sparkle" aria-hidden="true"></i>{{ 'project.assistant-playground-nav' | translate }}</a>
+      @if (canAdministerAssistant()) {
+        <a class="nav-item" routerLink="/management/assistant-administration" routerLinkActive="active"><i class="ph ph-robot" aria-hidden="true"></i>{{ 'project.assistant-administration-nav' | translate }}</a>
+      }
       <a class="nav-item" routerLink="/management/project-members" routerLinkActive="active"><i class="ph ph-users-three" aria-hidden="true"></i>{{ 'project-members.navigation' | translate }}</a>
       <a class="nav-item" routerLink="/management/intake-reviews" routerLinkActive="active"><i class="ph ph-robot" aria-hidden="true"></i>{{ 'intake-reviews.navigation' | translate }}</a>
       <a class="nav-item" routerLink="/management/platform" routerLinkActive="active"><i class="ph ph-stack" aria-hidden="true"></i>{{ 'project.platform-playground-nav' | translate }}</a>

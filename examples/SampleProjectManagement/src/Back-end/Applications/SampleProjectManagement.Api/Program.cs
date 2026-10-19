@@ -329,6 +329,11 @@ builder.Services.AddSampleProjectCloser(builder.Configuration[SampleProjectClose
 builder.Services.AddSampleProjectPlanner();
 builder.Services.AddSampleProjectPlannerVariant();
 builder.Services.AddSampleProjectStarterBlocks();
+if (builder.Environment.IsDevelopment())
+{
+    // After the assistant's own start-up work: its schema exists when the project starter is created.
+    builder.Services.AddHostedService<SampleRuntimeAgentSeeder>();
+}
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     .WithNewHeapPlatformAITools();

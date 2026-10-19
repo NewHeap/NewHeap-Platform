@@ -97,6 +97,18 @@ about the proposal in the portal's own inbox in their language and approves it, 
 change executes. Applications on NewHeap Identity keep their model unchanged, and deleting a
 user through `NhUserManager` lets every module forget the user in the same transaction.
 
+The assistant and every agent run on the sample's deterministic model,
+`SampleAssistantChatClient`, which recognizes a few fixed phrasings to demonstrate the governed
+flows and is the model every test uses. Optionally, `SampleProjectManagement.Assistant.Model` in
+the local secrets connects an OpenAI-compatible model instead (SPM-245), so agents and skills whose
+model decides can be tried with free instructions. `SampleAssistantModel` validates the settings at
+startup without logging the key and registers the client under the same model key before the
+deterministic one. The assistant then sends the model's execution region, `external` by default,
+through `UseExecutionRegion`; the assistant's chat profile and the planner's triage profiles permit
+that region next to `local`, and the assistant's profile gets a larger call budget and timeout.
+Messages and the project data that tools read leave the machine, so use test data only; the
+[README](../README.md#a-real-model-for-the-assistant) lists the settings.
+
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and
 `ProjectFieldSelectionSamplesTests`. The protected discovery endpoint reports
@@ -526,7 +538,7 @@ scopes visible and verify it against real endpoints:
 
 | Account | Assigned access |
 |---|---|
-| `sample@example.test` | manager role with application-wide view, manage, and confidential permissions |
+| `sample@example.test` | manager role with application-wide view, manage, confidential and assistant permissions; division editor in Sample North, so the assistant and its administration work, and no project rights in Sample South |
 | `viewer@example.test` | viewer role with only the application-wide view permission |
 | `division-editor@example.test` | division role with project permissions in the active Sample North division |
 | `project-editor@example.test` | project-specific `confidential.view` permission and `project-editor` role for Authorization Alpha |

@@ -25,6 +25,11 @@
   input[type='url'],
   input[type='password'],
   input[type='search'],
+  input[type='email'],
+  input[type='number'],
+  input[type='date'],
+  input[type='time'],
+  input[type='datetime-local'],
   select,
   textarea {
     width: 100%;
@@ -54,6 +59,10 @@
     resize: vertical;
   }
 
+  input[type='number'] {
+    font-variant-numeric: tabular-nums;
+  }
+
   .mono {
     font-family: var(--nha-mono);
     font-size: 12px;
@@ -81,6 +90,43 @@
 
   .error-text {
     color: var(--nha-danger);
+  }
+
+  // The error of one field, directly under it; the field points at it with aria-describedby.
+  .field-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 4px 2px 0;
+    color: var(--nha-danger);
+    font-size: 12px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+
+    nh-assistant-icon {
+      flex: none;
+      margin-top: 1px;
+    }
+  }
+
+  // The error of a whole form, next to its actions, where the person who saves looks.
+  .form-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    border: 1px solid var(--nha-danger);
+    border-radius: var(--nha-radius-control);
+    padding: 8px 12px;
+    color: var(--nha-text);
+    background: var(--nha-danger-soft);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+
+    ul {
+      margin: 4px 0 0;
+      padding-left: 18px;
+    }
   }
 
   .message {

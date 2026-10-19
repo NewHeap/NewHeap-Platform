@@ -26,7 +26,8 @@ public static class SampleProjectPlannerVariantComposition
                 .UseKeyedClient(SampleAssistantComposition.ModelKey)
                 .WithStreaming(NhAiStreamingPolicy.Allowed)
                 .PermitDataClassifications(NhAiDataClassification.Internal)
-                .PermitExecutionRegions("local")
+                // The region of the configured real model as well, since triage calls the same model.
+                .PermitExecutionRegions(SampleAssistantComposition.ModelExecutionRegions(services))
                 .WithBudget(maxInputTokens: 2_048, maxOutputTokens: 128, maxCalls: 1)
                 .WithTimeout(TimeSpan.FromSeconds(10))));
 

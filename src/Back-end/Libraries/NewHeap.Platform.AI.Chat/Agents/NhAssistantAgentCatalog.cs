@@ -53,6 +53,11 @@ internal sealed record NhAssistantAgent(
     public string? ServiceAccountChangedBy { get; init; }
 
     public string? ServiceAccountReason { get; init; }
+
+    /// <summary>
+    /// Whether people can choose the agent in the chat; see <c>HideFromChat()</c>.
+    /// </summary>
+    public bool OfferedInChat { get; init; } = true;
 }
 
 /// <summary>
@@ -162,7 +167,10 @@ internal sealed class NhAssistantAgentCatalog(
             ServiceAccountOverride = row.ServiceAccountActorId,
             ServiceAccountChangedAt = row.ServiceAccountChangedAt,
             ServiceAccountChangedBy = row.ServiceAccountChangedBy,
-            ServiceAccountReason = row.ServiceAccountReason
+            ServiceAccountReason = row.ServiceAccountReason,
+            OfferedInChat = row.Source == NhAssistantAgentSources.Code
+                ? !(registration.AgentRuns.TryGetValue(row.Id, out var runOptions) && runOptions.HiddenFromChat)
+                : !row.HiddenFromChat
         };
     }
 

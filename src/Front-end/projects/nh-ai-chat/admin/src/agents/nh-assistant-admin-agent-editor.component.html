@@ -44,6 +44,26 @@
     </div>
   </div>
 
+  @if (choosesUse()) {
+    <fieldset class="subsection" data-agent-use>
+      <legend>{{ 'nh-assistant.admin.agent-editor.use.title' | translate }}</legend>
+      <div class="uses">
+        @for (option of uses; track option) {
+          <label class="use" [class.selected]="use() === option">
+            <input type="radio" [name]="id + '-use'" [value]="option" [checked]="use() === option" (change)="use.set(option)" />
+            <span>
+              <strong>{{ 'nh-assistant.admin.agent-editor.use.' + option | translate }}</strong>
+              <span class="muted">{{ 'nh-assistant.admin.agent-editor.use.' + option + '-hint' | translate }}</span>
+            </span>
+          </label>
+        }
+      </div>
+      @if (isNew() && use() !== 'chat') {
+        <p class="hint">{{ 'nh-assistant.admin.agent-editor.use.next' | translate }}</p>
+      }
+    </fieldset>
+  }
+
   <div class="field">
     <label [for]="id + '-description'">{{ 'nh-assistant.admin.agent-editor.description' | translate }}</label>
     <input type="text" [id]="id + '-description'" [value]="description()" (input)="description.set(value($event))" />

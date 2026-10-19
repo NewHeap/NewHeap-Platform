@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.Chat.AspNet.Mcp;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Common.Actors;
 using Xunit;
 using static NewHeap.Platform.AI.Chat.Tests.Infrastructure.ServerSentEventReader;
 
@@ -169,7 +170,8 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         var code = list.EnumerateArray().Single(agent => agent.GetProperty("id").GetString() == "project-assistant");
         AssertNames(code, "id", "displayName", "description", "instructions", "toolSelectors", "mcpServerIds", "requiredPolicy",
             "autonomy", "isEnabled", "version", "source", "isOverridden", "instructionsHash", "updatedAt",
-            "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf", "shadow", "serviceAccount");
+            "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf", "shadow", "serviceAccount",
+            "offeredInChat");
         Assert.Equal("active", code.GetProperty("runState").GetString());
         Assert.Equal("code", code.GetProperty("source").GetString());
         Assert.Equal("execute", code.GetProperty("autonomy").GetString());
@@ -410,6 +412,154 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Equal("Bearer " + secret, servers.Connections.Last().Headers["Authorization"]);
     }
 
+    [Fact]
+    public async Task Agents_can_be_kept_out_of_the_chat_while_they_keep_working()
+    {
+        await using var app = await AssistantWebApplication.StartAsync(
+            database,
+            new NhAiScriptedChatClient(),
+            configure: services =>
+                // This host has no background operations for agent runs, which the startup check requires.
+                services.Remove(services.Single(descriptor => descriptor.ImplementationType == typeof(NewHeap.Platform.AI.Chat.AspNet.NhAssistantStartupValidator))),
+            assistantBuilder: assistant => assistant
+                .AddAgent(AssistantTestData.Agent("background-worker"))
+                .ConfigureAgent("background-worker", agent => agent.HideFromChat()));
+        using var admin = app.CreateClient(admin: true);
+        using var user = app.CreateClient();
+        var input = new
+        {
+            id = "intake-helper",
+            displayName = "Intake helper",
+            description = "Follows up new projects.",
+            instructions = "Follow up.",
+            toolSelectors = new[] { "projects.search" },
+            mcpServerIds = Array.Empty<string>(),
+            requiredPolicy = (string?)null,
+            autonomy = "observe",
+            offeredInChat = false
+        };
+
+        using var created = await admin.PostAsync("/api/assistant/admin/agents", Json(input));
+        // Omitted, the choice stays as it is.
+        using var kept = await admin.PutAsync("/api/assistant/admin/agents/intake-helper", Json(new
+        {
+            input.id, input.displayName, description = "Follows up new projects by rule.", input.instructions,
+            input.toolSelectors, input.mcpServerIds, input.requiredPolicy, input.autonomy, expectedVersion = 1
+        }));
+        var picker = await ReadJsonAsync(await user.GetAsync("/api/assistant/status"));
+        using var hiddenChat = await user.PostAsync("/api/assistant/conversations", Json(new { agentId = "intake-helper" }));
+        using var codeHiddenChat = await user.PostAsync("/api/assistant/conversations", Json(new { agentId = "background-worker" }));
+        var listed = (await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/agents"))).EnumerateArray()
+            .ToDictionary(agent => agent.GetProperty("id").GetString()!, agent => agent.GetProperty("offeredInChat").GetBoolean());
+        using var offered = await admin.PutAsync("/api/assistant/admin/agents/intake-helper", Json(new
+        {
+            input.id, input.displayName, input.description, input.instructions,
+            input.toolSelectors, input.mcpServerIds, input.requiredPolicy, input.autonomy, offeredInChat = true, expectedVersion = 2
+        }));
+        var pickerAfter = await ReadJsonAsync(await user.GetAsync("/api/assistant/status"));
+        using var chat = await user.PostAsync("/api/assistant/conversations", Json(new { agentId = "intake-helper" }));
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.False((await ReadJsonAsync(created)).GetProperty("offeredInChat").GetBoolean());
+        Assert.False((await ReadJsonAsync(kept)).GetProperty("offeredInChat").GetBoolean());
+        var shown = picker.GetProperty("agents").EnumerateArray().Select(agent => agent.GetProperty("id").GetString()).ToArray();
+        Assert.Contains("project-assistant", shown);
+        Assert.DoesNotContain("intake-helper", shown);
+        Assert.DoesNotContain("background-worker", shown);
+        Assert.Equal(HttpStatusCode.NotFound, hiddenChat.StatusCode);
+        Assert.Equal("assistant-agent-not-found", (await ReadJsonAsync(hiddenChat)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.NotFound, codeHiddenChat.StatusCode);
+        Assert.False(listed["background-worker"]);
+        Assert.False(listed["intake-helper"]);
+        Assert.True(listed["project-assistant"]);
+        Assert.True((await ReadJsonAsync(offered)).GetProperty("offeredInChat").GetBoolean());
+        Assert.Contains(pickerAfter.GetProperty("agents").EnumerateArray(), agent => agent.GetProperty("id").GetString() == "intake-helper");
+        Assert.Equal(HttpStatusCode.Created, chat.StatusCode);
+    }
+
+    [Fact]
+    public async Task Accounts_are_found_by_name_and_policies_explain_themselves()
+    {
+        await using var app = await AssistantWebApplication.StartAsync(
+            database,
+            new NhAiScriptedChatClient(),
+            configure: services => services
+                .AddNewHeapActorSearch<TestAccounts>()
+                .AddNewHeapActorDirectory<TestAccounts>(),
+            assistantBuilder: assistant => assistant
+                .AddApprovalPolicy("project-review", policy => policy
+                    .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver), NhAiApprovers.Policy("app.reviewers"))
+                    .Lifetime(TimeSpan.FromDays(7))
+                    .FourEyes()
+                    .Mode(NhAiApprovalMode.Deferred)));
+        using var admin = app.CreateClient(admin: true);
+        using var user = app.CreateClient();
+
+        var found = await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/accounts?query=OPER"));
+        var named = await ReadJsonAsync(await admin.GetAsync($"/api/assistant/admin/accounts?ids={TestAccounts.Operations},unknown-account"));
+        using var tooShort = await admin.GetAsync("/api/assistant/admin/accounts?query=o");
+        using var forbidden = await user.GetAsync("/api/assistant/admin/accounts?query=oper");
+        var catalog = await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/run-catalog"));
+
+        var account = Assert.Single(found.EnumerateArray());
+        AssertNames(account, "actorId", "displayName", "detail");
+        Assert.Equal((TestAccounts.Operations, "Operations account", "operations@example.test"),
+            (account.GetProperty("actorId").GetString(), account.GetProperty("displayName").GetString(), account.GetProperty("detail").GetString()));
+        Assert.Equal([TestAccounts.Operations], named.EnumerateArray().Select(item => item.GetProperty("actorId").GetString()));
+        Assert.Equal(HttpStatusCode.BadRequest, tooShort.StatusCode);
+        AssertNames((await ReadJsonAsync(tooShort)).GetProperty("errors"), "query");
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        Assert.True(catalog.GetProperty("accountSearch").GetBoolean());
+        var review = catalog.GetProperty("approvalPolicySummaries").EnumerateArray()
+            .Single(policy => policy.GetProperty("name").GetString() == "project-review");
+        Assert.Equal(7 * 24 * 60, review.GetProperty("lifetimeMinutes").GetInt32());
+        Assert.True(review.GetProperty("fourEyes").GetBoolean());
+        Assert.Equal("deferred", review.GetProperty("mode").GetString());
+        Assert.Equal(
+            ["subject-role:approver:", "policy::app.reviewers"],
+            review.GetProperty("approvers").EnumerateArray().Select(approver =>
+                $"{approver.GetProperty("kind").GetString()}:{approver.GetProperty("role").GetString()}:{approver.GetProperty("policy").GetString()}"));
+
+        // Without a search, the administration asks for the account's id.
+        await using var plain = await StartAsync();
+        using var plainAdmin = plain.CreateClient(admin: true);
+        using var unavailable = await plainAdmin.GetAsync("/api/assistant/admin/accounts?query=oper");
+        Assert.False((await ReadJsonAsync(await plainAdmin.GetAsync("/api/assistant/admin/run-catalog"))).GetProperty("accountSearch").GetBoolean());
+        Assert.Equal(HttpStatusCode.NotFound, unavailable.StatusCode);
+        Assert.Equal("assistant-account-search-unavailable", (await ReadJsonAsync(unavailable)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task An_application_creates_an_agent_the_way_an_administrator_does()
+    {
+        await using var app = await StartAsync();
+        await using var scope = app.Services.CreateAsyncScope();
+        var configuration = scope.ServiceProvider.GetRequiredService<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.INhAssistantAgentConfiguration>();
+        var request = new NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentRequest(
+            "package-agent",
+            "Package agent",
+            "Imported with a package.",
+            "Follow up imported work.",
+            ["projects.search"],
+            NhAiAutonomyLevel.Propose,
+            OfferedInChat: false);
+
+        var created = await configuration.CreateAgentAsync(request, "importer", CancellationToken.None);
+        var again = await configuration.CreateAgentAsync(request, "importer", CancellationToken.None);
+        var unknownPolicy = await configuration.CreateAgentAsync(request with { Id = "other-agent", RequiredPolicy = "app.unknown" }, "importer", CancellationToken.None);
+        using var admin = app.CreateClient(admin: true);
+        var listed = (await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/agents"))).EnumerateArray()
+            .Single(agent => agent.GetProperty("id").GetString() == "package-agent");
+
+        Assert.True(created.Success);
+        Assert.Equal(("package-agent", "admin", null), (created.Data!.AgentId, created.Data.Source, created.Data.RunSettings));
+        Assert.False(again.Success);
+        Assert.Equal("assistant-agent-exists", again.GetResultItems().First().Name);
+        Assert.False(unknownPolicy.Success);
+        Assert.False(listed.GetProperty("offeredInChat").GetBoolean());
+        Assert.Equal("propose", listed.GetProperty("autonomy").GetString());
+    }
+
     private Task<AssistantWebApplication> StartAsync(bool enabled = true, Action<IServiceCollection>? configure = null)
     {
         return AssistantWebApplication.StartAsync(database, new NhAiScriptedChatClient(), enabled, configure: configure);
@@ -426,5 +576,29 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Equal(
             expected.Order(StringComparer.Ordinal),
             element.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
+    }
+
+    private sealed class TestAccounts : INhActorSearch, INhActorDirectory
+    {
+        public const string Operations = "6d1d5bd4-8a5c-4e70-9d43-0b3f1f43c1a2";
+
+        private static readonly NhActorInfo OperationsAccount = new(new NhActorRef(NhActorKinds.User, Operations), "Operations account")
+        {
+            Email = "operations@example.test"
+        };
+
+        public Task<IReadOnlyList<NhActorInfo>> SearchAsync(NhActorSearchRequest request, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<NhActorInfo>>(
+                OperationsAccount.DisplayName.Contains(request.Query, StringComparison.OrdinalIgnoreCase) ? [OperationsAccount] : []);
+        }
+
+        public Task<IReadOnlyDictionary<NhActorRef, NhActorInfo>> GetAsync(IReadOnlyCollection<NhActorRef> actors, CancellationToken cancellationToken = default)
+        {
+            IReadOnlyDictionary<NhActorRef, NhActorInfo> known = actors
+                .Where(actor => actor == OperationsAccount.Actor)
+                .ToDictionary(actor => actor, _ => OperationsAccount);
+            return Task.FromResult(known);
+        }
     }
 }

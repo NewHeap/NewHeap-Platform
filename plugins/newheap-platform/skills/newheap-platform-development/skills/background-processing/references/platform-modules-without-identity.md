@@ -53,13 +53,16 @@ The platform asks the application what it knows about people through interfaces 
   divisions and every division is denied.
 - `INhActorDirectory`: names, e-mail addresses and cultures of actors in one call. Owner names,
   the assistant's display names and the language of in-app agent notifications come from it.
+- `INhActorSearch`: actors whose name or e-mail address contains a query, for example the account an
+  agent answers to in the assistant's administration. NewHeap Identity searches its users and
+  leaves out locked-out ones; without an implementation modules ask for an actor's id instead.
 - `INhUserNotificationSink`: a message for a user in the application. The notifications module
   implements it; register your own to deliver to another inbox.
 - `INhRetention`: call `ForgetUserAsync` and `ForgetDivisionAsync` from the application's own
   deletion flow, inside its transaction, because the modules have no foreign keys to cascade.
 
 Register the application's implementations with `AddNewHeapActorContext`,
-`AddNewHeapDivisionAccess`, `AddNewHeapActorDirectory` and `AddNewHeapUserNotificationSink`;
+`AddNewHeapDivisionAccess`, `AddNewHeapActorDirectory`, `AddNewHeapActorSearch` and `AddNewHeapUserNotificationSink`;
 they replace both the generic defaults and NewHeap Identity's, whatever the order. NewHeap
 Identity implements all of them from the request, its division claims and its user table, and
 `NhUserManager.DeleteAsync` calls `ForgetUserAsync` in the same transaction as the delete.

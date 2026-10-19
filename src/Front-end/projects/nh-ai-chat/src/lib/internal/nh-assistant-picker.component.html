@@ -1,0 +1,56 @@
+<div class="picker" [class.open]="open()">
+  <div class="control">
+    <input
+      #field
+      type="text"
+      role="combobox"
+      autocomplete="off"
+      aria-autocomplete="list"
+      [id]="inputId()"
+      [attr.aria-expanded]="open()"
+      [attr.aria-controls]="listId"
+      [attr.aria-activedescendant]="activeId()"
+      [attr.aria-invalid]="invalid() ? true : null"
+      [attr.aria-describedby]="describedBy()"
+      [attr.placeholder]="placeholder()"
+      [disabled]="disabled()"
+      [value]="inputText()"
+      (input)="onInput($event)"
+      (click)="openList()"
+      (keydown)="onKeydown($event)"
+      (blur)="onBlur()" />
+    <button
+      type="button"
+      class="toggle"
+      tabindex="-1"
+      [disabled]="disabled()"
+      [attr.aria-label]="'nh-assistant.picker.toggle' | translate"
+      (mousedown)="$event.preventDefault()"
+      (click)="toggle()">
+      <nh-assistant-icon name="chevron-down" />
+    </button>
+  </div>
+  @if (open()) {
+    <ul class="listbox" role="listbox" [id]="listId">
+      @for (option of visible(); track option.value; let index = $index) {
+        <li
+          role="option"
+          [id]="optionId(index)"
+          [class.active]="index === active()"
+          [attr.aria-selected]="option.value === (value() ?? '')"
+          (mousedown)="$event.preventDefault()"
+          (mousemove)="active.set(index)"
+          (click)="choose(option)">
+          <span class="label">{{ option.label }}</span>
+          @if (option.description) {
+            <span class="description">{{ option.description }}</span>
+          }
+        </li>
+      } @empty {
+        <li class="state" role="presentation">{{ emptyKey() | translate }}</li>
+      }
+    </ul>
+  } @else if (selected()?.description; as description) {
+    <p class="chosen">{{ description }}</p>
+  }
+</div>

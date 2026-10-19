@@ -30,6 +30,7 @@ import {
   McpServerInput,
   McpServerTestResult,
   McpTool,
+  AssistantAccount,
   RunCatalog,
   RunConfigurationRemoval,
   SetAgentServiceAccountRequest,
@@ -242,6 +243,20 @@ export class NhAssistantAdminApiService {
   /** The building blocks in code that run settings, skills and triggers defined as data can name. */
   getRunCatalog(): Observable<RunCatalog> {
     return this.request<RunCatalog>('GET', 'admin/run-catalog');
+  }
+
+  /**
+   * Accounts whose name or e-mail address contains `query` (2 to 100 characters), at most `limit`.
+   * Fails with `assistant-account-search-unavailable` when the application offers no search; the
+   * run catalog's `accountSearch` tells beforehand.
+   */
+  searchAccounts(query: string, limit?: number): Observable<AssistantAccount[]> {
+    return this.request<AssistantAccount[]>('GET', withQuery('admin/accounts', { query, limit }));
+  }
+
+  /** The names the application knows for these account ids; unknown ids are left out. */
+  getAccounts(actorIds: readonly string[]): Observable<AssistantAccount[]> {
+    return this.request<AssistantAccount[]>('GET', withQuery('admin/accounts', { ids: actorIds.join(',') }));
   }
 
   /**

@@ -19,7 +19,7 @@
         <span class="badge">{{ 'nh-assistant.admin.context.version' | translate: { version: current.version } }}</span>
         <span>
           @if (current.updatedBy) {
-            {{ 'nh-assistant.admin.context.updated' | translate: { date: (current.updatedAt | date: 'medium'), user: current.updatedBy } }}
+            {{ 'nh-assistant.admin.context.updated' | translate: { date: (current.updatedAt | date: 'medium'), user: nameOf(current.updatedBy) } }}
           } @else {
             {{ 'nh-assistant.admin.context.updated-unknown' | translate: { date: (current.updatedAt | date: 'medium') } }}
           }
@@ -77,7 +77,7 @@
               <span class="badge">{{ 'nh-assistant.admin.context.version' | translate: { version: version.version } }}</span>
               <span>{{ version.updatedAt | date: 'medium' }}</span>
               @if (version.updatedBy) {
-                <span>{{ version.updatedBy }}</span>
+                <span>{{ nameOf(version.updatedBy) }}</span>
               }
               <span class="mono muted" [attr.title]="version.hash">{{ version.hash.slice(0, 18) }}</span>
             </li>

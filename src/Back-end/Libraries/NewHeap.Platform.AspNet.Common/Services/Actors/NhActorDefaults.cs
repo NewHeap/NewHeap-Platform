@@ -197,3 +197,66 @@ internal sealed class NhIdentityActorDirectory<TUser> : INhActorDirectory
         return result;
     }
 }
+
+/// <summary>
+/// NewHeap Identity: searches the user name and e-mail address of the application's users, ignoring
+/// case, and leaves out users who are locked out.
+/// </summary>
+internal sealed class NhIdentityActorSearch<TUser> : INhActorSearch
+    where TUser : IdentityUser<Guid>
+{
+    private readonly IRepository<TUser> _users;
+    private readonly TimeProvider _time;
+
+    public NhIdentityActorSearch(IRepository<TUser> users, TimeProvider? time = null)
+    {
+        _users = users;
+        _time = time ?? TimeProvider.System;
+    }
+
+    public async Task<IReadOnlyList<NhActorInfo>> SearchAsync(
+        NhActorSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var query = request.Query.Trim();
+        if (query.Length < NhActorSearchRequest.MinQueryLength
+            || query.Length > NhActorSearchRequest.MaxQueryLength
+            || !request.Kinds.Contains(NhActorKinds.User))
+        {
+            return [];
+        }
+
+        var limit = Math.Clamp(request.Limit, 1, NhActorSearchRequest.MaxLimit);
+        // The normalized columns are upper case in every provider, so Contains needs no collation.
+        var normalized = query.ToUpperInvariant();
+        var now = _time.GetUtcNow();
+        var users = await _users.GetDbSet<TUser>()
+            .AsNoTracking()
+            .Where(user => (user.NormalizedUserName != null && user.NormalizedUserName.Contains(normalized))
+                           || (user.NormalizedEmail != null && user.NormalizedEmail.Contains(normalized)))
+            .Where(user => user.LockoutEnd == null || user.LockoutEnd <= now)
+            .OrderBy(user => user.UserName)
+            .Take(limit)
+            .Select(user => new
+            {
+                user.Id,
+                user.UserName,
+                user.Email
+            })
+            .ToListAsync(cancellationToken);
+
+        var result = new List<NhActorInfo>(users.Count);
+        foreach (var user in users)
+        {
+            var displayName = !string.IsNullOrWhiteSpace(user.UserName) ? user.UserName : user.Email;
+            if (!string.IsNullOrWhiteSpace(displayName))
+            {
+                result.Add(new NhActorInfo(NhActorRef.ForUser(user.Id), displayName) { Email = user.Email });
+            }
+        }
+
+        return result;
+    }
+}

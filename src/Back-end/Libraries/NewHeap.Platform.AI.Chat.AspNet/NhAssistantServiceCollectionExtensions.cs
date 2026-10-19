@@ -139,7 +139,7 @@ internal sealed class NhAssistantAgentAccess(
         var visible = new List<NhAssistantAgentDefinition>();
         foreach (var agent in await catalog.ListAsync(includeDisabled: false, cancellationToken))
         {
-            if (await CanUseAsync(user, agent.Definition))
+            if (agent.OfferedInChat && await CanUseAsync(user, agent.Definition))
             {
                 visible.Add(agent.Definition);
             }

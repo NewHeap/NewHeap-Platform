@@ -51,6 +51,11 @@ export class ManagementLayoutComponent implements OnDestroy {
     return this.auth.isOnePermissionGranted(['app.background-operation.administer']);
   }
 
+  /** The assistant's access permission and the permission behind its admin policy. */
+  canAdministerAssistant(): boolean {
+    return this.auth.isOnePermissionGranted(['app.assistant.access']) && this.auth.isOnePermissionGranted(['app.project.manage']);
+  }
+
   toggleNavigation(): void {
     this.navigationOpen.update(open => !open);
   }

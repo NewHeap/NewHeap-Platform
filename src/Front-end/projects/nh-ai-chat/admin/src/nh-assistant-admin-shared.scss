@@ -264,3 +264,49 @@ textarea.large {
   border-left: 3px solid var(--nha-border);
   padding: 4px 0 4px 12px;
 }
+
+.uses {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 8px;
+}
+
+.use {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 10px 12px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+
+  input {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 2px 0 0;
+    accent-color: var(--nha-highlight);
+  }
+
+  > span {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  strong {
+    font-size: 13px;
+  }
+
+  &.selected {
+    border-color: var(--nha-highlight);
+    background: var(--nha-surface);
+  }
+
+  &:focus-within {
+    outline: 2px solid var(--nha-highlight);
+    outline-offset: 2px;
+  }
+}
