@@ -368,7 +368,8 @@
       "assistant-run-settings-in-code": "Deze agent staat in de code; daar is ingesteld hoe hij werkt.",
       "assistant-run-settings-in-use": "Er horen nog vaardigheden of triggers bij deze agent. Verwijder die eerst.",
       "assistant-skill-candidate-not-found": "Van deze vaardigheid wordt geen versie in schaduw beoordeeld.",
-      "assistant-skill-version-gone": "De versie van de vaardigheid waarvoor deze run was, wordt niet meer beoordeeld."
+      "assistant-skill-version-gone": "De versie van de vaardigheid waarvoor deze run was, wordt niet meer beoordeeld.",
+      "assistant-account-search-unavailable": "De applicatie biedt geen accountzoeker; vul de id van het account in."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
@@ -450,7 +451,6 @@
       "edit": "Bewerken",
       "delete": "Verwijderen",
       "confirm-delete": "Verwijderen bevestigen",
-      "keep": "Behouden",
       "enabled": "Aan",
       "disabled": "Uit",
       "enable": "Aanzetten",
@@ -502,9 +502,8 @@
           "configured-off": "Uit in configuratie",
           "configured-off-hint": "Uitgeschakeld in de code van de applicatie tot de volgende deployment; hier kun je de agent niet hervatten.",
           "changed": "Gewijzigd door {{user}} op {{date}}.",
-          "reason": "Reden: {{reason}}",
+          "reason": "Notitie: {{reason}}",
           "waiting": "{{count}} gebeurtenissen wachten op het hervatten.",
-          "reason-label": "Reden (optioneel)",
           "action": {
             "active": "Hervatten",
             "paused": "Pauzeren",
@@ -519,7 +518,9 @@
             "active": "Hervatten bevestigen",
             "paused": "Pauze bevestigen",
             "stopped": "Stop bevestigen"
-          }
+          },
+          "note-label": "Notitie voor andere beheerders (optioneel)",
+          "note-hint": "Staat bij deze agent met je naam en het tijdstip, tot de volgende wijziging. De agent leest dit niet."
         },
         "skills": {
           "title": "Vaardigheden",
@@ -539,22 +540,29 @@
           "action": {
             "shadow": "In schaduw zetten",
             "live": "Live zetten",
-            "code": "Code laten beslissen"
+            "code": "Code laten beslissen",
+            "own": "Terug naar de eigen instelling"
           },
           "explain": {
             "shadow": "Nieuwe runs werken in schaduwthreads die alleen beheerders zien: niemand krijgt een melding en niets wat daar wordt voorgesteld, wordt uitgevoerd. Lopend werk wordt afgemaakt zoals het begon; de live threads en hun open voorstellen blijven.",
             "live": "Nieuwe runs werken live: mensen zien ze, krijgen meldingen en beslissen over de voorstellen.",
-            "code": "De modus in de code beslist weer."
+            "code": "De modus in de code beslist weer.",
+            "own": "De eigen instelling van de agent beslist weer: {{mode}}."
           },
           "skill-explain": {
             "shadow": "Werk dat bij de vaardigheid {{skill}} komt, gaat naar de schaduwthreads; de andere vaardigheden houden hun modus.",
             "live": "De vaardigheid {{skill}} werkt weer live, tenzij haar agent in schaduw werkt.",
-            "code": "De modus in de code beslist weer voor de vaardigheid {{skill}}."
+            "code": "De modus in de code beslist weer voor de vaardigheid {{skill}}.",
+            "own": "De eigen instelling van de skill {{skill}} beslist weer: {{mode}}."
           },
           "confirm": {
             "shadow": "Schaduw bevestigen",
             "live": "Live bevestigen",
             "code": "Bevestigen"
+          },
+          "mode": {
+            "shadow": "in shadow",
+            "live": "live"
           }
         },
         "service-account": {
@@ -572,9 +580,17 @@
           "confirm": {
             "set": "Account bevestigen",
             "code": "Bevestigen"
-          }
+          },
+          "input-label-search": "Account"
         },
-        "run-config": "Runconfiguratie"
+        "run-config": "Runconfiguratie",
+        "chat": {
+          "hidden": "Niet in de chat"
+        },
+        "version-label": "Versie",
+        "tool-count-one": "{{count}} toolselector",
+        "server-count-one": "{{count}} MCP-server",
+        "required-policy": "Vereist:"
       },
       "agent-editor": {
         "new-title": "Nieuwe agent",
@@ -602,7 +618,17 @@
         "matches": "{{count}} tools uit de catalogus passen bij de selectors.",
         "mcp-servers": "MCP-servers",
         "mcp-servers-hint": "Ingeschakelde tools van deze servers zijn beschikbaar voor deze agent.",
-        "mcp-servers-empty": "Er zijn geen MCP-servers ingesteld."
+        "mcp-servers-empty": "Er zijn geen MCP-servers ingesteld.",
+        "use": {
+          "title": "Hoe wordt deze agent gebruikt?",
+          "chat": "In de chat",
+          "chat-hint": "Mensen kiezen hem in de assistent om vragen te stellen en werk te laten doen.",
+          "background": "Zelfstandig",
+          "background-hint": "Hij start op gebeurtenissen of een schema en stelt werk voor; hij staat niet in de chat.",
+          "both": "Allebei",
+          "both-hint": "In de chat te kiezen, en hij start ook op gebeurtenissen of een schema.",
+          "next": "Na het opslaan vraagt een korte setup wanneer de agent start, wat hij doet en namens wie."
+        }
       },
       "effect": {
         "read-only": "Alleen lezen",
@@ -877,11 +903,18 @@
           "required": "Verplicht.",
           "invalid": "Hier niet geldig.",
           "too-long": "Te lang.",
-          "not-found": "De applicatie kent deze naam niet."
+          "not-found": "De applicatie kent deze naam niet.",
+          "at-least": "Vul een heel getal in van minstens {{min}}.",
+          "between": "Vul een heel getal in van {{min}} tot en met {{max}}.",
+          "budget-pair": "Vul beide daglimieten in, of geen van beide.",
+          "dash-case": "Gebruik kleine letters, cijfers en streepjes, beginnend met een letter.",
+          "taken": "Deze id is al in gebruik.",
+          "name-letters": "Gebruik minstens één letter in de naam.",
+          "instructions-for-model": "Zonder vaste regels werkt het model met deze instructies; beschrijf wat het moet doen."
         },
         "settings": {
           "title": "Runinstellingen",
-          "empty": "Deze agent chat alleen. Geef hem runinstellingen om hem zelfstandig te laten werken, met vaardigheden en triggers.",
+          "empty": "Deze agent chat alleen. Laat hem zelfstandig werken: hij start dan op gebeurtenissen of een schema, werkt met regels of met het model, en stelt wijzigingen voor die mensen goedkeuren.",
           "rights": "Hij heeft geen eigen rechten: in runs zonder persoon gebruikt hij wat het account waaraan hij verantwoording aflegt mag, binnen zijn tools.",
           "add": "Runinstellingen toevoegen",
           "edit": "Runinstellingen wijzigen",
@@ -908,14 +941,42 @@
             "deny": "Weigeren"
           },
           "gateway-reads": "Lezen via de datagateway van de applicatie met de rechten van het account",
-          "delegate": "Ook gebruiken wat de persoon die een run start mag"
+          "delegate": "Ook gebruiken wat de persoon die een run start mag",
+          "add-title": "Runinstellingen",
+          "edit-title": "Runinstellingen wijzigen",
+          "who": {
+            "title": "Namens wie werkt de agent?",
+            "short": "Namens",
+            "explain": "De agent heeft geen eigen rechten. In runs zonder persoon gebruikt hij wat dit account mag, binnen zijn eigen tools."
+          },
+          "accountability-explain": {
+            "service-account": "Een technisch account, bijvoorbeeld een operationeel account. De gebruikelijke keuze.",
+            "subject-responsible": "De verantwoordelijke van het project of de klant waar de run over gaat.",
+            "agent": "De agent zelf: hij heeft geen rechten en kan alleen voorstellen."
+          },
+          "how": {
+            "title": "Hoe werkt hij?",
+            "hint": "Vaste regels beslissen zonder model en geven twijfelgevallen door aan het model. Dit geldt voor runs die geen vaardigheid oppakt."
+          },
+          "approval": {
+            "title": "Wie keurt zijn voorstellen goed?",
+            "default": "De standaard van de applicatie",
+            "hint": "Voorstellen die gegevens wijzigen wachten op deze goedkeuring; daarvoor wordt niets uitgevoerd."
+          },
+          "no-triage": "Geen triage",
+          "retries-hint": "Hoe vaak een mislukte run opnieuw wordt geprobeerd.",
+          "max-concurrent-hint": "Runs van deze agent die tegelijk werken.",
+          "max-per-subject-hint": "Beschermt een project of klant tegen te veel runs op één dag.",
+          "elevated-reads-hint": "Wat er gebeurt als de agent gegevens leest die de lezer van zijn thread niet mag zien.",
+          "gateway-reads-hint": "Laat de agent als dit account lezen via de datagateway van de applicatie, zoals haar API.",
+          "delegate-hint": "Als iemand een run met de hand start, mag de agent ook de rechten van die persoon gebruiken."
         },
         "rule-handler": "Regels",
         "rule-handler-value": "Regels: {{name}}",
         "policy-value": "Goedkeuring: {{name}}",
         "profile-value": "Model: {{name}}",
         "approval-policy": "Goedkeuringsbeleid",
-        "model": "Het model, geen regels",
+        "model": "Het model beslist (geen vaste regels)",
         "none": "Geen",
         "choose": "Kies…",
         "max-tokens": "Tokens per run",
@@ -942,7 +1003,7 @@
           "instructions": "Instructies",
           "instructions-hint": "Gelezen na de eigen instructies van de agent zolang hij in de vaardigheid werkt.",
           "tools": "Tools",
-          "tools-hint": "Beperk de tools van de agent voor deze vaardigheid. Niets gekozen: de tools van de agent.",
+          "tools-hint": "De tools die de agent biedt; selecteer er een paar om ze voor deze skill te beperken. Niets geselecteerd: alle tools van de agent. Tools voeg je toe aan de agent via Bewerken.",
           "profile": "Modelprofiel",
           "agent-profile": "Het profiel van de agent",
           "agent-policy": "Het beleid van de agent",
@@ -951,7 +1012,20 @@
           "apply-live": "Direct live zetten",
           "starts-in-shadow": "Een nieuwe vaardigheid start in schaduw.",
           "versions": "Versies",
-          "remove-explain": "Haar versies blijven bewaard. Een trigger die haar start moet eerst weg."
+          "remove-explain": "Haar versies blijven bewaard. Een trigger die haar start moet eerst weg.",
+          "what": {
+            "title": "Waarvoor is de vaardigheid?"
+          },
+          "how": {
+            "title": "Hoe werkt hij?"
+          },
+          "rules-hint": "De regels beslissen zonder model; een twijfelgeval gaat naar het model met de instructies hieronder.",
+          "model-hint": "Het model beslist met de instructies hieronder en de gekozen tools.",
+          "profile-hint": "Het modelprofiel dat hij gebruikt; standaard dat van de agent.",
+          "apply-shadow-hint": "De nieuwe versie draait naast de live versie; vergelijk ze en promoveer of verwerp hem daarna.",
+          "apply-live-hint": "Voor een kleine correctie: de nieuwe versie vervangt de live versie meteen.",
+          "tools-pattern": "Alle tools die passen: nu {{count}}.",
+          "background-hint": "Door een trigger gestart werkt de agent zonder chat: wat hij schrijft blijft bij zijn run in de thread van waar hij aan werkt, en wijzigingen worden voorstellen."
         },
         "candidate": {
           "badge": "Kandidaat v{{version}}",
@@ -1017,8 +1091,120 @@
             "schedule": "Schema",
             "webhook": "Webhook"
           },
-          "starts-in-shadow": "Een nieuwe trigger start in schaduw."
-        }
+          "starts-in-shadow": "Een nieuwe trigger start in schaduw.",
+          "id-hint": "Kleine letters, cijfers en streepjes, bijvoorbeeld project-aangemaakt.",
+          "when": {
+            "title": "Wanneer start hij?"
+          },
+          "then": {
+            "title": "Daarna"
+          },
+          "source-event-hint": "Er gebeurt iets in de applicatie, zoals een project dat wordt aangemaakt.",
+          "source-schedule-hint": "Op vaste momenten, voor elk onderwerp in een verzameling.",
+          "debounce-hint": "Wacht zo lang op meer gebeurtenissen over hetzelfde onderwerp en behandelt ze in één run.",
+          "subject-set-hint": "De projecten of klanten die het schema telkens behandelt.",
+          "message-hint": "Wat de agent telkens als opdracht leest.",
+          "examples": "Voorbeelden",
+          "example": {
+            "weekdays-8": "Werkdagen om 8:00",
+            "daily-7": "Dagelijks om 7:00",
+            "monday-9": "Maandag om 9:00",
+            "hourly": "Elk uur"
+          },
+          "conflict-explain": {
+            "coalesce": "Voegt de gebeurtenis toe aan de wachtende run.",
+            "queue": "Draait opnieuw na de lopende run.",
+            "supersede": "Vervangt de wachtende run door deze gebeurtenis.",
+            "ignore": "Slaat deze gebeurtenis of dit moment over."
+          },
+          "live-badge": "Live"
+        },
+        "way-of-working": "Werkwijze",
+        "check-fields": "Controleer de gemarkeerde velden.",
+        "limits": {
+          "title": "Grenzen"
+        },
+        "advanced": {
+          "title": "Geavanceerd",
+          "explain": "Deze opties hebben verstandige standaardwaarden; wijzig ze alleen als dat nodig is."
+        },
+        "account": {
+          "search-placeholder": "Zoek op naam of e-mailadres",
+          "id-placeholder": "De id van het account",
+          "search-hint": "Kies het account op naam of e-mailadres. Het moet kunnen inloggen.",
+          "id-hint": "De applicatie biedt geen accountzoeker; vul de id van het account in. Het moet kunnen inloggen.",
+          "known": "Account: {{name}}",
+          "unknown": "De applicatie kent dit account niet."
+        },
+        "policy-summary": {
+          "who": "Goedgekeurd door {{approvers}}.",
+          "nobody": "Er is niemand aangewezen om goed te keuren.",
+          "or": "of",
+          "wait": "Een voorstel wacht {{duration}}.",
+          "mode": {
+            "inline": "De run wacht op het besluit.",
+            "deferred": "De run stopt; mensen besluiten later."
+          },
+          "four-eyes": "Wie het voorstel veroorzaakte, mag het niet zelf goedkeuren.",
+          "approver": {
+            "initiator": "degene die het veroorzaakte",
+            "named-role": "iemand met de rol {{role}} op het onderwerp",
+            "subject-role": {
+              "reader": "een lezer van het onderwerp",
+              "participant": "een deelnemer van het onderwerp",
+              "approver": "een goedkeurder van het onderwerp"
+            },
+            "policy": "iemand met het recht {{policy}}"
+          },
+          "duration": {
+            "minute": "1 minuut",
+            "minutes": "{{count}} minuten",
+            "hour": "1 uur",
+            "hours": "{{count}} uur",
+            "day": "1 dag",
+            "days": "{{count}} dagen"
+          }
+        },
+        "setup": {
+          "start": "Laat deze agent zelfstandig werken",
+          "title": "Laat {{name}} zelfstandig werken",
+          "explain": "Vier korte vragen. Alles begint in schaduw: de agent werkt, maar niemand krijgt een melding en er wordt niets uitgevoerd tot je hem live zet.",
+          "progress": "Stappen",
+          "step": {
+            "when": "Wanneer",
+            "what": "Wat",
+            "who": "Namens wie",
+            "limits": "Goedkeuring en grenzen",
+            "review": "Controleren"
+          },
+          "when": {
+            "title": "Wanneer start de agent?"
+          },
+          "what": {
+            "title": "Wat doet hij?",
+            "name": "Naam van de taak",
+            "name-hint": "Een korte naam, bijvoorbeeld \"Nieuwe projecten starten\".",
+            "name-id": "De id wordt {{id}}."
+          },
+          "limits": {
+            "title": "Wie keurt goed, en wat zijn de grenzen?"
+          },
+          "review": {
+            "title": "Controleren",
+            "event": "Als {{event}} gebeurt",
+            "schedule": "Volgens het schema {{cron}} ({{zone}}), voor {{set}}",
+            "shadow": "De taak en de trigger beginnen in schaduw. Zet ze nu live, of later vanuit de runconfiguratie."
+          },
+          "no-events": "De applicatie registreert nog geen gebeurtenissen; kies een schema.",
+          "next": "Volgende",
+          "back": "Vorige",
+          "save-shadow": "Opslaan in schaduw",
+          "save-live": "Opslaan en live zetten",
+          "done": "Opgeslagen.",
+          "saved-shadow": "De agent werkt nu in schaduw: hij draait, maar niemand krijgt een melding en er wordt niets uitgevoerd. Zet de taak en de trigger live als de resultaten kloppen.",
+          "saved-live": "De agent werkt nu live."
+        },
+        "note-hint": "Blijft bij deze versie in de geschiedenis, met je naam en het tijdstip. De agent leest dit niet."
       }
     },
     "page-context": {
@@ -1229,6 +1415,12 @@
           "failed": "Niet beantwoord"
         }
       }
+    },
+    "picker": {
+      "toggle": "Toon de keuzes",
+      "searching": "Zoeken…",
+      "type-more": "Typ minstens twee tekens.",
+      "no-results": "Niets gevonden."
     }
   }
 }

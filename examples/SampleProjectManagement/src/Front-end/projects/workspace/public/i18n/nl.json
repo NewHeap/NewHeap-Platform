@@ -39,7 +39,7 @@
     "sample-pattern-description": "Een kolomwissel stuurt alleen de nieuwe status en laat naam, sleutel en omschrijving ongemoeid.",
     "authorization-demo-accounts": "Development-accounts (wachtwoord: Sample123!)",
     "authorization-role-manager": "Manager",
-    "authorization-role-manager-access": "Applicatiebreed bekijken, beheren en vertrouwelijke projecten bekijken.",
+    "authorization-role-manager-access": "Applicatiebreed bekijken, beheren en vertrouwelijke projecten bekijken, plus projectrechten in Sample North en de assistent.",
     "authorization-role-viewer": "Viewer",
     "authorization-role-viewer-access": "Alleen applicatiebreed bekijken; beheer blijft verborgen en geeft 403.",
     "authorization-role-division-editor": "Divisie-editor",

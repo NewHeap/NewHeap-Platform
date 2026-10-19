@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
 
 namespace NewHeap.Platform.AspNet.Common.Extensions;
 
@@ -16,8 +15,8 @@ public static class TokenValidationParameterExtensions
     {
         cfg.ValidIssuer = configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"];
         cfg.ValidAudience = configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"];
-        cfg.IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
-            configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"]!));
+        // Refuses a missing, unresolved or too short key (NhJwtSigningKey).
+        cfg.IssuerSigningKey = NhJwtSigningKey.Create(configuration);
         cfg.ValidateLifetime = true;
         cfg.ClockSkew = TimeSpan.Zero;
     }

@@ -4,8 +4,8 @@ title: "Host the NewHeap assistant panel in an Angular application"
 area: frontend
 reference: ai-assistant-ui
 summary: "Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, let users run several conversations at once, share them and get desktop notifications, route to the lazily loaded administration page behind the admin permission, and test against the scripted mock API instead of a live model."
-sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-295", "SPM-296", "SPM-297"]
-public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantMcpConnectionsComponent", "McpConnection", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService", "getRequestHeaders", "NhAssistantAgentRunApiService", "NhAssistantAgentInboxComponent", "NhAssistantAgentThreadViewComponent", "NhAssistantAgentProposalsComponent", "NhAssistantRunTimelineComponent", "NhAssistantAgentMemoryComponent", "NhAssistantAgentArtifactsComponent", "NhAssistantAgentConsultationsComponent", "getHubQueryParameters", "NhAssistantApprovalRight", "NhAssistantApprovalChoice", "ConversationThread", "NhAssistantProposalFeedbackComponent", "NhAssistantProposalFeedbackSaved", "NhAssistantAgentFeedbackReportComponent", "NhAssistantFeedbackPeriod", "AgentProposalFeedback", "AgentProposalFeedbackCategory", "AgentProposalFeedbackGroup", "AgentFeedbackOutcome", "AgentFeedbackSummary", "AgentFeedbackSummaryRow", "AgentFeedbackItem", "AgentFeedbackList", "AgentFeedbackFilter", "NH_ASSISTANT_FEEDBACK_CATEGORIES", "NH_ASSISTANT_FEEDBACK_GROUPS", "NH_ASSISTANT_MAX_FEEDBACK_TEXT", "NH_ASSISTANT_MAX_BULK_FEEDBACK", "LiveAgentWorkChanged", "LiveAgentWorkReason", "NhAssistantSubjectBadgeComponent", "NhAssistantSubjectSummaryService", "NhAssistantSubjectSuggestionsComponent", "AgentSubjectWork", "AgentSubjectSummary", "AgentProposalDecisionRight", "NH_ASSISTANT_MAX_SUBJECT_SUMMARY", "NhAssistantAgentRunConfigurationComponent", "RunCatalog", "AgentRunConfiguration", "DataSkill", "DataTrigger", "AgentRunSettings", "NhAssistantError"]
+sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-295", "SPM-296", "SPM-297", "SPM-298"]
+public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService", "getRequestHeaders", "NhAssistantAgentRunApiService", "NhAssistantAgentInboxComponent", "NhAssistantAgentThreadViewComponent", "NhAssistantAgentProposalsComponent", "NhAssistantRunTimelineComponent", "NhAssistantAgentMemoryComponent", "NhAssistantAgentArtifactsComponent", "NhAssistantAgentConsultationsComponent", "getHubQueryParameters", "NhAssistantApprovalRight", "NhAssistantApprovalChoice", "ConversationThread", "NhAssistantProposalFeedbackComponent", "NhAssistantProposalFeedbackSaved", "NhAssistantAgentFeedbackReportComponent", "NhAssistantFeedbackPeriod", "AgentProposalFeedback", "AgentProposalFeedbackCategory", "AgentProposalFeedbackGroup", "AgentFeedbackOutcome", "AgentFeedbackSummary", "AgentFeedbackSummaryRow", "AgentFeedbackItem", "AgentFeedbackList", "AgentFeedbackFilter", "NH_ASSISTANT_FEEDBACK_CATEGORIES", "NH_ASSISTANT_FEEDBACK_GROUPS", "NH_ASSISTANT_MAX_FEEDBACK_TEXT", "NH_ASSISTANT_MAX_BULK_FEEDBACK", "LiveAgentWorkChanged", "LiveAgentWorkReason", "NhAssistantSubjectBadgeComponent", "NhAssistantSubjectSummaryService", "NhAssistantSubjectSuggestionsComponent", "AgentSubjectWork", "AgentSubjectSummary", "AgentProposalDecisionRight", "NH_ASSISTANT_MAX_SUBJECT_SUMMARY", "NhAssistantAgentRunConfigurationComponent", "RunCatalog", "AgentRunConfiguration", "DataSkill", "DataTrigger", "AgentRunSettings", "NhAssistantError", "AssistantAccount", "ApprovalPolicySummary", "ApproverSummary", "NhAssistantMcpConnectionsComponent", "McpConnection"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: high
@@ -91,7 +91,12 @@ a region, such as `nl-NL`, receives the texts of its base language, so do not me
 bundles into regional languages yourself. Add only host-specific keys under `nh-assistant.`: agent names and descriptions from the
 server's `displayNameKey`/`descriptionKey`, and message keys of host-specific
 error codes. Agents created by an administrator carry literal text in those fields,
-which the panel shows as is. Theme the panel through the `--nh-assistant-*` custom
+which the panel shows as is. The administration also reads
+`nh-assistant.agents.<agentId>.skills.<skillId>.name` and `.description` for skills (otherwise
+a readable form of the skill id and the description from code) and `nh-assistant.policies.<policy>`
+for the policy an agent requires (otherwise the policy as it is named in code). Its agent editor
+shows the translations of an agent in code and sends the keys back unless the administrator
+changes the text. Theme the panel through the `--nh-assistant-*` custom
 properties mapped onto the host's tokens, and pass the host icon library through
 `NH_ASSISTANT_ICONS`.
 
@@ -218,7 +223,17 @@ Each agent on that page also opens its run configuration
 (`NhAssistantAgentRunConfigurationComponent`). Skills and triggers in code are read only;
 skills, triggers and, for agents created in the administration, run settings are data,
 made only of the names `getRunCatalog` lists: trigger events, subject sets, rule handlers,
-approval policies and profiles. Run settings name who the agent answers to (the person
+approval policies and profiles. Every choice is a searchable picker that shows a name with what it
+means, approval policies with a sentence built from `approvalPolicySummaries`, and the technical
+account is found by name through `searchAccounts` when the catalog reports `accountSearch`
+(otherwise by its id, with the name `getAccounts` knows). The editor of a new agent asks how it is
+used: in the chat, on its own (`offeredInChat: false`, kept out of the agent picker) or both; an
+agent that works on its own continues in its run configuration's guided setup, which asks when it
+starts, what it does, on whose behalf, who approves and its limits, and saves run settings, a skill
+and a trigger in shadow or puts them live at once. Run settings read as questions with the rarely
+changed options under "Advanced". A skill's tool choice lists the agent's tool selectors with the
+tool's description or how many tools a pattern matches (pass the catalog with `tools`), and the
+reason of every change is a note for other administrators that the agent never reads. Run settings name who the agent answers to (the person
 responsible for the subject, a technical account or the agent itself); grants stay in
 code, so in runs without a person the agent uses what that account may use, within its
 tools, and an agent that answers to itself can only propose. Skills and triggers wait
@@ -227,9 +242,11 @@ in shadow. A change of a skill runs in shadow by default as the skill's candidat
 the live version, until the administrator compares, promotes or discards it
 (`compareSkillCandidate`, `promoteSkillCandidate`, `discardSkillCandidate`); choosing live
 replaces the live version at once. Saves and removals send the version they read and an
-optional reason. An `assistant-validation` refusal carries the refused fields in
-`fieldErrors` of `NhAssistantError`, by camelCase field name; the screen shows them at
-their fields. Settings that no longer fit the application, such as a removed rule
+optional reason. The forms check required fields and numbers before sending; an
+`assistant-validation` refusal carries the refused fields in `fieldErrors` of `NhAssistantError`, by
+camelCase field name. Errors appear under their field, a form-level message next to the save button
+and the first invalid field receives the focus; a failed action of a skill, trigger or agent shows
+its error at that item. Settings that no longer fit the application, such as a removed rule
 handler, are listed above the skills with the server's problem; they stay out of effect
 until they are fixed.
 
@@ -278,10 +295,10 @@ event stream, including approvals, cancellation and the disabled flag, and serve
 the preference and administration endpoints with the same rules as the server, so
 the panel and the administration page are exercised without a model or assistant
 back-end. Give the administration scenario a `runCatalog` with the building blocks the
-application registers and `codeTriggers` for its triggers in code, so the run
-configuration offers the same names as the server; the mock refuses other names with
-field errors and treats an account id starting with `unknown` as one that may not sign
-in. The mock also offers sharing, read state and in-memory live updates through
+application registers, `codeTriggers` for its triggers in code and `accounts` for the account
+search, so the run configuration offers the same names as the server; the mock refuses other names
+with field errors, accepts only those accounts when there are some and treats an account id
+starting with `unknown` as one that may not sign in. The mock also offers sharing, read state and in-memory live updates through
 `NhAssistantMockLiveService`; `NhAssistantMockBackend.simulateParticipantTurn` lets a
 colleague continue a conversation in a demo or test. A route may host its own assistant scope with route-level providers; put
 the administration route under the same parent to share that scope.
@@ -341,6 +358,10 @@ the administration route under the same parent to share that scope.
 - Offering free text for events, subject sets, rules, policies or profiles in a custom run
   configuration screen, or sending a skill change with `apply: 'live'` unless the
   administrator chose live over a candidate in shadow.
+- Asking administrators for an account's GUID when the catalog reports `accountSearch`, or showing
+  a refused save only at the top of the page instead of at its fields and next to the save button.
+- Offering an agent that only works on its own in the chat; keep it out with `offeredInChat: false`
+  or `HideFromChat()`.
 - Blocking new conversations while a turn runs, or rebuilding a second status list
   next to `activity`, `runningCount` and `unreadCount`.
 - Marking conversations as read on arrival instead of when the user sees them.
@@ -385,7 +406,10 @@ preference tests also allow and withdraw background use of a personal server. Th
 configuration tests give an administration agent run settings, show refused fields and an
 account that may not sign in, add a skill that starts in shadow and a trigger that is put
 live, keep the run settings while skills or triggers remain, keep skills and triggers in
-code read only, and save a skill change as a candidate that is compared and promoted. The
+code read only, and save a skill change as a candidate that is compared and promoted. They also
+show errors at their fields and next to the actions before and after a refused save, choose the
+technical account by name, and create an agent that works on its own through the guided setup, kept
+out of the chat; the picker tests cover the combobox keys, filtering and the server search. The
 page-context tests send the getter result read in the injection context, truncate
 long fields, keep sending when the getter throws, and send `null` after the user
 removes the chip. The UI-state tests restart the store, verify scoped restoration
@@ -427,5 +451,7 @@ intake reviews page, answer the question, and open the report as an administrato
 project's dialog and decide or reject its suggestions there, and open the reviewer's
 conversation from it (SPM-280). In the assistant playground's administration, open the
 project planner's run configuration, add a skill by the progress-note rules and see it in
-shadow next to the skills in code (SPM-295). SPM-248, SPM-253, SPM-265, SPM-277, SPM-279,
-SPM-280 and SPM-295 are the executable references.
+shadow next to the skills in code (SPM-295). In the portal's real assistant administration, sign in
+as the project lead and open the project starter's run configuration: the account by name, the
+policy explained, the kickoff skill and its live trigger (SPM-298). SPM-248, SPM-253, SPM-265,
+SPM-277, SPM-279, SPM-280, SPM-295 and SPM-298 are the executable references.

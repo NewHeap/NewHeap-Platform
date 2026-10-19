@@ -10,9 +10,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Microsoft.IdentityModel.Tokens;
+using NewHeap.Platform.AspNet.Common.Extensions;
 using NewHeap.Platform.Common.Localization;
 using NewHeap.Platform.Common.Models.Options;
-using System.Text;
 
 namespace NewHeap.Platform.AspNet.Common.Models.Options;
 
@@ -65,9 +65,8 @@ public class NewHeapAspNetCommonOptionsBuilder
                     _configuration[$"{NewHeapAspNetCommonOptions.DefaultSettingsPrefix}:Authorization:JWT:Token:Issuer"];
                 options.ValidAudience =
                     _configuration[$"{NewHeapAspNetCommonOptions.DefaultSettingsPrefix}:Authorization:JWT:Token:ValidAudience"];
-                options.IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(
-                        _configuration[$"{NewHeapAspNetCommonOptions.DefaultSettingsPrefix}:Authorization:JWT:Token:Key"]!));
+                // Refuses a missing, unresolved or too short key, so the platform does not start with it.
+                options.IssuerSigningKey = NhJwtSigningKey.Create(_configuration);
             }
         };
     }

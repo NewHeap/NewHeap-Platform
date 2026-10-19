@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
 using OpenTelemetry;
@@ -31,6 +33,9 @@ public class NewHeapPlatformCommonConfigurator
         _serviceCollection.AddSingleton<LogHelperService>();
         _serviceCollection.AddSingleton<ValidationService>();
         _serviceCollection.AddSingleton<ICollectionProcessingService, CollectionProcessingService>();
+        // Missing secrets leave their ${Secrets:...} reference as text; name those settings at startup.
+        _serviceCollection.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IHostedService, NhUnresolvedConfigurationReferenceReporter>());
 
         if (_options.OtlpUseExporter)
         {

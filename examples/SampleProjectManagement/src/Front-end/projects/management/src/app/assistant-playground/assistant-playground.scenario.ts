@@ -137,6 +137,11 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       approvalPolicies: ['project-intake', 'project-planning', 'project-closing'],
       profiles: ['project-assistant-chat']
     },
+    // The accounts the API's account search finds; agents that work on their own answer to one.
+    accounts: [
+      { actorId: '9c2f4c58-2d7b-4a43-9c55-1f1b4f2a6e11', displayName: 'operations@example.test', detail: 'operations@example.test' },
+      { actorId: '0b5e3a7e-5c1d-4b0f-8f7e-6a2d9e4c3b21', displayName: 'project-lead@example.test', detail: 'project-lead@example.test' }
+    ],
     codeTriggers: [
       { agentId: PROJECT_PLANNER_ID, triggerId: 'project-task-completed-planner', source: 'event', skillId: 'task-follow-up' },
       { agentId: PROJECT_PLANNER_ID, triggerId: 'daily-deadline-check', source: 'schedule', skillId: null }

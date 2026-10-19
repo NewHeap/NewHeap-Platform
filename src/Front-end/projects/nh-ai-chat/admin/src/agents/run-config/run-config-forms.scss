@@ -1,0 +1,198 @@
+// The run configuration forms and the guided setup. Scoped to the component that includes it,
+// after the shared administration styles.
+
+h5 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  border-top: 1px solid var(--nha-border);
+  padding-top: 14px;
+
+  > legend {
+    float: left;
+    width: 100%;
+    margin-bottom: 2px;
+    font-size: 14px;
+    font-weight: 750;
+  }
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 8px;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 10px 12px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+
+  input {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 2px 0 0;
+    accent-color: var(--nha-highlight);
+  }
+
+  > span {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  strong {
+    font-size: 13px;
+  }
+
+  &.selected {
+    border-color: var(--nha-highlight);
+    background: var(--nha-surface);
+  }
+
+  &:focus-within {
+    outline: 2px solid var(--nha-highlight);
+    outline-offset: 2px;
+  }
+}
+
+.block {
+  display: block;
+  margin-top: 2px;
+}
+
+.advanced {
+  border-top: 1px solid var(--nha-border);
+  padding-top: 12px;
+
+  > summary {
+    width: fit-content;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 750;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--nha-highlight);
+      outline-offset: 2px;
+    }
+  }
+
+  > .stack {
+    margin-top: 12px;
+  }
+}
+
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+
+  button {
+    border: 1px solid var(--nha-border);
+    border-radius: 999px;
+    padding: 3px 10px;
+    color: var(--nha-text);
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--nha-surface-strong);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--nha-highlight);
+      outline-offset: 2px;
+    }
+  }
+}
+
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 4px 10px;
+    color: var(--nha-text-muted);
+    background: var(--nha-surface-strong);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  li[aria-current='step'] {
+    color: var(--nha-accent-contrast);
+    background: var(--nha-accent);
+  }
+
+  li.done {
+    color: var(--nha-success);
+    background: var(--nha-success-soft);
+  }
+}
+
+.review {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 13px;
+
+  dt {
+    color: var(--nha-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.tool-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .review {
+    grid-template-columns: minmax(0, 1fr);
+
+    dd {
+      margin-bottom: 6px;
+    }
+  }
+}
+
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}

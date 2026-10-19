@@ -12,8 +12,8 @@ using NewHeap.Platform.AI.Chat.Persistence;
 namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
 {
     [DbContext(typeof(NhAssistantDbContext))]
-    [Migration("20261019190544_McpConnectionPolicy")]
-    partial class McpConnectionPolicy
+    [Migration("20261019210222_McpServerCredentials")]
+    partial class McpServerCredentials
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -50,6 +50,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("HiddenFromChat")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Instructions")
                         .IsRequired()
@@ -1217,6 +1220,62 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.ToTable("AssistantIdempotencyLease", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AllowBackgroundUse")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ConsentHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset?>("ConsentedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("OwnerActorId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("OwnerKind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("ServerId")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("TenantKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerActorId", "OwnerKind");
+
+                    b.HasIndex("ServerId", "OwnerKind", "OwnerActorId", "TenantKey")
+                        .IsUnique();
+
+                    b.ToTable("AssistantMcpConnection", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpServer", b =>
                 {
                     b.Property<string>("Id")
@@ -1227,6 +1286,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ClientCertificateReference")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -1272,6 +1335,17 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("SecretReference")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("Transport")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasDefaultValue("streamable-http");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -1279,6 +1353,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(2048)
                         .HasColumnType("nvarchar(2048)");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.HasKey("Id");
 
@@ -2130,6 +2208,15 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantConversation", null)
                         .WithMany()
                         .HasForeignKey("SourceConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpConnection", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantMcpServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

@@ -92,6 +92,15 @@ export const SAMPLE_ROUTES: Routes = [
           .then(module => module.ASSISTANT_PLAYGROUND_ROUTES)
       },
       {
+        // The real administration; the server's admin policy decides what the page shows.
+        path: 'assistant-administration',
+        title: 'Assistant administration',
+        canActivate: [NhIsOnePermissionGrantedGuard],
+        data: { oneMatchPermissions: ['app.assistant.access'] },
+        loadComponent: () => import('./assistant-administration/assistant-administration-page.component')
+          .then(module => module.AssistantAdministrationPageComponent)
+      },
+      {
         path: 'project-members',
         title: 'Project members',
         canActivate: [NhIsOnePermissionGrantedGuard],

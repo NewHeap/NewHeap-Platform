@@ -8,6 +8,7 @@ using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Exceptions;
+using NewHeap.Platform.AspNet.Common.Extensions;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
@@ -192,12 +193,12 @@ public class NhAuthenticationService<
     }
     
     /// <summary>
-    /// Get key used to sign jwt
+    /// Get key used to sign jwt; a missing, unresolved or too short key is refused (<see cref="NhJwtSigningKey"/>).
     /// </summary>
     /// <returns></returns>
     protected virtual string GetTokenKey()
     {
-        return _configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"]!;
+        return NhJwtSigningKey.Read(_configuration);
     }
 
     /// <summary>

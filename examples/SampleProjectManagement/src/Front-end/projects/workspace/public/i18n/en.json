@@ -39,7 +39,7 @@
     "sample-pattern-description": "Changing columns only sends the new status and leaves name, key and description untouched.",
     "authorization-demo-accounts": "Development accounts (password: Sample123!)",
     "authorization-role-manager": "Manager",
-    "authorization-role-manager-access": "Application-wide view, manage and confidential project access.",
+    "authorization-role-manager-access": "Application-wide view, manage and confidential project access, plus project rights in Sample North and the assistant.",
     "authorization-role-viewer": "Viewer",
     "authorization-role-viewer-access": "Application-wide view only; manage stays hidden and returns 403.",
     "authorization-role-division-editor": "Division editor",

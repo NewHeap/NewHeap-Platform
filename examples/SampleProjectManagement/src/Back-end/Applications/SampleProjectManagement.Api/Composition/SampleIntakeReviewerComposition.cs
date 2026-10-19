@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
+using NewHeap.Platform.Common;
 using SampleProjectManagement.Core.Events;
 using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.DAL;
@@ -35,7 +36,8 @@ public static class SampleIntakeReviewerComposition
     public const string DeadlineReviewTriggerId = "weekly-deadline-review";
 
     /// <summary>
-    /// The configuration key of the secret the review board signs its webhook calls with.
+    /// The configuration key of the secret the review board signs its webhook calls with, set in the
+    /// sample's <c>secrets.json</c> and read through <see cref="NhConfigurationSecrets"/>.
     /// </summary>
     public const string ReviewBoardSecretKey = "SampleProjectManagement:ReviewBoard:WebhookSecret";
 
@@ -138,7 +140,7 @@ public static class SampleIntakeReviewerComposition
             // The body is untrusted: only a project id and a known verdict start the agent.
             .AddWebhookTrigger(ReviewBoardTriggerId, webhook => webhook
                 .StartAgent(AgentId)
-                .Secret(provider => provider.GetRequiredService<IConfiguration>()[ReviewBoardSecretKey])
+                .Secret(provider => NhConfigurationSecrets.Read(provider.GetRequiredService<IConfiguration>(), ReviewBoardSecretKey))
                 .Subject(body => ReviewBoardProject(body) is { } projectId ? ProjectSubjects.For(projectId) : null)
                 .Message(body =>
                     $"The review board answered for project {ReviewBoardProject(body):D}: propose status {(ReviewBoardVerdict(body) == "approved" ? "active" : "onhold")}.")

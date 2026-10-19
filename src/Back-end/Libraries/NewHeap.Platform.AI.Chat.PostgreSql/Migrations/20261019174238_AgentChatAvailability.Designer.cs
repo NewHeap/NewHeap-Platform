@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 {
     [DbContext(typeof(NhAssistantDbContext))]
-    [Migration("20261019190552_McpConnectionPolicy")]
-    partial class McpConnectionPolicy
+    [Migration("20261019174238_AgentChatAvailability")]
+    partial class AgentChatAvailability
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -50,6 +50,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<bool>("HiddenFromChat")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Instructions")
                         .IsRequired()
@@ -1240,22 +1243,8 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
-                    b.Property<string>("HeadlessUse")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasDefaultValue("never");
-
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("boolean");
-
-                    b.Property<DateTimeOffset?>("LastConnectAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("LastConnectCode")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTimeOffset?>("LastSyncAt")
                         .HasColumnType("timestamp with time zone");

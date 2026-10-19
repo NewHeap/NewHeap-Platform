@@ -212,7 +212,7 @@
     "selector-accepted": "selector accepted",
     "authorization-demo-accounts": "Development accounts (password: Sample123!)",
     "authorization-role-manager": "Manager",
-    "authorization-role-manager-access": "Application-wide view, manage and confidential project access.",
+    "authorization-role-manager-access": "Application-wide view, manage and confidential project access, plus project rights in Sample North and the assistant.",
     "authorization-role-viewer": "Viewer",
     "authorization-role-viewer-access": "Application-wide view only; manage stays hidden and returns 403.",
     "authorization-role-division-editor": "Division editor",
@@ -281,6 +281,8 @@
       "two-factor-loading": "Loading two-step verification…"
     },
     "assistant-playground-nav": "Assistant",
+    "assistant-administration-nav": "Assistant administration",
+    "assistant-administration-intro": "The real assistant administration. The project starter is an agent created here that works on its own: it answers to the operations account, is not offered in the chat, and starts on every new project.",
     "assistant-playground-title": "Assistant panel",
     "assistant-playground-description": "The reusable assistant panel streams answers, shows tool calls and asks for approval before a change. This page runs it on a scripted mock API, so every state is reproducible without a language model.",
     "assistant-launcher-label": "Launcher",
@@ -554,12 +556,31 @@
       },
       "sample-project-planner": {
         "name": "Project planner",
-        "description": "Follows up completed tasks by rule and judges deadline risks with a model."
+        "description": "Follows up completed tasks by rule and judges deadline risks with a model.",
+        "skills": {
+          "task-follow-up": {
+            "description": "Follows up completed tasks by rule: says how many tasks are left and which comes next."
+          },
+          "deadline-risk": {
+            "description": "Judges whether an active project will miss its deadline and proposes to put it on hold."
+          }
+        }
       },
       "sample-project-planner-v2": {
         "name": "Project planner (variant)",
-        "description": "A shadow variant of the project planner with a stricter triage, evaluated before it goes live."
+        "description": "A shadow variant of the project planner with a stricter triage, evaluated before it goes live.",
+        "skills": {
+          "task-follow-up": {
+            "description": "Follows up completed tasks by rule: says how many tasks are left and which comes next."
+          },
+          "deadline-risk": {
+            "description": "Judges a deadline risk only when less than a third of the project's tasks is completed."
+          }
+        }
       }
+    },
+    "policies": {
+      "app.active-division.project.view": "viewing projects in the active division"
     }
   },
   "nh-two-factor": {

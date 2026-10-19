@@ -1,0 +1,225 @@
+<form class="stack card" data-form="skill" novalidate (submit)="$event.preventDefault(); save()">
+  <h5>
+    @if (skill(); as current) {
+      {{ 'nh-assistant.admin.run-config.skills.edit-title' | translate: { skill: current.skillId, version: current.version } }}
+    } @else {
+      {{ 'nh-assistant.admin.run-config.skills.new-title' | translate }}
+    }
+  </h5>
+
+  <fieldset class="group">
+    <legend>{{ 'nh-assistant.admin.run-config.skills.what.title' | translate }}</legend>
+    @if (!editing()) {
+      <div class="field">
+        <label [for]="id + '-skill-id'">{{ 'nh-assistant.admin.run-config.skills.id' | translate }}</label>
+        <input type="text" class="mono" autocomplete="off" maxlength="64" [id]="id + '-skill-id'" [value]="skillId()"
+          [attr.aria-invalid]="fieldError('skillId') ? true : null"
+          [attr.aria-describedby]="describedBy(id + '-skill-id-hint', 'skillId', id + '-skill-id-error')"
+          (input)="skillId.set(value($event)); touch('skillId')" />
+        <p class="hint" [id]="id + '-skill-id-hint'">{{ 'nh-assistant.admin.run-config.skills.id-hint' | translate }}</p>
+        @if (errorKey('skillId'); as key) {
+          <p class="field-error" [id]="id + '-skill-id-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('skillId')?.params }}</p>
+        }
+      </div>
+    }
+    <div class="field">
+      <label [for]="id + '-skill-description'">{{ 'nh-assistant.admin.run-config.skills.description-label' | translate }}</label>
+      <input type="text" [id]="id + '-skill-description'" [value]="description()"
+        [attr.aria-invalid]="fieldError('description') ? true : null"
+        [attr.aria-describedby]="describedBy(id + '-skill-description-hint', 'description', id + '-skill-description-error')"
+        (input)="description.set(value($event)); touch('description')" />
+      <p class="hint" [id]="id + '-skill-description-hint'">
+        <span>{{ 'nh-assistant.admin.run-config.skills.description-hint' | translate }}</span>
+        <span class="counter" [class.error-text]="description().length > maxDescription">{{ 'nh-assistant.admin.characters' | translate: { count: description().length, max: maxDescription } }}</span>
+      </p>
+      @if (errorKey('description'); as key) {
+        <p class="field-error" [id]="id + '-skill-description-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('description')?.params }}</p>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>{{ 'nh-assistant.admin.run-config.skills.how.title' | translate }}</legend>
+    <div class="field">
+      <label [for]="id + '-skill-rules'">{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}</label>
+      <nh-assistant-picker
+        [inputId]="id + '-skill-rules'"
+        [options]="rules()"
+        [value]="ruleHandler()"
+        [noneLabel]="'nh-assistant.admin.run-config.model' | translate"
+        [invalid]="fieldError('ruleHandler') !== null"
+        [describedBy]="describedBy(id + '-skill-rules-hint', 'ruleHandler', id + '-skill-rules-error')"
+        (valueChange)="ruleHandler.set($event); touch('ruleHandler')" />
+      <p class="hint" [id]="id + '-skill-rules-hint'">
+        {{ (ruleHandler() ? 'nh-assistant.admin.run-config.skills.rules-hint' : 'nh-assistant.admin.run-config.skills.model-hint') | translate }}
+      </p>
+      @if (errorKey('ruleHandler'); as key) {
+        <p class="field-error" [id]="id + '-skill-rules-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('ruleHandler')?.params }}</p>
+      }
+    </div>
+    <div class="field">
+      <label [for]="id + '-skill-instructions'">{{ 'nh-assistant.admin.run-config.skills.instructions' | translate }}</label>
+      <textarea rows="5" [id]="id + '-skill-instructions'" [value]="instructions()"
+        [attr.aria-invalid]="fieldError('instructions') ? true : null"
+        [attr.aria-describedby]="describedBy(id + '-skill-instructions-hint', 'instructions', id + '-skill-instructions-error')"
+        (input)="instructions.set(value($event)); touch('instructions')"></textarea>
+      <p class="hint" [id]="id + '-skill-instructions-hint'">
+        <span>{{ 'nh-assistant.admin.run-config.skills.instructions-hint' | translate }} {{ 'nh-assistant.admin.run-config.skills.background-hint' | translate }}</span>
+        <span class="counter" [class.error-text]="instructions().length > maxInstructions">{{ 'nh-assistant.admin.characters' | translate: { count: instructions().length, max: maxInstructions } }}</span>
+      </p>
+      @if (errorKey('instructions'); as key) {
+        <p class="field-error" [id]="id + '-skill-instructions-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('instructions')?.params }}</p>
+      }
+    </div>
+    <fieldset class="field" [attr.aria-describedby]="id + '-tools-hint'">
+      <legend>{{ 'nh-assistant.admin.run-config.skills.tools' | translate }}</legend>
+      <p class="hint" [id]="id + '-tools-hint'">{{ 'nh-assistant.admin.run-config.skills.tools-hint' | translate }}</p>
+      @for (choice of toolChoices(); track choice.selector) {
+        <label class="check">
+          <input type="checkbox" [checked]="tools().includes(choice.selector)" [attr.aria-invalid]="fieldError('tools') ? true : null" (change)="toggleTool(choice.selector, checked($event))" />
+          <span class="tool-choice">
+            <span class="mono">{{ choice.selector }}</span>
+            @if (choice.description) {
+              <span class="muted block">{{ choice.description }}</span>
+            } @else if (choice.matches !== null) {
+              <span class="muted block">{{ 'nh-assistant.admin.run-config.skills.tools-pattern' | translate: { count: choice.matches } }}</span>
+            }
+          </span>
+        </label>
+      } @empty {
+        <p class="muted">{{ 'nh-assistant.admin.agent-editor.no-selectors' | translate }}</p>
+      }
+      @if (errorKey('tools'); as key) {
+        <p class="field-error"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('tools')?.params }}</p>
+      }
+    </fieldset>
+    <div class="field">
+      <label [for]="id + '-skill-profile'">{{ 'nh-assistant.admin.run-config.skills.profile' | translate }}</label>
+      <nh-assistant-picker
+        [inputId]="id + '-skill-profile'"
+        [options]="profiles()"
+        [value]="profile()"
+        [noneLabel]="'nh-assistant.admin.run-config.skills.agent-profile' | translate"
+        [invalid]="fieldError('profile') !== null"
+        [describedBy]="describedBy(id + '-skill-profile-hint', 'profile', id + '-skill-profile-error')"
+        (valueChange)="profile.set($event); touch('profile')" />
+      <p class="hint" [id]="id + '-skill-profile-hint'">{{ 'nh-assistant.admin.run-config.skills.profile-hint' | translate }}</p>
+      @if (errorKey('profile'); as key) {
+        <p class="field-error" [id]="id + '-skill-profile-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('profile')?.params }}</p>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>{{ 'nh-assistant.admin.run-config.settings.approval.title' | translate }}</legend>
+    <div class="field">
+      <label [for]="id + '-skill-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}</label>
+      <nh-assistant-picker
+        [inputId]="id + '-skill-policy'"
+        [options]="policies()"
+        [value]="approvalPolicy()"
+        [noneLabel]="'nh-assistant.admin.run-config.skills.agent-policy' | translate"
+        [invalid]="fieldError('approvalPolicy') !== null"
+        [describedBy]="describedBy(null, 'approvalPolicy', id + '-skill-policy-error')"
+        (valueChange)="approvalPolicy.set($event); touch('approvalPolicy')" />
+      @if (errorKey('approvalPolicy'); as key) {
+        <p class="field-error" [id]="id + '-skill-policy-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('approvalPolicy')?.params }}</p>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>{{ 'nh-assistant.admin.run-config.limits.title' | translate }}</legend>
+    <p class="muted" [id]="id + '-limits-hint'">{{ 'nh-assistant.admin.run-config.budget-hint' | translate }}</p>
+    <div class="grid">
+      <div class="field">
+        <label [for]="id + '-skill-tokens'">{{ 'nh-assistant.admin.run-config.max-tokens' | translate }}</label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-skill-tokens'" [value]="maxTokens()"
+          [attr.aria-invalid]="fieldError('maxTokensPerRun') ? true : null"
+          [attr.aria-describedby]="describedBy(id + '-limits-hint', 'maxTokensPerRun', id + '-skill-tokens-error')"
+          (input)="maxTokens.set(value($event)); touch('maxTokensPerRun')" />
+        @if (errorKey('maxTokensPerRun'); as key) {
+          <p class="field-error" [id]="id + '-skill-tokens-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('maxTokensPerRun')?.params }}</p>
+        }
+      </div>
+      <div class="field">
+        <label [for]="id + '-skill-calls'">{{ 'nh-assistant.admin.run-config.daily-tool-calls' | translate }}</label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-skill-calls'" [value]="dailyToolCalls()"
+          [attr.aria-invalid]="fieldError('dailyToolCalls') ? true : null"
+          [attr.aria-describedby]="describedBy(id + '-limits-hint', 'dailyToolCalls', id + '-skill-calls-error')"
+          (input)="dailyToolCalls.set(value($event)); touch('dailyToolCalls'); touch('dailyTokens')" />
+        @if (errorKey('dailyToolCalls'); as key) {
+          <p class="field-error" [id]="id + '-skill-calls-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('dailyToolCalls')?.params }}</p>
+        }
+      </div>
+      <div class="field">
+        <label [for]="id + '-skill-daily-tokens'">{{ 'nh-assistant.admin.run-config.daily-tokens' | translate }}</label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-skill-daily-tokens'" [value]="dailyTokens()"
+          [attr.aria-invalid]="fieldError('dailyTokens') ? true : null"
+          [attr.aria-describedby]="describedBy(id + '-limits-hint', 'dailyTokens', id + '-skill-daily-tokens-error')"
+          (input)="dailyTokens.set(value($event)); touch('dailyTokens'); touch('dailyToolCalls')" />
+        @if (errorKey('dailyTokens'); as key) {
+          <p class="field-error" [id]="id + '-skill-daily-tokens-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('dailyTokens')?.params }}</p>
+        }
+      </div>
+    </div>
+  </fieldset>
+
+  @if (editing()) {
+    <fieldset class="group" data-apply>
+      <legend>{{ 'nh-assistant.admin.run-config.skills.apply' | translate }}</legend>
+      <div class="choices">
+        <label class="choice" [class.selected]="apply() === 'shadow'">
+          <input type="radio" [name]="id + '-apply'" value="shadow" [checked]="apply() === 'shadow'" (change)="apply.set('shadow')" />
+          <span>
+            <strong>{{ 'nh-assistant.admin.run-config.skills.apply-shadow' | translate }}</strong>
+            <span class="muted">{{ 'nh-assistant.admin.run-config.skills.apply-shadow-hint' | translate }}</span>
+          </span>
+        </label>
+        <label class="choice" [class.selected]="apply() === 'live'">
+          <input type="radio" [name]="id + '-apply'" value="live" [checked]="apply() === 'live'" (change)="apply.set('live')" />
+          <span>
+            <strong>{{ 'nh-assistant.admin.run-config.skills.apply-live' | translate }}</strong>
+            <span class="muted">{{ 'nh-assistant.admin.run-config.skills.apply-live-hint' | translate }}</span>
+          </span>
+        </label>
+      </div>
+    </fieldset>
+  } @else {
+    <p class="hint">{{ 'nh-assistant.admin.run-config.skills.starts-in-shadow' | translate }}</p>
+  }
+
+  <div class="field">
+    <label [for]="id + '-skill-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>
+    <input type="text" autocomplete="off" [id]="id + '-skill-reason'" [maxLength]="maxReason" [value]="reason()" [attr.aria-describedby]="id + '-skill-reason-hint'" (input)="reason.set(value($event))" />
+    <p class="hint" [id]="id + '-skill-reason-hint'">{{ 'nh-assistant.admin.run-config.note-hint' | translate }}</p>
+  </div>
+
+  @if (hasErrors()) {
+    <div class="form-error" role="alert" data-form-error>
+      <nh-assistant-icon name="warning" />
+      <div>
+        @if (serverError(); as failure) {
+          @if (failure.code === 'assistant-validation') {
+            {{ 'nh-assistant.admin.run-config.check-fields' | translate }}
+          } @else {
+            {{ errorKeys() | nhAssistantTranslate: failure.code }}
+          }
+        } @else {
+          {{ 'nh-assistant.admin.run-config.check-fields' | translate }}
+        }
+        @if (otherFieldErrors().length > 0) {
+          <ul>
+            @for (field of otherFieldErrors(); track field) {
+              <li><span class="mono">{{ field }}</span></li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+  }
+  <div class="actions">
+    <button class="secondary" type="button" (click)="cancelled.emit()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+    <button class="primary" type="submit" [disabled]="busy()">{{ (busy() ? 'nh-assistant.admin.saving' : 'nh-assistant.admin.save') | translate }}</button>
+  </div>
+</form>

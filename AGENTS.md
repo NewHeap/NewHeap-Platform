@@ -365,10 +365,20 @@ For Angular samples:
 
 ## Verification checklist
 
-Run the smallest relevant library tests plus the sample checks. For a complete
-library feature, expect all applicable items below:
+Run the smallest relevant library tests plus the sample checks. While developing,
+run `npm run test:affected`: it compares with the merge base of `origin/main`
+(uncommitted changes included), runs only the .NET test projects that depend on a
+changed project, runs PostgreSQL alone unless the change concerns persistence
+(migrations, EF models, contexts, stores, repositories, provider projects or provider
+tests), and runs the Angular libraries and sample checks that changed. Use
+`--dry-run` to see the plan, `--files a,b` to plan for files before changing them,
+`--all-providers` to add SQL Server and `--all` for everything. Do not rerun suites
+the change cannot reach. Before merging to `main` and before a release, run the
+full matrix: every suite, both providers. For a complete library feature, expect all
+applicable items below:
 
 ```text
+npm run test:affected
 dotnet test src/Back-end/NewHeap.Platform.sln
 dotnet test examples/SampleProjectManagement/src/Back-end/SampleProjectManagement.slnx
 npm run sample:structure
@@ -379,7 +389,8 @@ npm run build:management
 npm run build:workspace
 ```
 
-For database behavior, also run real SQL Server and PostgreSQL integration tests.
+For database behavior, also run real SQL Server and PostgreSQL integration tests;
+`npm run test:affected` selects both providers for such changes on its own.
 If local infrastructure prevents one provider run, do not silently replace it
 with InMemory: report exactly which provider remains unverified.
 

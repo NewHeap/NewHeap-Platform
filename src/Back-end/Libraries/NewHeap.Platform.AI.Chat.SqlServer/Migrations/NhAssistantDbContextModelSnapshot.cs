@@ -48,6 +48,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<bool>("HiddenFromChat")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Instructions")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");

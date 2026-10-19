@@ -236,6 +236,22 @@ change of whom it answers to, and its run settings stay while data skills or tri
 (`assistant-run-settings-in-use`). An agent in code cannot get run settings as data
 (`assistant-run-settings-in-code`). Hosts need `AddAssistantAgentRuns`, as for agents in code.
 
+An application that imports agents, for example from a package, creates one the way an
+administrator does with `INhAssistantAgentConfiguration.CreateAgentAsync(NhAssistantAgentRequest)`
+and then gives it run settings, skills and triggers as above; an existing id fails with
+`assistant-agent-exists`. Keep agents that only work on their own out of the chat: in code with
+`ConfigureAgent(id, run => run.HideFromChat())`, for an agent created in the administration with
+`offeredInChat: false` (`OfferedInChat` on the request). Such an agent is left out of the agent picker
+and `POST conversations` answers `assistant-agent-not-found` for it; its triggers, runs, subject
+threads, consultations and existing conversations keep working. The run catalog explains its
+choices: `ApprovalPolicySummaries` says per policy who approves (the initiator, a subject role or an
+authorization policy), how long a proposal waits, four eyes and whether the run waits, and
+`AccountSearch` tells whether `GET admin/accounts?query=` finds accounts by name through
+`INhActorSearch`; `GET admin/accounts?ids=` returns the names of stored account ids through
+`INhActorDirectory`. Without a search the administration asks for the account's id
+(`assistant-account-search-unavailable`). Whether an account may answer for an agent is still
+checked when the run settings are saved.
+
 People outside the thread hear about waiting proposals, due reminders,
 escalations, unknown outcomes and failed runs through Web Push and every
 `INhAssistantAgentNotificationChannel`; `INhAssistantAgentNotificationPolicy` picks the

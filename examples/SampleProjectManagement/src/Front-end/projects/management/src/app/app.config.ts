@@ -7,6 +7,6 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideSampleProjectManagement(SAMPLE_ROUTES),
     // One assistant scope for the portal: the launcher and panel live in the management layout.
-    provideSampleAssistant()
+    provideSampleAssistant({ adminRoute: '/management/assistant-administration' })
   ]
 };

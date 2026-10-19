@@ -104,7 +104,7 @@
               <button class="secondary" type="button" (click)="toolsOf.set(server)"><nh-assistant-icon name="tool" />{{ 'nh-assistant.admin.mcp.tools' | translate }}</button>
               @if (confirmingDelete() === server.id) {
                 <button class="danger" type="button" (click)="remove(server)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
-                <button class="secondary" type="button" (click)="confirmingDelete.set(null)">{{ 'nh-assistant.admin.keep' | translate }}</button>
+                <button class="secondary" type="button" (click)="confirmingDelete.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
               } @else {
                 <button class="danger" type="button" (click)="confirmingDelete.set(server.id)"><nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}</button>
               }

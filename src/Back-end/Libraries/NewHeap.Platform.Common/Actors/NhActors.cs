@@ -118,3 +118,33 @@ public interface INhActorDirectory
         IReadOnlyCollection<NhActorRef> actors,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>A search for actors by name or e-mail address.</summary>
+/// <param name="Query">Trimmed search text of <see cref="MinQueryLength"/> to <see cref="MaxQueryLength"/> characters.</param>
+/// <param name="Limit">The most results to return, 1 to <see cref="MaxLimit"/>.</param>
+public sealed record NhActorSearchRequest(string Query, int Limit = 20)
+{
+    public const int MinQueryLength = 2;
+    public const int MaxQueryLength = 100;
+    public const int MaxLimit = 50;
+
+    /// <summary>The actor kinds to search; users by default.</summary>
+    public IReadOnlyCollection<string> Kinds { get; init; } = [NhActorKinds.User];
+}
+
+/// <summary>
+/// Finds actors by name, for example to choose the account an agent answers to. NewHeap Identity
+/// searches its users; an application with its own identity model registers its own search with
+/// <see cref="NhActorServiceCollectionExtensions.AddNewHeapActorSearch{TSearch}"/>. Without one, modules
+/// ask for an actor's id instead.
+/// </summary>
+public interface INhActorSearch
+{
+    /// <summary>
+    /// Returns at most <see cref="NhActorSearchRequest.Limit"/> actors whose name or e-mail address
+    /// contains the query, ignoring case. Leave out actors that may not sign in.
+    /// </summary>
+    Task<IReadOnlyList<NhActorInfo>> SearchAsync(
+        NhActorSearchRequest request,
+        CancellationToken cancellationToken = default);
+}

@@ -39,6 +39,16 @@ public static class NhActorServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddNewHeapActorSearch<TSearch>(this IServiceCollection services)
+        where TSearch : class, INhActorSearch
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.Replace(ServiceDescriptor.Scoped<INhActorSearch, TSearch>());
+        MarkAsApplication<INhActorSearch>(services);
+        return services;
+    }
+
     public static IServiceCollection AddNewHeapUserNotificationSink<TSink>(this IServiceCollection services)
         where TSink : class, INhUserNotificationSink
     {

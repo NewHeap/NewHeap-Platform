@@ -4,6 +4,11 @@ public static class SampleAuthorizationDefaults
 {
     public const string Password = "Sample123!";
 
+    /// <summary>
+    /// The default demo account: member of <see cref="ManagerRole"/> with the application-wide
+    /// permissions and the assistant, and of <see cref="DivisionEditorRole"/> in Sample North, which
+    /// the assistant and its administration need as well. In Sample South it has no project rights.
+    /// </summary>
     public const string ManagerEmail = "sample@example.test";
     public const string ViewerEmail = "viewer@example.test";
     public const string DivisionEditorEmail = "division-editor@example.test";
@@ -13,10 +18,16 @@ public static class SampleAuthorizationDefaults
     /// <summary>
     /// Member of <see cref="ProjectLeadRole"/> and of <see cref="DivisionEditorRole"/> in Sample
     /// North, and approver of Authorization Alpha. The assistant and the agent-run pages need
-    /// both the application-wide and the division project permissions, which the accounts above
-    /// deliberately keep apart.
+    /// both the application-wide and the division project permissions, which the viewer, division
+    /// editor and project editor accounts deliberately keep apart.
     /// </summary>
     public const string ProjectLeadEmail = "project-lead@example.test";
+
+    /// <summary>
+    /// The technical account that agents working on their own answer to. It has no password, so
+    /// nobody signs in with it; agents act with its rights.
+    /// </summary>
+    public const string OperationsEmail = "operations@example.test";
 
     /// <summary>
     /// Member of <see cref="SecurityOfficerRole"/>, which the two-factor policy requires to

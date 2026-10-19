@@ -236,6 +236,22 @@ change of whom it answers to, and its run settings stay while data skills or tri
 (`assistant-run-settings-in-use`). An agent in code cannot get run settings as data
 (`assistant-run-settings-in-code`). Hosts need `AddAssistantAgentRuns`, as for agents in code.
 
+An application that imports agents, for example from a package, creates one the way an
+administrator does with `INhAssistantAgentConfiguration.CreateAgentAsync(NhAssistantAgentRequest)`
+and then gives it run settings, skills and triggers as above; an existing id fails with
+`assistant-agent-exists`. Keep agents that only work on their own out of the chat: in code with
+`ConfigureAgent(id, run => run.HideFromChat())`, for an agent created in the administration with
+`offeredInChat: false` (`OfferedInChat` on the request). Such an agent is left out of the agent picker
+and `POST conversations` answers `assistant-agent-not-found` for it; its triggers, runs, subject
+threads, consultations and existing conversations keep working. The run catalog explains its
+choices: `ApprovalPolicySummaries` says per policy who approves (the initiator, a subject role or an
+authorization policy), how long a proposal waits, four eyes and whether the run waits, and
+`AccountSearch` tells whether `GET admin/accounts?query=` finds accounts by name through
+`INhActorSearch`; `GET admin/accounts?ids=` returns the names of stored account ids through
+`INhActorDirectory`. Without a search the administration asks for the account's id
+(`assistant-account-search-unavailable`). Whether an account may answer for an agent is still
+checked when the run settings are saved.
+
 People outside the thread hear about waiting proposals, due reminders,
 escalations, unknown outcomes and failed runs through Web Push and every
 `INhAssistantAgentNotificationChannel`; `INhAssistantAgentNotificationPolicy` picks the
@@ -826,3 +842,8 @@ SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-297 are the executable references
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs)
+- SPM-298 — A complete agent created at runtime starts projects on its own, out of the chat, and administrators manage it by name
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [src/Front-end/projects/management/src/app/assistant-administration/assistant-administration-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-administration/assistant-administration-page.component.ts)

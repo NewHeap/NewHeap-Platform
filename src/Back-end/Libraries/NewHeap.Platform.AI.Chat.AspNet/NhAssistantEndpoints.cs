@@ -236,7 +236,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.TitleInvalid);
         }
         var effective = await registry.FindAsync(request.AgentId, includeDisabled: false, httpContext.RequestAborted);
-        if (effective is null)
+        // An agent kept out of the chat reads as unknown here; its runs and subject threads go on.
+        if (effective is null || !effective.OfferedInChat)
         {
             return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
         }

@@ -166,7 +166,8 @@ export class NhAssistantMockAdmin {
   chatAgents(): AgentSummary[] {
     const result: AgentSummary[] = [];
     for (const { agent } of this.agents.values()) {
-      if (agent.runState === 'stopped' || agent.runState === 'configured-off') {
+      // An agent kept out of the chat still works on its own.
+      if (agent.runState === 'stopped' || agent.runState === 'configured-off' || agent.offeredInChat === false) {
         continue;
       }
 
@@ -252,6 +253,8 @@ export class NhAssistantMockAdmin {
         return method === 'GET' && segments.length === 2 ? { status: 200, body: this.toolCatalog() } : failure(404, 'assistant-not-found');
       case 'run-catalog':
         return segments.length === 2 ? this.runConfiguration.runCatalog(method) : failure(404, 'assistant-not-found');
+      case 'accounts':
+        return segments.length === 2 ? this.runConfiguration.searchAccounts(method, query) : failure(404, 'assistant-not-found');
       case 'agents':
         if (id !== undefined && action === 'feedback') {
           return this.agentFeedback(method, id, child, segments.length);
@@ -1031,7 +1034,11 @@ export class NhAssistantMockAdmin {
       skills: previous?.skills ?? [],
       shadowOf: previous?.shadowOf ?? null,
       shadow: previous?.shadow ?? shadowState(false, false, null, false),
-      serviceAccount: previous?.serviceAccount ?? null
+      serviceAccount: previous?.serviceAccount ?? null,
+      // Code decides for its agents; an agent created here keeps its choice when it is omitted.
+      offeredInChat: source === 'code' && previous
+        ? previous.offeredInChat ?? true
+        : input.offeredInChat ?? previous?.offeredInChat ?? true
     };
   }
 

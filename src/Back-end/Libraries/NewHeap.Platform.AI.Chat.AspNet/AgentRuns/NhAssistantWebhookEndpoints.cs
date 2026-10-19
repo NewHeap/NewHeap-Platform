@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NewHeap.Platform.Common;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
@@ -24,6 +26,18 @@ internal static class NhAssistantWebhookEndpoints
     internal const int MaxBodyBytes = 64 * 1024;
     internal const int MinimumSecretLength = 32;
     internal static readonly TimeSpan MaxClockSkew = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Whether a configured secret may verify webhook calls: at least <see cref="MinimumSecretLength"/>
+    /// characters and no <c>${Secrets:…}</c> reference left as text, which means the secret is missing
+    /// and whose text anyone can read in the application's settings.
+    /// </summary>
+    internal static bool IsUsableSecret([NotNullWhen(true)] string? secret)
+    {
+        return !string.IsNullOrEmpty(secret)
+            && secret.Length >= MinimumSecretLength
+            && !NhConfigurationSecrets.IsUnresolvedReference(secret);
+    }
 
     public static void Map(RouteGroupBuilder group)
     {
@@ -55,7 +69,7 @@ internal static class NhAssistantWebhookEndpoints
         }
 
         var secret = trigger.WebhookSecret(services);
-        if (string.IsNullOrEmpty(secret) || secret.Length < MinimumSecretLength)
+        if (!IsUsableSecret(secret))
         {
             logger.LogWarning("Webhook trigger {TriggerId} has no usable secret; its calls are refused.", triggerId);
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.TriggerNotFound);

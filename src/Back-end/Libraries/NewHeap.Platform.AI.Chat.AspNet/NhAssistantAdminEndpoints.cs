@@ -765,7 +765,8 @@ internal static class NhAssistantAdminEndpoints
             body.ToolSelectors!,
             body.McpServerIds ?? [],
             requiredPolicy,
-            autonomy), errors);
+            autonomy,
+            body.OfferedInChat), errors);
     }
 
     private static (NhAssistantMcpServerInput? Input, NhAssistantValidationErrors Errors) ToInput(
@@ -843,7 +844,8 @@ internal static class NhAssistantAdminEndpoints
             Skills = state.Skills,
             ShadowOf = state.ShadowOf,
             Shadow = state.Shadow,
-            ServiceAccount = state.ServiceAccount
+            ServiceAccount = state.ServiceAccount,
+            OfferedInChat = agent.OfferedInChat
         };
     }
 
@@ -946,6 +948,7 @@ internal static class NhAssistantAdminEndpoints
                 or NhAssistantErrorCodes.SkillNotFound
                 or NhAssistantErrorCodes.TriggerNotFound
                 or NhAssistantErrorCodes.SkillCandidateNotFound
+                or NhAssistantErrorCodes.AccountSearchUnavailable
                 or NhAssistantAdminErrorCodes.NotFound
                 or NhAssistantAdminErrorCodes.ContextNotFound
                 or NhAssistantAdminErrorCodes.McpServerNotFound

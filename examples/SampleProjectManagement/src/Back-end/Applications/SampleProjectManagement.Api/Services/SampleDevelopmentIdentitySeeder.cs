@@ -27,6 +27,7 @@ public static class SampleDevelopmentIdentitySeeder
                 "app.project.view",
                 "app.project.manage",
                 "app.project.confidential.view",
+                "app.assistant.access",
                 SampleAuthorizationPolicies.BackgroundOperationAdministration,
                 SampleAuthorizationPolicies.TwoFactorAdministration
             ]);
@@ -68,6 +69,13 @@ public static class SampleDevelopmentIdentitySeeder
         var projectLead = await EnsureUserAsync(
             userManager,
             SampleAuthorizationDefaults.ProjectLeadEmail);
+        var operations = await EnsureTechnicalAccountAsync(
+            userManager,
+            SampleAuthorizationDefaults.OperationsEmail);
+        await EnsureUserRoleAsync(
+            userManager,
+            operations,
+            SampleAuthorizationDefaults.ProjectLeadRole);
 
         await EnsureUserRoleAsync(
             userManager,
@@ -125,6 +133,13 @@ public static class SampleDevelopmentIdentitySeeder
             manager.Id,
             SampleAuthorizationDefaults.SouthDivisionId,
             projectMemberRole.Id);
+        // The assistant needs project rights in the active division as well; Sample South keeps
+        // showing the manager without them.
+        await EnsureDivisionAssignmentAsync(
+            dbContext,
+            manager.Id,
+            SampleAuthorizationDefaults.NorthDivisionId,
+            divisionEditorRole.Id);
         await EnsureDivisionAssignmentAsync(
             dbContext,
             viewer.Id,
@@ -268,6 +283,31 @@ public static class SampleDevelopmentIdentitySeeder
         EnsureSucceeded(
             await userManager.CreateAsync(user, SampleAuthorizationDefaults.Password),
             $"{email} demo user");
+        return user;
+    }
+
+    /// <summary>
+    /// A technical account without a password: nobody signs in with it, but agents that answer to
+    /// it act with its rights.
+    /// </summary>
+    private static async Task<NhUser> EnsureTechnicalAccountAsync(
+        UserManager<NhUser> userManager,
+        string email)
+    {
+        var user = await userManager.FindByEmailAsync(email);
+        if (user is not null)
+        {
+            return user;
+        }
+
+        user = new NhUser
+        {
+            Email = email,
+            UserName = email,
+            EmailConfirmed = true
+        };
+
+        EnsureSucceeded(await userManager.CreateAsync(user), $"{email} technical account");
         return user;
     }
 

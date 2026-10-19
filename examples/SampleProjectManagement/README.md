@@ -57,7 +57,7 @@ The Development API creates five local accounts. They all use the password
 
 | Account | Scope |
 |---|---|
-| `sample@example.test` | application-wide manager rights |
+| `sample@example.test` | application-wide manager rights and Sample North project rights plus the assistant and its administration |
 | `viewer@example.test` | application-wide read-only access |
 | `division-editor@example.test` | project rights within the active division |
 | `project-editor@example.test` | confidential access to Authorization Alpha only |
@@ -71,10 +71,39 @@ example `C:\NewHeapAppSecrets`. Then copy
 `C:\NewHeapAppSecrets\SampleProjectManagement\secrets.json`. Configure at least
 the RabbitMQ values and
 `NewHeap.PlatformAspNetCommon.Authorization.JWT.Token.Key`. Generate a unique
-64-byte Base64 JWT key for every installation. Set
+64-byte Base64 JWT key for every installation; the API refuses to start without a key of
+at least 32 bytes, and warns at startup about every other `${Secrets:…}` reference whose
+secret is missing. Set
 `SampleProjectManagement.ReviewBoard.WebhookSecret` (at least 32 characters) to
 let the review board call the intake reviewer's webhook trigger; without it the
 webhook refuses every call.
+
+## A real model for the assistant
+
+By default a deterministic model drives the assistant and its agents. It
+recognizes a few fixed phrasings to demonstrate the governed flows, and every
+test uses it. To try agents and skills whose model decides, with instructions of
+your own, connect an OpenAI-compatible chat model through
+`SampleProjectManagement.Assistant.Model` in the local `secrets.json`:
+
+| Key | Value |
+|---|---|
+| `Provider` | empty for the deterministic model, or `openai` for an OpenAI-compatible endpoint |
+| `ApiKey` | the endpoint's API key; required with `openai` |
+| `Model` | the model or deployment name; required with `openai` |
+| `Endpoint` | optional; empty for OpenAI itself, or the https URL of a compatible endpoint such as an Azure OpenAI `/openai/v1/` endpoint; plain http only for a loopback server in Development |
+| `Region` | optional execution region the assistant sends; `external` by default |
+| `MaxInputTokens`, `MaxOutputTokens`, `TimeoutSeconds` | optional limits per model call; 32000, 2000 and 60 by default |
+
+The API validates these settings at startup and stops with a message that names
+the missing or invalid setting; it never logs the key. Environment variables such
+as `SampleProjectManagement__Assistant__Model__ApiKey` override the secrets file.
+The model then serves the project assistant, every agent and skill whose model
+decides, and the planner's triage; rule-based skills still call no model. Leave
+`Provider` empty to return to the deterministic model.
+
+With a real model, messages, the agents' instructions and the project data that
+tools read leave your machine for the endpoint. Use test data only.
 
 ## Read-only database diagnostics
 

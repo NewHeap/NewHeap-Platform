@@ -93,6 +93,12 @@ public sealed class NhAssistantAgentRunOptions
     public bool Enabled { get; internal set; } = true;
 
     /// <summary>
+    /// The agent is not offered in the chat: it is left out of the agent picker and people cannot
+    /// start a chat conversation with it. Its runs, subject threads and consultations are unaffected.
+    /// </summary>
+    public bool HiddenFromChat { get; internal set; }
+
+    /// <summary>
     /// The agent starts in shadow mode: its runs work in shadow threads, where proposals are recorded
     /// as shadow proposals that nobody is notified about and that never execute. Administrators
     /// switch a live agent at runtime with <c>INhAssistantAgentControl.SetShadowAsync</c>; a shadow
@@ -631,6 +637,17 @@ public sealed class NhAssistantAgentRunBuilder
     public NhAssistantAgentRunBuilder Enabled(bool enabled)
     {
         _options.Enabled = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Keeps the agent out of the chat: it is left out of the agent picker and people cannot start a
+    /// chat conversation with it, while its triggers, runs, subject threads and consultations work as
+    /// before. Use it for agents that only work on their own.
+    /// </summary>
+    public NhAssistantAgentRunBuilder HideFromChat()
+    {
+        _options.HiddenFromChat = true;
         return this;
     }
 

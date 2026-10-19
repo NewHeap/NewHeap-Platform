@@ -10,6 +10,7 @@ import {
   DataSkillVersionStatus,
   DataTrigger,
   DataTriggerRequest,
+  AssistantAccount,
   RunCatalog,
   SkillComparison
 } from '@newheap/platform-ai-chat';
@@ -51,15 +52,27 @@ export class NhAssistantMockRunConfiguration {
   private readonly skills = new Map<string, StoredSkillVersion[]>();
   private readonly triggers = new Map<string, DataTrigger>();
   private readonly catalog: RunCatalog;
+  private readonly accounts: AssistantAccount[];
   private readonly codeTriggers: (CodeTrigger & { agentId: string })[];
 
   constructor(scenario: NhAssistantMockAdminScenario, private readonly agents: NhAssistantMockRunAgents, private readonly now: () => string) {
+    const approvalPolicies = scenario.runCatalog?.approvalPolicies ?? scenario.policies ?? [];
+    this.accounts = scenario.accounts ?? [];
     this.catalog = {
       triggerEvents: scenario.runCatalog?.triggerEvents ?? [],
       subjectSets: scenario.runCatalog?.subjectSets ?? [],
       ruleHandlers: scenario.runCatalog?.ruleHandlers ?? [],
-      approvalPolicies: scenario.runCatalog?.approvalPolicies ?? scenario.policies ?? [],
-      profiles: scenario.runCatalog?.profiles ?? []
+      approvalPolicies,
+      profiles: scenario.runCatalog?.profiles ?? [],
+      // By default a policy lets the subject's approvers decide within a week, after the run.
+      approvalPolicySummaries: scenario.runCatalog?.approvalPolicySummaries ?? approvalPolicies.map(name => ({
+        name,
+        approvers: [{ kind: 'subject-role', role: 'approver', namedRole: null, policy: null }],
+        lifetimeMinutes: 7 * 24 * 60,
+        fourEyes: false,
+        mode: 'deferred'
+      })),
+      accountSearch: scenario.runCatalog?.accountSearch ?? this.accounts.length > 0
     };
     this.codeTriggers = (scenario.codeTriggers ?? []).map(trigger => ({ ...trigger, skillId: trigger.skillId ?? null }));
   }
@@ -67,6 +80,36 @@ export class NhAssistantMockRunConfiguration {
   /** `GET admin/run-catalog`. */
   runCatalog(method: string): MockResult {
     return method === 'GET' ? { status: 200, body: this.catalog } : { status: 405 };
+  }
+
+  /**
+   * `GET admin/accounts`: with `query` the scenario's accounts whose name or e-mail address contains
+   * it, with `ids` the known accounts among them; without accounts the search is unavailable.
+   */
+  searchAccounts(method: string, query: URLSearchParams): MockResult {
+    if (method !== 'GET') {
+      return { status: 405 };
+    }
+    const ids = query.get('ids');
+    if (ids) {
+      const wanted = new Set(ids.split(',').map(id => id.trim()).filter(id => id.length > 0));
+      return { status: 200, body: this.accounts.filter(account => wanted.has(account.actorId)) };
+    }
+    const text = (query.get('query') ?? '').trim().toLocaleLowerCase();
+    if (text.length < 2 || text.length > 100) {
+      return failure(400, 'assistant-validation', { query: ['invalid'] });
+    }
+    if (!this.catalog.accountSearch) {
+      return failure(404, 'assistant-account-search-unavailable');
+    }
+    const limit = Math.min(Math.max(Number(query.get('limit') ?? 20) || 20, 1), 50);
+    return {
+      status: 200,
+      body: this.accounts
+        .filter(account => account.displayName.toLocaleLowerCase().includes(text)
+          || (account.detail ?? '').toLocaleLowerCase().includes(text))
+        .slice(0, limit)
+    };
   }
 
   /**
@@ -173,7 +216,8 @@ export class NhAssistantMockRunConfiguration {
     if (Object.keys(errors).length > 0) {
       return failure(400, 'assistant-validation', errors);
     }
-    if (serviceAccount?.startsWith('unknown')) {
+    if (serviceAccount && (serviceAccount.startsWith('unknown')
+      || (this.accounts.length > 0 && !this.accounts.some(account => account.actorId === serviceAccount)))) {
       return failure(400, 'assistant-service-account-not-found');
     }
     if ((request.expectedVersion ?? null) !== (current?.version ?? null)) {

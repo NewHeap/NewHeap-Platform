@@ -6,6 +6,7 @@ import {
   ClientContext,
   Conversation,
   McpServerInput,
+  AssistantAccount,
   RunCatalog,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
@@ -153,6 +154,12 @@ export interface NhAssistantMockAdminScenario {
   runCatalog?: Partial<RunCatalog>;
   /** Triggers in code, per agent; they cannot change in the administration. */
   codeTriggers?: { agentId: string; triggerId: string; source: 'event' | 'schedule' | 'webhook'; skillId?: string | null }[];
+  /**
+   * The accounts `GET admin/accounts` finds, as the application's `INhActorSearch` would. With
+   * accounts, run settings accept only these technical accounts; without, the account search is
+   * unavailable and any id that does not start with `unknown` is accepted.
+   */
+  accounts?: AssistantAccount[];
 }
 
 /** A person in the simulated organization. */

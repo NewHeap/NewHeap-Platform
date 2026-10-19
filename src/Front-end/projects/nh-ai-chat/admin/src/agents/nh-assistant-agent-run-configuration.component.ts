@@ -13,41 +13,36 @@ import {
   output,
   signal
 } from '@angular/core';
-import { TranslatePipe } from '@ngx-translate/core';
-import { Observable, Subscription, forkJoin } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { Observable, Subscription, forkJoin, map, startWith } from 'rxjs';
 import {
   AdminAgent,
-  AgentAccountability,
-  AgentElevatedReads,
   AgentRunConfiguration,
-  AgentRunSettingsRequest,
   DataSkill,
-  DataSkillRequest,
   DataSkillVersion,
   DataTrigger,
-  DataTriggerRequest,
   NhAssistantAdminApiService,
   NhAssistantError,
   RunCatalog,
-  SkillApplyMode,
   SkillComparison,
-  TriggerConflict,
+  ToolCatalogEntry,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantPickerOption as NhAssistantPickerOption,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { codeTextKeys, readableId, skillDescriptionKeys, skillNameKeys } from './agent-texts';
+import { NhAssistantAgentWorkSetupComponent } from './run-config/nh-assistant-agent-work-setup.component';
+import { NhAssistantRunSettingsFormComponent } from './run-config/nh-assistant-run-settings-form.component';
+import { NhAssistantSkillFormComponent, SkillFormSaved } from './run-config/nh-assistant-skill-form.component';
+import { NhAssistantTriggerFormComponent } from './run-config/nh-assistant-trigger-form.component';
+import { describePolicy, runConfigLimits } from './run-config/run-config-shared';
 
 let nextId = 0;
 
-/** The longest reason the server stores with a change. */
-const maxReason = 500;
-const maxDescription = 300;
-const maxInstructions = 20_000;
-const maxMessage = 2_000;
-const dashCase = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
-
-type Form = 'settings' | 'skill' | 'trigger';
+type Form = 'setup' | 'settings' | 'skill' | 'trigger';
 
 /** A removal, promotion or discard that waits for its confirmation. */
 interface Confirmation {
@@ -58,39 +53,53 @@ interface Confirmation {
 /**
  * The run configuration of one agent as data: the run settings of an agent created in the
  * administration, its skills and triggers in code (read only) and as data, and the data that no
- * longer fits the code. Administrators add and change data skills, live at once or as a candidate in
- * shadow that they compare with the live version and promote or discard; they add data triggers on
- * the application's events or on a schedule and put them live. New skills and triggers start in
- * shadow; `changed` tells the agents page to reload the agent's skill states.
+ * longer fits the code. An agent created here that only chats gets a guided setup that lets it work
+ * on its own. Administrators add and change data skills, live at once or as a candidate in shadow that
+ * they compare with the live version and promote or discard; they add data triggers on the
+ * application's events or on a schedule and put them live. New skills and triggers start in shadow;
+ * `changed` tells the agents page to reload the agent's skill states.
  */
 @Component({
   selector: 'nh-assistant-agent-run-configuration',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
+  imports: [
+    DatePipe,
+    DecimalPipe,
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantAgentWorkSetupComponent,
+    NhAssistantRunSettingsFormComponent,
+    NhAssistantSkillFormComponent,
+    NhAssistantTriggerFormComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-run-configuration.component.html',
-  styleUrls: ['../nh-assistant-admin-shared.scss', './nh-assistant-agent-feedback-report.component.scss']
+  styleUrls: ['../nh-assistant-admin-shared.scss', './nh-assistant-agent-feedback-report.component.scss', './run-config/run-config-forms.scss']
 })
 export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   private readonly admin = inject(NhAssistantAdminApiService);
+  private readonly translate = inject(TranslateService);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private loadSubscription?: Subscription;
   private actionSubscription?: Subscription;
   private detailSubscription?: Subscription;
+  private accountSubscription?: Subscription;
 
   readonly agent = input.required<AdminAgent>();
+  /** Opens the guided setup at once, for an agent that was just created to work on its own. */
+  readonly startSetup = input(false);
+  /** The tool catalog, to show what the agent's tool selectors offer in the skill forms. */
+  readonly tools = input<readonly ToolCatalogEntry[]>([]);
   /** A change of the run configuration changed the agent's skills or state. */
   readonly changed = output<void>();
 
   readonly id = `nh-assistant-run-configuration-${nextId++}`;
-  readonly maxReason = maxReason;
-  readonly maxDescription = maxDescription;
-  readonly maxInstructions = maxInstructions;
-  readonly maxMessage = maxMessage;
-  readonly accountabilities: AgentAccountability[] = ['agent', 'subject-responsible', 'service-account'];
-  readonly elevatedReadModes: AgentElevatedReads[] = ['restricted', 'deny'];
-  readonly conflicts: TriggerConflict[] = ['coalesce', 'queue', 'supersede', 'ignore'];
+  readonly maxReason = runConfigLimits.reason;
+  readonly skillNameKeys = skillNameKeys;
+  readonly skillDescriptionKeys = skillDescriptionKeys;
+  readonly readableId = readableId;
 
   readonly loading = signal(true);
   readonly loadFailed = signal(false);
@@ -103,6 +112,18 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   readonly form = signal<Form | null>(null);
   readonly confirming = signal<Confirmation | null>(null);
   readonly reason = signal('');
+  /** The item whose action failed, so its error shows next to it: `settings`, `skill:{id}` or `trigger:{id}`. */
+  readonly actionTarget = signal<string | null>(null);
+  /** The name of the account the agent answers to, once known. */
+  readonly accountName = signal<string | null>(null);
+  /** The names of the people who changed skills, by actor id, once known. */
+  private readonly actorNames = signal<ReadonlyMap<string, string>>(new Map());
+  /** The agent's name; an agent in code names itself with a translation key. */
+  readonly agentName = computed(() => {
+    this.language();
+    const agent = this.agent();
+    return this.translated(codeTextKeys(agent.source, agent.displayName), agent.displayName);
+  });
 
   /** The skill being changed; `null` with the skill form open adds a new skill. */
   readonly editingSkill = signal<DataSkill | null>(null);
@@ -111,46 +132,9 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   readonly comparison = signal<{ skillId: string; result: SkillComparison | null; failed: boolean } | null>(null);
   readonly versions = signal<{ skillId: string; items: DataSkillVersion[] | null; failed: boolean } | null>(null);
 
-  // Run settings form.
-  readonly accountability = signal<AgentAccountability>('service-account');
-  readonly serviceAccount = signal('');
-  readonly approvalPolicy = signal('');
-  readonly ruleHandler = signal('');
-  readonly triageProfile = signal('');
-  readonly retryCount = signal('3');
-  readonly maxConcurrentRuns = signal('4');
-  readonly maxRunsPerSubjectPerDay = signal('10');
-  readonly maxTokensPerRun = signal('');
-  readonly dailyToolCalls = signal('');
-  readonly dailyTokens = signal('');
-  readonly allowGatewayReads = signal(false);
-  readonly delegateFromInitiator = signal(false);
-  readonly elevatedReads = signal<AgentElevatedReads>('restricted');
-
-  // Skill form.
-  readonly skillId = signal('');
-  readonly skillDescription = signal('');
-  readonly skillInstructions = signal('');
-  readonly skillTools = signal<string[]>([]);
-  readonly skillProfile = signal('');
-  readonly skillRuleHandler = signal('');
-  readonly skillApprovalPolicy = signal('');
-  readonly skillMaxTokens = signal('');
-  readonly skillDailyToolCalls = signal('');
-  readonly skillDailyTokens = signal('');
-  readonly skillApply = signal<SkillApplyMode>('live');
-
-  // Trigger form.
-  readonly triggerId = signal('');
-  readonly triggerSource = signal<'event' | 'schedule'>('event');
-  readonly triggerEvent = signal('');
-  readonly triggerCron = signal('');
-  readonly triggerTimeZone = signal('');
-  readonly triggerSubjectSet = signal('');
-  readonly triggerMessage = signal('');
-  readonly triggerSkill = signal('');
-  readonly triggerConflict = signal<TriggerConflict>('coalesce');
-  readonly triggerDebounce = signal('120');
+  private readonly language = toSignal(
+    this.translate.onLangChange.pipe(map(event => event.lang), startWith(this.translate.currentLang)),
+    { initialValue: this.translate.currentLang });
 
   readonly isAdminAgent = computed(() => this.configuration()?.source === 'admin');
   /** An agent created in the administration gets skills and triggers once it has run settings. */
@@ -158,18 +142,32 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     const configuration = this.configuration();
     return configuration !== null && (configuration.source === 'code' || configuration.runSettings !== null);
   });
-  readonly skillOptions = computed(() => {
+  readonly skillOptions = computed<NhAssistantPickerOption[]>(() => {
+    this.language();
     const configuration = this.configuration();
     return configuration
-      ? [...configuration.codeSkills.map(skill => skill.skillId), ...configuration.dataSkills.map(skill => skill.skillId)]
+      ? [
+        ...configuration.codeSkills.map(skill => ({
+          value: skill.skillId,
+          label: this.skillName(skill.skillId),
+          description: this.translated(skillDescriptionKeys(configuration.agentId, skill.skillId), skill.description)
+        })),
+        ...configuration.dataSkills.map(skill => ({ value: skill.skillId, label: this.skillName(skill.skillId), description: skill.description }))
+      ]
       : [];
   });
+  readonly skillIds = computed(() => this.skillOptions().map(option => option.value));
+  readonly triggerIds = computed(() => {
+    const configuration = this.configuration();
+    return configuration ? [...configuration.codeTriggers, ...configuration.dataTriggers].map(trigger => trigger.triggerId) : [];
+  });
   readonly problems = computed(() => this.configuration()?.problems ?? []);
-  readonly skillIdInvalid = computed(() => this.editingSkill() === null && !dashCase.test(this.skillId().trim()));
-  readonly triggerIdInvalid = computed(() => this.editingTrigger() === null && !dashCase.test(this.triggerId().trim()));
-  readonly descriptionInvalid = computed(() => {
-    const description = this.skillDescription().trim();
-    return description.length === 0 || description.length > maxDescription;
+  /** What the run settings' approval policy means, in a sentence. */
+  readonly settingsPolicy = computed(() => {
+    this.language();
+    const name = this.configuration()?.runSettings?.approvalPolicy;
+    const summary = this.catalog()?.approvalPolicySummaries?.find(item => item.name === name);
+    return summary ? describePolicy(summary, (key, params) => this.translate.instant(key, params) as string) : null;
   });
 
   constructor() {
@@ -177,14 +175,15 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
       this.loadSubscription?.unsubscribe();
       this.actionSubscription?.unsubscribe();
       this.detailSubscription?.unsubscribe();
+      this.accountSubscription?.unsubscribe();
     });
   }
 
   ngOnInit(): void {
-    this.load();
+    this.load(this.startSetup());
   }
 
-  load(): void {
+  load(openSetup = false): void {
     this.loading.set(true);
     this.loadFailed.set(false);
     this.loadSubscription?.unsubscribe();
@@ -193,6 +192,11 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
         this.catalog.set(catalog);
         this.configuration.set(configuration);
         this.loading.set(false);
+        this.loadAccountName(configuration.runSettings?.serviceAccountActorId ?? null);
+        this.loadActorNames(configuration.dataSkills.map(skill => skill.changedBy));
+        if (openSetup && configuration.source === 'admin' && configuration.runSettings === null) {
+          this.open('setup');
+        }
       },
       error: () => {
         this.loading.set(false);
@@ -201,107 +205,34 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     });
   }
 
-  /** The first error of a field from the last failed save, as a translation key. */
-  fieldError(field: string): string | null {
-    const code = this.error()?.fieldErrors?.[field]?.[0];
-    return code ? `nh-assistant.admin.run-config.field-errors.${code}` : null;
+  openSetup(): void {
+    this.open('setup');
   }
 
   editSettings(): void {
-    const settings = this.configuration()?.runSettings;
-    this.accountability.set(settings?.accountability ?? 'service-account');
-    this.serviceAccount.set(settings?.serviceAccountActorId ?? '');
-    this.approvalPolicy.set(settings?.approvalPolicy ?? '');
-    this.ruleHandler.set(settings?.ruleHandler ?? '');
-    this.triageProfile.set(settings?.triageProfile ?? '');
-    this.retryCount.set(String(settings?.retryCount ?? 3));
-    this.maxConcurrentRuns.set(String(settings?.maxConcurrentRuns ?? 4));
-    this.maxRunsPerSubjectPerDay.set(String(settings?.maxRunsPerSubjectPerDay ?? 10));
-    this.maxTokensPerRun.set(numberText(settings?.maxTokensPerRun));
-    this.dailyToolCalls.set(numberText(settings?.dailyToolCalls));
-    this.dailyTokens.set(numberText(settings?.dailyTokens));
-    this.allowGatewayReads.set(settings?.allowGatewayReads ?? false);
-    this.delegateFromInitiator.set(settings?.delegateFromInitiator ?? false);
-    this.elevatedReads.set(settings?.elevatedReads ?? 'restricted');
     this.open('settings');
-  }
-
-  saveSettings(): void {
-    const request: AgentRunSettingsRequest = {
-      accountability: this.accountability(),
-      serviceAccountActorId: this.accountability() === 'service-account' ? blank(this.serviceAccount()) : null,
-      delegateFromInitiator: this.delegateFromInitiator(),
-      allowGatewayReads: this.allowGatewayReads(),
-      elevatedReads: this.elevatedReads(),
-      approvalPolicy: blank(this.approvalPolicy()),
-      retryCount: toNumber(this.retryCount()),
-      maxConcurrentRuns: toNumber(this.maxConcurrentRuns()),
-      maxRunsPerSubjectPerDay: toNumber(this.maxRunsPerSubjectPerDay()),
-      maxTokensPerRun: toNumber(this.maxTokensPerRun()),
-      dailyToolCalls: toNumber(this.dailyToolCalls()),
-      dailyTokens: toNumber(this.dailyTokens()),
-      triageProfile: blank(this.triageProfile()),
-      ruleHandler: blank(this.ruleHandler()),
-      expectedVersion: this.configuration()?.runSettings?.version ?? null,
-      reason: blank(this.reason())
-    };
-    this.run(this.admin.saveRunSettings(this.agent().id, request), 'nh-assistant.admin.run-config.settings.saved');
   }
 
   removeSettings(): void {
     const version = this.configuration()?.runSettings?.version ?? null;
-    this.run(this.admin.removeRunSettings(this.agent().id, { expectedVersion: version }), 'nh-assistant.admin.run-config.settings.removed');
+    this.run(this.admin.removeRunSettings(this.agent().id, { expectedVersion: version }), 'nh-assistant.admin.run-config.settings.removed', 'settings');
   }
 
   addSkill(): void {
     this.editingSkill.set(null);
-    this.fillSkill(null);
     this.open('skill');
   }
 
   editSkill(skill: DataSkill): void {
     this.editingSkill.set(skill);
-    this.fillSkill(skill);
     this.open('skill');
-  }
-
-  toggleTool(selector: string, selected: boolean): void {
-    this.skillTools.update(tools => selected
-      ? [...tools.filter(tool => tool !== selector), selector]
-      : tools.filter(tool => tool !== selector));
-  }
-
-  saveSkill(): void {
-    const editing = this.editingSkill();
-    const skillId = editing?.skillId ?? this.skillId().trim();
-    if (this.skillIdInvalid() || this.descriptionInvalid() || this.skillInstructions().length > maxInstructions) {
-      return;
-    }
-
-    const request: DataSkillRequest = {
-      description: this.skillDescription().trim(),
-      instructions: blank(this.skillInstructions()),
-      tools: this.skillTools(),
-      profile: blank(this.skillProfile()),
-      ruleHandler: blank(this.skillRuleHandler()),
-      approvalPolicy: blank(this.skillApprovalPolicy()),
-      maxTokensPerRun: toNumber(this.skillMaxTokens()),
-      dailyToolCalls: toNumber(this.skillDailyToolCalls()),
-      dailyTokens: toNumber(this.skillDailyTokens()),
-      expectedVersion: editing?.version ?? null,
-      reason: blank(this.reason()),
-      ...(editing ? { apply: this.skillApply() } : {})
-    };
-    const saved = editing && this.skillApply() === 'shadow'
-      ? 'nh-assistant.admin.run-config.skills.saved-candidate'
-      : editing ? 'nh-assistant.admin.run-config.skills.saved' : 'nh-assistant.admin.run-config.skills.added';
-    this.run(this.admin.saveDataSkill(this.agent().id, skillId, request), saved);
   }
 
   removeSkill(skill: DataSkill): void {
     this.run(
       this.admin.removeDataSkill(this.agent().id, skill.skillId, { expectedVersion: skill.version }),
-      'nh-assistant.admin.run-config.skills.removed');
+      'nh-assistant.admin.run-config.skills.removed',
+      `skill:${skill.skillId}`);
   }
 
   promote(skill: DataSkill): void {
@@ -309,7 +240,8 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     if (candidate) {
       this.run(
         this.admin.promoteSkillCandidate(this.agent().id, skill.skillId, { version: candidate.version, reason: blank(this.reason()) }),
-        'nh-assistant.admin.run-config.candidate.promoted');
+        'nh-assistant.admin.run-config.candidate.promoted',
+        `skill:${skill.skillId}`);
     }
   }
 
@@ -318,7 +250,8 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     if (candidate) {
       this.run(
         this.admin.discardSkillCandidate(this.agent().id, skill.skillId, { version: candidate.version, reason: blank(this.reason()) }),
-        'nh-assistant.admin.run-config.candidate.discarded');
+        'nh-assistant.admin.run-config.candidate.discarded',
+        `skill:${skill.skillId}`);
     }
   }
 
@@ -349,66 +282,55 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     this.versions.set({ skillId: skill.skillId, items: null, failed: false });
     this.detailSubscription?.unsubscribe();
     this.detailSubscription = this.admin.getDataSkillVersions(this.agent().id, skill.skillId).subscribe({
-      next: items => this.versions.set({ skillId: skill.skillId, items, failed: false }),
+      next: items => {
+        this.versions.set({ skillId: skill.skillId, items, failed: false });
+        this.loadActorNames(items.map(item => item.createdBy));
+      },
       error: () => this.versions.set({ skillId: skill.skillId, items: null, failed: true })
     });
   }
 
   addTrigger(): void {
     this.editingTrigger.set(null);
-    this.fillTrigger(null);
     this.open('trigger');
   }
 
   editTrigger(trigger: DataTrigger): void {
     this.editingTrigger.set(trigger);
-    this.fillTrigger(trigger);
     this.open('trigger');
-  }
-
-  /** A schedule skips a tick while a run is busy by default; an event coalesces. */
-  setTriggerSource(source: 'event' | 'schedule'): void {
-    this.triggerSource.set(source);
-    if (this.editingTrigger() === null) {
-      this.triggerConflict.set(source === 'schedule' ? 'ignore' : 'coalesce');
-    }
-  }
-
-  saveTrigger(): void {
-    const editing = this.editingTrigger();
-    if (this.triggerIdInvalid()) {
-      return;
-    }
-
-    const schedule = this.triggerSource() === 'schedule';
-    const request: DataTriggerRequest = {
-      source: this.triggerSource(),
-      skill: blank(this.triggerSkill()),
-      event: schedule ? null : blank(this.triggerEvent()),
-      cron: schedule ? blank(this.triggerCron()) : null,
-      timeZone: schedule ? blank(this.triggerTimeZone()) : null,
-      subjectSet: schedule ? blank(this.triggerSubjectSet()) : null,
-      message: schedule ? blank(this.triggerMessage()) : null,
-      conflict: this.triggerConflict(),
-      debounceSeconds: schedule ? null : toNumber(this.triggerDebounce()),
-      expectedVersion: editing?.version ?? null,
-      reason: blank(this.reason())
-    };
-    this.run(
-      this.admin.saveDataTrigger(this.agent().id, editing?.triggerId ?? this.triggerId().trim(), request),
-      editing ? 'nh-assistant.admin.run-config.triggers.saved' : 'nh-assistant.admin.run-config.triggers.added');
   }
 
   setTriggerShadow(trigger: DataTrigger, shadow: boolean): void {
     this.run(
       this.admin.setDataTriggerShadow(this.agent().id, trigger.triggerId, { mode: shadow ? 'shadow' : 'live', reason: null }),
-      shadow ? 'nh-assistant.admin.run-config.triggers.in-shadow' : 'nh-assistant.admin.run-config.triggers.live');
+      shadow ? 'nh-assistant.admin.run-config.triggers.in-shadow' : 'nh-assistant.admin.run-config.triggers.live',
+      `trigger:${trigger.triggerId}`);
   }
 
   removeTrigger(trigger: DataTrigger): void {
     this.run(
       this.admin.removeDataTrigger(this.agent().id, trigger.triggerId, { expectedVersion: trigger.version }),
-      'nh-assistant.admin.run-config.triggers.removed');
+      'nh-assistant.admin.run-config.triggers.removed',
+      `trigger:${trigger.triggerId}`);
+  }
+
+  /** A form saved: show what happened and reload, which every change may affect. */
+  onSetupCompleted(live: boolean): void {
+    this.finish(live ? 'nh-assistant.admin.run-config.setup.saved-live' : 'nh-assistant.admin.run-config.setup.saved-shadow');
+  }
+
+  onSettingsSaved(): void {
+    this.finish('nh-assistant.admin.run-config.settings.saved');
+  }
+
+  onSkillSaved(result: SkillFormSaved): void {
+    this.finish(result.candidate
+      ? 'nh-assistant.admin.run-config.skills.saved-candidate'
+      : result.added ? 'nh-assistant.admin.run-config.skills.added' : 'nh-assistant.admin.run-config.skills.saved');
+  }
+
+  onTriggerSaved(added: boolean): void {
+    this.finish(added ? 'nh-assistant.admin.run-config.triggers.added' : 'nh-assistant.admin.run-config.triggers.saved');
   }
 
   confirm(action: Confirmation['action'], id: string): void {
@@ -425,45 +347,68 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   }
 
   cancel(): void {
+    const form = this.form();
     this.form.set(null);
     this.confirming.set(null);
     this.error.set(null);
+    // Back to the action that opened the form.
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`[data-open-form="${form}"]`)?.focus(), { injector: this.injector });
   }
 
   value(event: Event): string {
     return (event.target as HTMLInputElement).value;
   }
 
-  checked(event: Event): boolean {
-    return (event.target as HTMLInputElement).checked;
+  /** A skill's name: the application's translation, or a readable form of its id. */
+  skillName(skillId: string | null | undefined): string {
+    return skillId ? this.translated(skillNameKeys(this.agent().id, skillId), readableId(skillId)) : '';
   }
 
-  private fillSkill(skill: DataSkill | null): void {
-    this.skillId.set(skill?.skillId ?? '');
-    this.skillDescription.set(skill?.description ?? '');
-    this.skillInstructions.set(skill?.instructions ?? '');
-    this.skillTools.set([...(skill?.tools ?? [])]);
-    this.skillProfile.set(skill?.profile ?? '');
-    this.skillRuleHandler.set(skill?.ruleHandler ?? '');
-    this.skillApprovalPolicy.set(skill?.approvalPolicy ?? '');
-    this.skillMaxTokens.set(numberText(skill?.maxTokensPerRun));
-    this.skillDailyToolCalls.set(numberText(skill?.dailyToolCalls));
-    this.skillDailyTokens.set(numberText(skill?.dailyTokens));
-    // A real change is evaluated in shadow first; a small correction goes live.
-    this.skillApply.set('shadow');
+  /** A person's name, or the id when the application does not know it. */
+  nameOf(actorId: string | null | undefined): string {
+    return actorId ? this.actorNames().get(actorId) ?? actorId : '';
   }
 
-  private fillTrigger(trigger: DataTrigger | null): void {
-    this.triggerId.set(trigger?.triggerId ?? '');
-    this.triggerSource.set(trigger?.source ?? 'event');
-    this.triggerEvent.set(trigger?.event ?? '');
-    this.triggerCron.set(trigger?.cron ?? '');
-    this.triggerTimeZone.set(trigger?.timeZone ?? '');
-    this.triggerSubjectSet.set(trigger?.subjectSet ?? '');
-    this.triggerMessage.set(trigger?.message ?? '');
-    this.triggerSkill.set(trigger?.skillId ?? '');
-    this.triggerConflict.set(trigger?.conflict ?? 'coalesce');
-    this.triggerDebounce.set(String(trigger?.debounceSeconds ?? 120));
+  /** The first of the keys with a translation, or the fallback. */
+  private translated(keys: readonly string[], fallback: string): string {
+    for (const key of keys) {
+      const value = this.translate.instant(key) as unknown;
+      if (typeof value === 'string' && value.length > 0 && value !== key) {
+        return value;
+      }
+    }
+    return fallback;
+  }
+
+  private loadActorNames(actorIds: readonly (string | null | undefined)[]): void {
+    const known = this.actorNames();
+    const missing = [...new Set(actorIds.filter((id): id is string => !!id && !known.has(id)))];
+    if (missing.length === 0) {
+      return;
+    }
+    this.admin.getAccounts(missing).subscribe({
+      next: accounts => this.actorNames.set(new Map([...this.actorNames(), ...accounts.map(account => [account.actorId, account.displayName] as const)])),
+      error: () => undefined
+    });
+  }
+
+  private finish(savedKey: string): void {
+    this.form.set(null);
+    this.saved.set(savedKey);
+    this.changed.emit();
+    this.load();
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('[data-saved]')?.focus(), { injector: this.injector });
+  }
+
+  private loadAccountName(actorId: string | null): void {
+    this.accountSubscription?.unsubscribe();
+    this.accountName.set(null);
+    if (actorId) {
+      this.accountSubscription = this.admin.getAccounts([actorId]).subscribe({
+        next: accounts => this.accountName.set(accounts.find(account => account.actorId === actorId)?.displayName ?? null),
+        error: () => undefined
+      });
+    }
   }
 
   /** Opens one form at a time and moves the focus into it. */
@@ -474,15 +419,22 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     this.reason.set('');
     this.form.set(form);
     afterNextRender(() => {
-      this.host.nativeElement.querySelector<HTMLElement>(`[data-form="${form}"] input:not([disabled]), [data-form="${form}"] select, [data-form="${form}"] textarea`)?.focus();
+      this.host.nativeElement.querySelector<HTMLElement>(
+        `[data-form="${form}"] input:not([disabled]), [data-form="${form}"] textarea, [data-work-setup] input:not([disabled])`)?.focus();
     }, { injector: this.injector });
   }
 
+  /** Whether the last failed action concerned this item, so its error shows there. */
+  failed(target: string): boolean {
+    return this.error() !== null && this.actionTarget() === target;
+  }
+
   /** Runs a change and reloads the configuration, which every change may affect. */
-  private run(request: Observable<unknown>, savedKey: string): void {
+  private run(request: Observable<unknown>, savedKey: string, target: string): void {
     this.busy.set(true);
     this.error.set(null);
     this.saved.set(null);
+    this.actionTarget.set(target);
     this.actionSubscription?.unsubscribe();
     this.actionSubscription = request.subscribe({
       error: (error: unknown) => {
@@ -491,13 +443,10 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
       },
       complete: () => {
         this.busy.set(false);
-        this.form.set(null);
         this.confirming.set(null);
         this.comparison.set(null);
         this.versions.set(null);
-        this.saved.set(savedKey);
-        this.changed.emit();
-        this.load();
+        this.finish(savedKey);
       }
     });
   }
@@ -506,17 +455,4 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
 function blank(value: string): string | null {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function toNumber(value: string): number | null {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-  const parsed = Number(trimmed);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function numberText(value: number | null | undefined): string {
-  return value === null || value === undefined ? '' : String(value);
 }
