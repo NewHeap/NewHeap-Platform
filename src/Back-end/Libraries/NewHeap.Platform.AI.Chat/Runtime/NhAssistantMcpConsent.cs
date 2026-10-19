@@ -6,13 +6,18 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 
 /// <summary>
 /// A person's consent to background use of an MCP server. It holds for the server as it was when
-/// the person consented: a changed id, URL or authentication mode needs consent again.
+/// the person consented: a changed id, URL or authentication mode, and for OAuth a changed
+/// authorization server or scopes, needs consent again.
 /// </summary>
 internal static class NhAssistantMcpConsent
 {
     public static string HashOf(AssistantMcpServer server)
     {
         var identity = server.Id + "\n" + server.Url.Trim() + "\n" + server.AuthMode;
+        if (NhAssistantMcpAuthModes.IsOAuth(server.AuthMode))
+        {
+            identity += "\n" + server.AuthorizationServerIssuer + "\n" + server.OAuthScopes;
+        }
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
     }
 

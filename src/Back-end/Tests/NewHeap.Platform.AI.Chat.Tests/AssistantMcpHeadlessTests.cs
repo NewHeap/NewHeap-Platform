@@ -187,6 +187,77 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_headless_run_uses_a_persons_oauth_connection_only_with_consent_and_an_approved_proposal_fails_once_they_disconnected(
+        AssistantTestProvider provider)
+    {
+        const string redirectUri = "https://assistant.example/api/assistant/mcp/oauth/callback";
+        var model = new NhAiScriptedChatClient()
+            .RespondWithText("Nothing to look up without consent.")
+            .RespondWithFunctionCall(LookupFunction, new { order = "A-100" }, "call-lookup")
+            .RespondWithText("Order A-100 is planned for Monday.")
+            .RespondWithFunctionCall(RescheduleFunction, new { order = "A-100", day = "Friday" }, "call-reschedule")
+            .RespondWithText("I proposed to move order A-100 to Friday.");
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync();
+        authorization.RegisterClient("assistant-web", "test-web-secret-headless", redirectUri);
+        var tools = new InMemoryMcpServers();
+        NhAiTestProtectedResource? resource = null;
+        await using var mcp = await HttpMcpTestServer.StartAsync(() => tools.PlanningTools(), guard: (context, next) => resource!.InvokeAsync(context, next));
+        resource = new NhAiTestProtectedResource(authorization, mcp.StreamableUrl, "/planning");
+        await using var host = await CreateHostAsync(provider, model, servers: null, delegation: true, grants: false, redirectUri: redirectUri);
+        var input = new NhAssistantMcpServerInput("planning", "Planning", mcp.StreamableUrl, NhAssistantMcpAuthModes.OAuth, null, null, null, true, NhAssistantMcpHeadlessUses.Personal)
+        {
+            ConnectionScope = NhAssistantMcpConnectionScopes.User,
+            OAuth = new NhAssistantMcpOAuthInput("assistant-web", "test-web-secret-headless", null, "mcp:read", null, ConfirmAuthorization: true)
+        };
+        Assert.True((await WithAdministrationAsync(host, administration => administration.CreateAsync(input, "admin-1", CancellationToken.None))).Success);
+        // The administrator syncs with their own account, then assigns the server.
+        authorization.Options.Subject = "remote-admin";
+        await AuthorizeAdministratorAsync(host);
+        await ConnectPlanningServerAsync(host, ("Lookup_Order", NhAssistantMcpToolEffects.ReadOnly), input: input, created: true);
+        await WithAdministrationAsync(host, administration => administration.UpdateToolAsync(
+            "planning", "reschedule", true, NhAssistantMcpToolEffects.Mutation, null, "admin-1", CancellationToken.None));
+
+        // Connected, but without consent to background use: the run leaves the server out.
+        authorization.Options.Subject = "remote-member";
+        await McpOAuthTestFlows.ConnectPersonAsync(host, Member, "planning");
+        var withoutConsent = await RunTurnAsync(host, await StartRunAsync(host, initiator: Member), "Project PRJ-1 was created.");
+        Assert.Equal(NhAssistantTurnStatuses.Completed, withoutConsent.Outcome);
+        Assert.DoesNotContain(model.Requests[0].Options!.Tools ?? [], tool => tool.Name.StartsWith("mcp_", StringComparison.Ordinal));
+
+        // Connecting again with the consent: the run uses the person's own account.
+        await McpOAuthTestFlows.ConnectPersonAsync(host, Member, "planning", allowBackgroundUse: true);
+        var run = await StartRunAsync(host, initiator: Member);
+        var withConsent = await RunTurnAsync(host, run, "When is order A-100 planned?");
+        Assert.Equal(NhAssistantTurnStatuses.Completed, withConsent.Outcome);
+        Assert.Equal(["lookup-order"], tools.Calls);
+        Assert.Equal("remote-member", resource.Requests.Last().Subject);
+        var lookup = Assert.Single(host.Audit.Records, item => item.ToolId == "mcp.planning.lookup-order");
+        Assert.Equal(NhAiGrantSource.Delegated, lookup.GrantSource);
+        Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ToolInvoked
+            && evt.ToolId == "mcp.planning.lookup-order"
+            && evt.McpConnectionOwner == Member);
+
+        // Q10: the proposal executes with the connection of the person who asked; once that person
+        // disconnected, it fails as not connected, even though another person approves.
+        await RunTurnAsync(host, run, "Move order A-100 to Friday.");
+        var approval = Assert.Single(await RunStore(host).GetRunApprovalsAsync(run.Run.Id, CancellationToken.None));
+        await ApproveAsync(host, approval);
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var user = AssistantTestHost.EnterUser(scope.ServiceProvider, Member).User;
+            Assert.True((await scope.ServiceProvider.GetRequiredService<NhAssistantMcpConnectionService>()
+                .DisconnectAsync(Member, user, "planning", CancellationToken.None)).Success);
+        }
+        var execution = await ExecuteAsync(host, run, approval.Id);
+
+        Assert.False(execution.Succeeded);
+        Assert.Equal(NhAssistantAdminErrorCodes.McpConnectionRequired, execution.ResultCode);
+        Assert.DoesNotContain("reschedule", tools.Calls);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task A_headless_run_calls_an_oauth_server_with_the_tokens_of_the_hosts_client_credentials(AssistantTestProvider provider)
     {
         var model = new NhAiScriptedChatClient()
@@ -235,7 +306,8 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
         NhAiScriptedChatClient model,
         InMemoryMcpServers? servers,
         bool delegation = false,
-        bool grants = true)
+        bool grants = true,
+        string? redirectUri = null)
     {
         return AssistantTestHost.CreateAsync(
             database,
@@ -252,7 +324,11 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, ManagerPrincipalFactory>());
             },
             assistantBuilder: assistant => assistant
-                .ConfigureMcp(mcp => mcp.RequireHttps = true)
+                .ConfigureMcp(mcp =>
+                {
+                    mcp.RequireHttps = true;
+                    mcp.OAuth.RedirectUri = redirectUri;
+                })
                 .AddSubjectType<TestSubjectResolver>()
                 .AddApprovalPolicy("project-review", policy => policy
                     .Lifetime(TimeSpan.FromDays(3))
@@ -281,14 +357,18 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
         AssistantTestHost host,
         (string RemoteName, string Effect) tool,
         string? requiredPolicy = null,
-        NhAssistantMcpServerInput? input = null)
+        NhAssistantMcpServerInput? input = null,
+        bool created = false)
     {
         await WithAdministrationAsync(host, async administration =>
         {
-            Assert.True((await administration.CreateAsync(
-                input ?? Server(NhAssistantMcpAuthModes.None) with { RequiredPolicy = requiredPolicy },
-                "admin-1",
-                CancellationToken.None)).Success);
+            if (!created)
+            {
+                Assert.True((await administration.CreateAsync(
+                    input ?? Server(NhAssistantMcpAuthModes.None) with { RequiredPolicy = requiredPolicy },
+                    "admin-1",
+                    CancellationToken.None)).Success);
+            }
             Assert.True((await administration.SyncAsync("planning", "admin-1", CancellationToken.None)).Success);
             var updated = await administration.UpdateToolAsync("planning", tool.RemoteName, true, tool.Effect, null, "admin-1", CancellationToken.None);
             Assert.True(updated.Success);
@@ -312,6 +392,15 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
             "admin-1",
             CancellationToken.None);
         Assert.True(assigned.Success);
+    }
+
+    /// <summary>The administrator connects their own account to a server each person connects to.</summary>
+    private static async Task AuthorizeAdministratorAsync(AssistantTestHost host)
+    {
+        var start = (await WithAdministrationAsync(host, administration => administration.AuthorizeOrganizationAsync(
+            "planning", "admin-1", null, CancellationToken.None))).Data!;
+        var outcome = await McpOAuthTestFlows.CallbackAsync(host, await McpOAuthTestFlows.AuthorizeAsync(start.AuthorizationUrl));
+        Assert.True((await McpOAuthTestFlows.CompleteAsync(host, start.FlowId, outcome.CompletionCode!, "admin-1", administrator: false)).Success);
     }
 
     private static async Task SetHeadlessUseAsync(AssistantTestHost host, string headlessUse, string? requiredPolicy = null)

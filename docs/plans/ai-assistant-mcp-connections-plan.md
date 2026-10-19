@@ -19,7 +19,7 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
 | M1 | Implemented, not yet released: the per-request credential pipeline, `headlessUse` per server (`never`, `organization`), executable deferred MCP proposals, per-caller tool lists that leave the catalog alone, connection health, the `McpConnectionPolicy` migrations, the editor and list, the mock API, the texts and SPM-251. See [implementation notes](#implementation-notes-m1). |
 | M2 | Implemented, not yet released: basic authentication, the three secret sources, client certificates, the transport choice, the per-person background-use consent (moved forward from M4), the headless `forward-user-token` variant with `AddNewHeapPlatformAIMcpDelegatedTokens`, the `McpServerCredentials` migrations, the editor, the preferences, the mock API, the texts and SPM-251. See [implementation notes](#implementation-notes-m2). |
 | M3 | Implemented, not yet released: discovery and pinning, registration (pre-registered, Client ID Metadata Document, dynamic), the organization authorization code flow, `oauth-client-credentials` with a secret or `private_key_jwt`, token storage, single-flight refresh, step-up for client credentials, revocation, the callback and metadata document endpoints, the admin endpoints, the opt-in health check, metrics, retention, `NhAiTestAuthorizationServer`, the `McpOAuthConnections` migrations, the editor and list, the mock API, the texts and SPM-299. See [implementation notes](#implementation-notes-m3). |
-| M4 | Proposed: personal OAuth connections in the chat, background use by agent runs, step-up consent. |
+| M4 | Implemented, not yet released: personal OAuth connections (`connectionScope: user`) with the authorize, complete and disconnect endpoints, the `connection.required` event and part with `nh-assistant-connection-required`, connect and disconnect in `nh-assistant-mcp-connections`, redirect mode, `personal` headless use with consent, the approval identity of Q10, per-person caching, step-up prompts, revoke-all, retention, `McpConnectionOwner`, the mock API, the texts and SPM-300. See [implementation notes](#implementation-notes-m4). |
 
 ## Implementation notes (M1)
 
@@ -157,6 +157,53 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
   in `AssistantAdminEndpointTests`, the Angular editor, list, window and mock specs, and the SPM-299
   sample tests `SPM_299_an_administrator_connects_an_oauth_server_with_the_hosts_client_credentials` and
   `SPM_299_an_administrator_connects_the_organizations_account_and_the_agent_acts_as_that_account`.
+
+## Implementation notes (M4)
+
+- **The turn's person.** A request turn now passes the person who sent the message as the credential
+  subject, so a personal OAuth server uses that person's connection; organization credentials and
+  forwarded sign-ins ignore it. In a shared conversation every participant's turn uses their own
+  connection.
+- **Connection needed.** The tool source reports personal OAuth servers of a request turn that are
+  not connected (`not-connected`), whose connection ended (`reauthorization-required`), or that refused
+  the connection's scopes (`insufficient-scope`, also when an earlier refusal recorded
+  `RequiredScopes`). The turn runner loads the MCP tools before it creates the agent, adds a short
+  note to the model's instructions when it fits, stores one `connection-required` part per server and
+  streams `connection.required` once per turn. An organization server whose issuer changed is not
+  shown as a card: the person cannot fix it.
+- **Step-up.** The refusal usually comes while the tools are listed, so the card appears in the same
+  turn (I12). A refusal during a call fails the call with `assistant-mcp-insufficient-scope` and the
+  next turn shows the card. Connecting again requests the recorded scopes within the allowed ones.
+- **Consent and disconnect.** Disconnecting removes the tokens and revokes them; a consent to
+  background use stays on the row without tokens (I10), so Q10 holds: an approved proposal of a
+  person who disconnected fails with `assistant-mcp-connection-required`. Connecting can grant the
+  consent but never withdraws one. The consent hash of an OAuth server covers its issuer and scopes.
+- **Administrators.** A server people connect to has no organization connection; administrators
+  test and sync it with their own personal connection, started through the existing admin authorize
+  endpoint (I11), and see and revoke the personal connections.
+- **Caching.** Connections and tool lists of a personal OAuth server are cached per person and use
+  (request, or the grant source of a run) under a hash of the actor id, for at most
+  `ToolListCacheDuration`; a disconnect, an ended connection and retention close them (I15). Forwarded
+  sign-ins are still never cached.
+- **Audit.** `ToolInvoked` events of MCP tools carry `McpConnectionOwner`: `organization`, the
+  person's actor id (a personal connection or a forwarded sign-in) or `none` (I17).
+- **Angular.** `NhAssistantMcpConnectService` runs every connection, in a popup or in redirect mode
+  (`mcpConnectMode`, `mcpConnectReturnUrl`, I13); a redirect-mode return is completed by an
+  environment initializer and reported through `returned`. The card is shown to everyone who reads
+  the conversation and connects the viewer's own account (I14); "Ask again" sends the question of
+  the answer it belongs to.
+- **Evidence.** `AssistantMcpPersonalConnectionTests` (each person's own account, a colleague in a
+  shared conversation, the card and its part, disconnect and revocation, step-up and retention on SQL
+  Server and PostgreSQL; the endpoints on PostgreSQL), the personal headless test with consent and
+  Q10 in `AssistantMcpHeadlessTests` on both providers, the Angular card, preferences, redirect, mock,
+  reducer and admin specs, and the SPM-300 sample tests
+  `SPM_300_a_person_connects_their_own_account_from_the_chat_and_the_agent_works_with_it` and
+  `SPM_300_a_background_run_uses_the_participants_own_oauth_connection_only_after_consent`.
+  In a browser, at desktop and 375px widths, the playground showed the card, connected, asked again
+  and answered with the tool; the preferences connected and disconnected after confirmation; the
+  server list connected the administrator's own account and revoked every personal connection;
+  without console errors or horizontal overflow. The management app's initial bundle warning
+  budget moved from 1.65MB to 1.7MB.
 
 ## Problem
 
@@ -317,6 +364,14 @@ through M4 without waiting. Where a choice came up, the implementer decided as b
 | I7 | Decided by the implementer on 2026-10-20, for Lars to review: expired flows and stale personal connections are removed by `NhAssistantMcpMaintenance`, not by the run maintenance (D18). | The run maintenance only runs when agent runs are registered, while MCP OAuth also serves hosts without them. |
 | I8 | Decided by the implementer on 2026-10-20, for Lars to review: `INhAssistantMcpCredentialProvider` and `AddMcpCredentialProvider<T>` stay internal after M3 (D1, M1 notes). | The provider contract (subject, challenge, renewal) changes again with personal connections in M4; publishing it afterwards avoids a breaking change. Token exchange stays out of scope. |
 | I9 | Decided by the implementer on 2026-10-20, for Lars to review: the counters live on a `NewHeap.Platform.AI` meter instance of `NewHeap.Platform.AI.Chat.AspNet`, because the existing instance is internal to `NewHeap.Platform.AI.Common`; listeners subscribe by meter name, so both report together. | No new public surface in AI.Common for three counters. |
+| I10 | Decided by the implementer on 2026-10-20, for Lars to review: disconnecting a personal connection keeps the consent to background use on the row without tokens; connecting can grant the consent but never withdraws it. | Q10 asks an approved proposal of a person who disconnected to fail as not connected; dropping the consent would report `consent-required` instead, and connecting again from a chat card would silently withdraw a consent. |
+| I11 | Decided by the implementer on 2026-10-20, for Lars to review: administrators test and sync a server that people connect to with their own personal connection, started through `POST admin/mcp-servers/{id}/connection/authorize`. | Such a server has no organization connection, and an administrator must see its tools before any agent offers them. |
+| I12 | Decided by the implementer on 2026-10-20, for Lars to review: step-up of a personal connection asks with the card as soon as listing the tools is refused, in the same turn; a refusal during a call fails that call and the next turn asks. | The refusal almost always comes at `initialize`; asking at once is the clearest prompt and needs no retry inside a call. |
+| I13 | Decided by the implementer on 2026-10-20, for Lars to review: the redirect-mode settings are `NhAssistantConfig.mcpConnectMode` and `mcpConnectReturnUrl` (a function), instead of `connectMode` and `connectReturnRoute`. | The names say they concern MCP; a function lets a host return to any route of its own. |
+| I14 | Decided by the implementer on 2026-10-20, for Lars to review: the connection card is shown to everyone who reads the conversation and always connects the viewer's own account. | The part names the server, not the person; a colleague who reads it may need the same connection, and nobody can connect someone else's account. |
+| I15 | Decided by the implementer on 2026-10-20, for Lars to review: a person's OAuth connection and its tool list are cached per person and use under a hash of the actor id. | D12 asks for per-person tool lists; caching the client with them avoids an `initialize` per turn while keeping people apart. |
+| I16 | Decided by the implementer on 2026-10-20, for Lars to review: connections of a person the principal factory no longer resolves are not deleted on first use (D18); they end through retention, revoke-all or a refused refresh. | A first-use check would add a principal lookup to every turn; retention removes them within `ConnectionRetention`. Proposed as a follow-up. |
+| I17 | Decided by the implementer on 2026-10-20, for Lars to review: `McpConnectionOwner` is the person's actor id also for a forwarded sign-in, and `none` for servers without a credential. | The audit names whose account the remote system saw, whatever the mode. |
 
 ## Design
 
@@ -624,14 +679,15 @@ Metrics on the existing `NewHeap.Platform.AI` meter: `nh.ai.mcp.requests`,
 
 ### Data and migrations
 
-All storage is library-owned in the `nhai` schema; every phase adds one migration to
-`NewHeap.Platform.AI.Chat.SqlServer` and one to `NewHeap.Platform.AI.Chat.PostgreSql`.
+All storage is library-owned in the `nhai` schema; M1 to M3 each add one migration to
+`NewHeap.Platform.AI.Chat.SqlServer` and one to `NewHeap.Platform.AI.Chat.PostgreSql`; M4 needs none.
 
 | Phase | Migration | Changes |
 | --- | --- | --- |
 | M1 | `McpConnectionPolicy` | `AssistantMcpServer`: `HeadlessUse` (32, default `never`), `LastConnectAt`, `LastConnectCode` (64). |
 | M2 | `McpServerCredentials` | `AssistantMcpServer`: `Transport` (32, default `streamable-http`), `UserName` (256), `SecretReference` (256), `ClientCertificateReference` (128). New `AssistantMcpConnection` with the consent columns: `Id`, `ServerId`, `OwnerKind`, `OwnerActorId`, `TenantKey`, `AllowBackgroundUse`, `ConsentHash`, `ConsentedAt`, `CreatedAt`, `UpdatedAt`, `Version`. |
 | M3 | `McpOAuthConnections` | `AssistantMcpServer`: `ConnectionScope` (16, default `organization`), `ResourceUri` (2,048), `AuthorizationServerIssuer` (2,048), `OAuthScopes` (1,024), `OAuthClientId` (512), `ProtectedOAuthClientSecret` (4,000), `OAuthClientSecretReference` (256), `OrganizationAccountLabel` (200), `AuthorizationConfirmedAt`, `AuthorizationConfirmedBy`. `AssistantMcpConnection` gains the token columns; new `AssistantMcpAuthorizationFlow` and `AssistantMcpClientRegistration`. |
+| M4 | None | Personal connections use the M3 tables: `OwnerKind` `user`, `OwnerActorId` and the token columns. |
 
 `AssistantMcpConnection`: `Id`, `ServerId` (cascade delete), `OwnerKind`, `OwnerActorId` (`""` for the
 organization), `TenantKey` (`""`), `Status` (`active`, `reauthorization-required`), `Issuer`,

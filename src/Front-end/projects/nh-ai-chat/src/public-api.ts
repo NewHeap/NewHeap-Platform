@@ -23,6 +23,7 @@ export * from './lib/services/nh-assistant-panel.service';
 export * from './lib/services/nh-assistant-subject-summary.service';
 export * from './lib/services/nh-assistant-share-link';
 export * from './lib/services/nh-assistant-mcp-authorization';
+export * from './lib/services/nh-assistant-mcp-connect.service';
 export { NH_ASSISTANT_ICONS, NhAssistantIconName } from './lib/internal/nh-assistant-icon.component';
 export * from './lib/components/launcher/nh-assistant-launcher.component';
 export * from './lib/components/panel/nh-assistant-panel.component';
@@ -36,6 +37,7 @@ export * from './lib/components/proposal-feedback/nh-assistant-proposal-feedback
 export * from './lib/components/agent-picker/nh-assistant-agent-picker.component';
 export * from './lib/components/preferences/nh-assistant-preferences.component';
 export * from './lib/components/preferences/nh-assistant-mcp-connections.component';
+export * from './lib/components/connection-required/nh-assistant-connection-required.component';
 export * from './lib/components/share/nh-assistant-share.component';
 export * from './lib/components/activity/nh-assistant-activity.component';
 export * from './lib/components/subject-badge/nh-assistant-subject-badge.component';

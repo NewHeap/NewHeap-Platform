@@ -47,6 +47,9 @@ internal sealed class NhAssistantTurnState
     /// </summary>
     public NhAssistantMcpToolSet? McpTools { get; set; }
 
+    /// <summary>Whether the servers the person has to connect were shown in this turn.</summary>
+    public bool ConnectionsAnnounced { get; set; }
+
     /// <summary>
     /// The application map entries the acting person may read, loaded once per turn of an agent that
     /// uses the map.

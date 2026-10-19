@@ -29,6 +29,25 @@ internal static class NhAssistantMcpConnectionEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        enabled.MapPost("mcp-connections/{serverId}/authorize", AuthorizeAsync)
+            .WithName("NhAssistantAuthorizeMcpConnection")
+            .WithSummary("Connect my account to an MCP server")
+            .WithDescription("Starts the caller's OAuth authorization of a server each person connects to. Open the returned URL in the caller's browser; the callback hands a one-time completion code to it, which POST mcp-connections/complete activates. allowBackgroundUse also records the consent to background use when an administrator offers it; returnUrl chooses redirect mode.")
+            .Produces<NhAssistantMcpAuthorizationStartDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status429TooManyRequests)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status502BadGateway);
+        enabled.MapDelete("mcp-connections/{serverId}", DisconnectAsync)
+            .WithName("NhAssistantDeleteMcpConnection")
+            .WithSummary("Disconnect my account from an MCP server")
+            .WithDescription("Removes the caller's OAuth connection of the server and revokes its tokens at the authorization server. A consent to background use stays until the caller withdraws it; background runs then fail as not connected.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         enabled.MapPost("mcp-connections/complete", CompleteAsync)
             .WithName("NhAssistantCompleteMcpAuthorization")
             .WithSummary("Complete an MCP authorization")
@@ -39,6 +58,51 @@ internal static class NhAssistantMcpConnectionEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+    }
+
+    private static async Task<IResult> AuthorizeAsync(
+        string serverId,
+        HttpContext httpContext,
+        NhAssistantMcpConnectionService connections)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+        var body = httpContext.Request.HasJsonContentType()
+            ? await NhAssistantAdminEndpoints.ReadAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantMcpAuthorizeRequest)
+            : new NhAssistantMcpAuthorizeRequest(null, null);
+        if (body is null)
+        {
+            return NhAssistantAdminEndpoints.Validation();
+        }
+        var started = await connections.AuthorizeAsync(
+            actor,
+            httpContext.User,
+            serverId,
+            body.ReturnUrl,
+            body.AllowBackgroundUse == true,
+            httpContext.RequestAborted);
+        return started.Success
+            ? NhAssistantAdminEndpoints.Json(
+                new NhAssistantMcpAuthorizationStartDto(started.Data!.FlowId, started.Data.AuthorizationUrl, started.Data.ExpiresAt, started.Data.CallbackOrigin),
+                NhAssistantJsonSerializerContext.Default.NhAssistantMcpAuthorizationStartDto)
+            : NhAssistantAdminEndpoints.Failure(started);
+    }
+
+    private static async Task<IResult> DisconnectAsync(
+        string serverId,
+        HttpContext httpContext,
+        NhAssistantMcpConnectionService connections)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+        var removed = await connections.DisconnectAsync(actor, httpContext.User, serverId, httpContext.RequestAborted);
+        return removed.Success ? TypedResults.NoContent() : NhAssistantAdminEndpoints.Failure(removed);
     }
 
     private static async Task<IResult> CompleteAsync(HttpContext httpContext, NhAssistantMcpAuthorizationFlows flows)
@@ -118,12 +182,20 @@ internal static class NhAssistantMcpConnectionEndpoints
     private static NhAssistantMcpConnectionDto ToDto(NhAssistantMcpPersonalServer item)
     {
         var host = Uri.TryCreate(item.Server.Url, UriKind.Absolute, out var uri) ? uri.Host : string.Empty;
+        var connected = item.IsOAuth && item.Connection?.Status is not null;
         return new NhAssistantMcpConnectionDto(
             item.Server.Id,
             item.Server.DisplayName,
             host,
             item.AllowBackgroundUse,
             item.AllowBackgroundUse ? item.Connection?.ConsentedAt : null,
-            item.AgentIds);
+            item.AgentIds)
+        {
+            ConnectionStatus = item.ConnectionStatus,
+            GrantedScopes = connected ? item.Connection!.GrantedScopes : null,
+            RequiredScopes = connected ? item.Connection!.RequiredScopes : null,
+            ConnectedAt = connected ? item.Connection!.ConnectedAt : null,
+            OffersBackgroundUse = item.OffersBackgroundUse
+        };
     }
 }

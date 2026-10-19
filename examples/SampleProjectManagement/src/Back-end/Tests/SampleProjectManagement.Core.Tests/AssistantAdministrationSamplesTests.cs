@@ -447,6 +447,92 @@ public sealed partial class AssistantSamplesTests
         Assert.False(await TestAsync(admin, "planning-account"));
     }
 
+    [Fact]
+    public async Task SPM_300_a_person_connects_their_own_account_from_the_chat_and_the_agent_works_with_it()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync(options => options.Subject = "remote-admin");
+        authorization.RegisterClient("sample-assistant-people", "sample-spm-300-client-secret", AssistantSampleHost.OAuthRedirectUri);
+        await using var planning = await SampleMcpServer.StartProtectedAsync(authorization);
+        using var admin = Host.CreateClient("spm-300-admin", admin: true);
+        using var ann = Host.CreateClient("spm-300-ann");
+        using var bob = Host.CreateClient("spm-300-bob");
+        using var browser = SampleMcpOAuthBrowser.Create(admin);
+
+        // Each person connects their own planning account; nobody shares one.
+        using var created = await admin.PostAsync("/api/assistant/admin/mcp-servers", AssistantSampleHost.Json(new
+        {
+            id = "personal-planning",
+            displayName = "My planning",
+            url = planning.Url,
+            authMode = "oauth",
+            connectionScope = "user",
+            isEnabled = true,
+            oauth = new { clientId = "sample-assistant-people", clientSecret = "sample-spm-300-client-secret", scopes = "planning:read", confirmAuthorization = true }
+        }), cancellation);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        // The administrator connects their own account to synchronize the tools.
+        await SampleMcpOAuthBrowser.ConnectAsync(admin, browser, "/api/assistant/admin/mcp-servers/personal-planning/connection/authorize");
+        using var sync = await admin.PostAsync("/api/assistant/admin/mcp-servers/personal-planning/sync", null, cancellation);
+        using var enable = await admin.PutAsync(
+            "/api/assistant/admin/mcp-servers/personal-planning/tools/next_milestone",
+            AssistantSampleHost.Json(new { isEnabled = true, effect = "read-only", descriptionOverride = (string?)null }),
+            cancellation);
+        using var agent = await admin.PostAsync("/api/assistant/admin/agents", AssistantSampleHost.Json(new
+        {
+            id = "my-planning-helper",
+            displayName = "My planning helper",
+            description = "Answers milestone questions from each person's own planning account.",
+            instructions = "Answer milestone questions with the planning tool.",
+            toolSelectors = new[] { "projects.search" },
+            mcpServerIds = new[] { "personal-planning" },
+            requiredPolicy = (string?)null,
+            autonomy = "observe",
+            isEnabled = true
+        }), cancellation);
+        Assert.Equal(HttpStatusCode.OK, sync.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, enable.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, agent.StatusCode);
+
+        Host.Model.Use(new NhAiScriptedChatClient()
+            .RespondWithText("Connect My planning first.")
+            .RespondWithFunctionCall("mcp_personal_planning_next_milestone", new { project = "PRJ-3" })
+            .RespondWithText("PRJ-3 reaches its next milestone on Friday.")
+            .RespondWithText("Connect My planning first."));
+
+        // Ann has not connected: the answer carries a card that survives a reload.
+        var annConversation = await CreateConversationAsync(ann, "my-planning-helper");
+        var unconnected = await Host.SendAsync(ann, annConversation, "When is the next milestone of PRJ-3?");
+        var card = unconnected.Single(evt => evt.Name == "connection.required").Data;
+        Assert.Equal("personal-planning", card.GetProperty("serverId").GetString());
+        Assert.Equal("not-connected", card.GetProperty("reason").GetString());
+        var reloaded = await Host.GetJsonAsync(ann, $"/api/assistant/conversations/{annConversation}");
+        Assert.Contains(
+            reloaded.GetProperty("messages").EnumerateArray().Last().GetProperty("parts").EnumerateArray(),
+            part => part.GetProperty("type").GetString() == "connection-required");
+
+        // Ann connects from the card; the next answer uses her own account.
+        authorization.Options.Subject = "remote-ann";
+        await SampleMcpOAuthBrowser.ConnectAsync(ann, browser, "/api/assistant/mcp-connections/personal-planning/authorize");
+        var connected = await Host.SendAsync(ann, annConversation, "When is the next milestone of PRJ-3?");
+        Assert.Equal("succeeded", connected.Single(evt => evt.Name == "tool.completed").Data.GetProperty("status").GetString());
+        Assert.Equal("remote-ann", planning.Resource!.Requests.Last().Subject);
+
+        // Bob is asked for his own account; Ann's connection never serves him.
+        var bobConversation = await CreateConversationAsync(bob, "my-planning-helper");
+        var bobsTurn = await Host.SendAsync(bob, bobConversation, "When is the next milestone of PRJ-3?");
+        Assert.Contains(bobsTurn, evt => evt.Name == "connection.required");
+        Assert.DoesNotContain(bobsTurn, evt => evt.Name == "tool.started");
+
+        // Ann disconnects in her preferences: the tokens are revoked.
+        using var disconnected = await ann.DeleteAsync("/api/assistant/mcp-connections/personal-planning", cancellation);
+        Assert.Equal(HttpStatusCode.NoContent, disconnected.StatusCode);
+        Assert.Contains("refresh_token", authorization.Revocations);
+        var listed = await Host.GetJsonAsync(ann, "/api/assistant/mcp-connections");
+        Assert.Equal("not-connected", listed.EnumerateArray().Single(item => item.GetProperty("serverId").GetString() == "personal-planning")
+            .GetProperty("connectionStatus").GetString());
+    }
+
     private static async Task<bool> TestAsync(HttpClient admin, string serverId)
     {
         using var response = await admin.PostAsync($"/api/assistant/admin/mcp-servers/{serverId}/test", null, TestContext.Current.CancellationToken);
@@ -504,6 +590,41 @@ public sealed partial class AssistantSamplesTests
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await AssistantSampleHost.ReadJsonAsync(response)).GetProperty("id").GetGuid();
+    }
+}
+
+/// <summary>
+/// SPM-299 and SPM-300: plays the person's browser in an MCP authorization. It opens the authorization
+/// URL, follows the authorization server's redirect to the assistant's callback page, reads the
+/// one-time completion code the page posts to its opener and completes the connection with the
+/// client's own session.
+/// </summary>
+internal static class SampleMcpOAuthBrowser
+{
+    /// <summary>A browser without the person's session and without following redirects.</summary>
+    public static HttpClient Create(HttpClient client)
+    {
+        return new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { BaseAddress = client.BaseAddress };
+    }
+
+    public static async Task<JsonElement> ConnectAsync(HttpClient client, HttpClient browser, string authorizePath, object? request = null)
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        using var started = await client.PostAsync(authorizePath, request is null ? null : AssistantSampleHost.Json(request), cancellation);
+        Assert.Equal(HttpStatusCode.OK, started.StatusCode);
+        var start = await AssistantSampleHost.ReadJsonAsync(started);
+        using var authorize = await browser.GetAsync(start.GetProperty("authorizationUrl").GetString(), cancellation);
+        var redirect = authorize.Headers.Location!;
+        Assert.StartsWith(AssistantSampleHost.OAuthRedirectUri, redirect.ToString(), StringComparison.Ordinal);
+        using var callback = await browser.GetAsync("/api/assistant/mcp/oauth/callback" + redirect.Query, cancellation);
+        var page = await callback.Content.ReadAsStringAsync(cancellation);
+        var completionCode = System.Text.RegularExpressions.Regex.Match(page, "\"completionCode\":\"([^\"]+)\"").Groups[1].Value;
+        using var completed = await client.PostAsync(
+            "/api/assistant/mcp-connections/complete",
+            AssistantSampleHost.Json(new { flowId = start.GetProperty("flowId").GetString(), completionCode }),
+            cancellation);
+        Assert.Equal(HttpStatusCode.OK, completed.StatusCode);
+        return await AssistantSampleHost.ReadJsonAsync(completed);
     }
 }
 

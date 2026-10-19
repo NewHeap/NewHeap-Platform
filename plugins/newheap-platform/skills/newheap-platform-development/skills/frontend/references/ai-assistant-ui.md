@@ -93,6 +93,16 @@ configures `NewHeap:AI:Assistant:Mcp:OAuth:RedirectUri` and lists its page origi
 `ReturnOrigins`; the mock API provides `NhAssistantMockAuthorizationWindow`, which plays
 the callback as `mcpAuthorization` of the scenario says.
 
+When each person connects their own account (`connectionScope: 'user'`), the thread shows
+`nh-assistant-connection-required` for an answer that went on without the person's connection
+(`connection.required` and the `connection-required` part): it connects the viewer's own account
+and offers to ask again, which the panel sends. `nh-assistant-mcp-connections` lists those servers
+with their status, Connect, Connect again and Disconnect, and the consent switch only where the
+administrator offers background use. `NhAssistantMcpConnectService` runs every connection: in a
+popup by default, or with `mcpConnectMode: 'redirect'` by leaving the page and completing on return
+(`mcpConnectReturnUrl`, an origin in `ReturnOrigins`). The mock's `connectionRequired` step and
+`personalConnected` play it without a server.
+
 Route to `NhAssistantAdminComponent` from `@newheap/platform-ai-chat/admin` with a
 lazy route guarded by the host's admin permission (for example
 `app.assistant.admin`), and pass that route as `adminRoute` to
@@ -422,7 +432,10 @@ fallback transport, offer `personal` only for a forwarded token, keep synced MCP
 disabled as changes, show remote hints as hints and warn after a remote schema change. For
 OAuth servers they save only after discovery and confirmation, send the client secret only
 when entered, connect the organization through the mock authorization window, report a
-denied authorization and disconnect after confirmation. The
+denied authorization and disconnect after confirmation. For personal connections they show the card
+of an answer without a connection, connect from it and ask again, report a denied authorization on
+the card, connect and disconnect in the preferences, hide the consent switch where background use is
+not offered, and complete a redirect-mode return from its fragment. The
 preference tests also allow and withdraw background use of a personal server. The run
 configuration tests give an administration agent run settings, show refused fields and an
 account that may not sign in, add a skill that starts in shadow and a trigger that is put

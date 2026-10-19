@@ -388,6 +388,13 @@ public sealed record NhAssistantAuditEvent(
     /// event covers: those issued, or refused, for one server and person in a turn.
     /// </summary>
     public int? TokenCount { get; init; }
+
+    /// <summary>
+    /// Whose credential a <see cref="NhAssistantAuditEventKind.ToolInvoked"/> call of an MCP tool
+    /// carried: <c>organization</c> for the server's own credential, the person's actor id for a
+    /// personal connection or a forwarded sign-in, or <c>none</c>. Null for other tools.
+    /// </summary>
+    public string? McpConnectionOwner { get; init; }
 }
 
 /// <summary>

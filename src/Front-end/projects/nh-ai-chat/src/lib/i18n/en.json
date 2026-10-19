@@ -443,7 +443,25 @@
         "allowed-since": "Allowed since {{date}}",
         "not-allowed": "Not allowed",
         "used-by": "Used by:",
-        "load-failed": "The services that ask for your permission could not be loaded."
+        "load-failed": "The services that ask for your permission could not be loaded.",
+        "accounts-title": "Connected services",
+        "accounts-description": "Agents use these services with your own account. Connect a service to let them work with it; disconnecting revokes the access at once.",
+        "status": {
+          "not-connected": "Not connected",
+          "active": "Connected",
+          "reauthorization-required": "Connect again",
+          "issuer-changed": "Paused by the administrator"
+        },
+        "connected-since": "Connected since {{date}}",
+        "more-permissions": "The service asked for more permissions: {{scopes}}. Connect again to grant them.",
+        "issuer-changed": "The service changed how it signs in. An administrator confirms it first.",
+        "connect": "Connect",
+        "connect-again": "Connect again",
+        "disconnect": "Disconnect",
+        "confirm-disconnect": "Disconnect and revoke",
+        "cancel": "Cancel",
+        "connect-done": "{{name}} is connected.",
+        "disconnect-done": "{{name}} is disconnected and its access revoked."
       }
     },
     "admin": {
@@ -720,12 +738,15 @@
         "connecting": "Waiting for the authorization…",
         "connect-done": "The organization's account is connected.",
         "disconnect-done": "The connection was removed and its tokens revoked.",
-        "personal-connections": "{{active}} people connected",
+        "personal-connections": "Personal connections: {{active}}",
         "revoke-all": "Revoke all personal connections",
         "confirm-revoke-all": "Revoke for everyone",
         "revoke-all-done": "Every personal connection was revoked.",
         "issuer-changed": "The server named another authorization server. Edit the server and confirm it.",
-        "required-scopes": "The server asked for: {{scopes}}"
+        "required-scopes": "The server asked for: {{scopes}}",
+        "connect-own": "Connect my account",
+        "connect-own-done": "Your own account is connected; tests and syncs use it.",
+        "personal-attention": "{{count}} need to connect again"
       },
       "server-editor": {
         "new-title": "New MCP server",
@@ -1494,6 +1515,17 @@
       "searching": "Searching…",
       "type-more": "Type at least two characters.",
       "no-results": "Nothing found."
+    },
+    "connection": {
+      "title": "Connect {{name}}",
+      "not-connected": "The assistant could not use {{name}}, because your account is not connected. Connect it to let the assistant work with it on your behalf.",
+      "reauthorization-required": "Your connection to {{name}} has ended. Connect again to let the assistant use it.",
+      "insufficient-scope": "{{name}} needs more permissions than your connection grants. Connect again to grant them.",
+      "connect": "Connect",
+      "connect-again": "Connect again",
+      "connecting": "Waiting for the authorization…",
+      "connected": "{{name}} is connected.",
+      "retry": "Ask again"
     }
   }
 }

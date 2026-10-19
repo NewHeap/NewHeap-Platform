@@ -189,14 +189,23 @@ internal sealed partial class NhAssistantMcpAdministration(
         return TaskResult.Succeeded();
     }
 
-    public async Task<TaskResult<NhAssistantMcpTestResult>> TestAsync(string id, CancellationToken cancellationToken)
+    public Task<TaskResult<NhAssistantMcpTestResult>> TestAsync(string id, CancellationToken cancellationToken)
+    {
+        return TestAsync(id, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Connects to a server and lists its tools. A server each person connects to is tested with the
+    /// administrator's own connection, <paramref name="actorId"/>.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantMcpTestResult>> TestAsync(string id, string? actorId, CancellationToken cancellationToken)
     {
         var server = await store.FindMcpServerAsync(id, cancellationToken);
         if (server is null)
         {
             return NotFound<NhAssistantMcpTestResult>();
         }
-        var lease = await ConnectAsync(server, cancellationToken);
+        var lease = await ConnectAsync(server, actorId, cancellationToken);
         if (!lease.Success)
         {
             var code = FirstCode(lease);
@@ -224,7 +233,7 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             return NotFound<IReadOnlyList<AssistantMcpTool>>();
         }
-        var lease = await ConnectAsync(server, cancellationToken);
+        var lease = await ConnectAsync(server, actorId, cancellationToken);
         if (!lease.Success)
         {
             await store.UpdateMcpServerAsync(id, item =>
@@ -319,14 +328,18 @@ internal sealed partial class NhAssistantMcpAdministration(
         return TaskResult<AssistantMcpTool>.Succeeded(updated!);
     }
 
-    private async Task<TaskResult<NhAssistantMcpLease>> ConnectAsync(AssistantMcpServer server, CancellationToken cancellationToken)
+    private async Task<TaskResult<NhAssistantMcpLease>> ConnectAsync(AssistantMcpServer server, string? actorId, CancellationToken cancellationToken)
     {
-        var plan = await planner.PlanAsync(server, cancellationToken);
+        // A server each person connects to lists its tools with the administrator's own connection.
+        var subject = NhAssistantMcpToolSource.IsPersonalOAuth(server) && actorId is not null
+            ? new NhAssistantMcpCredentialSubject(false, actorId, NewHeap.Platform.AI.NhAiGrantSource.None, null)
+            : NhAssistantMcpCredentialSubject.Request;
+        var plan = await planner.PlanAsync(server, subject, cancellationToken);
         if (!plan.Success)
         {
             return TaskResult<NhAssistantMcpLease>.Failed(plan);
         }
-        var perCall = plan.Data with { IsPerCaller = true };
+        var perCall = plan.Data with { IsPerCaller = true, PersonalCacheKey = null };
         return await cache.ConnectAsync(server, perCall, bypassCache: true, cancellationToken);
     }
 
@@ -687,13 +700,17 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             return NotFound<NhAssistantMcpAuthorizationStart>();
         }
-        if (server.AuthMode != NhAssistantMcpAuthModes.OAuth || server.ConnectionScope != NhAssistantMcpConnectionScopes.Organization)
+        if (server.AuthMode != NhAssistantMcpAuthModes.OAuth)
         {
             return TaskResult<NhAssistantMcpAuthorizationStart>.Failed(NhAssistantValidationErrors.Failed("authMode", NhAssistantFieldErrors.Invalid));
         }
+        // A server each person connects to: the administrator connects their own account, to test and
+        // sync it before any agent offers it.
         return await services.GetRequiredService<NhAssistantMcpAuthorizationFlows>().StartAsync(
             server,
-            NhAssistantMcpConnectionOwner.Organization,
+            server.ConnectionScope == NhAssistantMcpConnectionScopes.User
+                ? NhAssistantMcpConnectionOwner.User(actorId)
+                : NhAssistantMcpConnectionOwner.Organization,
             actorId,
             allowBackgroundUse: false,
             returnUrl,

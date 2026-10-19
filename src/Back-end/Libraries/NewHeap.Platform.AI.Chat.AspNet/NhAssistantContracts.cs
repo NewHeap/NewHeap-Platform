@@ -250,7 +250,18 @@ public sealed record NhAssistantLiveEventDto(
 [JsonDerivedType(typeof(NhAssistantTextPartDto), "text")]
 [JsonDerivedType(typeof(NhAssistantToolCallPartDto), "tool-call")]
 [JsonDerivedType(typeof(NhAssistantApprovalPartDto), "approval")]
+[JsonDerivedType(typeof(NhAssistantConnectionRequiredPartDto), "connection-required")]
 public abstract record NhAssistantMessagePartDto;
+
+/// <summary>
+/// The person had to connect an MCP server, which each person connects to with OAuth, before the
+/// agent could use it: <c>not-connected</c>, <c>reauthorization-required</c> or
+/// <c>insufficient-scope</c> (<see cref="NhAssistantMcpConnectionReasons"/>).
+/// </summary>
+public sealed record NhAssistantConnectionRequiredPartDto(string ServerId, string DisplayName, string Reason) : NhAssistantMessagePartDto;
+
+/// <summary>The data of the <c>connection.required</c> event of a turn.</summary>
+public sealed record NhAssistantConnectionRequiredDto(string ServerId, string DisplayName, string Reason);
 
 public sealed record NhAssistantTextPartDto(string Text) : NhAssistantMessagePartDto;
 
@@ -473,6 +484,7 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantMcpCompletionDto))]
 [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))]
 [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))]
+[JsonSerializable(typeof(NhAssistantConnectionRequiredDto))]
 public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;
 
 public sealed record NhAssistantPreferencesDto(

@@ -32,7 +32,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// secret, code or token reaches a log or an audit event.
 /// </summary>
 [Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantMcpOAuthTests(AssistantDatabaseFixture database)
+public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture database)
 {
     private const string RedirectUri = "https://assistant.example/api/assistant/mcp/oauth/callback";
     private const string ClientSecret = "test-cc-secret-4711";
@@ -775,12 +775,13 @@ public sealed class AssistantMcpOAuthTests(AssistantDatabaseFixture database)
     private Task<AssistantTestHost> CreateHostAsync(
         AssistantTestProvider provider,
         IConfiguration? configuration = null,
-        Action<NhAssistantMcpOptions>? mcp = null)
+        Action<NhAssistantMcpOptions>? mcp = null,
+        NhAiScriptedChatClient? model = null)
     {
         return AssistantTestHost.CreateAsync(
             database,
             provider,
-            new NhAiScriptedChatClient(),
+            model ?? new NhAiScriptedChatClient(),
             configure: services =>
             {
                 if (configuration is not null)

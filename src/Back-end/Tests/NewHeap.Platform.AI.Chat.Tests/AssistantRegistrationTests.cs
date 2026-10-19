@@ -135,7 +135,7 @@ public sealed class AssistantRegistrationTests
                 || property.Name is "ActorId" or "AgentId" or "ToolId" or "ResultCode" or "ObjectId"
                     or "ApplicationContextVersion" or "ApplicationContextHash" or "InstructionsVersion"
                     or "InstructionsHash" or "PreferencesHash" or "TriggerId" or "SubjectType" or "SubjectId"
-                    or "InitiatorActorId" or "ApprovalPolicyId" or "AskingAgentId" or "SkillId" or "ApplicationMapHash" or "RetrievedContextHash"
+                    or "InitiatorActorId" or "ApprovalPolicyId" or "AskingAgentId" or "SkillId" or "ApplicationMapHash" or "RetrievedContextHash" or "McpConnectionOwner"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }

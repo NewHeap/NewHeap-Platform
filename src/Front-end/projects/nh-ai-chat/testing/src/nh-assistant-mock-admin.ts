@@ -45,6 +45,8 @@ interface StoredServer {
   oauthSecret: string | null;
   /** The organization's OAuth connection; null while not connected. */
   organization: McpOrganizationConnection | null;
+  /** The caller's own OAuth connection of a server each person connects to; null while not connected. */
+  personal: McpOrganizationConnection | null;
   remoteTools: NhAssistantMockRemoteTool[];
   tools: Map<string, McpTool & { inputSchemaHash: string }>;
 }
@@ -161,12 +163,13 @@ export class NhAssistantMockAdmin {
       },
       now);
 
-    for (const { remoteTools, secret, organizationConnected, ...input } of admin.mcpServers ?? []) {
+    for (const { remoteTools, secret, organizationConnected, personalConnected, ...input } of admin.mcpServers ?? []) {
       const stored: StoredServer = {
         server: { ...toServerFields(input), ...newServerState(input), ...oauthFields(input, null, null) },
         secret: secret ?? null,
         oauthSecret: input.oauth?.clientSecret || null,
         organization: null,
+        personal: null,
         remoteTools: remoteTools ?? [],
         tools: new Map()
       };
@@ -178,6 +181,9 @@ export class NhAssistantMockAdmin {
           : { issuer: found.issuer, resource: found.resource, confirmedAt: now(), confirmedBy: 'current-user' };
         if (organizationConnected) {
           stored.organization = activeConnection(now(), 'current-user', input.oauth?.scopes ?? null);
+        }
+        if (personalConnected) {
+          stored.personal = activeConnection(now(), 'current-user', input.oauth?.scopes ?? null);
         }
       }
       this.servers.set(input.id, stored);
@@ -210,9 +216,32 @@ export class NhAssistantMockAdmin {
    */
   setMcpConnectionStatus(serverId: string, status: Exclude<McpConnectionStatus, 'not-connected' | 'active'>): void {
     const stored = this.servers.get(serverId);
+    const failure = status === 'reauthorization-required' ? 'assistant-mcp-reauthorization-required' : null;
     if (stored?.organization) {
-      stored.organization = { ...stored.organization, status, lastFailureCode: status === 'reauthorization-required' ? 'assistant-mcp-reauthorization-required' : null };
+      stored.organization = { ...stored.organization, status, lastFailureCode: failure };
     }
+    if (stored?.personal) {
+      stored.personal = { ...stored.personal, status, lastFailureCode: failure };
+    }
+  }
+
+  /**
+   * Why the caller has to connect a server each person connects to before a turn can use it, or null
+   * when the caller's connection is active.
+   */
+  connectionNeeded(serverId: string): { displayName: string; reason: 'not-connected' | 'reauthorization-required' | 'insufficient-scope' } | null {
+    const stored = this.servers.get(serverId);
+    if (!stored) {
+      return null;
+    }
+    const personal = stored.personal;
+    if (personal?.status === 'active') {
+      return personal.requiredScopes ? { displayName: stored.server.displayName, reason: 'insufficient-scope' } : null;
+    }
+    return {
+      displayName: stored.server.displayName,
+      reason: personal?.status === 'reauthorization-required' ? 'reauthorization-required' : 'not-connected'
+    };
   }
 
   /**
@@ -304,13 +333,44 @@ export class NhAssistantMockAdmin {
     if (segments.length === 1) {
       return method === 'GET' ? { status: 200, body: personal } : { status: 405 };
     }
+    const serverId = segments[1];
+    const listed = personal.find(connection => connection.serverId === serverId);
+    if (segments.length === 3 && segments[2] === 'authorize') {
+      if (method !== 'POST') {
+        return { status: 405 };
+      }
+      if (!listed) {
+        return failure(404, 'assistant-mcp-server-not-found');
+      }
+      if (listed.connectionStatus === null) {
+        return validationFailure('serverId');
+      }
+      const request = body as { returnUrl?: unknown; allowBackgroundUse?: unknown } | undefined;
+      if (request?.returnUrl !== undefined && request.returnUrl !== null && !this.allowedReturnUrl(request.returnUrl)) {
+        return validationFailure('returnUrl');
+      }
+      return this.startFlow(this.servers.get(serverId)!, 'user', request?.allowBackgroundUse === true && listed.offersBackgroundUse);
+    }
+    if (segments.length === 2 && method === 'DELETE') {
+      if (!listed) {
+        return failure(404, 'assistant-mcp-server-not-found');
+      }
+      if (listed.connectionStatus === null) {
+        return validationFailure('serverId');
+      }
+      // The consent to background use stays until the person withdraws it.
+      this.servers.get(serverId)!.personal = null;
+      return { status: 204 };
+    }
     if (segments.length !== 2 || method !== 'PUT') {
       return segments.length === 2 ? { status: 405 } : failure(404, 'assistant-not-found');
     }
 
-    const serverId = segments[1];
-    if (!personal.some(connection => connection.serverId === serverId)) {
+    if (!listed) {
       return failure(404, 'assistant-mcp-server-not-found');
+    }
+    if (!listed.offersBackgroundUse) {
+      return failure(400, 'assistant-mcp-headless-not-allowed');
     }
     const allow = (body as { allowBackgroundUse?: unknown } | undefined)?.allowBackgroundUse;
     if (typeof allow !== 'boolean') {
@@ -831,6 +891,7 @@ export class NhAssistantMockAdmin {
         secret: secretModes.includes(input.authMode) && input.secret ? input.secret : null,
         oauthSecret: oauthModes.includes(input.authMode) && input.oauth?.clientSecret ? input.oauth.clientSecret : null,
         organization: null,
+        personal: null,
         remoteTools: [],
         tools: new Map()
       };
@@ -881,6 +942,7 @@ export class NhAssistantMockAdmin {
         if (oauthChanged(before, stored.server)) {
           // The tokens no longer fit the server: they are revoked and everyone connects again.
           stored.organization = null;
+          stored.personal = null;
         } else if (oauth.authorization !== null && before.authorization?.issuer === oauth.authorization.issuer &&
           stored.organization?.status === 'issuer-changed') {
           stored.organization = { ...stored.organization, status: 'active' };
@@ -923,10 +985,25 @@ export class NhAssistantMockAdmin {
       return method === 'POST' ? this.startAuthorization(stored, body) : { status: 405 };
     }
     if (action === 'connections' && length === 4) {
-      return method === 'DELETE' ? { status: 204 } : { status: 405 };
+      if (method !== 'DELETE') {
+        return { status: 405 };
+      }
+      stored.personal = null;
+      return { status: 204 };
     }
     if (action === 'connections' && child === 'summary' && length === 5) {
-      return method === 'GET' ? { status: 200, body: { active: 0, reauthorizationRequired: 0, issuerChanged: 0 } } : { status: 405 };
+      // The mock has one person: the caller.
+      const status = stored.personal?.status;
+      return method === 'GET'
+        ? {
+          status: 200,
+          body: {
+            active: status === 'active' ? 1 : 0,
+            reauthorizationRequired: status === 'reauthorization-required' ? 1 : 0,
+            issuerChanged: status === 'issuer-changed' ? 1 : 0
+          }
+        }
+        : { status: 405 };
     }
 
     if (length === 4 && action === 'test' && method === 'POST') {
@@ -1118,14 +1195,15 @@ export class NhAssistantMockAdmin {
 
   /** `POST admin/mcp-servers/{id}/connection/authorize`: starts the organization's authorization. */
   private startAuthorization(stored: StoredServer, body: unknown): NhAssistantMockResult {
-    if (stored.server.authMode !== 'oauth' || stored.server.connectionScope !== 'organization') {
+    if (stored.server.authMode !== 'oauth') {
       return validationFailure('authMode');
     }
     const returnUrl = (body as { returnUrl?: unknown } | undefined)?.returnUrl;
     if (returnUrl !== undefined && returnUrl !== null && !this.allowedReturnUrl(returnUrl)) {
       return validationFailure('returnUrl');
     }
-    return this.startFlow(stored, 'organization', false);
+    // For a server each person connects to, the administrator connects their own account.
+    return this.startFlow(stored, stored.server.connectionScope === 'user' ? 'user' : 'organization', false);
   }
 
   private startFlow(stored: StoredServer, owner: 'organization' | 'user', allowBackgroundUse: boolean): NhAssistantMockResult {
@@ -1183,7 +1261,14 @@ export class NhAssistantMockAdmin {
     }
     flow.status = 'completed';
     const connection = activeConnection(this.now(), 'current-user', stored.server.oauth?.scopes ?? null);
-    stored.organization = connection;
+    if (flow.owner === 'user') {
+      stored.personal = connection;
+      if (flow.allowBackgroundUse) {
+        this.consents.set(stored.server.id, { fingerprint: consentFingerprint(stored), consentedAt: this.now() });
+      }
+    } else {
+      stored.organization = connection;
+    }
     const completion: McpCompletion = { serverId: stored.server.id, ownerKind: flow.owner, status: 'active', grantedScopes: connection.grantedScopes };
     return { status: 200, body: completion };
   }
@@ -1248,8 +1333,17 @@ export class NhAssistantMockAdmin {
       stored.organization = activeConnection(this.now(), 'client-credentials', server.oauth?.scopes ?? null);
     }
     if (server.authMode === 'oauth' && server.connectionScope === 'user') {
-      // The test runs as the organization; a personal server has no organization connection.
-      return 'assistant-mcp-connection-required';
+      // Tests and syncs of a server each person connects to use the administrator's own account.
+      switch (stored.personal?.status ?? 'not-connected') {
+        case 'not-connected':
+          return 'assistant-mcp-connection-required';
+        case 'reauthorization-required':
+          return 'assistant-mcp-reauthorization-required';
+        case 'issuer-changed':
+          return 'assistant-mcp-issuer-changed';
+        default:
+          return null;
+      }
     }
     switch (stored.organization?.status ?? 'not-connected') {
       case 'not-connected':
@@ -1321,7 +1415,9 @@ export class NhAssistantMockAdmin {
       const agentIds = [...this.agents.values()]
         .filter(agent => visible.has(agent.agent.id) && agent.agent.mcpServerIds.includes(server.id))
         .map(agent => agent.agent.id);
-      if (!server.isEnabled || server.headlessUse !== 'personal' || server.authMode !== 'forward-user-token' || agentIds.length === 0) {
+      const personalOAuth = server.authMode === 'oauth' && server.connectionScope === 'user';
+      const forwardsToken = server.headlessUse === 'personal' && server.authMode === 'forward-user-token';
+      if (!server.isEnabled || !(personalOAuth || forwardsToken) || agentIds.length === 0) {
         continue;
       }
       const consent = this.consents.get(server.id);
@@ -1339,11 +1435,11 @@ export class NhAssistantMockAdmin {
         allowBackgroundUse: allowed,
         consentedAt: allowed ? consent.consentedAt : null,
         agentIds,
-        connectionStatus: null,
-        grantedScopes: null,
-        requiredScopes: null,
-        connectedAt: null,
-        offersBackgroundUse: true
+        connectionStatus: personalOAuth ? stored.personal?.status ?? 'not-connected' : null,
+        grantedScopes: personalOAuth ? stored.personal?.grantedScopes ?? null : null,
+        requiredScopes: personalOAuth ? stored.personal?.requiredScopes ?? null : null,
+        connectedAt: personalOAuth ? stored.personal?.connectedAt ?? null : null,
+        offersBackgroundUse: server.headlessUse === 'personal'
       });
     }
     return result;
@@ -1612,7 +1708,7 @@ function uuid(): string {
 
 /** What a person's consent holds for: the server, its address and its authentication. */
 function consentFingerprint(stored: StoredServer): string {
-  return [stored.server.id, stored.server.url.trim(), stored.server.authMode].join('\n');
+  return [stored.server.id, stored.server.url.trim(), stored.server.authMode, stored.server.authorization?.issuer ?? '', stored.server.oauth?.scopes ?? ''].join('\n');
 }
 
 /** The state of a server that was just added: never in headless runs unless the input says so. */

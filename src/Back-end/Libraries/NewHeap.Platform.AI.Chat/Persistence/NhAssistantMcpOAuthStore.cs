@@ -242,7 +242,9 @@ internal sealed class NhAssistantMcpOAuthStore(NhAssistantDbContextFactory conte
 
     /// <summary>
     /// Removes the token connections of a server, optionally of one owner kind or one owner, and
-    /// returns them for revocation at the authorization server. Rows that only record consent stay.
+    /// returns them as they were for revocation at the authorization server. A person's consent to
+    /// background use stays: the row keeps it without tokens, so an approved proposal of that person
+    /// fails as not connected. Rows that only record consent stay as they are.
     /// </summary>
     public async Task<IReadOnlyList<AssistantMcpConnection>> DeleteTokenConnectionsAsync(
         string serverId,
@@ -252,6 +254,7 @@ internal sealed class NhAssistantMcpOAuthStore(NhAssistantDbContextFactory conte
     {
         await using var context = contextFactory.CreateDbContext();
         var connections = await context.McpConnections
+            .AsNoTracking()
             .Where(connection => connection.ServerId == serverId
                 && connection.Status != null
                 && (ownerKind == null || connection.OwnerKind == ownerKind)
@@ -261,8 +264,41 @@ internal sealed class NhAssistantMcpOAuthStore(NhAssistantDbContextFactory conte
         {
             return [];
         }
-        context.McpConnections.RemoveRange(connections);
-        await context.SaveChangesAsync(cancellationToken);
+        var keep = connections
+            .Where(connection => connection.OwnerKind == NhAssistantMcpConnectionOwners.User && connection.AllowBackgroundUse)
+            .Select(connection => connection.Id)
+            .ToArray();
+        var remove = connections.Select(connection => connection.Id).Except(keep).ToArray();
+        if (remove.Length > 0)
+        {
+            await context.McpConnections.Where(connection => remove.Contains(connection.Id)).ExecuteDeleteAsync(cancellationToken);
+        }
+        if (keep.Length > 0)
+        {
+            var now = DateTimeOffset.UtcNow;
+            await context.McpConnections
+                .Where(connection => keep.Contains(connection.Id))
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(connection => connection.Status, (string?)null)
+                        .SetProperty(connection => connection.Issuer, (string?)null)
+                        .SetProperty(connection => connection.ClientId, (string?)null)
+                        .SetProperty(connection => connection.Resource, (string?)null)
+                        .SetProperty(connection => connection.GrantedScopes, (string?)null)
+                        .SetProperty(connection => connection.RequiredScopes, (string?)null)
+                        .SetProperty(connection => connection.ProtectedAccessToken, (string?)null)
+                        .SetProperty(connection => connection.ProtectedRefreshToken, (string?)null)
+                        .SetProperty(connection => connection.AccessTokenExpiresAt, (DateTimeOffset?)null)
+                        .SetProperty(connection => connection.RefreshTokenExpiresAt, (DateTimeOffset?)null)
+                        .SetProperty(connection => connection.ConnectedBy, (string?)null)
+                        .SetProperty(connection => connection.ConnectedAt, (DateTimeOffset?)null)
+                        .SetProperty(connection => connection.LastFailureCode, (string?)null)
+                        .SetProperty(connection => connection.RefreshLeaseUntil, (DateTimeOffset?)null)
+                        .SetProperty(connection => connection.RefreshLeaseOwner, (string?)null)
+                        .SetProperty(connection => connection.UpdatedAt, now)
+                        .SetProperty(connection => connection.Version, connection => connection.Version + 1),
+                    cancellationToken);
+        }
         return connections;
     }
 

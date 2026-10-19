@@ -1741,7 +1741,9 @@ internal sealed partial class NhAssistantTurnRunner(
             .ToArray();
         return new NhAssistantMcpToolSet(readOnly, loaded.DisposeAsync)
         {
-            SkippedServers = loaded.SkippedServers
+            SkippedServers = loaded.SkippedServers,
+            ConnectionsNeeded = loaded.ConnectionsNeeded,
+            ConnectionOwners = loaded.ConnectionOwners
         };
     }
 
@@ -1754,7 +1756,8 @@ internal sealed partial class NhAssistantTurnRunner(
     {
         if (state.AgentTurn is not { IsRequestTurn: false } agentTurn || CreateAgentScope(state) is not { } scope)
         {
-            return new NhAssistantMcpToolRequest(state.EffectiveAgent);
+            // A person's request: that person's own connections serve it.
+            return new NhAssistantMcpToolRequest(state.EffectiveAgent) { PersonActorId = state.Scope.OwnerActorId };
         }
 
         string? person = null;
@@ -1788,6 +1791,7 @@ internal sealed partial class NhAssistantTurnRunner(
             return null;
         }
         state.McpTools ??= await LoadMcpToolsAsync(state, cancellationToken);
+        state.Scope.McpConnectionOwners = state.McpTools.ConnectionOwners;
         foreach (var function in state.McpTools.Functions)
         {
             if (function is INhAiGovernedAIFunction governed && Matches(governed.Descriptor, invocation))
@@ -2232,6 +2236,17 @@ internal sealed partial class NhAssistantTurnRunner(
         var modelInstructions = prompt.ModelInstructions.Length <= NhAssistantPromptComposer.MaxInstructionsLength
             ? prompt.ModelInstructions
             : prompt.Instructions;
+        state.McpTools ??= await LoadMcpToolsAsync(state, cancellationToken);
+        state.Scope.McpConnectionOwners = state.McpTools.ConnectionOwners;
+        if (state.McpTools.ConnectionsNeeded.Count > 0)
+        {
+            await AnnounceConnectionsNeededAsync(state, interceptor, cancellationToken);
+            var note = ConnectionsNeededNote(state.McpTools.ConnectionsNeeded);
+            if (modelInstructions.Length + note.Length <= NhAssistantPromptComposer.MaxInstructionsLength)
+            {
+                modelInstructions += note;
+            }
+        }
         var descriptor = NhAssistantAgentRegistry.CreateDescriptor(agent, profile, selectors) with
         {
             PromptVersion = prompt.PromptVersion,
@@ -2251,12 +2266,62 @@ internal sealed partial class NhAssistantTurnRunner(
             return null;
         }
 
-        state.McpTools ??= await LoadMcpToolsAsync(state, cancellationToken);
         interceptor.UseOfferedTools(created.Data.Tools.Concat(state.McpTools.Descriptors));
         return created.Data.Agent
             .AsBuilder()
             .Use(interceptor.InvokeAsync)
             .Build(agentServices);
+    }
+
+    /// <summary>
+    /// Shows the person once per turn which servers need their connection: a
+    /// <c>connection-required</c> event and message part per server, which survives a reload.
+    /// </summary>
+    private static async Task AnnounceConnectionsNeededAsync(
+        NhAssistantTurnState state,
+        NhAssistantToolCallInterceptor interceptor,
+        CancellationToken cancellationToken)
+    {
+        if (state.ConnectionsAnnounced || state.Scope.Consultation is not null)
+        {
+            return;
+        }
+        state.ConnectionsAnnounced = true;
+        foreach (var needed in state.McpTools!.ConnectionsNeeded)
+        {
+            state.AddPart(new NhAssistantStoredPart(
+                NhAssistantStoredPart.ConnectionRequiredType,
+                ServerId: needed.ServerId,
+                DisplayName: needed.DisplayName,
+                Reason: needed.Reason));
+        }
+        await interceptor.FlushAsync(cancellationToken);
+        foreach (var needed in state.McpTools.ConnectionsNeeded)
+        {
+            await state.EmitAsync(new NhAssistantConnectionRequiredEvent(needed.ServerId, needed.DisplayName, needed.Reason));
+        }
+    }
+
+    /// <summary>
+    /// Tells the model which services are not available to this person, so it answers that instead of
+    /// guessing; display names only, no tokens or scopes.
+    /// </summary>
+    private static string ConnectionsNeededNote(IReadOnlyList<NhAssistantMcpConnectionNeeded> needed)
+    {
+        var missing = needed.Where(item => item.Reason != NhAssistantMcpConnectionReasons.InsufficientScope).Select(item => item.DisplayName).ToArray();
+        var limited = needed.Where(item => item.Reason == NhAssistantMcpConnectionReasons.InsufficientScope).Select(item => item.DisplayName).ToArray();
+        var note = new System.Text.StringBuilder();
+        if (missing.Length > 0)
+        {
+            note.Append("\n\nNot connected for this person: ").Append(string.Join(", ", missing))
+                .Append(". Their tools are not available in this turn. When the question needs them, say that the person can connect the service with the card in the chat and ask again.");
+        }
+        if (limited.Length > 0)
+        {
+            note.Append("\n\nThe connection of this person to ").Append(string.Join(", ", limited))
+                .Append(" lacks permissions a tool asked for; the person can connect it again with the card in the chat.");
+        }
+        return note.ToString();
     }
 
     /// <summary>

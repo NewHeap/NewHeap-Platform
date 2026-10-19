@@ -4596,5 +4596,29 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts"
     ]
+  },
+  {
+    "id": "SPM-300",
+    "title": "Each person connects their own account to an MCP server, from the chat or the preferences",
+    "category": "AI tools and generated catalogs",
+    "surface": "connectionScope user of oauth servers; POST mcp-connections/{serverId}/authorize with allowBackgroundUse and returnUrl, POST mcp-connections/complete, DELETE mcp-connections/{serverId} and the extended GET mcp-connections (connectionStatus, grantedScopes, requiredScopes, connectedAt, offersBackgroundUse); the connection.required event and connection-required message part (NhAssistantMcpConnectionReasons, NhAssistantConnectionRequiredPartDto); personal headless use for OAuth connections with the consent recorded when connecting; NhAssistantAuditEvent.McpConnectionOwner; the administrator's own connection for tests and syncs, GET admin/mcp-servers/{id}/connections/summary and DELETE admin/mcp-servers/{id}/connections; nh-assistant-connection-required (NhAssistantConnectionRequiredComponent), nh-assistant-mcp-connections with Connect and Disconnect, NhAssistantMcpConnectService, NhAssistantConfig.mcpConnectMode and mcpConnectReturnUrl, ConnectionRequiredPart and ConnectionRequiredEvent, and the mock's connectionRequired step and personalConnected",
+    "outcome": "An administrator adds a planning server that each person connects to with their own account and connects their own account to synchronize its tools. When Ann asks the agent before she connected, the answer goes on without the server, tells her why and shows a card that survives a reload; she connects in a popup, completes with her own session and asks again, and the agent calls the server with her account. Bob is asked for his own account and never gets Ann's. Disconnecting in the preferences revokes her tokens at once. A server that asks for more permissions than the connection grants records them and asks the person to connect again with them. In a background run of the status advisor the participant's connection serves the run only when the administrator offers the server in background runs and the participant consented when connecting; the audit names whose connection a call used, and an approved proposal executes with the connection of the person who asked or fails as not connected once they disconnected.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnectionService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpConnectionEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpPersonalConnectionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpHeadlessTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/connection-required/nh-assistant-connection-required.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/connection-required/nh-assistant-connection-required.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-mcp-connections.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-mcp-connect.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts"
+    ]
   }
 ] as const;

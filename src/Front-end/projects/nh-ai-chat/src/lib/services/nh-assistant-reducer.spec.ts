@@ -109,6 +109,21 @@ describe('applyNhAssistantEvent', () => {
     expect(complete('failed')).toBe('failed');
   });
 
+  it('adds one connection card per server to the answer, also when a live update repeats it', () => {
+    const base = replay(emptyConversation(), [mutatingTurn[0]], 'client-1');
+    const card: NhAssistantSseEvent = {
+      type: 'connection.required',
+      data: { serverId: 'planning', displayName: 'Planning', reason: 'not-connected' }
+    };
+
+    const result = replay(base, [card, card, { type: 'message.delta', data: { messageId: 'a1', text: 'Connect it first.' } }]);
+
+    expect(result.messages[1].parts).toEqual([
+      { type: 'connection-required', serverId: 'planning', displayName: 'Planning', reason: 'not-connected' },
+      { type: 'text', text: 'Connect it first.' }
+    ]);
+  });
+
   it('marks a running conversation failed on an error event', () => {
     const result = applyNhAssistantEvent(emptyConversation(), { type: 'error', data: { code: 'x', messageKey: 'y' } });
 

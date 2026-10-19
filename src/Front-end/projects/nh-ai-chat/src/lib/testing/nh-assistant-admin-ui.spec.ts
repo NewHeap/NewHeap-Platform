@@ -1171,6 +1171,32 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     expect(element.innerHTML).not.toContain('test-crm-client-secret');
   });
 
+  it('connects the administrator\'s own account to a server people connect to and revokes everyone\'s after confirmation', async () => {
+    const script = scenario();
+    script.admin!.mcpServers!.push({
+      id: 'calendar', displayName: 'Calendar', url: 'https://calendar.example.com/mcp', authMode: 'oauth', headerName: null, requiredPolicy: null,
+      isEnabled: true, connectionScope: 'user', oauth: { clientId: 'assistant-calendar', scopes: 'calendar:read' }
+    });
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+    const card = (): HTMLElement => Array.from(element.querySelectorAll<HTMLElement>('.card')).find(item => item.textContent?.includes('Calendar'))!;
+
+    expect(card().textContent).toContain('Each person connects');
+    expect(card().textContent).toContain('Personal connections: 0');
+    expect(buttons(card(), 'Revoke all personal connections').length).toBe(0);
+    button(card(), 'Connect my account').click();
+    await settle(fixture);
+    expect(card().textContent).toContain('Your own account is connected; tests and syncs use it.');
+    expect(card().textContent).toContain('Personal connections: 1');
+
+    button(card(), 'Revoke all personal connections').click();
+    fixture.detectChanges();
+    button(card(), 'Revoke for everyone').click();
+    await settle(fixture);
+    expect(card().textContent).toContain('Every personal connection was revoked.');
+    expect(requestBodies('DELETE', 'admin/mcp-servers/calendar/connections').length).toBe(1);
+  });
+
   it('connects the organization through the authorization window and disconnects after confirmation', async () => {
     const script = scenario();
     script.admin!.mcpServers!.push({

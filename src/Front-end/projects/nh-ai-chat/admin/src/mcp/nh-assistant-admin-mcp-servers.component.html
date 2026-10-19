@@ -73,6 +73,12 @@
                   <span>{{ 'nh-assistant.admin.mcp.required-scopes' | translate: { scopes: scopes } }}</span>
                 }
               }
+              @if (connectsPeople(server) && summary(server); as counts) {
+                <span>{{ 'nh-assistant.admin.mcp.personal-connections' | translate: { active: counts.active } }}</span>
+                @if (counts.reauthorizationRequired + counts.issuerChanged > 0) {
+                  <span class="badge warning">{{ 'nh-assistant.admin.mcp.personal-attention' | translate: { count: counts.reauthorizationRequired + counts.issuerChanged } }}</span>
+                }
+              }
               @if (server.clientCertificateReference; as certificate) {
                 <span class="badge">{{ 'nh-assistant.admin.mcp.client-certificate' | translate: { name: certificate } }}</span>
               }
@@ -135,6 +141,17 @@
                 <button class="secondary" type="button" [disabled]="connecting() !== null" (click)="connect(server)">
                   <nh-assistant-icon name="link" />{{ (server.organizationConnection?.status === 'not-connected' ? 'nh-assistant.admin.mcp.connect' : 'nh-assistant.admin.mcp.reconnect') | translate }}
                 </button>
+              }
+              @if (connectsPeople(server)) {
+                <button class="secondary" type="button" [disabled]="connecting() !== null" (click)="connect(server)">
+                  <nh-assistant-icon name="link" />{{ 'nh-assistant.admin.mcp.connect-own' | translate }}
+                </button>
+                @if (confirmingRevokeAll() === server.id) {
+                  <button class="danger" type="button" (click)="revokeAll(server)">{{ 'nh-assistant.admin.mcp.confirm-revoke-all' | translate }}</button>
+                  <button class="secondary" type="button" (click)="confirmingRevokeAll.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                } @else if ((summary(server)?.active ?? 0) + (summary(server)?.reauthorizationRequired ?? 0) + (summary(server)?.issuerChanged ?? 0) > 0) {
+                  <button class="secondary" type="button" (click)="confirmingRevokeAll.set(server.id)">{{ 'nh-assistant.admin.mcp.revoke-all' | translate }}</button>
+                }
               }
               @if (server.organizationConnection && server.organizationConnection.status !== 'not-connected') {
                 @if (confirmingDisconnect() === server.id) {

@@ -10,11 +10,20 @@ internal sealed record NhAssistantStoredPart(
     string Type,
     string? Text = null,
     Guid? InvocationId = null,
-    Guid? ApprovalId = null)
+    Guid? ApprovalId = null,
+    string? ServerId = null,
+    string? DisplayName = null,
+    string? Reason = null)
 {
     public const string TextType = "text";
     public const string ToolCallType = "tool-call";
     public const string ApprovalType = "approval";
+
+    /// <summary>
+    /// A server the person has to connect before the agent can use it: <see cref="ServerId"/>, its
+    /// <see cref="DisplayName"/> and the <see cref="Reason"/> (<see cref="NhAssistantMcpConnectionReasons"/>).
+    /// </summary>
+    public const string ConnectionRequiredType = "connection-required";
 }
 
 /// <summary>

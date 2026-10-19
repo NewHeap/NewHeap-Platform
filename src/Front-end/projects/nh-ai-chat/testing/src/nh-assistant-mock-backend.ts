@@ -491,6 +491,17 @@ export class NhAssistantMockBackend {
       } else if ('fail' in step) {
         await complete('failed', step.fail.errorCode);
         return;
+      } else if ('connectionRequired' in step) {
+        const needed = this.admin.connectionNeeded(step.connectionRequired.serverId);
+        if (!needed) {
+          continue;
+        }
+        await emit({ type: 'connection.required', data: { serverId: step.connectionRequired.serverId, ...needed } });
+        for (const piece of step.connectionRequired.text?.match(/\S+\s*|\s+/g) ?? []) {
+          usage.outputTokens++;
+          await emit({ type: 'message.delta', data: { messageId: assistantMessageId, text: piece } });
+        }
+        break;
       }
     }
 

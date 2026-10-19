@@ -219,7 +219,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("mcp-servers/{id}/connection/authorize", AuthorizeMcpOrganizationConnectionAsync)
             .WithName("NhAssistantAdminAuthorizeMcpConnection")
             .WithSummary("Connect the organization's account")
-            .WithDescription("Starts the administrator's authorization of the organization connection of an OAuth server. Open the returned URL in the administrator's browser; the callback hands a one-time completion code to it, which POST mcp-connections/complete activates. Everyone using the server's agents then acts as the connected account.")
+            .WithDescription("Starts the administrator's authorization of the organization connection of an OAuth server: everyone using the server's agents then acts as the connected account. For a server each person connects to, it connects the administrator's own account, which tests and syncs use. Open the returned URL in the administrator's browser; the callback hands a one-time completion code to it, which POST mcp-connections/complete activates.")
             .Produces<NhAssistantMcpAuthorizationStartDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -812,7 +812,7 @@ internal static class NhAssistantAdminEndpoints
 
     private static async Task<IResult> TestMcpServerAsync(string id, HttpContext httpContext, NhAssistantMcpAdministration administration)
     {
-        var result = await administration.TestAsync(id, httpContext.RequestAborted);
+        var result = await administration.TestAsync(id, await ActorAsync(httpContext), httpContext.RequestAborted);
         return result.Success
             ? Json(new NhAssistantMcpServerTestResultDto(result.Data!.Ok, result.Data.Code, result.Data.ToolCount), Context.NhAssistantMcpServerTestResultDto)
             : Failure(result);

@@ -1,4 +1,4 @@
-import { ApprovalPart } from './assistant-api.models';
+import { ApprovalPart, ConnectionRequiredReason } from './assistant-api.models';
 
 /*
  * Server-sent events of an assistant turn.
@@ -35,6 +35,13 @@ export interface ToolCompletedEvent {
 
 export type ApprovalRequiredEvent = ApprovalPart;
 
+/** The person who asked has to connect an MCP server before the agent can use it. */
+export interface ConnectionRequiredEvent {
+  serverId: string;
+  displayName: string;
+  reason: ConnectionRequiredReason;
+}
+
 export type TurnCompletionStatus = 'completed' | 'waiting-for-approval' | 'cancelled' | 'failed';
 
 export interface TurnUsage {
@@ -62,6 +69,7 @@ export interface NhAssistantSseEventMap {
   'tool.started': ToolStartedEvent;
   'tool.completed': ToolCompletedEvent;
   'approval.required': ApprovalRequiredEvent;
+  'connection.required': ConnectionRequiredEvent;
   'turn.completed': TurnCompletedEvent;
   'error': AssistantErrorEvent;
 }
@@ -79,6 +87,7 @@ export const NH_ASSISTANT_SSE_EVENT_TYPES: readonly NhAssistantSseEventType[] = 
   'tool.started',
   'tool.completed',
   'approval.required',
+  'connection.required',
   'turn.completed',
   'error'
 ];

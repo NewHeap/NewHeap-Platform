@@ -443,7 +443,25 @@
         "allowed-since": "Toegestaan sinds {{date}}",
         "not-allowed": "Niet toegestaan",
         "used-by": "Gebruikt door:",
-        "load-failed": "De diensten die om je toestemming vragen, konden niet worden geladen."
+        "load-failed": "De diensten die om je toestemming vragen, konden niet worden geladen.",
+        "accounts-title": "Gekoppelde diensten",
+        "accounts-description": "Agents gebruiken deze diensten met je eigen account. Koppel een dienst om ze ermee te laten werken; ontkoppelen trekt de toegang meteen in.",
+        "status": {
+          "not-connected": "Niet gekoppeld",
+          "active": "Gekoppeld",
+          "reauthorization-required": "Opnieuw koppelen",
+          "issuer-changed": "Gepauzeerd door de beheerder"
+        },
+        "connected-since": "Gekoppeld sinds {{date}}",
+        "more-permissions": "De dienst vroeg om meer rechten: {{scopes}}. Koppel opnieuw om ze te geven.",
+        "issuer-changed": "De dienst heeft de manier van aanmelden gewijzigd. Een beheerder bevestigt dat eerst.",
+        "connect": "Koppelen",
+        "connect-again": "Opnieuw koppelen",
+        "disconnect": "Ontkoppelen",
+        "confirm-disconnect": "Ontkoppelen en intrekken",
+        "cancel": "Annuleren",
+        "connect-done": "{{name}} is gekoppeld.",
+        "disconnect-done": "{{name}} is ontkoppeld en de toegang is ingetrokken."
       }
     },
     "admin": {
@@ -720,12 +738,15 @@
         "connecting": "Wachten op de autorisatie…",
         "connect-done": "Het account van de organisatie is gekoppeld.",
         "disconnect-done": "De koppeling is verwijderd en de tokens zijn ingetrokken.",
-        "personal-connections": "{{active}} personen gekoppeld",
+        "personal-connections": "Persoonlijke koppelingen: {{active}}",
         "revoke-all": "Alle persoonlijke koppelingen intrekken",
         "confirm-revoke-all": "Voor iedereen intrekken",
         "revoke-all-done": "Alle persoonlijke koppelingen zijn ingetrokken.",
         "issuer-changed": "De server noemde een andere autorisatieserver. Bewerk de server en bevestig die.",
-        "required-scopes": "De server vroeg om: {{scopes}}"
+        "required-scopes": "De server vroeg om: {{scopes}}",
+        "connect-own": "Mijn account koppelen",
+        "connect-own-done": "Je eigen account is gekoppeld; testen en synchroniseren gebruiken het.",
+        "personal-attention": "{{count}} moeten opnieuw koppelen"
       },
       "server-editor": {
         "new-title": "Nieuwe MCP-server",
@@ -1494,6 +1515,17 @@
       "searching": "Zoeken…",
       "type-more": "Typ minstens twee tekens.",
       "no-results": "Niets gevonden."
+    },
+    "connection": {
+      "title": "{{name}} koppelen",
+      "not-connected": "De assistent kon {{name}} niet gebruiken, omdat je account niet gekoppeld is. Koppel het om de assistent er namens jou mee te laten werken.",
+      "reauthorization-required": "Je koppeling met {{name}} is verlopen. Koppel opnieuw om de assistent er weer mee te laten werken.",
+      "insufficient-scope": "{{name}} heeft meer rechten nodig dan je koppeling geeft. Koppel opnieuw om ze te geven.",
+      "connect": "Koppelen",
+      "connect-again": "Opnieuw koppelen",
+      "connecting": "Wachten op de autorisatie…",
+      "connected": "{{name}} is gekoppeld.",
+      "retry": "Opnieuw vragen"
     }
   }
 }

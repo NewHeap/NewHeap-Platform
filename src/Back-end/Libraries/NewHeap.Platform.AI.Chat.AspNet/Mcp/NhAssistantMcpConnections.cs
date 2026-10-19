@@ -81,6 +81,13 @@ internal sealed record NhAssistantMcpConnectionPlan(
     /// The client certificate for mutual TLS, or <see langword="null"/>.
     /// </summary>
     public X509Certificate2? ClientCertificate { get; init; }
+
+    /// <summary>
+    /// For a person's OAuth connection: the person and how the turn uses the connection, under which
+    /// the connection and its tool list are cached for that person only (D12). Null for connections
+    /// that are shared, or never cached because they carry a request's token.
+    /// </summary>
+    public string? PersonalCacheKey { get; init; }
 }
 
 /// <summary>
@@ -352,7 +359,10 @@ internal sealed class NhAssistantMcpConnectionPlanner(
         {
             Credentials = credentials,
             Transport = server.Transport,
-            ClientCertificate = certificate
+            ClientCertificate = certificate,
+            PersonalCacheKey = NhAssistantMcpToolSource.IsPersonalOAuth(server) && subject.PersonActorId is { } person
+                ? NhAssistantMcpConnectionCache.PersonKey(person) + ":" + (subject.IsHeadless ? subject.PersonGrantSource.ToString() : "request")
+                : null
         });
     }
 
@@ -481,8 +491,8 @@ internal sealed class NhAssistantMcpLease(McpClient client, IList<McpClientTool>
 
 /// <summary>
 /// Connects to servers and caches connections with shared credentials for
-/// <see cref="NhAssistantMcpOptions.ToolListCacheDuration"/>. Connections that forward the caller's
-/// token are never shared.
+/// <see cref="NhAssistantMcpOptions.ToolListCacheDuration"/>. A person's OAuth connection is cached for
+/// that person only; connections that forward the caller's token are never cached.
 /// </summary>
 internal sealed class NhAssistantMcpConnectionCache(
     INhAssistantMcpClientFactory factory,
@@ -497,8 +507,9 @@ internal sealed class NhAssistantMcpConnectionCache(
         bool bypassCache,
         CancellationToken cancellationToken)
     {
-        var key = server.Id + "@" + server.UpdatedAt.UtcTicks;
-        if (!plan.IsPerCaller && !bypassCache
+        var cacheable = !plan.IsPerCaller || plan.PersonalCacheKey is not null;
+        var key = server.Id + "@" + server.UpdatedAt.UtcTicks + (plan.PersonalCacheKey is { } personal ? "#" + personal : string.Empty);
+        if (cacheable && !bypassCache
             && _entries.TryGetValue(key, out var cached) && cached.ExpiresAt > DateTimeOffset.UtcNow)
         {
             return TaskResult<NhAssistantMcpLease>.Succeeded(new NhAssistantMcpLease(cached.Client, cached.Tools, false));
@@ -509,7 +520,7 @@ internal sealed class NhAssistantMcpConnectionCache(
         {
             client = await factory.ConnectAsync(plan, cancellationToken);
             var tools = await client.ListToolsAsync(cancellationToken: cancellationToken);
-            if (plan.IsPerCaller)
+            if (!cacheable)
             {
                 return TaskResult<NhAssistantMcpLease>.Succeeded(new NhAssistantMcpLease(client, tools, true));
             }
@@ -517,7 +528,13 @@ internal sealed class NhAssistantMcpConnectionCache(
             await _gate.WaitAsync(cancellationToken);
             try
             {
-                foreach (var stale in _entries.Where(entry => entry.Key.StartsWith(server.Id + "@", StringComparison.Ordinal)).ToArray())
+                var now = DateTimeOffset.UtcNow;
+                var owner = plan.PersonalCacheKey is { } ownerKey ? "#" + ownerKey : null;
+                // Older versions of this entry, and expired entries of anyone, are closed.
+                foreach (var stale in _entries
+                    .Where(entry => (entry.Key.StartsWith(server.Id + "@", StringComparison.Ordinal) && OwnerOf(entry.Key) == owner)
+                        || entry.Value.ExpiresAt <= now)
+                    .ToArray())
                 {
                     if (_entries.TryRemove(stale.Key, out var removed))
                     {
@@ -551,6 +568,33 @@ internal sealed class NhAssistantMcpConnectionCache(
                 await removed.Client.DisposeAsync();
             }
         }
+    }
+
+    /// <summary>Closes the cached connections of one person to a server, for example after a disconnect.</summary>
+    public async Task InvalidatePersonAsync(string serverId, string personActorId)
+    {
+        var marker = "#" + PersonKey(personActorId) + ":";
+        foreach (var entry in _entries
+            .Where(item => item.Key.StartsWith(serverId + "@", StringComparison.Ordinal) && item.Key.Contains(marker, StringComparison.Ordinal))
+            .ToArray())
+        {
+            if (_entries.TryRemove(entry.Key, out var removed))
+            {
+                await removed.Client.DisposeAsync();
+            }
+        }
+    }
+
+    /// <summary>The part of a cache key that names a person; the actor id never appears in it as is.</summary>
+    public static string PersonKey(string personActorId)
+    {
+        return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(personActorId)))[..32];
+    }
+
+    private static string? OwnerOf(string key)
+    {
+        var index = key.IndexOf('#', StringComparison.Ordinal);
+        return index < 0 ? null : key[index..];
     }
 
     public async ValueTask DisposeAsync()
@@ -604,6 +648,8 @@ internal sealed partial class NhAssistantMcpToolSource(
         var functions = new List<AIFunction>();
         var leases = new List<NhAssistantMcpLease>();
         var skipped = new Dictionary<string, string>(StringComparer.Ordinal);
+        var needed = new List<NhAssistantMcpConnectionNeeded>();
+        var owners = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var serverId in request.Agent.McpServerIds)
         {
             var server = await store.FindMcpServerAsync(serverId, cancellationToken);
@@ -629,13 +675,30 @@ internal sealed partial class NhAssistantMcpToolSource(
             var plan = await planner.PlanAsync(server, SubjectOf(request), cancellationToken);
             if (!plan.Success)
             {
-                await SkipAsync(server, skipped, FirstCode(plan), perCaller: !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope));
+                var code = FirstCode(plan);
+                await SkipAsync(server, skipped, code, perCaller: !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope));
+                if (PersonalConnectionReason(server, request, code) is { } reason)
+                {
+                    Need(needed, server, reason);
+                }
                 continue;
+            }
+            if (!request.IsHeadless && IsPersonalOAuth(server) && request.PersonActorId is { } requester
+                && await services.GetRequiredService<NhAssistantMcpOAuthStore>().FindConnectionAsync(
+                    server.Id, NhAssistantMcpConnectionOwners.User, requester, string.Empty, cancellationToken) is { RequiredScopes: not null })
+            {
+                // Step-up: the server asked for scopes the person's connection lacks.
+                Need(needed, server, NhAssistantMcpConnectionReasons.InsufficientScope);
             }
             var lease = await cache.ConnectAsync(server, plan.Data, bypassCache: false, cancellationToken);
             if (!lease.Success)
             {
-                await SkipAsync(server, skipped, FirstCode(lease), plan.Data.IsPerCaller);
+                var code = FirstCode(lease);
+                await SkipAsync(server, skipped, code, plan.Data.IsPerCaller);
+                if (PersonalConnectionReason(server, request, code) is { } reason)
+                {
+                    Need(needed, server, reason);
+                }
                 continue;
             }
             if (!plan.Data.IsPerCaller)
@@ -643,6 +706,7 @@ internal sealed partial class NhAssistantMcpToolSource(
                 await RecordHealthAsync(server, null);
             }
             leases.Add(lease.Data);
+            owners[server.Id] = OwnerOf(server, request);
             functions.AddRange(await ImportAsync(server, plan.Data, enabled, lease.Data.Tools, cancellationToken));
         }
 
@@ -655,8 +719,58 @@ internal sealed partial class NhAssistantMcpToolSource(
             await services.GetRequiredService<NhAssistantMcpDelegatedTokenLedger>().FlushAsync(CancellationToken.None);
         })
         {
-            SkippedServers = skipped
+            SkippedServers = skipped,
+            ConnectionsNeeded = needed,
+            ConnectionOwners = owners
         };
+    }
+
+    /// <summary>Asks the person once per server and turn.</summary>
+    private static void Need(List<NhAssistantMcpConnectionNeeded> needed, AssistantMcpServer server, string reason)
+    {
+        if (!needed.Any(item => item.ServerId == server.Id))
+        {
+            needed.Add(new NhAssistantMcpConnectionNeeded(server.Id, server.DisplayName, reason));
+        }
+    }
+
+    /// <summary>A server each person connects to with OAuth.</summary>
+    public static bool IsPersonalOAuth(AssistantMcpServer server)
+    {
+        return server.AuthMode == NhAssistantMcpAuthModes.OAuth && server.ConnectionScope == NhAssistantMcpConnectionScopes.User;
+    }
+
+    /// <summary>
+    /// Why the person of a request turn has to connect a personal OAuth server that was skipped; null
+    /// when the person cannot change it, for example while an administrator confirms another issuer.
+    /// </summary>
+    private static string? PersonalConnectionReason(AssistantMcpServer server, NhAssistantMcpToolRequest request, string? code)
+    {
+        if (request.IsHeadless || !IsPersonalOAuth(server) || request.PersonActorId is null)
+        {
+            return null;
+        }
+        return code switch
+        {
+            NhAssistantAdminErrorCodes.McpConnectionRequired => NhAssistantMcpConnectionReasons.NotConnected,
+            NhAssistantAdminErrorCodes.McpReauthorizationRequired => NhAssistantMcpConnectionReasons.ReauthorizationRequired,
+            // The server refused the connection's scopes while listing its tools: connecting again
+            // asks for the scopes it named.
+            NhAssistantAdminErrorCodes.McpInsufficientScope => NhAssistantMcpConnectionReasons.InsufficientScope,
+            _ => null
+        };
+    }
+
+    /// <summary>Whose credential the tools of a server carry in this turn, for the audit.</summary>
+    private static string OwnerOf(AssistantMcpServer server, NhAssistantMcpToolRequest request)
+    {
+        if (server.AuthMode == NhAssistantMcpAuthModes.None)
+        {
+            return NhAssistantMcpConnectionOwners.None;
+        }
+        return NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope)
+            ? NhAssistantMcpConnectionOwners.Organization
+            : request.PersonActorId ?? NhAssistantMcpConnectionOwners.None;
     }
 
     /// <summary>
@@ -703,7 +817,9 @@ internal sealed partial class NhAssistantMcpToolSource(
     {
         return request.IsHeadless
             ? new NhAssistantMcpCredentialSubject(true, request.PersonActorId, request.PersonGrantSource, request.Subject?.TenantId)
-            : NhAssistantMcpCredentialSubject.Request;
+            : request.PersonActorId is { } person
+                ? new NhAssistantMcpCredentialSubject(false, person, NhAiGrantSource.None, null)
+                : NhAssistantMcpCredentialSubject.Request;
     }
 
     public static string LocalName(string remoteName)

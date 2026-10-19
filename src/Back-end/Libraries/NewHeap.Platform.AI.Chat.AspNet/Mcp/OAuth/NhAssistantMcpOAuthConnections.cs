@@ -78,6 +78,7 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
     NhAssistantMcpTokenProtector tokens,
     NhAssistantMcpTokenCache cache,
     NhAssistantMcpRenewalGate gate,
+    NhAssistantMcpConnectionCache connectionCache,
     IOptionsMonitor<NhAssistantOptions> options,
     IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
     ILogger<NhAssistantMcpOAuthConnections> logger)
@@ -245,6 +246,7 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
         foreach (var connection in removed)
         {
             cache.Remove(connection.Id);
+            await ForgetConnectionAsync(connection);
             await RevokeAsync(server, connection, cancellationToken);
             await AuditAsync(NhAssistantAuditEventKind.McpConnectionDisconnected, server.Id, string.IsNullOrEmpty(connection.OwnerActorId) ? actorId : connection.OwnerActorId, reason, cancellationToken);
         }
@@ -269,6 +271,7 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
                 continue;
             }
             cache.Remove(connection.Id);
+            await ForgetConnectionAsync(connection);
             if (await findServer(connection.ServerId, cancellationToken) is { } server)
             {
                 await RevokeAsync(server, connection, cancellationToken);
@@ -519,6 +522,7 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
         CancellationToken cancellationToken)
     {
         cache.Remove(connection.Id);
+        await ForgetConnectionAsync(connection);
         await store.MarkReauthorizationRequiredAsync(connection.Id, code, DateTimeOffset.UtcNow, cancellationToken);
         await AuditAsync(
             NhAssistantAuditEventKind.McpConnectionReauthorizationRequired,
@@ -546,6 +550,14 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
         return connection.Status == NhAssistantMcpConnectionStatuses.ReauthorizationRequired
             ? Failed(NhAssistantAdminErrorCodes.McpReauthorizationRequired)
             : null;
+    }
+
+    /// <summary>Closes the cached MCP connections a person's connection served.</summary>
+    private Task ForgetConnectionAsync(AssistantMcpConnection connection)
+    {
+        return connection.OwnerKind == NhAssistantMcpConnectionOwners.User && !string.IsNullOrEmpty(connection.OwnerActorId)
+            ? connectionCache.InvalidatePersonAsync(connection.ServerId, connection.OwnerActorId)
+            : Task.CompletedTask;
     }
 
     private async Task AuditAsync(NhAssistantAuditEventKind kind, string serverId, string actorId, string resultCode, CancellationToken cancellationToken)

@@ -872,6 +872,22 @@ public static class NhAssistantMcpConnectionStatuses
 }
 
 /// <summary>
+/// Why a turn asks the person to connect a server that each person connects to with OAuth: the
+/// <c>reason</c> of the <c>connection-required</c> event and message part.
+/// </summary>
+public static class NhAssistantMcpConnectionReasons
+{
+    /// <summary>The person has not connected the server.</summary>
+    public const string NotConnected = "not-connected";
+
+    /// <summary>The person's connection ended; connecting again restores it.</summary>
+    public const string ReauthorizationRequired = "reauthorization-required";
+
+    /// <summary>The server asked for permissions the connection lacks; connecting again adds them.</summary>
+    public const string InsufficientScope = "insufficient-scope";
+}
+
+/// <summary>
 /// Whether the tools of an MCP server are offered in turns that no person's request carries:
 /// headless agent runs and the execution of their deferred proposals. A person's chat turn and a
 /// person typing in an agent thread are not affected.
@@ -962,6 +978,12 @@ public static class NhAssistantMcpConnectionOwners
     public const string Organization = "organization";
 
     public const string User = "user";
+
+    /// <summary>
+    /// <see cref="NhAssistantAuditEvent.McpConnectionOwner"/> of a call to a server without a
+    /// credential.
+    /// </summary>
+    public const string None = "none";
 }
 
 public static class NhAssistantMcpToolEffects

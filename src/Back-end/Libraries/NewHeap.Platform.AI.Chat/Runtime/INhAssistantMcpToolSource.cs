@@ -26,6 +26,18 @@ internal sealed class NhAssistantMcpToolSet(
     public IReadOnlyDictionary<string, string> SkippedServers { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 
     /// <summary>
+    /// The servers the person of a request turn has to connect, or connect again, before the agent can
+    /// use them fully.
+    /// </summary>
+    public IReadOnlyList<NhAssistantMcpConnectionNeeded> ConnectionsNeeded { get; init; } = [];
+
+    /// <summary>
+    /// Whose credential the tools of each loaded server carry: <c>organization</c>, a person's actor
+    /// id or <c>none</c> (<see cref="NhAssistantAuditEvent.McpConnectionOwner"/>).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> ConnectionOwners { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
     /// The code why the server of an <c>mcp.&lt;server&gt;.&lt;tool&gt;</c> tool id was skipped, or
     /// <see langword="null"/>.
     /// </summary>
@@ -46,6 +58,12 @@ internal sealed class NhAssistantMcpToolSet(
 }
 
 /// <summary>
+/// A server the person of a request turn has to connect: its id, display name and the reason
+/// (<see cref="NhAssistantMcpConnectionReasons"/>).
+/// </summary>
+internal sealed record NhAssistantMcpConnectionNeeded(string ServerId, string DisplayName, string Reason);
+
+/// <summary>
 /// Who a turn's MCP tools are loaded for.
 /// </summary>
 /// <param name="Agent">The agent whose assigned servers are loaded.</param>
@@ -58,9 +76,10 @@ internal sealed record NhAssistantMcpToolRequest(NhAssistantAgent Agent)
     public bool IsHeadless { get; init; }
 
     /// <summary>
-    /// In a headless turn, the person whose rights the turn uses: the initiator when the agent
-    /// delegates from the initiator, otherwise the account it answers to when it acts with that
-    /// account's rights. <see langword="null"/> when the agent acts for itself.
+    /// The person the turn's personal credentials belong to. In a request turn the person who sent
+    /// the message. In a headless turn the person whose rights the turn uses: the initiator when the
+    /// agent delegates from the initiator, otherwise the account it answers to when it acts with that
+    /// account's rights; <see langword="null"/> when the agent acts for itself.
     /// </summary>
     public string? PersonActorId { get; init; }
 

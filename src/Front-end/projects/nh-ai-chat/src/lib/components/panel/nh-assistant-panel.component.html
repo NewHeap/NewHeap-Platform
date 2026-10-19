@@ -130,7 +130,8 @@
             [canDecide]="store.canDecide()"
             [decisionOwner]="activeMemberName()"
             [approvalRights]="store.approvalRights()"
-            (approvalChoice)="decideApproval($event)" />
+            (approvalChoice)="decideApproval($event)"
+            (retryMessage)="store.send($event)" />
         }
       }
     </div>

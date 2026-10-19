@@ -87,6 +87,15 @@ export interface NhAssistantConfig {
    * `#nh-assistant-join=<conversationId>.<token>`; the panel joins when the page opens with it.
    */
   buildShareLink?: (conversationId: string, token: string) => string;
+  /**
+   * How MCP authorizations open. `popup` (default) opens a window from the click and stays on the
+   * page. `redirect` sends the page to the authorization server and back to `mcpConnectReturnUrl`,
+   * where the assistant completes the connection; its origin must be in
+   * `NewHeap:AI:Assistant:Mcp:OAuth:ReturnOrigins`.
+   */
+  mcpConnectMode?: 'popup' | 'redirect';
+  /** The page a redirect-mode authorization returns to. Default: the current address without its fragment. */
+  mcpConnectReturnUrl?: () => string;
 }
 
 export interface NhAssistantPushConfig {

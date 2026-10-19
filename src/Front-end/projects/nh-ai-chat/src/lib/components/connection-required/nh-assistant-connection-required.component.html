@@ -1,0 +1,30 @@
+<section class="card" role="group" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="state() === 'connecting'">
+  <div class="header">
+    <nh-assistant-icon [name]="state() === 'connected' ? 'check' : 'link'" />
+    <h3 [id]="id + '-title'">{{ 'nh-assistant.connection.title' | translate: { name: part().displayName } }}</h3>
+  </div>
+  <p class="text">{{ 'nh-assistant.connection.' + part().reason | translate: { name: part().displayName } }}</p>
+
+  <div class="actions" aria-live="polite">
+    @switch (state()) {
+      @case ('connected') {
+        <p class="done" role="status"><nh-assistant-icon name="check" />{{ 'nh-assistant.connection.connected' | translate: { name: part().displayName } }}</p>
+        @if (canRetry()) {
+          <button class="primary" type="button" (click)="retry.emit()">{{ 'nh-assistant.connection.retry' | translate }}</button>
+        }
+      }
+      @case ('connecting') {
+        <button class="primary" type="button" disabled>{{ 'nh-assistant.connection.connecting' | translate }}</button>
+      }
+      @default {
+        <button class="primary" type="button" (click)="connect()">
+          {{ (again() ? 'nh-assistant.connection.connect-again' : 'nh-assistant.connection.connect') | translate }}
+        </button>
+      }
+    }
+  </div>
+
+  @if (errorCode(); as code) {
+    <p class="error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: code }}</p>
+  }
+</section>

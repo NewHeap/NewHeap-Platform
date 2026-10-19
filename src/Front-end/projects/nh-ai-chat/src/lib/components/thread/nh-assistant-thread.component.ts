@@ -20,6 +20,7 @@ import { ApprovalDecision, ApprovalPart, ConversationMember, Message } from '../
 import { NhAssistantMarkdownPipe } from '../../internal/nh-assistant-markdown.pipe';
 import { NhAssistantPartGroupsPipe } from '../../internal/nh-assistant-part-groups';
 import { NhAssistantApprovalCardComponent } from '../approval-card/nh-assistant-approval-card.component';
+import { NhAssistantConnectionRequiredComponent } from '../connection-required/nh-assistant-connection-required.component';
 import { NhAssistantToolCallGroupComponent } from '../tool-call-group/nh-assistant-tool-call-group.component';
 import type { NhAssistantApprovalRight } from '../../services/nh-assistant.store';
 
@@ -52,7 +53,8 @@ const stickToBottomDistance = 120;
     NhAssistantMarkdownPipe,
     NhAssistantPartGroupsPipe,
     NhAssistantToolCallGroupComponent,
-    NhAssistantApprovalCardComponent
+    NhAssistantApprovalCardComponent,
+    NhAssistantConnectionRequiredComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-thread.component.html',
@@ -84,8 +86,30 @@ export class NhAssistantThreadComponent {
   readonly approvalDecision = output<ApprovalDecision>();
   /** The decision about an approval card together with its approval id. */
   readonly approvalChoice = output<NhAssistantApprovalChoice>();
+  /**
+   * The question to ask again after the viewer connected an MCP server from a connection card: the
+   * text of the user message the card answered. The panel sends it.
+   */
+  readonly retryMessage = output<string>();
 
   private readonly names = computed(() => new Map(this.members().map(member => [member.actorId, member.displayName])));
+
+  /** Asks the question again that the assistant message with a connection card answered. */
+  retryAfterConnect(message: Message): void {
+    const messages = this.messages();
+    const index = messages.findIndex(item => item.id === message.id);
+    for (let position = index - 1; position >= 0; position--) {
+      const candidate = messages[position];
+      if (candidate.role !== 'user') {
+        continue;
+      }
+      const text = candidate.parts.map(part => part.type === 'text' ? part.text : '').join('').trim();
+      if (text.length > 0) {
+        this.retryMessage.emit(text);
+      }
+      return;
+    }
+  }
 
   readonly virtualThreshold = NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD;
   readonly virtual = computed(() => this.messages().length > NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD);

@@ -75,12 +75,25 @@ export interface NhAssistantMockFailStep {
   };
 }
 
+/**
+ * Needs the caller's own connection to an MCP server each person connects to (`connectionScope:
+ * 'user'`). Without an active connection the mock streams `connection.required`, adds `text` and
+ * ends the turn; with one the step is skipped and the next steps play.
+ */
+export interface NhAssistantMockConnectionStep {
+  connectionRequired: {
+    serverId: string;
+    text?: string;
+  };
+}
+
 export type NhAssistantMockStep =
   | NhAssistantMockTextStep
   | NhAssistantMockToolStep
   | NhAssistantMockApprovalStep
   | NhAssistantMockErrorStep
-  | NhAssistantMockFailStep;
+  | NhAssistantMockFailStep
+  | NhAssistantMockConnectionStep;
 
 /** A scripted assistant turn, chosen by matching the user's message. */
 export interface NhAssistantMockTurn {
@@ -113,6 +126,8 @@ export interface NhAssistantMockMcpServer extends McpServerInput {
   remoteTools?: NhAssistantMockRemoteTool[];
   /** An `oauth` organization server starts connected. */
   organizationConnected?: boolean;
+  /** A server each person connects to starts with the caller's own account connected. */
+  personalConnected?: boolean;
 }
 
 /** A preconfigured agent. Code agents default to the scenario's chat agents. */

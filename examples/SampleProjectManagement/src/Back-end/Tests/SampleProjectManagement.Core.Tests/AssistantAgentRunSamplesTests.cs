@@ -476,6 +476,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             // Deleting the server removes its assignment; the advisor keeps its definition in code.
             using var deleted = await administrator.DeleteAsync("/api/assistant/admin/mcp-servers/milestones");
             using var reset = await administrator.PostAsync($"/api/assistant/admin/agents/{SampleStatusAdvisorComposition.AgentId}/reset", null);
+            host.Model.Use(new SampleAssistantChatClient());
         }
     }
 
@@ -581,6 +582,96 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         {
             using var deleted = await administrator.DeleteAsync("/api/assistant/admin/mcp-servers/team-calendar");
             using var reset = await administrator.PostAsync($"/api/assistant/admin/agents/{SampleStatusAdvisorComposition.AgentId}/reset", null);
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
+    [Fact]
+    public async Task SPM_300_a_background_run_uses_the_participants_own_oauth_connection_only_after_consent()
+    {
+        // SPM-300: a server each person connects to with their own account. In a background run the
+        // status advisor acts for the participant who started it, so it may use the participant's
+        // connection, but only when the administrator offers the server in background runs and the
+        // participant consented when connecting.
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync(options => options.Subject = "remote-admin");
+        authorization.RegisterClient("sample-assistant-people", "sample-spm-300-run-secret", AssistantSampleHost.OAuthRedirectUri);
+        await using var calendar = await SampleMcpServer.StartProtectedAsync(authorization);
+        using var administrator = host.CreateClient("spm-300-run-admin", admin: true);
+        using var browser = SampleMcpOAuthBrowser.Create(administrator);
+        var project = await host.CreateProjectAsync("PERSONAL", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        using var created = await administrator.PostAsync("/api/assistant/admin/mcp-servers", AssistantSampleHost.Json(new
+        {
+            id = "my-calendar",
+            displayName = "My calendar",
+            url = calendar.Url,
+            authMode = "oauth",
+            connectionScope = "user",
+            isEnabled = true,
+            headlessUse = NhAssistantMcpHeadlessUses.Personal,
+            oauth = new { clientId = "sample-assistant-people", clientSecret = "sample-spm-300-run-secret", scopes = "calendar:read", confirmAuthorization = true }
+        }));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        await SampleMcpOAuthBrowser.ConnectAsync(administrator, browser, "/api/assistant/admin/mcp-servers/my-calendar/connection/authorize");
+        using var synced = await administrator.PostAsync("/api/assistant/admin/mcp-servers/my-calendar/sync", null);
+        Assert.Equal(HttpStatusCode.OK, synced.StatusCode);
+        using var enabled = await administrator.PutAsync(
+            "/api/assistant/admin/mcp-servers/my-calendar/tools/next_milestone",
+            AssistantSampleHost.Json(new { isEnabled = true, effect = "read-only", descriptionOverride = (string?)null }));
+        Assert.Equal(HttpStatusCode.OK, enabled.StatusCode);
+        await AssignMcpServerAsync(administrator, SampleStatusAdvisorComposition.AgentId, ["my-calendar"]);
+
+        try
+        {
+            var model = new NhAiScriptedChatClient()
+                .RespondWithText("I have no calendar information here.")
+                .RespondWithFunctionCall("mcp_my_calendar_next_milestone", new { project = "PERSONAL" }, "call-calendar")
+                .RespondWithText("The next milestone of PERSONAL is on Friday.");
+            host.Model.Use(model);
+            var start = new NhAssistantStartAgentRequest(
+                SampleStatusAdvisorComposition.AgentId,
+                ProjectSubjects.Type,
+                project.ToString("D"),
+                "When is the next milestone of this project?");
+
+            // Connected without consent: the run is not offered the server.
+            authorization.Options.Subject = "remote-participant";
+            await SampleMcpOAuthBrowser.ConnectAsync(participant, browser, "/api/assistant/mcp-connections/my-calendar/authorize");
+            var first = await participant.PostAsJsonAsync("/api/assistant/threads/start", start, Json);
+            Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
+            var conversationId = (await first.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!.ConversationId!.Value;
+            await WaitForRunCountAsync(participant, conversationId, 1);
+            Assert.DoesNotContain(model.Requests[0].Options!.Tools!, tool => tool.Name == "mcp_my_calendar_next_milestone");
+
+            // Connecting again with the consent to background use.
+            var completion = await SampleMcpOAuthBrowser.ConnectAsync(
+                participant,
+                browser,
+                "/api/assistant/mcp-connections/my-calendar/authorize",
+                new { allowBackgroundUse = true });
+            Assert.Equal("user", completion.GetProperty("ownerKind").GetString());
+            var listed = (await host.GetJsonAsync(participant, "/api/assistant/mcp-connections")).EnumerateArray()
+                .Single(item => item.GetProperty("serverId").GetString() == "my-calendar");
+            Assert.True(listed.GetProperty("allowBackgroundUse").GetBoolean());
+
+            var second = await participant.PostAsJsonAsync("/api/assistant/threads/start", start, Json);
+            Assert.Equal(HttpStatusCode.Accepted, second.StatusCode);
+            var runs = await WaitForRunCountAsync(participant, conversationId, 2);
+
+            Assert.All(runs, run => Assert.Equal(NhAssistantRunStatuses.Completed, run.Status));
+            Assert.Equal(["PERSONAL"], calendar.Calls);
+            Assert.Equal("remote-participant", calendar.Resource!.Requests.Last().Subject);
+            var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
+            Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.ToolInvoked
+                && evt.ToolId == "mcp.my-calendar.next-milestone"
+                && evt.McpConnectionOwner == host.ParticipantId.ToString());
+        }
+        finally
+        {
+            using var deleted = await administrator.DeleteAsync("/api/assistant/admin/mcp-servers/my-calendar");
+            using var reset = await administrator.PostAsync($"/api/assistant/admin/agents/{SampleStatusAdvisorComposition.AgentId}/reset", null);
+            host.Model.Use(new SampleAssistantChatClient());
         }
     }
 

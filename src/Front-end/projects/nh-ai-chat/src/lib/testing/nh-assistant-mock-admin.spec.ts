@@ -422,6 +422,54 @@ describe('provideNhAssistantMockApi administration', () => {
       expect(moved.oauth?.hasClientSecret).toBeTrue();
     });
 
+    it('lets each person connect, disconnect and consent to background use of a server people connect to themselves', async () => {
+      const personal: McpServerInput = {
+        ...crm,
+        id: 'calendar',
+        displayName: 'Calendar',
+        url: 'https://calendar.example.com/mcp',
+        connectionScope: 'user',
+        headlessUse: 'personal',
+        oauth: { clientId: 'assistant', scopes: 'calendar:read', confirmAuthorization: true }
+      };
+      await firstValueFrom(admin.createMcpServer(personal));
+      await firstValueFrom(admin.createAgent({ ...newAgent, mcpServerIds: ['calendar'] }));
+      const [before] = await firstValueFrom(api.getMcpConnections());
+      const untested = await firstValueFrom(admin.testMcpServer('calendar'));
+
+      const start = await firstValueFrom(api.authorizeMcpConnection('calendar', { allowBackgroundUse: true }));
+      const outcome = await firstValueFrom(backend.authorizationWindow.open().authorize(start));
+      const completed = await firstValueFrom(api.completeMcpAuthorization({ flowId: start.flowId, completionCode: outcome.completionCode! }));
+      const [connected] = await firstValueFrom(api.getMcpConnections());
+      const summary = await firstValueFrom(admin.getMcpConnectionsSummary('calendar'));
+      await firstValueFrom(api.disconnectMcpConnection('calendar'), { defaultValue: undefined });
+      const [disconnected] = await firstValueFrom(api.getMcpConnections());
+
+      expect(before).toEqual(jasmine.objectContaining({ connectionStatus: 'not-connected', offersBackgroundUse: true, allowBackgroundUse: false }));
+      expect(untested.code).toBe('assistant-mcp-connection-required');
+      expect(completed.ownerKind).toBe('user');
+      expect(connected).toEqual(jasmine.objectContaining({ connectionStatus: 'active', grantedScopes: 'calendar:read', allowBackgroundUse: true }));
+      expect(summary).toEqual({ active: 1, reauthorizationRequired: 0, issuerChanged: 0 });
+      // The consent to background use stays until the person withdraws it.
+      expect(disconnected).toEqual(jasmine.objectContaining({ connectionStatus: 'not-connected', allowBackgroundUse: true }));
+    });
+
+    it('refuses consent for a server that is not offered in background runs and revokes everyone on request', async () => {
+      await firstValueFrom(admin.createMcpServer({ ...crm, id: 'mail', displayName: 'Mail', url: 'https://mail.example.com/mcp', connectionScope: 'user', oauth: { clientId: 'assistant', confirmAuthorization: true } }));
+      await firstValueFrom(admin.createAgent({ ...newAgent, mcpServerIds: ['mail'] }));
+      const refused = await failure(firstValueFrom(api.updateMcpConnection('mail', { allowBackgroundUse: true })));
+      const start = await firstValueFrom(admin.authorizeMcpOrganizationConnection('mail'));
+      const outcome = await firstValueFrom(backend.authorizationWindow.open().authorize(start));
+      await firstValueFrom(admin.completeMcpAuthorization({ flowId: start.flowId, completionCode: outcome.completionCode! }));
+      const tested = await firstValueFrom(admin.testMcpServer('mail'));
+      await firstValueFrom(admin.revokeMcpConnections('mail'), { defaultValue: undefined });
+      const [revoked] = await firstValueFrom(api.getMcpConnections());
+
+      expect(refused.code).toBe('assistant-mcp-headless-not-allowed');
+      expect(tested.ok).toBeTrue();
+      expect(revoked.connectionStatus).toBe('not-connected');
+    });
+
     it('connects client credentials on first use and requires a client id and secret', async () => {
       const input: McpServerInput = {
         id: 'erp',

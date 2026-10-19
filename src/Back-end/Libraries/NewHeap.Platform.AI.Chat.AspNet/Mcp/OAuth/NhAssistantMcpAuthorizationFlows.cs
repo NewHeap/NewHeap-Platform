@@ -290,7 +290,8 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
             flow.Resource,
             flow.RequestedScopes,
             actorId,
-            flow.OwnerKind == NhAssistantMcpConnectionOwners.User ? flow.AllowBackgroundUse : null,
+            // Connecting can grant the consent to background use, never withdraw an earlier one.
+            flow.OwnerKind == NhAssistantMcpConnectionOwners.User && flow.AllowBackgroundUse ? true : null,
             cancellationToken);
         NhAssistantMcpMetrics.Authorization("completed");
         return TaskResult<NhAssistantMcpCompletion>.Succeeded(new NhAssistantMcpCompletion(server, flow.OwnerKind, connection));

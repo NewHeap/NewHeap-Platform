@@ -160,7 +160,8 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         description: 'Answers questions about projects and proposes status changes.',
         instructions: 'Help users with their projects. Propose status changes; never apply them without approval.',
         toolSelectors: ['sample-api.project.*', 'projects.*'],
-        mcpServerIds: [],
+        // SPM-300: each person connects their own calendar; the chat asks with a card until they do.
+        mcpServerIds: ['my-calendar'],
         requiredPolicy: 'app.project.view',
         autonomy: 'execute'
       },
@@ -233,6 +234,21 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         remoteTools: PLAYGROUND_REMOTE_TOOLS
       },
       {
+        id: 'my-calendar',
+        displayName: 'My calendar',
+        url: 'https://calendar.sample.localhost/mcp',
+        authMode: 'oauth',
+        headerName: null,
+        requiredPolicy: null,
+        isEnabled: true,
+        // SPM-300: each person connects their own account from the chat or the preferences; runs may
+        // use it once the person consents.
+        connectionScope: 'user',
+        headlessUse: 'personal',
+        oauth: { clientId: 'sample-assistant', scopes: 'calendar:read' },
+        remoteTools: PLAYGROUND_REMOTE_TOOLS
+      },
+      {
         id: 'finance-ledger',
         displayName: 'Finance ledger',
         url: 'https://ledger.sample.localhost/mcp',
@@ -248,6 +264,27 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
   },
   timing: { firstEventDelayMs: 350, eventDelayMs: 45 },
   turns: [
+    {
+      // SPM-300: without the person's calendar connection the answer shows the connect card.
+      match: /calendar|agenda/i,
+      steps: [
+        {
+          connectionRequired: {
+            serverId: 'my-calendar',
+            text: 'Connect your calendar first; then ask again and I will look it up.'
+          }
+        },
+        {
+          tool: {
+            toolId: 'mcp.my-calendar.next-milestone',
+            displayName: 'Next milestone',
+            argumentsPreview: '{"project":"PRJ-ALPHA"}',
+            resultPreview: '{"milestone":"Friday"}'
+          }
+        },
+        { text: 'Your calendar shows the next milestone of **Alpha migration** on Friday.' }
+      ]
+    },
     {
       match: /update for the team/i,
       steps: [

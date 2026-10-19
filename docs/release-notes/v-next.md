@@ -324,3 +324,56 @@ scenario: `approve`, `deny` or `cancel`), connects client credentials on first u
 | Breaking change | Required action |
 |---|---|
 | `McpServer` has the required fields `connectionScope`, `oauth`, `authorization` and `organizationConnection`, `McpConnection` has `connectionStatus`, `grantedScopes`, `requiredScopes`, `connectedAt` and `offersBackgroundUse`, and `McpAuthMode` has new values. | Add the fields to hand-built objects and handle the new values in exhaustive switches. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: personal MCP connections
+
+An `oauth` server with `connectionScope` `user` lets each person connect their own account.
+`POST mcp-connections/{serverId}/authorize` starts the person's authorization (with
+`allowBackgroundUse` to consent to background use when the server's `headlessUse` is `personal`, and
+`returnUrl` for redirect mode), `POST mcp-connections/complete` completes it with the person's own
+session, and `DELETE mcp-connections/{serverId}` removes it and revokes the tokens; a consent stays
+until the person withdraws it. `GET mcp-connections` now also lists these servers, with
+`connectionStatus`, `grantedScopes`, `requiredScopes`, `connectedAt` and `offersBackgroundUse`, and
+`PUT mcp-connections/{serverId}` refuses consent with `assistant-mcp-headless-not-allowed` for a
+server that is not offered in background runs.
+
+A chat turn uses the connection of the person who sent the message, also in a shared conversation.
+Without one, the turn goes on without the server's tools, the model is told the service is not
+connected, and the turn streams the new `connection.required` event (`serverId`, `displayName`,
+`reason`: `not-connected`, `reauthorization-required` or `insufficient-scope`,
+`NhAssistantMcpConnectionReasons`), which is also stored as a `connection-required` message part
+(`NhAssistantConnectionRequiredPartDto`). A server that refuses the connection's scopes records them,
+and connecting again requests them. A background run uses the connection of the person whose rights
+it uses only with `personal` headless use and that person's consent; an approved proposal executes
+with the connection of the person who asked and fails with `assistant-mcp-connection-required` once
+that person disconnected. Connections and tool lists of personal servers are cached per person.
+Administrators test and sync such a server with their own connection through
+`POST admin/mcp-servers/{id}/connection/authorize`. Personal connections unused for
+`ConnectionRetention` are removed and revoked, and `NhAssistantAuditEvent.McpConnectionOwner` names
+whose credential a `ToolInvoked` call of an MCP tool carried. The consent of an OAuth server now also
+covers its authorization server and scopes.
+
+| Breaking change | Required action |
+|---|---|
+| Turns stream `connection.required` and conversations can contain `connection-required` parts. | Clients that reject unknown events or part types ignore them, or update `@newheap/platform-ai-chat`. |
+| A consent to background use of an OAuth server holds for its authorization server and scopes too. | None; a changed server asks for consent again. |
+
+## @newheap/platform-ai-chat: personal MCP connections in the chat and the preferences
+
+The thread shows `nh-assistant-connection-required` (`NhAssistantConnectionRequiredComponent`) for an
+answer that went on without the person's connection: it connects the viewer's own account and offers
+to ask again, which the panel sends. `nh-assistant-mcp-connections` lists the servers each person
+connects to with their status, scopes, **Connect**, **Connect again** and **Disconnect**, and the
+consent switch only where background use is offered. `NhAssistantMcpConnectService` runs
+connections in a popup, or with `NhAssistantConfig.mcpConnectMode: 'redirect'` by leaving the page
+and completing on return (`mcpConnectReturnUrl`); the administration uses it for organization
+connections too. The server list offers **Connect my account** for such servers, shows the number of
+personal connections and revokes them all after confirmation. `NhAssistantApiService` gains
+`authorizeMcpConnection`, `disconnectMcpConnection` and `completeMcpAuthorization`. The models
+`ConnectionRequiredPart`, `ConnectionRequiredReason` and `ConnectionRequiredEvent` and the event
+`connection.required` are new. The mock API serves personal connections, plays the new
+`connectionRequired` step and accepts `personalConnected` on mock servers.
+
+| Breaking change | Required action |
+|---|---|
+| `MessagePart` and `NhAssistantSseEventMap` have new members. | Handle `connection-required` and `connection.required` in exhaustive switches. |
