@@ -226,7 +226,7 @@ internal sealed partial class NhAssistantTurnRunner
             state.TokenCeiling = CeilingOf(state.AgentTurn!.Options, skill);
             if (record && skill is not null && chosenBy is not null)
             {
-                await runs.SetRunSkillAsync(state.AgentTurn.RunId!.Value, skill.Id, chosenBy, cancellationToken);
+                await runs.SetRunSkillAsync(state.AgentTurn.RunId!.Value, skill.Id, chosenBy, cancellationToken, skill.DataVersion);
             }
         }
 

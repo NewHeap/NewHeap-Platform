@@ -7,6 +7,10 @@ using SampleProjectManagement.Api.Composition;
 namespace SampleProjectManagement.Api.Services;
 
 /// <summary>
+/// SPM-297: a change of the progress note is evaluated before it goes live: saved for shadow, it is
+/// the note's candidate, which notes progress in the planner's shadow threads next to the live note
+/// on the same completed tasks. The comparison counts both; promoting makes the candidate the live
+/// note.
 /// SPM-296: the project starter is an agent an administrator created in the administration. The
 /// application gives it run settings as data: it answers to a technical account, works by the
 /// kickoff rules and starts on every created project. It has no grants: it proposes with the rights
@@ -62,6 +66,57 @@ public sealed class SampleAgentConfigurationService(
                 Reason: "Imported from the progress package"),
             actorId,
             cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-297: saves the progress note that notes the share of completed tasks as the candidate of
+    /// the live note.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantDataSkillDto>> EvaluateProgressPercentageAsync(Guid operatorId, CancellationToken cancellationToken)
+    {
+        var live = await LiveProgressNoteAsync(cancellationToken);
+        if (live is null)
+        {
+            return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.SkillNotFound, "The planner has no progress note.");
+        }
+
+        return await configuration.SaveSkillAsync(
+            AgentId,
+            ProgressNoteSkill,
+            new NhAssistantDataSkillRequest(
+                "Notes which share of the project's tasks is completed after a task was completed.",
+                RuleHandler: SampleProjectPlannerComposition.ProgressPercentageRules,
+                ExpectedVersion: live.Version,
+                Reason: "Notes progress as a percentage",
+                Apply: NhAssistantSkillApplyModes.Shadow),
+            operatorId.ToString("D"),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-297: the comparison of the progress note's candidate with the live note.
+    /// </summary>
+    public Task<TaskResult<NhAssistantSkillComparisonDto>> CompareProgressNoteAsync(CancellationToken cancellationToken)
+    {
+        return configuration.CompareSkillCandidateAsync(AgentId, ProgressNoteSkill, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-297: makes the progress note's candidate the live note.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantDataSkillDto>> PromoteProgressNoteAsync(Guid operatorId, string? reason, CancellationToken cancellationToken)
+    {
+        if ((await LiveProgressNoteAsync(cancellationToken))?.Candidate is not { } candidate)
+        {
+            return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.SkillCandidateNotFound, "The progress note has no candidate.");
+        }
+
+        return await configuration.PromoteSkillCandidateAsync(AgentId, ProgressNoteSkill, candidate.Version, operatorId.ToString("D"), reason, cancellationToken);
+    }
+
+    private async Task<NhAssistantDataSkillDto?> LiveProgressNoteAsync(CancellationToken cancellationToken)
+    {
+        return (await configuration.GetAsync(AgentId, cancellationToken))?.DataSkills.FirstOrDefault(skill => skill.SkillId == ProgressNoteSkill);
     }
 
     /// <summary>

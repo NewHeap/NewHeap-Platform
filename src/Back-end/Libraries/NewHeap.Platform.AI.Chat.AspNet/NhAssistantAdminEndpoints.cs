@@ -929,6 +929,7 @@ internal static class NhAssistantAdminEndpoints
             NhAssistantErrorCodes.AgentNotFound
                 or NhAssistantErrorCodes.SkillNotFound
                 or NhAssistantErrorCodes.TriggerNotFound
+                or NhAssistantErrorCodes.SkillCandidateNotFound
                 or NhAssistantAdminErrorCodes.NotFound
                 or NhAssistantAdminErrorCodes.ContextNotFound
                 or NhAssistantAdminErrorCodes.McpServerNotFound

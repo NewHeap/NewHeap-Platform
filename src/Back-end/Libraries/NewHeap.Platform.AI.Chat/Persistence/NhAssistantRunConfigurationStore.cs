@@ -57,9 +57,11 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             .ToDictionaryAsync(agent => agent.Id, agent => agent.ToolSelectorsJson, StringComparer.Ordinal, cancellationToken);
         var skills = await context.AgentSkillDefinitions
             .AsNoTracking()
-            .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live)
+            .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live
+                           || item.Status == NhAssistantSkillDefinitionStatuses.Candidate)
             .OrderBy(item => item.AgentId)
             .ThenBy(item => item.SkillId)
+            .ThenBy(item => item.Version)
             .ToListAsync(cancellationToken);
         var triggers = await context.AgentTriggerDefinitions
             .AsNoTracking()
@@ -222,14 +224,17 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
     }
 
     /// <summary>
-    /// Adds the next version of a data skill and makes it the live one; the live version before it
-    /// becomes history. <paramref name="expectedVersion"/> is the live version the change was made
-    /// on, or <see langword="null"/> for a new skill.
+    /// Adds the next version of a data skill. Live, it replaces the live version, which becomes
+    /// history; as a <paramref name="candidate"/>, it runs in shadow next to the live version until it
+    /// is promoted or discarded. Either way an earlier candidate is discarded.
+    /// <paramref name="expectedVersion"/> is the live version the change was made on, or
+    /// <see langword="null"/> for a new skill, which has no candidate.
     /// </summary>
     public async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> AddSkillVersionAsync(
         AssistantAgentSkillDefinition definition,
         int? expectedVersion,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool candidate = false)
     {
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
@@ -243,17 +248,23 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
         }
 
+        if (candidate && live is null)
+        {
+            return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Failed(NhAssistantStoreOutcome.Rejected);
+        }
+
         var latest = await context.AgentSkillDefinitions
             .Where(item => item.AgentId == definition.AgentId && item.SkillId == definition.SkillId)
             .MaxAsync(item => (int?)item.Version, cancellationToken) ?? 0;
-        if (live is not null)
+        if (live is not null && !candidate)
         {
             live.Status = NhAssistantSkillDefinitionStatuses.Superseded;
         }
 
+        await DiscardCandidatesAsync(context, definition.AgentId, definition.SkillId, cancellationToken);
         definition.Id = Guid.NewGuid();
         definition.Version = latest + 1;
-        definition.Status = NhAssistantSkillDefinitionStatuses.Live;
+        definition.Status = candidate ? NhAssistantSkillDefinitionStatuses.Candidate : NhAssistantSkillDefinitionStatuses.Live;
         context.AgentSkillDefinitions.Add(definition);
         if (!await TrySaveAsync(context, cancellationToken))
         {
@@ -301,6 +312,7 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
         }
 
         live.Status = NhAssistantSkillDefinitionStatuses.Superseded;
+        await DiscardCandidatesAsync(context, agentId, skillId, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
 
         // A skill added again under the same id starts over: in shadow and active.
@@ -314,6 +326,97 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
 
         await transaction.CommitAsync(cancellationToken);
         return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Ok(live);
+    }
+
+    /// <summary>
+    /// Makes the candidate of <paramref name="candidateVersion"/> the live version of its skill; the
+    /// live version becomes history. Fails with <see cref="NhAssistantStoreOutcome.NotFound"/> without
+    /// a candidate and with <see cref="NhAssistantStoreOutcome.Conflict"/> for another version.
+    /// </summary>
+    public async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> PromoteCandidateAsync(
+        string agentId,
+        string skillId,
+        int candidateVersion,
+        CancellationToken cancellationToken)
+    {
+        return await ChangeCandidateAsync(agentId, skillId, candidateVersion, promote: true, cancellationToken);
+    }
+
+    /// <summary>
+    /// Discards the candidate of <paramref name="candidateVersion"/>; it stays as history.
+    /// </summary>
+    public async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> DiscardCandidateAsync(
+        string agentId,
+        string skillId,
+        int candidateVersion,
+        CancellationToken cancellationToken)
+    {
+        return await ChangeCandidateAsync(agentId, skillId, candidateVersion, promote: false, cancellationToken);
+    }
+
+    private async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> ChangeCandidateAsync(
+        string agentId,
+        string skillId,
+        int candidateVersion,
+        bool promote,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var versions = await context.AgentSkillDefinitions
+            .Where(item => item.AgentId == agentId
+                           && item.SkillId == skillId
+                           && (item.Status == NhAssistantSkillDefinitionStatuses.Live
+                               || item.Status == NhAssistantSkillDefinitionStatuses.Candidate))
+            .ToListAsync(cancellationToken);
+        var candidate = versions.SingleOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Candidate);
+        if (candidate is null)
+        {
+            return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Failed(NhAssistantStoreOutcome.NotFound);
+        }
+        if (candidate.Version != candidateVersion)
+        {
+            return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        if (promote)
+        {
+            foreach (var live in versions.Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live))
+            {
+                live.Status = NhAssistantSkillDefinitionStatuses.Superseded;
+            }
+
+            candidate.Status = NhAssistantSkillDefinitionStatuses.Live;
+        }
+        else
+        {
+            candidate.Status = NhAssistantSkillDefinitionStatuses.Discarded;
+        }
+
+        if (!await TrySaveAsync(context, cancellationToken) || !await ChangeStampAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Ok(candidate);
+    }
+
+    private static async Task DiscardCandidatesAsync(
+        NhAssistantDbContext context,
+        string agentId,
+        string skillId,
+        CancellationToken cancellationToken)
+    {
+        var candidates = await context.AgentSkillDefinitions
+            .Where(item => item.AgentId == agentId
+                           && item.SkillId == skillId
+                           && item.Status == NhAssistantSkillDefinitionStatuses.Candidate)
+            .ToListAsync(cancellationToken);
+        foreach (var earlier in candidates)
+        {
+            earlier.Status = NhAssistantSkillDefinitionStatuses.Discarded;
+        }
     }
 
     /// <summary>

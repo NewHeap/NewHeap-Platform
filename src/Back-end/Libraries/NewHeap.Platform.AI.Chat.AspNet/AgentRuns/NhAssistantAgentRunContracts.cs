@@ -106,6 +106,17 @@ public sealed record NhAssistantRunDto(
     public string? SkillChosenBy { get; init; }
 
     /// <summary>
+    /// The version of a skill defined as data the run worked in; <see langword="null"/> for a skill
+    /// in code.
+    /// </summary>
+    public int? SkillVersion { get; init; }
+
+    /// <summary>
+    /// The run evaluated a candidate version of its skill in the shadow thread.
+    /// </summary>
+    public bool SkillCandidate { get; init; }
+
+    /// <summary>
     /// The agent that handed the run's work off; <see langword="null"/> for a run no agent asked for.
     /// </summary>
     public string? RequestedByAgentId { get; init; }
@@ -536,6 +547,8 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantDataTriggerRequest))]
 [JsonSerializable(typeof(NhAssistantAgentRunSettingsDto))]
 [JsonSerializable(typeof(NhAssistantAgentRunSettingsRequest))]
+[JsonSerializable(typeof(NhAssistantSkillCandidateRequest))]
+[JsonSerializable(typeof(NhAssistantSkillComparisonDto))]
 [JsonSerializable(typeof(NhAssistantServiceAccountRequest))]
 [JsonSerializable(typeof(NhAssistantStartAgentRequest))]
 [JsonSerializable(typeof(NhAssistantTriggerReceiptDto))]
@@ -601,6 +614,8 @@ internal static class NhAssistantAgentRunDtoMapper
             Kind = run.Kind,
             Skill = run.SkillId,
             SkillChosenBy = run.SkillChosenBy,
+            SkillVersion = run.SkillVersion,
+            SkillCandidate = run.SkillCandidate,
             RequestedByAgentId = run.RequestedByAgentId,
             HandOffDepth = run.HandOffDepth
         };

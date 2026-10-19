@@ -359,7 +359,9 @@
       "assistant-skill-in-use": "Een trigger start deze vaardigheid nog. Pas de trigger eerst aan of verwijder hem.",
       "assistant-configuration-limit": "Deze agent heeft al zoveel vaardigheden of triggers als is toegestaan.",
       "assistant-run-settings-in-code": "Deze agent staat in de code; daar is ingesteld hoe hij werkt.",
-      "assistant-run-settings-in-use": "Er horen nog vaardigheden of triggers bij deze agent. Verwijder die eerst."
+      "assistant-run-settings-in-use": "Er horen nog vaardigheden of triggers bij deze agent. Verwijder die eerst.",
+      "assistant-skill-candidate-not-found": "Van deze vaardigheid wordt geen versie in schaduw beoordeeld.",
+      "assistant-skill-version-gone": "De versie van de vaardigheid waarvoor deze run was, wordt niet meer beoordeeld."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",

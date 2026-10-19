@@ -37,6 +37,7 @@ public sealed class NhAssistantAgentRunOptions
     private readonly List<NhAiAgentGrant> _grants = [];
     private readonly Dictionary<string, string> _toolApprovalPolicies = new(StringComparer.Ordinal);
     private Dictionary<string, NhAssistantSkillOptions> _skills = new(StringComparer.Ordinal);
+    private Dictionary<string, NhAssistantSkillOptions> _candidates = new(StringComparer.Ordinal);
 
     /// <summary>
     /// The most skills one agent declares.
@@ -164,7 +165,9 @@ public sealed class NhAssistantAgentRunOptions
     /// A copy of the options with the skills defined as data next to those in code. The options in
     /// code stay as they are; everything else is shared, because nothing changes it after startup.
     /// </summary>
-    internal NhAssistantAgentRunOptions WithDataSkills(IEnumerable<NhAssistantSkillOptions> dataSkills)
+    internal NhAssistantAgentRunOptions WithDataSkills(
+        IEnumerable<NhAssistantSkillOptions> dataSkills,
+        IEnumerable<NhAssistantSkillOptions>? candidates = null)
     {
         var copy = (NhAssistantAgentRunOptions)MemberwiseClone();
         copy._skills = new Dictionary<string, NhAssistantSkillOptions>(_skills, StringComparer.Ordinal);
@@ -173,6 +176,35 @@ public sealed class NhAssistantAgentRunOptions
             copy._skills.Add(skill.Id, skill);
         }
 
+        copy._candidates = new Dictionary<string, NhAssistantSkillOptions>(_candidates, StringComparer.Ordinal);
+        foreach (var candidate in candidates ?? [])
+        {
+            copy._candidates[candidate.Id] = candidate;
+        }
+
+        return copy;
+    }
+
+    /// <summary>
+    /// The candidate versions of data skills, by skill id: each runs in shadow next to the live
+    /// version on the triggers that name its skill.
+    /// </summary>
+    internal IReadOnlyDictionary<string, NhAssistantSkillOptions> SkillCandidates => _candidates;
+
+    /// <summary>
+    /// A copy of the options in which <paramref name="skillId"/> is its candidate of
+    /// <paramref name="version"/>, for the candidate's run; <see langword="null"/> when that
+    /// candidate is no longer there.
+    /// </summary>
+    internal NhAssistantAgentRunOptions? WithCandidate(string skillId, int? version)
+    {
+        if (!_candidates.TryGetValue(skillId, out var candidate) || candidate.DataVersion != version)
+        {
+            return null;
+        }
+
+        var copy = (NhAssistantAgentRunOptions)MemberwiseClone();
+        copy._skills = new Dictionary<string, NhAssistantSkillOptions>(_skills, StringComparer.Ordinal) { [skillId] = candidate };
         return copy;
     }
 

@@ -208,6 +208,9 @@ public static class NhAssistantSkillDefinitionStatuses
 
     /// <summary>An earlier version, kept as history.</summary>
     public const string Superseded = "superseded";
+
+    /// <summary>A candidate that was discarded or replaced, kept as history.</summary>
+    public const string Discarded = "discarded";
 }
 
 /// <summary>

@@ -235,14 +235,16 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     public async Task<AssistantRun?> FindQueuedRunAsync(
         Guid conversationId,
         CancellationToken cancellationToken,
-        string? skillId = null)
+        string? skillId = null,
+        bool candidate = false)
     {
         await using var context = contextFactory.CreateDbContext();
         return await context.Runs
             .AsNoTracking()
             .Where(run => run.ConversationId == conversationId
                 && run.Status == NhAssistantRunStatuses.Queued
-                && run.SkillId == skillId)
+                && run.SkillId == skillId
+                && run.SkillCandidate == candidate)
             .OrderBy(run => run.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -250,7 +252,12 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     /// <summary>
     /// Records the skill a run works in and who chose it.
     /// </summary>
-    public async Task SetRunSkillAsync(Guid runId, string skillId, string chosenBy, CancellationToken cancellationToken)
+    public async Task SetRunSkillAsync(
+        Guid runId,
+        string skillId,
+        string chosenBy,
+        CancellationToken cancellationToken,
+        int? skillVersion = null)
     {
         await using var context = contextFactory.CreateDbContext();
         await context.Runs
@@ -258,7 +265,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(run => run.SkillId, skillId)
-                    .SetProperty(run => run.SkillChosenBy, chosenBy),
+                    .SetProperty(run => run.SkillChosenBy, chosenBy)
+                    .SetProperty(run => run.SkillVersion, skillVersion),
                 cancellationToken);
     }
 
@@ -833,15 +841,19 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         Guid conversationId,
         Guid runId,
         CancellationToken cancellationToken,
-        string? skillId = null)
+        string? skillId = null,
+        bool candidate = false)
     {
         await using var context = contextFactory.CreateDbContext();
         var now = DateTimeOffset.UtcNow;
-        // A run claims the inputs without a skill and those of its own skill.
+        // A run claims the inputs without a skill and those of its own skill; the run of a candidate
+        // version claims the candidate's inputs only.
         await context.QueuedInputs
             .Where(input => input.ConversationId == conversationId
                 && input.ConsumedAt == null
-                && (input.SkillId == null || input.SkillId == skillId))
+                && (candidate
+                    ? input.SkillCandidate && input.SkillId == skillId
+                    : !input.SkillCandidate && (input.SkillId == null || input.SkillId == skillId)))
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(input => input.ConsumedByRunId, runId)
@@ -1071,6 +1083,52 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     /// a technical account, after an administrator changed the account. Runs and proposals keep the
     /// account they were made with.
     /// </summary>
+    /// <summary>
+    /// The runs of the agent's threads in one skill and the given versions since
+    /// <paramref name="from"/>, until <paramref name="to"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantRun>> GetSkillVersionRunsAsync(
+        string agentId,
+        string skillId,
+        IReadOnlyCollection<int> versions,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Runs
+            .AsNoTracking()
+            .Where(run => run.SkillId == skillId
+                && run.SkillVersion != null
+                && versions.Contains(run.SkillVersion.Value)
+                && run.CreatedAt >= from
+                && run.CreatedAt < to
+                && context.Threads.Any(thread => thread.ConversationId == run.ConversationId && thread.AgentId == agentId))
+            .OrderBy(run => run.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The proposals the runs made: their run, tool and status.
+    /// </summary>
+    public async Task<IReadOnlyList<(Guid RunId, string ToolId, string Status)>> GetProposalsOfRunsAsync(
+        IReadOnlyCollection<Guid> runIds,
+        CancellationToken cancellationToken)
+    {
+        if (runIds.Count == 0)
+        {
+            return [];
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        var rows = await context.Approvals
+            .AsNoTracking()
+            .Where(approval => approval.RunId != null && runIds.Contains(approval.RunId.Value))
+            .Select(approval => new { RunId = approval.RunId!.Value, approval.ToolId, approval.Status })
+            .ToListAsync(cancellationToken);
+        return rows.Select(row => (row.RunId, row.ToolId, row.Status)).ToArray();
+    }
+
     public async Task SetAccountabilityOfThreadAsync(
         Guid conversationId,
         string accountability,

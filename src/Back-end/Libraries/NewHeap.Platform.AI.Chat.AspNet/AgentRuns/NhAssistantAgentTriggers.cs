@@ -156,6 +156,17 @@ internal sealed record NhAssistantTriggerFire(
     public Guid? ReplayOfRunId { get; init; }
 
     /// <summary>
+    /// The fire evaluates the candidate version <see cref="SkillVersion"/> of its data skill: its run
+    /// works in the agent's shadow thread, next to the live version's run on the same event.
+    /// </summary>
+    public bool SkillCandidate { get; init; }
+
+    /// <summary>
+    /// The version of the data skill a candidate fire evaluates.
+    /// </summary>
+    public int? SkillVersion { get; init; }
+
+    /// <summary>
     /// The further recorded inputs of the replayed run, written after the fire's own input.
     /// </summary>
     public IReadOnlyList<NhAssistantReplayedInput> ReplayedInputs { get; init; } = [];
@@ -745,6 +756,73 @@ internal sealed class NhAssistantAgentTriggers(
         CancellationToken cancellationToken)
     {
         var receipt = await FireCoreAsync(fire, cancellationToken);
+        await AuditFireAsync(fire, receipt, cancellationToken);
+        await FireCandidateAsync(fire, receipt, cancellationToken);
+        return receipt;
+    }
+
+    /// <summary>
+    /// The candidate version of the fire's data skill takes the same event as the live version, as a
+    /// second run in the agent's shadow thread, where nothing it proposes executes. Only triggers that
+    /// name the skill start it; routing by rules or triage reaches the live version.
+    /// </summary>
+    private async Task FireCandidateAsync(
+        NhAssistantTriggerFire fire,
+        NhAssistantTriggerReceipt receipt,
+        CancellationToken cancellationToken)
+    {
+        if (fire.SkillCandidate
+            || fire.Resume
+            || fire.ReplayOfRunId is not null
+            || fire.SkillId is not { } skillId
+            || !registration.Triggers.ContainsKey(fire.TriggerId)
+            || receipt.Outcome is not (NhAssistantTriggerOutcomes.Started
+                or NhAssistantTriggerOutcomes.Queued
+                or NhAssistantTriggerOutcomes.Coalesced
+                or NhAssistantTriggerOutcomes.Superseded
+                or NhAssistantTriggerOutcomes.Deduplicated)
+            || !registration.AgentRuns.TryGetValue(fire.AgentId, out var options)
+            || !options.SkillCandidates.TryGetValue(skillId, out var candidate))
+        {
+            return;
+        }
+
+        await FireAsync(
+            fire with
+            {
+                SkillCandidate = true,
+                SkillVersion = candidate.DataVersion,
+                EventKey = CandidateKey(fire.EventKey, candidate.DataVersion),
+                InputId = null,
+                // One candidate run per event, which never joins the live version's work.
+                Conflict = NhAssistantTriggerConflict.Queue,
+                Debounce = TimeSpan.Zero
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The dedupe key of a candidate's fire: the event's own, per candidate version, so a repeated
+    /// delivery starts one candidate run as it starts one live run.
+    /// </summary>
+    internal static string? CandidateKey(string? eventKey, int? version)
+    {
+        if (eventKey is null)
+        {
+            return null;
+        }
+
+        var suffix = ":candidate-" + version?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return eventKey.Length + suffix.Length <= 256
+            ? eventKey + suffix
+            : NhAssistantAgentCatalog.ComputeHash(eventKey) + suffix;
+    }
+
+    private async Task AuditFireAsync(
+        NhAssistantTriggerFire fire,
+        NhAssistantTriggerReceipt receipt,
+        CancellationToken cancellationToken)
+    {
         var accepted = receipt.Outcome is NhAssistantTriggerOutcomes.Started
             or NhAssistantTriggerOutcomes.Queued
             or NhAssistantTriggerOutcomes.Coalesced
@@ -761,7 +839,6 @@ internal sealed class NhAssistantAgentTriggers(
             accepted,
             cancellationToken,
             fire.SkillId);
-        return receipt;
     }
 
     /// <summary>
@@ -1055,16 +1132,27 @@ internal sealed class NhAssistantAgentTriggers(
         }
 
         // Work of an agent, a skill or a data trigger in shadow goes to the agent's shadow thread of
-        // the subject.
+        // the subject, and so does a candidate version's.
         var shadow = NhAssistantShadowModes.IsAgentShadow(options, agent.ShadowOverride)
             || (fire.SkillId is { } shadowSkill
                 && options.Skills.TryGetValue(shadowSkill, out var skillOptions)
                 && NhAssistantShadowModes.IsSkillShadow(skillOptions, skillRow))
-            || IsTriggerShadow(fire.TriggerId);
+            || IsTriggerShadow(fire.TriggerId)
+            || fire.SkillCandidate;
 
         // A paused agent or a paused skill lets the event wait.
         var paused = (agent.RunState == NhAssistantAgentRunStates.Paused || skillState == NhAssistantAgentRunStates.Paused)
             && !fire.Resume;
+        if (paused && fire.SkillCandidate)
+        {
+            // A candidate evaluates work as it happens; it lets nothing wait for a resume.
+            return new NhAssistantTriggerReceipt(
+                fire.TriggerId,
+                NhAssistantTriggerOutcomes.Ignored,
+                null,
+                null,
+                agent.RunState == NhAssistantAgentRunStates.Paused ? NhAssistantErrorCodes.AgentPaused : NhAssistantErrorCodes.SkillPaused);
+        }
 
         var subject = await subjects.DescribeAsync(fire.Subject, cancellationToken);
         if (subject is null)
@@ -1115,7 +1203,7 @@ internal sealed class NhAssistantAgentTriggers(
         }
 
         // Events join a queued run of the same skill only.
-        var queued = await runs.FindQueuedRunAsync(conversationId, cancellationToken, fire.SkillId);
+        var queued = await runs.FindQueuedRunAsync(conversationId, cancellationToken, fire.SkillId, fire.SkillCandidate);
         var active = await runs.FindActiveRunAsync(conversationId, cancellationToken);
         if (paused)
         {
@@ -1201,6 +1289,9 @@ internal sealed class NhAssistantAgentTriggers(
             Shadow = shadow,
             SkillId = fire.SkillId,
             SkillChosenBy = fire.SkillId is null ? null : fire.SkillChosenBy ?? ChooserOf(fire.TriggerId),
+            SkillVersion = fire.SkillVersion
+                ?? (fire.SkillId is { } versionedSkill && options.Skills.TryGetValue(versionedSkill, out var versioned) ? versioned.DataVersion : null),
+            SkillCandidate = fire.SkillCandidate,
             ReplayOfRunId = fire.ReplayOfRunId,
             CreatedAt = DateTimeOffset.UtcNow,
             ConcurrencyStamp = Guid.NewGuid()
@@ -1322,6 +1413,7 @@ internal sealed class NhAssistantAgentTriggers(
             EventKey = fire.EventKey,
             InitiatorActorId = fire.InitiatorActorId,
             SkillId = fire.SkillId,
+            SkillCandidate = fire.SkillCandidate,
             CreatedAt = DateTimeOffset.UtcNow
         };
     }

@@ -104,6 +104,18 @@ public sealed class AssistantRun
     public string? SkillChosenBy { get; set; }
 
     /// <summary>
+    /// The version of a skill defined as data the run worked in; <see langword="null"/> for a skill
+    /// in code or a run without a skill.
+    /// </summary>
+    public int? SkillVersion { get; set; }
+
+    /// <summary>
+    /// The run evaluates a candidate version of its skill in the shadow thread, next to the live
+    /// version's run on the same event.
+    /// </summary>
+    public bool SkillCandidate { get; set; }
+
+    /// <summary>
     /// The agent that handed the run's work off; <see langword="null"/> for a run no agent asked for.
     /// </summary>
     public string? RequestedByAgentId { get; set; }
@@ -392,6 +404,12 @@ public sealed class AssistantQueuedInput
     /// The skill the trigger named; only a run of that skill, or a resume of it, claims the input.
     /// </summary>
     public string? SkillId { get; set; }
+
+    /// <summary>
+    /// The input is for the candidate version of <see cref="SkillId"/>: only the candidate's run
+    /// claims it.
+    /// </summary>
+    public bool SkillCandidate { get; set; }
 
     public string? ClientMessageId { get; set; }
 

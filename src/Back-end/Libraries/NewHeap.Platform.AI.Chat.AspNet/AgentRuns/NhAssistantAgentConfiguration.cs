@@ -68,9 +68,12 @@ public interface INhAssistantAgentConfiguration
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Adds a data skill, which starts in shadow, or stores the next version of one, which takes
-    /// effect at once in the mode the skill has. <c>expectedVersion</c> is the live version the
-    /// change was made on, <see langword="null"/> for a new skill; otherwise the call fails with
+    /// Adds a data skill, which starts in shadow, or stores the next version of one. With
+    /// <c>apply</c> <c>live</c> the version takes effect at once in the mode the skill has; with
+    /// <c>shadow</c> it becomes the skill's candidate, which runs in the agent's shadow thread next to
+    /// the live version on the triggers that name the skill, until it is promoted or discarded. A new
+    /// version discards an earlier candidate. <c>expectedVersion</c> is the live version the change
+    /// was made on, <see langword="null"/> for a new skill; otherwise the call fails with
     /// <c>assistant-version-conflict</c>.
     /// </summary>
     Task<TaskResult<NhAssistantDataSkillDto>> SaveSkillAsync(
@@ -78,6 +81,44 @@ public interface INhAssistantAgentConfiguration
         string skillId,
         NhAssistantDataSkillRequest request,
         string actorId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Makes the candidate of <paramref name="candidateVersion"/> the live version of its skill; the
+    /// live version stays as history. Runs that work in the candidate keep working; new runs use it
+    /// live. Fails with <c>assistant-skill-candidate-not-found</c> without a candidate and with
+    /// <c>assistant-version-conflict</c> when the candidate is another version.
+    /// </summary>
+    Task<TaskResult<NhAssistantDataSkillDto>> PromoteSkillCandidateAsync(
+        string agentId,
+        string skillId,
+        int candidateVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Discards the candidate of <paramref name="candidateVersion"/>; it stays as history and its
+    /// queued runs end with <c>assistant-skill-version-gone</c>.
+    /// </summary>
+    Task<TaskResult> DiscardSkillCandidateAsync(
+        string agentId,
+        string skillId,
+        int candidateVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Compares the live version of a data skill with its candidate on the runs they made in the
+    /// period: runs, outcomes, usage and proposals per tool, with what people decided about the live
+    /// version's proposals, and how many events both handled. Counts only, no content.
+    /// </summary>
+    Task<TaskResult<NhAssistantSkillComparisonDto>> CompareSkillCandidateAsync(
+        string agentId,
+        string skillId,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -249,9 +290,50 @@ public sealed record NhAssistantDataSkillDto(
     string ChangedBy,
     string? Reason,
     bool InEffect,
-    string? Problem);
+    string? Problem)
+{
+    /// <summary>
+    /// The candidate version that runs in shadow next to this live version; <see langword="null"/>
+    /// without one.
+    /// </summary>
+    public NhAssistantDataSkillDto? Candidate { get; init; }
+}
 
-/// <param name="Status"><c>live</c>, <c>candidate</c> or <c>superseded</c>.</param>
+/// <param name="Version">The candidate version the change is for.</param>
+/// <param name="Reason">At most 500 characters.</param>
+public sealed record NhAssistantSkillCandidateRequest(int? Version, string? Reason = null);
+
+/// <param name="PairedEvents">The events both versions handled.</param>
+public sealed record NhAssistantSkillComparisonDto(
+    string AgentId,
+    string SkillId,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    NhAssistantSkillVersionStatsDto Live,
+    NhAssistantSkillVersionStatsDto Candidate,
+    int PairedEvents,
+    IReadOnlyList<NhAssistantSkillComparisonToolDto> Tools);
+
+/// <param name="Version">The version, live or candidate.</param>
+public sealed record NhAssistantSkillVersionStatsDto(
+    int Version,
+    int Runs,
+    int Completed,
+    int Failed,
+    int Proposals,
+    int ToolCalls,
+    long Tokens);
+
+/// <param name="LiveApproved">Proposals of the live version that people approved or that executed.</param>
+/// <param name="LiveRejected">Proposals of the live version that people rejected.</param>
+public sealed record NhAssistantSkillComparisonToolDto(
+    string ToolId,
+    int LiveProposals,
+    int CandidateProposals,
+    int LiveApproved,
+    int LiveRejected);
+
+/// <param name="Status"><c>live</c>, <c>candidate</c>, <c>superseded</c> or <c>discarded</c>.</param>
 public sealed record NhAssistantDataSkillVersionDto(
     int Version,
     string Status,
@@ -293,6 +375,8 @@ public sealed record NhAssistantDataTriggerDto(
 /// <param name="ExpectedVersion">The live version the change was made on; <see langword="null"/>
 /// for a new skill.</param>
 /// <param name="Reason">At most 500 characters.</param>
+/// <param name="Apply">For a change of a skill: <c>live</c> (default) puts the version into effect at
+/// once; <c>shadow</c> makes it the candidate that runs in shadow next to the live version.</param>
 public sealed record NhAssistantDataSkillRequest(
     string? Description,
     string? Instructions = null,
@@ -304,7 +388,20 @@ public sealed record NhAssistantDataSkillRequest(
     long? DailyTokens = null,
     string? ApprovalPolicy = null,
     int? ExpectedVersion = null,
-    string? Reason = null);
+    string? Reason = null,
+    string? Apply = null);
+
+/// <summary>
+/// How a change of a data skill takes effect.
+/// </summary>
+public static class NhAssistantSkillApplyModes
+{
+    /// <summary>The version takes effect at once.</summary>
+    public const string Live = "live";
+
+    /// <summary>The version becomes the candidate that runs in shadow next to the live version.</summary>
+    public const string Shadow = "shadow";
+}
 
 /// <param name="Skill">The skill the runs work in; <see langword="null"/> lets the agent's rules or
 /// triage choose.</param>
@@ -380,9 +477,16 @@ internal sealed class NhAssistantAgentConfiguration(
         await configurations.EnsureCurrentAsync(cancellationToken);
         var problems = configurations.Problems.Where(problem => problem.AgentId == agentId).ToArray();
         var settings = code is null ? await store.FindRunSettingsAsync(agentId, cancellationToken) : null;
-        var skills = (await store.ListSkillsAsync(agentId, cancellationToken))
+        var versions = await store.ListSkillsAsync(agentId, cancellationToken);
+        var skills = versions
             .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live)
-            .Select(item => ToDto(item, problems))
+            .Select(item => ToDto(item, problems) with
+            {
+                Candidate = versions
+                    .Where(candidate => candidate.SkillId == item.SkillId && candidate.Status == NhAssistantSkillDefinitionStatuses.Candidate)
+                    .Select(candidate => ToDto(candidate, problems, NhAssistantRunConfigurationProblems.CandidateKind))
+                    .FirstOrDefault()
+            })
             .ToArray();
         var triggers = (await store.ListTriggersAsync(agentId, cancellationToken))
             .Select(item => ToDto(item, problems))
@@ -587,12 +691,16 @@ internal sealed class NhAssistantAgentConfiguration(
             .Require(description is null || description.Length <= NhAssistantSkillBuilder.MaxDescriptionLength, "description", NhAssistantFieldErrors.TooLong)
             .Require(instructions is null || instructions.Length <= NhAssistantAgentConfigurationLimits.MaxSkillInstructionsLength, "instructions", NhAssistantFieldErrors.TooLong)
             .Require(request.MaxTokensPerRun is null or >= 1, "maxTokensPerRun", NhAssistantFieldErrors.Invalid)
-            .Require((request.DailyToolCalls is null) == (request.DailyTokens is null) && request.DailyToolCalls is null or >= 1 && request.DailyTokens is null or >= 1, "dailyBudget", NhAssistantFieldErrors.Invalid);
+            .Require((request.DailyToolCalls is null) == (request.DailyTokens is null) && request.DailyToolCalls is null or >= 1 && request.DailyTokens is null or >= 1, "dailyBudget", NhAssistantFieldErrors.Invalid)
+            .Require(request.Apply is null or NhAssistantSkillApplyModes.Live or NhAssistantSkillApplyModes.Shadow, "apply", NhAssistantFieldErrors.Invalid)
+            // A new skill has no live version to evaluate a candidate next to; it starts in shadow.
+            .Require(request.Apply != NhAssistantSkillApplyModes.Shadow || request.ExpectedVersion is not null, "apply", NhAssistantFieldErrors.Invalid);
         if (!errors.IsEmpty)
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(errors.ToResult());
         }
 
+        var asCandidate = request.Apply == NhAssistantSkillApplyModes.Shadow;
         var definition = new AssistantAgentSkillDefinition
         {
             AgentId = agentId,
@@ -624,7 +732,7 @@ internal sealed class NhAssistantAgentConfiguration(
             return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many skills as allowed.");
         }
 
-        var saved = await store.AddSkillVersionAsync(definition, request.ExpectedVersion, cancellationToken);
+        var saved = await store.AddSkillVersionAsync(definition, request.ExpectedVersion, cancellationToken, asCandidate);
         if (!saved.Succeeded)
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The skill changed in the meantime.");
@@ -635,11 +743,147 @@ internal sealed class NhAssistantAgentConfiguration(
             skillId,
             saved.Value!.Version,
             saved.Value.InstructionsHash,
-            saved.Value.Version == 1 || request.ExpectedVersion is null ? "created" : "changed",
+            asCandidate ? "candidate" : saved.Value.Version == 1 || request.ExpectedVersion is null ? "created" : "changed",
             actorId,
             cancellationToken);
         await configurations.ReloadAsync(cancellationToken);
-        return TaskResult<NhAssistantDataSkillDto>.Succeeded(ToDto(saved.Value, configurations.Problems));
+        return TaskResult<NhAssistantDataSkillDto>.Succeeded(asCandidate
+            ? ToDto(saved.Value, configurations.Problems, NhAssistantRunConfigurationProblems.CandidateKind)
+            : ToDto(saved.Value, configurations.Problems));
+    }
+
+    public async Task<TaskResult<NhAssistantDataSkillDto>> PromoteSkillCandidateAsync(
+        string agentId,
+        string skillId,
+        int candidateVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        var changed = await ChangeCandidateAsync(agentId, skillId, candidateVersion, actorId, reason, promote: true, cancellationToken);
+        return changed.Failure is { } failure
+            ? TaskResult<NhAssistantDataSkillDto>.Failed(failure)
+            : TaskResult<NhAssistantDataSkillDto>.Succeeded(ToDto(changed.Definition!, configurations.Problems));
+    }
+
+    public async Task<TaskResult> DiscardSkillCandidateAsync(
+        string agentId,
+        string skillId,
+        int candidateVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        var changed = await ChangeCandidateAsync(agentId, skillId, candidateVersion, actorId, reason, promote: false, cancellationToken);
+        return changed.Failure ?? TaskResult.Succeeded();
+    }
+
+    public async Task<TaskResult<NhAssistantSkillComparisonDto>> CompareSkillCandidateAsync(
+        string agentId,
+        string skillId,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(skillId);
+        var versions = (await store.ListSkillsAsync(agentId, cancellationToken)).Where(item => item.SkillId == skillId).ToArray();
+        var candidate = versions.FirstOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Candidate);
+        var live = versions.FirstOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Live);
+        if (candidate is null || live is null)
+        {
+            return TaskResult<NhAssistantSkillComparisonDto>.Failed(NhAssistantErrorCodes.SkillCandidateNotFound, "The skill has no candidate.");
+        }
+
+        var until = to ?? DateTimeOffset.UtcNow;
+        var since = from ?? candidate.CreatedAt;
+        var skillRuns = await runs.GetSkillVersionRunsAsync(agentId, skillId, [live.Version, candidate.Version], since, until, cancellationToken);
+        var liveRuns = skillRuns.Where(run => run.SkillVersion == live.Version && !run.SkillCandidate).ToArray();
+        var candidateRuns = skillRuns.Where(run => run.SkillVersion == candidate.Version && run.SkillCandidate).ToArray();
+        var proposals = await runs.GetProposalsOfRunsAsync(liveRuns.Concat(candidateRuns).Select(run => run.Id).ToArray(), cancellationToken);
+        var liveIds = liveRuns.Select(run => run.Id).ToHashSet();
+        var candidateIds = candidateRuns.Select(run => run.Id).ToHashSet();
+
+        // A candidate's run and the live run it ran next to share the trigger and the event's key.
+        var liveEvents = liveRuns
+            .Where(run => run.TriggerEventKey is not null)
+            .Select(run => (run.TriggerId, Key: NhAssistantAgentTriggers.CandidateKey(run.TriggerEventKey, candidate.Version)))
+            .ToHashSet();
+        var paired = candidateRuns.Count(run => run.TriggerEventKey is not null && liveEvents.Contains((run.TriggerId, run.TriggerEventKey)));
+        var tools = proposals
+            .GroupBy(item => item.ToolId, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => new NhAssistantSkillComparisonToolDto(
+                group.Key,
+                group.Count(item => liveIds.Contains(item.RunId)),
+                group.Count(item => candidateIds.Contains(item.RunId)),
+                group.Count(item => liveIds.Contains(item.RunId) && item.Status is NhAssistantApprovalStatuses.Approved or NhAssistantApprovalStatuses.Executed),
+                group.Count(item => liveIds.Contains(item.RunId) && item.Status == NhAssistantApprovalStatuses.Rejected)))
+            .ToArray();
+        return TaskResult<NhAssistantSkillComparisonDto>.Succeeded(new NhAssistantSkillComparisonDto(
+            agentId,
+            skillId,
+            since,
+            until,
+            Stats(live.Version, liveRuns, proposals, liveIds),
+            Stats(candidate.Version, candidateRuns, proposals, candidateIds),
+            paired,
+            tools));
+    }
+
+    private static NhAssistantSkillVersionStatsDto Stats(
+        int version,
+        IReadOnlyCollection<AssistantRun> versionRuns,
+        IReadOnlyList<(Guid RunId, string ToolId, string Status)> proposals,
+        IReadOnlySet<Guid> runIds)
+    {
+        return new NhAssistantSkillVersionStatsDto(
+            version,
+            versionRuns.Count,
+            versionRuns.Count(run => run.Status == NhAssistantRunStatuses.Completed),
+            versionRuns.Count(run => run.Status == NhAssistantRunStatuses.Failed),
+            proposals.Count(item => runIds.Contains(item.RunId)),
+            versionRuns.Sum(run => run.ToolCalls),
+            versionRuns.Sum(run => run.InputTokens + run.OutputTokens));
+    }
+
+    private async Task<(TaskResult? Failure, AssistantAgentSkillDefinition? Definition)> ChangeCandidateAsync(
+        string agentId,
+        string skillId,
+        int candidateVersion,
+        string actorId,
+        string? reason,
+        bool promote,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(skillId);
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return (invalid, null);
+        }
+
+        var changed = promote
+            ? await store.PromoteCandidateAsync(agentId, skillId, candidateVersion, cancellationToken)
+            : await store.DiscardCandidateAsync(agentId, skillId, candidateVersion, cancellationToken);
+        switch (changed.Outcome)
+        {
+            case NhAssistantStoreOutcome.NotFound:
+                return (TaskResult.Failed(NhAssistantErrorCodes.SkillCandidateNotFound, "The skill has no candidate."), null);
+            case NhAssistantStoreOutcome.Conflict:
+                return (TaskResult.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The candidate changed in the meantime."), null);
+        }
+
+        await events.SkillDefinitionChangedAsync(
+            agentId,
+            skillId,
+            changed.Value!.Version,
+            changed.Value.InstructionsHash,
+            promote ? "promoted" : "discarded",
+            actorId,
+            cancellationToken);
+        await configurations.ReloadAsync(cancellationToken);
+        return (null, changed.Value);
     }
 
     public async Task<TaskResult> RemoveSkillAsync(
@@ -994,10 +1238,11 @@ internal sealed class NhAssistantAgentConfiguration(
 
     private static NhAssistantDataSkillDto ToDto(
         AssistantAgentSkillDefinition item,
-        IReadOnlyList<NhAssistantRunConfigurationProblem> problems)
+        IReadOnlyList<NhAssistantRunConfigurationProblem> problems,
+        string kind = NhAssistantRunConfigurationProblems.SkillKind)
     {
         var problem = problems.FirstOrDefault(entry => entry.AgentId == item.AgentId
-                                                       && entry.Kind == NhAssistantRunConfigurationProblems.SkillKind
+                                                       && entry.Kind == kind
                                                        && entry.Id == item.SkillId)?.Code;
         return new NhAssistantDataSkillDto(
             item.SkillId,

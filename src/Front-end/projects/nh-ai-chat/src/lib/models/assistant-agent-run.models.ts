@@ -64,6 +64,10 @@ export interface AgentRun {
   /** The skill of the agent the run worked in; missing or null for the agent's own tools. */
   skill?: string | null;
   skillChosenBy?: AgentSkillChooser | null;
+  /** The version of a skill defined as data the run worked in; absent for a skill in code. */
+  skillVersion?: number | null;
+  /** The run evaluated a candidate version of its skill in the shadow thread. */
+  skillCandidate?: boolean;
   /** The agent that handed the run's work off; missing or null for a run no agent asked for. */
   requestedByAgentId?: string | null;
   /**

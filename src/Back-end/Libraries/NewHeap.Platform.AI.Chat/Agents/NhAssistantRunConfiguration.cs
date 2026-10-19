@@ -91,6 +91,9 @@ public static class NhAssistantRunConfigurationProblems
 
     public const string TriggerKind = "trigger";
 
+    /// <summary>The candidate version of a data skill.</summary>
+    public const string CandidateKind = "candidate";
+
     /// <summary>The agent has no run configuration, in code or as data, or no longer exists.</summary>
     public const string UnknownAgent = "unknown-agent";
 
@@ -560,7 +563,8 @@ internal sealed class NhAssistantRunConfigurations(
         {
             var dataSkills = new List<NhAssistantSkillOptions>();
             var runAgent = runAgents.GetValueOrDefault(group.Key);
-            foreach (var definition in group)
+            var candidates = group.Where(definition => definition.Status == NhAssistantSkillDefinitionStatuses.Candidate).ToArray();
+            foreach (var definition in group.Where(definition => definition.Status == NhAssistantSkillDefinitionStatuses.Live))
             {
                 var selectors = ReadSelectors(definition.ToolSelectorsJson);
                 var problem = selectors is null
@@ -579,9 +583,28 @@ internal sealed class NhAssistantRunConfigurations(
                 dataSkills.Add(ToSkill(definition, selectors!));
             }
 
+            // A candidate runs next to a live version in effect, checked as that version is.
+            var candidateSkills = new List<NhAssistantSkillOptions>();
+            foreach (var definition in candidates)
+            {
+                var selectors = ReadSelectors(definition.ToolSelectorsJson);
+                var problem = dataSkills.All(skill => skill.Id != definition.SkillId)
+                    ? NhAssistantRunConfigurationProblems.UnknownSkill
+                    : selectors is null
+                        ? NhAssistantRunConfigurationProblems.ToolNotCovered
+                        : validator.ValidateSkill(definition, selectors, runAgent);
+                if (problem is not null)
+                {
+                    problems.Add(new NhAssistantRunConfigurationProblem(definition.AgentId, NhAssistantRunConfigurationProblems.CandidateKind, definition.SkillId, problem));
+                    continue;
+                }
+
+                candidateSkills.Add(ToSkill(definition, selectors!));
+            }
+
             if (dataSkills.Count > 0)
             {
-                agentRuns[group.Key] = agentRuns[group.Key].WithDataSkills(dataSkills);
+                agentRuns[group.Key] = agentRuns[group.Key].WithDataSkills(dataSkills, candidateSkills);
             }
         }
 

@@ -4492,5 +4492,22 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantGatewayReadTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAgentInvocationGateTests.cs"
     ]
+  },
+  {
+    "id": "SPM-297",
+    "title": "A changed progress note is evaluated in shadow next to the live note, compared and promoted",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantDataSkillRequest.Apply with NhAssistantSkillApplyModes; the candidate status and Candidate on NhAssistantDataSkillDto; INhAssistantAgentConfiguration.PromoteSkillCandidateAsync, DiscardSkillCandidateAsync and CompareSkillCandidateAsync with NhAssistantSkillComparisonDto; POST admin/agents/{id}/skills/{skillId}/candidate/promote and .../discard with NhAssistantSkillCandidateRequest and GET .../candidate/comparison; skillVersion and skillCandidate on NhAssistantRunDto; assistant-skill-candidate-not-found and assistant-skill-version-gone; the AgentSkillCandidates migrations for SQL Server and PostgreSQL",
+    "outcome": "The progress note of the planner is live. The application saves its change, which notes the share of completed tasks by the progress-percentage rules, for shadow: it becomes the note's candidate. A completed task then gets the live note in the planner's live thread and the candidate's note in its shadow thread, each run recording its version. The comparison counts one run of each and one event both handled. Once promoted, the candidate notes the next completed task live, as the note's new live version.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunConfigurationTests.cs"
+    ]
   }
 ] as const;

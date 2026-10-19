@@ -586,6 +586,16 @@ public static class NhAssistantErrorCodes
     public const string RunSettingsInUse = "assistant-run-settings-in-use";
 
     /// <summary>
+    /// The skill has no candidate version to promote, discard or compare.
+    /// </summary>
+    public const string SkillCandidateNotFound = "assistant-skill-candidate-not-found";
+
+    /// <summary>
+    /// The candidate version the run was for was discarded or replaced before it started.
+    /// </summary>
+    public const string SkillVersionGone = "assistant-skill-version-gone";
+
+    /// <summary>
     /// <c>use_skill</c> named a skill that is not active or is the current one.
     /// </summary>
     public const string SkillNotAvailable = "assistant-skill-not-available";

@@ -1577,6 +1577,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
+                    b.Property<bool>("SkillCandidate")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("SkillId")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
@@ -1680,6 +1683,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<bool>("Shadow")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("SkillCandidate")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("SkillChosenBy")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
@@ -1687,6 +1693,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<string>("SkillId")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("SkillVersion")
+                        .HasColumnType("integer");
 
                     b.Property<DateTimeOffset?>("StartedAt")
                         .HasColumnType("timestamp with time zone");

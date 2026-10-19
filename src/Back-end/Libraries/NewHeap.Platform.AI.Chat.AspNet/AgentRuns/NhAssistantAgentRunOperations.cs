@@ -286,6 +286,22 @@ internal sealed class NhAssistantAgentRunOperation(
             SkillId = run.SkillId,
             SkillChosenBy = run.SkillChosenBy
         };
+        if (run.SkillCandidate && run.SkillId is { } candidateSkill)
+        {
+            // The run evaluates a candidate version and works with it; once promoted, the candidate
+            // is the live version. A candidate discarded or replaced before the run started is gone.
+            if (agentTurn.Options.WithCandidate(candidateSkill, run.SkillVersion) is { } candidateOptions)
+            {
+                agentTurn = agentTurn with { Options = candidateOptions };
+            }
+            else if (!(agentTurn.Options.Skills.TryGetValue(candidateSkill, out var current) && current.DataVersion == run.SkillVersion))
+            {
+                await runs.ClaimQueuedInputsAsync(run.ConversationId, run.Id, cancellationToken, candidateSkill, candidate: true);
+                await EndAsync(run, agentTurn.Thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Policy, NhAssistantErrorCodes.SkillVersionGone);
+                return TaskResult.Succeeded();
+            }
+        }
+
         var thread = agentTurn.Thread;
         if (await RefusalAsync(run, agentTurn, cancellationToken) is { } refusal)
         {
@@ -397,7 +413,7 @@ internal sealed class NhAssistantAgentRunOperation(
     {
         // The run owns every input it claimed; inputs already written by an earlier attempt are
         // skipped when the turn appends them.
-        var inputs = await runs.ClaimQueuedInputsAsync(run.ConversationId, run.Id, cancellationToken, agentTurn.SkillId);
+        var inputs = await runs.ClaimQueuedInputsAsync(run.ConversationId, run.Id, cancellationToken, agentTurn.SkillId, run.SkillCandidate);
         // Work other agents handed off belongs to the run that claimed it, before its turn hands
         // work on itself.
         await handOffs.LinkAsync(run.Id, inputs, cancellationToken);

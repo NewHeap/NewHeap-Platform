@@ -200,8 +200,18 @@ field errors; a skill or trigger in code cannot change (`assistant-skill-in-code
 `assistant-trigger-in-code`), and grants never become data. A new skill and a new trigger start in
 shadow: put the skill live with `SetSkillShadowAsync` and the trigger with `SetTriggerShadowAsync`
 or `POST admin/agents/{id}/triggers/{triggerId}/shadow`. A changed skill is the next version
-(`expectedVersion`, otherwise `assistant-version-conflict`), which takes effect at once; versions
-stay as history (`GET admin/agents/{id}/skills/{skillId}/versions`). Remove a trigger before the
+(`expectedVersion`, otherwise `assistant-version-conflict`) and the change chooses how it takes
+effect: `apply: live` puts it live at once; `apply: shadow` makes it the skill's candidate, which
+takes every event of the triggers that name the skill as a second run in the agent's shadow thread,
+next to the live version's run, until an administrator promotes it
+(`PromoteSkillCandidateAsync`, `POST .../candidate/promote`) or discards it
+(`DiscardSkillCandidateAsync`, `POST .../candidate/discard`). Routing by rules or triage reaches
+the live version only; a candidate lets nothing wait while the agent or skill is paused, and a
+queued run of a candidate that was discarded ends with `assistant-skill-version-gone`. Runs record
+`skillVersion` and `skillCandidate`; `CompareSkillCandidateAsync` (`GET .../candidate/comparison`)
+counts the runs, outcomes, usage and proposals per tool of both versions, what people decided about
+the live version's proposals and the events both handled. Versions stay as history
+(`GET admin/agents/{id}/skills/{skillId}/versions`). Remove a trigger before the
 skill it names (`assistant-skill-in-use`). Every change is audited (`AdminAgentSkillDefinitionChanged`,
 `AdminAgentTriggerDefinitionChanged`) and reaches every host: the snapshot of code and data that
 every reader uses reloads when a stamp changes, checked before every fire and run start at most
@@ -472,7 +482,8 @@ profile and instructions that answer questions about the rules' proposals from t
   technical account; change it at runtime with `INhAssistantAgentControl`.
 - Registering a skill or trigger in code that administrators are meant to change; register its
   building blocks and let them define it as data. Putting a data skill or trigger live without
-  reading its shadow runs first.
+  reading its shadow runs first, or putting a real change of a live skill live without evaluating it
+  as a candidate.
 - Letting an administration agent answer to a technical account with more rights than its work
   needs, or to itself when it must use tools: it then has no rights at all.
 - A technical account with more rights than the agent needs: it lends them to gateway reads.
@@ -657,7 +668,11 @@ settings and assert that its rules propose with its technical account's rights a
 an unknown account and names code does not register are refused, that an agent that answers to itself
 is refused the tool, that its thread follows a change of whom it answers to and that its settings stay
 while triggers belong to it; assert that a read with accountable rights is shielded from a viewer
-without the tool's policies, on both providers. Assert that a `ShadowOf`
+without the tool's policies, on both providers. Save a change of a live data skill for shadow and
+assert that an event starts the live version's run live and the candidate's run in the shadow thread
+with its own version, rules and inputs, that a repeated delivery starts neither again, that the
+comparison pairs the two, that promoting makes the candidate live without a second run, and that a
+discarded candidate's queued run ends while its versions stay as history, on both providers. Assert that a `ShadowOf`
 variant receives every event, tick and webhook of the live agent once, notifies nobody and executes nothing while its own triggers work; that the
 evaluation pairs runs of the same event, counts agreed, live-only and variant-only proposals with the
 live decisions and holds no message or argument; and that a replay fires the recorded inputs oldest
@@ -667,7 +682,7 @@ with its inputs and subject, as the agent with the subject's scopes, on both pro
 a run with gateway reads records `DelegatedRead`, reads with its starter's rights when a person
 started it, shows the result only to the person whose rights it used, also with `ElevatedReads.Deny`,
 and that startup fails without an accountable person or an issuer. SPM-268 to
-SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-296 are the executable references.
+SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-297 are the executable references.
 
 ## Executable evidence
 
@@ -806,3 +821,8 @@ SPM-280, SPM-282 to SPM-288 and SPM-290 to SPM-296 are the executable references
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs)
+- SPM-297 — A changed progress note is evaluated in shadow next to the live note, compared and promoted
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs)

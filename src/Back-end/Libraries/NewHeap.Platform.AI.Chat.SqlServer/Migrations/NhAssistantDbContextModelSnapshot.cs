@@ -1577,6 +1577,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
+                    b.Property<bool>("SkillCandidate")
+                        .HasColumnType("bit");
+
                     b.Property<string>("SkillId")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
@@ -1680,6 +1683,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<bool>("Shadow")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("SkillCandidate")
+                        .HasColumnType("bit");
+
                     b.Property<string>("SkillChosenBy")
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
@@ -1687,6 +1693,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<string>("SkillId")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("SkillVersion")
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset?>("StartedAt")
                         .HasColumnType("datetimeoffset");

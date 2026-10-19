@@ -34,6 +34,8 @@ namespace SampleProjectManagement.Api.Composition;
 /// SPM-295: the building blocks that skills and triggers defined as data name: the completed-task
 /// event, the active projects with a deadline soon and the progress-note rules. An administrator
 /// combines them into a skill of the planner and its trigger at runtime, without a deploy.
+/// SPM-297: the progress-percentage rules are a second way to note progress; a changed progress note
+/// that names them is evaluated in shadow next to the live note before it is promoted.
 /// </summary>
 public static class SampleProjectPlannerComposition
 {
@@ -51,6 +53,7 @@ public static class SampleProjectPlannerComposition
     public const string TaskCompletedEvent = "project.task-completed";
     public const string ActiveProjectsSet = "active-projects-with-deadline-soon";
     public const string ProgressNoteRules = "project-progress-note";
+    public const string ProgressPercentageRules = "project-progress-percentage";
 
     public static IServiceCollection AddSampleProjectPlanner(this IServiceCollection services)
     {
@@ -134,7 +137,8 @@ public static class SampleProjectPlannerComposition
                 .Message(change => $"Task {change.ProjectTaskId:D} of project {change.ProjectId:D} was completed.")
                 .Dedupe(change => change.EventId.ToString("N")))
             .AddSubjectSet(ActiveProjectsSet, "Active projects with a deadline in the next two weeks.", ActiveProjectsWithDeadlineSoon)
-            .AddRuleHandler<ProjectProgressNoteRules>(ProgressNoteRules, "Notes how many of the project's tasks are completed, without a model."));
+            .AddRuleHandler<ProjectProgressNoteRules>(ProgressNoteRules, "Notes how many of the project's tasks are completed, without a model.")
+            .AddRuleHandler<ProjectProgressPercentageRules>(ProgressPercentageRules, "Notes which share of the project's tasks is completed, without a model."));
         return services;
     }
 
@@ -173,6 +177,24 @@ public sealed class ProjectProgressNoteRules(
         var total = await tasks.CountAsync(cancellationToken);
         var completed = await tasks.CountAsync(task => task.IsCompleted, cancellationToken);
         return NhAssistantRuleResult.Done(localizer["PlannerProgressNote", completed, total].Value);
+    }
+}
+
+/// <summary>
+/// SPM-297: the rules of a changed progress note: the share of the project's tasks that is completed.
+/// </summary>
+public sealed class ProjectProgressPercentageRules(
+    SampleProjectManagementDbContext dbContext,
+    IStringLocalizer<SampleAssistantToolPresenter> localizer) : INhAssistantAgentRuleHandler
+{
+    public async Task<NhAssistantRuleResult> RunAsync(NhAssistantRuleContext context, CancellationToken cancellationToken)
+    {
+        var projectId = Guid.Parse(context.Subject.Subject.Id);
+        var tasks = dbContext.ProjectTasks.AsNoTracking().Where(task => task.ProjectId == projectId);
+        var total = await tasks.CountAsync(cancellationToken);
+        var completed = await tasks.CountAsync(task => task.IsCompleted, cancellationToken);
+        var percentage = total == 0 ? 0 : completed * 100 / total;
+        return NhAssistantRuleResult.Done(localizer["PlannerProgressPercentage", percentage].Value);
     }
 }
 

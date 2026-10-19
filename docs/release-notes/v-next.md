@@ -118,9 +118,37 @@ Apply the `AgentRunSettings` migration of `NewHeap.Platform.AI.Chat.SqlServer` o
 | `NhAssistantAgentConfigurationDto` has the new members `Source` and `RunSettings`. | Pass them when you construct the record in tests. |
 | Database schema change. | Apply the `AgentRunSettings` migration. |
 
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: skill candidates in shadow
+
+A change of a live data skill now chooses how it takes effect: `apply: "live"` (default) puts the next
+version live at once; `apply: "shadow"` makes it the skill's candidate. A candidate takes every event
+of the triggers that name its skill as a second run in the agent's shadow thread, next to the live
+version's run, with its own inputs and its own rules, instructions, tools and profile, and nothing it
+proposes executes. Routing by rules or triage reaches the live version. Promote it with
+`PromoteSkillCandidateAsync` or `POST admin/agents/{id}/skills/{skillId}/candidate/promote`, discard
+it with `DiscardSkillCandidateAsync` or `POST .../candidate/discard` (body `{ "version", "reason" }`),
+and compare both with `CompareSkillCandidateAsync` or `GET .../candidate/comparison`: runs, outcomes,
+usage and proposals per tool, the decisions about the live version's proposals and the events both
+handled. A new version discards an earlier candidate; discarded versions stay as history with the
+status `discarded`. Runs record `skillVersion` and `skillCandidate` (`NhAssistantRunDto`); a queued
+candidate run whose candidate was discarded ends with `assistant-skill-version-gone`, and a skill
+without a candidate answers `assistant-skill-candidate-not-found`. `NhAssistantDataSkillDto` gains
+`Candidate`.
+
+Apply the `AgentSkillCandidates` migration of `NewHeap.Platform.AI.Chat.SqlServer` or
+`NewHeap.Platform.AI.Chat.PostgreSql`: it adds `SkillVersion` and `SkillCandidate` to
+`AssistantRun` and `SkillCandidate` to `AssistantQueuedInput`.
+
+| Breaking change | Required action |
+|---|---|
+| Database schema change. | Apply the `AgentSkillCandidates` migration. |
+| A run of a candidate counts against the agent's and the skill's budget and run limits. | Allow for one extra run per event of the triggers that name a skill while it has a candidate. |
+
 ## @newheap/platform-ai-chat: texts for the run configuration as data
 
 The texts of the error codes `assistant-skill-in-code`, `assistant-trigger-in-code`,
-`assistant-skill-in-use`, `assistant-configuration-limit`, `assistant-run-settings-in-code` and
-`assistant-run-settings-in-use` are bundled in English and Dutch. `AgentGrantSource` and the tool
+`assistant-skill-in-use`, `assistant-configuration-limit`, `assistant-run-settings-in-code`,
+`assistant-run-settings-in-use`, `assistant-skill-candidate-not-found` and
+`assistant-skill-version-gone` are bundled in English and Dutch. `AgentRun` gains `skillVersion` and
+`skillCandidate`. `AgentGrantSource` and the tool
 call's `grantSource` gain `accountable`, with a label and hint in the tool call card.

@@ -45,7 +45,7 @@ internal static class NhAssistantAgentConfigurationEndpoints
         admin.MapPut("agents/{id}/skills/{skillId}", SaveSkillAsync)
             .WithName("NhAssistantAdminSaveDataSkill")
             .WithSummary("Add or change a skill defined as data")
-            .WithDescription("A new skill starts in shadow; put it live with POST agents/{id}/skills/{skillId}/shadow. A change stores the next version, which takes effect at once in the skill's mode, when expectedVersion is the live version; otherwise 409. Tools stay within the agent's own selectors and every name must be registered in code (400). A skill in code cannot change (409).")
+            .WithDescription("A new skill starts in shadow; put it live with POST agents/{id}/skills/{skillId}/shadow. A change stores the next version when expectedVersion is the live version, otherwise 409: with apply live (default) it takes effect at once in the skill's mode; with apply shadow it becomes the candidate that runs in the agent's shadow threads next to the live version until it is promoted or discarded. Tools stay within the agent's own selectors and every name must be registered in code (400). A skill in code cannot change (409).")
             .Produces<NhAssistantDataSkillDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -58,6 +58,28 @@ internal static class NhAssistantAgentConfigurationEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPost("agents/{id}/skills/{skillId}/candidate/promote", PromoteCandidateAsync)
+            .WithName("NhAssistantAdminPromoteSkillCandidate")
+            .WithSummary("Promote the candidate of a skill defined as data")
+            .WithDescription("Makes the candidate of version the live version; the live version stays as history and new runs use the candidate live. Without a candidate 404; for another version 409.")
+            .Produces<NhAssistantDataSkillDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPost("agents/{id}/skills/{skillId}/candidate/discard", DiscardCandidateAsync)
+            .WithName("NhAssistantAdminDiscardSkillCandidate")
+            .WithSummary("Discard the candidate of a skill defined as data")
+            .WithDescription("The candidate of version stays as history; its queued runs end. Without a candidate 404; for another version 409.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapGet("agents/{id}/skills/{skillId}/candidate/comparison", CompareCandidateAsync)
+            .WithName("NhAssistantAdminCompareSkillCandidate")
+            .WithSummary("Compare the candidate of a skill with its live version")
+            .WithDescription("Runs, outcomes, usage and proposals per tool of the live version and of the candidate since the candidate was saved (or from), until to, with what people decided about the live version's proposals and how many events both handled. Counts only.")
+            .Produces<NhAssistantSkillComparisonDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapGet("agents/{id}/skills/{skillId}/versions", GetSkillVersionsAsync)
             .WithName("NhAssistantAdminGetDataSkillVersions")
             .WithSummary("List the versions of a skill defined as data")
@@ -198,6 +220,76 @@ internal static class NhAssistantAgentConfigurationEndpoints
 
         var result = await configuration.RemoveSkillAsync(id, skillId, expectedVersion, actor, reason, httpContext.RequestAborted);
         return result.Success ? TypedResults.NoContent() : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> PromoteCandidateAsync(
+        string id,
+        string skillId,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+        var body = await NhAssistantAdminEndpoints.ReadAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSkillCandidateRequest);
+        if (body is null)
+        {
+            return NhAssistantAdminEndpoints.Validation();
+        }
+        if (body.Version is not { } version)
+        {
+            return NhAssistantAdminEndpoints.MissingField("version");
+        }
+
+        var result = await configuration.PromoteSkillCandidateAsync(id, skillId, version, actor, body.Reason, httpContext.RequestAborted);
+        return result.Success
+            ? NhAssistantAdminEndpoints.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantDataSkillDto)
+            : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> DiscardCandidateAsync(
+        string id,
+        string skillId,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+        var body = await NhAssistantAdminEndpoints.ReadAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSkillCandidateRequest);
+        if (body is null)
+        {
+            return NhAssistantAdminEndpoints.Validation();
+        }
+        if (body.Version is not { } version)
+        {
+            return NhAssistantAdminEndpoints.MissingField("version");
+        }
+
+        var result = await configuration.DiscardSkillCandidateAsync(id, skillId, version, actor, body.Reason, httpContext.RequestAborted);
+        return result.Success ? TypedResults.NoContent() : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> CompareCandidateAsync(
+        string id,
+        string skillId,
+        DateTimeOffset? from,
+        DateTimeOffset? to,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var result = await configuration.CompareSkillCandidateAsync(id, skillId, from, to, httpContext.RequestAborted);
+        return result.Success
+            ? NhAssistantAdminEndpoints.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSkillComparisonDto)
+            : NhAssistantAdminEndpoints.Failure(result);
     }
 
     private static async Task<IResult> SaveTriggerAsync(

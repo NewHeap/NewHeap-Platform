@@ -597,7 +597,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.True((await ConfigureAgentsAsync(service => service.AddProgressNoteAsync(host.OwnerId, CancellationToken.None))).Success);
             var configured = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{planner}/configuration", Json))!;
             var skill = Assert.Single(configured.DataSkills);
-            Assert.Equal((note, 1, SampleProjectPlannerComposition.ProgressNoteRules, true), (skill.SkillId, skill.Version, skill.RuleHandler, skill.InEffect));
+            // Versions continue after an earlier note was removed; the live one is in effect.
+            Assert.Equal((note, SampleProjectPlannerComposition.ProgressNoteRules, true), (skill.SkillId, skill.RuleHandler, skill.InEffect));
             var trigger = Assert.Single(configured.DataTriggers);
             Assert.Equal((SampleProjectPlannerComposition.TaskCompletedEvent, note, true), (trigger.Event, trigger.SkillId, trigger.Shadow));
             Assert.True(Assert.Single((await AgentStateAsync(planner)).Skills, state => state.SkillId == note).Shadow.Shadow);
@@ -621,6 +622,59 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         finally
         {
             // Other samples share the host and its planner.
+            Assert.True((await ConfigureAgentsAsync(service => service.RemoveProgressNoteAsync(host.OwnerId, CancellationToken.None))).Success);
+        }
+    }
+
+    [Fact]
+    public async Task A_changed_progress_note_is_evaluated_in_shadow_next_to_the_live_note_and_promoted()
+    {
+        // SPM-297
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string trigger = SampleAgentConfigurationService.ProgressNoteTriggerId;
+        var project = await host.CreateProjectAsync("NOTE-CANDIDATE", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var first = await host.CreateTaskAsync(project, "Draft the plan");
+        var second = await host.CreateTaskAsync(project, "Review the plan");
+        await host.CreateTaskAsync(project, "Hand the plan over");
+        await host.CreateTaskAsync(project, "Close the plan");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            // The progress note is live; its change is saved for shadow as the note's candidate.
+            Assert.True((await ConfigureAgentsAsync(service => service.AddProgressNoteAsync(host.OwnerId, CancellationToken.None))).Success);
+            Assert.True((await ConfigureAgentsAsync(service => service.PutProgressNoteLiveAsync(host.OwnerId, "The notes are right", CancellationToken.None))).Success);
+            var candidate = await ConfigureAgentsAsync(service => service.EvaluateProgressPercentageAsync(host.OwnerId, CancellationToken.None));
+            Assert.True(candidate.Success);
+            var live = candidate.Data!.Version - 1;
+
+            // One completed task: the live note in the live thread, the candidate in the shadow thread.
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(first, host.ParticipantId));
+            var liveThread = await WaitForThreadAsync(colleague, project, planner);
+            var liveNote = await WaitForRunWithTriggerAsync(colleague, liveThread, trigger);
+            Assert.Equal((live, false, false), (liveNote.SkillVersion, liveNote.SkillCandidate, liveNote.Shadow));
+            Assert.DoesNotContain("%", liveNote.Summary);
+            var shadowThread = await WaitForShadowThreadAsync(administrator, project, planner);
+            var candidateNote = await WaitForRunWithTriggerAsync(administrator, shadowThread, trigger);
+            Assert.Equal((candidate.Data.Version, true, true), (candidateNote.SkillVersion, candidateNote.SkillCandidate, candidateNote.Shadow));
+            Assert.Contains("25%", candidateNote.Summary);
+
+            var comparison = (await administrator.GetFromJsonAsync<NhAssistantSkillComparisonDto>(
+                $"/api/assistant/admin/agents/{planner}/skills/{SampleAgentConfigurationService.ProgressNoteSkill}/candidate/comparison", Json))!;
+            Assert.Equal((1, 1, 1), (comparison.Live.Runs, comparison.Candidate.Runs, comparison.PairedEvents));
+
+            // Promoted, the candidate notes the next task live.
+            var promoted = await ConfigureAgentsAsync(service => service.PromoteProgressNoteAsync(host.OwnerId, "Percentages read better", CancellationToken.None));
+            Assert.True(promoted.Success);
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(second, host.ParticipantId));
+            var runs = await WaitForRunCountAsync(colleague, liveThread, 4);
+            var promotedNote = runs.Where(run => run.TriggerId == trigger).OrderBy(run => run.CreatedAt).Last();
+            Assert.Equal((candidate.Data.Version, false), (promotedNote.SkillVersion, promotedNote.SkillCandidate));
+            Assert.Contains("50%", promotedNote.Summary);
+        }
+        finally
+        {
             Assert.True((await ConfigureAgentsAsync(service => service.RemoveProgressNoteAsync(host.OwnerId, CancellationToken.None))).Success);
         }
     }
@@ -2051,6 +2105,12 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     private async Task<TaskResult> ConfigureAgentsAsync(Func<SampleAgentConfigurationService, Task<TaskResult>> action)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await action(scope.ServiceProvider.GetRequiredService<SampleAgentConfigurationService>());
+    }
+
+    private async Task<TaskResult<T>> ConfigureAgentsAsync<T>(Func<SampleAgentConfigurationService, Task<TaskResult<T>>> action)
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await action(scope.ServiceProvider.GetRequiredService<SampleAgentConfigurationService>());

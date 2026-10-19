@@ -168,7 +168,7 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
         var catalog = host.Services.CreateScope().ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>().GetCatalog();
         Assert.Equal(["project.changed"], catalog.TriggerEvents.Select(item => item.Name));
         Assert.Equal(["test-projects"], catalog.SubjectSets.Select(item => item.Name));
-        Assert.Equal(["project-follow-up"], catalog.RuleHandlers.Select(item => item.Name));
+        Assert.Equal(["project-check", "project-follow-up"], catalog.RuleHandlers.Select(item => item.Name));
         Assert.Contains("project-review", catalog.ApprovalPolicies);
         Assert.Contains("project-chat", catalog.Profiles);
     }
@@ -350,6 +350,142 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
         Assert.Null(await ConfigureAsync(host, configuration => configuration.GetAsync(Follower)));
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_changed_skill_runs_as_a_candidate_in_shadow_next_to_the_live_version_and_is_promoted(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        var liveRules = host.Services.GetRequiredService<TestSkillRuleScript>();
+        var candidateRules = host.Services.GetRequiredService<TestRuleScript>();
+        await AddLiveFollowUpAsync(host);
+
+        // A new skill has no live version to evaluate a candidate next to.
+        Assert.Equal("apply", Field(await SaveSkillAsync(host, "notes", new NhAssistantDataSkillRequest("Notes.", Apply: NhAssistantSkillApplyModes.Shadow))));
+
+        // The changed skill works by other rules; saved for shadow, it becomes the candidate.
+        var candidate = await SaveSkillAsync(host, FollowUp, new NhAssistantDataSkillRequest(
+            "Follows up by the project check.", RuleHandler: "project-check", ExpectedVersion: 1, Apply: NhAssistantSkillApplyModes.Shadow));
+        Assert.Equal(2, candidate.Data!.Version);
+        Assert.Equal(1, State(host).AgentRuns[AgentId].Skills[FollowUp].DataVersion);
+        Assert.Equal(2, State(host).AgentRuns[AgentId].SkillCandidates[FollowUp].DataVersion);
+        var view = (await ConfigureAsync(host, configuration => configuration.GetAsync(AgentId)))!;
+        Assert.Equal((1, 2), (Assert.Single(view.DataSkills).Version, view.DataSkills[0].Candidate!.Version));
+
+        // One event: the live version works live, the candidate in the shadow thread.
+        var project = Guid.NewGuid();
+        var evt = new ProjectChanged(Guid.NewGuid(), project, "data first");
+        var receipt = Assert.Single(await PublishEventAsync(host, evt), item => item.TriggerId == DataTrigger);
+        var liveRun = (await Runs(host).FindRunAsync(receipt.RunId!.Value, CancellationToken.None))!;
+        Assert.Equal((false, 1, false), (liveRun.Shadow, liveRun.SkillVersion, liveRun.SkillCandidate));
+        var shadowThread = (await ShadowThreadAsync(host, project))!;
+        var candidateRun = await LatestRunAsync(host, shadowThread.ConversationId);
+        Assert.Equal((true, 2, true, FollowUp), (candidateRun.Shadow, candidateRun.SkillVersion, candidateRun.SkillCandidate, candidateRun.SkillId));
+        await ExecuteAsync(host, liveRun.Id);
+        await ExecuteAsync(host, candidateRun.Id);
+        Assert.False(Assert.Single(liveRules.Contexts).Shadow);
+        Assert.True(Assert.Single(candidateRules.Contexts).Shadow);
+
+        // A repeated delivery starts neither again.
+        Assert.Equal(NhAssistantTriggerOutcomes.Deduplicated, Assert.Single(await PublishEventAsync(host, evt), item => item.TriggerId == DataTrigger).Outcome);
+        Assert.Single(await RunsOfAsync(host, shadowThread.ConversationId));
+
+        var comparison = await ConfigureAsync(host, configuration => configuration.CompareSkillCandidateAsync(AgentId, FollowUp));
+        Assert.Equal((1, 1, 1, 1), (comparison.Data!.Live.Runs, comparison.Data.Candidate.Runs, comparison.Data.Candidate.Completed, comparison.Data.PairedEvents));
+
+        // Promoted, the candidate is the live version and no second run follows.
+        Assert.Equal(NhAssistantAdminErrorCodes.VersionConflict, Code(await ConfigureAsync(host, configuration => configuration.PromoteSkillCandidateAsync(AgentId, FollowUp, 3, Admin))));
+        var promoted = await ConfigureAsync(host, configuration => configuration.PromoteSkillCandidateAsync(AgentId, FollowUp, 2, Admin, "The check is better"));
+        Assert.Equal(2, promoted.Data!.Version);
+        Assert.Equal(2, State(host).AgentRuns[AgentId].Skills[FollowUp].DataVersion);
+        Assert.Empty(State(host).AgentRuns[AgentId].SkillCandidates);
+        var next = Assert.Single(await PublishEventAsync(host, new ProjectChanged(Guid.NewGuid(), project, "data second")), item => item.TriggerId == DataTrigger);
+        await ExecuteAsync(host, next.RunId!.Value);
+        Assert.Equal(2, candidateRules.Contexts.Count);
+        Assert.Single(await RunsOfAsync(host, shadowThread.ConversationId));
+        Assert.Equal(NhAssistantErrorCodes.SkillCandidateNotFound, Code(await ConfigureAsync(host, configuration => configuration.CompareSkillCandidateAsync(AgentId, FollowUp))));
+
+        var versions = await ConfigureAsync(host, configuration => configuration.GetSkillVersionsAsync(AgentId, FollowUp));
+        Assert.Equal([(2, NhAssistantSkillDefinitionStatuses.Live), (1, NhAssistantSkillDefinitionStatuses.Superseded)], versions.Select(item => (item.Version, item.Status)));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_discarded_candidate_stays_as_history_and_its_queued_run_ends(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        await AddLiveFollowUpAsync(host);
+        Assert.True((await SaveSkillAsync(host, FollowUp, new NhAssistantDataSkillRequest(
+            "Follows up by the project check.", RuleHandler: "project-check", ExpectedVersion: 1, Apply: NhAssistantSkillApplyModes.Shadow))).Success);
+
+        var project = Guid.NewGuid();
+        Assert.Single(await PublishEventAsync(host, new ProjectChanged(Guid.NewGuid(), project, "data first")), item => item.TriggerId == DataTrigger);
+        var shadowThread = (await ShadowThreadAsync(host, project))!;
+        var queued = await LatestRunAsync(host, shadowThread.ConversationId);
+
+        Assert.True((await ConfigureAsync(host, configuration => configuration.DiscardSkillCandidateAsync(AgentId, FollowUp, 2, Admin, "Not better"))).Success);
+        Assert.Empty(State(host).AgentRuns[AgentId].SkillCandidates);
+        await ExecuteAsync(host, queued.Id);
+        var ended = (await Runs(host).FindRunAsync(queued.Id, CancellationToken.None))!;
+        Assert.Equal((NhAssistantRunStatuses.Cancelled, NhAssistantErrorCodes.SkillVersionGone), (ended.Status, ended.FailureCode));
+        Assert.Empty(host.Services.GetRequiredService<TestRuleScript>().Contexts);
+
+        // A live change discards a candidate as well; both stay as history.
+        Assert.True((await SaveSkillAsync(host, FollowUp, new NhAssistantDataSkillRequest(
+            "Follows up again.", RuleHandler: "project-check", ExpectedVersion: 1, Apply: NhAssistantSkillApplyModes.Shadow))).Success);
+        Assert.True((await SaveSkillAsync(host, FollowUp, new NhAssistantDataSkillRequest(
+            "Follows up completed tasks.", RuleHandler: "project-follow-up", ExpectedVersion: 1))).Success);
+        var versions = await ConfigureAsync(host, configuration => configuration.GetSkillVersionsAsync(AgentId, FollowUp));
+        Assert.Equal(
+            [(4, NhAssistantSkillDefinitionStatuses.Live), (3, NhAssistantSkillDefinitionStatuses.Discarded), (2, NhAssistantSkillDefinitionStatuses.Discarded), (1, NhAssistantSkillDefinitionStatuses.Superseded)],
+            versions.Select(item => (item.Version, item.Status)));
+        var changes = host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentSkillDefinitionChanged).Select(evt => evt.ResultCode);
+        Assert.Equal(["created", "candidate", "discarded", "candidate", "changed"], changes);
+    }
+
+    /// <summary>
+    /// The follow-up skill, live in version 1, and its live trigger.
+    /// </summary>
+    private static async Task AddLiveFollowUpAsync(AssistantTestHost host)
+    {
+        Assert.True((await SaveSkillAsync(host, FollowUp, new NhAssistantDataSkillRequest("Follows up changed projects by rule.", RuleHandler: "project-follow-up"))).Success);
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            Assert.True((await scope.ServiceProvider.GetRequiredService<INhAssistantAgentControl>().SetSkillShadowAsync(AgentId, FollowUp, false, Admin)).Success);
+        }
+        Assert.True((await SaveTriggerAsync(host, DataTrigger, new NhAssistantDataTriggerRequest(
+            NhAssistantDataTriggerSources.Event, FollowUp, Event: "project.changed", Conflict: NhAssistantTriggerConflictNames.Queue))).Success);
+        Assert.True((await ConfigureAsync(host, configuration => configuration.SetTriggerShadowAsync(AgentId, DataTrigger, false, Admin))).Success);
+    }
+
+    private static async Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishEventAsync(AssistantTestHost host, ProjectChanged evt)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>().PublishAsync(evt);
+    }
+
+    private static Task<AssistantThread?> ShadowThreadAsync(AssistantTestHost host, Guid projectId)
+    {
+        return Runs(host).FindThreadAsync(
+            NhAiSubjectInfo.CreateScopeKey(null, null),
+            AgentId,
+            new NhAiSubjectRef("project", projectId.ToString("N")),
+            CancellationToken.None,
+            shadow: true);
+    }
+
+    private static async Task<IReadOnlyList<AssistantRun>> RunsOfAsync(AssistantTestHost host, Guid conversationId)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        return await context.Runs.AsNoTracking().Where(run => run.ConversationId == conversationId).ToListAsync();
+    }
+
+    private static async Task<AssistantRun> LatestRunAsync(AssistantTestHost host, Guid conversationId)
+    {
+        return (await RunsOfAsync(host, conversationId)).OrderByDescending(run => run.CreatedAt).First();
+    }
+
     /// <summary>
     /// The skill rules propose to put the project on hold and record what became of it.
     /// </summary>
@@ -439,6 +575,7 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
                     .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver)))
                 .AddAgent(AssistantTestData.Agent(ChatOnlyAgent))
                 .AddRuleHandler<TestSkillRules>("project-follow-up", "Follows up a project by rule.")
+                .AddRuleHandler<TestRules>("project-check", "Checks a project by rule.")
                 .AddTriggerEvent<ProjectChanged>("project.changed", evt => evt
                     .Description("A project changed.")
                     .When(change => change.Change.StartsWith("data", StringComparison.Ordinal))
