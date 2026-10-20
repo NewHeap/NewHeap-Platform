@@ -183,7 +183,12 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       triggerId: 'project-follow-up-weekly',
       createdAt: '2026-10-12T05:00:00Z',
       durationSeconds: 3,
-      result: '3 open projects; with three or fewer there is nothing to follow up.'
+      result: '3 open projects; with three or fewer there is nothing to follow up.',
+      // SPM-251: the run left the team calendar out; the person it acted for had not allowed its
+      // use in background runs and was told in the inbox.
+      mcpConnectionSkips: [
+        { serverId: 'team-calendar', serverDisplayName: 'Team calendar', code: 'assistant-mcp-consent-required' }
+      ]
     },
     {
       agentId: 'project-follow-up',

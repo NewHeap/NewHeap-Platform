@@ -480,6 +480,19 @@ pre {
   }
 }
 
+.mcp-skips {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
 .file-name {
   min-width: 0;
   font-weight: 600;

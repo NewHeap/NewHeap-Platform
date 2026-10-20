@@ -809,6 +809,36 @@ cannot resolve anyone, because the NewHeap user manager is missing, is not swept
 |---|---|
 | A person who may no longer sign in, also for a while such as during a lock-out, loses their personal MCP connections within about an hour. | None; the person connects again from the chat or the preferences. A host with its own `INhAiPrincipalFactory` makes sure it resolves every person who may use the assistant, also for the whole application as subject. |
 
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: a missing personal connection in a background run
+
+A background run that leaves out a server with `personal` headless use because the person's consent to
+background use or connection is missing (`assistant-mcp-consent-required`,
+`assistant-mcp-connection-required`, `assistant-mcp-reauthorization-required`), or because the run acts
+for someone other than the person who asked (`assistant-mcp-initiator-only`), now records the server and
+the code on the run: `NhAssistantRunHistoryDto.McpConnectionSkips` (`NhAssistantRunMcpSkipDto`) in the
+run history and the run result. The person whose consent or connection is missing is told through the
+agent notifications with the new kind `NhAssistantAgentNotificationKind.McpConnectionMissing`
+(`McpServerId`, `McpServerDisplayName` and `McpConnectionPersonId` on the context; the default policy
+sends it to that person only), at most once per person and server a day, also through
+`UseInAppAgentNotifications`. The migrations `McpRunConnectionSkips` add the column
+`AssistantRun.McpConnectionSkips` and the table `AssistantMcpConnectionNotice`.
+
+| Breaking change | Required action |
+|---|---|
+| The schema has the migration `McpRunConnectionSkips` for SQL Server and PostgreSQL. | Apply the assistant's migrations; with `RunMigrations` off, deploy them before the new version. |
+| `NhAssistantAgentNotificationKind` has the new value `McpConnectionMissing`. | Handle it in custom `INhAssistantAgentNotificationPolicy` and channel implementations that switch over every kind; send it to `McpConnectionPersonId`. |
+
+## @newheap/platform-ai-chat: personal MCP servers a run left out
+
+`AgentRunHistoryItem.mcpConnectionSkips` (`AgentRunMcpSkip`: `serverId`, `serverDisplayName`, `code`)
+names the personal MCP servers a background run left out and why. `nh-assistant-run-result` lists them
+with their reason, and the administration's runs view and the flow view's latest runs show how many were
+left out. The mock API returns `mcpConnectionSkips` of scenario runs (`NhAssistantMockRun.mcpConnectionSkips`).
+
+| Breaking change | Required action |
+|---|---|
+| None; the field is optional and missing on older servers. | None. |
+
 ## NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: one status per error code and error handling after the review
 
 Every assistant endpoint (chat, administration, agent runs, subjects, run histories, boards, MCP

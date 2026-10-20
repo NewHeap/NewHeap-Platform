@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "9ae10fcd7a34f9b33ff5d5cd58b6d844c0b5651e17714c2b6ecc3a4ea3a04f5d",
-    "declarationCount": 9098,
+    "hash": "47f97135bfa6baae1cd11d602d97e07fa0324e78f8e84c2ba2dc58a7e0132e5d",
+    "declarationCount": 9134,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2483,6 +2483,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public IReadOnlyList<NhAssistantRunMcpSkipDto> McpConnectionSkips { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public sealed record NhAssistantRunMcpSkipDto(string ServerId, string ServerDisplayName, string Code);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
         "declaration": "public sealed record NhAssistantRunHistoryListDto( IReadOnlyList<NhAssistantRunHistoryDto> Items, int Total) {"
       },
       {
@@ -4767,6 +4775,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+        "declaration": "public const string AgentMcpConnectionMissing = \"agent-mcp-connection-missing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
         "declaration": "public static string ForAgent(NhAssistantAgentNotificationKind kind) {"
       },
       {
@@ -4783,7 +4795,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
-        "declaration": "public static (string Title, string Body) ForAgent( NhAssistantAgentNotificationKind kind, string language, string? subjectDisplayName, int proposalCount) {"
+        "declaration": "public static (string Title, string Body) ForAgent( NhAssistantAgentNotificationKind kind, string language, string? subjectDisplayName, int proposalCount, string? mcpServerDisplayName = null, string? code = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20260918101318_Initial.Designer.cs",
@@ -5231,6 +5243,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020110712_AgentBoards.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020184623_McpRunConnectionSkips.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020184623_McpRunConnectionSkips.cs",
+        "declaration": "public partial class McpRunConnectionSkips : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020184623_McpRunConnectionSkips.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020184623_McpRunConnectionSkips.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -5711,6 +5739,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020110709_AgentBoards.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020184615_McpRunConnectionSkips.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020184615_McpRunConnectionSkips.cs",
+        "declaration": "public partial class McpRunConnectionSkips : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020184615_McpRunConnectionSkips.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020184615_McpRunConnectionSkips.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -6304,6 +6348,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
         "declaration": "public string? FailureCode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
+        "declaration": "public string? McpServerId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
+        "declaration": "public string? McpServerDisplayName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
+        "declaration": "public string? McpConnectionPersonId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
@@ -8194,6 +8250,26 @@
         "declaration": "public string? ShadowReason { get; set; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public sealed class AssistantMcpConnectionNotice {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public string ServerId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public string PersonActorId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public string Code { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public DateTimeOffset NotifiedAt { get; set; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
         "declaration": "public sealed class AssistantThread {"
       },
@@ -8392,6 +8468,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
         "declaration": "public bool ResultTruncated { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string? McpConnectionSkips { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
@@ -12659,7 +12739,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantAgentNotificationTexts.cs",
-        "declaration": "public static (string Title, string Body) ForAgent( NhAssistantAgentNotificationKind kind, string language, string? subjectDisplayName, int proposalCount) {"
+        "declaration": "public static (string Title, string Body) ForAgent( NhAssistantAgentNotificationKind kind, string language, string? subjectDisplayName, int proposalCount, string? mcpServerDisplayName = null, string? code = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantInAppAgentNotificationChannel.cs",
@@ -13035,6 +13115,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantMcpConnectionNotice> McpConnectionNotices => Set<AssistantMcpConnectionNotice>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
         "declaration": "public DbSet<AssistantUserPreference> UserPreferences => Set<AssistantUserPreference>();"
       },
       {
@@ -13363,6 +13447,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
+        "declaration": "public async Task<bool> TryClaimMcpConnectionNoticeAsync( string serverId, string personActorId, string code, DateTimeOffset now, DateTimeOffset since, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
+        "declaration": "public async Task<int> DeleteMcpConnectionNoticesBeforeAsync(DateTimeOffset before, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
         "declaration": "public async Task<bool> IsPushEnabledAsync(string actorId, CancellationToken cancellationToken) {"
       },
       {
@@ -13644,6 +13736,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task RecordRunUsageAsync( Guid runId, int toolCalls, long inputTokens, long outputTokens, int proposals, CancellationToken cancellationToken, string? kind = null, bool usedRestrictedResults = false, int modelCalls = 0)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task AddMcpConnectionSkipsAsync( Guid runId, IReadOnlyList<NewHeap.Platform.AI.Chat.Runs.NhAssistantRunMcpSkip> skips, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -14299,7 +14395,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
-        "declaration": "public async Task NotifyAsync( NhAssistantAgentNotificationKind kind, AssistantThread thread, Guid? runId, AssistantApproval? approval, string? initiatorActorId, bool shadow, CancellationToken cancellationToken, int proposalCount = 0, string? failureCode = null)"
+        "declaration": "public async Task NotifyAsync( NhAssistantAgentNotificationKind kind, AssistantThread thread, Guid? runId, AssistantApproval? approval, string? initiatorActorId, bool shadow, CancellationToken cancellationToken, int proposalCount = 0, string? failureCode = null, NhAssistantMcpConnectionNotice? mcpConnection = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
@@ -14480,6 +14576,42 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultations.cs",
         "declaration": "public int? ProposalCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public const int MaxEntries = 32;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public const int MaxLength = 16_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static bool IsPersonal(string? code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static bool Notifies(string? code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static IReadOnlyList<NhAssistantRunMcpSkip> Read(string? stored) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static string Merge(string? stored, IEnumerable<NhAssistantRunMcpSkip> skips) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static readonly TimeSpan NoticeInterval = TimeSpan.FromDays(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static readonly TimeSpan NoticeRetention = TimeSpan.FromDays(7);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public async Task RecordAsync( Guid runId, AssistantThread thread, IReadOnlyList<NhAssistantMcpMissingConnection> missing, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs",
@@ -14791,6 +14923,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
+        "declaration": "public IReadOnlyList<NhAssistantMcpMissingConnection> MissingConnections { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
         "declaration": "public string? SkippedCodeOf(string toolId) {"
       },
       {
@@ -14904,6 +15040,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public int ModelCalls { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public IReadOnlyList<NhAssistantMcpMissingConnection> MissingMcpConnections { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
@@ -15252,6 +15392,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public NhAssistantMcpToolSet? McpTools { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public IReadOnlyList<NhAssistantMcpMissingConnection> MissingMcpConnections { get; set; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",

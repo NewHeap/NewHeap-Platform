@@ -1841,7 +1841,10 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-mcp-connections.component.ts",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhJwtSigningKeysTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhJwtSigningKeysTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpRunSkipTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-run-mcp-skips.spec.ts"
     ],
     "SPM-252": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",

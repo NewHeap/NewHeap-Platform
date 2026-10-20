@@ -7,6 +7,7 @@ import {
   AgentRun,
   AgentRunHistory,
   AgentRunHistoryItem,
+  AgentRunMcpSkip,
   AgentRunResult,
   AgentRunStatus,
   AgentThread,
@@ -89,6 +90,8 @@ export class NhAssistantMockAgentRuns {
   private readonly results = new Map<string, string | null>();
   /** The runs whose answer was longer and was cut. */
   private readonly truncated = new Set<string>();
+  /** The personal MCP servers each run left out, by run id. */
+  private readonly mcpSkips = new Map<string, AgentRunMcpSkip[]>();
   private sequence = 0;
 
   constructor(
@@ -677,7 +680,8 @@ export class NhAssistantMockAgentRuns {
       shadow: run.shadow,
       createdAt: run.createdAt,
       startedAt: run.startedAt,
-      endedAt: run.endedAt
+      endedAt: run.endedAt,
+      mcpConnectionSkips: this.mcpSkips.get(run.id) ?? []
     };
   }
 
@@ -730,6 +734,9 @@ export class NhAssistantMockAgentRuns {
     thread.runs.push(run);
     thread.runs.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
     this.keep(run.id, seeded.result);
+    if (seeded.mcpConnectionSkips?.length) {
+      this.mcpSkips.set(run.id, seeded.mcpConnectionSkips.map(skip => ({ ...skip })));
+    }
   }
 
   /** Keeps a run's answer as the server bounds it: its first 20,000 characters, marked when cut. */

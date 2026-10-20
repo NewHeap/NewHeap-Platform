@@ -100,6 +100,7 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantApprovalPolicies>();
         services.TryAddScoped<INhAssistantAgentNotificationPolicy, NhAssistantDefaultAgentNotificationPolicy>();
         services.TryAddScoped<NhAssistantAgentNotifier>();
+        services.TryAddScoped<NhAssistantMcpConnectionNotices>();
         services.TryAddScoped<NhAssistantAgentEvents>();
         services.TryAddScoped<NhAssistantMemoryService>();
         services.TryAddScoped<NhAssistantBriefingService>();

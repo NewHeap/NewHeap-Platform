@@ -1091,7 +1091,8 @@ internal sealed partial class NhAssistantTurnRunner(
             Kind = state.Kind,
             SkillId = state.Skill?.Id,
             UsedRestrictedResults = state.UsedRestrictedResults,
-            ModelCalls = state.Scope.ModelCalls
+            ModelCalls = state.Scope.ModelCalls,
+            MissingMcpConnections = state.McpTools?.MissingConnections is { Count: > 0 } loaded ? loaded : state.MissingMcpConnections
         };
     }
 
@@ -1746,7 +1747,8 @@ internal sealed partial class NhAssistantTurnRunner(
         {
             SkippedServers = loaded.SkippedServers,
             ConnectionsNeeded = loaded.ConnectionsNeeded,
-            ConnectionOwners = loaded.ConnectionOwners
+            ConnectionOwners = loaded.ConnectionOwners,
+            MissingConnections = loaded.MissingConnections
         };
     }
 
@@ -1863,6 +1865,10 @@ internal sealed partial class NhAssistantTurnRunner(
         if (state.McpTools is { } tools)
         {
             state.McpTools = null;
+            if (tools.MissingConnections.Count > 0)
+            {
+                state.MissingMcpConnections = tools.MissingConnections;
+            }
             await tools.DisposeAsync();
         }
     }

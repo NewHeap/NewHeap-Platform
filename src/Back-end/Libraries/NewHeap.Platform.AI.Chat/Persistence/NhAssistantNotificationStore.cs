@@ -10,6 +10,69 @@ namespace NewHeap.Platform.AI.Chat.Persistence;
 /// </summary>
 internal sealed class NhAssistantNotificationStore(NhAssistantDbContextFactory contextFactory)
 {
+    /// <summary>
+    /// Claims the notice that a person's consent to background use of a server, or their connection to
+    /// it, is missing: <see langword="true"/> when no notice was claimed since <paramref name="since"/>,
+    /// so the person is told at most once per interval. Of concurrent claims, also of other instances,
+    /// one succeeds.
+    /// </summary>
+    public async Task<bool> TryClaimMcpConnectionNoticeAsync(
+        string serverId,
+        string personActorId,
+        string code,
+        DateTimeOffset now,
+        DateTimeOffset since,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            await using var context = contextFactory.CreateDbContext();
+            var renewed = await context.McpConnectionNotices
+                .Where(notice => notice.ServerId == serverId && notice.PersonActorId == personActorId && notice.NotifiedAt < since)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(notice => notice.NotifiedAt, now)
+                        .SetProperty(notice => notice.Code, code),
+                    cancellationToken);
+            if (renewed == 1)
+            {
+                return true;
+            }
+            if (await context.McpConnectionNotices
+                    .AsNoTracking()
+                    .AnyAsync(notice => notice.ServerId == serverId && notice.PersonActorId == personActorId, cancellationToken))
+            {
+                return false;
+            }
+
+            context.McpConnectionNotices.Add(new AssistantMcpConnectionNotice
+            {
+                ServerId = serverId,
+                PersonActorId = personActorId,
+                Code = code,
+                NotifiedAt = now
+            });
+            try
+            {
+                await context.SaveChangesAsync(cancellationToken);
+                return true;
+            }
+            catch (DbUpdateException) when (attempt == 0)
+            {
+                // Another instance claimed the notice first: the next attempt finds its row.
+            }
+        }
+    }
+
+    /// <summary>Removes the notices of missing MCP connections claimed before <paramref name="before"/>.</summary>
+    public async Task<int> DeleteMcpConnectionNoticesBeforeAsync(DateTimeOffset before, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.McpConnectionNotices
+            .Where(notice => notice.NotifiedAt < before)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
     public async Task<bool> IsPushEnabledAsync(string actorId, CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();

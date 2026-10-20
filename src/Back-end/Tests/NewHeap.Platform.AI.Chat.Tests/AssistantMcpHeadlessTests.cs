@@ -21,7 +21,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// relational providers.
 /// </summary>
 [Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
+public sealed partial class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
 {
     private const string AgentId = "project-assistant";
     private const string ServerUrl = "http://localhost/planning/mcp";
@@ -302,6 +302,10 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
         // rights the run uses, so the server is left out.
         var byMember = await RunTurnAsync(host, await StartRunAsync(host, initiator: Member, triggerId: NhAssistantTriggerIds.Manual), "When is order A-100 planned?");
         Assert.Equal(NhAssistantTurnStatuses.Completed, byMember.Outcome);
+        // The run records why; nobody's consent or connection would change it, so nobody is told.
+        var leftOut = Assert.Single(byMember.MissingMcpConnections);
+        Assert.Equal((NhAssistantAdminErrorCodes.McpInitiatorOnly, (string?)null), (leftOut.Code, leftOut.PersonActorId));
+        Assert.Empty(scheduled.MissingMcpConnections);
         Assert.DoesNotContain(model.Requests[2].Options!.Tools ?? [], tool => tool.Name.StartsWith("mcp_", StringComparison.Ordinal));
         Assert.Equal(["lookup-order"], tools.Calls);
 
@@ -503,6 +507,8 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
                 }
                 services.AddSingleton(new TestSubjects());
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, ManagerPrincipalFactory>());
+                // F3: agent notifications about left-out personal servers are recorded.
+                services.AddSingleton<RecordingChannel>();
             },
             assistantBuilder: assistant => assistant
                 .ConfigureMcp(mcp =>
@@ -511,6 +517,7 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
                     mcp.OAuth.RedirectUri = redirectUri;
                 })
                 .AddSubjectType<TestSubjectResolver>()
+                .AddAgentNotificationChannel<RecordingChannelAdapter>()
                 .AddApprovalPolicy("project-review", policy => policy
                     .Lifetime(TimeSpan.FromDays(3))
                     .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))

@@ -33,7 +33,14 @@ public enum NhAssistantAgentNotificationKind
     /// <summary>
     /// A run that another assistant requested for a person ended; the answer is in the agent's thread.
     /// </summary>
-    RequestAnswered = 5
+    RequestAnswered = 5,
+
+    /// <summary>
+    /// A background run left a personal MCP server out because the person's consent to background use
+    /// or connection is missing; the person can allow or connect it in the assistant's preferences.
+    /// Sent at most once per person and server a day.
+    /// </summary>
+    McpConnectionMissing = 6
 }
 
 /// <summary>
@@ -62,9 +69,22 @@ public sealed record NhAssistantAgentNotificationContext(
     public DateTimeOffset? ExpiresAt { get; init; }
 
     /// <summary>
-    /// The failure code of a failed run.
+    /// The failure code of a failed run, or for <see cref="NhAssistantAgentNotificationKind.McpConnectionMissing"/>
+    /// the code why the server was left out.
     /// </summary>
     public string? FailureCode { get; init; }
+
+    /// <summary>The MCP server a run left out, for <see cref="NhAssistantAgentNotificationKind.McpConnectionMissing"/>.</summary>
+    public string? McpServerId { get; init; }
+
+    /// <summary>The display name of <see cref="McpServerId"/>.</summary>
+    public string? McpServerDisplayName { get; init; }
+
+    /// <summary>
+    /// The person whose consent to background use or connection the server needs, for
+    /// <see cref="NhAssistantAgentNotificationKind.McpConnectionMissing"/>.
+    /// </summary>
+    public string? McpConnectionPersonId { get; init; }
 }
 
 /// <summary>
@@ -95,8 +115,9 @@ public interface INhAssistantAgentNotificationChannel
 
 /// <summary>
 /// The default recipients: the subject's approvers for proposals and uncertain executions, the
-/// approvers plus the initiator for a failed run, and only the initiator for an answered request.
-/// Shadow runs never notify anyone.
+/// approvers plus the initiator for a failed run, only the initiator for an answered request, and only
+/// the person whose consent or connection is missing for a left-out MCP server. Shadow runs never
+/// notify anyone.
 /// </summary>
 public sealed class NhAssistantDefaultAgentNotificationPolicy : INhAssistantAgentNotificationPolicy
 {
@@ -106,6 +127,13 @@ public sealed class NhAssistantDefaultAgentNotificationPolicy : INhAssistantAgen
     {
         ArgumentNullException.ThrowIfNull(context);
         cancellationToken.ThrowIfCancellationRequested();
+        if (context.Kind == NhAssistantAgentNotificationKind.McpConnectionMissing)
+        {
+            // Only the person who can allow or connect the server; never the subject's approvers.
+            return ValueTask.FromResult<IReadOnlyList<string>>(
+                string.IsNullOrWhiteSpace(context.McpConnectionPersonId) ? [] : [context.McpConnectionPersonId]);
+        }
+
         if (context.Kind == NhAssistantAgentNotificationKind.RequestAnswered)
         {
             return ValueTask.FromResult<IReadOnlyList<string>>(

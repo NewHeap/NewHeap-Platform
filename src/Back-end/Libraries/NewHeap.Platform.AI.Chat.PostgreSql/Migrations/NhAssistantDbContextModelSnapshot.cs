@@ -1572,6 +1572,31 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.ToTable("AssistantMcpConnection", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpConnectionNotice", b =>
+                {
+                    b.Property<string>("ServerId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("PersonActorId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("NotifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ServerId", "PersonActorId");
+
+                    b.HasIndex("NotifiedAt");
+
+                    b.ToTable("AssistantMcpConnectionNotice", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpServer", b =>
                 {
                     b.Property<string>("Id")
@@ -2094,6 +2119,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasColumnType("character varying(24)")
                         .HasDefaultValue("model");
 
+                    b.Property<string>("McpConnectionSkips")
+                        .HasMaxLength(16000)
+                        .HasColumnType("character varying(16000)");
+
                     b.Property<int>("ModelCalls")
                         .HasColumnType("integer");
 
@@ -2587,6 +2616,15 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpConnection", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantMcpServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpConnectionNotice", b =>
                 {
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantMcpServer", null)
                         .WithMany()

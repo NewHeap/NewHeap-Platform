@@ -1724,6 +1724,7 @@
         "tool-calls": "{{count}} tool calls",
         "tokens": "{{count}} tokens",
         "proposals": "{{count}} proposals",
+        "mcp-skipped": "{{count}} connected services left out",
         "attempt": "Attempt {{attempt}}",
         "cancel": "Cancel",
         "resume": "Resume",
@@ -1791,7 +1792,8 @@
         "proposals": "Proposals",
         "no-proposals": "This run proposed nothing.",
         "hidden-proposals": "{{count}} more proposals wait at objects you may not see.",
-        "files": "Files"
+        "files": "Files",
+        "mcp-skipped": "Connected services left out"
       },
       "board": {
         "title": "Agents",

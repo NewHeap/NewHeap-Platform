@@ -625,7 +625,20 @@ public sealed record NhAssistantRunHistoryDto(
     /// Where the application shows the subject; <see langword="null"/> without a link template.
     /// </summary>
     public string? SubjectLink { get; init; }
+
+    /// <summary>
+    /// The personal MCP servers the run left out because a person's consent to background use or
+    /// connection was missing, or because the run acted for someone other than the person who asked.
+    /// </summary>
+    public IReadOnlyList<NhAssistantRunMcpSkipDto> McpConnectionSkips { get; init; } = [];
 }
+
+/// <summary>
+/// A personal MCP server a run left out, as the run recorded it, and why:
+/// <c>assistant-mcp-consent-required</c>, <c>assistant-mcp-connection-required</c>,
+/// <c>assistant-mcp-reauthorization-required</c> or <c>assistant-mcp-initiator-only</c>.
+/// </summary>
+public sealed record NhAssistantRunMcpSkipDto(string ServerId, string ServerDisplayName, string Code);
 
 /// <summary>
 /// A page of a run history, newest first.

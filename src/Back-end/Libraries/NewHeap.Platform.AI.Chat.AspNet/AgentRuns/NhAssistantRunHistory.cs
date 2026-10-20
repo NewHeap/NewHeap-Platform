@@ -385,7 +385,9 @@ internal sealed class NhAssistantRunHistory(
             run.EndedAt)
         {
             SubjectTypeName = typeName,
-            SubjectLink = link
+            SubjectLink = link,
+            McpConnectionSkips = [.. NhAssistantRunMcpSkips.Read(run.McpConnectionSkips)
+                .Select(skip => new NhAssistantRunMcpSkipDto(skip.ServerId, skip.DisplayName, skip.Code))]
         };
     }
 

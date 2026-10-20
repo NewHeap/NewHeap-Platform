@@ -17,6 +17,7 @@ using ModelContextProtocol.Client;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Mcp;
 using NewHeap.Platform.Common.Models;
@@ -649,6 +650,7 @@ internal sealed partial class NhAssistantMcpToolSource(
         var leases = new List<NhAssistantMcpLease>();
         var skipped = new Dictionary<string, string>(StringComparer.Ordinal);
         var needed = new List<NhAssistantMcpConnectionNeeded>();
+        var missing = new List<NhAssistantMcpMissingConnection>();
         var owners = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var serverId in request.Agent.McpServerIds)
         {
@@ -660,6 +662,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             if (request.IsHeadless && await HeadlessRefusalAsync(server, request, cancellationToken) is { } refusal)
             {
                 skipped[serverId] = refusal;
+                Miss(missing, server, request, refusal);
                 continue;
             }
             if (!await CanUseAsync(server, request, cancellationToken))
@@ -677,6 +680,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             {
                 var code = NhAssistantResults.CodeOf(plan);
                 await SkipAsync(server, skipped, code, perCaller: !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope));
+                Miss(missing, server, request, code);
                 if (PersonalConnectionReason(server, request, code) is { } reason)
                 {
                     Need(needed, server, reason);
@@ -695,6 +699,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             {
                 var code = NhAssistantResults.CodeOf(lease);
                 await SkipAsync(server, skipped, code, plan.Data.IsPerCaller);
+                Miss(missing, server, request, code);
                 if (PersonalConnectionReason(server, request, code) is { } reason)
                 {
                     Need(needed, server, reason);
@@ -721,8 +726,34 @@ internal sealed partial class NhAssistantMcpToolSource(
         {
             SkippedServers = skipped,
             ConnectionsNeeded = needed,
-            ConnectionOwners = owners
+            ConnectionOwners = owners,
+            MissingConnections = missing
         };
+    }
+
+    /// <summary>
+    /// Notes a personal server that a headless turn left out for want of a person's consent to
+    /// background use or connection, or because the turn acts for someone other than the person who
+    /// asked; the run records it and tells the person whose consent or connection is missing.
+    /// </summary>
+    private static void Miss(
+        List<NhAssistantMcpMissingConnection> missing,
+        AssistantMcpServer server,
+        NhAssistantMcpToolRequest request,
+        string? code)
+    {
+        if (!request.IsHeadless
+            || server.HeadlessUse != NhAssistantMcpHeadlessUses.Personal
+            || !NhAssistantRunMcpSkips.IsPersonal(code)
+            || missing.Any(item => item.ServerId == server.Id))
+        {
+            return;
+        }
+        missing.Add(new NhAssistantMcpMissingConnection(
+            server.Id,
+            server.DisplayName,
+            code!,
+            NhAssistantRunMcpSkips.Notifies(code) ? request.PersonActorId : null));
     }
 
     /// <summary>Asks the person once per server and turn.</summary>

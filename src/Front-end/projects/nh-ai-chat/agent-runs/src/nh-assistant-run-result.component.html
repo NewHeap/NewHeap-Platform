@@ -64,6 +64,20 @@
           <dd data-run-failure>{{ codeKeys(code) | nhAssistantTranslate: code }}</dd>
         </div>
       }
+      @if (run.mcpConnectionSkips?.length) {
+        <div>
+          <dt>{{ 'nh-assistant.agent-runs.result.mcp-skipped' | translate }}</dt>
+          <dd>
+            <ul class="mcp-skips" data-run-mcp-skips>
+              @for (skip of run.mcpConnectionSkips; track skip.serverId) {
+                <li [attr.data-run-mcp-skip]="skip.serverId">
+                  <strong>{{ skip.serverDisplayName || skip.serverId }}</strong>: {{ codeKeys(skip.code) | nhAssistantTranslate: skip.code }}
+                </li>
+              }
+            </ul>
+          </dd>
+        </div>
+      }
     </dl>
 
     <!-- The answer is model output: the safe Markdown rendering shows inline HTML as text. -->

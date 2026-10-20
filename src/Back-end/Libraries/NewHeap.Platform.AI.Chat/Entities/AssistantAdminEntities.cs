@@ -530,3 +530,20 @@ public sealed class AssistantAgentSkillState
 
     public string? ShadowReason { get; set; }
 }
+
+/// <summary>
+/// When a person was last told that a background run left an MCP server out for want of their consent
+/// to background use or their connection. One row per server and person, so the person is told at
+/// most once per interval, also when several instances run the agent.
+/// </summary>
+public sealed class AssistantMcpConnectionNotice
+{
+    public string ServerId { get; set; } = string.Empty;
+
+    public string PersonActorId { get; set; } = string.Empty;
+
+    /// <summary>The skip code of the latest notice.</summary>
+    public string Code { get; set; } = string.Empty;
+
+    public DateTimeOffset NotifiedAt { get; set; }
+}

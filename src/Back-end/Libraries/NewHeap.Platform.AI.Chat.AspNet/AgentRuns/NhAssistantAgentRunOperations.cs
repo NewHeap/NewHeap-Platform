@@ -224,6 +224,7 @@ internal sealed class NhAssistantAgentRunOperation(
     NhAssistantHandOffService handOffs,
     NhAssistantAgentTriggers triggers,
     NhAssistantRunConfigurations configurations,
+    NhAssistantMcpConnectionNotices connectionNotices,
     IOptions<RequestLocalizationOptions> localization,
     IOptionsMonitor<NhAssistantOptions> assistantOptions,
     ILogger<NhAssistantAgentRunOperation> logger) : INhBackgroundOperationHandler<NhAssistantAgentRunRequest>
@@ -423,6 +424,8 @@ internal sealed class NhAssistantAgentRunOperation(
             cancellationToken);
         await RecordUsageAsync(run.Id, result, cancellationToken);
         await KeepAnswerAsync(run.Id, run.ConversationId, result, cancellationToken);
+        // Personal MCP servers the turn left out are recorded on the run and their person is told.
+        await connectionNotices.RecordAsync(run.Id, agentTurn.Thread, result.MissingMcpConnections, cancellationToken);
         return result;
     }
 
@@ -492,6 +495,7 @@ internal sealed class NhAssistantAgentRunOperation(
         await context.Checkpoints.SetAsync<NhAssistantRunWait?>(WaitCheckpointKey, null, cancellationToken: cancellationToken);
         await RecordUsageAsync(agentTurn.RunId!.Value, result, cancellationToken);
         await KeepAnswerAsync(agentTurn.RunId!.Value, agentTurn.Thread.ConversationId, result, cancellationToken);
+        await connectionNotices.RecordAsync(agentTurn.RunId!.Value, agentTurn.Thread, result.MissingMcpConnections, cancellationToken);
         return result;
     }
 

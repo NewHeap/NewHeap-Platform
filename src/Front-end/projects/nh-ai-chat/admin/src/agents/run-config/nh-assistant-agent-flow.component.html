@@ -338,6 +338,9 @@
                           } @else if (run.failureCode; as code) {
                             <p class="muted">{{ codeKeys(code) | nhAssistantTranslate: code }}</p>
                           }
+                          @if (run.mcpConnectionSkips?.length) {
+                            <p class="muted" data-flow-run-mcp-skips>{{ 'nh-assistant.agent-runs.run.mcp-skipped' | translate: { count: run.mcpConnectionSkips?.length } }}</p>
+                          }
                         </li>
                       }
                     </ol>

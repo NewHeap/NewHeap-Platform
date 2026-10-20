@@ -383,7 +383,9 @@ Show what a run did with `nh-assistant-run-result` (`NhAssistantRunResultCompone
 usage, its whole answer (`NhAssistantAgentRunApiService.getRunResult`, `AgentRunResult`, at most
 `NH_ASSISTANT_RUN_RESULT_MAX_LENGTH` characters, with a note when it was cut), the proposals it made,
 those it placed at objects the person reads included, how many wait at objects the person may not see,
-and its files, which download with `downloadRunArtifact`. The answer is model output: the component
+and its files, which download with `downloadRunArtifact`. It names the personal MCP servers the run
+left out with their reason (`AgentRunHistoryItem.mcpConnectionSkips`); the administration's runs view
+and the flow view count them. The answer is model output: the component
 renders it with the assistant's safe Markdown rendering, which keeps a strict set of tags and links and
 shows inline HTML as text; never bind a result to `innerHTML` yourself. The server decides who sees a
 run (readers of its object; for the whole application the agent's view policy, by default its required

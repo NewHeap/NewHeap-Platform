@@ -606,7 +606,9 @@ agent scope enforces that in the tool invoker. The consult writes no message int
 thread; `GET threads/{id}/consultations` lists who asked through which assistant, without
 the question or the answer. A request starts an ordinary run with the asker as initiator
 (`NhAssistantTriggerIds.AgentRequest`, participant role) and notifies the initiator with
-`RequestAnswered`. An application whose `INhAiToolDiscoveryPolicy` lists tool prefixes
+`RequestAnswered`. `McpConnectionMissing` tells only the person whose consent to background use or
+connection a personal MCP server needed (`McpConnectionPersonId`), at most once per server and day;
+custom notification policies and channels handle every kind. An application whose `INhAiToolDiscoveryPolicy` lists tool prefixes
 must allow `assistant.consult.` and `assistant.request.`. Bound consultations with
 `NhAssistantLimits.MaxConsultationDepth` (1 by default; an agent already in the chain is
 never asked again) and `MaxConsultationsPerActorPerDay`; they also spend the consulted

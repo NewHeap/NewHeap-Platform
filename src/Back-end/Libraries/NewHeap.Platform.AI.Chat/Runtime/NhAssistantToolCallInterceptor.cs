@@ -47,6 +47,12 @@ internal sealed class NhAssistantTurnState
     /// </summary>
     public NhAssistantMcpToolSet? McpTools { get; set; }
 
+    /// <summary>
+    /// The personal MCP servers a headless turn left out, kept when its tools are released so the
+    /// turn's result can name them.
+    /// </summary>
+    public IReadOnlyList<NhAssistantMcpMissingConnection> MissingMcpConnections { get; set; } = [];
+
     /// <summary>Whether the servers the person has to connect were shown in this turn.</summary>
     public bool ConnectionsAnnounced { get; set; }
 

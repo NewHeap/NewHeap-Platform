@@ -30,7 +30,8 @@ internal sealed class NhAssistantAgentNotifier(
         bool shadow,
         CancellationToken cancellationToken,
         int proposalCount = 0,
-        string? failureCode = null)
+        string? failureCode = null,
+        NhAssistantMcpConnectionNotice? mcpConnection = null)
     {
         // Shadow work notifies nobody: a shadow run, a shadow proposal, a shadow thread or a variant.
         if (shadow
@@ -75,7 +76,10 @@ internal sealed class NhAssistantAgentNotifier(
                 ProposalCount = proposalCount,
                 ToolId = approval?.ToolId,
                 ExpiresAt = approval?.ExpiresAt,
-                FailureCode = failureCode
+                FailureCode = failureCode,
+                McpServerId = mcpConnection?.ServerId,
+                McpServerDisplayName = mcpConnection?.ServerDisplayName,
+                McpConnectionPersonId = mcpConnection?.PersonActorId
             };
             var recipients = (await policy.SelectRecipientsAsync(context, cancellationToken))
                 .Where(actorId => !string.IsNullOrWhiteSpace(actorId) && actorId.Length <= 256)

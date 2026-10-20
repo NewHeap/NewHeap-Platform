@@ -19,7 +19,7 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
 | M1 | Implemented, not yet released: the per-request credential pipeline, `headlessUse` per server (`never`, `organization`), executable deferred MCP proposals, per-caller tool lists that leave the catalog alone, connection health, the `McpConnectionPolicy` migrations, the editor and list, the mock API, the texts and SPM-251. See [implementation notes](#implementation-notes-m1). |
 | M2 | Implemented, not yet released: basic authentication, the three secret sources, client certificates, the transport choice, the per-person background-use consent (moved forward from M4), the headless `forward-user-token` variant with `AddNewHeapPlatformAIMcpDelegatedTokens`, the `McpServerCredentials` migrations, the editor, the preferences, the mock API, the texts and SPM-251. See [implementation notes](#implementation-notes-m2). |
 | M3 | Implemented, not yet released: discovery and pinning, registration (pre-registered, Client ID Metadata Document, dynamic), the organization authorization code flow, `oauth-client-credentials` with a secret or `private_key_jwt`, token storage, single-flight refresh, step-up for client credentials, revocation, the callback and metadata document endpoints, the admin endpoints, the opt-in health check, metrics, retention, `NhAiTestAuthorizationServer`, the `McpOAuthConnections` migrations, the editor and list, the mock API, the texts and SPM-299. See [implementation notes](#implementation-notes-m3). |
-| Follow-ups | Implemented, not yet released, on Lars's request of 2026-10-20: asymmetric signing of NewHeap tokens (F1) and the removal of connections of people the platform no longer resolves (F2). See [implementation notes](#implementation-notes-follow-ups). |
+| Follow-ups | Implemented, not yet released, on Lars's request of 2026-10-20: asymmetric signing of NewHeap tokens (F1) the removal of connections of people the platform no longer resolves (F2) and a missing personal connection in a headless run, recorded on the run and told to the person (F3, migrations `McpRunConnectionSkips`). See [implementation notes](#implementation-notes-follow-ups). |
 | M4 | Implemented, not yet released: personal OAuth connections (`connectionScope: user`) with the authorize, complete and disconnect endpoints, the `connection.required` event and part with `nh-assistant-connection-required`, connect and disconnect in `nh-assistant-mcp-connections`, redirect mode, `personal` headless use with consent, the approval identity of Q10, per-person caching, step-up prompts, revoke-all, retention, `McpConnectionOwner`, the mock API, the texts and SPM-300. See [implementation notes](#implementation-notes-m4). |
 
 ## Implementation notes (M1)
@@ -272,6 +272,38 @@ implemented as below; the decisions are I22 onwards in the
   the retention test still passes on both providers. No sample code: the sweep is maintenance without
   a public surface (I28).
 
+### F3: a missing personal connection in a headless run, on the run and for the person
+
+- **What is recorded.** The tool source notes every server with `personal` headless use that a headless
+  turn leaves out with `assistant-mcp-consent-required`, `assistant-mcp-connection-required`,
+  `assistant-mcp-reauthorization-required` or `assistant-mcp-initiator-only`
+  (`NhAssistantMcpMissingConnection`, I29). The turn's result carries them; the run operation stores
+  them after each turn in the new column `AssistantRun.McpConnectionSkips` (a JSON array with the
+  server's id, display name and code, one entry per server with its latest code, at most 32, written
+  only while unchanged since it was read) and `NhAssistantRunHistoryDto.McpConnectionSkips`
+  (`NhAssistantRunMcpSkipDto`) shows them in the run history and the run result.
+- **Who is told.** The person whose consent or connection is missing gets the new agent notification
+  `NhAssistantAgentNotificationKind.McpConnectionMissing` (6) through Web Push and every channel,
+  including `UseInAppAgentNotifications`; the default policy sends it to that person only
+  (`McpConnectionPersonId`), never to the approvers. `assistant-mcp-initiator-only` is recorded but
+  told to nobody, because no consent or connection changes it (I29). Shadow work tells nobody.
+- **Bounded.** At most once per person and server within a day (`NoticeInterval`), across instances:
+  the new table `AssistantMcpConnectionNotice` (server and person as key, the code and when) is claimed
+  with a conditional update or an insert whose unique key decides concurrent claims; the MCP
+  maintenance removes notices older than seven days (I30).
+- **Texts.** The notification names the server and says what to do (allow background use, or connect
+  the account) in English and Dutch; the run result and the runs views use the error code texts.
+- **Migrations.** `McpRunConnectionSkips` for SQL Server (`20261020184615`) and PostgreSQL
+  (`20261020184623`) on top of `AgentBoards`, generated with the EF CLI.
+- **Angular.** `AgentRunHistoryItem.mcpConnectionSkips` (`AgentRunMcpSkip`); `nh-assistant-run-result`
+  lists the servers with their reason, the administration's runs view and the flow view's latest runs
+  show how many were left out; the mock API serves `mcpConnectionSkips` of scenario runs.
+- **Evidence.** `AssistantMcpHeadlessTests.A_run_records_a_personal_server_it_left_out_and_tells_the_person_once_a_day`
+  and `Concurrent_notices_for_a_person_and_server_are_claimed_once` (SQL Server and PostgreSQL), the
+  initiator-only assertion in `A_run_started_by_hand_uses_only_the_starters_own_personal_connection`,
+  the Angular spec `nh-assistant-run-mcp-skips.spec.ts` and the SPM-251 sample test, whose first run
+  without consent records the server and reaches the participant's inbox.
+
 ## Problem
 
 ### What exists today
@@ -449,6 +481,8 @@ through M4 without waiting. Where a choice came up, the implementer decided as b
 | I26 | Decided by the implementer on 2026-10-20 with F2, for Lars to review: the owner sweep asks `INhAiPrincipalFactory` (not the actor directory) with the whole application as subject; an unresolved person loses the tokens of every personal connection, which are revoked, and keeps a consent to background use without tokens. The built-in factory of a host without the NewHeap user manager is not asked. | The principal factory is the platform's documented answer to "unknown or no longer allowed to sign in", the question background runs ask; the actor directory only names people and may not know everyone. Keeping the consent, as retention does (R6), means a temporary lock-out costs the person a new connection, not their decision. Asking a factory that resolves nobody would remove every connection. |
 | I27 | Decided by the implementer on 2026-10-20 with F2, for Lars to review: the sweep checks at most 100 people per maintenance run and starts a pass at most once an hour, the first one an hour after start-up; the place in a pass is kept per instance, in memory. | Bounded load on the identity store, a removal within about an hour after a person was removed or locked, and nothing to migrate; a restart only delays the next pass. |
 | I28 | Decided by the implementer on 2026-10-20 with F2, for Lars to review: F2 has library tests on both providers and no sample code; SPM-300 names the behavior. | The sweep is internal maintenance without a public surface that a sample could call, and its timing makes an end-to-end sample test wait an hour. |
+| I29 | Decided by the implementer on 2026-10-20 with F3, for Lars to review: a run records the four personal skip codes, including `assistant-mcp-reauthorization-required` next to the three named, and only servers with `personal` headless use; it tells the person for consent, connection and reauthorization, not for `assistant-mcp-initiator-only`. | A personal connection that ended needs the same action as a missing one. A run that acts for someone other than the person who asked cannot use either person's connection, so a notice would ask for something that does not help; the run's history shows it to whoever reads the run. |
+| I30 | Decided by the implementer on 2026-10-20 with F3, for Lars to review: the notice is bounded to once per person and server within a day, whatever the code, with a table of its own (`AssistantMcpConnectionNotice`), and recorded on the run as JSON in one column. | A table with a unique key bounds notices across instances and restarts without a column per run; the code may change between runs of a day, but one reminder a day is enough. One JSON column keeps the run row as it is and is read only with the run. |
 | I21 | Decided by the implementer on 2026-10-20 in the final cleanup of `feature/assistant-agents-on-objects`, for Lars to review: I18 covers every turn a person asked for. The people who asked for a headless turn are the initiator of a run started by hand (`manual`), through another assistant's request tool (`agent-request`) or by a message typed while a run worked (`queued-message`), and the author of every message among the inputs the run claimed, also a message that joined a run nobody asked for, such as a scheduled run that answers it in a further turn, and a turn that continues after a wait (`NhAssistantRunStore.ListInputAuthorsAsync`). When any of them is not the person whose rights the turn uses, servers with `personal` headless use are left out with `assistant-mcp-initiator-only`; the asking person's own connection serves only when that person is the one whose rights the turn uses (`DelegateFromInitiator`, or the accountable person asking themselves) and consented. Organization credentials are unaffected; event, schedule, hand-off and decision follow-up runs whose inputs no person wrote keep Q3, and deferred proposal executions keep Q10. | Queued messages are mostly answered in a further turn of the run that was working, so a rule on the run's trigger alone would let a person's message steer the accountable person's account; agent requests carry the asking person like a start by hand. A follow-up run after a decision is the agent's own policy at work, not a person's request, and its input is no person's message. |
 
 ## Review fixes
@@ -479,7 +513,6 @@ they are proposed for Lars to plan, with the reason they were not done here.
 
 | Follow-up | What it would do | Why not in this plan |
 | --- | --- | --- |
-| A missing personal connection in a headless run, on the run and for the person | Record the skip code (`assistant-mcp-consent-required`, `assistant-mcp-connection-required`, `assistant-mcp-initiator-only`) on the run and notify the person whose connection is missing, as the design first said. | It needs a run column with migrations for both providers and a new notification kind with texts; notifications about runs are planned on the notification module (K16 of the [plan for agents working on application objects](ai-agent-work-on-objects-plan.md)). The code is logged per server and turn today. |
 | A public credential provider contract (D1) | Make `INhAssistantMcpCredentialProvider` and `AddMcpCredentialProvider<T>(mode)` public, so an application adds its own authentication mode, such as a token exchange with its identity provider. | I8 kept the contract internal while personal connections changed it; publishing it is a new public API with its own sample and guidance. |
 
 ## Design
@@ -681,8 +714,8 @@ A turn determines its connection subject once, before it lists tools:
 - `ExecuteProposalAsync` resolves `mcp.*` functions through the tool source with these rules; an
   unchanged contract executes, a changed one stays `assistant-approval-invalid`.
 - A missing or expired personal connection in a headless run leaves the tools out and logs the code per
-  server and turn (`LogSkipped`). Recording the code on the run and notifying the person are a
-  [proposed follow-up](#proposed-follow-ups).
+  server and turn (`LogSkipped`). Since F3 the run records the code and the person whose consent or
+  connection is missing is told, at most once per server and day.
 
 ### Delegated NewHeap tokens for first-party hosts
 

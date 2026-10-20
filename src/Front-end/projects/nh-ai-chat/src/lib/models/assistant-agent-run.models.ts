@@ -316,6 +316,20 @@ export interface AgentRunFilter {
   itemsPerPage?: number;
 }
 
+/**
+ * A personal MCP server a background run left out, and why: `assistant-mcp-consent-required` (the
+ * person has not allowed background use), `assistant-mcp-connection-required` or
+ * `assistant-mcp-reauthorization-required` (the person's connection is missing or ended), or
+ * `assistant-mcp-initiator-only` (the run acted for someone other than the person who asked). The
+ * person whose consent or connection is missing is told once a day.
+ */
+export interface AgentRunMcpSkip {
+  serverId: string;
+  /** The server's name when the run left it out. */
+  serverDisplayName: string;
+  code: string;
+}
+
 /** One run in a run history: its agent, subject, trigger, status, usage, times and result preview. */
 export interface AgentRunHistoryItem {
   id: string;
@@ -355,6 +369,8 @@ export interface AgentRunHistoryItem {
   createdAt: string;
   startedAt: string | null;
   endedAt: string | null;
+  /** The personal MCP servers the run left out; missing on older servers. */
+  mcpConnectionSkips?: AgentRunMcpSkip[];
 }
 
 /**

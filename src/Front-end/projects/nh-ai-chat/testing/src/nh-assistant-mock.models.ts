@@ -2,6 +2,7 @@ import {
   AdminAgentInput,
   AgentProposalOrigin,
   AgentProposalStatus,
+  AgentRunMcpSkip,
   AgentRunSettingsRequest,
   AgentRunStatus,
   AgentSummary,
@@ -362,6 +363,8 @@ export interface NhAssistantMockRun {
   tokens?: number;
   /** The run worked in the agent's shadow thread. Default `false`. */
   shadow?: boolean;
+  /** The personal MCP servers the run left out, as the server records them. Default none. */
+  mcpConnectionSkips?: AgentRunMcpSkip[];
 }
 
 /**

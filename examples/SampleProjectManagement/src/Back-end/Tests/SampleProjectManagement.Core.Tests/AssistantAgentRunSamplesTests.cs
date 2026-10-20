@@ -553,9 +553,21 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var first = await participant.PostAsJsonAsync("/api/assistant/threads/start", start, Json);
             Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
             var conversationId = (await first.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!.ConversationId!.Value;
-            await WaitForRunCountAsync(participant, conversationId, 1);
+            var withoutConsent = Assert.Single(await WaitForRunCountAsync(participant, conversationId, 1));
             Assert.DoesNotContain(model.Requests[0].Options!.Tools!, tool => tool.Name == "mcp_team_calendar_next_milestone");
             Assert.Equal(beforeRuns, calendar.Requests.Count);
+            // The run records the server it left out and why, and the participant finds the reason
+            // in the application's inbox, in the language of the run.
+            var recorded = (await host.GetJsonAsync(participant, $"/api/assistant/runs/{withoutConsent.Id}")).GetProperty("run");
+            var skip = Assert.Single(recorded.GetProperty("mcpConnectionSkips").EnumerateArray());
+            Assert.Equal("team-calendar", skip.GetProperty("serverId").GetString());
+            Assert.Equal("Team calendar", skip.GetProperty("serverDisplayName").GetString());
+            Assert.Equal(NhAssistantAdminErrorCodes.McpConsentRequired, skip.GetProperty("code").GetString());
+            var notice = Assert.Single(host.Inbox.Requests, request => request.UserId == host.ParticipantId
+                && request.Message.Contains("Team calendar", StringComparison.Ordinal));
+            Assert.True(notice.Message.Contains("Allow background use", StringComparison.Ordinal)
+                || notice.Message.Contains("Sta achtergrondgebruik toe", StringComparison.Ordinal));
+            Assert.Equal(NhUserNotificationLevel.Warning, notice.Level);
 
             // The participant allows background use in the assistant's preferences.
             var connections = await host.GetJsonAsync(participant, "/api/assistant/mcp-connections");
@@ -3441,6 +3453,12 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
 
     public FakeReviewRequests Reviews { get; } = new();
 
+    /// <summary>
+    /// SPM-251: the application's inbox, which the assistant's agent notifications reach through
+    /// <c>UseInAppAgentNotifications</c>.
+    /// </summary>
+    public SampleInbox Inbox { get; } = new();
+
     public const string ReviewBoardSecret = "sample-review-board-secret-for-tests-only";
 
     public override async ValueTask InitializeAsync()
@@ -3634,6 +3652,10 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(() => new SelfHttpHandler(this));
         services.AddNewHeapPlatformAIDelegatedReads();
+        // SPM-251: agent notifications, such as a server a background run left out for want of the
+        // person's consent, also reach the application's inbox.
+        services.AddSingleton<INhUserNotificationSink>(Inbox);
+        services.AddNewHeapAssistant(assistant => assistant.UseInAppAgentNotifications());
     }
 
     private sealed class SelectedControllers(params Type[] controllers) : ControllerFeatureProvider
@@ -4066,5 +4088,21 @@ public sealed class FakeReviewRequests : IProjectReviewRequestService
 
         return Task.FromResult(TaskResult<ProjectAiReviewRequestReceipt>.Succeeded(
             new ProjectAiReviewRequestReceipt(projectId, Guid.NewGuid())));
+    }
+}
+
+/// <summary>
+/// SPM-251: the application's inbox in the tests, which records the in-app notifications it receives.
+/// </summary>
+public sealed class SampleInbox : INhUserNotificationSink
+{
+    public ConcurrentQueue<NhUserNotificationRequest> Requests { get; } = new();
+
+    public Task<TaskResult<NhUserNotificationReceipt>> SendAsync(
+        NhUserNotificationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Requests.Enqueue(request);
+        return Task.FromResult(TaskResult<NhUserNotificationReceipt>.Succeeded(new NhUserNotificationReceipt(Guid.NewGuid())));
     }
 }

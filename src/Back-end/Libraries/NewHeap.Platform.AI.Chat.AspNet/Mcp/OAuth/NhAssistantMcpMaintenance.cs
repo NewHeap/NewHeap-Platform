@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 
@@ -65,6 +66,8 @@ internal sealed partial class NhAssistantMcpMaintenance(
         var services = scope.ServiceProvider;
         await services.GetRequiredService<NhAssistantMcpOAuthStore>()
             .DeleteFlowsExpiredBeforeAsync(DateTimeOffset.UtcNow, cancellationToken);
+        await services.GetRequiredService<NhAssistantNotificationStore>()
+            .DeleteMcpConnectionNoticesBeforeAsync(DateTimeOffset.UtcNow - NhAssistantMcpConnectionNotices.NoticeRetention, cancellationToken);
         await SweepOwnersAsync(services, now, cancellationToken);
         var servers = services.GetRequiredService<NhAssistantAdminStore>();
         await services.GetRequiredService<NhAssistantMcpOAuthConnections>()

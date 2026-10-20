@@ -53,6 +53,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantMcpClientRegistration> McpClientRegistrations => Set<AssistantMcpClientRegistration>();
 
+    public DbSet<AssistantMcpConnectionNotice> McpConnectionNotices => Set<AssistantMcpConnectionNotice>();
+
     public DbSet<AssistantUserPreference> UserPreferences => Set<AssistantUserPreference>();
 
     public DbSet<AssistantConversationParticipant> Participants => Set<AssistantConversationParticipant>();
@@ -305,6 +307,7 @@ public sealed class NhAssistantDbContext : DbContext
             run.Property(item => item.FailureCode).HasMaxLength(128);
             run.Property(item => item.Summary).HasMaxLength(4_000);
             run.Property(item => item.Result).HasMaxLength(NhAssistantLimits.MaxRunResultCharacters);
+            run.Property(item => item.McpConnectionSkips).HasMaxLength(NewHeap.Platform.AI.Chat.Runs.NhAssistantRunMcpSkips.MaxLength);
             run.Property(item => item.Kind)
                 .HasMaxLength(24)
                 .IsRequired()
@@ -727,6 +730,20 @@ public sealed class NhAssistantDbContext : DbContext
             connection.HasIndex(item => new { item.ServerId, item.OwnerKind, item.OwnerActorId, item.TenantKey }).IsUnique();
             connection.HasIndex(item => new { item.OwnerActorId, item.OwnerKind });
             connection.HasOne<AssistantMcpServer>()
+                .WithMany()
+                .HasForeignKey(item => item.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantMcpConnectionNotice>(notice =>
+        {
+            notice.ToTable("AssistantMcpConnectionNotice");
+            notice.HasKey(item => new { item.ServerId, item.PersonActorId });
+            notice.Property(item => item.ServerId).HasMaxLength(40);
+            notice.Property(item => item.PersonActorId).HasMaxLength(256);
+            notice.Property(item => item.Code).HasMaxLength(64).IsRequired();
+            notice.HasIndex(item => item.NotifiedAt);
+            notice.HasOne<AssistantMcpServer>()
                 .WithMany()
                 .HasForeignKey(item => item.ServerId)
                 .OnDelete(DeleteBehavior.Cascade);

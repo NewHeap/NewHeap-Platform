@@ -204,6 +204,12 @@ invalid run filter. Clients map the code, never the status, to a text.
   it with `UseNewHeapJwks(jwksUri, issuer, issuer, origin)` without a key that could mint tokens. With
   the shared HS256 key the token keeps the issuer as `aud` and every host that can validate it can also
   mint tokens; use that only between hosts that already share the key.
+  A run that leaves such a server out records the server and the code on the run
+  (`McpConnectionSkips` in the run history and result: consent required, connection or
+  reauthorization required, or `assistant-mcp-initiator-only`), and the person whose consent or
+  connection is missing is told with `NhAssistantAgentNotificationKind.McpConnectionMissing`, at most
+  once per server and day; `UseInAppAgentNotifications` puts it in the application's inbox. Apply the
+  `McpRunConnectionSkips` migrations.
 - **MCP servers with OAuth.** `oauth-client-credentials` connects the organization with
   the host's own client (`oauth.clientId` with a write-only `clientSecret`, a
   `clientSecretReference` or, for `private_key_jwt`, the `clientCertificateReference`);

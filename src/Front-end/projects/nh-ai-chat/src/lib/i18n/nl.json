@@ -1724,6 +1724,7 @@
         "tool-calls": "{{count}} tool-aanroepen",
         "tokens": "{{count}} tokens",
         "proposals": "{{count}} voorstellen",
+        "mcp-skipped": "{{count}} gekoppelde diensten weggelaten",
         "attempt": "Poging {{attempt}}",
         "cancel": "Annuleren",
         "resume": "Hervatten",
@@ -1791,7 +1792,8 @@
         "proposals": "Voorstellen",
         "no-proposals": "Deze run heeft niets voorgesteld.",
         "hidden-proposals": "Nog {{count}} voorstellen wachten bij objecten die je niet mag zien.",
-        "files": "Bestanden"
+        "files": "Bestanden",
+        "mcp-skipped": "Weggelaten gekoppelde diensten"
       },
       "board": {
         "title": "Agents",
