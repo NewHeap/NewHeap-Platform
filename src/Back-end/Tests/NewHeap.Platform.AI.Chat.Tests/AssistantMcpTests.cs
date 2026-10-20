@@ -18,8 +18,7 @@ using Xunit;
 
 namespace NewHeap.Platform.AI.Chat.Tests;
 
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantMcpTests(AssistantDatabaseFixture database)
+public sealed class AssistantMcpTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string ServerUrl = "http://localhost/planning/mcp";
     private const string LookupFunction = "mcp_planning_lookup_order";

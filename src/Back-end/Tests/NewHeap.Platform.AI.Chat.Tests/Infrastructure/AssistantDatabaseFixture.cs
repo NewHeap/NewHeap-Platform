@@ -1,9 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.Persistence;
-using Testcontainers.MsSql;
-using Testcontainers.PostgreSql;
-using Xunit;
 
 namespace NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 
@@ -14,40 +11,91 @@ public enum AssistantTestProvider
 }
 
 /// <summary>
-/// Starts one real SQL Server and one real PostgreSQL container for the relational assistant tests.
-/// Each test isolates itself in its own schema, which also exercises schema routing of the
-/// checked-in migrations.
+/// Gives a test class access to the real SQL Server and PostgreSQL servers of the relational
+/// assistant tests. It holds no state of its own: the servers and their pools of migrated schemas
+/// belong to the test process (see <see cref="AssistantDatabaseServer"/>), so test classes that use
+/// this fixture run in parallel and a server only starts when a test uses its provider.
 /// </summary>
-public sealed class AssistantDatabaseFixture : IAsyncLifetime
+public sealed class AssistantDatabaseFixture
 {
-    private readonly MsSqlContainer _sqlServer = new MsSqlBuilder(
-        "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
-
-    private readonly PostgreSqlContainer _postgreSql = new PostgreSqlBuilder("postgres:16-alpine").Build();
-
-    public async Task InitializeAsync()
+    /// <summary>
+    /// The connection string of the default database of the provider's server, which starts on first
+    /// use. A leased schema can live in another database of the server; its lease has that connection
+    /// string.
+    /// </summary>
+    public Task<string> ConnectionStringAsync(AssistantTestProvider provider)
     {
-        await Task.WhenAll(_sqlServer.StartAsync(), _postgreSql.StartAsync());
+        return AssistantDatabaseServer.For(provider).GetConnectionStringAsync();
     }
 
-    public async Task DisposeAsync()
+    /// <summary>
+    /// Leases a migrated, empty schema of its own for one host. Dispose the lease when the host is
+    /// disposed; the schema then returns to the pool.
+    /// </summary>
+    internal Task<AssistantSchemaLease> LeaseSchemaAsync(AssistantTestProvider provider)
     {
-        await _sqlServer.DisposeAsync();
-        await _postgreSql.DisposeAsync();
+        return AssistantDatabaseServer.For(provider).LeaseAsync();
     }
 
-    public string ConnectionString(AssistantTestProvider provider)
+    /// <summary>
+    /// Registers storage over a leased, migrated and empty schema. Disposing the returned provider
+    /// returns the schema to the pool.
+    /// </summary>
+    internal async Task<ServiceProvider> CreateStorageAsync(
+        AssistantTestProvider provider,
+        Action<IServiceCollection>? configure = null)
     {
-        return provider == AssistantTestProvider.SqlServer
-            ? _sqlServer.GetConnectionString()
-            : _postgreSql.GetConnectionString();
+        var lease = await LeaseSchemaAsync(provider);
+        try
+        {
+            var services = CreateStorageServices(provider, lease.ConnectionString, lease.Schema, configure);
+
+            // The provider owns the lease: it creates the singleton itself and is asked for it right
+            // away, so disposing the provider disposes the lease. Created first, it is disposed last.
+            services.AddSingleton(_ => lease);
+            var serviceProvider = services.BuildServiceProvider();
+            serviceProvider.GetRequiredService<AssistantSchemaLease>();
+            return serviceProvider;
+        }
+        catch
+        {
+            await lease.DisposeAsync();
+            throw;
+        }
     }
 
-    internal NhAssistantStorageRegistration CreateRegistration(
+    /// <summary>
+    /// Registers storage for <paramref name="schema"/> and applies the checked-in migrations to it,
+    /// outside the pool. Only for tests that prove the migrations or their schema routing themselves.
+    /// </summary>
+    internal async Task<ServiceProvider> CreateMigratedStorageAsync(
         AssistantTestProvider provider,
         string schema)
     {
-        var connectionString = ConnectionString(provider);
+        var connectionString = await ConnectionStringAsync(provider);
+        var serviceProvider = CreateStorageServices(provider, connectionString, schema, null).BuildServiceProvider();
+        try
+        {
+            await MigrateAsync(serviceProvider);
+            return serviceProvider;
+        }
+        catch
+        {
+            await serviceProvider.DisposeAsync();
+            throw;
+        }
+    }
+
+    public static string UniqueSchema()
+    {
+        return "t" + Guid.NewGuid().ToString("N")[..12];
+    }
+
+    internal static NhAssistantStorageRegistration CreateRegistration(
+        AssistantTestProvider provider,
+        string connectionString,
+        string schema)
+    {
         return provider == AssistantTestProvider.SqlServer
             ? NhAssistantSqlServerStorage.CreateRegistration(
                 _ => connectionString,
@@ -57,37 +105,25 @@ public sealed class AssistantDatabaseFixture : IAsyncLifetime
                 options => options.Schema = schema);
     }
 
-    /// <summary>
-    /// Registers storage for a fresh schema and applies the checked-in migrations.
-    /// </summary>
-    internal async Task<ServiceProvider> CreateMigratedStorageAsync(
+    internal static ServiceCollection CreateStorageServices(
         AssistantTestProvider provider,
-        string? schema = null,
-        Action<IServiceCollection>? configure = null)
+        string connectionString,
+        string schema,
+        Action<IServiceCollection>? configure)
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        NhAssistantStorage.Register(
-            services,
-            CreateRegistration(provider, schema ?? UniqueSchema()));
+        NhAssistantStorage.Register(services, CreateRegistration(provider, connectionString, schema));
         services.AddSingleton<INhAssistantStore, NhAssistantStore>();
         configure?.Invoke(services);
-        var serviceProvider = services.BuildServiceProvider();
-        await using var context = serviceProvider
+        return services;
+    }
+
+    internal static async Task MigrateAsync(IServiceProvider services)
+    {
+        await using var context = services
             .GetRequiredService<NhAssistantDbContextFactory>()
             .CreateDbContext();
         await context.Database.MigrateAsync();
-        return serviceProvider;
     }
-
-    public static string UniqueSchema()
-    {
-        return "t" + Guid.NewGuid().ToString("N")[..12];
-    }
-}
-
-[CollectionDefinition(Name)]
-public sealed class AssistantDatabaseCollection : ICollectionFixture<AssistantDatabaseFixture>
-{
-    public const string Name = "assistant-database";
 }

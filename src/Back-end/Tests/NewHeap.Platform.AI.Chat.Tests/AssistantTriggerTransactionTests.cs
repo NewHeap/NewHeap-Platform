@@ -28,8 +28,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// publication fires after the commit, and publishing after the commit is unchanged, on both
 /// relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantTriggerTransactionTests(AssistantDatabaseFixture database)
+public sealed class AssistantTriggerTransactionTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string TriggerId = "order-changed";
@@ -159,7 +158,7 @@ public sealed class AssistantTriggerTransactionTests(AssistantDatabaseFixture da
     {
         // The application's database differs from the assistant's: deferring needs neither a shared
         // database nor a shared connection.
-        var application = ApplicationDatabase(provider);
+        var application = await ApplicationDatabaseAsync(provider);
         var host = await AssistantTestHost.CreateAsync(
             database,
             provider,
@@ -204,10 +203,10 @@ public sealed class AssistantTriggerTransactionTests(AssistantDatabaseFixture da
         return host;
     }
 
-    private string ApplicationDatabase(AssistantTestProvider provider)
+    private async Task<string> ApplicationDatabaseAsync(AssistantTestProvider provider)
     {
         var name = "orders_" + Guid.NewGuid().ToString("N")[..12];
-        var connectionString = database.ConnectionString(provider);
+        var connectionString = await database.ConnectionStringAsync(provider);
         return provider == AssistantTestProvider.SqlServer
             ? new SqlConnectionStringBuilder(connectionString) { InitialCatalog = name }.ConnectionString
             : new NpgsqlConnectionStringBuilder(connectionString) { Database = name }.ConnectionString;

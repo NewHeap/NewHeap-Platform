@@ -31,12 +31,16 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// checks, single-flight refresh with rotation, reauthorization, issuer changes and revocation. No
 /// secret, code or token reaches a log or an audit event.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture database)
+public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string RedirectUri = "https://assistant.example/api/assistant/mcp/oauth/callback";
     private const string ClientSecret = "test-cc-secret-4711";
     private const string WebClientSecret = "test-web-secret-0815";
+
+    /// <summary>
+    /// Marks the async flow of the test that listens to the MCP counters.
+    /// </summary>
+    private static readonly AsyncLocal<object?> MeasuringTest = new();
 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -44,6 +48,10 @@ public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture data
     public async Task Client_credentials_connect_on_first_use_after_the_administrator_confirmed_discovery_and_step_up_widens_the_scopes(
         AssistantTestProvider provider)
     {
+        // The meter is static and other test classes use MCP at the same time: count only what this
+        // test's own flow records.
+        var thisTest = new object();
+        MeasuringTest.Value = thisTest;
         var measured = new System.Collections.Concurrent.ConcurrentQueue<(string Instrument, string Tags)>();
         using var listener = new System.Diagnostics.Metrics.MeterListener();
         listener.InstrumentPublished = (instrument, meters) =>
@@ -54,7 +62,12 @@ public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture data
             }
         };
         listener.SetMeasurementEventCallback<long>((instrument, _, tags, _) =>
-            measured.Enqueue((instrument.Name, string.Join(',', tags.ToArray().Select(tag => tag.Key + "=" + tag.Value)))));
+        {
+            if (ReferenceEquals(MeasuringTest.Value, thisTest))
+            {
+                measured.Enqueue((instrument.Name, string.Join(',', tags.ToArray().Select(tag => tag.Key + "=" + tag.Value))));
+            }
+        });
         listener.Start();
         await using var authorization = await NhAiTestAuthorizationServer.StartAsync(options => options.IssuerPath = "/tenants/a");
         authorization.RegisterClient("assistant-cc", ClientSecret);

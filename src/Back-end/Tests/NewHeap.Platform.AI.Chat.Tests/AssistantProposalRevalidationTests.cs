@@ -30,8 +30,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// way, approvals of such proposals are refused, execution checks again, waiting runs continue, and
 /// people and the next run learn why, on both relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture database)
+public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string ChangeStatusFunction = "projects_change_status_v1";

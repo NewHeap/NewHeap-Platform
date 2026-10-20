@@ -34,8 +34,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// headless runs, which need the person's consent and carry a delegated token minted per request.
 /// Secrets and tokens never reach a log, an audit event or a response.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed partial class AssistantMcpCredentialTests(AssistantDatabaseFixture database)
+public sealed partial class AssistantMcpCredentialTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string ServerUrl = "http://localhost/planning/mcp";

@@ -24,8 +24,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// language with a fallback, the entity binding, links and the search that keeps only what the
 /// searching person may read, on both relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantSubjectTypeTests(AssistantDatabaseFixture database)
+public sealed class AssistantSubjectTypeTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string ChangeStatusFunction = "projects_change_status_v1";

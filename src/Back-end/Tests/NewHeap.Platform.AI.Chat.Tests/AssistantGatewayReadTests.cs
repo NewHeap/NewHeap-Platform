@@ -22,8 +22,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// account, and only that person sees what the read returned. The bridge itself is replaced by a
 /// read surface over the test catalog's search tool.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantGatewayReadTests(AssistantDatabaseFixture database)
+public sealed class AssistantGatewayReadTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
 

@@ -10,8 +10,7 @@ using Xunit;
 
 namespace NewHeap.Platform.AI.Chat.Tests;
 
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantDurableManagerTests(AssistantDatabaseFixture database)
+public sealed class AssistantDurableManagerTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -326,7 +325,7 @@ public sealed class AssistantDurableManagerTests(AssistantDatabaseFixture databa
 
     private Task<ServiceProvider> CreateServicesAsync(AssistantTestProvider provider)
     {
-        return database.CreateMigratedStorageAsync(provider, configure: services =>
+        return database.CreateStorageAsync(provider, configure: services =>
         {
             services.AddSingleton(new NhAssistantRegistrationState());
             services.AddKeyedSingleton<INhAiBudgetManager>(

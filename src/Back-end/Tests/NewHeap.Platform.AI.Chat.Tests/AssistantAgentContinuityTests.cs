@@ -21,8 +21,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// What a later agent run knows about a subject: working memory, run summaries and artifacts;
 /// results shielded from viewers without the tool's rights; and forgetting a subject.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentContinuityTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentContinuityTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
 

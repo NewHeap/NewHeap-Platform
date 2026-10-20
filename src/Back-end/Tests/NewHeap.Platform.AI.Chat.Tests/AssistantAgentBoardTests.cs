@@ -30,8 +30,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// since their last visit per scope, and the thread of the whole application kept to the agent's view
 /// policy; on both relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string Group = "project-management";
     private const string Reporting = "reporting";

@@ -20,8 +20,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// with the caller's live decision right and without joining the thread, on both relational
 /// providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantProposalReadTests(AssistantDatabaseFixture database)
+public sealed class AssistantProposalReadTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string ChangeStatusFunction = "projects_change_status_v1";

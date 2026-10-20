@@ -20,8 +20,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// <summary>
 /// Subject briefings in model turns and the token ceiling of a run.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentBriefingTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentBriefingTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string ChangeStatusFunction = "projects_change_status_v1";

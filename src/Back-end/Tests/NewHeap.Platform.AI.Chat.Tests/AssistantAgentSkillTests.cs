@@ -24,8 +24,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// Skills of an agent: routing by trigger, rules and model triage, use_skill, and the budget and
 /// state of a skill.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string FollowUp = "follow-up";

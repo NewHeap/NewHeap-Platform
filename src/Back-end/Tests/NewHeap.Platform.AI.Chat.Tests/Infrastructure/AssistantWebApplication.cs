@@ -18,7 +18,10 @@ using NewHeap.Platform.AI.Test;
 namespace NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 
 /// <summary>
-/// A real ASP.NET Core host with the assistant endpoints on a test server.
+/// A real ASP.NET Core host with the assistant endpoints on a test server. The host uses a migrated,
+/// empty schema of its own that it leases from the pool and returns when it is disposed. It starts
+/// with <see cref="NhAssistantDbContextOptions.RunMigrations"/> on, as a deployed application that
+/// restarts against a current schema would.
 /// </summary>
 internal sealed class AssistantWebApplication : IAsyncDisposable
 {
@@ -29,16 +32,22 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
     public const string AccessPolicy = "app.assistant.access";
 
     private readonly WebApplication _app;
+    private readonly AssistantSchemaLease? _schema;
 
-    private AssistantWebApplication(WebApplication app)
+    private AssistantWebApplication(WebApplication app, AssistantSchemaLease? schema)
     {
         _app = app;
+        _schema = schema;
     }
 
     public IServiceProvider Services => _app.Services;
 
     public TestProjectToolRecorder Tools => _app.Services.GetRequiredService<TestProjectToolRecorder>();
 
+    /// <param name="unmigratedSchema">
+    /// A new schema outside the pool, which the host migrates itself while it starts. Only for tests
+    /// of the migrations at host start.
+    /// </param>
     public static async Task<AssistantWebApplication> StartAsync(
         AssistantDatabaseFixture database,
         IChatClient model,
@@ -46,7 +55,44 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         Action<NhAssistantLimits>? limits = null,
         Action<IServiceCollection>? configure = null,
         Action<NhAssistantBuilder>? assistantBuilder = null,
-        AssistantTestProvider provider = AssistantTestProvider.PostgreSql)
+        AssistantTestProvider provider = AssistantTestProvider.PostgreSql,
+        string? unmigratedSchema = null)
+    {
+        var lease = unmigratedSchema is null ? await database.LeaseSchemaAsync(provider) : null;
+        try
+        {
+            var connectionString = lease?.ConnectionString ?? await database.ConnectionStringAsync(provider);
+            var schema = lease?.Schema ?? unmigratedSchema!;
+            var app = await StartAsync(
+                connectionString,
+                schema,
+                model,
+                enabled,
+                limits,
+                configure,
+                assistantBuilder,
+                provider);
+            return new AssistantWebApplication(app, lease);
+        }
+        catch
+        {
+            if (lease is not null)
+            {
+                await lease.DisposeAsync();
+            }
+            throw;
+        }
+    }
+
+    private static async Task<WebApplication> StartAsync(
+        string connectionString,
+        string schema,
+        IChatClient model,
+        bool enabled,
+        Action<NhAssistantLimits>? limits,
+        Action<IServiceCollection>? configure,
+        Action<NhAssistantBuilder>? assistantBuilder,
+        AssistantTestProvider provider)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.WebHost.UseTestServer();
@@ -81,8 +127,6 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         });
         services.AddScoped<INhAiToolDiscoveryPolicy>(_ => NhAiTestDiscoveryPolicy.Allowed());
         services.AddNewHeapPlatformAIAspNet(ai => ai.UseToolInvocationPurpose("project-assistance"));
-        var schema = AssistantDatabaseFixture.UniqueSchema();
-        var connectionString = database.ConnectionString(provider);
         services.AddNewHeapAssistant(assistant =>
         {
             // PostgreSQL by default; tests of relational behavior over HTTP pass SQL Server as well.
@@ -120,8 +164,17 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapNewHeapAssistant("/api/assistant");
-        await app.StartAsync();
-        return new AssistantWebApplication(app);
+        try
+        {
+            await app.StartAsync();
+        }
+        catch
+        {
+            await app.DisposeAsync();
+            throw;
+        }
+
+        return app;
     }
 
     public TestServer Server => _app.GetTestServer();
@@ -148,10 +201,24 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         return client;
     }
 
+    /// <summary>
+    /// Stops and disposes the host first and then returns the schema, which the pool empties before
+    /// its next lease.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
-        await _app.StopAsync();
-        await _app.DisposeAsync();
+        try
+        {
+            await _app.StopAsync();
+            await _app.DisposeAsync();
+        }
+        finally
+        {
+            if (_schema is not null)
+            {
+                await _schema.DisposeAsync();
+            }
+        }
     }
 }
 

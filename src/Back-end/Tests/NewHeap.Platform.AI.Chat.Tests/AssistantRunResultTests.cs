@@ -30,8 +30,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// they read and the runs for the whole application whose view policy they pass; administrators see
 /// every run of an agent; histories page and filter in the database, on both relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantRunResultTests(AssistantDatabaseFixture database)
+public sealed class AssistantRunResultTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string ProjectAgent = "project-assistant";
     private const string ManagerAgent = "project-manager";

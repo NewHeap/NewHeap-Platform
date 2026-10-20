@@ -11,8 +11,7 @@ using static NewHeap.Platform.AI.Chat.Tests.Infrastructure.ServerSentEventReader
 
 namespace NewHeap.Platform.AI.Chat.Tests;
 
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture database)
+public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string McpUrl = "http://localhost/planning/mcp";
 

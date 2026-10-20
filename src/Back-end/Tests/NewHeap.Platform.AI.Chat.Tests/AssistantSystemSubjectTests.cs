@@ -28,8 +28,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// platform's <c>nh-system</c> subject, its roles, schedules without subjects app-wide and per division,
 /// the division directory, and the startup checks around them, on both relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantSystemSubjectTests(AssistantDatabaseFixture database)
+public sealed class AssistantSystemSubjectTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AppWide = "weekly-statistics";
     private const string PerDivisionAgent = "division-statistics";

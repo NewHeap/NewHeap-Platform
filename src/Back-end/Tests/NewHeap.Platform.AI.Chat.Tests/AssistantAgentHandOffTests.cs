@@ -23,8 +23,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// governance, waiting for a paused target, the refusals, chains, limits and the follow-up to the
 /// source.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentHandOffTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentHandOffTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string Planner = "project-planner";
     private const string Closer = "project-closer";

@@ -8,8 +8,7 @@ using Xunit;
 
 namespace NewHeap.Platform.AI.Chat.Tests;
 
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantPersonalizationTests(AssistantDatabaseFixture database)
+public sealed class AssistantPersonalizationTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string ChangeStatusFunction = "projects_change_status_v1";
 
@@ -20,7 +19,7 @@ public sealed class AssistantPersonalizationTests(AssistantDatabaseFixture datab
         AssistantTestProvider provider)
     {
         var first = StateWithSeed("Seed version one.");
-        await using var services = await database.CreateMigratedStorageAsync(provider, configure: collection =>
+        await using var services = await database.CreateStorageAsync(provider, configure: collection =>
         {
             collection.AddSingleton(first);
             collection.AddSingleton<NhAssistantSeeder>();

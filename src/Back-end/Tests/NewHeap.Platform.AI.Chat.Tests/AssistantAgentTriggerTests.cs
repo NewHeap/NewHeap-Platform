@@ -26,8 +26,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// Runs are enqueued on a recording background-operation service: these tests prove what starts,
 /// joins, stops and notifies, not how an operation runs.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentTriggerTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentTriggerTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string ProjectChangedTrigger = "project-changed";

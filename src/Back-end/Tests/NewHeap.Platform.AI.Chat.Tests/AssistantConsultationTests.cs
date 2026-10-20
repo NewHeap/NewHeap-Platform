@@ -23,8 +23,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// the asker may read, proposing instead of changing, recorded without content and bounded in depth,
 /// number and budget. A request starts a run of the agent with the asker as initiator.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantConsultationTests(AssistantDatabaseFixture database)
+public sealed class AssistantConsultationTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string TargetAgentId = "project-assistant";
     private const string AskingAgentId = "consulting-assistant";

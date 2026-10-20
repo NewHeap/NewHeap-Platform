@@ -13,8 +13,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// instructions, bounded, excluded from the prompt hash and the approval binding, and never
 /// written to audit or logs.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantTurnContextTests(AssistantDatabaseFixture database)
+public sealed class AssistantTurnContextTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string ChangeStatusFunction = "projects_change_status_v1";
     private const string SearchFunction = "projects_search_v1";

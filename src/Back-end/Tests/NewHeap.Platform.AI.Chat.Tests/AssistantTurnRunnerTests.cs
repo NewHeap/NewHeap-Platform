@@ -14,8 +14,7 @@ using Xunit;
 
 namespace NewHeap.Platform.AI.Chat.Tests;
 
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database)
+public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string SearchFunction = "projects_search_v1";
     private const string ChangeStatusFunction = "projects_change_status_v1";

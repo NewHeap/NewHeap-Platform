@@ -28,8 +28,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// platform checked the object, the object's approvers decide it, it executes in the object's scope,
 /// and the proposals of the whole application reach its approvers, on both relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture database)
+public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string FollowUp = "project-assistant";
     private const string ApplicationOnly = "application-statistics";

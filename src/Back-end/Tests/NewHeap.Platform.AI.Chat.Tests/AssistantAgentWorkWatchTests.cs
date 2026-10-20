@@ -25,8 +25,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// whose thread of the whole application the person reads, the agent's view policy included, and
 /// leaves what the person may no longer read when the watch is renewed; on both relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentWorkWatchTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentWorkWatchTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string FollowUp = "project-follow-up";
     private const string Statistics = "weekly-statistics";

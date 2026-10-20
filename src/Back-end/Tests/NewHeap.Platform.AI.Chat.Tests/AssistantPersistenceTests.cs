@@ -6,12 +6,12 @@ using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
+using NewHeap.Platform.AI.Test;
 using Xunit;
 
 namespace NewHeap.Platform.AI.Chat.Tests;
 
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
+public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -53,10 +53,32 @@ public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_host_that_runs_migrations_migrates_a_new_schema_before_it_seeds_the_code_agents(
+        AssistantTestProvider provider)
+    {
+        // Other hosts lease schemas that are migrated already; this one starts on an empty schema.
+        var schema = AssistantDatabaseFixture.UniqueSchema();
+        await using var app = await AssistantWebApplication.StartAsync(
+            database,
+            new NhAiScriptedChatClient(),
+            provider: provider,
+            unmigratedSchema: schema);
+        await using var context = app.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+
+        Assert.Equal(schema, context.Model.GetDefaultSchema());
+        Assert.Empty(await context.Database.GetPendingMigrationsAsync());
+        Assert.Contains(
+            AssistantTestData.Agent().Id,
+            await context.Agents.Select(agent => agent.Id).ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Conversation_messages_invocations_and_approvals_round_trip(
         AssistantTestProvider provider)
     {
-        await using var services = await database.CreateMigratedStorageAsync(provider);
+        await using var services = await database.CreateStorageAsync(provider);
         var store = services.GetRequiredService<INhAssistantStore>();
         var conversation = CreateConversation("owner-1");
         await store.AddConversationAsync(conversation, CancellationToken.None);
@@ -173,7 +195,7 @@ public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
     public async Task Only_one_concurrent_status_transition_can_start_a_turn(
         AssistantTestProvider provider)
     {
-        await using var services = await database.CreateMigratedStorageAsync(provider);
+        await using var services = await database.CreateStorageAsync(provider);
         var store = services.GetRequiredService<INhAssistantStore>();
         var conversation = CreateConversation("owner-1");
         await store.AddConversationAsync(conversation, CancellationToken.None);
@@ -208,7 +230,7 @@ public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
     public async Task A_stale_tracked_status_change_is_rejected_by_the_concurrency_token(
         AssistantTestProvider provider)
     {
-        await using var services = await database.CreateMigratedStorageAsync(provider);
+        await using var services = await database.CreateStorageAsync(provider);
         var factory = services.GetRequiredService<NhAssistantDbContextFactory>();
         var conversation = CreateConversation("owner-1");
         await using (var setup = factory.CreateDbContext())

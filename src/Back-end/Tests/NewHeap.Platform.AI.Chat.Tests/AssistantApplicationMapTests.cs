@@ -10,8 +10,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// only with the tools the turn offers, bounded, outside the prompt hash, and left out when a source
 /// fails.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantApplicationMapTests(AssistantDatabaseFixture database)
+public sealed class AssistantApplicationMapTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string MapAgent = "project-assistant";
     private const string PlainAgent = "plain-assistant";

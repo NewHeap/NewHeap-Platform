@@ -22,8 +22,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// scope, and the agents of a subject with their latest run and open proposals, over HTTP on both
 /// relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantRunNowTests(AssistantDatabaseFixture database)
+public sealed class AssistantRunNowTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string ProjectAgent = "project-assistant";
     private const string ManagerAgent = "project-manager";

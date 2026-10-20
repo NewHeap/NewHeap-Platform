@@ -24,8 +24,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// Runtime overrides of the code: the shadow mode of an agent and of one skill, and the technical
 /// account that answers for an agent's runs.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentRuntimeOverrideTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentRuntimeOverrideTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string Variant = "project-assistant-next";

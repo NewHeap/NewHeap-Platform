@@ -22,8 +22,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// Evaluation of agent variants: a shadow variant that receives the live agent's triggers, the
 /// comparison of runs, proposals, cost and routing, its export, and replays of recorded runs.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentEvaluationTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentEvaluationTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string Planner = "project-planner";
     private const string Variant = "project-planner-v2";

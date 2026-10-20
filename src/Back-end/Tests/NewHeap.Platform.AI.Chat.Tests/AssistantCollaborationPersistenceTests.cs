@@ -9,8 +9,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// <summary>
 /// Sharing, read state and push subscriptions on both relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantCollaborationPersistenceTests(AssistantDatabaseFixture database)
+public sealed class AssistantCollaborationPersistenceTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -18,7 +17,7 @@ public sealed class AssistantCollaborationPersistenceTests(AssistantDatabaseFixt
     public async Task Participants_reach_only_conversations_of_their_tenant_with_their_own_read_state(
         AssistantTestProvider provider)
     {
-        await using var services = await database.CreateMigratedStorageAsync(provider);
+        await using var services = await database.CreateStorageAsync(provider);
         var store = services.GetRequiredService<INhAssistantStore>();
         var shared = await AddConversationAsync(store, "owner-1", "tenant-a", DateTimeOffset.UtcNow.AddMinutes(-2));
         var own = await AddConversationAsync(store, "member-1", "tenant-a", DateTimeOffset.UtcNow.AddMinutes(-1));
@@ -65,7 +64,7 @@ public sealed class AssistantCollaborationPersistenceTests(AssistantDatabaseFixt
     public async Task Read_positions_only_move_forward_and_stop_at_the_latest_message(
         AssistantTestProvider provider)
     {
-        await using var services = await database.CreateMigratedStorageAsync(provider);
+        await using var services = await database.CreateStorageAsync(provider);
         var store = services.GetRequiredService<INhAssistantStore>();
         var conversation = await AddConversationAsync(store, "owner-1", null, DateTimeOffset.UtcNow);
         await AddMessagesAsync(store, conversation.Id, 4);
@@ -91,7 +90,7 @@ public sealed class AssistantCollaborationPersistenceTests(AssistantDatabaseFixt
     public async Task Membership_respects_the_limit_survives_concurrent_joins_and_ends_with_the_conversation(
         AssistantTestProvider provider)
     {
-        await using var services = await database.CreateMigratedStorageAsync(provider);
+        await using var services = await database.CreateStorageAsync(provider);
         var store = services.GetRequiredService<INhAssistantStore>();
         var conversation = await AddConversationAsync(store, "owner-1", null, DateTimeOffset.UtcNow);
 
@@ -133,7 +132,7 @@ public sealed class AssistantCollaborationPersistenceTests(AssistantDatabaseFixt
     public async Task Push_subscriptions_follow_the_signed_in_actor_the_limit_and_the_opt_out(
         AssistantTestProvider provider)
     {
-        await using var services = await database.CreateMigratedStorageAsync(
+        await using var services = await database.CreateStorageAsync(
             provider,
             configure: collection => collection.AddSingleton<NhAssistantNotificationStore>());
         var notifications = services.GetRequiredService<NhAssistantNotificationStore>();

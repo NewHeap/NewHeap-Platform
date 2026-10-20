@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,7 +17,8 @@ namespace NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 
 /// <summary>
 /// A real assistant registration over a real database, driven without HTTP. The signed-in user is
-/// provided through <see cref="IHttpContextAccessor"/> exactly as an endpoint would.
+/// provided through <see cref="IHttpContextAccessor"/> exactly as an endpoint would. The host uses a
+/// migrated, empty schema of its own that it leases from the pool and returns when it is disposed.
 /// </summary>
 internal sealed class AssistantTestHost : IAsyncDisposable
 {
@@ -26,15 +26,18 @@ internal sealed class AssistantTestHost : IAsyncDisposable
     public const string AccessPolicy = "app.assistant.access";
 
     private readonly ServiceProvider _provider;
+    private readonly AssistantSchemaLease _schema;
 
     private AssistantTestHost(
         ServiceProvider provider,
+        AssistantSchemaLease schema,
         NhAiCapturedAuditSink audit,
         NhAiCapturedUsageSink usage,
         CapturedBusinessAuditSink business,
         CapturingLoggerProvider logs)
     {
         _provider = provider;
+        _schema = schema;
         Audit = audit;
         Usage = usage;
         Business = business;
@@ -107,35 +110,37 @@ internal sealed class AssistantTestHost : IAsyncDisposable
         });
         services.AddScoped<INhAiToolDiscoveryPolicy>(_ => NhAiTestDiscoveryPolicy.Allowed());
         services.AddNewHeapPlatformAIAspNet(ai => ai.UseToolInvocationPurpose("project-assistance"));
-        var schema = AssistantDatabaseFixture.UniqueSchema();
-        var connectionString = database.ConnectionString(provider);
-        services.AddNewHeapAssistant(assistant =>
+        var schema = await database.LeaseSchemaAsync(provider);
+        try
         {
-            if (provider == AssistantTestProvider.SqlServer)
+            services.AddNewHeapAssistant(assistant =>
             {
-                assistant.UseSqlServer(connectionString, options => options.Schema = schema);
-            }
-            else
-            {
-                assistant.UsePostgreSql(connectionString, options => options.Schema = schema);
-            }
-            assistant
-                .UseAccessPolicy(AccessPolicy)
-                .UseChatProfile("project-chat")
-                .AddAgent(AssistantTestData.Agent() with { ProfileName = "project-chat" })
-                .AddBusinessAuditSink<CapturedBusinessAuditSinkAdapter>()
-                .WithLimits(configured => limits?.Invoke(configured));
-            assistantBuilder?.Invoke(assistant);
-        });
-        services.AddSingleton(business);
-        configure?.Invoke(services);
+                if (provider == AssistantTestProvider.SqlServer)
+                {
+                    assistant.UseSqlServer(schema.ConnectionString, options => options.Schema = schema.Schema);
+                }
+                else
+                {
+                    assistant.UsePostgreSql(schema.ConnectionString, options => options.Schema = schema.Schema);
+                }
+                assistant
+                    .UseAccessPolicy(AccessPolicy)
+                    .UseChatProfile("project-chat")
+                    .AddAgent(AssistantTestData.Agent() with { ProfileName = "project-chat" })
+                    .AddBusinessAuditSink<CapturedBusinessAuditSinkAdapter>()
+                    .WithLimits(configured => limits?.Invoke(configured));
+                assistantBuilder?.Invoke(assistant);
+            });
+            services.AddSingleton(business);
+            configure?.Invoke(services);
 
-        var built = services.BuildServiceProvider();
-        await using (var context = built.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
-        {
-            await context.Database.MigrateAsync();
+            return new AssistantTestHost(services.BuildServiceProvider(), schema, audit, usage, business, logs);
         }
-        return new AssistantTestHost(built, audit, usage, business, logs);
+        catch
+        {
+            await schema.DisposeAsync();
+            throw;
+        }
     }
 
     public async Task<AssistantConversation> CreateConversationAsync(string owner = UserId, string? agentId = null)
@@ -245,11 +250,19 @@ internal sealed class AssistantTestHost : IAsyncDisposable
         return (await store.FindAccessAsync(conversationId, actorId, null, CancellationToken.None))!;
     }
 
+    /// <summary>
+    /// Disposes the services first and then returns the schema, which the pool empties before its
+    /// next lease.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if (_provider is not null)
+        try
         {
             await _provider.DisposeAsync();
+        }
+        finally
+        {
+            await _schema.DisposeAsync();
         }
     }
 

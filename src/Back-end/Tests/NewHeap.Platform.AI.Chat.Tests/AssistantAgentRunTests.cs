@@ -22,8 +22,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// execution of an approved proposal, approver policies, delegation and the inbox, on both
 /// relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentRunTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentRunTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string AgentActorId = "assistant-agent:project-assistant";

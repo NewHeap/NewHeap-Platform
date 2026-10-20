@@ -21,8 +21,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// The assistant context reaches a reviewed MCP tool as request metadata over the official MCP
 /// transport, and the conversation snapshot refuses foreign, stale and incomplete state.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database)
+public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string ResearchUrl = "http://localhost/research/mcp";
     private const string ResearchFunction = "mcp_research_research_ask";

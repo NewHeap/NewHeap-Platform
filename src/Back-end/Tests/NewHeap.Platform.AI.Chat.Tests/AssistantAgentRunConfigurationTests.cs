@@ -19,8 +19,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// Run configuration as data: skills and triggers defined at runtime on an agent configured in code,
 /// checked against the building blocks in code, starting in shadow and followed by every host.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string ChatOnlyAgent = "project-chat-only";

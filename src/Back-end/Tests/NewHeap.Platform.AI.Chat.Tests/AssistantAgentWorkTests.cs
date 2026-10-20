@@ -25,8 +25,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// subject and for the person who started a run by hand, and names instead of ids, on both
 /// relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string ChangeStatusFunction = "projects_change_status_v1";

@@ -26,8 +26,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// a model, hand a run over to the model when needed, and neither rules nor the model pile up the
 /// same proposal, on both relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string ChangeStatusTool = "projects.change-status";

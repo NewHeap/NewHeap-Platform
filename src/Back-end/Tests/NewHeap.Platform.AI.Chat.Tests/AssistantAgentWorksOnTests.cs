@@ -30,8 +30,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// in code and as data, its storage on both relational providers, and the one rule that triggers,
 /// schedules, manual starts and hand-offs follow.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantAgentWorksOnTests(AssistantDatabaseFixture database)
+public sealed class AssistantAgentWorksOnTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string Closer = "project-closer";

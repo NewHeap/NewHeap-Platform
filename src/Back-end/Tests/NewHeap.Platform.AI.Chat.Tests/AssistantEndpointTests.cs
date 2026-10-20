@@ -11,8 +11,7 @@ using static NewHeap.Platform.AI.Chat.Tests.Infrastructure.ServerSentEventReader
 
 namespace NewHeap.Platform.AI.Chat.Tests;
 
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
+public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     [Fact]
     public async Task Status_agents_and_conversation_endpoints_follow_the_contract()

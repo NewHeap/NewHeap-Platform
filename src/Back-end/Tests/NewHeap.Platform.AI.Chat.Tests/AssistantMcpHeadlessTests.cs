@@ -20,8 +20,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// for an approved deferred proposal, and refused once the server no longer allows it. Both
 /// relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed partial class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
+public sealed partial class AssistantMcpHeadlessTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string ServerUrl = "http://localhost/planning/mcp";

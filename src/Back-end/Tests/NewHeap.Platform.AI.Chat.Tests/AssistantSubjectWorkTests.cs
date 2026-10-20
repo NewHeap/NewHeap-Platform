@@ -18,8 +18,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// everything on one subject with live decision rights, and counts for many subjects in one query,
 /// on both relational providers.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantSubjectWorkTests(AssistantDatabaseFixture database)
+public sealed class AssistantSubjectWorkTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string ChangeStatusFunction = "projects_change_status_v1";

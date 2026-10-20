@@ -10,8 +10,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// with other properties. The assistant must execute the former and turn the latter into a
 /// recoverable <c>ai-tool-input-invalid</c> result the model can correct.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantToolArgumentTests(AssistantDatabaseFixture database)
+public sealed class AssistantToolArgumentTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string SearchFunction = "projects_search_v1";
 

@@ -17,8 +17,7 @@ using static NewHeap.Platform.AI.Chat.Tests.Infrastructure.ServerSentEventReader
 
 namespace NewHeap.Platform.AI.Chat.Tests;
 
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantCollaborationTests(AssistantDatabaseFixture database)
+public sealed class AssistantCollaborationTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string OwnerName = "Olivia Owner";
     private const string ParticipantName = "Pat Participant";

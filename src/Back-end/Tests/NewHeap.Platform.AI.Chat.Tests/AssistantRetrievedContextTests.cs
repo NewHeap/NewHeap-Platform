@@ -18,8 +18,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// Retrieved context in agent turns: once per turn through the resolver, within its bounds and the
 /// turn's scopes and classification, as the last turn data block, with a content-free trace.
 /// </summary>
-[Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantRetrievedContextTests(AssistantDatabaseFixture database)
+public sealed class AssistantRetrievedContextTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     private const string AgentId = "project-assistant";
     private const string SourceId = "test-documents";
