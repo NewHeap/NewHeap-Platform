@@ -891,3 +891,18 @@ without scrolling sideways by the scrollbar's width.
 | Breaking change | Required action |
 |---|---|
 | The maximum width of `.nh-modal` is a percentage of `.nh-modal-holder` (95%, or 100% at 920px and narrower) instead of `95vw` or `100vw`, so a modal can be up to a scrollbar's width narrower. | Remove host styles that compensated for the sideways scroll; set an own `max-width` on `.nh-modal` only when content must use the viewport's width. |
+
+## @newheap/platform-ai-chat: accounts by name in the administration
+
+The administration shows a person or account by name only. The flow view's account step and the run
+settings summary show the technical account's name with its account ID as the name's tooltip and a
+button that copies it (the ID shows next to the name only when the browser refuses the clipboard);
+sentences that name an account carry its ID as their tooltip. While no name is known (an unknown
+account, a lookup in flight or a failed lookup) the ID shows labeled as an account ID. The
+`agent-runs` building blocks follow the same rule for who decided or overtook a proposal, who asked a
+consultation and the author of feedback. The new texts are bundled in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| The account ID no longer shows next to a known account name, and an ID without a name reads "Account ID …" or "account ID …" instead of the bare ID. | Update tests that read an account's ID from the text; read the tooltip (`title`) instead. |
+| The translation keys `nh-assistant.account-id`, `nh-assistant.account-id-title` and `nh-assistant.admin.account` are added. | Update host overrides of the assistant's texts. |
