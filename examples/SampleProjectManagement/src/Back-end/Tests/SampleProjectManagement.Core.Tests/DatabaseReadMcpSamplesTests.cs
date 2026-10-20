@@ -8,7 +8,6 @@ using NewHeap.Platform.AI;
 using NewHeap.Platform.DatabaseRead;
 using Npgsql;
 using SampleProjectManagement.DatabaseRead.Mcp;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
@@ -17,12 +16,13 @@ namespace SampleProjectManagement.Core.Tests;
 /// SPM-218: the consumer-owned MCP boundary reads live schema and data through
 /// a dedicated PostgreSQL read-only principal and the NewHeap database tool.
 /// </summary>
-public sealed class DatabaseReadMcpSamplesTests
+public sealed class DatabaseReadMcpSamplesTests(SamplePostgreSqlServer postgreSql)
 {
     [Fact]
     public async Task GovernedMcpReadsLiveSchemaAndExecutesAReadOnlyQuery()
     {
-        await using var workspace = await LiveDatabaseReadWorkspace.CreateAsync(
+        using var workspace = await LiveDatabaseReadWorkspace.CreateAsync(
+            postgreSql,
             TestContext.Current.CancellationToken);
         await AssertDirectPromptRouteAsync(workspace);
 
@@ -395,21 +395,21 @@ public sealed class DatabaseReadMcpSamplesTests
         Assert.False(result.StructuredContent.HasValue);
     }
 
-    private sealed class LiveDatabaseReadWorkspace : IAsyncDisposable
+    /// <summary>
+    /// A live database for the tool with a read-only principal, and the profile catalog, settings and
+    /// secrets file of an application that names it. The database is one of its own on the shared
+    /// <see cref="SamplePostgreSqlServer"/>; roles belong to the whole server, so the reader is named
+    /// after the database.
+    /// </summary>
+    private sealed class LiveDatabaseReadWorkspace : IDisposable
     {
-        private const string ReaderName = "sample_database_reader";
         private const string ReaderPassword = "Sample-reader-password-42";
         private const string ConnectionStringName = "NewHeapDiagnosticsReadOnly";
 
-        private readonly PostgreSqlContainer _container;
         private readonly string _root;
 
-        private LiveDatabaseReadWorkspace(
-            PostgreSqlContainer container,
-            string root,
-            string profileCatalogPath)
+        private LiveDatabaseReadWorkspace(string root, string profileCatalogPath)
         {
-            _container = container;
             _root = root;
             ProfileCatalogPath = profileCatalogPath;
         }
@@ -417,17 +417,18 @@ public sealed class DatabaseReadMcpSamplesTests
         public string ProfileCatalogPath { get; }
 
         public static async Task<LiveDatabaseReadWorkspace> CreateAsync(
+            SamplePostgreSqlServer postgreSql,
             CancellationToken cancellationToken)
         {
-            var container = new PostgreSqlBuilder("postgres:16-alpine").Build();
-            await container.StartAsync(cancellationToken);
-            try
+            var adminConnectionString = await postgreSql.CreateDatabaseAsync("database_read_mcp_sample");
+            var database = new NpgsqlConnectionStringBuilder(adminConnectionString).Database!;
+            var readerName = database + "_reader";
+            await using (var admin = new NpgsqlConnection(adminConnectionString))
             {
-                await using var admin = new NpgsqlConnection(container.GetConnectionString());
                 await admin.OpenAsync(cancellationToken);
                 await ExecuteAsync(
                     admin,
-                    """
+                    $"""
                     CREATE TABLE public."Organizations" (
                         "TenantId" uuid NOT NULL,
                         "Id" uuid NOT NULL,
@@ -483,87 +484,80 @@ public sealed class DatabaseReadMcpSamplesTests
                         WHERE "Name" IS NOT NULL;
                     CREATE INDEX "IX_Projects_Lower_Name_Id"
                         ON public."Projects" ((lower("Name")) ASC, "Id" DESC);
-                    CREATE ROLE sample_database_reader LOGIN PASSWORD 'Sample-reader-password-42';
-                    GRANT CONNECT ON DATABASE postgres TO sample_database_reader;
-                    GRANT USAGE ON SCHEMA public TO sample_database_reader;
+                    CREATE ROLE {readerName} LOGIN PASSWORD '{ReaderPassword}';
+                    GRANT CONNECT ON DATABASE {database} TO {readerName};
+                    GRANT USAGE ON SCHEMA public TO {readerName};
                     GRANT SELECT ON TABLE
                         public."Organizations",
                         public."Projects",
                         public."ProjectTasks"
-                        TO sample_database_reader;
+                        TO {readerName};
                     """,
                     cancellationToken);
+            }
 
-                var connectionBuilder = new NpgsqlConnectionStringBuilder(
-                    container.GetConnectionString())
-                {
-                    Username = ReaderName,
-                    Password = ReaderPassword,
-                    Pooling = false
-                };
-                var root = Path.Combine(
-                    Path.GetTempPath(),
-                    "SampleProjectManagement.DatabaseRead.Mcp.Tests",
-                    Guid.NewGuid().ToString("N"));
-                var configurationPath = Path.Combine(
-                    root,
-                    "Applications",
-                    "SampleProjectManagement.Api");
-                var secretsPath = Path.Combine(root, "secrets");
-                var profileCatalogPath = Path.Combine(root, ".newheap", "database-read.json");
-                WriteJson(profileCatalogPath, new
-                {
-                    schemaVersion = 1,
-                    profiles = new Dictionary<string, object>
-                    {
-                        ["sample-live"] = new
-                        {
-                            provider = "postgresql",
-                            configurationPath = "Applications/SampleProjectManagement.Api",
-                            environment = "Development",
-                            connectionStringName = ConnectionStringName,
-                            maximumRows = SampleDatabaseReadLimits.MaximumRows,
-                            maximumTimeoutSeconds = SampleDatabaseReadLimits.TimeoutSeconds,
-                            maximumLockTimeoutMilliseconds = 5_000,
-                            maximumOutputBytes = SampleDatabaseReadLimits.MaximumOutputBytes,
-                            maximumCellBytes = 65_536,
-                            maximumSqlBytes = SampleDatabaseReadLimits.MaximumSqlBytes
-                        }
-                    }
-                });
-                WriteJson(Path.Combine(configurationPath, "appsettings.json"), new
-                {
-                    NewHeap = new
-                    {
-                        PlatformCommon = new
-                        {
-                            AppSecretsDirectoryPath = secretsPath
-                        }
-                    },
-                    ConnectionStrings = new Dictionary<string, string>
-                    {
-                        [ConnectionStringName] = $"${{Secrets:ConnectionStrings:{ConnectionStringName}}}"
-                    }
-                });
-                WriteJson(Path.Combine(secretsPath, "secrets.json"), new
-                {
-                    ConnectionStrings = new Dictionary<string, string>
-                    {
-                        [ConnectionStringName] = connectionBuilder.ConnectionString
-                    }
-                });
-                return new LiveDatabaseReadWorkspace(container, root, profileCatalogPath);
-            }
-            catch
+            var connectionBuilder = new NpgsqlConnectionStringBuilder(adminConnectionString)
             {
-                await container.DisposeAsync();
-                throw;
-            }
+                Username = readerName,
+                Password = ReaderPassword,
+                Pooling = false
+            };
+            var root = Path.Combine(
+                Path.GetTempPath(),
+                "SampleProjectManagement.DatabaseRead.Mcp.Tests",
+                Guid.NewGuid().ToString("N"));
+            var configurationPath = Path.Combine(
+                root,
+                "Applications",
+                "SampleProjectManagement.Api");
+            var secretsPath = Path.Combine(root, "secrets");
+            var profileCatalogPath = Path.Combine(root, ".newheap", "database-read.json");
+            WriteJson(profileCatalogPath, new
+            {
+                schemaVersion = 1,
+                profiles = new Dictionary<string, object>
+                {
+                    ["sample-live"] = new
+                    {
+                        provider = "postgresql",
+                        configurationPath = "Applications/SampleProjectManagement.Api",
+                        environment = "Development",
+                        connectionStringName = ConnectionStringName,
+                        maximumRows = SampleDatabaseReadLimits.MaximumRows,
+                        maximumTimeoutSeconds = SampleDatabaseReadLimits.TimeoutSeconds,
+                        maximumLockTimeoutMilliseconds = 5_000,
+                        maximumOutputBytes = SampleDatabaseReadLimits.MaximumOutputBytes,
+                        maximumCellBytes = 65_536,
+                        maximumSqlBytes = SampleDatabaseReadLimits.MaximumSqlBytes
+                    }
+                }
+            });
+            WriteJson(Path.Combine(configurationPath, "appsettings.json"), new
+            {
+                NewHeap = new
+                {
+                    PlatformCommon = new
+                    {
+                        AppSecretsDirectoryPath = secretsPath
+                    }
+                },
+                ConnectionStrings = new Dictionary<string, string>
+                {
+                    [ConnectionStringName] = $"${{Secrets:ConnectionStrings:{ConnectionStringName}}}"
+                }
+            });
+            WriteJson(Path.Combine(secretsPath, "secrets.json"), new
+            {
+                ConnectionStrings = new Dictionary<string, string>
+                {
+                    [ConnectionStringName] = connectionBuilder.ConnectionString
+                }
+            });
+            return new LiveDatabaseReadWorkspace(root, profileCatalogPath);
         }
 
-        public async ValueTask DisposeAsync()
+        public void Dispose()
         {
-            await _container.DisposeAsync();
             if (Directory.Exists(_root))
             {
                 Directory.Delete(_root, recursive: true);

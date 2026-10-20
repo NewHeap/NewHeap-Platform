@@ -119,8 +119,9 @@ structured input in memory. For direct CLI use, pass only a request-file path or
 stream JSON through stdin; never place serialized JSON in a Windows process
 argument or reduce the diagnostic candidate set merely to fit that limit.
 
-`DatabaseReadMcpSamplesTests` is the reproducible smoke test. It starts a real
-PostgreSQL container, creates a SELECT-only login, proves the Production prompt
+`DatabaseReadMcpSamplesTests` is the reproducible smoke test. It creates a
+database of its own on the test run's real PostgreSQL container, creates a
+SELECT-only login, proves the Production prompt
 “count the projects and return the latest by `CreationDateTime`” from a catalog
 whose only profile defaults to Development with exactly one direct schema
 invocation and one query invocation, lists the three MCP tools

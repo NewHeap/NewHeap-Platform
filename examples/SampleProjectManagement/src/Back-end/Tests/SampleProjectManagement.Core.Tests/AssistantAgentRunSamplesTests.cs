@@ -3522,7 +3522,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
 /// the intake reviewer of Program.cs. The sample database is migrated before the host starts so
 /// the background-operation dispatcher finds its tables from its first poll.
 /// </summary>
-public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHost
+public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : AssistantCollaborationSampleHost(postgreSql)
 {
     public const string JwtIssuer = "sample-project-management";
 
@@ -3583,7 +3583,7 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         _hangfireStorage.Dispose();
     }
 
-    protected override async Task OnDatabaseStartedAsync()
+    protected override async Task OnDatabaseCreatedAsync()
     {
         var options = new DbContextOptionsBuilder<SampleProjectManagementDbContext>()
             .UseNpgsql(ConnectionString)

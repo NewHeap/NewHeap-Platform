@@ -104,7 +104,7 @@ public sealed class AssistantMcpContextSamplesTests(AssistantResearchSampleHost 
 /// The assistant sample host with a research MCP server whose URL the composition reviews through
 /// <see cref="SampleAssistantResearch.UrlSetting"/>.
 /// </summary>
-public sealed class AssistantResearchSampleHost : AssistantSampleHost
+public sealed class AssistantResearchSampleHost(SamplePostgreSqlServer postgreSql) : AssistantSampleHost(postgreSql)
 {
     public SampleResearchMcpServer Research { get; private set; } = null!;
 

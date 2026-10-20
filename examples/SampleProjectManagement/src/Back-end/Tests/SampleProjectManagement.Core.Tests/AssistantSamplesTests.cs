@@ -25,7 +25,6 @@ using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Core.Models.AI;
 using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.DAL.Entities;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
@@ -206,18 +205,19 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
 }
 
 /// <summary>
-/// One PostgreSQL container and one Kestrel host with the sample assistant composition.
-/// Project data is served by an in-memory fake so the evidence focuses on the assistant.
-/// Derived hosts add compositions (such as the API bridge) through the protected hooks.
+/// One Kestrel host with the sample assistant composition over a PostgreSQL database of its own on
+/// the shared <see cref="SamplePostgreSqlServer"/>. Project data is served by an in-memory fake so
+/// the evidence focuses on the assistant. Derived hosts add compositions (such as the API bridge)
+/// through the protected hooks.
 /// </summary>
-public class AssistantSampleHost : IAsyncLifetime
+public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLifetime
 {
     protected const string ManagePolicy = "app.active-division.project.manage";
 
     /// <summary>The assistant's OAuth callback that authorization servers redirect to (SPM-299).</summary>
     public const string OAuthRedirectUri = "https://sample-project-management-api.dev.localhost:5281/api/assistant/mcp/oauth/callback";
 
-    private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:16-alpine").Build();
+    private string? _connectionString;
     private WebApplication? _app;
     private Uri? _baseAddress;
 
@@ -227,14 +227,15 @@ public class AssistantSampleHost : IAsyncLifetime
 
     public FakeProjects Projects { get; } = new();
 
-    public string ConnectionString => _database.GetConnectionString();
+    /// <summary>The connection string of the host's own database.</summary>
+    public string ConnectionString => _connectionString!;
 
     public IServiceProvider Services => _app!.Services;
 
     public virtual async ValueTask InitializeAsync()
     {
-        await _database.StartAsync();
-        await OnDatabaseStartedAsync();
+        _connectionString = await postgreSql.CreateDatabaseAsync("assistant_sample");
+        await OnDatabaseCreatedAsync();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         builder.Logging.ClearProviders();
@@ -242,7 +243,7 @@ public class AssistantSampleHost : IAsyncLifetime
         var settings = new Dictionary<string, string?>
         {
             ["Database:ConnectionStringName"] = "DefaultConnection",
-            ["ConnectionStrings:DefaultConnection"] = _database.GetConnectionString(),
+            ["ConnectionStrings:DefaultConnection"] = ConnectionString,
             ["NewHeap:AI:Assistant:Enabled"] = "true",
             // SPM-299: as in appsettings.Development.json; the tests play the browser themselves.
             ["NewHeap:AI:Assistant:Mcp:OAuth:RedirectUri"] = OAuthRedirectUri
@@ -266,7 +267,7 @@ public class AssistantSampleHost : IAsyncLifetime
         services.AddKeyedSingleton<IChatClient>(SampleAssistantComposition.ModelKey, Model);
         // The sample's participant directory reads users and divisions through the sample DAL.
         services.AddDbContext<SampleProjectManagement.DAL.SampleProjectManagementDbContext>(options =>
-            options.UseNpgsql(_database.GetConnectionString()));
+            options.UseNpgsql(ConnectionString));
 
         // The same AI composition order as SampleProjectManagement.Api/Program.cs.
         services.AddSampleProjectManagementAi();
@@ -309,10 +310,10 @@ public class AssistantSampleHost : IAsyncLifetime
     }
 
     /// <summary>
-    /// Runs after the database container started and before the host is built, for example to
-    /// apply migrations that hosted services need from their first run.
+    /// Runs after the host's empty database was created and before the host is built, for example
+    /// to apply migrations that hosted services need from their first run.
     /// </summary>
-    protected virtual Task OnDatabaseStartedAsync()
+    protected virtual Task OnDatabaseCreatedAsync()
     {
         return Task.CompletedTask;
     }
@@ -359,7 +360,6 @@ public class AssistantSampleHost : IAsyncLifetime
             await _app.StopAsync();
             await _app.DisposeAsync();
         }
-        await _database.DisposeAsync();
     }
 
     /// <summary>

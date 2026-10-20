@@ -137,7 +137,7 @@ public sealed class PartnerPortalSamplesTests(PartnerPortalSampleHost host) : IC
 /// project memberships, background operations and notifications registered without the NewHeap
 /// platform builder, and an agent that reviews submitted partner projects.
 /// </summary>
-public sealed class PartnerPortalSampleHost : AssistantSampleHost
+public sealed class PartnerPortalSampleHost(SamplePostgreSqlServer postgreSql) : AssistantSampleHost(postgreSql)
 {
     public const string AgentId = "partner-project-reviewer";
     public const string TriggerId = "partner-project-submitted";
@@ -161,7 +161,7 @@ public sealed class PartnerPortalSampleHost : AssistantSampleHost
         _hangfireStorage.Dispose();
     }
 
-    protected override async Task OnDatabaseStartedAsync()
+    protected override async Task OnDatabaseCreatedAsync()
     {
         // The portal creates its schema itself; in an application this is its own migration.
         var options = new DbContextOptionsBuilder<PartnerPortalDbContext>()

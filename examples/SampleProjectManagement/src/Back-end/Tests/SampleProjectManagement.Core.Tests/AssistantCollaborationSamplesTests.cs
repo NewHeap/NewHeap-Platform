@@ -101,7 +101,7 @@ public sealed class AssistantCollaborationSamplesTests(AssistantCollaborationSam
 /// <summary>
 /// The assistant sample host plus the sample DAL, so the division directory finds real users.
 /// </summary>
-public class AssistantCollaborationSampleHost : AssistantSampleHost
+public class AssistantCollaborationSampleHost(SamplePostgreSqlServer postgreSql) : AssistantSampleHost(postgreSql)
 {
     public Guid OwnerId { get; } = Guid.NewGuid();
 

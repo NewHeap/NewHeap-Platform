@@ -19,7 +19,6 @@ using SampleProjectManagement.Api.Authorization;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Services;
 using SampleProjectManagement.DAL;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
@@ -29,25 +28,14 @@ namespace SampleProjectManagement.Core.Tests;
 /// signs in with a password and an authenticator code, a security officer enrolls during
 /// sign-in, and the sample migrations include the passkey table.
 /// </summary>
-public sealed class TwoFactorSamplesTests : IAsyncLifetime
+public sealed class TwoFactorSamplesTests(SamplePostgreSqlServer postgreSql)
 {
-    private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:16-alpine").Build();
-
-    public async ValueTask InitializeAsync()
-    {
-        await _database.StartAsync();
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await _database.DisposeAsync();
-    }
-
     [Fact]
     public async Task SeededTwoFactorAccountCompletesTheChallengeWithAnAuthenticatorCode()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        using var application = BuildApplication(_database.GetConnectionString());
+        // An empty database of its own: the test applies every sample migration to it.
+        using var application = BuildApplication(await postgreSql.CreateDatabaseAsync("two_factor_sample"));
         using var scope = application.Services.CreateScope();
 
         var context = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();

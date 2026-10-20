@@ -296,7 +296,7 @@ public sealed class AssistantEndToEndSamplesTests(AssistantEndToEndHost host) : 
 /// The assistant sample host with the API bridge composed as in Program.cs, permission-based
 /// policies, a recording handler for the bridge's self-HTTP hop and capturing audit and log sinks.
 /// </summary>
-public sealed class AssistantEndToEndHost : AssistantSampleHost
+public sealed class AssistantEndToEndHost(SamplePostgreSqlServer postgreSql) : AssistantSampleHost(postgreSql)
 {
     public const string BridgeResultMarker = "bridge-result-e2e-7c1";
 

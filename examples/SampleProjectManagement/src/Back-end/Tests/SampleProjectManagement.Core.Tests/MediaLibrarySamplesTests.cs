@@ -15,12 +15,11 @@ using NewHeap.Platform.Media.MediaStorage.S3Bucket;
 using SampleProjectManagement.Api.Events;
 using SampleProjectManagement.Api.Services;
 using System.Text;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
 
-public class MediaLibrarySamplesTests
+public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
 {
     [Fact]
     public async Task CompositionRootRegistersConcreteMediaModules()
@@ -97,8 +96,7 @@ public class MediaLibrarySamplesTests
     [Fact]
     public async Task ReferencedFilesResolveWithOneBatchLookupOnPostgreSql()
     {
-        await using var database = new PostgreSqlBuilder("postgres:16-alpine").Build();
-        await database.StartAsync(TestContext.Current.CancellationToken);
+        var database = await postgreSql.CreateDatabaseAsync("media_sample");
         var storagePath = CreateTempDirectory();
         try
         {
@@ -111,7 +109,7 @@ public class MediaLibrarySamplesTests
             services.AddSingleton<SampleMediaAuthorizationLog>();
             services.AddNhMedia(media =>
             {
-                media.UsePostgreSqlFileStructureStorage(database.GetConnectionString(), options =>
+                media.UsePostgreSqlFileStructureStorage(database, options =>
                 {
                     options.Scheme = "project_media";
                     options.RunMigrations = false;
