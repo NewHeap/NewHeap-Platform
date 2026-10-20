@@ -101,6 +101,16 @@ export const SAMPLE_ROUTES: Routes = [
           .then(module => module.AssistantAdministrationPageComponent)
       },
       {
+        // SPM-304: the board of the project management group of agents; the server decides which
+        // agents each person sees on it.
+        path: 'project-management',
+        title: 'Project management',
+        canActivate: [NhIsAllPermissionsGrantedGuard],
+        data: { allMatchPermissions: ['app.assistant.access', 'app.project.view'] },
+        loadComponent: () => import('./project-management-board/project-management-board-page.component')
+          .then(module => module.ProjectManagementBoardPageComponent)
+      },
+      {
         path: 'project-members',
         title: 'Project members',
         canActivate: [NhIsOnePermissionGrantedGuard],

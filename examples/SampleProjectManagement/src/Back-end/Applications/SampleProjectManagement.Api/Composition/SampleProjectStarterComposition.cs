@@ -53,6 +53,8 @@ public static class SampleProjectStarterComposition
             // SPM-302: the whole application is read app-wide; administrators decide its proposals,
             // as the default approve policy (the administration policy) says.
             .UseSystemSubject(system => system.ReadPolicy(ProjectViewPolicy))
+            // SPM-304: the project management group, which the follow-up joins in the administration.
+            .AddSampleProjectManagementGroup()
             .AddTriggerEvent<ProjectCreatedEvent>(ProjectCreatedEvent, evt => evt
                 .Description("A project was created.")
                 .Subject(ProjectSubjects.Type, created => ProjectSubjects.IdOf(created.ProjectId))

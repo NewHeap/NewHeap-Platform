@@ -659,6 +659,17 @@ public static class NhAssistantErrorCodes
     /// subject id without its type, a period that ends before it starts, or a page out of range.
     /// </summary>
     public const string RunFilterInvalid = "assistant-run-filter-invalid";
+
+    /// <summary>
+    /// The board of a group of agents was not found: the group is not registered, or the person sees
+    /// none of its agents in the asked scope, or may not work in the asked division.
+    /// </summary>
+    public const string BoardNotFound = "assistant-board-not-found";
+
+    /// <summary>
+    /// A board was asked for a division id that is not a division id.
+    /// </summary>
+    public const string BoardScopeInvalid = "assistant-board-scope-invalid";
     public const string ApprovalPolicyDenied = "assistant-approval-policy-denied";
     public const string FourEyesRequired = "assistant-four-eyes-required";
     public const string ExecutionNotUncertain = "assistant-execution-not-uncertain";

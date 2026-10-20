@@ -23,6 +23,7 @@ import {
 import { Observable, Subject } from 'rxjs';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
 import { NhAssistantMockAgentRuns } from './nh-assistant-mock-agent-runs';
+import { NhAssistantMockBoards } from './nh-assistant-mock-boards';
 import { NhAssistantMockProposals } from './nh-assistant-mock-proposals';
 import { NhAssistantMockSubjects } from './nh-assistant-mock-subjects';
 import { NhAssistantMockAuthorizationWindow } from './nh-assistant-mock-authorization';
@@ -99,6 +100,15 @@ export class NhAssistantMockBackend {
       agents: () => this.admin.allAgents(),
       administers: () => this.admin.administers,
       threadProposals: conversationId => this.proposals.ofThread(conversationId)
+    },
+    () => new Date().toISOString());
+  private readonly boards = new NhAssistantMockBoards(
+    this.scenario,
+    this.subjects,
+    this.agentRuns,
+    {
+      agents: () => this.admin.allAgents(),
+      administers: () => this.admin.administers
     },
     () => new Date().toISOString());
   private readonly canAdministerState = signal(this.admin.administers);
@@ -261,12 +271,26 @@ export class NhAssistantMockBackend {
     if (segments[0] === 'admin' && segments[1] === 'agents' && segments[3] === 'runs' && segments.length === 4) {
       return this.result(this.agentRuns.handleAgentRuns(method, segments[2], query, language));
     }
+    if (segments[0] === 'admin' && segments[1] === 'agents' && segments[3] === 'groups' && segments.length === 4) {
+      return this.result(this.boards.handleAdminGroups(method, segments[2], body));
+    }
     if (segments[0] === 'admin') {
       const result = this.admin.handleAdmin(method, segments, body, query);
-      // The run catalog lists the subject types in the request's language, as the server does.
-      return this.result(method === 'GET' && segments.length === 2 && segments[1] === 'run-catalog' && result.status === 200
-        ? { ...result, body: { ...(result.body as object), subjectTypes: this.subjects.catalog(language) } }
-        : result);
+      if (method === 'DELETE' && segments[1] === 'agents' && segments.length === 3 && result.status === 204) {
+        this.boards.forget(segments[2]);
+      }
+      // The run catalog lists the subject types and the groups in the request's language, as the
+      // server does; agents carry their groups.
+      if (method === 'GET' && segments.length === 2 && segments[1] === 'run-catalog' && result.status === 200) {
+        return this.result({
+          ...result,
+          body: { ...(result.body as object), subjectTypes: this.subjects.catalog(language), agentGroups: this.boards.catalog(language) }
+        });
+      }
+      return this.result(segments[1] === 'agents' && result.status >= 200 && result.status < 300 ? this.withGroups(result) : result);
+    }
+    if (segments[0] === 'boards') {
+      return this.result(this.boards.handle(method, segments, query, language) ?? { status: 404 });
     }
     if (segments[0] === 'subjects') {
       return this.result(this.agentRuns.handleSubjects(method, segments, language)
@@ -809,6 +833,22 @@ export class NhAssistantMockBackend {
     this.sequence++;
     const suffix = this.sequence.toString(16).padStart(12, '0');
     return `00000000-0000-4000-8000-${suffix}`;
+  }
+
+  /** An administration answer about agents with each agent's groups, as the server answers it. */
+  private withGroups(result: { status: number; body?: unknown }): { status: number; body?: unknown } {
+    const enrich = (item: unknown): unknown => {
+      const agent = item as { id?: unknown; source?: unknown } | null;
+      return agent && typeof agent.id === 'string' && typeof agent.source === 'string'
+        ? { ...agent, ...this.groupsOf(agent.id) }
+        : item;
+    };
+    return Array.isArray(result.body) ? { ...result, body: result.body.map(enrich) } : { ...result, body: enrich(result.body) };
+  }
+
+  private groupsOf(agentId: string): { groups: string[]; codeGroups: string[] } {
+    const membership = this.boards.membership(agentId);
+    return { groups: membership.groups, codeGroups: membership.codeGroups };
   }
 
   private result(result: { status: number; body?: unknown }): Response {

@@ -178,6 +178,22 @@ export interface AdminAgent extends AdminAgentInput {
    * accepts hand-offs and consultations about, those its triggers name and those of its threads.
    */
   knownSubjectTypes?: string[];
+  /**
+   * The groups of agents the agent is in now, by id: an administrator's choice per group, otherwise
+   * its `InGroup` in code; missing on older servers. Change them with `setAgentGroups`.
+   */
+  groups?: string[];
+  /** The groups the agent joins in code, by id; empty for an agent created here. */
+  codeGroups?: string[];
+}
+
+/** The groups one agent is in, as `setAgentGroups` answers. */
+export interface AdminAgentGroups {
+  agentId: string;
+  /** The groups the agent is in now, by id. */
+  groups: string[];
+  /** The groups it joins in code, by id. */
+  codeGroups: string[];
 }
 
 /** The shadow modes an administrator chooses; `code` lets the mode in code decide again. */
@@ -789,6 +805,21 @@ export interface RunCatalog {
   agentPolicies?: RunBlock[];
   /** Whether the application lists its divisions, so an agent may work per division. */
   divisions?: boolean;
+  /**
+   * The groups of agents the application registers in code, by id, with their names in the request's
+   * language: what an administrator may put an agent in; missing on older servers.
+   */
+  agentGroups?: AgentGroup[];
+}
+
+/** A group of agents the application registers in code, as people see it. */
+export interface AgentGroup {
+  /** The dash-case group id, such as `project-management`. */
+  id: string;
+  /** The group's name in the request's language. */
+  name: string;
+  /** What the group's agents do, when the application described it. */
+  description: string | null;
 }
 
 /** A subject type as people see it, from the run catalog. */

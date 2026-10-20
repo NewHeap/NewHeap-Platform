@@ -376,6 +376,26 @@ shadow runs marked, with its trigger, object, the beginning of its result, propo
 duration, filtered by kind of object, one object by id, the whole application, status and a period
 whose last day counts in full; "Show the result" opens the run in `nh-assistant-run-result`.
 
+Show a group of agents on a page of the application with `nh-assistant-agent-board`
+(`NhAssistantAgentBoardComponent`, `group`, optional `divisionId`) from
+`@newheap/platform-ai-chat/agent-runs`, for example a "Project management" page for the group the server
+registers with `AddAgentGroup`. Each agent the person may see gets a tile: what it works on, its latest
+result for the whole application rendered with the assistant's safe Markdown rendering, "New" for what
+arrived since the person's last visit of the board, "Run now" when the server says `canStart` (the
+run-now dialog runs it for the whole application without asking), its open proposals, shown on demand
+in `nh-assistant-agent-inbox` filtered by the agent, and its history with every result on demand. An
+agent that works only on objects, or per division on the board of the whole application, shows what it
+works on without a result. Showing the board records the visit (`visitBoard`) once, after it was read,
+so the next visit marks what is new after this one; with live updates the board reloads by itself. It
+emits `openConversation` for `NhAssistantPanelService.open`. `NhAssistantAgentRunApiService.getBoards`
+(`AgentBoardList`), `getBoard` (`AgentBoard`, `AgentBoardAgent`) and `visitBoard` (`AgentBoardVisit`)
+are the calls behind it; an unknown board, or one of which the person sees no agent, reads as not
+available. Guard the page's route and its navigation link with the permissions the agents' view
+policies need. In the administration the agent editor lists the run catalog's `agentGroups`
+(`AgentGroup`) for agents in code and agents created there, marks the groups of the agent's code and
+saves the choice with `NhAssistantAdminApiService.setAgentGroups` (`AdminAgentGroups`); the agent cards
+name the agent's groups.
+
 Live updates connect to the hub path the server reports in `status.collaboration`,
 using `@microsoft/signalr`, loaded on first use, and the same `getAccessToken`. When
 a proxy serves the API below a prefix, set `hubBaseUrl` to that prefix (for example
@@ -423,6 +443,9 @@ the administration route under the same parent to share that scope.
   `AgentRunResult.result`) as HTML or through an unsanitized Markdown pipe; it is model output. Show
   previews as text and the whole result with `nh-assistant-run-result`.
 - Showing "Run now" from the client's own idea of who may run an agent; use the server's `canStart`.
+- Building an agents page that reads each agent's runs and decides "new" itself; use
+  `nh-assistant-agent-board`, which follows the server's visibility and the person's visits.
+- Recording a board visit before reading the board; the visit then hides what is new.
 - Sending the assistant requests through host `HttpClient` interceptors or
   `EventSource`; the library streams through `fetch` with the token from
   `getAccessToken`.
@@ -629,7 +652,15 @@ and stay within 375px; the runs-view tests list every run of an agent with shado
 status and the period, refuse an inverted period at its field, narrow to one object, open a run and
 return focus to its action, and let the mock API list and filter runs with the server's visibility and
 validation (`NhAssistantMockScenario.runs`, `NhAssistantMockRun`). The playground's administration
-shows earlier runs of the project follow-up (SPM-304).
+shows earlier runs of the project follow-up (SPM-304). The board tests show a group's tiles with
+what each agent works on, render the latest result as safe Markdown, mark what is new, record the
+visit once after reading the board, show no "New" on the next visit, open the whole result, the
+history and run now, show a board that is not available, and keep one column without sideways scrolling
+at 375px and several columns on a wide page; the editor tests save the groups an administrator chooses
+and mark those of the code, and the mock API serves groups, memberships, boards and visits with the
+server's validation (`NhAssistantMockScenario.agentGroups`, `NhAssistantMockAgentGroup`). The portal's
+Project management page shows the group's board with the project follow-up against the real back-end,
+and the playground shows it on the mock API (SPM-304).
 SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298 and SPM-301 to SPM-304 are the
 executable references.
 
@@ -720,7 +751,7 @@ executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
   - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts)
   - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html)
-- SPM-304 — The administration's runs view lists every run of the project follow-up, and people who pass its view policy read its result for the whole application
+- SPM-304 — The administration's runs view lists every run of the project follow-up, and the portal's Project management board shows its latest result, what is new and its history to people who pass its view policy
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)

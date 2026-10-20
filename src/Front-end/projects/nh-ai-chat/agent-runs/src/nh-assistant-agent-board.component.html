@@ -1,0 +1,162 @@
+<section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()" data-agent-board>
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ board()?.name ?? ('nh-assistant.agent-runs.board.title' | translate) }}</h3>
+      @if (board(); as shown) {
+        @if (shown.description; as description) {
+          <p class="muted">{{ description }}</p>
+        }
+        @if (shown.lastVisitedAt; as visitedAt) {
+          <p class="muted" data-board-last-visit>{{ 'nh-assistant.agent-runs.board.last-visit' | translate: { date: (visitedAt | date: 'medium') } }}</p>
+        } @else {
+          <p class="muted" data-board-first-visit>{{ 'nh-assistant.agent-runs.board.first-visit' | translate }}</p>
+        }
+      }
+    </div>
+    <div class="toolbar">
+      <button class="secondary" type="button" [disabled]="loading()" (click)="load()">
+        <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.refresh' | translate }}
+      </button>
+    </div>
+  </header>
+
+  @if (loading() && !board()) {
+    <p class="state" role="status">{{ 'nh-assistant.agent-runs.board.loading' | translate }}</p>
+  } @else if (notFound()) {
+    <p class="state" data-board-not-found>{{ 'nh-assistant.agent-runs.board.not-found' | translate }}</p>
+  } @else if (loadFailed()) {
+    <div class="state" role="alert">
+      <p>{{ 'nh-assistant.agent-runs.load-failed' | translate }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.agent-runs.retry' | translate }}</button>
+    </div>
+  } @else {
+    <ul class="cards board-tiles">
+      @for (agent of agents(); track agent.agentId) {
+        <li class="card board-tile" [class.new]="agent.isNew" [attr.data-board-agent]="agent.agentId" [attr.aria-labelledby]="id + '-' + agent.agentId + '-name'">
+          <div class="card-header">
+            <strong [id]="id + '-' + agent.agentId + '-name'">{{ [agent.displayNameKey] | nhAssistantTranslate: agent.displayNameKey }}</strong>
+            @if (agent.isNew) {
+              <span class="badge new" data-board-new [attr.title]="'nh-assistant.agent-runs.board.new-label' | translate">
+                {{ 'nh-assistant.agent-runs.board.new' | translate }}<span class="visually-hidden">: {{ 'nh-assistant.agent-runs.board.new-label' | translate }}</span>
+              </span>
+            }
+            <span class="badge" [class.warning]="agent.openProposals > 0" data-open-proposals>
+              {{ proposalsKey(agent.openProposals) | translate: { count: agent.openProposals } }}
+            </span>
+          </div>
+          @if ([agent.descriptionKey] | nhAssistantTranslate: agent.descriptionKey; as description) {
+            <p class="muted">{{ description }}</p>
+          }
+          <p class="muted" data-works-on>{{ worksOnOf(agent) }}</p>
+
+          @if (agent.subjectType) {
+            @if (agent.latestRun; as run) {
+              <div class="latest-run" data-latest-run>
+                <div class="meta">
+                  <span>{{ 'nh-assistant.agent-runs.board.latest' | translate }}</span>
+                  <span
+                    class="badge"
+                    [class.success]="run.status === 'completed'"
+                    [class.danger]="run.status === 'failed'"
+                    [class.warning]="run.status === 'waiting-for-approval'">{{ 'nh-assistant.agent-runs.run.status.' + run.status | translate }}</span>
+                  <time [attr.datetime]="run.at">{{ run.at | date: 'medium' }}</time>
+                </div>
+                @if (run.failureCode; as reason) {
+                  <p class="muted">{{ 'nh-assistant.agent-runs.object-agents.failure' | translate: { reason: (['nh-assistant.errors.' + reason] | nhAssistantTranslate: reason) } }}</p>
+                }
+                @if (run.result; as result) {
+                  <!-- Model output: rendered only through the assistant's safe Markdown rendering. -->
+                  <div class="markdown board-preview" data-latest-result [innerHTML]="previewOf(result, run.resultTruncated) | nhAssistantMarkdown"></div>
+                } @else {
+                  <p class="muted">{{ 'nh-assistant.agent-runs.object-agents.no-result' | translate }}</p>
+                }
+              </div>
+            } @else {
+              <p class="muted" data-never-run>{{ 'nh-assistant.agent-runs.board.never' | translate }}</p>
+            }
+          } @else {
+            <p class="muted" data-board-no-application>
+              {{ (agent.worksOn.perDivision ? 'nh-assistant.agent-runs.board.per-division' : 'nh-assistant.agent-runs.board.objects-only') | translate }}
+            </p>
+          }
+
+          <div class="card-actions">
+            @if (agent.canStart) {
+              <button class="primary" type="button" aria-haspopup="dialog" data-board-run-now (click)="runNow(agent)">
+                <nh-assistant-icon name="send" />{{ 'nh-assistant.agent-runs.board.run-now' | translate }}
+              </button>
+            }
+            @if (agent.latestRun) {
+              <button
+                class="secondary"
+                type="button"
+                data-board-toggle-result
+                [attr.aria-expanded]="panelOf(agent) === 'result'"
+                [attr.aria-controls]="id + '-' + agent.agentId + '-panel'"
+                (click)="toggle(agent, 'result')">
+                <nh-assistant-icon name="page" />{{ (panelOf(agent) === 'result' ? 'nh-assistant.agent-runs.result.hide' : 'nh-assistant.agent-runs.result.show') | translate }}
+              </button>
+            }
+            @if (agent.openProposals > 0) {
+              <button
+                class="secondary"
+                type="button"
+                data-board-toggle-proposals
+                [attr.aria-expanded]="panelOf(agent) === 'proposals'"
+                [attr.aria-controls]="id + '-' + agent.agentId + '-panel'"
+                (click)="toggle(agent, 'proposals')">
+                <nh-assistant-icon name="check" />{{ (panelOf(agent) === 'proposals' ? 'nh-assistant.agent-runs.board.hide-proposals' : 'nh-assistant.agent-runs.board.show-proposals') | translate }}
+              </button>
+            }
+            @if (agent.subjectType) {
+              <button
+                class="secondary"
+                type="button"
+                data-board-toggle-history
+                [attr.aria-expanded]="panelOf(agent) === 'history'"
+                [attr.aria-controls]="id + '-' + agent.agentId + '-panel'"
+                (click)="toggle(agent, 'history')">
+                <nh-assistant-icon name="list" />{{ (panelOf(agent) === 'history' ? 'nh-assistant.agent-runs.board.hide-history' : 'nh-assistant.agent-runs.board.show-history') | translate }}
+              </button>
+            }
+          </div>
+
+          @switch (panelOf(agent)) {
+            @case ('result') {
+              @if (agent.latestRun; as run) {
+                <div class="work" [id]="id + '-' + agent.agentId + '-panel'">
+                  <nh-assistant-run-result [runId]="run.runId" (openConversation)="openConversation.emit($event)" />
+                </div>
+              }
+            }
+            @case ('proposals') {
+              <div class="work" [id]="id + '-' + agent.agentId + '-panel'">
+                <nh-assistant-agent-inbox [agentId]="agent.agentId" (openConversation)="openConversation.emit($event)" />
+              </div>
+            }
+            @case ('history') {
+              @if (agent.subjectType && agent.subjectId) {
+                <div class="work" [id]="id + '-' + agent.agentId + '-panel'">
+                  <nh-assistant-board-history
+                    [agentId]="agent.agentId"
+                    [subjectType]="agent.subjectType"
+                    [subjectId]="agent.subjectId"
+                    (openConversation)="openConversation.emit($event)" />
+                </div>
+              }
+            }
+          }
+        </li>
+      }
+    </ul>
+  }
+
+  @if (runNowAgent(); as runAgent) {
+    <nh-assistant-run-now-dialog
+      [agent]="runAgent"
+      [subject]="runNowSubject()"
+      (started)="onStarted()"
+      (openConversation)="openConversation.emit($event)"
+      (closed)="runningNow.set(null)" />
+  }
+</section>

@@ -335,6 +335,8 @@
       "assistant-run-not-found": "De run is niet gevonden.",
       "assistant-run-not-retryable": "Deze run kan niet opnieuw worden gestart.",
       "assistant-run-filter-invalid": "Het filter van de runs is niet geldig.",
+      "assistant-board-not-found": "Dit bord bestaat niet, of je mag geen van zijn agents zien.",
+      "assistant-board-scope-invalid": "De divisie van het bord is niet geldig.",
       "assistant-approval-policy-denied": "Je mag over dit voorstel niet beslissen.",
       "assistant-four-eyes-required": "Iemand anders dan de starter moet hierover beslissen.",
       "assistant-execution-not-uncertain": "Deze uitvoering wacht niet op afhandeling.",
@@ -645,7 +647,8 @@
           "known": "Werkt bekend aan: {{types}}.",
           "run-policy": "Te starten voor de hele applicatie door: {{policy}}.",
           "view-policy": "Resultaten voor de hele applicatie zichtbaar voor: {{policy}}."
-        }
+        },
+        "groups": "Groepen: {{groups}}"
       },
       "agent-editor": {
         "new-title": "Nieuwe agent",
@@ -705,6 +708,12 @@
           "view-policy": "Wie zijn resultaten voor de hele applicatie ziet",
           "view-policy-default": "Iedereen die de agent mag gebruiken (standaard)",
           "view-policy-hint": "Resultaten over een object volgen wie dat object mag lezen."
+        },
+        "groups": {
+          "title": "Groepen",
+          "hint": "Pagina's van de applicatie tonen de agents van een groep op een bord, met hun laatste resultaten. Jouw keuze gaat boven de code.",
+          "in-code": "In deze groep in de code",
+          "shadow-variant": "Een schaduwvariant werkt alleen voor beheerders en hoort bij geen groep."
         }
       },
       "effect": {
@@ -1635,6 +1644,33 @@
         "no-proposals": "Deze run heeft niets voorgesteld.",
         "hidden-proposals": "Nog {{count}} voorstellen wachten bij objecten die je niet mag zien.",
         "files": "Bestanden"
+      },
+      "board": {
+        "title": "Agents",
+        "loading": "Het bord laden…",
+        "not-found": "Dit bord bestaat niet, of je mag geen van zijn agents zien.",
+        "last-visit": "Je keek hier voor het laatst op {{date}}. Wat sindsdien kwam, staat als nieuw gemarkeerd.",
+        "first-visit": "Alles hier is nieuw voor je.",
+        "new": "Nieuw",
+        "new-label": "Nieuw sinds je laatste bezoek",
+        "works-on": "Werkt aan {{list}}",
+        "works-on-all": "alle soorten objecten",
+        "works-on-application": "de hele applicatie",
+        "works-on-application-per-division": "de hele applicatie, per divisie",
+        "per-division": "Werkt per divisie: de resultaten staan op het bord van een divisie.",
+        "objects-only": "Werkt alleen aan objecten: de resultaten staan bij elk object.",
+        "latest": "Laatste resultaat",
+        "never": "Nog niet uitgevoerd voor de hele applicatie.",
+        "run-now": "Nu uitvoeren",
+        "show-proposals": "Toon de voorstellen",
+        "hide-proposals": "Verberg de voorstellen",
+        "show-history": "Toon de geschiedenis",
+        "hide-history": "Verberg de geschiedenis",
+        "history-title": "Runs voor de hele applicatie",
+        "history-loading": "De runs laden…",
+        "history-empty": "Nog geen runs.",
+        "history-more": "Toon meer runs",
+        "history-limited": "Oudere runs staan hier niet."
       }
     },
     "subject-picker": {

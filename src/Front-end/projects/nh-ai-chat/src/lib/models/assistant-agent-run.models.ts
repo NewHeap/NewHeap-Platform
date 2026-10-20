@@ -667,3 +667,93 @@ export type AgentRunRetryMode = 'resume' | 'restart';
 
 /** `re-execute` runs the proposal again; `mark-resolved` confirms its outcome without running it. */
 export type AgentExecutionResolution = 're-execute' | 'mark-resolved';
+
+/** A board of a group of agents the caller may open (`getBoards`). */
+export interface AgentBoardSummary {
+  /** The group id, such as `project-management`. */
+  id: string;
+  /** The group's name in the request's language. */
+  name: string;
+  /** What the group's agents do, when the application described it. */
+  description: string | null;
+  /** How many of the group's agents the caller sees on its board. */
+  agentCount: number;
+}
+
+/** The boards the caller may open, ordered by name. */
+export interface AgentBoardList {
+  items: AgentBoardSummary[];
+}
+
+/** A kind of object as a board names it. */
+export interface AgentBoardSubjectType {
+  id: string;
+  /** The name of one object in the request's language; the id without a name. */
+  name: string;
+  /** The name of several objects, when the application gave one. */
+  pluralName: string | null;
+}
+
+/** What an agent on a board works on. */
+export interface AgentBoardWorksOn {
+  /** Every kind of object. */
+  allObjects: boolean;
+  /** The whole application. */
+  application: boolean;
+  /** Per division instead of app-wide. */
+  perDivision: boolean;
+  /** The kinds of objects it names, by id. */
+  subjectTypes: AgentBoardSubjectType[];
+}
+
+/** One agent on a board. */
+export interface AgentBoardAgent {
+  agentId: string;
+  /** A translation key for an agent in code, the text itself for one created in the administration. */
+  displayNameKey: string;
+  descriptionKey: string;
+  worksOn: AgentBoardWorksOn;
+  /**
+   * `nh-system` when the agent works on the whole application in the board's scope; `null` for an
+   * agent without such work there, which the board shows without a result or a start.
+   */
+  subjectType: string | null;
+  /** `global` for an app-wide agent, `division-…` for a per-division agent on a division's board. */
+  subjectId: string | null;
+  /** The name of that subject in the request's language. */
+  subjectDisplayName: string | null;
+  /** Whether the caller may run the agent for that subject now. */
+  canStart: boolean;
+  /** The agent's thread of that subject, when the caller may open it. */
+  conversationId: string | null;
+  /** The agent's newest run for that subject; `null` before its first. */
+  latestRun: AgentLatestRun | null;
+  /** The open proposals of that thread. */
+  openProposals: number;
+  /**
+   * Whether the latest run ended, or a proposal was made, after the caller's last visit of the board
+   * in this scope; before the first visit everything shown is new.
+   */
+  isNew: boolean;
+}
+
+/** The board of one group in one scope (`getBoard`). */
+export interface AgentBoard {
+  id: string;
+  name: string;
+  description: string | null;
+  /** `global`, or `division:{id}` for the board of one division. */
+  scopeKey: string;
+  divisionId: string | null;
+  /** When the caller last looked at this board in this scope, before this read; `null` before the first visit. */
+  lastVisitedAt: string | null;
+  /** The group's agents the caller sees, ordered by id. */
+  agents: AgentBoardAgent[];
+}
+
+/** A recorded visit of a board (`visitBoard`). */
+export interface AgentBoardVisit {
+  groupId: string;
+  scopeKey: string;
+  visitedAt: string;
+}

@@ -204,7 +204,10 @@ internal static class NhAssistantSubjectEndpoints
         var cancellationToken = httpContext.RequestAborted;
         var agentId = request.AgentId!;
         var info = await subjects.DescribeAsync(subject!, cancellationToken);
-        var access = info is null ? NhAiSubjectAccess.None : await subjects.ResolveAsync(subject!, caller.Data!.ActorId, cancellationToken);
+        // The agent's thread of the whole application is only for people who pass its view policy.
+        var access = info is null
+            ? NhAiSubjectAccess.None
+            : await subjects.ResolveForAgentAsync(subject!, agentId, caller.Data!.ActorId, cancellationToken);
         if (info is null || access.Role == NhAiSubjectRole.None)
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.SubjectNotFound);

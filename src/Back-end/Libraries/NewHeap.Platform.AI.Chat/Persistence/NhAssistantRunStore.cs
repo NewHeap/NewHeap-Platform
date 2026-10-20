@@ -1512,6 +1512,41 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// Per thread its open proposals, pending and not expired: those it holds and those its runs
+    /// placed at other objects, with when the newest of them was made, in one query; threads without
+    /// open proposals are left out.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, (int Count, DateTimeOffset Newest)>> GetOpenProposalStatsAsync(
+        IReadOnlyCollection<Guid> conversationIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(conversationIds);
+        if (conversationIds.Count == 0)
+        {
+            return new Dictionary<Guid, (int, DateTimeOffset)>();
+        }
+
+        var ids = conversationIds.Distinct().ToArray();
+        var now = DateTimeOffset.UtcNow;
+        await using var context = contextFactory.CreateDbContext();
+        var stats = await context.Approvals
+            .AsNoTracking()
+            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending
+                && approval.ExpiresAt > now
+                && (ids.Contains(approval.ConversationId)
+                    || (approval.PlacedFromConversationId != null && ids.Contains(approval.PlacedFromConversationId.Value))))
+            .GroupBy(approval => approval.PlacedFromConversationId ?? approval.ConversationId)
+            .Select(group => new
+            {
+                ConversationId = group.Key,
+                Count = group.Count(),
+                Newest = group.Max(approval => approval.CreatedAt)
+            })
+            .ToListAsync(cancellationToken);
+        return stats.ToDictionary(item => item.ConversationId, item => (item.Count, item.Newest));
+    }
+
+    /// <summary>
     /// The newest run of each of the threads, by when it was created; threads without runs are left
     /// out.
     /// </summary>

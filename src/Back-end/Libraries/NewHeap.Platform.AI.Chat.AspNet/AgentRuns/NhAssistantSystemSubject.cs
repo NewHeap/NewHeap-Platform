@@ -23,7 +23,10 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// division policy is met, in a division it is evaluated for that division. A division subject needs
 /// access to the division as well. Who may run an agent for it by hand is the agent's run policy,
 /// evaluated the same way (<see cref="MayRunAsync"/>), and who sees its results is the agent's view
-/// policy, by default its required policy (<see cref="MayViewAsync"/>).
+/// policy, by default its required policy (<see cref="MayViewAsync"/>). An agent's thread of the whole
+/// application, with its conversation, proposals and files, is read by people who have the read role
+/// and pass that view policy as well (<see cref="MayReadAgentThreadAsync"/>); deciding its proposals
+/// keeps the approve policy and the approval policy's rules.
 /// With listed divisions people find the divisions by name, as the subjects of a per-division agent.
 /// </summary>
 /// <remarks>
@@ -50,6 +53,8 @@ internal sealed class NhAssistantSystemSubjectResolver(
     private static readonly TimeSpan RoleLifetime = TimeSpan.FromSeconds(10);
 
     private readonly ConcurrentDictionary<(string SubjectId, string ActorId), (NhAiSubjectAccess Access, long At)> _roles = new();
+    private readonly ConcurrentDictionary<(string SubjectId, string ActorId, string Policy), (bool May, long At)> _views = new();
+    private readonly ConcurrentDictionary<string, (string? Policy, bool Exists)> _viewPolicies = new(StringComparer.Ordinal);
 
     public string SubjectType => NhAiSubjectRef.SystemType;
 
@@ -194,13 +199,61 @@ internal sealed class NhAssistantSystemSubjectResolver(
             return false;
         }
 
-        if (await PersonAsync(subject, actorId, cancellationToken) is not { } person)
+        // Kept for a few seconds like the roles, so a board or a listing evaluates each policy once.
+        var key = (subject.Id, actorId, viewPolicy ?? string.Empty);
+        var now = Environment.TickCount64;
+        if (_views.TryGetValue(key, out var cached) && now - cached.At < (long)RoleLifetime.TotalMilliseconds)
         {
-            return false;
+            return cached.May;
         }
 
-        return viewPolicy is null
-            || (await authorization.AuthorizeAsync(person.Principal, person.Resource, viewPolicy)).Succeeded;
+        var may = await PersonAsync(subject, actorId, cancellationToken) is { } person
+            && (viewPolicy is null
+                || (await authorization.AuthorizeAsync(person.Principal, person.Resource, viewPolicy)).Succeeded);
+        if (_views.Count >= MaxCachedRoles)
+        {
+            _views.Clear();
+        }
+        _views[key] = (may, now);
+        return may;
+    }
+
+    /// <summary>
+    /// Whether the person may see the results of <paramref name="agentId"/> for
+    /// <paramref name="subject"/>: <see cref="MayViewAsync"/> with the agent's view policy, otherwise
+    /// its required policy. An agent that no longer exists shows nothing.
+    /// </summary>
+    public async Task<bool> MayViewAgentAsync(
+        NhAiSubjectRef subject,
+        string agentId,
+        string actorId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        if (!_viewPolicies.TryGetValue(agentId, out var known))
+        {
+            state.AgentRuns.TryGetValue(agentId, out var runOptions);
+            var agent = await services.GetRequiredService<NhAssistantAgentCatalog>()
+                .FindAsync(agentId, includeDisabled: true, cancellationToken);
+            known = (ViewPolicyOf(runOptions, agent?.Definition), runOptions is not null || agent is not null);
+            _viewPolicies[agentId] = known;
+        }
+
+        return known.Exists && await MayViewAsync(subject, actorId, known.Policy, cancellationToken);
+    }
+
+    /// <summary>
+    /// The agent's thread of the whole application is read by the people who see the agent's results
+    /// there (K14), next to the role the read policy gives: never more widely than its view policy.
+    /// </summary>
+    public async ValueTask<bool> MayReadAgentThreadAsync(
+        NhAiSubjectRef subject,
+        string agentId,
+        string actorId,
+        CancellationToken cancellationToken = default)
+    {
+        return await MayViewAgentAsync(subject, agentId, actorId, cancellationToken);
     }
 
     /// <summary>

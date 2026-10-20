@@ -299,6 +299,32 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Registers a group of agents, such as <c>project-management</c>, with its name per language and
+    /// an optional description, for a page of the application that shows the group with the
+    /// <c>nh-assistant-agent-board</c> component. Agents join it in code with
+    /// <see cref="NhAssistantAgentRunBuilder.InGroup"/>; administrators add any agent to a group or
+    /// remove it, and their choice wins over code. Groups exist only in code. The id is dash-case,
+    /// at most 64 characters; a group needs a name. Registering the same group again, for example from
+    /// every composition whose agents join it, keeps it; another group with the same id is refused.
+    /// </summary>
+    public NhAssistantBuilder AddAgentGroup(string groupId, Action<NhAssistantAgentGroupBuilder> configure)
+    {
+        if (!NhAssistantAgentGroupDefinition.IsValidId(groupId))
+        {
+            throw new ArgumentException(
+                $"An agent group id is a dash-case identifier of at most {NhAssistantAgentGroupDefinition.MaxIdLength} characters.",
+                nameof(groupId));
+        }
+
+        ArgumentNullException.ThrowIfNull(configure);
+        var group = new NhAssistantAgentGroupDefinition(groupId);
+        configure(new NhAssistantAgentGroupBuilder(group));
+        group.Validate();
+        _state.AddAgentGroup(group);
+        return this;
+    }
+
+    /// <summary>
     /// Registers a named approval policy that agents, tools and triggers can reference.
     /// </summary>
     public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure)
@@ -668,6 +694,7 @@ internal sealed class NhAssistantRegistrationState
     private readonly Dictionary<string, NhAssistantSubjectSetDefinition> _subjectSets = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantRuleHandlerDefinition> _ruleHandlers = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantAgentPolicyDefinition> _agentPolicies = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantAgentGroupDefinition> _agentGroups = new(StringComparer.Ordinal);
     private readonly Dictionary<Type, NhAssistantSubjectTypeOptions> _subjectTypes = [];
     private NhAssistantRunSnapshot? _snapshot;
     private readonly List<Runs.NhAssistantProposalGuardRegistration> _proposalGuards = [];
@@ -758,6 +785,35 @@ internal sealed class NhAssistantRegistrationState
         }
 
         _agentPolicies.Add(definition.Name, definition);
+    }
+
+    /// <summary>
+    /// The groups of agents in code, by id.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantAgentGroupDefinition> AgentGroups => _agentGroups;
+
+    /// <summary>
+    /// Registers a group once: the same group registered again is kept, another group with the same
+    /// id is refused.
+    /// </summary>
+    public void AddAgentGroup(NhAssistantAgentGroupDefinition group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        if (_agentGroups.TryGetValue(group.Id, out var existing))
+        {
+            if (!existing.IsEquivalentTo(group))
+            {
+                throw new InvalidOperationException($"Agent group '{group.Id}' is already registered with other names or descriptions.");
+            }
+            return;
+        }
+        if (_agentGroups.Count >= NhAssistantAgentGroupDefinition.MaxGroups)
+        {
+            throw new InvalidOperationException(
+                $"An application registers at most {NhAssistantAgentGroupDefinition.MaxGroups} agent groups.");
+        }
+
+        _agentGroups.Add(group.Id, group);
     }
 
     /// <summary>
@@ -957,6 +1013,12 @@ internal sealed class NhAssistantRegistrationState
                 ValidatePolicyReference(policyId, $"agent '{agentId}'");
             }
 
+            foreach (var groupId in options.Groups.Where(groupId => !_agentGroups.ContainsKey(groupId)))
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{agentId}' joins group '{groupId}', which is not registered. Register it with AddAgentGroup.");
+            }
+
             var agent = _agents[agentId];
             if (options.ShadowOfAgentId is { } liveAgentId)
             {
@@ -974,6 +1036,11 @@ internal sealed class NhAssistantRegistrationState
                 {
                     throw new InvalidOperationException(
                         $"Agent '{agentId}' is a shadow variant of '{liveAgentId}', which is not a live agent.");
+                }
+                if (options.Groups.Count > 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' is a shadow variant; boards show live agents only, so it joins no group.");
                 }
             }
 

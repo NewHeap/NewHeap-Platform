@@ -308,6 +308,11 @@ function validateNames(typeId: string, names: Record<string, string> | undefined
 }
 
 /** The name in the language, another culture of that language, else the fallback language, as the server picks. */
+/** A text in the request's language: the culture, its language, another culture of it, else the fallback language. */
+export function mockPickText(names: Record<string, string> | undefined, fallbackLanguage: string, language: string | null): string | null {
+  return pick(names, fallbackLanguage, language);
+}
+
 function pick(names: Record<string, string> | undefined, fallbackLanguage: string, language: string | null): string | null {
   if (!names) {
     return null;

@@ -71,9 +71,12 @@ public static class SampleProjectCloserComposition
                 // After an approver rejects completing the project, the rules do not propose it
                 // again for two weeks, however many tasks change.
                 .RejectionCooldown(TimeSpan.FromDays(14)))
+            // SPM-304: the closer belongs to the project management group, whose board the portal shows.
+            .AddSampleProjectManagementGroup()
             .ConfigureAgent(AgentId, agent => agent
                 // SPM-302: the closer works on projects, as its hand-offs say.
                 .WorksOn(ProjectSubjects.Type)
+                .InGroup(SampleAgentGroupComposition.ProjectManagement)
                 // Headless runs go to the rules; a person's question in the thread goes to the model.
                 .UseRuleHandler<ProjectCloserRules>()
                 .Grant(ProjectAiTools.ChangeStatusToolId)

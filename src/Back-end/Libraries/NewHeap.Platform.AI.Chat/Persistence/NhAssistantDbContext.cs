@@ -89,6 +89,10 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantAgentRunConfiguration> AgentRunConfigurations => Set<AssistantAgentRunConfiguration>();
 
+    public DbSet<AssistantAgentGroupMember> AgentGroupMembers => Set<AssistantAgentGroupMember>();
+
+    public DbSet<AssistantBoardVisit> BoardVisits => Set<AssistantBoardVisit>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(_storageOptions.Schema);
@@ -664,6 +668,29 @@ public sealed class NhAssistantDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(item => item.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAgentGroupMember>(member =>
+        {
+            member.ToTable("AssistantAgentGroupMember");
+            member.HasKey(item => new { item.AgentId, item.GroupId });
+            member.Property(item => item.AgentId).HasMaxLength(128);
+            member.Property(item => item.GroupId).HasMaxLength(NhAssistantAgentGroupDefinition.MaxIdLength);
+            member.Property(item => item.ChangedBy).HasMaxLength(256);
+            member.HasIndex(item => item.GroupId);
+            member.HasOne<AssistantAgent>()
+                .WithMany()
+                .HasForeignKey(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantBoardVisit>(visit =>
+        {
+            visit.ToTable("AssistantBoardVisit");
+            visit.HasKey(item => new { item.ActorId, item.GroupId, item.ScopeKey });
+            visit.Property(item => item.ActorId).HasMaxLength(256);
+            visit.Property(item => item.GroupId).HasMaxLength(NhAssistantAgentGroupDefinition.MaxIdLength);
+            visit.Property(item => item.ScopeKey).HasMaxLength(128);
         });
 
         modelBuilder.Entity<AssistantAgentMcpServer>(assignment =>

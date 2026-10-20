@@ -188,6 +188,42 @@
     </fieldset>
   }
 
+  @if (agentGroups().length > 0) {
+    <fieldset
+      class="subsection"
+      data-agent-groups
+      [attr.aria-describedby]="id + '-groups-hint ' + id + '-groups-error'"
+      [attr.aria-invalid]="groupsError() ? true : null">
+      <legend>{{ 'nh-assistant.admin.agent-editor.groups.title' | translate }}</legend>
+      <p class="muted" [id]="id + '-groups-hint'">{{ 'nh-assistant.admin.agent-editor.groups.hint' | translate }}</p>
+      @if (isVariant()) {
+        <p class="hint" data-groups-variant>{{ 'nh-assistant.admin.agent-editor.groups.shadow-variant' | translate }}</p>
+      } @else {
+        <div class="checks" role="group" [attr.aria-label]="'nh-assistant.admin.agent-editor.groups.title' | translate">
+          @for (group of agentGroups(); track group.id) {
+            <label class="check described" [attr.data-agent-group]="group.id">
+              <input type="checkbox" [checked]="groups().includes(group.id)" (change)="toggleGroup(group.id, checked($event))" />
+              <span>
+                <strong>{{ group.name }}</strong>
+                @if (group.description; as description) {
+                  <span class="muted">{{ description }}</span>
+                }
+                @if (codeGroups().includes(group.id)) {
+                  <span class="muted" data-group-in-code>{{ 'nh-assistant.admin.agent-editor.groups.in-code' | translate }}</span>
+                }
+              </span>
+            </label>
+          }
+        </div>
+      }
+      <p class="hint" [id]="id + '-groups-error'" aria-live="polite">
+        @if (groupsError(); as key) {
+          <span class="error-text">{{ key | translate }}</span>
+        }
+      </p>
+    </fieldset>
+  }
+
   <div class="field">
     <label [for]="id + '-description'">{{ 'nh-assistant.admin.agent-editor.description' | translate }}</label>
     <input type="text" [id]="id + '-description'" [value]="description()" (input)="description.set(value($event))" />

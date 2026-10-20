@@ -9,6 +9,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockBackend } from '@newheap/platform-ai-chat/testing';
 import { RouterLink } from '@angular/router';
+import { NhAssistantAgentBoardComponent } from '@newheap/platform-ai-chat/agent-runs';
 import { TranslateModule } from '@ngx-translate/core';
 import { AssistantPlaygroundAccess } from './assistant-playground-access';
 import {
@@ -31,7 +32,7 @@ import { SampleAssistantPageContext } from './sample-assistant.config';
 @Component({
   selector: 'app-assistant-playground',
   standalone: true,
-  imports: [RouterLink, TranslateModule, NhAssistantLauncherComponent, NhAssistantPanelComponent],
+  imports: [RouterLink, TranslateModule, NhAssistantLauncherComponent, NhAssistantPanelComponent, NhAssistantAgentBoardComponent],
   templateUrl: './assistant-playground.component.html',
   styleUrl: './assistant-playground.component.scss'
 })

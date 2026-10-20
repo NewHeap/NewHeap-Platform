@@ -141,6 +141,12 @@ internal sealed class NhAssistantSubjectWork(
         var proposals = new List<NhAssistantSubjectProposalDto>();
         foreach (var id in agentIds.Order(StringComparer.Ordinal))
         {
+            // The whole application shows an agent's thread only to people who pass its view policy.
+            if (!await subjects.MayReadAgentThreadAsync(subject, id, actorId, cancellationToken))
+            {
+                continue;
+            }
+
             var thread = threads.GetValueOrDefault(id);
             var canStart = await CanStartAsync(id, subject, access, actorId, user, cancellationToken);
             var shadowThread = shadowThreads.GetValueOrDefault(id);

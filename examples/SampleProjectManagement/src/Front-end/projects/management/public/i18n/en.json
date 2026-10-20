@@ -314,6 +314,8 @@
     "assistant-admin-description": "Administrators manage the application context, the agents and the MCP servers. The panel header links here only for them.",
     "assistant-admin-open": "Open the administration",
     "assistant-admin-hidden": "Hidden: the user lacks the admin permission.",
+    "assistant-board-title": "Project management board",
+    "assistant-board-description": "The board of the project management group: the follow-up's latest result for the whole application, marked new until you look again, its history and run now. The portal's Project management page shows the same against the real back-end.",
     "assistant-simulate-schema-change": "Simulate a changed MCP tool",
     "assistant-schema-change-simulated": "The document search tool now reports a new input schema. Sync the server on the MCP servers tab to see it disabled.",
     "assistant-admin-back": "Back to the assistant playground",
@@ -642,5 +644,10 @@
     "load-failed": "The projects could not be loaded. Start the sample through Aspire.",
     "report-label": "Intake reviewer feedback report",
     "report-scope": "Assistant administrators only: what people said when they rejected the intake reviewer's proposals."
+  },
+  "project-management-board": {
+    "navigation": "Project management",
+    "title": "Project management",
+    "description": "The agents that keep the projects moving, with their latest results for the whole application. What arrived since your last visit is marked new; project managers can run an agent now."
   }
 }

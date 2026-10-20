@@ -229,6 +229,46 @@ export class NhAssistantMockAgentRuns {
     return { status: 200, body };
   }
 
+  /**
+   * An agent's work on one subject of the whole application, as a board tile shows it: its thread,
+   * latest run, open proposals (those the runs left and those the scenario lists in the thread) and
+   * whether the caller may run it there now.
+   */
+  boardWork(agent: AdminAgent, subject: NhAssistantMockDescribedSubject): NhAssistantMockBoardWork {
+    const thread = this.threads.get(key(agent.id, subject));
+    const listed = thread ? (this.context.threadProposals?.(thread.conversationId) ?? []).filter(proposal => proposal.status === 'pending').length : 0;
+    return {
+      conversationId: thread?.conversationId ?? null,
+      latestRun: thread ? latestRun(thread, this.results) : null,
+      openProposals: (thread?.openProposals ?? 0) + listed,
+      canStart: this.refusal(agent, subject) === null
+    };
+  }
+
+  /**
+   * Whether the agent works for people now and the caller sees its results for the whole application:
+   * its view policy, by default its required policy.
+   */
+  maySeeResults(agent: AdminAgent): boolean {
+    const policy = agent.viewPolicy ?? agent.requiredPolicy ?? null;
+    return this.isWorking(agent) && (policy === null || this.passes(policy));
+  }
+
+  /** Whether the agent works for people now and the caller may use it. */
+  mayUseNow(agent: AdminAgent): boolean {
+    return this.isWorking(agent) && this.mayUse(agent);
+  }
+
+  /** The agent's name as people read it: a translation key in code, the text of an agent created as data. */
+  nameOf(agent: AdminAgent): { displayNameKey: string; descriptionKey: string } {
+    return {
+      displayNameKey: this.nameKeyOf(agent),
+      descriptionKey: agent.source === 'code'
+        ? this.scenario.agents.find(item => item.id === agent.id)?.descriptionKey ?? agent.description
+        : agent.description
+    };
+  }
+
   private start(body: unknown, language: string | null): NhAssistantMockResult {
     const request = body as { agentId?: unknown; subjectType?: unknown; subjectId?: unknown; message?: unknown } | undefined;
     if (!request || (request.message !== undefined && request.message !== null && (typeof request.message !== 'string' || request.message.length > maxMessage))) {
@@ -521,6 +561,14 @@ export class NhAssistantMockAgentRuns {
     this.sequence++;
     return `00000000-0000-4000-9000-${this.sequence.toString(16).padStart(12, '0')}`;
   }
+}
+
+/** An agent's work on one subject of the whole application for a board tile. */
+export interface NhAssistantMockBoardWork {
+  conversationId: string | null;
+  latestRun: AgentLatestRun | null;
+  openProposals: number;
+  canStart: boolean;
 }
 
 /** One thread per agent and subject, as on the server. */

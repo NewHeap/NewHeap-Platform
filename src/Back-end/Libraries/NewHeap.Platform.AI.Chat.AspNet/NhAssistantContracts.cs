@@ -668,6 +668,18 @@ public sealed record NhAssistantAdminAgentDto(
     /// existing threads, ordered by id.
     /// </summary>
     public IReadOnlyList<string> KnownSubjectTypes { get; init; } = [];
+
+    /// <summary>
+    /// The groups of agents the agent is in now, ordered by id: an administrator's choice per group,
+    /// otherwise its <c>InGroup</c> in code. Change them with <c>PUT admin/agents/{id}/groups</c>.
+    /// </summary>
+    public IReadOnlyList<string> Groups { get; init; } = [];
+
+    /// <summary>
+    /// The groups the agent joins in code, ordered by id; empty for an agent created in the
+    /// administration.
+    /// </summary>
+    public IReadOnlyList<string> CodeGroups { get; init; } = [];
 }
 
 /// <summary>

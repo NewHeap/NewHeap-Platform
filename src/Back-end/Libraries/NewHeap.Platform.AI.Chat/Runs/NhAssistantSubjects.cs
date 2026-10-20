@@ -157,6 +157,50 @@ internal sealed class NhAssistantSubjectAccessService(
         return await resolver.ResolveAsync(subject, actorId, cancellationToken);
     }
 
+    /// <summary>
+    /// The person's live role on the subject for the agent's thread there: the resolver's role, or
+    /// none when the subject's platform resolver keeps the agent's thread from the person, as the whole
+    /// application does for people who do not pass the agent's view policy. Invitations are not
+    /// considered; <see cref="NhAssistantThreadService"/> adds them.
+    /// </summary>
+    public async ValueTask<NhAiSubjectAccess> ResolveForAgentAsync(
+        NhAiSubjectRef subject,
+        string agentId,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        var access = await ResolveAsync(subject, actorId, cancellationToken);
+        if (access.Role == NhAiSubjectRole.None)
+        {
+            return access;
+        }
+
+        return await MayReadAgentThreadAsync(subject, agentId, actorId, cancellationToken)
+            ? access
+            : NhAiSubjectAccess.None;
+    }
+
+    /// <summary>
+    /// Whether the agent's thread about the subject may be read by the person at all: always for the
+    /// application's own subject types; the whole application only for people who pass the agent's
+    /// view policy, by default its required policy.
+    /// </summary>
+    public async ValueTask<bool> MayReadAgentThreadAsync(
+        NhAiSubjectRef subject,
+        string agentId,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        if (!_resolvers.TryGetValue(subject.Type, out var resolver)
+            || resolver is not INhAssistantPlatformSubjectResolver platform)
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(actorId)
+            && await platform.MayReadAgentThreadAsync(subject, agentId, actorId, cancellationToken);
+    }
+
     public async Task<TaskResult> RefreshAsync(
         NhAiSubjectRef subject,
         CancellationToken cancellationToken = default)
@@ -217,7 +261,9 @@ internal sealed record NhAssistantThreadAccess(
 
 /// <summary>
 /// Creates and finds agent threads and decides who may use them. Thread access follows the
-/// subject access resolver on every request; invitations add participants, never approvers.
+/// subject access resolver on every request; invitations add participants, never approvers. An
+/// agent's thread of the whole application is read only by people who also pass the agent's view
+/// policy, by default its required policy, invited or not.
 /// </summary>
 internal sealed class NhAssistantThreadService(
     NhAssistantRunStore runs,
@@ -350,6 +396,18 @@ internal sealed class NhAssistantThreadService(
         var invited = participant is not null
             && !string.Equals(participant.JoinedVia, NhAssistantParticipantSources.Subject, StringComparison.Ordinal);
 
+        // A thread the person may not read at all, such as an agent's thread of the whole application
+        // without its view policy, gives no access, not even through an invitation.
+        if (!await subjects.MayReadAgentThreadAsync(subject, thread.AgentId, actorId, cancellationToken))
+        {
+            if (participant is not null && !invited)
+            {
+                await store.TryRemoveParticipantAsync(conversationId, actorId, cancellationToken);
+            }
+
+            return null;
+        }
+
         if (access.Role == NhAiSubjectRole.None)
         {
             if (participant is not null && !invited)
@@ -408,6 +466,10 @@ internal sealed class NhAssistantThreadService(
         ArgumentNullException.ThrowIfNull(thread);
         ArgumentNullException.ThrowIfNull(access);
         var subject = new NhAiSubjectRef(thread.SubjectType, thread.SubjectId);
+        if (!await subjects.MayReadAgentThreadAsync(subject, thread.AgentId, actorId, cancellationToken))
+        {
+            return null;
+        }
         if (access.Role != NhAiSubjectRole.None)
         {
             return new NhAssistantThreadAccess(thread, subject, access, false);

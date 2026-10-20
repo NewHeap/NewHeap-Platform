@@ -107,6 +107,12 @@ public sealed class NhAssistantAgentRunOptions
     public NhAssistantAgentWorksOn WorksOn { get; internal set; } = NhAssistantAgentWorksOn.Undeclared;
 
     /// <summary>
+    /// The groups the agent joins in code with <c>InGroup</c>, ordered by id. An administrator's
+    /// choice per group wins; an agent created in the administration joins groups there only.
+    /// </summary>
+    public IReadOnlyList<string> Groups { get; internal set; } = [];
+
+    /// <summary>
     /// The agent starts in shadow mode: its runs work in shadow threads, where proposals are recorded
     /// as shadow proposals that nobody is notified about and that never execute. Administrators
     /// switch a live agent at runtime with <c>INhAssistantAgentControl.SetShadowAsync</c>; a shadow
@@ -765,6 +771,28 @@ public sealed class NhAssistantAgentRunBuilder
     public NhAssistantAgentRunBuilder ViewPolicy(string policyName)
     {
         _options.WorksOn = _options.WorksOn with { ViewPolicy = ValidatePolicyName(policyName) };
+        return this;
+    }
+
+    /// <summary>
+    /// Adds the agent to a group of agents registered with <c>AddAgentGroup</c>, so the group's board
+    /// shows it with its latest result for the whole application. Administrators may remove it again;
+    /// their choice wins over code. Startup fails for a group that is not registered.
+    /// </summary>
+    public NhAssistantAgentRunBuilder InGroup(string groupId)
+    {
+        if (!NhAssistantAgentGroupDefinition.IsValidId(groupId))
+        {
+            throw new ArgumentException(
+                $"An agent group id is a dash-case identifier of at most {NhAssistantAgentGroupDefinition.MaxIdLength} characters.",
+                nameof(groupId));
+        }
+
+        _options.Groups = _options.Groups
+            .Append(groupId)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
         return this;
     }
 

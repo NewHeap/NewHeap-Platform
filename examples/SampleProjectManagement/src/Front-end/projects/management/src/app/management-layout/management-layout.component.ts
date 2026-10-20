@@ -56,6 +56,11 @@ export class ManagementLayoutComponent implements OnDestroy {
     return this.auth.isOnePermissionGranted(['app.assistant.access']) && this.auth.isOnePermissionGranted(['app.project.manage']);
   }
 
+  /** SPM-304: the assistant's access permission and the permission to read the projects. */
+  canSeeProjectManagementBoard(): boolean {
+    return this.auth.isOnePermissionGranted(['app.assistant.access']) && this.auth.isOnePermissionGranted(['app.project.view']);
+  }
+
   toggleNavigation(): void {
     this.navigationOpen.update(open => !open);
   }

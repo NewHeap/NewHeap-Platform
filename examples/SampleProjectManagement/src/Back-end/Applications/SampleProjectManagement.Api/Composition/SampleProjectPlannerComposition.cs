@@ -88,9 +88,12 @@ public static class SampleProjectPlannerComposition
                 ToolSelectors: [ProjectAiTools.ChangeStatusToolId, SampleAiBridgeComposition.GatewayToolSetId + ".*"],
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: SampleAssistantComposition.AccessPolicy))
+            // SPM-304: the planner belongs to the project management group, whose board the portal shows.
+            .AddSampleProjectManagementGroup()
             .ConfigureAgent(AgentId, agent => agent
                 // SPM-302: the planner works on projects.
                 .WorksOn(ProjectSubjects.Type)
+                .InGroup(SampleAgentGroupComposition.ProjectManagement)
                 .Grant(ProjectAiTools.ChangeStatusToolId)
                 .TriggerOnly()
                 .Accountability(NhAiAgentAccountability.SubjectResponsible)

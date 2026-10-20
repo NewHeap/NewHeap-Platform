@@ -11,9 +11,10 @@ import {
   untracked
 } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { Subscription } from 'rxjs';
+import { Observable, Subscription, map, of, switchMap, tap } from 'rxjs';
 import {
   AdminAgent,
+  AdminAgentGroups,
   AdminAgentInput,
   AssistantAutonomy,
   McpServer,
@@ -116,13 +117,23 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly perDivision = signal(false);
   readonly runPolicy = signal('');
   readonly viewPolicy = signal('');
+  /** The groups of agents the agent is in, by id. */
+  readonly groups = signal<string[]>([]);
   readonly newSelector = signal('');
   readonly catalogFilter = signal('');
   readonly submitted = signal(false);
   readonly saving = signal(false);
   readonly error = signal<NhAssistantError | null>(null);
 
-  readonly isNew = computed(() => this.agent() === null);
+  /**
+   * A new agent that was created while its groups could not be saved yet: the next save completes it
+   * as an existing agent.
+   */
+  private readonly created = signal<AdminAgent | null>(null);
+  /** The agent the next save updates; `null` while a new agent is not created yet. */
+  private readonly editing = computed(() => this.created() ?? this.agent());
+
+  readonly isNew = computed(() => this.editing() === null);
   /** Only agents created here choose whether they are offered in the chat; code decides for the others. */
   readonly choosesUse = computed(() => this.agent()?.source !== 'code');
   readonly idInvalid = computed(() => this.isNew() && !NH_ASSISTANT_DASH_CASE.test(this.agentId()));
@@ -143,6 +154,14 @@ export class NhAssistantAdminAgentEditorComponent {
     return [...registered, ...stored];
   });
   readonly agentPolicies = computed(() => this.catalog()?.agentPolicies ?? []);
+  /** The groups of agents the application registers, which boards show. */
+  readonly agentGroups = computed(() => this.catalog()?.agentGroups ?? []);
+  /** The groups the agent joins in code. */
+  readonly codeGroups = computed(() => this.agent()?.codeGroups ?? []);
+  /** A shadow variant works for administrators only and joins no group. */
+  readonly isVariant = computed(() => !!this.agent()?.shadowOf);
+  /** The server's refusal of the groups, as a translation key. */
+  readonly groupsError = computed(() => this.fieldError('groups'));
   /** Per division is offered only when the application lists its divisions. */
   readonly divisionsListed = computed(() => this.catalog()?.divisions === true);
   /** The object types the agent is known to work on, by name, as a hint next to "All objects". */
@@ -213,6 +232,10 @@ export class NhAssistantAdminAgentEditorComponent {
     this.worksOnTypes.update(types => checked ? [...types.filter(type => type !== typeId), typeId] : types.filter(type => type !== typeId));
   }
 
+  toggleGroup(groupId: string, checked: boolean): void {
+    this.groups.update(groups => checked ? [...groups.filter(group => group !== groupId), groupId] : groups.filter(group => group !== groupId));
+  }
+
   toggleServer(serverId: string, checked: boolean): void {
     this.mcpServerIds.update(ids => checked ? [...ids.filter(id => id !== serverId), serverId] : ids.filter(id => id !== serverId));
   }
@@ -239,7 +262,7 @@ export class NhAssistantAdminAgentEditorComponent {
 
     const policy = this.requiredPolicy().trim();
     const input: AdminAgentInput = {
-      id: this.isNew() ? this.agentId() : this.agent()!.id,
+      id: this.isNew() ? this.agentId() : this.editing()!.id,
       displayName: keyOrText(this.displayName(), this.keyedName),
       description: keyOrText(this.description(), this.keyedDescription),
       instructions: this.instructions(),
@@ -249,12 +272,25 @@ export class NhAssistantAdminAgentEditorComponent {
       autonomy: this.autonomy(),
       ...(this.choosesUse() ? { offeredInChat: this.use() !== 'background', ...this.worksOnInput() } : {})
     };
-    const startsWork = this.isNew() && this.use() !== 'chat';
+    const startsWork = this.agent() === null && this.use() !== 'chat';
 
-    const existing = this.agent();
-    const request = existing
-      ? this.admin.updateAgent(existing.id, { ...input, expectedVersion: existing.version })
-      : this.admin.createAgent(input);
+    // An existing agent's groups are saved before its definition, a new agent's right after it is
+    // created; a new agent whose groups failed is completed as an existing one by the next save.
+    const existing = this.editing();
+    const groups = [...this.groups()].sort();
+    const groupsChanged = !sameGroups(groups, existing?.groups ?? []);
+    const groupsSaved: Observable<AdminAgentGroups | null> = existing && groupsChanged && !this.isVariant()
+      ? this.admin.setAgentGroups(existing.id, groups)
+      : of(null);
+    const request: Observable<AdminAgent> = existing
+      ? groupsSaved.pipe(
+        switchMap(membership => this.admin.updateAgent(existing.id, { ...input, expectedVersion: existing.version }).pipe(
+          map(agent => withGroups(agent, membership)))))
+      : this.admin.createAgent(input).pipe(
+        tap(agent => this.created.set(agent)),
+        switchMap(agent => groups.length > 0
+          ? this.admin.setAgentGroups(agent.id, groups).pipe(map(membership => withGroups(agent, membership)))
+          : of(agent)));
 
     this.saving.set(true);
     this.error.set(null);
@@ -308,6 +344,8 @@ export class NhAssistantAdminAgentEditorComponent {
     this.perDivision.set(worksOn.perDivision);
     this.runPolicy.set(worksOn.runPolicy ?? '');
     this.viewPolicy.set(worksOn.viewPolicy ?? '');
+    this.groups.set([...(agent?.groups ?? [])]);
+    this.created.set(null);
     this.submitted.set(false);
     this.error.set(null);
   }
@@ -320,6 +358,17 @@ export class NhAssistantAdminAgentEditorComponent {
     const shown = this.translate.instant(text) as unknown;
     return typeof shown === 'string' && shown.length > 0 && shown !== text ? { key: text, shown } : null;
   }
+}
+
+/** Whether two sorted lists of group ids are the same. */
+function sameGroups(left: readonly string[], right: readonly string[]): boolean {
+  const sorted = [...right].sort();
+  return left.length === sorted.length && left.every((group, index) => group === sorted[index]);
+}
+
+/** The agent with the groups the server answered, or as it is without an answer. */
+function withGroups(agent: AdminAgent, membership: AdminAgentGroups | null): AdminAgent {
+  return membership ? { ...agent, groups: membership.groups, codeGroups: membership.codeGroups } : agent;
 }
 
 /** The key of a text of an agent in code while the administrator kept its translation, otherwise the typed text. */

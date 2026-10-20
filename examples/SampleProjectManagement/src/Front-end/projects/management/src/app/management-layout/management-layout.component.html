@@ -23,6 +23,9 @@
       @if (canAdministerAssistant()) {
         <a class="nav-item" routerLink="/management/assistant-administration" routerLinkActive="active"><i class="ph ph-robot" aria-hidden="true"></i>{{ 'project.assistant-administration-nav' | translate }}</a>
       }
+      @if (canSeeProjectManagementBoard()) {
+        <a class="nav-item" routerLink="/management/project-management" routerLinkActive="active"><i class="ph ph-kanban" aria-hidden="true"></i>{{ 'project-management-board.navigation' | translate }}</a>
+      }
       <a class="nav-item" routerLink="/management/project-members" routerLinkActive="active"><i class="ph ph-users-three" aria-hidden="true"></i>{{ 'project-members.navigation' | translate }}</a>
       <a class="nav-item" routerLink="/management/intake-reviews" routerLinkActive="active"><i class="ph ph-robot" aria-hidden="true"></i>{{ 'intake-reviews.navigation' | translate }}</a>
       <a class="nav-item" routerLink="/management/platform" routerLinkActive="active"><i class="ph ph-stack" aria-hidden="true"></i>{{ 'project.platform-playground-nav' | translate }}</a>

@@ -152,6 +152,7 @@ internal static class NhAssistantAdminEndpoints
         AgentRuns.NhAssistantAgentEvaluationEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentConfigurationEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantRunHistoryEndpoints.MapAdmin(admin);
+        AgentRuns.NhAssistantBoardEndpoints.MapAdmin(admin);
         admin.MapDelete("agents/{id}", DeleteAgentAsync)
             .WithName("NhAssistantAdminDeleteAgent")
             .WithSummary("Delete an agent")
@@ -360,12 +361,14 @@ internal static class NhAssistantAdminEndpoints
     private static async Task<IResult> GetAgentsAsync(HttpContext httpContext, NhAssistantAgentCatalog catalog)
     {
         var agents = await catalog.ListAsync(includeDisabled: true, httpContext.RequestAborted);
-        // The hints of every agent in one read of the threads.
+        // The hints of every agent in one read of the threads, and their groups in one read.
         var known = await KnownSubjectTypesAsync(httpContext, null);
+        var groups = await httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantAgentGroups>()
+            .MembershipsAsync(agents.Select(agent => agent.Id).ToArray(), httpContext.RequestAborted);
         var dtos = new List<NhAssistantAdminAgentDto>(agents.Count);
         foreach (var agent in agents)
         {
-            dtos.Add(await ToDtoAsync(agent, httpContext, known));
+            dtos.Add(await ToDtoAsync(agent, httpContext, known, groups));
         }
         return Json(dtos.ToArray(), Context.NhAssistantAdminAgentDtoArray);
     }
@@ -971,13 +974,19 @@ internal static class NhAssistantAdminEndpoints
     private static async Task<NhAssistantAdminAgentDto> ToDtoAsync(
         NhAssistantAgent agent,
         HttpContext httpContext,
-        IReadOnlyDictionary<string, IReadOnlyList<string>>? known = null)
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? known = null,
+        IReadOnlyDictionary<string, AgentRuns.NhAssistantAgentGroupMembershipDto>? groups = null)
     {
         var control = httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantAgentControl>();
         known ??= await KnownSubjectTypesAsync(httpContext, [agent.Id]);
+        groups ??= await httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantAgentGroups>()
+            .MembershipsAsync([agent.Id], httpContext.RequestAborted);
+        var membership = groups.GetValueOrDefault(agent.Id);
         return ToDto(agent, await control.StateOfAsync(agent, httpContext.RequestAborted)) with
         {
-            KnownSubjectTypes = known.GetValueOrDefault(agent.Id) ?? []
+            KnownSubjectTypes = known.GetValueOrDefault(agent.Id) ?? [],
+            Groups = membership?.Groups ?? [],
+            CodeGroups = membership?.CodeGroups ?? []
         };
     }
 

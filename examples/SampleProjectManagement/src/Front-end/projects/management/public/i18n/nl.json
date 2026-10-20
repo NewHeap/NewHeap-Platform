@@ -314,6 +314,8 @@
     "assistant-admin-description": "Beheerders beheren de applicatiecontext, de agents en de MCP-servers. Alleen voor hen staat er een link in de panelheader.",
     "assistant-admin-open": "Beheer openen",
     "assistant-admin-hidden": "Verborgen: de gebruiker heeft geen beheerpermissie.",
+    "assistant-board-title": "Bord projectbeheer",
+    "assistant-board-description": "Het bord van de groep projectbeheer: het laatste resultaat van de follow-up voor de hele applicatie, als nieuw gemarkeerd tot je opnieuw kijkt, de geschiedenis en nu uitvoeren. De pagina Projectbeheer van het portaal toont hetzelfde tegen de echte back-end.",
     "assistant-simulate-schema-change": "Gewijzigde MCP-tool simuleren",
     "assistant-schema-change-simulated": "De zoektool voor documenten meldt nu een nieuw invoerschema. Synchroniseer de server op het tabblad MCP-servers om te zien dat hij uitgaat.",
     "assistant-admin-back": "Terug naar de assistent-playground",
@@ -642,5 +644,10 @@
     "load-failed": "De projecten konden niet worden geladen. Start het sample via Aspire.",
     "report-label": "Feedbackrapport van de intake-reviewer",
     "report-scope": "Alleen voor assistentbeheerders: wat mensen zeiden toen ze voorstellen van de intake-reviewer afwezen."
+  },
+  "project-management-board": {
+    "navigation": "Projectbeheer",
+    "title": "Projectbeheer",
+    "description": "De agents die de projecten op gang houden, met hun laatste resultaten voor de hele applicatie. Wat sinds je laatste bezoek binnenkwam, staat als nieuw gemarkeerd; projectmanagers kunnen een agent nu uitvoeren."
   }
 }

@@ -46,6 +46,8 @@
   <data name="CloserRefused" xml:space="preserve"><value>Completing the project could not be proposed.</value></data>
   <data name="SubjectTypeProject" xml:space="preserve"><value>Project</value></data>
   <data name="SubjectTypeProjects" xml:space="preserve"><value>Projects</value></data>
+  <data name="AgentGroupProjectManagement" xml:space="preserve"><value>Project management</value></data>
+  <data name="AgentGroupProjectManagementDescription" xml:space="preserve"><value>Agents that keep the projects moving: they count the open projects, plan the work and complete what is finished.</value></data>
   <data name="FollowUpFewOpen" xml:space="preserve"><value>{0} projects are open; with three or fewer there is nothing to follow up.</value></data>
   <data name="FollowUpReason" xml:space="preserve"><value>All {0} tasks of the project are completed, and {1} projects are open.</value></data>
   <data name="FollowUpProposed" xml:space="preserve"><value>{0} open projects; proposed completing {1}. Their approvers decide at each project; {2} already waited and {3} could not be proposed.</value></data>

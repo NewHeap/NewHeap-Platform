@@ -322,6 +322,25 @@ export interface NhAssistantMockSubjectType {
   searchable?: boolean;
 }
 
+/**
+ * A group of agents the application registers in code, checked as the server checks it at startup:
+ * a dash-case id of at most 64 characters, a name of 1 to 100 characters per language with one in the
+ * fallback language, and optional descriptions of at most 300 characters the same way.
+ */
+export interface NhAssistantMockAgentGroup {
+  id: string;
+  /** Names per culture name, such as `{ en: 'Project management', nl: 'Projectbeheer' }`. */
+  names: Record<string, string>;
+  descriptions?: Record<string, string>;
+  /** Default `en`. */
+  fallbackLanguage?: string;
+  /**
+   * The agents in the group when the mock starts: agents in code join it in code (`InGroup`), agents
+   * created as data as an administrator put them there. Administrators' later choices win.
+   */
+  agentIds?: string[];
+}
+
 /** The scenario the mock API plays without a back-end. */
 export interface NhAssistantMockScenario {
   /** Default `true`. */
@@ -359,6 +378,12 @@ export interface NhAssistantMockScenario {
   runNow?: Record<string, NhAssistantMockRunNow>;
   /** Runs that happened before the first request, for the run histories and their results. */
   runs?: NhAssistantMockRun[];
+  /**
+   * The application's groups of agents (`AddAgentGroup`) with the agents that join them in code: the
+   * run catalog lists them, administrators put agents in them and take them out, and `GET boards`
+   * shows their boards.
+   */
+  agentGroups?: NhAssistantMockAgentGroup[];
   /**
    * Proposals the agents left, for example ones a run for the whole application placed at projects:
    * the approval inbox, their thread and their subject's work list them, and people decide them.

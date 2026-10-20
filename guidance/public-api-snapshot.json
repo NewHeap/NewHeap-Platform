@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "6e58565abb109290fdf4799fd55bfa4250c27c01065bee1d01d0b72ff10af7c2",
-    "declarationCount": 8928,
+    "hash": "6fd69c18ca7ec362d0bba51ad2e9b886a79f488be84fbb56050577e1ba432d03",
+    "declarationCount": 9007,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1654,6 +1654,74 @@
         "declaration": "public bool TryGetAction(NhAiToolDescriptor descriptor, out NhAiBridgeActionInfo action) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentGroupDto(string Id, string Name, string? Description);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentGroupMembershipDto( string AgentId, IReadOnlyList<string> Groups, IReadOnlyList<string> CodeGroups);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentGroupsRequest(IReadOnlyList<string>? Groups);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
+        "declaration": "public sealed record NhAssistantBoardSummaryDto(string Id, string Name, string? Description, int AgentCount);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
+        "declaration": "public sealed record NhAssistantBoardListDto(IReadOnlyList<NhAssistantBoardSummaryDto> Items);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
+        "declaration": "public sealed record NhAssistantBoardDto( string Id, string Name, string? Description, string ScopeKey, string? DivisionId, DateTimeOffset? LastVisitedAt, IReadOnlyList<NhAssistantBoardAgentDto> Agents);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
+        "declaration": "public sealed record NhAssistantBoardAgentDto( string AgentId, string DisplayNameKey, string DescriptionKey, NhAssistantBoardWorksOnDto WorksOn, string? SubjectType, string? SubjectId, string? SubjectDisplayName, bool CanStart, Guid? ConversationId, NhAssistantLatestRunDto? LatestRun, int OpenProposals, bool IsNew);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
+        "declaration": "public sealed record NhAssistantBoardWorksOnDto( bool AllObjects, bool Application, bool PerDivision, IReadOnlyList<NhAssistantBoardSubjectTypeDto> SubjectTypes);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
+        "declaration": "public sealed record NhAssistantBoardSubjectTypeDto(string Id, string Name, string? PluralName);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
+        "declaration": "public sealed record NhAssistantBoardVisitDto(string GroupId, string ScopeKey, DateTimeOffset VisitedAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
+        "declaration": "[JsonSerializable(typeof(NhAssistantAgentGroupMembershipDto))] [JsonSerializable(typeof(NhAssistantAgentGroupsRequest))] [JsonSerializable(typeof(NhAssistantBoardListDto))] [JsonSerializable(typeof(NhAssistantBoardDto))] [JsonSerializable(typeof(NhAssistantBoardVisitDto))] public sealed partial class NhAssistantAgentBoardJsonSerializerContext : JsonSerializerContext;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoards.cs",
+        "declaration": "public async Task<NhAssistantBoardListDto> ListAsync(NhAssistantRunReader reader, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoards.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantBoardDto>> GetAsync( string groupId, string? divisionId, NhAssistantRunReader reader, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoards.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantBoardVisitDto>> VisitAsync( string groupId, string? divisionId, NhAssistantRunReader reader, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoards.cs",
+        "declaration": "public static BoardScope Global { get; } = new(NhAiSubjectInfo.CreateScopeKey(null, null), null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoards.cs",
+        "declaration": "public IReadOnlyDictionary<string, WorkingAgent> Agents => agents;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoards.cs",
+        "declaration": "public async Task<bool> SeesAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public interface INhAssistantAgentConfiguration {"
       },
@@ -1680,6 +1748,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public bool Divisions { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public IReadOnlyList<NhAssistantAgentGroupDto> AgentGroups { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -2084,6 +2156,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentEvaluationEndpoints.cs",
         "declaration": "public static void MapAdmin(RouteGroupBuilder admin) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentGroups.cs",
+        "declaration": "public interface INhAssistantAgentGroups {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentGroups.cs",
+        "declaration": "public IReadOnlyList<NhAssistantAgentGroupDto> ListGroups() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentGroups.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantAgentGroupMembershipDto>> GetMembershipAsync( string agentId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentGroups.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantAgentGroupMembershipDto>> SetMembershipAsync( string agentId, IReadOnlyCollection<string> groupIds, string actorId, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
@@ -2718,6 +2806,14 @@
         "declaration": "public async Task<NhAssistantTriggerReceipt> StartAsync( string agentId, NhAiSubjectRef subject, string initiatorActorId, string? message, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantBoardEndpoints.cs",
+        "declaration": "public static void Map(RouteGroupBuilder group) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantBoardEndpoints.cs",
+        "declaration": "public static void MapAdmin(RouteGroupBuilder admin) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
         "declaration": "public const string CatalogId = \"assistant-consultations\";"
       },
@@ -3020,6 +3116,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
         "declaration": "public async Task<bool> MayViewAsync( NhAiSubjectRef subject, string actorId, string? viewPolicy, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public async Task<bool> MayViewAgentAsync( NhAiSubjectRef subject, string agentId, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public async ValueTask<bool> MayReadAgentThreadAsync( NhAiSubjectRef subject, string agentId, string actorId, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
@@ -4143,6 +4247,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public IReadOnlyList<string> Groups { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public IReadOnlyList<string> CodeGroups { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantMcpServerInputDto( string? Id, string? DisplayName, string? Url, string? AuthMode, string? HeaderName, string? Secret, string? RequiredPolicy, bool? IsEnabled) {"
       },
       {
@@ -4990,6 +5102,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020110712_AgentBoards.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020110712_AgentBoards.cs",
+        "declaration": "public partial class AgentBoards : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020110712_AgentBoards.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020110712_AgentBoards.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -5454,6 +5582,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020110709_AgentBoards.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020110709_AgentBoards.cs",
+        "declaration": "public partial class AgentBoards : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020110709_AgentBoards.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020110709_AgentBoards.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -5854,6 +5998,66 @@
         "declaration": "public static TimeSpan MaxPeriod { get; } = TimeSpan.FromDays(92);"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public sealed class NhAssistantAgentGroupBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public NhAssistantAgentGroupBuilder Named(Dictionary<string, string> names, string fallbackLanguage) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public NhAssistantAgentGroupBuilder Describe(Dictionary<string, string> descriptions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public const int MaxIdLength = 64;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public const int MaxDescriptionLength = 300;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public const int MaxGroups = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public string Id { get; } = id;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public IReadOnlyDictionary<string, string>? Names { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public IReadOnlyDictionary<string, string>? Descriptions { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public string? FallbackLanguage { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public static bool IsValidId(string? groupId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public void Validate() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public bool IsEquivalentTo(NhAssistantAgentGroupDefinition other) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public string NameIn(CultureInfo culture) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+        "declaration": "public string? DescriptionIn(CultureInfo culture) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs",
         "declaration": "public sealed class NhAssistantHandOffOptions {"
       },
@@ -6091,6 +6295,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public IReadOnlyList<string> Groups { get; internal set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public bool Shadow { get; internal set; }"
       },
       {
@@ -6268,6 +6476,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder ViewPolicy(string policyName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder InGroup(string groupId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -8542,6 +8754,50 @@
         "declaration": "public DateTimeOffset SnapshotAt { get; set; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public sealed class AssistantAgentGroupMember {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string AgentId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string GroupId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public bool IsMember { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public DateTimeOffset ChangedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string? ChangedBy { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public sealed class AssistantBoardVisit {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string ActorId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string GroupId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string ScopeKey { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public DateTimeOffset VisitedAt { get; set; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantCollaborationEntities.cs",
         "declaration": "public sealed class AssistantConversationParticipant {"
       },
@@ -9791,6 +10047,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder AddAgentGroup(string groupId, Action<NhAssistantAgentGroupBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure) {"
       },
       {
@@ -9960,6 +10220,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public void AddAgentPolicy(NhAssistantAgentPolicyDefinition definition) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public IReadOnlyDictionary<string, NhAssistantAgentGroupDefinition> AgentGroups => _agentGroups;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public void AddAgentGroup(NhAssistantAgentGroupDefinition group) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -10816,6 +11084,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string RunFilterInvalid = \"assistant-run-filter-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string BoardNotFound = \"assistant-board-not-found\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string BoardScopeInvalid = \"assistant-board-scope-invalid\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -12175,7 +12451,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
-        "declaration": "public static IReadOnlyDictionary<string, string> Validate(Dictionary<string, string> names, string parameterName) {"
+        "declaration": "public static IReadOnlyDictionary<string, string> Validate( Dictionary<string, string> names, string parameterName, int maxLength = MaxNameLength)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
@@ -12502,6 +12778,26 @@
         "declaration": "public async Task<AssistantUserPreference> SavePreferenceAsync( AssistantUserPreference preference, CancellationToken cancellationToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAgentGroupMember>> ListMembershipsAsync( string? groupId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAgentGroupMember>> ListMembershipsOfAgentAsync( string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
+        "declaration": "public async Task<TaskResult> SetMembershipsAsync( string agentId, IReadOnlyDictionary<string, bool?> choices, string actorId, DateTimeOffset now, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
+        "declaration": "public async Task<DateTimeOffset?> FindVisitAsync( string actorId, string groupId, string scopeKey, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
+        "declaration": "public async Task RecordVisitAsync( string actorId, string groupId, string scopeKey, DateTimeOffset at, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
         "declaration": "public sealed class NhAssistantDbContext : DbContext {"
       },
@@ -12640,6 +12936,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
         "declaration": "public DbSet<AssistantAgentRunConfiguration> AgentRunConfigurations => Set<AssistantAgentRunConfiguration>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantAgentGroupMember> AgentGroupMembers => Set<AssistantAgentGroupMember>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantBoardVisit> BoardVisits => Set<AssistantBoardVisit>();"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
@@ -13300,6 +13604,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<IReadOnlyDictionary<Guid, int>> CountOpenThreadApprovalsAsync( IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyDictionary<Guid, (int Count, DateTimeOffset Newest)>> GetOpenProposalStatsAsync( IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -14224,6 +14532,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
         "declaration": "public async ValueTask<NhAiSubjectAccess> ResolveAsync( NhAiSubjectRef subject, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
+        "declaration": "public async ValueTask<NhAiSubjectAccess> ResolveForAgentAsync( NhAiSubjectRef subject, string agentId, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
+        "declaration": "public async ValueTask<bool> MayReadAgentThreadAsync( NhAiSubjectRef subject, string agentId, string actorId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
@@ -39473,7 +39789,21 @@
       "MaxRunResultCharacters",
       "NhAssistantRunHistoryDto",
       "NhAssistantRunHistoryListDto",
-      "NhAssistantRunResultDto"
+      "NhAssistantRunResultDto",
+      "AddAgentGroup",
+      "NhAssistantAgentGroupBuilder",
+      "InGroup",
+      "INhAssistantAgentGroups",
+      "NhAssistantAgentGroupDto",
+      "NhAssistantAgentGroupMembershipDto",
+      "NhAssistantAgentGroupsRequest",
+      "NhAssistantBoardListDto",
+      "NhAssistantBoardSummaryDto",
+      "NhAssistantBoardDto",
+      "NhAssistantBoardAgentDto",
+      "NhAssistantBoardWorksOnDto",
+      "NhAssistantBoardSubjectTypeDto",
+      "NhAssistantBoardVisitDto"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
@@ -40068,7 +40398,19 @@
       "AgentRunResult",
       "NH_ASSISTANT_RUN_RESULT_MAX_LENGTH",
       "NH_ASSISTANT_RUN_HISTORY_MAX_PAGE",
-      "NhAssistantMockRun"
+      "NhAssistantMockRun",
+      "NhAssistantAgentBoardComponent",
+      "NhAssistantBoardPanel",
+      "AgentBoard",
+      "AgentBoardAgent",
+      "AgentBoardList",
+      "AgentBoardSummary",
+      "AgentBoardWorksOn",
+      "AgentBoardSubjectType",
+      "AgentBoardVisit",
+      "AgentGroup",
+      "AdminAgentGroups",
+      "NhAssistantMockAgentGroup"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

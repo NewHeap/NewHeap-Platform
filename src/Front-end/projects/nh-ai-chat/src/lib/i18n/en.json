@@ -335,6 +335,8 @@
       "assistant-run-not-found": "The run was not found.",
       "assistant-run-not-retryable": "This run cannot be retried.",
       "assistant-run-filter-invalid": "The filter of the runs is not valid.",
+      "assistant-board-not-found": "This board does not exist, or you may not see any of its agents.",
+      "assistant-board-scope-invalid": "The division of the board is not valid.",
       "assistant-approval-policy-denied": "You may not decide this proposal.",
       "assistant-four-eyes-required": "Someone other than the person who started this must decide it.",
       "assistant-execution-not-uncertain": "This execution is not waiting to be resolved.",
@@ -645,7 +647,8 @@
           "known": "Known to work on: {{types}}.",
           "run-policy": "Run for the whole application by: {{policy}}.",
           "view-policy": "Results for the whole application seen by: {{policy}}."
-        }
+        },
+        "groups": "Groups: {{groups}}"
       },
       "agent-editor": {
         "new-title": "New agent",
@@ -705,6 +708,12 @@
           "view-policy": "Who sees its results for the whole application",
           "view-policy-default": "Everyone who may use the agent (default)",
           "view-policy-hint": "Results on an object follow who may read that object."
+        },
+        "groups": {
+          "title": "Groups",
+          "hint": "Pages of the application show the agents of a group on a board, with their latest results. Your choice wins over the code.",
+          "in-code": "In this group in code",
+          "shadow-variant": "A shadow variant works for administrators only and joins no group."
         }
       },
       "effect": {
@@ -1635,6 +1644,33 @@
         "no-proposals": "This run proposed nothing.",
         "hidden-proposals": "{{count}} more proposals wait at objects you may not see.",
         "files": "Files"
+      },
+      "board": {
+        "title": "Agents",
+        "loading": "Loading the board…",
+        "not-found": "This board does not exist, or you may not see any of its agents.",
+        "last-visit": "You last looked here on {{date}}. What came since is marked new.",
+        "first-visit": "Everything here is new for you.",
+        "new": "New",
+        "new-label": "New since your last visit",
+        "works-on": "Works on {{list}}",
+        "works-on-all": "all kinds of objects",
+        "works-on-application": "the whole application",
+        "works-on-application-per-division": "the whole application, per division",
+        "per-division": "Works per division: its results show on the board of a division.",
+        "objects-only": "Works on objects only: its results show with each object.",
+        "latest": "Latest result",
+        "never": "Not run for the whole application yet.",
+        "run-now": "Run now",
+        "show-proposals": "Show the proposals",
+        "hide-proposals": "Hide the proposals",
+        "show-history": "Show the history",
+        "hide-history": "Hide the history",
+        "history-title": "Runs for the whole application",
+        "history-loading": "Loading the runs…",
+        "history-empty": "No runs yet.",
+        "history-more": "Show more runs",
+        "history-limited": "Older runs are not shown here."
       }
     },
     "subject-picker": {

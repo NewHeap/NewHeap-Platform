@@ -160,6 +160,13 @@
       </dl>
     </section>
   </div>
+
+  <!-- SPM-304: the project management group's board on the mock API, as the portal's page shows it. -->
+  <section class="panel board-panel" aria-labelledby="assistant-board-title">
+    <h3 id="assistant-board-title">{{ 'project.assistant-board-title' | translate }}</h3>
+    <p class="hint">{{ 'project.assistant-board-description' | translate }}</p>
+    <nh-assistant-agent-board group="project-management" (openConversation)="panel.open($event)" />
+  </section>
 </section>
 
 <nh-assistant-panel />

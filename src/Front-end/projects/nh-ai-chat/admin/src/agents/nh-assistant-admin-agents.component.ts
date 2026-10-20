@@ -341,6 +341,13 @@ export class NhAssistantAdminAgentsComponent {
     };
   }
 
+  /** The groups the agent is in, named as the run catalog names them; `null` for none. */
+  groupNames(agent: AdminAgent): string | null {
+    const groups = this.catalog()?.agentGroups ?? [];
+    const names = (agent.groups ?? []).map(id => groups.find(group => group.id === id)?.name ?? id);
+    return names.length > 0 ? names.join(', ') : null;
+  }
+
   /** The name of an account or person, or the id when the application does not know it. */
   accountName(actorId: string | null | undefined): string {
     return actorId ? this.accountNames().get(actorId) ?? actorId : '';

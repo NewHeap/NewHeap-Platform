@@ -156,7 +156,10 @@ internal static class NhAssistantAgentRunEndpoints
 
         var cancellationToken = httpContext.RequestAborted;
         var info = await subjects.DescribeAsync(subject!, cancellationToken);
-        var access = info is null ? NhAiSubjectAccess.None : await subjects.ResolveAsync(subject!, caller.Data!.ActorId, cancellationToken);
+        // The agent's thread of the whole application is only for people who pass its view policy.
+        var access = info is null
+            ? NhAiSubjectAccess.None
+            : await subjects.ResolveForAgentAsync(subject!, agentId!, caller.Data!.ActorId, cancellationToken);
         if (info is null || access.Role == NhAiSubjectRole.None)
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.SubjectNotFound);
@@ -210,7 +213,8 @@ internal static class NhAssistantAgentRunEndpoints
         }
 
         var cancellationToken = httpContext.RequestAborted;
-        var access = await subjects.ResolveAsync(subject!, caller.Data!.ActorId, cancellationToken);
+        // A start leads to the agent's thread: on the whole application only its view policy's people read it.
+        var access = await subjects.ResolveForAgentAsync(subject!, request.AgentId!, caller.Data!.ActorId, cancellationToken);
         var agent = await agents.FindAsync(request.AgentId!, includeDisabled: false, cancellationToken);
         // K9: on an object the participant role, on the whole application the agent's run policy.
         if (await starts.RefusalAsync(agent, subject!, access, caller.Data.ActorId, httpContext.User, cancellationToken) is { } refusal)

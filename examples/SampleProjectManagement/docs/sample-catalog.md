@@ -105,6 +105,15 @@ administration's agent cards offer "Runs": every run of the follow-up with its t
 proposals, usage and duration, filtered by kind of object, object, the whole application, status and
 period, each opened with its whole result rendered as safe Markdown. The playground lists earlier runs
 of the follow-up through the mock.
+The portal's Project management page shows the board of the "Project management" group of agents
+(SPM-304), which the sample registers in code with English and Dutch names: the project closer and the
+project planner join it in code, and the development seeder puts the follow-up, created as data, in it
+as an administrator does in the agent editor, where an administrator also takes an agent out of a group
+of its code. `nh-assistant-agent-board` shows people who pass the follow-up's view policy its latest
+result for the whole application, marked new until they visit the board again, with run now for project
+managers, its open proposals and its history; a colleague without the permission does not see the
+follow-up there. The thread of the whole application is never readable more widely than the follow-up's
+results. The playground shows the same board on the mock.
 The project assistant can consult the intake reviewer (SPM-278): the reviewer allows
 consultation about projects with `AllowConsultation`, and the project assistant selects
 the generated `assistant.consult.*` and `assistant.request.*` tools, which the sample's

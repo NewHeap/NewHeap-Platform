@@ -172,7 +172,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
             "autonomy", "isEnabled", "version", "source", "isOverridden", "instructionsHash", "updatedAt",
             "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf", "shadow", "serviceAccount",
             "offeredInChat", "worksOnSubjectTypes", "worksOnAllSubjects", "worksOnApplication", "perDivision", "runPolicy", "viewPolicy",
-            "worksOnDeclared", "knownSubjectTypes");
+            "worksOnDeclared", "knownSubjectTypes", "groups", "codeGroups");
         Assert.Equal("active", code.GetProperty("runState").GetString());
         Assert.Equal("code", code.GetProperty("source").GetString());
         Assert.Equal("execute", code.GetProperty("autonomy").GetString());

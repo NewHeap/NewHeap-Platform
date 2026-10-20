@@ -85,6 +85,8 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-run-not-found',
   'assistant-run-not-retryable',
   'assistant-run-filter-invalid',
+  'assistant-board-not-found',
+  'assistant-board-scope-invalid',
   'assistant-approval-policy-denied',
   'assistant-four-eyes-required',
   'assistant-execution-not-uncertain',

@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   AdminAgent,
+  AdminAgentGroups,
   AdminAgentInput,
   AgentRunConfiguration,
   AgentRunSettings,
@@ -156,6 +157,15 @@ export class NhAssistantAdminApiService {
    */
   setServiceAccount(agentId: string, request: SetAgentServiceAccountRequest): Observable<AgentState> {
     return this.request<AgentState>('POST', `admin/agents/${encodeURIComponent(agentId)}/service-account`, request);
+  }
+
+  /**
+   * Puts an agent, in code or created here, in exactly `groups` of the run catalog's `agentGroups`
+   * and out of the others. The choice wins over the agent's `InGroup` in code. Fails with a field error
+   * on `groups` for an unknown group and with `assistant-shadow-variant` for a shadow variant.
+   */
+  setAgentGroups(agentId: string, groups: readonly string[]): Observable<AdminAgentGroups> {
+    return this.request<AdminAgentGroups>('PUT', `admin/agents/${encodeURIComponent(agentId)}/groups`, { groups });
   }
 
   /** Deletes an admin agent. Code agents cannot be deleted; stop them instead. */

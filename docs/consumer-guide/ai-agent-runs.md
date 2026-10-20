@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, and keep every run's result with a history that follows the access of what it is about.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, and group agents on boards that show their latest results and what is new.
 
 ## Preferred approach
 
@@ -270,6 +270,41 @@ runs/{id}/artifacts/{artifactId}/content`, shielded as in the thread) and whethe
 its conversation; administrators open every run. `GET admin/agents/{id}/runs` is an agent's runs view
 for administrators: every run, live and shadow (marked), with the same filters and an exact total. The
 migration `AgentRunResults` adds `Result`, `ResultTruncated` and an index of threads by agent.
+
+An agent's thread of the whole application is never readable more widely than its results: reading it,
+its conversation, its proposals and its files needs the read role of the whole application (the read
+policy of `UseSystemSubject`) and the agent's view policy, by default its required policy, evaluated as
+for its results; an invitation does not open it to anyone else. A start by hand on the whole application
+needs the view policy as well, so the thread it leads to can be opened. Deciding its proposals keeps the
+approve policy and the approval policy's rules: an approver who does not pass the view policy still
+finds and decides them in the inbox.
+
+Group agents on boards (K15, K16). Register a group in code with `AddAgentGroup("project-management",
+group => group.Named(new() { ["en"] = "Project management", ["nl"] = "Projectbeheer" }, fallbackLanguage:
+"en").Describe(...))`: a dash-case id of at most 64 characters, a name of at most 100 characters per
+language with one in the fallback language, an optional description of at most 300 characters per
+language; the same group registered again, for example from every composition whose agents join it, is
+kept. An agent in code joins with `ConfigureAgent(id, run => run.InGroup("project-management"))`, and
+startup fails for a group that is not registered or a shadow variant in a group. Administrators put any
+agent, in code or created in the administration, in groups or take it out with `PUT
+admin/agents/{id}/groups` or `INhAssistantAgentGroups.SetMembershipAsync`; the choice is stored in
+`AssistantAgentGroupMember` where it differs from code and wins over code, and a choice that equals code
+lets the code decide again. Agents created in the administration join groups this way only. The run
+catalog lists the groups as `AgentGroups` and the admin DTO carries `Groups` and `CodeGroups`. `GET
+boards` lists the groups whose board shows the caller at least one agent; `GET boards/{group}`
+(`NhAssistantBoardDto`) returns per agent what it works on, its whole application in the board's scope
+(app-wide `nh-system/global`; with `divisionId` a per-division agent's division), `CanStart` by the rule
+of starts by hand, the thread when the caller may read it, the latest run with the beginning of its
+result, the open proposals of its thread and those its runs placed at objects, and `IsNew`: the latest
+run ended or a proposal was made after the caller's last visit of that board in that scope, and before
+the first visit everything shown is new. An agent that works on the whole application shows by its view
+policy, another by its required policy without a result or a start; shadow variants and agents without
+run settings never show, and a caller bound to a tenant sees no work of the whole application. `POST
+boards/{group}/visit` records the visit in `AssistantBoardVisit` (person, group, scope key and time,
+nothing else); a board the caller may not open answers `404 assistant-board-not-found`, a malformed
+division id `400 assistant-board-scope-invalid`. One board reads the group's choices, the agents, the
+threads of at most two subjects, their latest runs, their open proposals and the visit, each in one
+query. The migration `AgentBoards` adds both tables.
 
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
@@ -770,9 +805,14 @@ profile and instructions that answer questions about the rules' proposals from t
   `NhAssistantRunResultDto.Result` as HTML; it is model output and may carry MCP tool output.
 - Listing runs for people straight from the database, or reading a run's answer from its summary; use
   `GET runs` and `GET runs/{id}`, which decide per object and per view policy who sees a run.
-- Treating the view policy of an agent as the access to its thread for the whole application: it
-  decides who sees its results in the histories; the thread itself follows the read policy of the whole
-  application.
+- Granting the read policy of the whole application to people who should not see one agent's work
+  there; the agent's thread of the whole application also needs its view policy, so give the agent a
+  `ViewPolicy` (by default its required policy decides).
+- Building a dashboard page of agents with own queries for their latest results; register a group with
+  `AddAgentGroup`, put the agents in it in code or in the administration and show it with
+  `nh-assistant-agent-board`, which follows the view policies and records the visits.
+- Registering one group id with different names in two compositions; register the same group, for
+  example through one shared helper.
 
 ## Verification
 
@@ -947,7 +987,17 @@ required policy), never another object's or shadow work, that `GET runs/{id}` an
 the caller may not see, lists the proposals placed at objects the caller reads and counts the others,
 and serves the run's own files, that `GET admin/agents/{id}/runs` lists every run with shadow marked
 for administrators only, and that the filters, the paging and `assistant-run-filter-invalid` behave the
-same on SQL Server and PostgreSQL. Assert that the migrations leave no pending model changes.
+same on SQL Server and PostgreSQL. Assert that the migrations leave no pending model changes. On both
+providers assert that an agent's thread of the whole application, its conversation, proposals, runs and
+files answer `404` to a reader of the whole application who does not pass the agent's view policy, also
+after an invitation, that such a person neither finds the agent in the subject's work nor starts it,
+and that an approver still decides its proposals from the inbox. For groups, assert the startup checks
+(unknown group, names and descriptions, a group registered twice), that `PUT admin/agents/{id}/groups`
+stores only choices that differ from code and that they win over `InGroup`, that `GET boards` and `GET
+boards/{group}` show the agents by their view or required policy, that `IsNew` follows the visit per
+person and per scope (the whole application and a division), that open proposals count the proposals a
+run placed at objects, and that a board of another division or an unknown group answers
+`assistant-board-not-found`.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297 and SPM-301 to SPM-304 are the executable
 references.
 
@@ -1113,7 +1163,7 @@ references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
   - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts)
   - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html)
-- SPM-304 — The administration's runs view lists every run of the project follow-up, and people who pass its view policy read its result for the whole application
+- SPM-304 — The administration's runs view lists every run of the project follow-up, and the portal's Project management board shows its latest result, what is new and its history to people who pass its view policy
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)

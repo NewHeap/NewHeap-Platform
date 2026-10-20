@@ -547,3 +547,44 @@ public sealed class AssistantSubjectMember
 
     public DateTimeOffset SnapshotAt { get; set; }
 }
+
+/// <summary>
+/// An administrator's choice whether one agent is in one group of agents (K15). It wins over the
+/// agent's <c>InGroup</c> in code; without a row the code decides. Agents created in the
+/// administration join groups through these rows only.
+/// </summary>
+public sealed class AssistantAgentGroupMember
+{
+    public string AgentId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The id of a group registered with <c>AddAgentGroup</c>; a row of a group that is no longer
+    /// registered is ignored.
+    /// </summary>
+    public string GroupId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// <see langword="true"/> when the administrator added the agent to the group,
+    /// <see langword="false"/> when they removed it.
+    /// </summary>
+    public bool IsMember { get; set; }
+
+    public DateTimeOffset ChangedAt { get; set; }
+
+    public string? ChangedBy { get; set; }
+}
+
+/// <summary>
+/// When one person last looked at the board of one group in one scope (K16): <c>global</c>, or a
+/// division's scope key. A board marks what is new since then. Nothing else is stored.
+/// </summary>
+public sealed class AssistantBoardVisit
+{
+    public string ActorId { get; set; } = string.Empty;
+
+    public string GroupId { get; set; } = string.Empty;
+
+    public string ScopeKey { get; set; } = string.Empty;
+
+    public DateTimeOffset VisitedAt { get; set; }
+}

@@ -99,6 +99,18 @@ internal interface INhAssistantPlatformSubjectResolver : INhAiSubjectAccessResol
     /// when the application lists them.
     /// </summary>
     bool OffersSearch { get; }
+
+    /// <summary>
+    /// Whether a person with a role on <paramref name="subject"/> may also read the agent's thread
+    /// there, its conversation, proposals and files: the whole application keeps an agent's thread to
+    /// the people who pass the agent's view policy, so the thread is never readable more widely than
+    /// the agent's results.
+    /// </summary>
+    ValueTask<bool> MayReadAgentThreadAsync(
+        NhAiSubjectRef subject,
+        string agentId,
+        string actorId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -307,11 +319,14 @@ internal static partial class NhAssistantSubjectTypeNames
             && LanguagePattern().IsMatch(language);
     }
 
-    public static IReadOnlyDictionary<string, string> Validate(Dictionary<string, string> names, string parameterName)
+    public static IReadOnlyDictionary<string, string> Validate(
+        Dictionary<string, string> names,
+        string parameterName,
+        int maxLength = MaxNameLength)
     {
         if (names.Count == 0)
         {
-            throw new ArgumentException("Give a name in at least one language.", parameterName);
+            throw new ArgumentException("Give a text in at least one language.", parameterName);
         }
 
         var validated = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -321,10 +336,10 @@ internal static partial class NhAssistantSubjectTypeNames
             {
                 throw new ArgumentException($"'{language}' is not a culture name such as 'en' or 'nl-NL'.", parameterName);
             }
-            if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > MaxNameLength)
+            if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > maxLength)
             {
                 throw new ArgumentException(
-                    $"The name in '{language}' must contain 1 to {MaxNameLength} characters.",
+                    $"The text in '{language}' must contain 1 to {maxLength} characters.",
                     parameterName);
             }
             if (!validated.TryAdd(language, name.Trim()))

@@ -492,3 +492,57 @@ pre {
   overflow-wrap: anywhere;
   @include markdown.content;
 }
+
+// The tiles of a board: as many columns as fit, one on a narrow screen. A tile that shows its
+// result, proposals or history grows without stretching the tiles beside it.
+.board-tiles {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  align-items: start;
+}
+
+// A tile with something new since the person's last visit of the board.
+.board-tile.new {
+  border-color: var(--nha-accent);
+}
+
+.badge.new {
+  color: var(--nha-accent-contrast);
+  background: var(--nha-accent);
+}
+
+// The beginning of a result on a tile: a few lines, the whole result on demand.
+.board-preview {
+  max-height: 12em;
+  overflow: hidden;
+}
+
+// The runs of an agent on its tile, newest first.
+.board-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+
+  h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+  }
+}
+
+.history-runs {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-run {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  border-top: 1px solid var(--nha-border);
+  padding-top: 8px;
+}

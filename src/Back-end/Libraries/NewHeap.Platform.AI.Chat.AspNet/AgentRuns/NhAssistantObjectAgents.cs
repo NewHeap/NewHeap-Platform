@@ -45,7 +45,7 @@ internal sealed class NhAssistantObjectAgents(
         }
 
         var administrator = await agentAccess.CanAdministerAsync(user);
-        var candidates = await CandidatesAsync(subject, user, administrator, cancellationToken);
+        var candidates = await CandidatesAsync(subject, actorId, user, administrator, cancellationToken);
 
         // The threads of the subject in its scope; shadow threads are for administrators only.
         var threads = (await runs.FindThreadsBySubjectAsync(subject, cancellationToken))
@@ -93,10 +93,12 @@ internal sealed class NhAssistantObjectAgents(
     }
 
     /// <summary>
-    /// The working agents with runs that work on the subject and that the person may use, by id.
+    /// The working agents with runs that work on the subject and that the person may use, by id; on the
+    /// whole application only those whose thread the person reads, by the agent's view policy.
     /// </summary>
     private async Task<IReadOnlyList<NhAssistantAgent>> CandidatesAsync(
         NhAiSubjectRef subject,
+        string actorId,
         ClaimsPrincipal user,
         bool administrator,
         CancellationToken cancellationToken)
@@ -107,7 +109,8 @@ internal sealed class NhAssistantObjectAgents(
             if (!registration.AgentRuns.TryGetValue(agent.Id, out var runOptions)
                 || (runOptions.ShadowOfAgentId is not null && !administrator)
                 || !worksOn.Allows(agent.Id, subject)
-                || !await agentAccess.CanUseAsync(user, agent.Definition))
+                || !await agentAccess.CanUseAsync(user, agent.Definition)
+                || !await subjects.MayReadAgentThreadAsync(subject, agent.Id, actorId, cancellationToken))
             {
                 continue;
             }
@@ -118,7 +121,7 @@ internal sealed class NhAssistantObjectAgents(
         return candidates.OrderBy(agent => agent.Id, StringComparer.Ordinal).ToArray();
     }
 
-    private static NhAssistantLatestRunDto ToDto(AssistantRun run)
+    internal static NhAssistantLatestRunDto ToDto(AssistantRun run)
     {
         var (result, truncated) = NhAssistantRunResults.PreviewOf(run);
         return new NhAssistantLatestRunDto(

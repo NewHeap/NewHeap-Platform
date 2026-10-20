@@ -103,6 +103,9 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantManualStarts>();
             services.TryAddScoped<NhAssistantObjectAgents>();
             services.TryAddScoped<NhAssistantRunHistory>();
+            services.TryAddScoped<NhAssistantAgentGroups>();
+            services.TryAddScoped<INhAssistantAgentGroups>(provider => provider.GetRequiredService<NhAssistantAgentGroups>());
+            services.TryAddScoped<NhAssistantAgentBoards>();
             services.TryAddScoped<NhAssistantSystemApprovers>();
             services.TryAddSingleton<NhAssistantSystemRoleCache>();
             services.TryAddScoped<NhAssistantProposalDecisions>();

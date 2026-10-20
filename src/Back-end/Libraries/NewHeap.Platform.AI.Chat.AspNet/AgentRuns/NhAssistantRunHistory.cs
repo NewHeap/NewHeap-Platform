@@ -397,27 +397,14 @@ internal sealed class NhAssistantRunHistory(
                 return may;
             }
 
+            // An agent that no longer exists has no view policy left to pass.
             var resolver = history._resolvers.OfType<NhAssistantSystemSubjectResolver>().FirstOrDefault();
-            if (resolver is null)
-            {
-                _views[key] = false;
-                return false;
-            }
-
-            history._registration.AgentRuns.TryGetValue(thread.AgentId, out var runOptions);
-            var agent = await history._agents.FindAsync(thread.AgentId, includeDisabled: true, cancellationToken);
-            if (runOptions is null && agent is null)
-            {
-                // An agent that no longer exists has no view policy left to pass.
-                _views[key] = false;
-                return false;
-            }
-
-            may = await resolver.MayViewAsync(
-                new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
-                reader.ActorId,
-                NhAssistantSystemSubjectResolver.ViewPolicyOf(runOptions, agent?.Definition),
-                cancellationToken);
+            may = resolver is not null
+                && await resolver.MayViewAgentAsync(
+                    new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
+                    thread.AgentId,
+                    reader.ActorId,
+                    cancellationToken);
             _views[key] = may;
             return may;
         }

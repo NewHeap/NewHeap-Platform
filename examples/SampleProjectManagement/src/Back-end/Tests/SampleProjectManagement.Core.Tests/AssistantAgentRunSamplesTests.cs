@@ -1559,6 +1559,108 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
     }
 
+    [Fact]
+    public async Task The_project_management_board_shows_the_follow_ups_latest_result_what_is_new_and_its_history()
+    {
+        // SPM-304: groups and boards. The project management group is registered in code with English
+        // and Dutch names; the closer and the planner join it in code, the follow-up, created as data,
+        // in the administration. Its board shows people who pass the follow-up's view policy its latest
+        // result for the whole application, marks it new until they visit the board again, offers run
+        // now to project managers and lists its history.
+        const string followUp = SampleRuntimeAgentSeeder.FollowUpAgentId;
+        const string group = SampleAgentGroupComposition.ProjectManagement;
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var viewerId = await host.CreatePersonAsync(SampleProjectStarterComposition.ProjectViewPolicy);
+        using var viewer = host.CreateClient(viewerId.ToString());
+        var managerId = await host.CreatePersonAsync(SampleProjectStarterComposition.ProjectViewPolicy, SampleProjectStarterComposition.ProjectManagePolicy);
+        using var manager = host.CreateClient(managerId.ToString());
+        Guid? runId = null;
+        try
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedFollowUpAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+            }
+
+            // The administration shows who is in the group and why: code for the closer, an
+            // administrator's choice for the follow-up.
+            var agents = (await administrator.GetFromJsonAsync<NhAssistantAdminAgentDto[]>("/api/assistant/admin/agents", Json))!;
+            var closer = Assert.Single(agents, agent => agent.Id == SampleProjectCloserComposition.AgentId);
+            Assert.Contains(group, closer.CodeGroups);
+            Assert.Contains(group, closer.Groups);
+            var seeded = Assert.Single(agents, agent => agent.Id == followUp);
+            Assert.Equal([group], seeded.Groups);
+            Assert.Empty(seeded.CodeGroups);
+            var catalog = (await administrator.GetFromJsonAsync<NhAssistantRunCatalogDto>("/api/assistant/admin/run-catalog", Json))!;
+            var named = Assert.Single(catalog.AgentGroups, item => item.Id == group);
+            Assert.False(string.IsNullOrWhiteSpace(named.Description));
+
+            // People who pass the follow-up's view policy see it on the board; others do not.
+            var boards = (await viewer.GetFromJsonAsync<NhAssistantBoardListDto>("/api/assistant/boards", Json))!;
+            Assert.Contains(boards.Items, item => item.Id == group);
+            var hidden = await colleague.GetAsync($"/api/assistant/boards/{group}");
+            if (hidden.IsSuccessStatusCode)
+            {
+                Assert.DoesNotContain((await hidden.Content.ReadFromJsonAsync<NhAssistantBoardDto>(Json))!.Agents, agent => agent.AgentId == followUp);
+            }
+            else
+            {
+                Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+            }
+
+            // A project manager runs the follow-up now from the board's tile.
+            var board = (await manager.GetFromJsonAsync<NhAssistantBoardDto>($"/api/assistant/boards/{group}", Json))!;
+            var tile = Assert.Single(board.Agents, agent => agent.AgentId == followUp);
+            Assert.True(tile.CanStart);
+            Assert.Equal((NhAiSubjectRef.SystemType, NhAiSystemSubjects.GlobalId), (tile.SubjectType, tile.SubjectId));
+            Assert.True(tile.WorksOn.Application);
+            Assert.Contains(tile.WorksOn.SubjectTypes, type => type.Id == ProjectSubjects.Type);
+            using (var started = await manager.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new { agentId = followUp, subjectType = tile.SubjectType, subjectId = tile.SubjectId }))
+            {
+                Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+                runId = (await started.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!.RunId;
+            }
+            var result = await WaitForRunResultAsync(viewer, runId!.Value);
+            Assert.Equal(NhAssistantRunStatuses.Completed, result.Run.Status);
+
+            // The viewer's board shows the result as new until the viewer visits the board.
+            board = (await viewer.GetFromJsonAsync<NhAssistantBoardDto>($"/api/assistant/boards/{group}", Json))!;
+            tile = Assert.Single(board.Agents, agent => agent.AgentId == followUp);
+            Assert.Equal((runId, true), (tile.LatestRun?.RunId, tile.IsNew));
+            Assert.False(tile.CanStart);
+            Assert.StartsWith(result.Result![..20], tile.LatestRun!.Result, StringComparison.Ordinal);
+            using (var visited = await viewer.PostAsync($"/api/assistant/boards/{group}/visit", null))
+            {
+                Assert.Equal(HttpStatusCode.OK, visited.StatusCode);
+            }
+            board = (await viewer.GetFromJsonAsync<NhAssistantBoardDto>($"/api/assistant/boards/{group}", Json))!;
+            Assert.NotNull(board.LastVisitedAt);
+            Assert.False(Assert.Single(board.Agents, agent => agent.AgentId == followUp).IsNew);
+            // The visit is the viewer's own: the manager's board still marks the result new.
+            Assert.True(Assert.Single((await manager.GetFromJsonAsync<NhAssistantBoardDto>($"/api/assistant/boards/{group}", Json))!.Agents, agent => agent.AgentId == followUp).IsNew);
+
+            // The tile's history is the people's history of the whole application.
+            var history = (await viewer.GetFromJsonAsync<NhAssistantRunHistoryListDto>($"/api/assistant/runs?agentId={followUp}&subjectType=nh-system&subjectId=global", Json))!;
+            Assert.Contains(history.Items, item => item.Id == runId);
+        }
+        finally
+        {
+            // The colleague rejects what the run placed, so later ticks on the shared host stay quiet.
+            if (runId is { } started)
+            {
+                var inbox = (await colleague.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox?itemsPerPage=100", Json))!;
+                foreach (var proposal in inbox.Items.Where(item => item.AgentId == followUp && item.RunId == started))
+                {
+                    using var rejected = await DecideAsync(colleague, proposal, "reject");
+                }
+            }
+            await RemoveFollowUpAsync(administrator);
+        }
+    }
+
     /// <summary>
     /// Reads a run with its result until it ended.
     /// </summary>

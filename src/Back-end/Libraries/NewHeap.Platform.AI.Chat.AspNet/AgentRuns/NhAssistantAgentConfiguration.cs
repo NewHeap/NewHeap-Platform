@@ -223,6 +223,13 @@ public sealed record NhAssistantRunCatalogDto(
     /// the choice and everything runs app-wide.
     /// </summary>
     public bool Divisions { get; init; }
+
+    /// <summary>
+    /// The groups of agents the application registers with <c>AddAgentGroup</c>, ordered by id, with
+    /// their names and descriptions in the request's language: what an administrator may put an agent
+    /// in.
+    /// </summary>
+    public IReadOnlyList<NhAssistantAgentGroupDto> AgentGroups { get; init; } = [];
 }
 
 /// <summary>
@@ -633,7 +640,8 @@ internal sealed class NhAssistantAgentConfiguration(
                 .OrderBy(item => item.Name, StringComparer.Ordinal)
                 .Select(item => new NhAssistantRunBlockDto(item.Name, item.Description))
                 .ToArray(),
-            Divisions = services.GetRequiredService<NhAssistantWorksOnRule>().DivisionsListed
+            Divisions = services.GetRequiredService<NhAssistantWorksOnRule>().DivisionsListed,
+            AgentGroups = services.GetRequiredService<INhAssistantAgentGroups>().ListGroups()
         };
     }
 

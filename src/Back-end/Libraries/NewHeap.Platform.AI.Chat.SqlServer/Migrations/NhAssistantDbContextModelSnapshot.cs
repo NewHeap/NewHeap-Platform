@@ -182,6 +182,33 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.ToTable("AssistantAgent", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentGroupMember", b =>
+                {
+                    b.Property<string>("AgentId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("GroupId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("ChangedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ChangedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("IsMember")
+                        .HasColumnType("bit");
+
+                    b.HasKey("AgentId", "GroupId");
+
+                    b.HasIndex("GroupId");
+
+                    b.ToTable("AssistantAgentGroupMember", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentMcpServer", b =>
                 {
                     b.Property<string>("AgentId")
@@ -861,6 +888,28 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .IsUnique();
 
                     b.ToTable("AssistantArtifact", "nhai");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantBoardVisit", b =>
+                {
+                    b.Property<string>("ActorId")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("GroupId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ScopeKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset>("VisitedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("ActorId", "GroupId", "ScopeKey");
+
+                    b.ToTable("AssistantBoardVisit", "nhai");
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantBudgetLedger", b =>
@@ -2403,6 +2452,15 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.HasKey("ActorId");
 
                     b.ToTable("AssistantUserPreference", "nhai");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentGroupMember", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantAgent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentMcpServer", b =>

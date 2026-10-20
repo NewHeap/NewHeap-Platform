@@ -440,6 +440,59 @@ bundled in English and Dutch.
 | The mock API answers `GET runs`, `GET runs/{id}`, `GET runs/{id}/artifacts/{artifactId}/content` and `GET admin/agents/{id}/runs` instead of `404`, and a run by hand keeps `runNow.result` as its answer and the first 600 characters as its summary. | Update tests that expected `404` or the whole result as the summary; seed runs with `runs`. |
 | The conversation's Markdown styles come from a shared partial that also styles thematic breaks (`hr`). | None; remove host styles that styled `hr` inside the panel. |
 
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: groups and boards
+
+`NhAssistantBuilder.AddAgentGroup(id, group => group.Named(...).Describe(...))` registers a group of
+agents with its name per language and an optional description (`NhAssistantAgentGroupBuilder`); the
+same group registered again is kept. An agent in code joins with
+`NhAssistantAgentRunBuilder.InGroup(id)`, and startup fails for an unknown group or a shadow variant in a
+group. Administrators put any agent in groups or take it out with `PUT admin/agents/{id}/groups` or
+`INhAssistantAgentGroups.SetMembershipAsync` (`NhAssistantAgentGroupMembershipDto`): the choice is stored
+where it differs from code and wins over code; agents created in the administration join groups this way
+only. The run catalog lists `AgentGroups` (`NhAssistantAgentGroupDto`) and the admin agent DTO carries
+`Groups` and `CodeGroups`. `GET boards` (`NhAssistantBoardListDto`) lists the groups whose board shows the
+caller at least one agent; `GET boards/{group}` (`NhAssistantBoardDto`, `NhAssistantBoardAgentDto`)
+returns per agent what it works on, its whole application in the board's scope (with `divisionId` a
+division), `CanStart`, its thread when the caller reads it, its latest run, its open proposals (also
+those its runs placed at objects) and `IsNew` since the caller's last visit of the board in that scope;
+`POST boards/{group}/visit` (`NhAssistantBoardVisitDto`) records the visit. An agent that works on the
+whole application shows by its view policy, by default its required policy, another by its required
+policy. New error codes: `assistant-board-not-found` and `assistant-board-scope-invalid`
+(`NhAssistantErrorCodes.BoardNotFound`, `BoardScopeInvalid`). An agent's thread of the whole application,
+its conversation, proposals and files are now read only by people who have the read role of the whole
+application and pass the agent's view policy, as its results are.
+
+| Breaking change | Required action |
+|---|---|
+| Reading an agent's thread of the whole application (`GET threads`, its conversation, proposals, runs, memory and files, `GET approvals/{id}`, the subject's work and agents) needs the agent's view policy, by default its required policy, next to the read role; an invitation no longer opens it to others. Approvers still decide its proposals from the inbox. | Give people who read such threads the agent's view policy, or set a `ViewPolicy` they pass. |
+| Starting an agent by hand on the whole application (`POST threads/start`, a new thread of `POST threads/open`, `canStart`) needs the agent's view policy as well, so its thread can be opened. | Give people who run such agents the view policy too. |
+| The assistant maps `GET boards`, `GET boards/{groupId}`, `POST boards/{groupId}/visit` and `PUT admin/agents/{id}/groups` below its prefix. | Move host routes that used these paths below the assistant's prefix. |
+| Migration `AgentBoards` adds `AssistantAgentGroupMember` and `AssistantBoardVisit`. | Apply it for SQL Server or PostgreSQL. |
+
+## @newheap/platform-ai-chat: groups and boards
+
+`nh-assistant-agent-board` (`NhAssistantAgentBoardComponent`, `group`, optional `divisionId`) of
+`@newheap/platform-ai-chat/agent-runs` shows one group of agents anywhere in an application: per agent
+what it works on, its latest result for the whole application rendered with the assistant's safe
+Markdown rendering, "New" for what arrived since the person's last visit, "Run now" through the run-now
+dialog when the server allows it, its open proposals in `nh-assistant-agent-inbox` and its history with
+every result on demand. Showing it records the visit after reading the board; it emits
+`openConversation` and reloads on live updates. `NhAssistantAgentRunApiService.getBoards`, `getBoard` and
+`visitBoard` (`AgentBoardList`, `AgentBoardSummary`, `AgentBoard`, `AgentBoardAgent`,
+`AgentBoardWorksOn`, `AgentBoardSubjectType`, `AgentBoardVisit`) read the boards. The agent editor of the
+administration lists the run catalog's `agentGroups` (`AgentGroup`) for every agent, marks the groups of
+its code and saves the choice with `NhAssistantAdminApiService.setAgentGroups` (`AdminAgentGroups`); the
+agent cards name the agent's groups (`AdminAgent.groups`, `codeGroups`). The mock API serves groups,
+memberships, boards and visits from `NhAssistantMockScenario.agentGroups` (`NhAssistantMockAgentGroup`)
+with the server's validation. The errors `assistant-board-not-found` and `assistant-board-scope-invalid`
+are registered and the new texts are bundled in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| The agent editor has a groups section after the works-on section when the run catalog lists groups, and saves an existing agent's changed groups before its definition. | Update tests and styles that select the editor's fieldsets by position; mock or serve `PUT admin/agents/{id}/groups` where you host the editor. |
+| The administration's agent cards show a groups line for agents in a group. | Update tests and styles that select the card's paragraphs by position. |
+| The mock API answers `GET boards`, `GET boards/{group}`, `POST boards/{group}/visit` and `PUT admin/agents/{id}/groups` instead of `404`, and its admin agents and run catalog carry `groups`, `codeGroups` and `agentGroups`. | Update tests that expected `404` or compare whole agent objects; list groups in `agentGroups`. |
+
 ## NewHeap.Platform.AI.Mcp, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: MCP servers in background runs
 
 An administrator-connected MCP server is now offered in headless agent runs, and in the execution

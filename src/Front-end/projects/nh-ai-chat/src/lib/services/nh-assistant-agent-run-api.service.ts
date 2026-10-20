@@ -2,6 +2,9 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   AgentArtifact,
+  AgentBoard,
+  AgentBoardList,
+  AgentBoardVisit,
   AgentConsultationList,
   AgentDecisionOutcome,
   AgentExecutionResolution,
@@ -177,6 +180,30 @@ export class NhAssistantAgentRunApiService {
    */
   getRunHistory(filter: AgentRunFilter = {}): Observable<AgentRunHistory> {
     return this.transport.json<AgentRunHistory>('GET', withQuery('runs', filter));
+  }
+
+  /**
+   * The boards of the groups of agents the caller sees at least one agent of, ordered by name: an
+   * agent that works on the whole application by its view policy, another by its required policy.
+   */
+  getBoards(): Observable<AgentBoardList> {
+    return this.transport.json<AgentBoardList>('GET', 'boards');
+  }
+
+  /**
+   * The board of one group: per agent what it works on, its latest result for the whole application,
+   * its open proposals, whether the caller may run it now and whether something is new since the
+   * caller's last visit. `divisionId` opens the board of one division the caller may work in. Fails
+   * with `assistant-board-not-found` for an unknown group or one the caller sees no agent of, and with
+   * `assistant-board-scope-invalid` for a malformed division id.
+   */
+  getBoard(groupId: string, divisionId?: string | null): Observable<AgentBoard> {
+    return this.transport.json<AgentBoard>('GET', withQuery(`boards/${encodeURIComponent(groupId)}`, { divisionId }));
+  }
+
+  /** Records that the caller looked at the board now, so it marks what is new after this visit. */
+  visitBoard(groupId: string, divisionId?: string | null): Observable<AgentBoardVisit> {
+    return this.transport.json<AgentBoardVisit>('POST', withQuery(`boards/${encodeURIComponent(groupId)}/visit`, { divisionId }));
   }
 
   /**

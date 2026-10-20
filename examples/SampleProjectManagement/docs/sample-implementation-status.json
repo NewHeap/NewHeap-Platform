@@ -2612,7 +2612,26 @@
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-timeline.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-run-history.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-run-results.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-runs.ts"
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-runs.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentGroupComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+      "src/Front-end/projects/management/src/app/project-management-board/project-management-board-page.component.ts",
+      "src/Front-end/projects/management/src/app/sample.routes.ts",
+      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html",
+      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentGroups.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentGroups.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoards.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantBoardEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentBoardTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-board.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agent-editor.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-boards.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-boards.ts"
     ]
   }
 }

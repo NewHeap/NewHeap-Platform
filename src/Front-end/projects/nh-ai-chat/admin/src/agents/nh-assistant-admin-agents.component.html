@@ -178,6 +178,9 @@
                 </div>
               }
             }
+            @if (groupNames(agent); as names) {
+              <p class="muted" data-agent-groups>{{ 'nh-assistant.admin.agents.groups' | translate: { groups: names } }}</p>
+            }
             <div class="meta">
               <span>{{ 'nh-assistant.admin.agents.autonomy.' + agent.autonomy | translate }}</span>
               <span>{{ (agent.toolSelectors.length === 1 ? 'nh-assistant.admin.agents.tool-count-one' : 'nh-assistant.admin.agents.tool-count') | translate: { count: agent.toolSelectors.length } }}</span>

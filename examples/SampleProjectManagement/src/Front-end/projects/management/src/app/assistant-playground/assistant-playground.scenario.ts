@@ -136,6 +136,19 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
     { id: '3f2b8c1a-6d4e-4f5a-9b7c-1e2d3c4b5a61', name: 'Assistant sample division' },
     { id: '8a7b6c5d-4e3f-4a2b-9c1d-0e9f8a7b6c52', name: 'Other division' }
   ],
+  // SPM-304: the project management group, as the API registers it in code; the follow-up, created as
+  // data, was put in it in the administration, the planner joins it in code.
+  agentGroups: [
+    {
+      id: 'project-management',
+      names: { en: 'Project management', nl: 'Projectbeheer' },
+      // Dutch readers get the English description: the sample keeps its Dutch texts in its translations.
+      descriptions: {
+        en: 'Agents that keep the projects moving: they count the open projects, plan the work and complete what is finished.'
+      },
+      agentIds: ['project-follow-up', PROJECT_PLANNER_ID]
+    }
+  ],
   // SPM-303: what a run by hand does in the playground, which runs no agents itself.
   runNow: {
     'project-follow-up': {

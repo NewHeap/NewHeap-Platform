@@ -17,7 +17,9 @@ namespace SampleProjectManagement.Api.Services;
 /// account and acts with that account's rights, is kept out of the chat, and its kickoff skill
 /// starts on every created project: a draft gets a proposal to start it, which the project's approver
 /// decides under the intake approval policy. SPM-302: next to it the project follow-up, which works on
-/// projects and on the whole application. The seeder creates both once; afterwards the administration
+/// projects and on the whole application; SPM-304: it joins the project management group. A
+/// development database with a follow-up of an earlier version keeps it; put it in the group in the
+/// administration, or remove it to seed this one. The seeder creates both once; afterwards the administration
 /// owns them, so changes made there survive a restart.
 /// </summary>
 public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogger<SampleRuntimeAgentSeeder> logger) : IHostedService
@@ -260,7 +262,11 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
                 cancellationToken),
             async () => await services.GetRequiredService<INhAssistantAgentControl>()
                 .SetSkillShadowAsync(FollowUpAgentId, FollowUpSkill, false, actorId, Reason, cancellationToken),
-            async () => await configuration.SetTriggerShadowAsync(FollowUpAgentId, FollowUpScheduleId, false, actorId, Reason, cancellationToken)
+            async () => await configuration.SetTriggerShadowAsync(FollowUpAgentId, FollowUpScheduleId, false, actorId, Reason, cancellationToken),
+            // SPM-304: an agent created as data joins groups in the administration: the follow-up
+            // joins the project management group, whose board the management portal shows.
+            async () => await services.GetRequiredService<INhAssistantAgentGroups>()
+                .SetMembershipAsync(FollowUpAgentId, [SampleAgentGroupComposition.ProjectManagement], actorId, cancellationToken)
         };
         foreach (var step in steps)
         {
