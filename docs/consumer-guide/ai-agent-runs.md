@@ -369,7 +369,10 @@ a user: the caller signs `{timestamp}.{deliveryId}.{body}` with HMAC-SHA256 and 
 secret of at least 32 characters read for every call, calls more than five minutes off
 are refused, and a delivery id starts at most one run. Treat the body as untrusted and
 take only identifiers and known values from it. A follow-up run after a decided or
-executed proposal is opt-in per approval policy (`StartFollowUpRun`). It continues in the skill of
+executed proposal is opt-in per approval policy (`StartFollowUpRun`) and waits 30 seconds,
+so decisions made together reach one run. Debounces, this one included, run on the
+application's clock (a registered `TimeProvider`, otherwise the system clock): a test moves
+its clock past them instead of waiting. The follow-up continues in the skill of
 the run that made the proposal (`skillChosenBy` `follow-up`) while the agent declares that skill:
 a paused skill lets it wait and a stopped one refuses it.
 
@@ -1176,7 +1179,7 @@ references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
-  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleTestClock.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleTestClock.cs)
 - SPM-293 — An operator puts the project closer and a planner skill in shadow at runtime while the team evaluates them, and puts them live again
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs)

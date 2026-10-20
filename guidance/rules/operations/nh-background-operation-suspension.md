@@ -34,7 +34,8 @@ policies must allow `NhBackgroundOperationAccessAction.Signal` for that user;
 the same wait-key, schema and duplicate rules apply.
 
 Expiry is stored as `NextDispatchAt`; it wakes a new attempt that receives an
-`Expired` result. Cancellation advances a sleeping operation immediately for
+`Expired` result once the application's clock (a registered `TimeProvider`,
+otherwise the system clock) reaches it, so compute `expiresAt` from that clock. Cancellation advances a sleeping operation immediately for
 terminal handling. No worker polls and no public control-flow exception leaks
 into handlers.
 

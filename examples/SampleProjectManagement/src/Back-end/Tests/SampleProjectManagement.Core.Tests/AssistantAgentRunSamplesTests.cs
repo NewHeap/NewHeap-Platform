@@ -20,6 +20,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
@@ -2858,9 +2859,12 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Contains(request.Messages, message => message.Text.Contains("completed after the project's deadline of", StringComparison.Ordinal));
 
             // The approver approves; once it executed, the follow-up run continues in the same skill
-            // and its rules take the decision as the answer, without a model.
+            // and its rules take the decision as the answer, without a model. The follow-up waits
+            // thirty seconds for further decisions; the host's clock moves past them instead.
             var decision = await DecideAsync(colleague, proposal, "approve");
             Assert.True(decision.IsSuccessStatusCode);
+            var debounced = await WaitForEnqueuedRunWithTriggerAsync(colleague, conversationId, NhAssistantTriggerIds.ProposalExecuted);
+            await host.AdvanceToDueTimeAsync(debounced.BackgroundOperationId!.Value);
             var followUp = await WaitForRunWithTriggerAsync(colleague, conversationId, NhAssistantTriggerIds.ProposalExecuted);
             Assert.Equal(NhAssistantRunStatuses.Completed, followUp.Status);
             Assert.Equal(skill, followUp.Skill);
@@ -3362,6 +3366,29 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             $"The thread has no ended run of trigger {triggerId}: {string.Join(", ", runs.Select(run => run.TriggerId + " " + run.Status))}.");
     }
 
+    /// <summary>
+    /// Waits until the thread has a run of <paramref name="triggerId"/> whose background operation
+    /// was enqueued, so its due time is known.
+    /// </summary>
+    private static async Task<NhAssistantRunDto> WaitForEnqueuedRunWithTriggerAsync(HttpClient client, Guid conversationId, string triggerId)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        NhAssistantRunDto[] runs = [];
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            runs = (await client.GetFromJsonAsync<NhAssistantRunListDto>($"/api/assistant/threads/{conversationId}/runs", Json))?.Items.ToArray() ?? [];
+            if (runs.FirstOrDefault(run => run.TriggerId == triggerId && run.BackgroundOperationId is not null) is { } found)
+            {
+                return found;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        }
+
+        throw new TimeoutException(
+            $"The thread has no enqueued run of trigger {triggerId}: {string.Join(", ", runs.Select(run => run.TriggerId + " " + run.Status))}.");
+    }
+
     private static async Task<NhAssistantRunDto> WaitForRunAsync(HttpClient client, Guid conversationId, string status)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
@@ -3551,6 +3578,12 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
     public FakeReviewRequests Reviews { get; } = new();
 
     /// <summary>
+    /// The host's clock, which background operations and agent triggers read: a test moves it past
+    /// a follow-up's debounce instead of waiting for it.
+    /// </summary>
+    public SampleTestClock Clock { get; } = new();
+
+    /// <summary>
     /// SPM-251: the application's inbox, which the assistant's agent notifications reach through
     /// <c>UseInAppAgentNotifications</c>.
     /// </summary>
@@ -3651,6 +3684,9 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
 
     protected override void ConfigureServices(IServiceCollection services)
     {
+        // The application's clock, before the platform registers the system clock as its default.
+        services.RemoveAll<TimeProvider>();
+        services.AddSingleton<TimeProvider>(Clock);
         // As in the sample's appsettings, the application defaults to Dutch, so headless runs make
         // their proposals in Dutch and English readers depend on the per-culture presentations.
         services.PostConfigure<RequestLocalizationOptions>(options =>
@@ -3783,6 +3819,31 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
         services.AddSampleProjectPlanner();
         services.AddSampleProjectPlannerVariant();
         services.AddSampleProjectStarterBlocks();
+    }
+
+    /// <summary>
+    /// Moves the host's clock to the due time of a background operation that waits for it, such as
+    /// a debounced follow-up run, instead of waiting it out.
+    /// </summary>
+    public async Task AdvanceToDueTimeAsync(Guid operationId)
+    {
+        Assert.Same(Clock, Services.GetRequiredService<TimeProvider>());
+        DateTimeOffset? due;
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+            due = await dbContext.Set<NhBackgroundOperation>()
+                .AsNoTracking()
+                .Where(item => item.Id == operationId && item.Status == NhBackgroundOperationStatus.PendingDispatch)
+                .Select(item => item.NextDispatchAt)
+                .SingleOrDefaultAsync();
+        }
+
+        var remaining = due - Clock.GetUtcNow();
+        if (remaining > TimeSpan.Zero)
+        {
+            Clock.Advance(remaining.Value);
+        }
     }
 
     public async Task WaitForOperationAsync(Guid operationId, NhBackgroundOperationStatus status)

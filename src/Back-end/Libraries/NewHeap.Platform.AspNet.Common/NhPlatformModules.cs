@@ -339,7 +339,8 @@ internal static class NhBackgroundOperationRegistration
             serviceProvider.GetRequiredService<NhBackgroundOperationRegistry>(),
             serviceProvider.GetRequiredService<NhBackgroundOperationFanOutCoordinator>(),
             serviceProvider.GetRequiredService<NhBackgroundOperationsOptions>(),
-            serviceProvider.GetRequiredService<ILogger<NhBackgroundOperationRunner>>()));
+            serviceProvider.GetRequiredService<ILogger<NhBackgroundOperationRunner>>(),
+            serviceProvider.GetService<TimeProvider>()));
         services.AddHostedService<NhBackgroundOperationStartupValidator>();
         if (options.DispatchWorkersEnabled)
         {

@@ -10,13 +10,16 @@ internal sealed class NhBackgroundOperationHealthCheck : IHealthCheck
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly NhBackgroundOperationsOptions _options;
+    private readonly TimeProvider _dueClock;
 
     public NhBackgroundOperationHealthCheck(
         IServiceScopeFactory scopeFactory,
-        NhBackgroundOperationsOptions options)
+        NhBackgroundOperationsOptions options,
+        TimeProvider? timeProvider = null)
     {
         _scopeFactory = scopeFactory;
         _options = options;
+        _dueClock = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<HealthCheckResult> CheckHealthAsync(
@@ -29,9 +32,12 @@ internal sealed class NhBackgroundOperationHealthCheck : IHealthCheck
             var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
             var now = DateTimeOffset.UtcNow;
             var staleBefore = now - _options.StaleAttemptTimeout;
-            var undispatchedBefore = now - TimeSpan.FromTicks(Math.Max(
+            var undispatchedFor = TimeSpan.FromTicks(Math.Max(
                 _options.StaleAttemptTimeout.Ticks,
                 _options.DispatchInterval.Ticks * 10));
+            var undispatchedBefore = now - undispatchedFor;
+            // A signal wait's expiry is a due time on the application's clock.
+            var expiredBefore = _dueClock.GetUtcNow() - undispatchedFor;
             var query = repository.GetAll()
                 .AsNoTracking()
                 .Where(x => x.ProcessorKey == _options.ProcessorKey);
@@ -46,7 +52,7 @@ internal sealed class NhBackgroundOperationHealthCheck : IHealthCheck
                   || x.Status == NhBackgroundOperationStatus.Queued)
                  && x.LastModifiedDateTime <= undispatchedBefore)
                 || (x.Status == NhBackgroundOperationStatus.WaitingForSignal
-                    && x.NextDispatchAt <= undispatchedBefore), cancellationToken);
+                    && x.NextDispatchAt <= expiredBefore), cancellationToken);
 
             var data = new Dictionary<string, object>
             {

@@ -18,6 +18,7 @@ public sealed class NhBackgroundOperationRunner
     private readonly NhBackgroundOperationFanOutCoordinator _fanOutCoordinator;
     private readonly NhBackgroundOperationsOptions _options;
     private readonly ILogger<NhBackgroundOperationRunner> _logger;
+    private readonly TimeProvider _dueClock;
 
     internal NhBackgroundOperationRunner(
         IServiceProvider serviceProvider,
@@ -26,7 +27,8 @@ public sealed class NhBackgroundOperationRunner
         NhBackgroundOperationRegistry registry,
         NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
         NhBackgroundOperationsOptions options,
-        ILogger<NhBackgroundOperationRunner> logger)
+        ILogger<NhBackgroundOperationRunner> logger,
+        TimeProvider? timeProvider = null)
     {
         _serviceProvider = serviceProvider;
         _scopeFactory = scopeFactory;
@@ -35,6 +37,7 @@ public sealed class NhBackgroundOperationRunner
         _fanOutCoordinator = fanOutCoordinator;
         _options = options;
         _logger = logger;
+        _dueClock = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>
@@ -366,7 +369,7 @@ public sealed class NhBackgroundOperationRunner
             claim.OperationId,
             CancellationToken.None) + 1;
         var retryAt = failedAttempts <= descriptor.RetryCount
-            ? DateTimeOffset.UtcNow + TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, failedAttempts)))
+            ? _dueClock.GetUtcNow() + TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, failedAttempts)))
             : (DateTimeOffset?)null;
         await _persistence.CompleteAsync(
             claim,
@@ -388,7 +391,7 @@ public sealed class NhBackgroundOperationRunner
             "concurrency-busy",
             "background-operation.waiting-for-resource",
             null,
-            DateTimeOffset.UtcNow + (retryAfter ?? TimeSpan.FromSeconds(2)),
+            _dueClock.GetUtcNow() + (retryAfter ?? TimeSpan.FromSeconds(2)),
             CancellationToken.None,
             abandoned: true);
     }
@@ -452,7 +455,7 @@ public sealed class NhBackgroundOperationRunner
 
         var retryDelay = requestedDelay
             ?? TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, failedAttempts)));
-        return DateTimeOffset.UtcNow + retryDelay;
+        return _dueClock.GetUtcNow() + retryDelay;
     }
 
     private sealed record NhBackgroundOperationFailure(string Code, string MessageKey);

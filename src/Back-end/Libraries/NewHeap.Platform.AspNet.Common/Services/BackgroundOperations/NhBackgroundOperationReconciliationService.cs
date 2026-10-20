@@ -20,6 +20,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
     private readonly INhBackgroundOperationLiveUpdatePublisher _liveUpdates;
     private readonly INhBackgroundOperationNotificationProjector _notificationProjector;
     private readonly ILogger<NhBackgroundOperationReconciliationService> _logger;
+    private readonly TimeProvider _dueClock;
 
     public NhBackgroundOperationReconciliationService(
         IServiceScopeFactory scopeFactory,
@@ -28,7 +29,8 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
         NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
         INhBackgroundOperationLiveUpdatePublisher liveUpdates,
         INhBackgroundOperationNotificationProjector notificationProjector,
-        ILogger<NhBackgroundOperationReconciliationService> logger)
+        ILogger<NhBackgroundOperationReconciliationService> logger,
+        TimeProvider? timeProvider = null)
     {
         _scopeFactory = scopeFactory;
         _options = options;
@@ -37,6 +39,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
         _liveUpdates = liveUpdates;
         _notificationProjector = notificationProjector;
         _logger = logger;
+        _dueClock = timeProvider ?? TimeProvider.System;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -75,16 +78,20 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             return 0;
         }
 
+        // Heartbeats and modification times are on the system clock, due times on the application's
+        // clock: advancing a test clock makes waiting work due without making a running attempt stale.
         var now = DateTimeOffset.UtcNow;
         var staleBefore = now - _options.StaleAttemptTimeout;
+        var due = _dueClock.GetUtcNow();
+        var dueStaleBefore = due - _options.StaleAttemptTimeout;
         var candidateOperationIds = await repository.GetAll()
             .AsNoTracking()
             .Where(x => x.ProcessorKey == _options.ProcessorKey)
             .Where(x =>
-                (x.Status == NhBackgroundOperationStatus.RetryScheduled && x.NextDispatchAt <= now)
+                (x.Status == NhBackgroundOperationStatus.RetryScheduled && x.NextDispatchAt <= due)
                 || (x.Status == NhBackgroundOperationStatus.CancelRequested && x.CurrentAttemptId == null)
                 || (x.Status == NhBackgroundOperationStatus.Queued && x.LastModifiedDateTime <= staleBefore)
-                || (x.Status == NhBackgroundOperationStatus.PendingDispatch && x.NextDispatchAt <= staleBefore)
+                || (x.Status == NhBackgroundOperationStatus.PendingDispatch && x.NextDispatchAt <= dueStaleBefore)
                 || (x.Status == NhBackgroundOperationStatus.Running && (x.HeartbeatAt == null || x.HeartbeatAt <= staleBefore)))
             .OrderBy(x => x.LastModifiedDateTime)
             .Take(_options.ReconciliationBatchSize)
@@ -110,7 +117,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                 .SingleOrDefaultAsync(x => x.Id == operationId, cancellationToken);
             if (operation is null
                 || operation.ProcessorKey != _options.ProcessorKey
-                || !RequiresReconciliation(operation, now, staleBefore))
+                || !RequiresReconciliation(operation, staleBefore, due, dueStaleBefore))
             {
                 continue;
             }
@@ -118,7 +125,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             if (operation.Status == NhBackgroundOperationStatus.RetryScheduled)
             {
                 operation.Status = NhBackgroundOperationStatus.PendingDispatch;
-                operation.NextDispatchAt = now;
+                operation.NextDispatchAt = due;
                 NhBackgroundOperationService.Touch(operation, now);
                 operations.Add(operation);
                 continue;
@@ -172,6 +179,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                     operation,
                     servedQueues,
                     now,
+                    due,
                     cancellationToken);
                 await NhBackgroundOperationEventRetention.TrimAsync(
                     repository,
@@ -213,7 +221,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             else
             {
                 operation.Status = NhBackgroundOperationStatus.RetryScheduled;
-                operation.NextDispatchAt = now;
+                operation.NextDispatchAt = due;
             }
             NhBackgroundOperationService.Touch(operation, now);
             NhBackgroundOperationService.AppendEvent(operation,
@@ -317,6 +325,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
         NhBackgroundOperation operation,
         Dictionary<string, bool?> servedQueues,
         DateTimeOffset now,
+        DateTimeOffset due,
         CancellationToken cancellationToken)
     {
         var stalledStatus = operation.Status;
@@ -342,7 +351,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
         else
         {
             operation.Status = NhBackgroundOperationStatus.PendingDispatch;
-            operation.NextDispatchAt = now;
+            operation.NextDispatchAt = due;
         }
         NhBackgroundOperationService.Touch(operation, now);
 
@@ -523,17 +532,18 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
 
     private static bool RequiresReconciliation(
         NhBackgroundOperation operation,
-        DateTimeOffset now,
-        DateTimeOffset staleBefore)
+        DateTimeOffset staleBefore,
+        DateTimeOffset due,
+        DateTimeOffset dueStaleBefore)
     {
         return (operation.Status == NhBackgroundOperationStatus.RetryScheduled
-                && operation.NextDispatchAt <= now)
+                && operation.NextDispatchAt <= due)
             || (operation.Status == NhBackgroundOperationStatus.CancelRequested
                 && operation.CurrentAttemptId is null)
             || (operation.Status == NhBackgroundOperationStatus.Queued
                 && operation.LastModifiedDateTime <= staleBefore)
             || (operation.Status == NhBackgroundOperationStatus.PendingDispatch
-                && operation.NextDispatchAt <= staleBefore)
+                && operation.NextDispatchAt <= dueStaleBefore)
             || (operation.Status == NhBackgroundOperationStatus.Running
                 && (operation.HeartbeatAt is null || operation.HeartbeatAt <= staleBefore));
     }

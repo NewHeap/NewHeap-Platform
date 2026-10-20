@@ -83,7 +83,9 @@ public interface INhBackgroundOperationContext
 /// Durably suspends an operation until an authorized application service
 /// supplies a typed signal or the wait expires. The handler is re-entered from
 /// its beginning after wake-up, so work before this call must be repeatable or
-/// protected by checkpoints and idempotency.
+/// protected by checkpoints and idempotency. The wait expires when the application's
+/// <see cref="TimeProvider"/> (the system clock when none is registered) reaches
+/// <c>expiresAt</c>.
 /// </summary>
 public interface INhBackgroundOperationSuspensionContext
 {

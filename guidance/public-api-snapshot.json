@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "4ea4fc1c0c554193a3fb7d3d1352755ae344ef222d6eb566efe4e2cf01acee04",
-    "declarationCount": 9176,
+    "hash": "7bc3f4ba322e2020d360cefe6fb811dffed241c1afec9370eeecc46c59ec549f",
+    "declarationCount": 9177,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -28447,7 +28447,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationDispatchService.cs",
-        "declaration": "public NhBackgroundOperationDispatchService( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, NhBackgroundOperationServedQueues servedQueues, ILogger<NhBackgroundOperationDispatchService> logger) {"
+        "declaration": "public NhBackgroundOperationDispatchService( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, NhBackgroundOperationServedQueues servedQueues, ILogger<NhBackgroundOperationDispatchService> logger, TimeProvider? timeProvider = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationDispatchService.cs",
@@ -28467,11 +28467,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationFanOutCoordinator.cs",
-        "declaration": "public NhBackgroundOperationFanOutCoordinator( IServiceScopeFactory scopeFactory, NhBackgroundOperationRegistry registry, NhBackgroundOperationsOptions options, INhHangfireQueueNameResolver queueNameResolver, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, ILogger<NhBackgroundOperationFanOutCoordinator> logger) {"
+        "declaration": "public NhBackgroundOperationFanOutCoordinator( IServiceScopeFactory scopeFactory, NhBackgroundOperationRegistry registry, NhBackgroundOperationsOptions options, INhHangfireQueueNameResolver queueNameResolver, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, ILogger<NhBackgroundOperationFanOutCoordinator> logger, TimeProvider? timeProvider = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHealthCheck.cs",
-        "declaration": "public NhBackgroundOperationHealthCheck( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options) {"
+        "declaration": "public NhBackgroundOperationHealthCheck( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, TimeProvider? timeProvider = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHealthCheck.cs",
@@ -28611,11 +28611,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationPersistence.cs",
-        "declaration": "public NhBackgroundOperationPersistence( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, ILogger<NhBackgroundOperationPersistence> logger) {"
+        "declaration": "public NhBackgroundOperationPersistence( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, ILogger<NhBackgroundOperationPersistence> logger, TimeProvider? timeProvider = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationReconciliationService.cs",
-        "declaration": "public NhBackgroundOperationReconciliationService( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, NhBackgroundOperationRegistry registry, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, ILogger<NhBackgroundOperationReconciliationService> logger) {"
+        "declaration": "public NhBackgroundOperationReconciliationService( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, NhBackgroundOperationRegistry registry, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, ILogger<NhBackgroundOperationReconciliationService> logger, TimeProvider? timeProvider = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationReconciliationService.cs",
@@ -28651,7 +28651,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
-        "declaration": "public NhBackgroundOperationService( IRepository<NhBackgroundOperation> repository, NhBackgroundOperationRegistry registry, NhBackgroundOperationsOptions options, INhHangfireQueueNameResolver queueNameResolver, INhBackgroundOperationScheduler scheduler, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, IMapper mapper, ILogger<NhBackgroundOperationService> logger, INhBackgroundOperationOwnerDirectory? ownerDirectory, IEnumerable<INhBackgroundOperationAccess> accessPolicies) {"
+        "declaration": "public NhBackgroundOperationService( IRepository<NhBackgroundOperation> repository, NhBackgroundOperationRegistry registry, NhBackgroundOperationsOptions options, INhHangfireQueueNameResolver queueNameResolver, INhBackgroundOperationScheduler scheduler, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, IMapper mapper, ILogger<NhBackgroundOperationService> logger, INhBackgroundOperationOwnerDirectory? ownerDirectory, IEnumerable<INhBackgroundOperationAccess> accessPolicies) : this( repository, registry, options, queueNameResolver, scheduler, liveUpdates, notificationProjector, mapper, logger, ownerDirectory, accessPolicies, TimeProvider.System) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public NhBackgroundOperationService( IRepository<NhBackgroundOperation> repository, NhBackgroundOperationRegistry registry, NhBackgroundOperationsOptions options, INhHangfireQueueNameResolver queueNameResolver, INhBackgroundOperationScheduler scheduler, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, IMapper mapper, ILogger<NhBackgroundOperationService> logger, INhBackgroundOperationOwnerDirectory? ownerDirectory, IEnumerable<INhBackgroundOperationAccess> accessPolicies, TimeProvider timeProvider) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",

@@ -44,7 +44,8 @@ internal sealed partial class NhBackgroundOperationPersistence
         INhBackgroundOperationLiveUpdatePublisher liveUpdates,
         INhBackgroundOperationNotificationProjector notificationProjector,
         NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
-        ILogger<NhBackgroundOperationPersistence> logger)
+        ILogger<NhBackgroundOperationPersistence> logger,
+        TimeProvider? timeProvider = null)
     {
         _scopeFactory = scopeFactory;
         _options = options;
@@ -52,7 +53,14 @@ internal sealed partial class NhBackgroundOperationPersistence
         _notificationProjector = notificationProjector;
         _fanOutCoordinator = fanOutCoordinator;
         _logger = logger;
+        DueClock = timeProvider ?? TimeProvider.System;
     }
+
+    /// <summary>
+    /// The application's clock, which due times and signal-wait expiry follow. Leases, heartbeats
+    /// and audit timestamps keep the system clock.
+    /// </summary>
+    internal TimeProvider DueClock { get; }
 
     internal async Task<NhBackgroundOperationAttemptClaim?> TryStartAttemptAsync(
         Guid operationId,

@@ -407,6 +407,42 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
         Assert.Null(followUp.SkillChosenBy);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_follow_up_run_waits_thirty_seconds_on_the_applications_clock(AssistantTestProvider provider)
+    {
+        // Years away from the system clock, so a debounce taken from the system clock shows.
+        var clock = new FixedClock(new DateTimeOffset(2031, 5, 6, 7, 8, 0, TimeSpan.Zero));
+        await using var host = await CreateHostAsync(provider, new SkillModels(), clock);
+        var approvals = new ConcurrentQueue<Guid>();
+        host.Services.GetRequiredService<TestRuleScript>().Run = async (context, cancellationToken) =>
+        {
+            if (context.Inputs.Any(input => input.TriggerId == NhAssistantTriggerIds.ProposalDecided))
+            {
+                return NhAssistantRuleResult.Done("Noted the decision.");
+            }
+            var proposed = await context.ProposeAsync(
+                "projects.change-status",
+                new ProjectStatusInput(Guid.Parse(context.Subject.Subject.Id), "OnHold"),
+                null,
+                cancellationToken);
+            approvals.Enqueue(proposed.ApprovalId!.Value);
+            return NhAssistantRuleResult.Done("Proposed to hold the project.");
+        };
+
+        var receipt = Assert.Single(await PublishAsync(host, "rule hold"));
+        await ExecuteAsync(host, receipt.RunId!.Value);
+        Assert.True((await DecideAsync(host, approvals.Single(), approve: false)).Success);
+
+        // The follow-up coalesces what people decide within thirty seconds of the application's
+        // clock; the background-operation dispatcher reads the same clock.
+        var followUp = await LatestRunAsync(host, receipt.ConversationId!.Value);
+        Assert.Equal(NhAssistantTriggerIds.ProposalDecided, followUp.TriggerId);
+        var enqueued = Assert.Single(host.Services.GetRequiredService<RecordingOperations>().Enqueued, item => item.RunId == followUp.Id);
+        Assert.Equal(clock.GetUtcNow().AddSeconds(30), enqueued.Options.NotBefore);
+    }
+
     [Fact]
     public void A_skill_outside_the_agents_tools_or_a_trigger_for_an_unknown_skill_fails_validation()
     {
@@ -449,7 +485,7 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
         return (NhAssistantRegistrationState)services.Single(descriptor => descriptor.ServiceType == typeof(NhAssistantRegistrationState)).ImplementationInstance!;
     }
 
-    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, SkillModels models)
+    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, SkillModels models, TimeProvider? clock = null)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -457,6 +493,10 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
             models.Default,
             configure: services =>
             {
+                if (clock is not null)
+                {
+                    services.AddSingleton(clock);
+                }
                 services.AddSingleton(new TestSubjects());
                 services.AddSingleton<TestRuleScript>();
                 services.AddSingleton<TestSkillRuleScript>();
@@ -623,6 +663,17 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
     private static string[] ToolNames(NhAiRecordedChatRequest request)
     {
         return request.Options?.Tools?.Select(tool => tool.Name).ToArray() ?? [];
+    }
+
+    /// <summary>
+    /// The application's clock, standing still at one moment.
+    /// </summary>
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow()
+        {
+            return now;
+        }
     }
 
     private sealed class SkillModels

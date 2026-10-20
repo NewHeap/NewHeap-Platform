@@ -59,6 +59,7 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
     private readonly INhBackgroundOperationLiveUpdatePublisher _liveUpdates;
     private readonly INhBackgroundOperationNotificationProjector _notificationProjector;
     private readonly ILogger<NhBackgroundOperationFanOutCoordinator> _logger;
+    private readonly TimeProvider _dueClock;
 
     public NhBackgroundOperationFanOutCoordinator(
         IServiceScopeFactory scopeFactory,
@@ -67,7 +68,8 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
         INhHangfireQueueNameResolver queueNameResolver,
         INhBackgroundOperationLiveUpdatePublisher liveUpdates,
         INhBackgroundOperationNotificationProjector notificationProjector,
-        ILogger<NhBackgroundOperationFanOutCoordinator> logger)
+        ILogger<NhBackgroundOperationFanOutCoordinator> logger,
+        TimeProvider? timeProvider = null)
     {
         _scopeFactory = scopeFactory;
         _registry = registry;
@@ -76,6 +78,7 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
         _liveUpdates = liveUpdates;
         _notificationProjector = notificationProjector;
         _logger = logger;
+        _dueClock = timeProvider ?? TimeProvider.System;
     }
 
     internal async Task<TaskResult<NhBackgroundOperationFanOutResult>> RunAsync<TRequest>(
@@ -120,6 +123,7 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
             .SingleAsync(x => x.Id == claim.OperationId, cancellationToken);
         EnsureFenced(parent, claim);
         var now = DateTimeOffset.UtcNow;
+        var due = _dueClock.GetUtcNow();
         var root = parent.Steps.Single(x => x.ParentStepId == null && x.StepKey == "root");
         var step = parent.Steps.SingleOrDefault(x => x.ParentStepId == root.Id && x.StepKey == fanOutKey);
         if (step is null)
@@ -185,7 +189,7 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
             var rootOperationId = parent.RootOperationId ?? parent.Id;
             foreach (var item in prepared)
             {
-                var child = CreateChildOperation(parent, rootOperationId, fanOutKey, item, descriptor, now);
+                var child = CreateChildOperation(parent, rootOperationId, fanOutKey, item, descriptor, now, due);
                 repository.GetDbSet<NhBackgroundOperation>().Add(child);
                 existing.Add(child);
                 await NhBackgroundOperationEventRetention.TrimAsync(
@@ -257,7 +261,7 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
         // This due time is a convergence fallback when the final child update
         // cannot wake the parent. Dispatching performs a short durable recheck;
         // it never holds the worker while children remain active.
-        parent.NextDispatchAt = now + _options.ReconciliationInterval;
+        parent.NextDispatchAt = due + _options.ReconciliationInterval;
         parent.HeartbeatAt = now;
         NhBackgroundOperationService.Touch(parent, now);
         await repository.SaveChangesAsync(cancellationToken);
@@ -335,6 +339,7 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
                 .OrderBy(x => x.FanOutKey).ThenBy(x => x.FanOutItemKey)
                 .ToListAsync(cancellationToken);
             var now = DateTimeOffset.UtcNow;
+            var due = _dueClock.GetUtcNow();
             var changed = false;
             foreach (var group in children.GroupBy(x => x.FanOutKey, StringComparer.Ordinal))
             {
@@ -367,7 +372,7 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
             if (allChildrenTerminal && parent.Status == NhBackgroundOperationStatus.WaitingForChildren)
             {
                 parent.Status = NhBackgroundOperationStatus.PendingDispatch;
-                parent.NextDispatchAt = now;
+                parent.NextDispatchAt = due;
                 parent.SchedulerJobId = null;
                 NhBackgroundOperationService.AppendEvent(
                     parent,
@@ -421,7 +426,7 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
         Guid parentOperationId,
         CancellationToken cancellationToken)
     {
-        var recheckAt = DateTimeOffset.UtcNow + _options.DispatchInterval;
+        var recheckAt = _dueClock.GetUtcNow() + _options.DispatchInterval;
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         var parent = await repository.GetAll().SingleOrDefaultAsync(
@@ -474,7 +479,8 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
         string fanOutKey,
         PreparedFanOutItem item,
         NhBackgroundOperationDescriptor descriptor,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        DateTimeOffset due)
     {
         var child = new NhBackgroundOperation
         {
@@ -498,7 +504,7 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
             Queue = NhBackgroundOperationKeys.NormalizeQueueName(_queueNameResolver.GetQueueName(descriptor.Queue)),
             Priority = parent.Priority,
             Status = NhBackgroundOperationStatus.PendingDispatch,
-            NextDispatchAt = now,
+            NextDispatchAt = due,
             ConcurrencyKey = item.ConcurrencyKey,
             CorrelationId = parent.CorrelationId ?? parent.Id.ToString("N"),
             Version = 1

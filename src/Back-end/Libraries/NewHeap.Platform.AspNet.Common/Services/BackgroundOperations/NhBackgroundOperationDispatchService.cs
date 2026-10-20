@@ -22,6 +22,7 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
     private readonly NhBackgroundOperationFanOutCoordinator _fanOutCoordinator;
     private readonly IReadOnlyList<string> _servedQueues;
     private readonly ILogger<NhBackgroundOperationDispatchService> _logger;
+    private readonly TimeProvider _dueClock;
 
     public NhBackgroundOperationDispatchService(
         IServiceScopeFactory scopeFactory,
@@ -30,7 +31,8 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
         INhBackgroundOperationNotificationProjector notificationProjector,
         NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
         NhBackgroundOperationServedQueues servedQueues,
-        ILogger<NhBackgroundOperationDispatchService> logger)
+        ILogger<NhBackgroundOperationDispatchService> logger,
+        TimeProvider? timeProvider = null)
     {
         _scopeFactory = scopeFactory;
         _options = options;
@@ -39,6 +41,7 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
         _fanOutCoordinator = fanOutCoordinator;
         _servedQueues = servedQueues.Queues;
         _logger = logger;
+        _dueClock = timeProvider ?? TimeProvider.System;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -96,7 +99,10 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
         }
 
         var now = DateTimeOffset.UtcNow;
-        var candidateOperationIds = await GetDispatchableOperations(repository, now)
+        // An operation is due by the application's clock, so a test that advances it releases a
+        // debounced or retried operation; the audit timestamps below keep the system clock.
+        var due = _dueClock.GetUtcNow();
+        var candidateOperationIds = await GetDispatchableOperations(repository, due)
             .AsNoTracking()
             .OrderByDescending(x => x.Priority)
             .ThenBy(x => x.CreationDateTime)
@@ -116,7 +122,7 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
             }
 
             // The previous lock holder may have changed the candidate; read it again.
-            operation = await GetDispatchableOperations(repository, now)
+            operation = await GetDispatchableOperations(repository, due)
                 .SingleOrDefaultAsync(x => x.Id == candidateOperationId, cancellationToken);
             if (operation is not null)
             {
@@ -255,7 +261,7 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
         }
 
         operation.Status = NhBackgroundOperationStatus.PendingDispatch;
-        operation.NextDispatchAt = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5);
+        operation.NextDispatchAt = _dueClock.GetUtcNow() + TimeSpan.FromSeconds(5);
         operation.SchedulerJobId = null;
         NhBackgroundOperationService.Touch(operation, DateTimeOffset.UtcNow);
         await repository.SaveChangesAsync(cancellationToken);
@@ -264,7 +270,7 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
 
     private IQueryable<NhBackgroundOperation> GetDispatchableOperations(
         IRepository<NhBackgroundOperation> repository,
-        DateTimeOffset now)
+        DateTimeOffset due)
     {
         var servedQueues = _servedQueues;
 
@@ -279,7 +285,7 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
                          || x.Status == NhBackgroundOperationStatus.WaitingForSignal
                          || (x.Status == NhBackgroundOperationStatus.CancelRequested
                              && x.CurrentAttemptId == null))
-                        && (x.NextDispatchAt == null || x.NextDispatchAt <= now));
+                        && (x.NextDispatchAt == null || x.NextDispatchAt <= due));
     }
 
     private Task<bool> LockOperationAsync(

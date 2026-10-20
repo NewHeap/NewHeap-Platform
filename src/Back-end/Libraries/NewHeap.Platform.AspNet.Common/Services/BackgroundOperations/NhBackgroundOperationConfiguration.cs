@@ -219,7 +219,9 @@ public sealed class NhBackgroundOperationEnqueueOptions
 
     /// <summary>
     /// The earliest time the operation may be dispatched, for example to debounce a burst
-    /// of requests into one operation. <see langword="null"/> dispatches immediately.
+    /// of requests into one operation. <see langword="null"/> dispatches immediately. The
+    /// dispatcher compares it with the application's <see cref="TimeProvider"/> when one is
+    /// registered, otherwise with the system clock, so take it from the same clock.
     /// </summary>
     public DateTimeOffset? NotBefore { get; init; }
 }

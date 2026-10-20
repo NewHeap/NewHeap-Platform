@@ -1354,8 +1354,11 @@ internal sealed class NhAssistantAgentTriggers(
             }
         }
 
+        // The debounce runs on the application's clock, which the background-operation dispatcher
+        // also reads, so a test that advances its clock starts the run without waiting it out.
+        var dueClock = services.GetService<TimeProvider>() ?? TimeProvider.System;
         var notBefore = fire.Conflict == NhAssistantTriggerConflict.Coalesce && fire.Debounce > TimeSpan.Zero
-            ? DateTimeOffset.UtcNow.Add(fire.Debounce)
+            ? dueClock.GetUtcNow().Add(fire.Debounce)
             : (DateTimeOffset?)null;
         var enqueued = await EnqueueRunAsync(run.Id, thread, agent, subject, accountable.Data!, notBefore, cancellationToken);
         if (!enqueued.Success)

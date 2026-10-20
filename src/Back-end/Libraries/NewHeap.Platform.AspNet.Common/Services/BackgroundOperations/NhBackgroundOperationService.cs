@@ -44,6 +44,7 @@ public sealed class NhBackgroundOperationService :
     private readonly ILogger<NhBackgroundOperationService> _logger;
     private readonly INhBackgroundOperationOwnerDirectory? _ownerDirectory;
     private readonly IReadOnlyList<INhBackgroundOperationAccess> _accessPolicies;
+    private readonly TimeProvider _dueClock;
 
     public NhBackgroundOperationService(
         IRepository<NhBackgroundOperation> repository,
@@ -107,7 +108,43 @@ public sealed class NhBackgroundOperationService :
         ILogger<NhBackgroundOperationService> logger,
         INhBackgroundOperationOwnerDirectory? ownerDirectory,
         IEnumerable<INhBackgroundOperationAccess> accessPolicies)
+        : this(
+            repository,
+            registry,
+            options,
+            queueNameResolver,
+            scheduler,
+            liveUpdates,
+            notificationProjector,
+            mapper,
+            logger,
+            ownerDirectory,
+            accessPolicies,
+            TimeProvider.System)
     {
+    }
+
+    /// <summary>
+    /// Creates the service with the application's clock: the time at which an operation becomes
+    /// due, after <see cref="NhBackgroundOperationEnqueueOptions.NotBefore"/> or a retry, is read
+    /// from <paramref name="timeProvider"/>. Dependency injection passes a registered
+    /// <see cref="TimeProvider"/>; the other constructors use <see cref="TimeProvider.System"/>.
+    /// </summary>
+    public NhBackgroundOperationService(
+        IRepository<NhBackgroundOperation> repository,
+        NhBackgroundOperationRegistry registry,
+        NhBackgroundOperationsOptions options,
+        INhHangfireQueueNameResolver queueNameResolver,
+        INhBackgroundOperationScheduler scheduler,
+        INhBackgroundOperationLiveUpdatePublisher liveUpdates,
+        INhBackgroundOperationNotificationProjector notificationProjector,
+        IMapper mapper,
+        ILogger<NhBackgroundOperationService> logger,
+        INhBackgroundOperationOwnerDirectory? ownerDirectory,
+        IEnumerable<INhBackgroundOperationAccess> accessPolicies,
+        TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
         _repository = repository;
         _registry = registry;
         _options = options;
@@ -119,6 +156,7 @@ public sealed class NhBackgroundOperationService :
         _logger = logger;
         _ownerDirectory = ownerDirectory;
         _accessPolicies = accessPolicies.ToArray();
+        _dueClock = timeProvider;
     }
 
     public async Task<TaskResult<NhBackgroundOperationViewModel>> EnqueueAsync<TRequest>(
@@ -226,6 +264,8 @@ public sealed class NhBackgroundOperationService :
         }
 
         var now = DateTimeOffset.UtcNow;
+        // Due times follow the application's clock; audit timestamps keep the system clock.
+        var due = _dueClock.GetUtcNow();
         var operation = new NhBackgroundOperation
         {
             Id = Guid.NewGuid(),
@@ -243,7 +283,7 @@ public sealed class NhBackgroundOperationService :
                 _queueNameResolver.GetQueueName(descriptor.Queue)),
             Priority = options.Priority,
             Status = NhBackgroundOperationStatus.PendingDispatch,
-            NextDispatchAt = options.NotBefore is { } notBefore && notBefore > now ? notBefore : now,
+            NextDispatchAt = options.NotBefore is { } notBefore && notBefore > due ? notBefore : due,
             ConcurrencyKey = concurrencyKey,
             DomainObjectType = options.DomainObjectType,
             DomainObjectId = options.DomainObjectId,
@@ -643,6 +683,7 @@ public sealed class NhBackgroundOperationService :
         }
 
         var now = DateTimeOffset.UtcNow;
+        var due = _dueClock.GetUtcNow();
         var schedulerJobIds = new List<string>();
         foreach (var target in hierarchy.Where(x => !IsTerminal(x.Status)))
         {
@@ -651,7 +692,7 @@ public sealed class NhBackgroundOperationService :
             target.Status = NhBackgroundOperationStatus.CancelRequested;
             if (!target.CurrentAttemptId.HasValue)
             {
-                target.NextDispatchAt = now;
+                target.NextDispatchAt = due;
                 target.SchedulerJobId = null;
             }
             Touch(target, now);
@@ -769,9 +810,10 @@ public sealed class NhBackgroundOperationService :
         }
 
         var now = DateTimeOffset.UtcNow;
+        var due = _dueClock.GetUtcNow();
         foreach (var target in retryTargets)
         {
-            ResetForRetry(target, now);
+            ResetForRetry(target, now, due);
             AppendEvent(
                 target,
                 NhBackgroundOperationEventType.RetryScheduled,
@@ -835,10 +877,10 @@ public sealed class NhBackgroundOperationService :
         return candidates.Where(x => includedIds.Contains(x.Id)).ToList();
     }
 
-    private static void ResetForRetry(NhBackgroundOperation operation, DateTimeOffset now)
+    private static void ResetForRetry(NhBackgroundOperation operation, DateTimeOffset now, DateTimeOffset due)
     {
         operation.Status = NhBackgroundOperationStatus.PendingDispatch;
-        operation.NextDispatchAt = now;
+        operation.NextDispatchAt = due;
         operation.SchedulerJobId = null;
         operation.CurrentAttemptId = null;
         operation.CancelRequestedAt = null;

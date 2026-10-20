@@ -1,5 +1,22 @@
 # v-next
 
+## NewHeap.Platform.AspNet.Common and NewHeap.Platform.AI.Chat.AspNet: due times on the application's clock
+
+When a background operation becomes due now follows the application's clock: a registered
+`TimeProvider`, otherwise the system clock as before. The dispatcher and reconciliation compare
+`NhBackgroundOperationEnqueueOptions.NotBefore`, retry and contention backoff, the expiry of
+`WaitForSignalAsync` and fan-out rechecks with it, and agent triggers start their debounce from it,
+including the 30-second debounce of proposal follow-up runs. Leases, heartbeats, stale-attempt
+recovery and audit timestamps keep the system clock. A test can therefore register a clock and move
+it past a debounce or retry instead of waiting, without taking work away from a running attempt.
+`NhBackgroundOperationService` gained a constructor that takes the `TimeProvider`; dependency
+injection uses it when one is registered.
+
+| Breaking change | Required action |
+|---|---|
+| With a registered `TimeProvider` that is not the system clock, operations become due, retry and expire by that clock; a test clock that stands still holds debounced, retried and expiring work back. | Take `NotBefore` and signal-wait expiry from the same `TimeProvider`, and move a test clock forward where work should become due. |
+| `NhBackgroundOperationService` has a fourth public constructor, with a `TimeProvider`. | None; the existing constructors keep the system clock. |
+
 ## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: finding actors by name
 
 `INhActorSearch` finds actors whose name or e-mail address contains a query

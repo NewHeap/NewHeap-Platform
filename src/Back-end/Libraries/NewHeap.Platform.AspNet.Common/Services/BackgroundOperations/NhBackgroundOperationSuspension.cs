@@ -67,7 +67,7 @@ internal sealed class NhBackgroundOperationSuspensionContext(
                         persisted.Value.SignaledAt,
                         persisted.Value.ExpiresAt);
                 }
-                if (DateTimeOffset.UtcNow >= persisted.Value.ExpiresAt)
+                if (persistence.DueClock.GetUtcNow() >= persisted.Value.ExpiresAt)
                 {
                     return new NhBackgroundOperationSignalWaitResult<TSignal>(
                         NhBackgroundOperationSignalWaitStatus.Expired,
@@ -77,7 +77,7 @@ internal sealed class NhBackgroundOperationSuspensionContext(
                         persisted.Value.ExpiresAt);
                 }
             }
-            else if (DateTimeOffset.UtcNow >= expiresAt)
+            else if (persistence.DueClock.GetUtcNow() >= expiresAt)
             {
                 return new NhBackgroundOperationSignalWaitResult<TSignal>(
                     NhBackgroundOperationSignalWaitStatus.Expired,
@@ -450,7 +450,8 @@ internal sealed partial class NhBackgroundOperationPersistence
         }
 
         var now = DateTimeOffset.UtcNow;
-        if (persisted.ExpiresAt <= now)
+        var due = DueClock.GetUtcNow();
+        if (persisted.ExpiresAt <= due)
         {
             return TaskResult<NhBackgroundOperationSignalWriteResult>.Failed(
                 "The suspended operation signal has expired.");
@@ -481,7 +482,7 @@ internal sealed partial class NhBackgroundOperationPersistence
         checkpoint.LastModifiedDateTime = now;
         checkpoint.Version++;
         operation.Status = NhBackgroundOperationStatus.PendingDispatch;
-        operation.NextDispatchAt = now;
+        operation.NextDispatchAt = due;
         operation.SchedulerJobId = null;
         NhBackgroundOperationService.Touch(operation, now);
         NhBackgroundOperationService.AppendEvent(
