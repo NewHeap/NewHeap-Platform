@@ -383,7 +383,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(header().querySelector('[data-shadow-badge]')).toBeNull();
     expect(skill('deadline-risk').querySelector('[data-shadow-badge]')).not.toBeNull();
     expect(skill('deadline-risk').querySelector('[data-shadow-action="live"]')).not.toBeNull();
-    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: service-1');
+    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: account ID service-1');
 
     (card().querySelector('[data-shadow-action="shadow"]') as HTMLButtonElement).click();
     await settle(fixture);
@@ -442,16 +442,16 @@ describe('NhAssistantAdminAgentsComponent', () => {
     button(element, 'Confirm account').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/service-account').at(-1)).toEqual({ actorId: 'service-2', reason: 'Rotate' });
-    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: service-2');
-    expect(card().querySelector('[data-service-account]')?.textContent).toContain('In code: service-1');
+    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: account ID service-2');
+    expect(card().querySelector('[data-service-account]')?.textContent).toContain('In code: account ID service-1');
 
     (card().querySelector('[data-account-action="code"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(element.textContent).toContain('New runs answer to the account in code again: service-1.');
+    expect(element.textContent).toContain('New runs answer to the account in code again: account ID service-1.');
     button(element, 'Confirm').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/service-account').at(-1)).toEqual({ actorId: null, reason: null });
-    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: service-1');
+    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: account ID service-1');
     expect(card().querySelector('[data-account-action="code"]')).toBeNull();
   });
 
@@ -581,6 +581,9 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(view().textContent).toContain('The run settings are saved.');
     const summary = view().querySelector('[data-settings-summary]') as HTMLElement;
     expect(summary.querySelector('[data-account-name]')?.textContent).toContain('Operations account');
+    // The name only: the account's ID is its tooltip, not text next to it.
+    expect(summary.querySelector('[data-account-name]')?.textContent).not.toContain('service-1');
+    expect(summary.querySelector('[data-account-label-name]')?.getAttribute('title')).toBe('Account ID: service-1');
     expect(summary.textContent).toContain('A proposal waits 7 days.');
 
     // Advanced options stay folded while they keep their defaults.

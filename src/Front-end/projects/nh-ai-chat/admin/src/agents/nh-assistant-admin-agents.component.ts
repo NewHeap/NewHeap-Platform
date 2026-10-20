@@ -462,6 +462,11 @@ export class NhAssistantAdminAgentsComponent {
     return this.accountNameLookup.nameOf(actorId);
   }
 
+  /** The account ID as the tooltip of a name shown in its place. */
+  accountTitle(actorId: string | null | undefined): string | null {
+    return this.accountNameLookup.idTitleOf(actorId);
+  }
+
   onSaved(agent: AdminAgent): void {
     this.agents.update(agents => agents.some(item => item.id === agent.id)
       ? agents.map(item => item.id === agent.id ? agent : item)

@@ -50,6 +50,7 @@ import {
   problemWarning,
   unavailableServerUses
 } from './agent-flow';
+import { NhAssistantAccountLabelComponent } from '../../nh-assistant-account-names';
 import { describePolicy } from './run-config-shared';
 
 let nextId = 0;
@@ -85,7 +86,8 @@ interface FlowPolicy {
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
     NhAssistantSubjectLinkComponent,
-    NhAssistantRunNowDialogComponent
+    NhAssistantRunNowDialogComponent,
+    NhAssistantAccountLabelComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-flow.component.html',

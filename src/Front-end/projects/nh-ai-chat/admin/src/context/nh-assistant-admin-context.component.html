@@ -18,7 +18,7 @@
     <form class="stack" (submit)="$event.preventDefault(); save()">
       <div class="meta">
         <span class="badge">{{ 'nh-assistant.admin.context.version' | translate: { version: current.version } }}</span>
-        <span>
+        <span [attr.title]="accountTitle(current.updatedBy)">
           @if (current.updatedBy) {
             {{ 'nh-assistant.admin.context.updated' | translate: { date: (current.updatedAt | date: 'medium'), user: nameOf(current.updatedBy) } }}
           } @else {
@@ -78,7 +78,7 @@
               <span class="badge">{{ 'nh-assistant.admin.context.version' | translate: { version: version.version } }}</span>
               <span>{{ version.updatedAt | date: 'medium' }}</span>
               @if (version.updatedBy) {
-                <span>{{ nameOf(version.updatedBy) }}</span>
+                <span [attr.title]="accountTitle(version.updatedBy)">{{ nameOf(version.updatedBy) }}</span>
               }
               <span class="mono muted" [attr.title]="version.hash">{{ version.hash.slice(0, 18) }}</span>
             </li>

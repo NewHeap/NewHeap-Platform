@@ -416,9 +416,15 @@ describe('agent-run components', () => {
       expect(card.querySelector('[role="status"]')!.textContent).toContain('proposal-feedback.thanks');
     });
 
-    it('names who decided from the member snapshot and falls back to the id', () => {
+    it('names who decided from the member snapshot and falls back to the labeled account ID', () => {
       const translate = TestBed.inject(TranslateService);
-      translate.setTranslation('en', { 'nh-assistant': { 'agent-runs': { proposal: { 'decided-by': 'Decided by {{actor}}' } } } });
+      translate.setTranslation('en', {
+        'nh-assistant': {
+          'account-id': 'account ID {{id}}',
+          'account-id-title': 'Account ID: {{id}}',
+          'agent-runs': { proposal: { 'decided-by': 'Decided by {{actor}}' } }
+        }
+      });
       translate.use('en');
       fixture.componentInstance.proposals.set([
         { ...proposal('approved'), decidedByActorId: 'user-7', decidedByDisplayName: 'Pat Planner' },
@@ -431,14 +437,19 @@ describe('agent-run components', () => {
         .map(item => item.textContent ?? '');
       expect(meta[0]).toContain('Decided by Pat Planner');
       expect(meta[0]).not.toContain('user-7');
-      expect(meta[1]).toContain('Decided by user-8');
-      expect(meta[2]).toContain('Decided by user-9');
+      expect(meta[1]).toContain('Decided by account ID user-8');
+      expect(meta[2]).toContain('Decided by account ID user-9');
+      // The ID of a named person stays available as the tooltip; a labeled ID needs none.
+      const decidedBy = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('[data-proposal-decided-by]'));
+      expect(decidedBy[0].getAttribute('title')).toBe('Account ID: user-7');
+      expect(decidedBy[1].hasAttribute('title')).toBeFalse();
     });
 
     it('shows why the agent\'s rules proposed it and who overtook a stale proposal', () => {
       const translate = TestBed.inject(TranslateService);
       translate.setTranslation('en', {
         'nh-assistant': {
+          'account-id': 'account ID {{id}}',
           approval: { rationale: 'Why: {{rationale}}' },
           'agent-runs': { proposal: { 'stale-by': 'Overtaken by {{actor}}' } }
         }
@@ -460,7 +471,7 @@ describe('agent-run components', () => {
       expect(cards[0].querySelector('.rationale')!.textContent).toContain('Why: All 4 tasks of the project are completed.');
       expect(cards[1].querySelector('.rationale')).toBeNull();
       expect(cards[1].querySelector('.meta')!.textContent).toContain('Overtaken by Pat Planner');
-      expect(cards[2].querySelector('.meta')!.textContent).toContain('Overtaken by member-2');
+      expect(cards[2].querySelector('.meta')!.textContent).toContain('Overtaken by account ID member-2');
     });
 
     it('reads a superseded proposal as replaced and moves focus to the newer one', () => {
@@ -765,6 +776,10 @@ describe('agent-run components', () => {
       expect(cards[0].querySelector('.badge.success')).not.toBeNull();
       expect(cards[1].querySelector('.badge.danger')).not.toBeNull();
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('consultation.private');
+      // A named asker keeps the account ID as the tooltip; an unnamed one shows it labeled.
+      const askers = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('[data-consultation-asker]'));
+      expect(askers[0].hasAttribute('title')).toBeTrue();
+      expect(askers[1].hasAttribute('title')).toBeFalse();
     });
 
     it('explains that nobody consulted the agent yet', () => {

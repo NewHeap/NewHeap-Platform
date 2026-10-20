@@ -232,10 +232,7 @@
                     @let actorId = isAdmin() ? config.runSettings?.serviceAccountActorId : agent().serviceAccount?.actorId;
                     @if (actorId) {
                       <span class="block" data-flow-account-name>
-                        {{ accountName() ?? actorId }}
-                        @if (accountName()) {
-                          <span class="muted mono"> {{ actorId }}</span>
-                        }
+                        <nh-assistant-account-label [actorId]="actorId" [name]="accountName()" />
                       </span>
                     }
                   }

@@ -155,10 +155,14 @@
               <span>{{ 'nh-assistant.agent-runs.proposal.expires' | translate: { date: (proposal.expiresAt | date: 'short') } }}</span>
             }
             @if (proposal.decidedByActorId) {
-              <span>{{ 'nh-assistant.agent-runs.proposal.decided-by' | translate: { actor: proposal.decidedByDisplayName || proposal.decidedByActorId } }}</span>
+              <span
+                data-proposal-decided-by
+                [attr.title]="proposal.decidedByDisplayName ? ('nh-assistant.account-id-title' | translate: { id: proposal.decidedByActorId }) : null">{{ 'nh-assistant.agent-runs.proposal.decided-by' | translate: { actor: proposal.decidedByDisplayName || ('nh-assistant.account-id' | translate: { id: proposal.decidedByActorId }) } }}</span>
             }
             @if (proposal.status === 'stale' && proposal.staleByActorId) {
-              <span>{{ 'nh-assistant.agent-runs.proposal.stale-by' | translate: { actor: proposal.staleByDisplayName || proposal.staleByActorId } }}</span>
+              <span
+                data-proposal-stale-by
+                [attr.title]="proposal.staleByDisplayName ? ('nh-assistant.account-id-title' | translate: { id: proposal.staleByActorId }) : null">{{ 'nh-assistant.agent-runs.proposal.stale-by' | translate: { actor: proposal.staleByDisplayName || ('nh-assistant.account-id' | translate: { id: proposal.staleByActorId }) } }}</span>
             }
             @if (proposal.executionResultCode; as code) {
               <span class="mono">{{ code }}</span>

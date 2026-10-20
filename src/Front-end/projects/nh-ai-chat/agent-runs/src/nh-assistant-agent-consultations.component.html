@@ -21,8 +21,10 @@
             [class.danger]="consultation.status === 'failed'">
             {{ 'nh-assistant.agent-runs.consultation.status.' + consultation.status | translate }}
           </span>
-          <span>
-            {{ 'nh-assistant.agent-runs.consultation.asked-by' | translate: { name: consultation.askerDisplayName ?? consultation.askerActorId } }}
+          <span
+            data-consultation-asker
+            [attr.title]="consultation.askerDisplayName ? ('nh-assistant.account-id-title' | translate: { id: consultation.askerActorId }) : null">
+            {{ 'nh-assistant.agent-runs.consultation.asked-by' | translate: { name: consultation.askerDisplayName ?? ('nh-assistant.account-id' | translate: { id: consultation.askerActorId }) } }}
             @if (consultation.askingAgentId; as agentId) {
               {{ 'nh-assistant.agent-runs.consultation.through' | translate: { agent: (['nh-assistant.agents.' + agentId + '.name'] | nhAssistantTranslate: agentId) } }}
             }

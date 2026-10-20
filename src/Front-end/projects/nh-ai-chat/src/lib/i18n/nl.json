@@ -12,6 +12,8 @@
       "open": "Openstaande voorstellen: {{open}}.",
       "working": "Een agent werkt hieraan."
     },
+    "account-id": "account-ID {{id}}",
+    "account-id-title": "Account-ID: {{id}}",
     "panel": {
       "title": "Assistent",
       "region-label": "Assistentpaneel",
@@ -1533,7 +1535,12 @@
         "only-object": "Runs op dit object",
         "only-application": "Runs voor de hele applicatie"
       },
-      "account-names-failed": "De namen van accounts konden niet worden gelezen; hun id's staan er in plaats daarvan."
+      "account-names-failed": "De namen van accounts konden niet worden gelezen; hun account-ID's staan er in plaats daarvan.",
+      "account": {
+        "id": "Account-ID {{id}}",
+        "copy-id": "Account-ID van {{name}} kopiëren",
+        "id-copied": "Account-ID gekopieerd"
+      }
     },
     "page-context": {
       "included": "Wordt meegestuurd: {{page}}",

@@ -89,6 +89,11 @@ export class NhAssistantAdminContextComponent {
     return this.accountNames.nameOf(actorId);
   }
 
+  /** The account ID as the tooltip of a name shown in its place. */
+  accountTitle(actorId: string | null | undefined): string | null {
+    return this.accountNames.idTitleOf(actorId);
+  }
+
   onInput(event: Event): void {
     this.text.set((event.target as HTMLTextAreaElement).value);
     this.saved.set(false);

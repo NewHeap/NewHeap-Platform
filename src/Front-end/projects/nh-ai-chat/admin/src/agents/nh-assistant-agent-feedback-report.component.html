@@ -192,7 +192,9 @@
             </p>
             <div class="meta">
               <span>{{ 'nh-assistant.agent-runs.proposal.status.' + item.approvalStatus | nhAssistantTranslate: item.approvalStatus }}</span>
-              <span>{{ 'nh-assistant.admin.feedback.author' | translate: { actor: item.authorDisplayName || item.authorActorId } }}</span>
+              <span
+                data-feedback-author
+                [attr.title]="item.authorDisplayName ? ('nh-assistant.account-id-title' | translate: { id: item.authorActorId }) : null">{{ 'nh-assistant.admin.feedback.author' | translate: { actor: item.authorDisplayName || ('nh-assistant.account-id' | translate: { id: item.authorActorId }) } }}</span>
               <span>{{ item.updatedAt | date: 'short' }}</span>
             </div>
           </li>

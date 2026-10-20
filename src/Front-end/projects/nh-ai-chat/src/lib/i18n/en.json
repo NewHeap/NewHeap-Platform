@@ -12,6 +12,8 @@
       "open": "Open proposals: {{open}}.",
       "working": "An agent is working on this."
     },
+    "account-id": "account ID {{id}}",
+    "account-id-title": "Account ID: {{id}}",
     "panel": {
       "title": "Assistant",
       "region-label": "Assistant panel",
@@ -1533,7 +1535,12 @@
         "only-object": "Runs on this object",
         "only-application": "Runs for the whole application"
       },
-      "account-names-failed": "The names of accounts could not be read; their ids are shown instead."
+      "account-names-failed": "The names of accounts could not be read; their account IDs are shown instead.",
+      "account": {
+        "id": "Account ID {{id}}",
+        "copy-id": "Copy the account ID of {{name}}",
+        "id-copied": "Account ID copied"
+      }
     },
     "page-context": {
       "included": "Sent with your message: {{page}}",

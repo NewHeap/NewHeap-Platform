@@ -68,10 +68,7 @@
               {{ 'nh-assistant.admin.run-config.settings.accountability.' + settings.accountability | translate }}
               @if (settings.serviceAccountActorId; as accountId) {
                 <span class="block" data-account-name>
-                  <strong>{{ accountName() ?? accountId }}</strong>
-                  @if (accountName()) {
-                    <span class="muted mono"> {{ accountId }}</span>
-                  }
+                  <nh-assistant-account-label [actorId]="accountId" [name]="accountName()" />
                 </span>
               }
             </dd>
@@ -186,7 +183,7 @@
                   <span>{{ 'nh-assistant.admin.run-config.profile-value' | translate: { name: skill.profile } }}</span>
                 }
                 <span>{{ (skill.tools.length === 1 ? 'nh-assistant.admin.agents.tool-count-one' : 'nh-assistant.admin.agents.tool-count') | translate: { count: skill.tools.length } }}</span>
-                <span>{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(skill.changedBy), date: (skill.changedAt | date: 'medium') } }}</span>
+                <span [attr.title]="accountTitle(skill.changedBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(skill.changedBy), date: (skill.changedAt | date: 'medium') } }}</span>
               </div>
               @if (skill.candidate; as candidate) {
                 <div class="subsection" data-candidate>
@@ -269,7 +266,7 @@
                           <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: version.version } }}</span>
                           <span class="badge" [class.success]="version.status === 'live'" [class.warning]="version.status === 'candidate'">{{ 'nh-assistant.admin.run-config.status.' + version.status | translate }}</span>
                           <span>{{ version.description }}</span>
-                          <span class="muted">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(version.createdBy), date: (version.createdAt | date: 'medium') } }}</span>
+                          <span class="muted" [attr.title]="accountTitle(version.createdBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(version.createdBy), date: (version.createdAt | date: 'medium') } }}</span>
                           @if (version.reason) {
                             <span class="muted">{{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: version.reason } }}</span>
                           }

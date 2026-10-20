@@ -133,7 +133,7 @@
             } @else if (agent.runState !== 'active') {
               <p class="muted">
                 @if (agent.stateChangedAt) {
-                  {{ 'nh-assistant.admin.agents.state.changed' | translate: { user: accountName(agent.stateChangedBy), date: (agent.stateChangedAt | date: 'medium') } }}
+                  <span [attr.title]="accountTitle(agent.stateChangedBy)">{{ 'nh-assistant.admin.agents.state.changed' | translate: { user: accountName(agent.stateChangedBy), date: (agent.stateChangedAt | date: 'medium') } }}</span>
                 }
                 @if (agent.stateReason) {
                   {{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: agent.stateReason } }}
@@ -148,7 +148,7 @@
                 <p class="muted">
                   {{ (shadow.locked ? 'nh-assistant.admin.agents.shadow.locked' : 'nh-assistant.admin.agents.shadow.hint') | translate }}
                   @if (shadow.changedAt && shadow.override !== null) {
-                    {{ 'nh-assistant.admin.agents.shadow.changed' | translate: { user: accountName(shadow.changedBy), date: (shadow.changedAt | date: 'medium') } }}
+                    <span [attr.title]="accountTitle(shadow.changedBy)">{{ 'nh-assistant.admin.agents.shadow.changed' | translate: { user: accountName(shadow.changedBy), date: (shadow.changedAt | date: 'medium') } }}</span>
                   }
                   @if (shadow.reason && shadow.override !== null) {
                     {{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: shadow.reason } }}
@@ -158,9 +158,9 @@
             }
             @if (agent.serviceAccount; as account) {
               <p class="muted" data-service-account>
-                <span>{{ 'nh-assistant.admin.agents.service-account.label' | translate: { account: accountName(account.actorId) } }}</span>
+                <span [attr.title]="accountTitle(account.actorId)">{{ 'nh-assistant.admin.agents.service-account.label' | translate: { account: accountName(account.actorId) } }}</span>
                 @if (account.overridden) {
-                  {{ 'nh-assistant.admin.agents.service-account.configured' | translate: { account: accountName(account.configuredActorId) } }}
+                  <span [attr.title]="accountTitle(account.configuredActorId)">{{ 'nh-assistant.admin.agents.service-account.configured' | translate: { account: accountName(account.configuredActorId) } }}</span>
                   @if (account.reason) {
                     {{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: account.reason } }}
                   }
@@ -448,7 +448,7 @@
             @if (changingAccount(); as change) {
               @if (change.agentId === agent.id) {
                 <form class="stack" data-account-form (submit)="$event.preventDefault(); applyAccount(agent)">
-                  <p class="muted">{{ 'nh-assistant.admin.agents.service-account.explain.' + change.mode | translate: { account: accountName(agent.serviceAccount?.configuredActorId) } }}</p>
+                  <p class="muted" [attr.title]="accountTitle(agent.serviceAccount?.configuredActorId)">{{ 'nh-assistant.admin.agents.service-account.explain.' + change.mode | translate: { account: accountName(agent.serviceAccount?.configuredActorId) } }}</p>
                   @if (change.mode === 'set') {
                     <div class="field">
                       <label [for]="id + '-' + agent.id + '-account'">{{ (accountSearch() ? 'nh-assistant.admin.agents.service-account.input-label-search' : 'nh-assistant.admin.agents.service-account.input-label') | translate }}</label>

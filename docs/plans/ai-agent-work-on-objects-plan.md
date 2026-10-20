@@ -271,6 +271,16 @@ Open ends of the phases, closed on this branch before the review.
 | Cleanup | `nh-modal` of `@newheap/platform-common`: the holder's single grid column is its content box (`minmax(0, 1fr)`) and the modal's maximum widths are percentages of it (95%, 100% at 920px and narrower, 100% of the narrowed holder at 768px and narrower) instead of `95vw`, `100vw` and `calc(100vw - 30px)`. A modal taller than the page no longer scrolls sideways by the scrollbar's width, as the sample's project editor did. SPM-116 names the spec. | `vw` includes the scrollbar, the holder's content box does not. | For Lars to review. |
 | Cleanup | The sample catalog tells SPM-299 and SPM-300 in prose, as it tells SPM-301 to SPM-304. | The catalog's narrative skipped the MCP cases of the merged lane. | For Lars to review. |
 
+## Open items resolved after the review
+
+Open items Lars asked to resolve on 2026-10-20, decided by the implementer.
+
+| Item | Decision | Reason | Review |
+| --- | --- | --- | --- |
+| Sample lock | Release preparation refreshes the versions that the package locks listed in `linkedPackageLocks` (`tools/release/lib.mjs`, now the sample front end's) record for the npm release packages they link from source (`"link": true` entries only), in the same release commit as the package versions; `validate-release.mjs`, part of `npm run release:test`, fails when such a lock differs from the linked packages' versions. The committed sample lock now lists 0.14.0 and 2.0.0. | The release tooling owns every coupled version, and `release:test` runs before each release preparation; a check in `verify:samples` would only fail after the stale lock reached a branch. | For Lars to review. |
+| Account names | The administration shows a person or account by name only. Where a name stands alone (the flow view's account step, the run settings summary) the internal `nh-assistant-account-label` shows the name with the account ID as its tooltip and a button that copies it (the ID shows next to the name when the browser refuses the clipboard); in a sentence the ID is the sentence's tooltip. The ID itself shows, labeled "Account ID …" (in a sentence "account ID …"), only while no name is known: an unknown account, a lookup in flight or a failed lookup, which keeps its notice with Retry. | A GUID next to a name is noise for people and still needed by administrators who compare accounts; a bare GUID without a label reads as a broken name. | For Lars to review. |
+| Account names | The same rule applies to the people the `agent-runs` building blocks name, which the administration's runs view and feedback report show: who decided or overtook a proposal, who asked a consultation and the author of feedback. | The administration shows these building blocks; one rule for every screen. | For Lars to review. |
+
 ## Proposed follow-ups
 
 Items the phases left for later on purpose; each is a feature of its own. The MCP plan lists its own

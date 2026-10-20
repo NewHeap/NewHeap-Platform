@@ -266,7 +266,9 @@ made only of the names `getRunCatalog` lists: trigger events, subject sets, rule
 approval policies and profiles. Every choice is a searchable picker that shows a name with what it
 means, approval policies with a sentence built from `approvalPolicySummaries`, and the technical
 account is found by name through `searchAccounts` when the catalog reports `accountSearch`
-(otherwise by its id, with the name `getAccounts` knows). The editor of a new agent asks how it is
+(otherwise by its id, with the name `getAccounts` knows). The screens of the administration show a
+person or account by its name only, with the account ID as the name's tooltip and a button that copies
+it; they show the ID itself, labeled as an account ID, only while no name is known. The editor of a new agent asks how it is
 used: in the chat, on its own (`offeredInChat: false`, kept out of the agent picker) or both, and
 what it works on: "All objects" or chosen kinds of objects by the names of the run catalog's
 `subjectTypes`, "The whole application", "Per division" only when the catalog reports `divisions`,
@@ -678,7 +680,8 @@ asking for one, and in a division found by name; they offer only what the agent 
 server's refusal in the dialog, return focus and open the conversation from the receipt. They also show
 a paused agent's `waiting` receipt as a warning, a `deferred` one as information and a refused start
 with its coded text. The error tests download files with coded errors, keep a failed run catalog,
-search, lookup and account name lookup visible with Retry, show the outcome of a redirect-mode
+search, lookup and account name lookup visible with Retry, name accounts without their ID next to the
+name and label the ID of an account without a name, show the outcome of a redirect-mode
 connection on its card, show the MCP server editor's and the runs view's field errors at their fields,
 and check that the mock API answers every code with the server's status (one shared table), caps
 account lookups at 50 ids and keeps proposals of the whole application to people who pass the

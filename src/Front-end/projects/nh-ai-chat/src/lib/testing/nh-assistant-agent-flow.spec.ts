@@ -134,6 +134,12 @@ function text(element: Element | null | undefined): string {
   return element?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 }
 
+/** The account step's line: how the agent answers, and its technical account by name only. */
+function expectAccount(scope: Element, name: string): void {
+  expect(text(scope.querySelector('[data-flow-account] strong'))).toBe('A technical account');
+  expect(text(scope.querySelector('[data-flow-account-name]'))).toBe(name);
+}
+
 function button(scope: Element, label: string): HTMLButtonElement {
   const match = Array.from(scope.querySelectorAll('button')).find(item => text(item) === label);
   if (!match) {
@@ -233,9 +239,11 @@ describe('The flow view of an agent', () => {
     expect(text(skills.querySelector('[data-flow-server="documents"] [data-flow-server-use]')))
       .toBe('Its tools are left out of runs that start on their own, such as trigger runs.');
 
-    // Who it answers to: the technical account by name.
+    // Who it answers to: the technical account by name only; its ID is the tooltip and can be copied.
     const account = step(flow, 'account');
-    expect(text(account.querySelector('[data-flow-account]'))).toBe('A technical account Operations operations');
+    expectAccount(account, 'Operations');
+    expect(account.querySelector('[data-account-label-name]')?.getAttribute('title')).toBe('Account ID: operations');
+    expect(account.querySelector('[data-account-copy-id]')?.getAttribute('aria-label')).toBe('Copy the account ID of Operations');
     expect(text(account)).toContain('Runs use what this account may use, within its tools.');
 
     // Who approves: the policy in a sentence.
@@ -249,6 +257,24 @@ describe('The flow view of an agent', () => {
     expect(Array.from(results.querySelectorAll('[data-flow-run]')).map(item => item.getAttribute('data-flow-run'))).toEqual(['run-4', 'run-3', 'run-2']);
     expect(text(results.querySelector('[data-flow-run="run-4"] [data-flow-run-preview]'))).toBe('5 open projects; proposed completing PRJ-1.');
     expect(text(results)).toContain('And 1 earlier runs in its runs.');
+  });
+
+  it('labels the ID of a technical account whose name is not known', async () => {
+    await configure();
+    await configureFollowUp();
+    // The names of accounts cannot be read, so the screens know none.
+    spyOn(TestBed.inject(NhAssistantAdminApiService), 'getAccounts')
+      .and.returnValue(throwError(() => new NhAssistantApiError(503, 'assistant-unavailable', 'nh-assistant.errors.assistant-unavailable')));
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const flow = await openFlow(fixture, element, 'follow-up');
+
+    const account = step(flow, 'account');
+    expectAccount(account, 'Account ID operations');
+    expect(account.querySelector('[data-account-label-id]')).not.toBeNull();
+    expect(account.querySelector('[data-account-copy-id]')).toBeNull();
+    const summary = element.querySelector('[data-settings-summary] [data-account-name]') as HTMLElement;
+    expect(text(summary)).toBe('Account ID operations');
+    expect(element.querySelector('nh-assistant-agent-run-configuration [data-account-names-error]')).not.toBeNull();
   });
 
   it('shows problems at the step they concern with the entry point that fixes them', async () => {
@@ -392,7 +418,7 @@ describe('The flow view of an agent', () => {
       .toContain('MCP server Team calendar is not used: it works with personal accounts and the agent answers to a technical account.');
 
     // It answers to its technical account, and its approval policy comes from its code.
-    expect(text(step(flow, 'account').querySelector('[data-flow-account]'))).toBe('A technical account Operations operations');
+    expectAccount(step(flow, 'account'), 'Operations');
     expect(text(step(flow, 'approval').querySelector('[data-flow-policy="agent"]'))).toContain('project-review');
 
     // Changing its technical account happens on its card in the list.
@@ -536,7 +562,7 @@ describe('The mock API for the flow view', () => {
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
     const flow = await openFlow(fixture, element, 'follow-up');
     expect(step(flow, 'account').querySelector('[data-flow-warning="no-settings"]')).toBeNull();
-    expect(text(step(flow, 'account').querySelector('[data-flow-account]'))).toBe('A technical account Operations operations');
+    expectAccount(step(flow, 'account'), 'Operations');
     expect(text(step(flow, 'when').querySelector('[data-flow-trigger="weekly"] [data-flow-target]'))).toBe('For the whole application');
     expect(step(flow, 'skills').querySelector('[data-flow-skill="complete-projects"]')).not.toBeNull();
     expect(element.querySelector('nh-assistant-agent-work-setup')).toBeNull();

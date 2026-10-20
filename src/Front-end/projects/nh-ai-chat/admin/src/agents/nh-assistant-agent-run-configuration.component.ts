@@ -34,7 +34,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
-import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
+import { NhAssistantAccountLabelComponent, NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 import { codeTextKeys, readableId, skillDescriptionKeys, skillNameKeys } from './agent-texts';
 import { AgentFlowEntry } from './run-config/agent-flow';
 import { NhAssistantAgentFlowComponent } from './run-config/nh-assistant-agent-flow.component';
@@ -82,7 +82,8 @@ interface Confirmation {
     NhAssistantRunSettingsFormComponent,
     NhAssistantSkillFormComponent,
     NhAssistantTriggerFormComponent,
-    NhAssistantAccountNamesErrorComponent
+    NhAssistantAccountNamesErrorComponent,
+    NhAssistantAccountLabelComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-run-configuration.component.html',
@@ -461,6 +462,11 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   /** A person's name, or the id when the application does not know it. */
   nameOf(actorId: string | null | undefined): string {
     return this.accountNames.nameOf(actorId);
+  }
+
+  /** The account ID as the tooltip of a name shown in its place. */
+  accountTitle(actorId: string | null | undefined): string | null {
+    return this.accountNames.idTitleOf(actorId);
   }
 
   /** The first of the keys with a translation, or the fallback. */

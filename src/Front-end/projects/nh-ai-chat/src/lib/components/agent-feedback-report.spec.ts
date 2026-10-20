@@ -165,12 +165,12 @@ describe('NhAssistantAgentFeedbackReportComponent', () => {
     expect(card.textContent).toContain('Change project status');
     expect(card.textContent).toContain('The deadline is next month.');
     expect(card.textContent).toContain('Move Project One to Active.');
-    expect(card.textContent).toContain('By user-7');
+    expect(card.textContent).toContain('By account ID user-7');
     expect(card.textContent).toContain('Bulk');
     expect(card.querySelector('.badge.danger')?.textContent).toContain('Wrong value');
   });
 
-  it('names the author from the member snapshots and falls back to the id', () => {
+  it('names the author from the member snapshots and falls back to the labeled account ID', () => {
     admin.getAgentFeedback.and.returnValue(of({
       items: [
         { ...item, id: 'feedback-2', authorActorId: 'user-8', authorDisplayName: 'Pat Planner' },
@@ -183,7 +183,11 @@ describe('NhAssistantAgentFeedbackReportComponent', () => {
     const cards = Array.from(element().querySelectorAll('.cards .card')).map(card => card.textContent ?? '');
     expect(cards[0]).toContain('By Pat Planner');
     expect(cards[0]).not.toContain('user-8');
-    expect(cards[1]).toContain('By user-9');
+    expect(cards[1]).toContain('By account ID user-9');
+    // The ID of a named author stays available as the tooltip.
+    const authors = Array.from(element().querySelectorAll('[data-feedback-author]'));
+    expect(authors[0].getAttribute('title')).toBe('Account ID: user-8');
+    expect(authors[1].hasAttribute('title')).toBeFalse();
   });
 
   it('narrows the summary by tool and the feedback by tool and category', () => {
