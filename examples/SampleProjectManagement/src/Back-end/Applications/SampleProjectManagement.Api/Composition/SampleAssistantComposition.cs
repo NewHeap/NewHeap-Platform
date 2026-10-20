@@ -10,6 +10,7 @@ using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.Mcp;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.Common.Localization;
 using SampleProjectManagement.Core.Models.AI;
@@ -80,6 +81,8 @@ public static class SampleAssistantComposition
         }
         services.TryAddKeyedSingleton<IChatClient, SampleAssistantChatClient>(ModelKey);
         services.TryAddSingleton<SampleAssistantAuditLog>();
+        services.AddHttpClient(SampleTokenExchangeCredentialProvider.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10))
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
         services.AddLocalization();
         // The NewHeap localizer searches only registered assemblies; the texts of the sample's
         // presenters live next to their composition in this assembly.
@@ -118,6 +121,12 @@ public static class SampleAssistantComposition
             // SPM-251: an administrator may name a secret instead of storing it: config:<name> reads
             // NewHeap:AI:Assistant:Mcp:Secrets:<name>, and secret-file:<name> a mounted secret file.
             .AddMcpSecretResolver<SampleMountedSecretResolver>(SampleMountedSecretResolver.Prefix)
+            // SPM-251: an authentication mode of the sample's own: the person's token is exchanged
+            // at the identity provider for a token of the MCP server (D1). Administrators choose it in
+            // the server editor like a built-in mode.
+            .AddMcpCredentialProvider<SampleTokenExchangeCredentialProvider>(
+                SampleTokenExchangeCredentialProvider.Mode,
+                NhAssistantMcpCredentialOwnership.Person)
             .ConfigureMcp(mcp =>
             {
                 // Administrators may connect any https host that is not blocked; plain http is only

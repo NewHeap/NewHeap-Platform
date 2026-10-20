@@ -165,6 +165,11 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("List MCP servers")
             .WithDescription("Returns the MCP servers without secrets.")
             .Produces<NhAssistantMcpServerDto[]>();
+        admin.MapGet("mcp-auth-modes", GetMcpAuthModes)
+            .WithName("NhAssistantAdminGetMcpAuthModes")
+            .WithSummary("List the application's MCP authentication modes")
+            .WithDescription("Returns the authentication modes the application registered in code with AddMcpCredentialProvider, by name, with whose credential each sends (organization or person). The built-in modes are not listed.")
+            .Produces<NhAssistantMcpAuthModeDto[]>();
         admin.MapPost("mcp-servers", CreateMcpServerAsync)
             .WithName("NhAssistantAdminCreateMcpServer")
             .WithSummary("Connect an MCP server")
@@ -676,6 +681,17 @@ internal static class NhAssistantAdminEndpoints
         return Json(
             servers.Select(item => ToDto(item.Server, item.AgentIds, connections.GetValueOrDefault(item.Server.Id))).ToArray(),
             Context.NhAssistantMcpServerDtoArray);
+    }
+
+    private static IResult GetMcpAuthModes(NhAssistantMcpAuthModeCatalog modes)
+    {
+        return Json(
+            modes.Registered
+                .Select(item => new NhAssistantMcpAuthModeDto(
+                    item.Mode,
+                    item.Ownership == NhAssistantMcpCredentialOwnership.Person ? "person" : "organization"))
+                .ToArray(),
+            Context.NhAssistantMcpAuthModeDtoArray);
     }
 
     private static async Task<IResult> DiscoverMcpServerAsync(HttpContext httpContext, NhAssistantMcpAdministration administration)

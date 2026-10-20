@@ -210,6 +210,8 @@ export class NhAssistantMockAdmin {
         return this.agents.agentsEndpoint(method, id, action, body, segments.length);
       case 'mcp-servers':
         return this.mcp.serversEndpoint(method, id, action, child, body, segments.length);
+      case 'mcp-auth-modes':
+        return this.mcp.authModesEndpoint(method, segments.length);
       default:
         return failure('assistant-not-found');
     }

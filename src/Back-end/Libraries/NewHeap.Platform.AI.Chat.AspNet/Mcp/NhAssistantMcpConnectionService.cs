@@ -46,6 +46,7 @@ internal sealed class NhAssistantMcpConnectionService(
     IAuthorizationService authorizationService,
     NhAssistantMcpOAuthConnections oauthConnections,
     NhAssistantMcpAuthorizationFlows flows,
+    NhAssistantMcpAuthModeCatalog modes,
     IEnumerable<INhAssistantBusinessAuditSink> auditSinks)
 {
     public const string AllowedResult = "allowed";
@@ -218,7 +219,7 @@ internal sealed class NhAssistantMcpConnectionService(
     /// Servers that run with a person's own account: each person connects to them with OAuth, or an
     /// administrator offers them in background runs with the person's forwarded sign-in.
     /// </summary>
-    private static bool IsPersonal(AssistantMcpServer server)
+    private bool IsPersonal(AssistantMcpServer server)
     {
         if (!server.IsEnabled)
         {
@@ -226,7 +227,7 @@ internal sealed class NhAssistantMcpConnectionService(
         }
         return NhAssistantMcpToolSource.IsPersonalOAuth(server)
             || (server.HeadlessUse == NhAssistantMcpHeadlessUses.Personal
-                && NhAssistantMcpHeadlessUses.FitsAuthMode(server.HeadlessUse, server.AuthMode, server.ConnectionScope));
+                && modes.FitsHeadlessUse(server.HeadlessUse, server.AuthMode, server.ConnectionScope));
     }
 
     private async Task<bool> PassesPolicyAsync(AssistantMcpServer server, ClaimsPrincipal user)

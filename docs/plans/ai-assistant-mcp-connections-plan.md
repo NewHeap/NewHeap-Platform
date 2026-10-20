@@ -19,7 +19,7 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
 | M1 | Implemented, not yet released: the per-request credential pipeline, `headlessUse` per server (`never`, `organization`), executable deferred MCP proposals, per-caller tool lists that leave the catalog alone, connection health, the `McpConnectionPolicy` migrations, the editor and list, the mock API, the texts and SPM-251. See [implementation notes](#implementation-notes-m1). |
 | M2 | Implemented, not yet released: basic authentication, the three secret sources, client certificates, the transport choice, the per-person background-use consent (moved forward from M4), the headless `forward-user-token` variant with `AddNewHeapPlatformAIMcpDelegatedTokens`, the `McpServerCredentials` migrations, the editor, the preferences, the mock API, the texts and SPM-251. See [implementation notes](#implementation-notes-m2). |
 | M3 | Implemented, not yet released: discovery and pinning, registration (pre-registered, Client ID Metadata Document, dynamic), the organization authorization code flow, `oauth-client-credentials` with a secret or `private_key_jwt`, token storage, single-flight refresh, step-up for client credentials, revocation, the callback and metadata document endpoints, the admin endpoints, the opt-in health check, metrics, retention, `NhAiTestAuthorizationServer`, the `McpOAuthConnections` migrations, the editor and list, the mock API, the texts and SPM-299. See [implementation notes](#implementation-notes-m3). |
-| Follow-ups | Implemented, not yet released, on Lars's request of 2026-10-20: asymmetric signing of NewHeap tokens (F1) the removal of connections of people the platform no longer resolves (F2) and a missing personal connection in a headless run, recorded on the run and told to the person (F3, migrations `McpRunConnectionSkips`). See [implementation notes](#implementation-notes-follow-ups). |
+| Follow-ups | Implemented, not yet released, on Lars's request of 2026-10-20: asymmetric signing of NewHeap tokens (F1) the removal of connections of people the platform no longer resolves (F2) a missing personal connection in a headless run, recorded on the run and told to the person (F3, migrations `McpRunConnectionSkips`), and the public credential provider contract (F4). See [implementation notes](#implementation-notes-follow-ups). |
 | M4 | Implemented, not yet released: personal OAuth connections (`connectionScope: user`) with the authorize, complete and disconnect endpoints, the `connection.required` event and part with `nh-assistant-connection-required`, connect and disconnect in `nh-assistant-mcp-connections`, redirect mode, `personal` headless use with consent, the approval identity of Q10, per-person caching, step-up prompts, revoke-all, retention, `McpConnectionOwner`, the mock API, the texts and SPM-300. See [implementation notes](#implementation-notes-m4). |
 
 ## Implementation notes (M1)
@@ -30,7 +30,7 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
 - **Credential providers stay internal in M1.** `INhAssistantMcpCredentialProvider` and
   `NhAssistantMcpCredentialHandler` are internal; the last registered provider of a mode wins, which the
   renewal test uses. `AddMcpCredentialProvider<T>` was to become public in M3, when a second kind of
-  provider exists; I8 kept it internal, and publishing it is a [proposed follow-up](#proposed-follow-ups).
+  provider exists; I8 kept it internal, and F4 published it (I31).
 - **Request checks.** The handler keeps every request on the planned origin and re-applies
   `CheckUri`, including `AllowedHosts`. The client also no longer opens the standalone stream for
   server-initiated messages (`EnableStandaloneGetStream = false`), which the assistant does not handle.
@@ -82,8 +82,7 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
   (`NhAssistantMcpConnectionsComponent`, exported for profile pages); M4 extends it with connection
   status and "Connect". A headless run without consent leaves the server out with
   `assistant-mcp-consent-required`, which a deferred proposal reports as its result code; notifying the
-  person, as planned for a missing personal connection, was left for M4 and is a
-  [proposed follow-up](#proposed-follow-ups).
+  person, as planned for a missing personal connection, was left for M4 and is implemented as F3.
 - **Secret references.** Names contain no `:` and no `..`. A `config:` value is read with
   `NhConfigurationSecrets.Read` (since the merge of `main`): the key itself or `Secrets:<key>` from the
   secrets files, and a blank value or an unresolved `${...}` reference counts as missing (fail
@@ -304,6 +303,37 @@ implemented as below; the decisions are I22 onwards in the
   the Angular spec `nh-assistant-run-mcp-skips.spec.ts` and the SPM-251 sample test, whose first run
   without consent records the server and reaches the participant's inbox.
 
+### F4: a public credential provider contract (D1)
+
+- **The contract.** `INhAssistantMcpCredentialProvider` is public with the shape the built-ins already
+  had (`Supports`, `CanRenew`, `GetAsync`, `RenewAsync`, `AuthorizeCall`), and with it
+  `NhAssistantMcpCredential` (headers and expiry, redacted `ToString`, `Bearer`),
+  `NhAssistantMcpCredentialSubject` and `NhAssistantMcpChallenge` (I31). The built-in modes stay
+  providers of that interface.
+- **Registration.** `NhAssistantBuilder.AddMcpCredentialProvider<TProvider>(mode, ownership)`
+  (`NhAssistantMcpCredentialProviders`) registers the provider as a singleton for a dash-case mode of
+  at most 40 characters that is no built-in mode and is registered once. `NhAssistantMcpCredentialOwnership`
+  says whose credential it sends: `Organization` (shared and cached, `headlessUse: organization`, agent
+  grants) or `Person` (never cached, `headlessUse: personal` with consent, listed in the person's
+  `GET mcp-connections`). An internal `NhAssistantMcpAuthModeCatalog` answers every rule that depends on
+  the mode (validation, sharing, headless use, provider choice). Helpers: `Failed(code)` and
+  `AuthorizePersonalCall(subject, call)`, the rule of the built-in forwarded token.
+- **Administration.** `GET admin/mcp-auth-modes` (`NhAssistantMcpAuthModeDto`) lists the registered
+  modes; a server of such a mode takes no secret, user name or OAuth settings (I32). The editor lists
+  them after the built-in modes, named by their translation `nh-assistant.admin.mcp.auth.<mode>` or else
+  by the mode, with a hint whose credential they send; `McpAuthMode` admits them
+  (`McpBuiltInAuthMode | string`), `getMcpAuthModes` and `McpCustomAuthMode` are new, and the mock API
+  serves scenario `mcpAuthModes` with the server's validation.
+- **Sample.** `SampleTokenExchangeCredentialProvider` (`sample-token-exchange`, `Person`) exchanges the
+  person's NewHeap token at the identity provider (RFC 8693) for a token of the MCP server, so the
+  person's own token never reaches it; a background run carries nobody's token, so the mode serves a
+  person's own requests only (I33). The playground lists the mode.
+- **Evidence.** `AssistantMcpCredentialTests.An_application_mode_supplies_the_credential_and_its_ownership_decides_background_use`
+  (SQL Server and PostgreSQL), `Administrators_read_the_modes_the_application_registered` and
+  `A_mode_is_registered_once_by_a_dash_case_name_that_no_built_in_mode_has`, the Angular spec
+  `nh-assistant-mcp-custom-auth-modes.spec.ts` and the SPM-251 sample test
+  `SPM_251_the_application_adds_an_authentication_mode_that_exchanges_the_persons_token`.
+
 ## Problem
 
 ### What exists today
@@ -461,7 +491,7 @@ through M4 without waiting. Where a choice came up, the implementer decided as b
 | I5 | Decided by the implementer on 2026-10-20, for Lars to review: the callback page posts its message to each origin in `ReturnOrigins` (or the redirect URI's origin); the browser delivers it only to the opener's origin. The start response names `callbackOrigin`, and the window accepts the message only from its own popup and that origin. | Applications often serve several front-ends from other origins than the API, as the sample does; recording the opener's origin per flow would need another column for no extra safety, because the completion code is useless without the starter's session. |
 | I6 | Decided by the implementer on 2026-10-20, for Lars to review: the cross-instance single flight is verified by a second lease owner on the same row, not by two hosts. | Each test host owns its own schema; the lease, the conditional writes and the waiting path are the same code either way. |
 | I7 | Decided by the implementer on 2026-10-20, for Lars to review: expired flows and stale personal connections are removed by `NhAssistantMcpMaintenance`, not by the run maintenance (D18). | The run maintenance only runs when agent runs are registered, while MCP OAuth also serves hosts without them. |
-| I8 | Decided by the implementer on 2026-10-20, for Lars to review: `INhAssistantMcpCredentialProvider` and `AddMcpCredentialProvider<T>` stay internal after M3 (D1, M1 notes). | The provider contract (subject, challenge, renewal) changes again with personal connections in M4; publishing it afterwards avoids a breaking change. Token exchange stays out of scope. |
+| I8 | Decided by the implementer on 2026-10-20, for Lars to review: `INhAssistantMcpCredentialProvider` and `AddMcpCredentialProvider<T>` stay internal after M3 (D1, M1 notes). | The provider contract (subject, challenge, renewal) changes again with personal connections in M4; publishing it afterwards avoids a breaking change. Token exchange stays out of scope. Published with F4 (I31). |
 | I9 | Decided by the implementer on 2026-10-20, for Lars to review: the counters live on a `NewHeap.Platform.AI` meter instance of `NewHeap.Platform.AI.Chat.AspNet`, because the existing instance is internal to `NewHeap.Platform.AI.Common`; listeners subscribe by meter name, so both report together. | No new public surface in AI.Common for three counters. |
 | I10 | Decided by the implementer on 2026-10-20, for Lars to review: disconnecting a personal connection keeps the consent to background use on the row without tokens; connecting can grant the consent but never withdraws it. | Q10 asks an approved proposal of a person who disconnected to fail as not connected; dropping the consent would report `consent-required` instead, and connecting again from a chat card would silently withdraw a consent. |
 | I11 | Decided by the implementer on 2026-10-20, for Lars to review: administrators test and sync a server that people connect to with their own personal connection, started through `POST admin/mcp-servers/{id}/connection/authorize`. | Such a server has no organization connection, and an administrator must see its tools before any agent offers them. |
@@ -483,6 +513,9 @@ through M4 without waiting. Where a choice came up, the implementer decided as b
 | I28 | Decided by the implementer on 2026-10-20 with F2, for Lars to review: F2 has library tests on both providers and no sample code; SPM-300 names the behavior. | The sweep is internal maintenance without a public surface that a sample could call, and its timing makes an end-to-end sample test wait an hour. |
 | I29 | Decided by the implementer on 2026-10-20 with F3, for Lars to review: a run records the four personal skip codes, including `assistant-mcp-reauthorization-required` next to the three named, and only servers with `personal` headless use; it tells the person for consent, connection and reauthorization, not for `assistant-mcp-initiator-only`. | A personal connection that ended needs the same action as a missing one. A run that acts for someone other than the person who asked cannot use either person's connection, so a notice would ask for something that does not help; the run's history shows it to whoever reads the run. |
 | I30 | Decided by the implementer on 2026-10-20 with F3, for Lars to review: the notice is bounded to once per person and server within a day, whatever the code, with a table of its own (`AssistantMcpConnectionNotice`), and recorded on the run as JSON in one column. | A table with a unique key bounds notices across instances and restarts without a column per run; the code may change between runs of a day, but one reminder a day is enough. One JSON column keeps the run row as it is and is read only with the run. |
+| I31 | Decided by the implementer on 2026-10-20 with F4, for Lars to review: the public `INhAssistantMcpCredentialProvider` keeps the shape the built-ins had since M4 (`Supports(mode)`, the server entity, the subject, the challenge and `AuthorizeCall`), not the `Mode` and `Capabilities` of the original sketch; whose credential a mode sends is declared when it is registered (`NhAssistantMcpCredentialOwnership`). I8's reason to wait no longer applies. | The built-ins and the handler already work with it, so publishing it needs no second adapter; ownership is a decision of the registering code, which also decides the headless use an administrator may choose. |
+| I32 | Decided by the implementer on 2026-10-20 with F4, for Lars to review: a server with an application's mode takes no secret, user name, header or OAuth settings; the provider reads what it needs from the application's configuration (for example with `NhConfigurationSecrets.Read` or its own secret resolver), and `AddMcpCredentialProvider` refuses the names of built-in modes. | A custom mode's inputs differ per provider, and a generic secret field would invite storing an identity provider's client secret per server. Replacing a built-in mode stays a test seam, not a public feature. |
+| I33 | Decided by the implementer on 2026-10-20 with F4, for Lars to review: the sample's token exchange serves only a person's own requests and refuses in background runs (`assistant-mcp-unauthorized`). | A background run has nobody's token to exchange; an identity provider that can impersonate a person without a token is a different, riskier grant that the sample does not show. |
 | I21 | Decided by the implementer on 2026-10-20 in the final cleanup of `feature/assistant-agents-on-objects`, for Lars to review: I18 covers every turn a person asked for. The people who asked for a headless turn are the initiator of a run started by hand (`manual`), through another assistant's request tool (`agent-request`) or by a message typed while a run worked (`queued-message`), and the author of every message among the inputs the run claimed, also a message that joined a run nobody asked for, such as a scheduled run that answers it in a further turn, and a turn that continues after a wait (`NhAssistantRunStore.ListInputAuthorsAsync`). When any of them is not the person whose rights the turn uses, servers with `personal` headless use are left out with `assistant-mcp-initiator-only`; the asking person's own connection serves only when that person is the one whose rights the turn uses (`DelegateFromInitiator`, or the accountable person asking themselves) and consented. Organization credentials are unaffected; event, schedule, hand-off and decision follow-up runs whose inputs no person wrote keep Q3, and deferred proposal executions keep Q10. | Queued messages are mostly answered in a further turn of the run that was working, so a rule on the run's trigger alone would let a person's message steer the accountable person's account; agent requests carry the asking person like a start by hand. A follow-up run after a decision is the agent's own policy at work, not a person's request, and its input is no person's message. |
 
 ## Review fixes
@@ -508,12 +541,10 @@ A review of result and error handling after M4 and W7 found the items below; the
 
 ## Proposed follow-ups
 
-Items the phases left open on purpose. Each is a feature of its own, not a missing part of M1 to M4;
-they are proposed for Lars to plan, with the reason they were not done here.
-
-| Follow-up | What it would do | Why not in this plan |
-| --- | --- | --- |
-| A public credential provider contract (D1) | Make `INhAssistantMcpCredentialProvider` and `AddMcpCredentialProvider<T>(mode)` public, so an application adds its own authentication mode, such as a token exchange with its identity provider. | I8 kept the contract internal while personal connections changed it; publishing it is a new public API with its own sample and guidance. |
+None open. The four follow-ups proposed after M4 (asymmetric signing, the cleanup of connections of
+people the platform no longer resolves, a missing personal connection on the run and for the person,
+and the public credential provider contract) are implemented as F1 to F4; see the
+[implementation notes](#implementation-notes-follow-ups).
 
 ## Design
 

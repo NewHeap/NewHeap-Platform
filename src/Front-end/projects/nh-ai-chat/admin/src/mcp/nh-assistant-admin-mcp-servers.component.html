@@ -43,7 +43,7 @@
             </div>
             <span class="mono muted url">{{ server.url }}</span>
             <div class="meta">
-              <span>{{ 'nh-assistant.admin.mcp.auth.' + server.authMode | translate }}</span>
+              <span>{{ ['nh-assistant.admin.mcp.auth.' + server.authMode] | nhAssistantTranslate: server.authMode }}</span>
               @if (server.authMode === 'bearer' || server.authMode === 'api-key' || server.authMode === 'basic') {
                 @if (server.secretReference; as reference) {
                   <span class="badge success">{{ 'nh-assistant.admin.mcp.secret-reference' | translate: { reference: reference } }}</span>

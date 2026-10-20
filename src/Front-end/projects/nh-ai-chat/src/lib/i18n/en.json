@@ -847,6 +847,10 @@
         "transport": "Transport",
         "transport-hint": "Choose the fallback only for a server that does not offer Streamable HTTP yet.",
         "forward-warning": "The signed-in user's token is sent to this server. The server's host must be on the allow-list of the application.",
+        "custom-auth": {
+          "organization": "The application supplies this credential; every caller shares it. It takes no secret here.",
+          "person": "The application supplies each person's own credential. It takes no secret here."
+        },
         "headless-use": "Background runs",
         "headless-use-hint": "Agents that work without a person may use the tools with this server's own credential. The call still needs the rights of the person the agent works for, or, for an agent that acts for itself, a grant in the application code (mcp.<server id>.*).",
         "headless-use-personal": "Background runs may use the server with a short-lived token of the person the run acts for, only after that person allowed it in their preferences.",

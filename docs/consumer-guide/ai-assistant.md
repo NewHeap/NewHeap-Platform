@@ -212,6 +212,19 @@ invalid run filter. Clients map the code, never the status, to a text.
   connection is missing is told with `NhAssistantAgentNotificationKind.McpConnectionMissing`, at most
   once per server and day; `UseInAppAgentNotifications` puts it in the application's inbox. Apply the
   `McpRunConnectionSkips` migrations.
+- **Authentication modes of the application.** An identity flow the built-in modes do not cover,
+  such as a token exchange with the application's identity provider, is a provider in code:
+  implement `INhAssistantMcpCredentialProvider` (`GetAsync` returns the headers of the next request
+  as `NhAssistantMcpCredential`, `RenewAsync` after a `401` when `CanRenew`, `AuthorizeCall` decides
+  which governed calls may carry it) and register it with
+  `AddMcpCredentialProvider<TProvider>(mode, ownership)`. `NhAssistantMcpCredentialOwnership.Organization`
+  shares one credential and allows `headlessUse: organization`; `Person` sends each person's own
+  credential (`NhAssistantMcpCredentialSubject.PersonActorId`), is never shared, allows `headlessUse:
+  personal` with the person's consent and authorizes calls with
+  `NhAssistantMcpCredentialProviders.AuthorizePersonalCall`. Return expected refusals with
+  `NhAssistantMcpCredentialProviders.Failed(code)`; never log a credential. The provider is a
+  singleton that reads its own configuration; a server of the mode takes no secret in the editor, and
+  `GET admin/mcp-auth-modes` lists the registered modes for it.
 - **MCP servers with OAuth.** `oauth-client-credentials` connects the organization with
   the host's own client (`oauth.clientId` with a write-only `clientSecret`, a
   `clientSecretReference` or, for `private_key_jwt`, the `clientCertificateReference`);
@@ -471,6 +484,8 @@ or output of the running turn, also not text written before an approval pause.
   own host `Accept` delegated MCP tokens on more than its MCP endpoint.
 - Writing a secret resolver that maps a reference name to arbitrary settings, files or
   environment variables; a name selects one secret of one source.
+- Forwarding a person's own NewHeap token from an application's credential provider; exchange it
+  for a token of the MCP server instead, and keep the provider's client secret in the secrets file.
 - Using an organization connection for a system that must know who acts, such as a mailbox or a
   calendar; let each person connect (`connectionScope: user`).
 - Connecting an organization `oauth` server with a personal or administrator account;

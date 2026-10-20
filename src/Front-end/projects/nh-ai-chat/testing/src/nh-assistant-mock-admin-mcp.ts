@@ -7,6 +7,7 @@ import {
   McpConnection,
   McpConnectionScope,
   McpConnectionStatus,
+  McpCustomAuthMode,
   McpDiscovery,
   McpHeadlessUse,
   McpOrganizationConnection,
@@ -100,6 +101,20 @@ export class NhAssistantMockAdminMcp {
   private readonly flows = new Map<string, StoredFlow>();
   /** What the mock authorization window answers: the person approves, denies or closes the window. */
   private authorizationOutcome: 'approve' | 'deny' | 'cancel';
+
+  /**
+   * `GET admin/mcp-auth-modes`: the authentication modes the application registered in code, by name,
+   * for administrators.
+   */
+  authModesEndpoint(method: string, segmentCount: number): NhAssistantMockResult {
+    if (method !== 'GET' || segmentCount !== 2) {
+      return failure('assistant-not-found');
+    }
+    const modes = [...(this.scenario.admin?.mcpAuthModes ?? [])]
+      .sort((left, right) => left.mode.localeCompare(right.mode))
+      .map(item => ({ ...item }));
+    return { status: 200, body: modes };
+  }
 
   constructor(
     private readonly scenario: NhAssistantMockScenario,
@@ -597,7 +612,7 @@ export class NhAssistantMockAdminMcp {
       }
     };
 
-    checkServerFields(input, stored, this.scenario.admin?.policies, add);
+    checkServerFields(input, stored, this.scenario.admin?.policies, add, this.scenario.admin?.mcpAuthModes ?? []);
     this.checkCredential(input, stored, add);
     this.checkOAuth(input, stored, add);
     return errors;
@@ -949,7 +964,8 @@ export class NhAssistantMockAdminMcp {
         .filter(agent => visible.has(agent.id) && agent.mcpServerIds.includes(server.id))
         .map(agent => agent.id);
       const personalOAuth = server.authMode === 'oauth' && server.connectionScope === 'user';
-      const forwardsToken = server.headlessUse === 'personal' && server.authMode === 'forward-user-token';
+      const forwardsToken = server.headlessUse === 'personal' &&
+        (server.authMode === 'forward-user-token' || customOwnership(this.scenario, server.authMode) === 'person');
       if (!server.isEnabled || !(personalOAuth || forwardsToken) || agentIds.length === 0) {
         continue;
       }
@@ -1122,11 +1138,22 @@ function newServerState(input: McpServerInput): Pick<McpServer, 'lastSyncAt' | '
  * `organization` needs a credential of the organization; `personal` is the forwarded token of the
  * person a run acts for.
  */
-function fitsHeadlessUse(headlessUse: McpHeadlessUse, authMode: McpAuthMode, connectionScope: McpConnectionScope = 'organization'): boolean {
-  const personal = authMode === 'forward-user-token' || (authMode === 'oauth' && connectionScope === 'user');
+function fitsHeadlessUse(
+  headlessUse: McpHeadlessUse,
+  authMode: McpAuthMode,
+  connectionScope: McpConnectionScope = 'organization',
+  customModes: readonly McpCustomAuthMode[] = []
+): boolean {
+  const custom = customModes.find(item => item.mode === authMode);
+  const personal = custom ? custom.ownership === 'person' : authMode === 'forward-user-token' || (authMode === 'oauth' && connectionScope === 'user');
   return headlessUse === 'never'
     || (headlessUse === 'organization' && !personal)
     || (headlessUse === 'personal' && personal);
+}
+
+/** Whose credential an authentication mode the application registered sends; null for a built-in mode. */
+function customOwnership(scenario: NhAssistantMockScenario, authMode: McpAuthMode): McpCustomAuthMode['ownership'] | null {
+  return scenario.admin?.mcpAuthModes?.find(item => item.mode === authMode)?.ownership ?? null;
 }
 
 /** A body the server can read as a server at all; its fields are checked one by one afterwards. */
@@ -1143,7 +1170,8 @@ function checkServerFields(
   input: McpServerInput,
   stored: StoredServer | null,
   policies: readonly string[] | undefined,
-  add: AddFieldError
+  add: AddFieldError,
+  customModes: readonly McpCustomAuthMode[]
 ): void {
   if (typeof input.id !== 'string' || (stored === null && !mockDashCase.test(input.id))) {
     add('id', 'invalid');
@@ -1165,7 +1193,7 @@ function checkServerFields(
     add('url', 'invalid');
   }
 
-  if (!authModes.includes(input.authMode)) {
+  if (!authModes.includes(input.authMode) && !customModes.some(item => item.mode === input.authMode)) {
     add('authMode', 'invalid');
   }
   const header = input.headerName?.trim() ?? '';
@@ -1179,7 +1207,7 @@ function checkServerFields(
   // An omitted headless use or connection scope keeps the stored value, as on the server.
   const headlessUse = input.headlessUse ?? stored?.server.headlessUse ?? 'never';
   const connectionScope = input.connectionScope ?? stored?.server.connectionScope ?? 'organization';
-  if (!headlessUses.includes(headlessUse) || !fitsHeadlessUse(headlessUse, input.authMode, connectionScope)) {
+  if (!headlessUses.includes(headlessUse) || !fitsHeadlessUse(headlessUse, input.authMode, connectionScope, customModes)) {
     add('headlessUse', 'invalid');
   }
 

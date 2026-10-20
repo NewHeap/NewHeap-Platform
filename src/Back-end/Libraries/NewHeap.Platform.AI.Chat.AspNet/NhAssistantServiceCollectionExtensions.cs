@@ -51,6 +51,7 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddSingleton<NhAssistantMcpConnectionCache>();
             services.TryAddSingleton<NhAssistantMcpSecretSource>();
             services.TryAddSingleton<NhAssistantMcpClientCertificates>();
+            services.TryAddSingleton<NhAssistantMcpAuthModeCatalog>();
             services.TryAddScoped<NhAssistantMcpConnectionService>();
             services.TryAddScoped<NhAssistantMcpDelegatedTokenLedger>();
             // OAuth connections: discovery, the host as client, flows and tokens (M3, M4).

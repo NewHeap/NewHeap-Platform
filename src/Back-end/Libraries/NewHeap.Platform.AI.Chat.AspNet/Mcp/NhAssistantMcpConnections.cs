@@ -285,6 +285,7 @@ internal sealed class NhAssistantMcpHostGuard(
 internal sealed class NhAssistantMcpConnectionPlanner(
     NhAssistantMcpHostGuard guard,
     NhAssistantMcpClientCertificates certificates,
+    NhAssistantMcpAuthModeCatalog modes,
     IEnumerable<INhAssistantMcpCredentialProvider> providers)
 {
     public const string DefaultApiKeyHeader = NhAssistantMcpStaticCredentialProvider.DefaultApiKeyHeader;
@@ -338,8 +339,9 @@ internal sealed class NhAssistantMcpConnectionPlanner(
             certificate = loaded.Data;
         }
 
-        // The last registered provider of the mode wins, so a host or test can replace a built-in.
-        var provider = _providers.LastOrDefault(candidate => candidate.Supports(server.AuthMode));
+        // The provider an application registered for its mode; for a built-in mode the last
+        // registered provider wins, so a host or test can replace a built-in.
+        var provider = modes.ProviderFor(server.AuthMode, _providers);
         if (provider is null)
         {
             return Failed(NhAssistantAdminErrorCodes.McpUnauthorized);
@@ -356,7 +358,7 @@ internal sealed class NhAssistantMcpConnectionPlanner(
             server.Id,
             endpoint,
             credential.Data!.Headers,
-            !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope))
+            !modes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope))
         {
             Credentials = credentials,
             Transport = server.Transport,
@@ -630,6 +632,7 @@ internal sealed partial class NhAssistantMcpToolSource(
     NhAssistantMcpConnectionCache cache,
     INhAiMcpClientToolImporter importer,
     NhAssistantMcpContextBindings contextBindings,
+    NhAssistantMcpAuthModeCatalog modes,
     NhAssistantRegistrationState state,
     IOptionsMonitor<NhAssistantOptions> options,
     IHttpContextAccessor httpContextAccessor,
@@ -679,7 +682,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             if (!plan.Success)
             {
                 var code = NhAssistantResults.CodeOf(plan);
-                await SkipAsync(server, skipped, code, perCaller: !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope));
+                await SkipAsync(server, skipped, code, perCaller: !modes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope));
                 Miss(missing, server, request, code);
                 if (PersonalConnectionReason(server, request, code) is { } reason)
                 {
@@ -793,13 +796,13 @@ internal sealed partial class NhAssistantMcpToolSource(
     }
 
     /// <summary>Whose credential the tools of a server carry in this turn, for the audit.</summary>
-    private static string OwnerOf(AssistantMcpServer server, NhAssistantMcpToolRequest request)
+    private string OwnerOf(AssistantMcpServer server, NhAssistantMcpToolRequest request)
     {
         if (server.AuthMode == NhAssistantMcpAuthModes.None)
         {
             return NhAssistantMcpConnectionOwners.None;
         }
-        return NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope)
+        return modes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope)
             ? NhAssistantMcpConnectionOwners.Organization
             : request.PersonActorId ?? NhAssistantMcpConnectionOwners.None;
     }
@@ -808,10 +811,10 @@ internal sealed partial class NhAssistantMcpToolSource(
     /// Whether the server's tools may serve a turn without a person's request with the server's
     /// organization credential, because an administrator allowed it. Such tools accept agent grants.
     /// </summary>
-    public static bool AllowsHeadlessUse(AssistantMcpServer server)
+    public bool AllowsHeadlessUse(AssistantMcpServer server)
     {
         return server.HeadlessUse == NhAssistantMcpHeadlessUses.Organization
-            && NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope);
+            && modes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope);
     }
 
     /// <summary>
@@ -830,7 +833,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             return null;
         }
         if (server.HeadlessUse != NhAssistantMcpHeadlessUses.Personal
-            || !NhAssistantMcpHeadlessUses.FitsAuthMode(server.HeadlessUse, server.AuthMode, server.ConnectionScope)
+            || !modes.FitsHeadlessUse(server.HeadlessUse, server.AuthMode, server.ConnectionScope)
             || request.PersonActorId is not { } person)
         {
             return NhAssistantAdminErrorCodes.McpHeadlessNotAllowed;

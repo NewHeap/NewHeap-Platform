@@ -1844,7 +1844,12 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhJwtSigningKeysTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpRunSkipTests.cs",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-run-mcp-skips.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-run-mcp-skips.spec.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleTokenExchangeCredentialProvider.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleTokenExchangeService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpCredentialProviderTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-custom-auth-modes.spec.ts"
     ],
     "SPM-252": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",

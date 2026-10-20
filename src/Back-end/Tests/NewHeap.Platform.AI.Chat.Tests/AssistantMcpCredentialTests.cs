@@ -35,7 +35,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// Secrets and tokens never reach a log, an audit event or a response.
 /// </summary>
 [Collection(AssistantDatabaseCollection.Name)]
-public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture database)
+public sealed partial class AssistantMcpCredentialTests(AssistantDatabaseFixture database)
 {
     private const string AgentId = "project-assistant";
     private const string ServerUrl = "http://localhost/planning/mcp";
@@ -478,7 +478,8 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
         RecordingTokenIssuer? issuer = null,
         bool runs = false,
         Action<IServiceCollection>? configure = null,
-        Action<NhAssistantMcpOptions>? mcp = null)
+        Action<NhAssistantMcpOptions>? mcp = null,
+        Action<NhAssistantBuilder>? assistant = null)
     {
         return AssistantTestHost.CreateAsync(
             database,
@@ -506,9 +507,10 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
                 }
                 configure?.Invoke(services);
             },
-            assistantBuilder: assistant =>
+            assistantBuilder: builder =>
             {
-                assistant
+                assistant?.Invoke(builder);
+                builder
                     .AddMcpSecretResolver<VaultResolver>("vault")
                     .ConfigureMcp(options =>
                     {
@@ -518,7 +520,7 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
                     });
                 if (runs)
                 {
-                    assistant
+                    builder
                         .AddSubjectType<TestSubjectResolver>()
                         .AddApprovalPolicy("project-review", policy => policy
                             .Lifetime(TimeSpan.FromDays(3))

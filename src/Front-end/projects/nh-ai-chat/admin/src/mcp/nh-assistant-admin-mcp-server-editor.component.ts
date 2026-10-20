@@ -17,7 +17,9 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import {
   McpAuthMode,
+  McpBuiltInAuthMode,
   McpConnectionScope,
+  McpCustomAuthMode,
   McpDiscovery,
   McpHeadlessUse,
   McpOAuthInput,
@@ -120,6 +122,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
   private readonly injector = inject(Injector);
   private subscription?: Subscription;
   private discoverySubscription?: Subscription;
+  private modesSubscription?: Subscription;
   /** Fields whose server error the administrator changed since the refused save. */
   private readonly touched = signal<ReadonlySet<string>>(new Set());
 
@@ -130,7 +133,15 @@ export class NhAssistantAdminMcpServerEditorComponent {
 
   readonly id = `nh-assistant-server-editor-${nextId++}`;
   readonly limits = NH_ASSISTANT_MCP_SERVER_LIMITS;
-  readonly authModes: readonly McpAuthMode[] = ['none', 'bearer', 'api-key', 'basic', 'forward-user-token', 'oauth', 'oauth-client-credentials'];
+  readonly builtInAuthModes: readonly McpBuiltInAuthMode[] = ['none', 'bearer', 'api-key', 'basic', 'forward-user-token', 'oauth', 'oauth-client-credentials'];
+  /** The modes the application registered in code; none until they are loaded or when loading fails. */
+  readonly customAuthModes = signal<readonly McpCustomAuthMode[]>([]);
+  /** The built-in modes, the application's own and, kept selectable, a stored mode no longer registered. */
+  readonly authModes = computed<readonly McpAuthMode[]>(() => {
+    const modes: McpAuthMode[] = [...this.builtInAuthModes, ...this.customAuthModes().map(item => item.mode)];
+    const stored = this.server()?.authMode;
+    return stored && !modes.includes(stored) ? [...modes, stored] : modes;
+  });
   readonly transports: readonly McpTransport[] = ['streamable-http', 'auto'];
   readonly secretSources: readonly NhAssistantSecretSource[] = ['stored', 'reference'];
   readonly connectionScopes: readonly McpConnectionScope[] = ['organization', 'user'];
@@ -185,9 +196,16 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly isClientCredentials = computed(() => this.authMode() === 'oauth-client-credentials');
   /** One authorization of the organization's account that everyone uses. */
   readonly isOrganizationOAuth = computed(() => this.authMode() === 'oauth' && this.connectionScope() === 'organization');
-  /** The server runs with each person's own account: a forwarded sign-in or a personal OAuth connection. */
+  /** Whose credential the application's own mode sends; null for a built-in mode. */
+  readonly customOwnership = computed(() =>
+    this.customAuthModes().find(item => item.mode === this.authMode())?.ownership ?? null);
+  /**
+   * The server runs with each person's own account: a forwarded sign-in, a personal OAuth connection
+   * or a mode of the application that sends a person's credential.
+   */
   readonly personalCredential = computed(() =>
-    this.authMode() === 'forward-user-token' || (this.authMode() === 'oauth' && this.connectionScope() === 'user'));
+    this.authMode() === 'forward-user-token' || (this.authMode() === 'oauth' && this.connectionScope() === 'user') ||
+    this.customOwnership() === 'person');
   readonly hasOAuthSecret = computed(() => this.server()?.oauth?.hasClientSecret === true);
   readonly usesOAuthReference = computed(() => this.isOAuth() && this.oauthSecretSource() === 'reference');
   readonly showOAuthSecretInput = computed(() => this.isOAuth() && !this.usesOAuthReference() &&
@@ -261,6 +279,12 @@ export class NhAssistantAdminMcpServerEditorComponent {
     inject(DestroyRef).onDestroy(() => {
       this.subscription?.unsubscribe();
       this.discoverySubscription?.unsubscribe();
+      this.modesSubscription?.unsubscribe();
+    });
+    // The application's own modes; without them the editor offers the built-in modes.
+    this.modesSubscription = this.admin.getMcpAuthModes().subscribe({
+      next: modes => this.customAuthModes.set(modes),
+      error: () => this.customAuthModes.set([])
     });
 
     effect(() => {

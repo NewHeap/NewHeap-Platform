@@ -300,11 +300,29 @@ export interface SetAgentStateRequest {
 }
 
 /**
- * `oauth` connects with the authorization code flow: once for the organization or once per person
- * (`McpConnectionScope`). `oauth-client-credentials` connects the organization with the host's own
- * client credentials.
+ * The built-in authentication modes. `oauth` connects with the authorization code flow: once for the
+ * organization or once per person (`McpConnectionScope`). `oauth-client-credentials` connects the
+ * organization with the host's own client credentials.
  */
-export type McpAuthMode = 'none' | 'bearer' | 'api-key' | 'basic' | 'forward-user-token' | 'oauth' | 'oauth-client-credentials';
+export type McpBuiltInAuthMode = 'none' | 'bearer' | 'api-key' | 'basic' | 'forward-user-token' | 'oauth' | 'oauth-client-credentials';
+
+/**
+ * The authentication mode of a server: a built-in mode, or a mode the application registered in code
+ * (`AddMcpCredentialProvider`), which `NhAssistantAdminApiService.getMcpAuthModes` lists.
+ */
+export type McpAuthMode = McpBuiltInAuthMode | (string & {});
+
+/**
+ * An authentication mode the application registered in code. Its provider supplies the credential, so
+ * a server of the mode takes no secret, user name or OAuth settings in the editor. `organization`: one
+ * credential every caller shares, which may serve background runs (`headlessUse: organization`);
+ * `person`: each person's own credential, which serves only that person's background runs with their
+ * consent (`headlessUse: personal`).
+ */
+export interface McpCustomAuthMode {
+  mode: string;
+  ownership: 'organization' | 'person';
+}
 
 /** For `oauth`: one connection for everyone (`organization`), or each person connects (`user`). */
 export type McpConnectionScope = 'organization' | 'user';

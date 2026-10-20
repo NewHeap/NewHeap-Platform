@@ -361,7 +361,19 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         autonomy: 'explain'
       }
     ],
+    // SPM-251: the sample registers its own authentication mode, a token exchange for each person.
+    mcpAuthModes: [{ mode: 'sample-token-exchange', ownership: 'person' }],
     mcpServers: [
+      {
+        id: 'project-reports',
+        displayName: 'Project reports',
+        url: 'https://reports.sample.localhost/mcp',
+        authMode: 'sample-token-exchange',
+        headerName: null,
+        requiredPolicy: null,
+        isEnabled: true,
+        remoteTools: PLAYGROUND_REMOTE_TOOLS
+      },
       {
         id: PLAYGROUND_MCP_SERVER_ID,
         displayName: 'Project documents',

@@ -839,6 +839,38 @@ left out. The mock API returns `mcpConnectionSkips` of scenario runs (`NhAssista
 |---|---|
 | None; the field is optional and missing on older servers. | None. |
 
+## NewHeap.Platform.AI.Chat.AspNet: authentication modes of the application for MCP servers
+
+An application adds its own authentication mode for MCP servers (D1), for example a token exchange
+with its identity provider: implement the now public `INhAssistantMcpCredentialProvider` and register
+it with `AddMcpCredentialProvider<TProvider>(mode, ownership)` on `NhAssistantBuilder`
+(`NhAssistantMcpCredentialProviders`). `NhAssistantMcpCredentialOwnership` says whose credential the
+mode sends: the organization's, shared and allowed in background runs with `headlessUse:
+organization`, or each person's own, never shared and allowed with `headlessUse: personal` after the
+person's consent. `NhAssistantMcpCredential` (with `Bearer`), `NhAssistantMcpCredentialSubject` and
+`NhAssistantMcpChallenge` are public with it; `NhAssistantMcpCredentialProviders.Failed` and
+`AuthorizePersonalCall` give a provider the built-ins' refusal and call rule. The provider is asked
+before every request, renewed once after `401`, and its headers never reach a log. Administrators
+choose the modes in the server editor; `GET admin/mcp-auth-modes` (`NhAssistantMcpAuthModeDto`) lists
+them, and a server of such a mode takes no secret or OAuth settings.
+
+| Breaking change | Required action |
+|---|---|
+| None; the types were internal and the endpoint is new. | Register an application's own mode with `AddMcpCredentialProvider<T>(mode, ownership)`; its name must not be a built-in mode. |
+
+## @newheap/platform-ai-chat: authentication modes of the application
+
+The MCP server editor lists the authentication modes the application registered in code after the
+built-in modes, named by `nh-assistant.admin.mcp.auth.<mode>` or else by the mode, with a hint whose
+credential they send, and offers the background use that fits them. `McpAuthMode` is now
+`McpBuiltInAuthMode | string`; `McpBuiltInAuthMode`, `McpCustomAuthMode` and
+`NhAssistantAdminApiService.getMcpAuthModes` are new. The mock API serves `GET admin/mcp-auth-modes`
+from the scenario's `admin.mcpAuthModes` and validates servers of those modes as the server does.
+
+| Breaking change | Required action |
+|---|---|
+| `McpAuthMode` admits any string, the application's own modes. | Use `McpBuiltInAuthMode` where only built-in modes fit, and treat other values as the application's own modes in exhaustive switches. |
+
 ## NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: one status per error code and error handling after the review
 
 Every assistant endpoint (chat, administration, agent runs, subjects, run histories, boards, MCP
