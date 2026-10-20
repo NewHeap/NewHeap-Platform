@@ -18,8 +18,6 @@
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="SSH.NET" PrivateAssets="all" />
-    <PackageReference Include="Testcontainers.MsSql" />
-    <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
@@ -39,6 +37,7 @@
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AspNet.Common.SqlServer\NewHeap.Platform.AspNet.Common.SqlServer.csproj" />
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AspNet.Common.PostgreSql\NewHeap.Platform.AspNet.Common.PostgreSql.csproj" />
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Test\NewHeap.Platform.AI.Test.csproj" />
+    <ProjectReference Include="..\NewHeap.Platform.Tests.Relational\NewHeap.Platform.Tests.Relational.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets/project-assistant.md" LogicalName="NewHeap.Platform.AI.Chat.Tests.Assets.project-assistant.md" />

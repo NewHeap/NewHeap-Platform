@@ -1,26 +1,26 @@
 using Microsoft.Data.SqlClient;
 using Npgsql;
 
-namespace NewHeap.Platform.AI.Chat.Tests.Infrastructure;
+namespace NewHeap.Platform.Tests.Relational;
 
 /// <summary>
-/// Empties a pooled assistant schema so that it is as clean as a freshly migrated one: every row of
-/// every table goes, the migration history stays. The tables are read from the database catalog, so
-/// a table that a new migration adds is emptied without a change here. The checked-in migrations
-/// insert no rows, and no assistant table has an identity column.
+/// Empties a pooled slot so that it is as clean as a freshly prepared one: every row of every table
+/// goes, the EF Core migration history stays. The tables are read from the database catalog, so a
+/// table that a new migration adds is emptied without a change here.
 /// </summary>
-internal static class AssistantSchemaReset
+internal static class RelationalTestReset
 {
     private const string HistoryTable = "__EFMigrationsHistory";
     private const int MaxAttempts = 3;
 
-    public static async Task ResetAsync(AssistantTestProvider provider, string connectionString, string schema)
+    /// <param name="schema">The schema to empty, or <see langword="null"/> for every table of the database.</param>
+    public static async Task ResetAsync(RelationalTestProvider provider, string connectionString, string? schema)
     {
         for (var attempt = 1; ; attempt++)
         {
             try
             {
-                if (provider == AssistantTestProvider.SqlServer)
+                if (provider == RelationalTestProvider.SqlServer)
                 {
                     await ResetSqlServerAsync(connectionString, schema);
                 }
@@ -33,32 +33,38 @@ internal static class AssistantSchemaReset
             }
             catch (Exception exception) when (attempt < MaxAttempts && IsDeadlock(exception))
             {
-                // A write that the previous host started before it was disposed can still hold locks
-                // the reset needs; the database then picks one of the two as deadlock victim.
+                // A write that the previous user started before it returned the slot can still hold
+                // locks the reset needs; the database then picks one of the two as deadlock victim.
             }
         }
     }
 
     /// <summary>
-    /// One <c>TRUNCATE</c> over every table of the schema; <c>CASCADE</c> covers the foreign keys
-    /// between them.
+    /// One <c>TRUNCATE</c> over every table; <c>CASCADE</c> covers the foreign keys between them and
+    /// <c>RESTART IDENTITY</c> their sequences.
     /// </summary>
-    private static async Task ResetPostgreSqlAsync(string connectionString, string schema)
+    private static async Task ResetPostgreSqlAsync(string connectionString, string? schema)
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
 
         var tables = new List<string>();
         await using (var list = new NpgsqlCommand(
-            "SELECT tablename FROM pg_tables WHERE schemaname = @schema AND tablename <> @history",
+            """
+            SELECT schemaname, tablename
+            FROM pg_tables
+            WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+                AND (@schema = '' OR schemaname = @schema)
+                AND tablename <> @history
+            """,
             connection))
         {
-            list.Parameters.AddWithValue("schema", schema);
+            list.Parameters.AddWithValue("schema", schema ?? string.Empty);
             list.Parameters.AddWithValue("history", HistoryTable);
             await using var reader = await list.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                tables.Add(QuotePostgreSql(schema) + "." + QuotePostgreSql(reader.GetString(0)));
+                tables.Add(QuotePostgreSql(reader.GetString(0)) + "." + QuotePostgreSql(reader.GetString(1)));
             }
         }
 
@@ -77,7 +83,7 @@ internal static class AssistantSchemaReset
     /// SQL Server cannot truncate a table that a foreign key references, so the rows are deleted
     /// table by table, every referencing table before the table it references.
     /// </summary>
-    private static async Task ResetSqlServerAsync(string connectionString, string schema)
+    private static async Task ResetSqlServerAsync(string connectionString, string? schema)
     {
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync();
@@ -86,21 +92,24 @@ internal static class AssistantSchemaReset
         var references = new List<(string Referencing, string Referenced)>();
         await using (var list = new SqlCommand(
             """
-            SELECT t.name
+            SELECT QUOTENAME(SCHEMA_NAME(t.schema_id)) + N'.' + QUOTENAME(t.name)
             FROM sys.tables t
-            WHERE t.schema_id = SCHEMA_ID(@schema) AND t.name <> @history;
+            WHERE t.is_ms_shipped = 0
+                AND (@schema = N'' OR t.schema_id = SCHEMA_ID(@schema))
+                AND t.name <> @history;
 
-            SELECT referencing.name, referenced.name
+            SELECT QUOTENAME(SCHEMA_NAME(referencing.schema_id)) + N'.' + QUOTENAME(referencing.name),
+                QUOTENAME(SCHEMA_NAME(referenced.schema_id)) + N'.' + QUOTENAME(referenced.name)
             FROM sys.foreign_keys fk
             JOIN sys.tables referencing ON referencing.object_id = fk.parent_object_id
             JOIN sys.tables referenced ON referenced.object_id = fk.referenced_object_id
-            WHERE referencing.schema_id = SCHEMA_ID(@schema)
-                AND referenced.schema_id = SCHEMA_ID(@schema)
-                AND fk.parent_object_id <> fk.referenced_object_id;
+            WHERE fk.parent_object_id <> fk.referenced_object_id
+                AND (@schema = N''
+                    OR (referencing.schema_id = SCHEMA_ID(@schema) AND referenced.schema_id = SCHEMA_ID(@schema)));
             """,
             connection))
         {
-            list.Parameters.AddWithValue("@schema", schema);
+            list.Parameters.AddWithValue("@schema", schema ?? string.Empty);
             list.Parameters.AddWithValue("@history", HistoryTable);
             await using var reader = await list.ExecuteReaderAsync();
             while (await reader.ReadAsync())
@@ -120,8 +129,7 @@ internal static class AssistantSchemaReset
             return;
         }
 
-        var statements = DeleteOrder(tables, references)
-            .Select(table => $"DELETE FROM {QuoteSqlServer(schema)}.{QuoteSqlServer(table)};");
+        var statements = DeleteOrder(tables, references).Select(table => $"DELETE FROM {table};");
         await using var delete = new SqlCommand(string.Join("\n", statements), connection);
         await delete.ExecuteNonQueryAsync();
     }
@@ -146,7 +154,7 @@ internal static class AssistantSchemaReset
             if (unreferenced.Count == 0)
             {
                 throw new InvalidOperationException(
-                    "The assistant tables reference each other in a cycle; the pooled schema cannot be emptied table by table: "
+                    "The tables reference each other in a cycle; the pooled slot cannot be emptied table by table: "
                     + string.Join(", ", remaining.Order(StringComparer.Ordinal)));
             }
 
@@ -166,10 +174,5 @@ internal static class AssistantSchemaReset
     private static string QuotePostgreSql(string identifier)
     {
         return "\"" + identifier.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
-    }
-
-    private static string QuoteSqlServer(string identifier)
-    {
-        return "[" + identifier.Replace("]", "]]", StringComparison.Ordinal) + "]";
     }
 }

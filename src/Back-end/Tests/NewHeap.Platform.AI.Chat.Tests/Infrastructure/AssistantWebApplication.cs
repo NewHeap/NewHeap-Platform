@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Tests.Relational;
 
 namespace NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 
@@ -32,9 +33,9 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
     public const string AccessPolicy = "app.assistant.access";
 
     private readonly WebApplication _app;
-    private readonly AssistantSchemaLease? _schema;
+    private readonly RelationalTestLease? _schema;
 
-    private AssistantWebApplication(WebApplication app, AssistantSchemaLease? schema)
+    private AssistantWebApplication(WebApplication app, RelationalTestLease? schema)
     {
         _app = app;
         _schema = schema;

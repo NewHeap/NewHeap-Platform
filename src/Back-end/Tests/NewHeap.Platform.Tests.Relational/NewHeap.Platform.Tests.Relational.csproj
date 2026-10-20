@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Relational test infrastructure that NewHeap's own *.Tests projects share: one SQL Server and one
+    PostgreSQL container per test process, databases of their own for tests, and pools of prepared
+    databases or schemas. It is no test project and is never packaged; consumer test helpers belong
+    in the packable NewHeap.Platform.*.Test libraries.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="SSH.NET" PrivateAssets="all" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+    <PackageReference Include="Testcontainers.MsSql" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+
+</Project>

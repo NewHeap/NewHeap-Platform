@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.Tests.Relational;
 
 namespace NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 
@@ -12,9 +13,10 @@ public enum AssistantTestProvider
 
 /// <summary>
 /// Gives a test class access to the real SQL Server and PostgreSQL servers of the relational
-/// assistant tests. It holds no state of its own: the servers and their pools of migrated schemas
-/// belong to the test process (see <see cref="AssistantDatabaseServer"/>), so test classes that use
-/// this fixture run in parallel and a server only starts when a test uses its provider.
+/// assistant tests. It holds no state of its own: the servers (see <see cref="RelationalTestServer"/>)
+/// and the pools of migrated schemas (see <see cref="AssistantSchemaPool"/>) belong to the test
+/// process, so test classes that use this fixture run in parallel and a server only starts when a
+/// test uses its provider.
 /// </summary>
 public sealed class AssistantDatabaseFixture
 {
@@ -25,16 +27,16 @@ public sealed class AssistantDatabaseFixture
     /// </summary>
     public Task<string> ConnectionStringAsync(AssistantTestProvider provider)
     {
-        return AssistantDatabaseServer.For(provider).GetConnectionStringAsync();
+        return RelationalTestServer.For(ToRelational(provider)).GetConnectionStringAsync();
     }
 
     /// <summary>
     /// Leases a migrated, empty schema of its own for one host. Dispose the lease when the host is
     /// disposed; the schema then returns to the pool.
     /// </summary>
-    internal Task<AssistantSchemaLease> LeaseSchemaAsync(AssistantTestProvider provider)
+    internal Task<RelationalTestLease> LeaseSchemaAsync(AssistantTestProvider provider)
     {
-        return AssistantDatabaseServer.For(provider).LeaseAsync();
+        return AssistantSchemaPool.LeaseAsync(provider);
     }
 
     /// <summary>
@@ -54,7 +56,7 @@ public sealed class AssistantDatabaseFixture
             // away, so disposing the provider disposes the lease. Created first, it is disposed last.
             services.AddSingleton(_ => lease);
             var serviceProvider = services.BuildServiceProvider();
-            serviceProvider.GetRequiredService<AssistantSchemaLease>();
+            serviceProvider.GetRequiredService<RelationalTestLease>();
             return serviceProvider;
         }
         catch
@@ -84,6 +86,13 @@ public sealed class AssistantDatabaseFixture
             await serviceProvider.DisposeAsync();
             throw;
         }
+    }
+
+    internal static RelationalTestProvider ToRelational(AssistantTestProvider provider)
+    {
+        return provider == AssistantTestProvider.SqlServer
+            ? RelationalTestProvider.SqlServer
+            : RelationalTestProvider.PostgreSql;
     }
 
     public static string UniqueSchema()

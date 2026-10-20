@@ -8,7 +8,7 @@ Every NewHeap type map has a default maximum depth of 64, regardless of whether 
 
 ## Testcontainers SSH dependency
 
-`NewHeap.Platform.AspNet.Common.Tests` pins its transitive `SSH.NET` dependency to 2026.0.0 because Testcontainers 4.13.0 declares the vulnerable 2025.1.0 version. The reference is test-only and private so it cannot become a dependency of any NewHeap release package. Remove the direct pin when a future Testcontainers version resolves to an equally new or newer patched version.
+The shared relational test infrastructure `NewHeap.Platform.Tests.Relational` and every test project that uses Testcontainers, directly or through it, pin the transitive `SSH.NET` dependency to 2026.0.0 because Testcontainers 4.13.0 declares the vulnerable 2025.1.0 version. Each project has a pin of its own, because a private reference does not flow to the projects that reference it. The references are test-only and private so they cannot become a dependency of any NewHeap release package. Remove the direct pins when a future Testcontainers version resolves to an equally new or newer patched version.
 
 ## Angular 20 build-only image parser advisory
 

@@ -12,6 +12,7 @@ using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.Common.Models;
+using NewHeap.Platform.Tests.Relational;
 
 namespace NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 
@@ -26,11 +27,11 @@ internal sealed class AssistantTestHost : IAsyncDisposable
     public const string AccessPolicy = "app.assistant.access";
 
     private readonly ServiceProvider _provider;
-    private readonly AssistantSchemaLease _schema;
+    private readonly RelationalTestLease _schema;
 
     private AssistantTestHost(
         ServiceProvider provider,
-        AssistantSchemaLease schema,
+        RelationalTestLease schema,
         NhAiCapturedAuditSink audit,
         NhAiCapturedUsageSink usage,
         CapturedBusinessAuditSink business,
