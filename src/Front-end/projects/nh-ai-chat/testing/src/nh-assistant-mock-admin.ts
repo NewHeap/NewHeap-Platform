@@ -245,8 +245,12 @@ export class NhAssistantMockAdmin {
     return { status: 200, body: toContext(next) };
   }
 
+  /** The scenario's tools, with the object type they name as the server reports it, and the enabled MCP tools. */
   private toolCatalog(): ToolCatalogEntry[] {
-    return [...(this.scenario.admin?.tools ?? []), ...this.mcp.catalogEntries()];
+    return [
+      ...(this.scenario.admin?.tools ?? []).map(tool => ({ ...tool, subjectType: tool.subjectType ?? null })),
+      ...this.mcp.catalogEntries()
+    ];
   }
 }
 

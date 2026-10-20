@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, inject, input, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
@@ -33,6 +33,7 @@ let nextId = 0;
 })
 export class NhAssistantAdminComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   readonly store = inject(NhAssistantStore);
 
   /** Tab shown first. */
@@ -55,6 +56,15 @@ export class NhAssistantAdminComponent {
 
   select(tab: NhAssistantAdminTab): void {
     this.activeTab.set(tab);
+  }
+
+  /**
+   * Shows the MCP servers, for example from an agent's flow that explains why a server is not used in
+   * runs without a person, and moves the focus to their tab.
+   */
+  showMcpServers(): void {
+    this.select('mcp-servers');
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`#${this.id}-tab-mcp-servers`)?.focus(), { injector: this.injector });
   }
 
   /** Arrow keys, Home and End move between tabs as the ARIA tabs pattern describes. */

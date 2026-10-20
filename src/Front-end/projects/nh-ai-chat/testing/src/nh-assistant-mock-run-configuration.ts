@@ -3,6 +3,7 @@ import {
   AgentRunConfiguration,
   AgentRunSettings,
   AgentRunSettingsRequest,
+  CodeRunSettings,
   CodeTrigger,
   DataSkill,
   DataSkillRequest,
@@ -58,6 +59,8 @@ export class NhAssistantMockRunConfiguration {
   private readonly triggers = new Map<string, DataTrigger>();
   private readonly catalog: RunCatalog;
   private readonly codeTriggers: (CodeTrigger & { agentId: string })[];
+  /** How the scenario's agents in code run, as their code would say. */
+  private readonly codeRunSettings: Map<string, Partial<CodeRunSettings>>;
 
   constructor(
     scenario: NhAssistantMockAdminScenario,
@@ -84,7 +87,14 @@ export class NhAssistantMockRunConfiguration {
       agentPolicies: scenario.runCatalog?.agentPolicies ?? [],
       divisions: scenario.runCatalog?.divisions ?? false
     };
-    this.codeTriggers = (scenario.codeTriggers ?? []).map(trigger => ({ ...trigger, skillId: trigger.skillId ?? null }));
+    this.codeTriggers = (scenario.codeTriggers ?? []).map(trigger => ({
+      ...trigger,
+      skillId: trigger.skillId ?? null,
+      subjectType: trigger.subjectType ?? null
+    }));
+    this.codeRunSettings = new Map((scenario.agents ?? [])
+      .filter(agent => agent.source === 'code')
+      .map(agent => [agent.id, agent.codeRunSettings ?? {}]));
   }
 
   /** The policies administrators may choose as run and view policies, by name. */
@@ -158,7 +168,22 @@ export class NhAssistantMockRunConfiguration {
         .filter(trigger => trigger.problem !== null)
         .map(trigger => ({ agentId: agent.id, kind: 'trigger' as const, id: trigger.triggerId, code: trigger.problem! })),
       source: agent.source,
-      runSettings: agent.source === 'admin' ? this.settings.get(agent.id) ?? null : null
+      runSettings: agent.source === 'admin' ? this.settings.get(agent.id) ?? null : null,
+      codeRunSettings: agent.source === 'code' ? this.codeSettingsOf(agent) : null
+    };
+  }
+
+  /**
+   * How an agent in code runs: the scenario's `codeRunSettings`, answering to its technical account
+   * when it has one and to itself otherwise, as an agent in code does by default.
+   */
+  private codeSettingsOf(agent: AdminAgent): CodeRunSettings {
+    const given = this.codeRunSettings.get(agent.id) ?? {};
+    return {
+      accountability: given.accountability ?? (agent.serviceAccount ? 'service-account' : 'agent'),
+      delegateFromInitiator: given.delegateFromInitiator ?? false,
+      approvalPolicy: given.approvalPolicy ?? null,
+      usesRules: given.usesRules ?? false
     };
   }
 

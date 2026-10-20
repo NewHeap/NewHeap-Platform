@@ -9,8 +9,8 @@ application groups them on its own pages. It was written on 2026-10-19 during th
 
 ## Status
 
-Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 to W7 are implemented and not
-released; the flow view (U6 of the run configuration UX plan) follows on top of them. The
+Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 to W7 and the flow view (U6 of the
+run configuration UX plan) on top of them are implemented and not released. The
 [MCP connections plan](ai-assistant-mcp-connections-plan.md) uses SPM-299 and SPM-300; this plan
 uses SPM-301 onwards.
 
@@ -23,7 +23,7 @@ uses SPM-301 onwards.
 | W5 | Implemented, not released: proposals placed at their object. |
 | W6 | Implemented, not released: results and history. |
 | W7 | Implemented, not released: groups and boards. |
-| U6 | Designed in outline: the flow view of an agent. |
+| U6 | Implemented, not released: the flow view of an agent. |
 
 ## Problem
 
@@ -239,6 +239,23 @@ settled as below. The MCP fixes are recorded in the [MCP connections plan](ai-as
 | Review | An invalid run history filter answers `400 assistant-run-filter-invalid` with a field error per parameter (`page`, `itemsPerPage`, `agentId`, `subjectType`, `subjectId`, `status`, `to`); the administration's runs view checks the filter before the agent. | The screens show the error at the filter that caused it. | For Lars to review. |
 | Review | A placed proposal at an object where nobody answers for the agent reads `no-accountable-owner` with its own model message instead of `no-access` (W5). | The model and the rules should know that the object is fine but the agent has nobody to answer to there. | For Lars to review. |
 | Review | Angular: a start's receipt is one internal component (`nh-assistant-run-receipt`) for the run-now dialog, the thread view, the subject suggestions and a restart in the run timeline: `waiting` as a warning with its reason, `deferred` and `ignored` as information, a refused start with its code; a resume shows no receipt. Failed catalog, search, lookup, account name and connection count requests keep a coded notice with Retry; the agent editor without a catalog leaves what the agent works on and its groups unchanged. The mock API takes every status from one table (`nh-assistant-mock-status.ts`). | The server's outcomes and codes, never a status or a falsehood such as "nothing found". | For Lars to review. |
+
+## Flow view decisions
+
+Choices U6 left open, taken during its implementation for Lars to review.
+
+| Phase | Decision | Reason | Review |
+| --- | --- | --- | --- |
+| U6 | No aggregation endpoint: the flow composes the run catalog and the run configuration the run configuration already reads, the tool catalog and MCP servers the agents page already reads, and one `GET admin/agents/{id}/runs` of the three newest runs. Three additions to existing responses fill what the client could not know: `SubjectType` on the tool catalog entries (`[NhAiSubject]`), `SubjectType` on code triggers (`nh-system` for a schedule for the whole application) and `CodeRunSettings` (`NhAssistantCodeRunSettingsDto`: accountability, delegation, approval policy, rules) of an agent in code. | One extra request per opened run configuration; an endpoint of its own would duplicate four existing reads and their access rules. | For Lars to review. |
+| U6 | Six steps instead of the outline's five: works on, when, how it works (way of working, skills, tools, MCP servers), whom it answers to, approval and results. | The account decides the agent's rights and whether a personal MCP server serves its runs; it deserves its own step and entry point. | For Lars to review. |
+| U6 | One step under the other at every width, numbered markers joined by a line, without a graph or canvas library; each step is a list item with a heading, its entries are buttons. | Steps carry lists (triggers, tools, servers, runs) that columns of nodes would cut; one layout is keyboard- and screen-reader-friendly and fits 375px. | For Lars to review. |
+| U6 | The flow is the top of the run configuration; the sections below stay as they were with all their actions (promote, discard, versions, shadow, remove). The list of problems above the skills became one notice, and each problem shows at its step: triggers at when, skills and candidates at how, run settings' `unknown-policy` at approval, `unknown-rule-handler` and `unknown-profile` at how, other run settings problems at the account. | The brief: forms below and every form reachable; problems where they are fixed. | For Lars to review. |
+| U6 | Forms of the run configuration open below from a step with the focus in them and give the focus back to the step's entry point when they close. The editor (what it works on, tools and MCP servers, groups), the runs view and the technical account of an agent in code belong to the agents page (`editAgent`, `openRuns`, `changeAccount`), which returns to the run configuration after the editor or the runs; the account opens on the agent's card. `openMcpServers` goes from the run configuration through the agents page to `nh-assistant-admin`, which shows its MCP servers tab. A host that places the agents page or the run configuration itself handles these outputs. | The flow edits nothing; the forms that exist stay the only editors. | For Lars to review. |
+| U6 | An agent in code has no entry point to what it works on (its code decides), but its tools and groups open the editor, where code agents can be overridden and grouped. | The editor shows a code statement read only. | For Lars to review. |
+| U6 | MCP servers per agent: `never`, switched off, removed, and `personal` for an agent that answers to a technical account or to itself without delegation are warnings with an entry point (the MCP servers, the editor for a removed server, the run settings for delegation of an agent created here). `organization` for an agent that answers to itself says that a grant in code is needed, as text, because grants in code are not reported. `personal` for the responsible person or with delegation says whose consent it needs. | D11 and Q3 of the MCP plan, without claiming more than the server reports. | For Lars to review. |
+| U6 | Tools are the agent's selectors resolved against the tool catalog without MCP tools, which come from its servers; at most eight are listed with "and N more". A selector that matches no tool reads "no longer offered" with the editor as its fix; without a tool catalog nothing reads as missing. A read-only tool says nothing about proposals. | A run can only use what its selectors match; a host that passes no catalog must not see false warnings. | For Lars to review. |
+| U6 | Run now in the flow follows W4's rule as far as the client knows it (not stopped, not disabled in code, run settings for an agent created here, a readable run catalog), says what it runs for (the whole application, one division at a time, objects) and who may run it for the whole application, and opens W4's dialog in place; a paused agent's run waits. The server still decides. | The same rule as the agent cards, with its reason when it is unavailable. | For Lars to review. |
+| U6 | Sample: SPM-298 is extended, because the registry's rule is to extend the existing case and SPM-298 covers the run configuration UX. Its evidence is the sample test of the endpoints the flow composes for the project starter, the project follow-up and the project planner, the library's flow spec and the playground's code run settings and status tool. | No duplicate case for one screen. | For Lars to review. |
 
 ## Design
 
@@ -529,10 +546,26 @@ assistant.ConfigureAgent("project-follow-up", run => run.InGroup("project-manage
 
 ### U6: the flow view
 
+**Implementation notes.** Implemented in the internal `nh-assistant-agent-flow` of the `admin` entry point
+(`NhAssistantAgentFlowComponent` with the pure view model `agent-flow.ts`) at the top of
+`NhAssistantAgentRunConfigurationComponent`, which gained the `servers` input and the `editAgent`,
+`changeAccount`, `openRuns` and `openMcpServers` outputs; `NhAssistantAdminAgentsComponent` returns to the
+run configuration after the editor or the runs and emits `openMcpServers`, which `NhAssistantAdminComponent`
+answers with its MCP servers tab. Back end: `NhAssistantToolCatalogEntryDto.SubjectType`,
+`NhAssistantCodeTriggerDto.SubjectType` and `NhAssistantAgentConfigurationDto.CodeRunSettings`
+(`NhAssistantCodeRunSettingsDto`) in AI.Chat.AspNet, no migration. Angular models
+`ToolCatalogEntry.subjectType`, `CodeTrigger.subjectType`, `CodeRunSettings`; texts in English and Dutch; the
+mock API's `subjectType` on tools and code triggers and `codeRunSettings` on agents in code. Tests: the tool
+catalog in `AssistantPlacedProposalTests` and `AssistantAdminEndpointTests`, code triggers and code run
+settings in `AssistantAgentRunConfigurationTests` and `AssistantSystemSubjectTests`,
+`nh-assistant-agent-flow.spec.ts` (every entry point, problems at their step, the MCP servers tab, a failed
+read of the runs, 375px) and the sample test of SPM-298. Decisions: [flow view decisions](#flow-view-decisions).
+
 On top of W1 to W7 the run configuration shows an agent as one flow: **works on** (object types,
 the whole application, per division) → **when** (event and schedule triggers, run now) → **skills**
-(way of working, tools) → **approval** (policy sentence, approvers) → **results** (board groups,
-latest runs). Each step opens the form it summarizes; the flow is an overview, not an editor.
+(way of working, tools) → **account** (whom it answers to) → **approval** (policy sentence, approvers) →
+**results** (board groups, latest runs). Each step opens the form it summarizes; the flow is an overview,
+not an editor.
 
 ## Security and limits
 

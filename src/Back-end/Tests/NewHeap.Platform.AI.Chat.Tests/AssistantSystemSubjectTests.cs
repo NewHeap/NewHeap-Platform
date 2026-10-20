@@ -92,6 +92,13 @@ public sealed class AssistantSystemSubjectTests(AssistantDatabaseFixture databas
             Assert.True(type.IsSystem);
             Assert.Equal("De hele applicatie", type.NameIn(CultureInfo.GetCultureInfo("nl-NL")));
             Assert.Equal("The whole application", type.NameIn(CultureInfo.GetCultureInfo("fr-FR")));
+
+            // The run configuration names what the schedule in code runs for and how the agent runs,
+            // for the administration's flow view.
+            var configured = (await scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>().GetAsync(AppWide))!;
+            var schedule = Assert.Single(configured.CodeTriggers);
+            Assert.Equal((WeeklyTick, NhAssistantDataTriggerSources.Schedule, NhAiSubjectRef.SystemType), (schedule.TriggerId, schedule.Source, schedule.SubjectType));
+            Assert.Equal(new NhAssistantCodeRunSettingsDto(NhAssistantAccountabilities.Agent, false, null, false), configured.CodeRunSettings);
         }
     }
 

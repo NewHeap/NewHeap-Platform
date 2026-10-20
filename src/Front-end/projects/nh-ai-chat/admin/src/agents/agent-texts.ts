@@ -89,3 +89,34 @@ export function worksOnSummary(
     viewPolicy: agent.viewPolicy ?? null
   };
 }
+
+/** What the run-now dialog needs of an agent: its id, its name as people read it and what it works on. */
+export interface RunNowAgentInput {
+  id: string;
+  worksOnSubjectTypes?: string[];
+  worksOnAllSubjects?: boolean;
+  worksOnApplication?: boolean;
+  perDivision?: boolean;
+}
+
+/**
+ * The agent as the run-now dialog runs it, with its name in the reader's language. An older server that
+ * does not say what the agent works on reads as all objects, not the whole application, app-wide.
+ */
+export function runNowAgentOf(agent: RunNowAgentInput, name: string): {
+  id: string;
+  name: string;
+  worksOnSubjectTypes: string[];
+  worksOnAllSubjects: boolean;
+  worksOnApplication: boolean;
+  perDivision: boolean;
+} {
+  return {
+    id: agent.id,
+    name,
+    worksOnSubjectTypes: agent.worksOnSubjectTypes ?? [],
+    worksOnAllSubjects: agent.worksOnAllSubjects ?? true,
+    worksOnApplication: agent.worksOnApplication ?? false,
+    perDivision: agent.perDivision ?? false
+  };
+}

@@ -236,15 +236,20 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       { actorId: '9c2f4c58-2d7b-4a43-9c55-1f1b4f2a6e11', displayName: 'operations@example.test', detail: 'operations@example.test' },
       { actorId: '0b5e3a7e-5c1d-4b0f-8f7e-6a2d9e4c3b21', displayName: 'project-lead@example.test', detail: 'project-lead@example.test' }
     ],
+    // SPM-298: the flow view names what each trigger in code runs for: the project of a completed task,
+    // and the projects of a set in code for the daily check.
     codeTriggers: [
-      { agentId: PROJECT_PLANNER_ID, triggerId: 'project-task-completed-planner', source: 'event', skillId: 'task-follow-up' },
-      { agentId: PROJECT_PLANNER_ID, triggerId: 'daily-deadline-check', source: 'schedule', skillId: null }
+      { agentId: PROJECT_PLANNER_ID, triggerId: 'project-task-completed-planner', source: 'event', skillId: 'task-follow-up', subjectType: 'project' },
+      { agentId: PROJECT_PLANNER_ID, triggerId: 'daily-deadline-check', source: 'schedule', skillId: null, subjectType: null }
     ],
     tools: [
       { id: 'sample-api.project.list', source: 'bridge', effect: 'read-only', description: 'Lists projects with paging and filters.' },
       { id: 'sample-api.project.get-by-key', source: 'bridge', effect: 'read-only', description: 'Reads one project by key.' },
       { id: 'sample-api.project.update-status', source: 'bridge', effect: 'mutation', description: 'Changes the status of a project.' },
-      { id: 'projects.portfolio-report', source: 'local', effect: 'read-only', description: 'Summarizes the project portfolio.' }
+      { id: 'projects.portfolio-report', source: 'local', effect: 'read-only', description: 'Summarizes the project portfolio.' },
+      // SPM-298: the status tool names its project ([NhAiSubject("project")]), so the flow view says that a
+      // run's proposal of it waits at that project.
+      { id: 'projects.change-status', source: 'local', effect: 'mutation', description: 'Changes the status of one project after approval.', subjectType: 'project' }
     ],
     agents: [
       {
@@ -267,12 +272,15 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         displayName: 'Project planner',
         description: 'Follows up completed tasks and judges deadline risks.',
         instructions: "Follow the project's tasks and deadline. Propose status changes; never apply them without approval.",
-        toolSelectors: ['sample-api.project.*'],
+        toolSelectors: ['projects.change-status', 'sample-api.project.*'],
         mcpServerIds: ['team-calendar'],
         requiredPolicy: 'app.project.view',
         autonomy: 'execute',
         // SPM-302: the planner works on projects, as its code says.
         worksOnSubjectTypes: ['project'],
+        // SPM-298: how its code makes it run, for the flow view: it answers to the person responsible for
+        // the project and its proposals wait for the intake approval.
+        codeRunSettings: { accountability: 'subject-responsible', approvalPolicy: 'project-intake', usesRules: false },
         skills: [
           { skillId: 'task-follow-up', description: 'Follows up completed tasks by rule.' },
           { skillId: 'deadline-risk', description: 'Judges whether an active project will miss its deadline.' }
@@ -286,7 +294,7 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         displayName: 'Project follow-up',
         description: 'Keeps the projects moving: counts the open projects and proposes which ones can be completed.',
         instructions: 'Count the open projects; when there are more than three, propose which ones can be completed.',
-        toolSelectors: ['sample-api.project.*'],
+        toolSelectors: ['projects.change-status'],
         mcpServerIds: [],
         requiredPolicy: null,
         autonomy: 'propose',

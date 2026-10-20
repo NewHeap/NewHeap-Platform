@@ -5,7 +5,7 @@ area: frontend
 reference: ai-assistant-ui
 summary: "Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, let users run several conversations at once, share them and get desktop notifications, route to the lazily loaded administration page behind the admin permission, and test against the scripted mock API instead of a live model."
 sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-295", "SPM-296", "SPM-297", "SPM-298", "SPM-299", "SPM-300", "SPM-301", "SPM-302", "SPM-303", "SPM-304"]
-public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService", "getRequestHeaders", "NhAssistantAgentRunApiService", "NhAssistantAgentInboxComponent", "NhAssistantAgentThreadViewComponent", "NhAssistantAgentProposalsComponent", "NhAssistantRunTimelineComponent", "NhAssistantAgentMemoryComponent", "NhAssistantAgentArtifactsComponent", "NhAssistantAgentConsultationsComponent", "getHubQueryParameters", "NhAssistantApprovalRight", "NhAssistantApprovalChoice", "ConversationThread", "NhAssistantProposalFeedbackComponent", "NhAssistantProposalFeedbackSaved", "NhAssistantAgentFeedbackReportComponent", "NhAssistantFeedbackPeriod", "AgentProposalFeedback", "AgentProposalFeedbackCategory", "AgentProposalFeedbackGroup", "AgentFeedbackOutcome", "AgentFeedbackSummary", "AgentFeedbackSummaryRow", "AgentFeedbackItem", "AgentFeedbackList", "AgentFeedbackFilter", "NH_ASSISTANT_FEEDBACK_CATEGORIES", "NH_ASSISTANT_FEEDBACK_GROUPS", "NH_ASSISTANT_MAX_FEEDBACK_TEXT", "NH_ASSISTANT_MAX_BULK_FEEDBACK", "LiveAgentWorkChanged", "LiveAgentWorkReason", "NhAssistantSubjectBadgeComponent", "NhAssistantSubjectSummaryService", "NhAssistantSubjectSuggestionsComponent", "AgentSubjectWork", "AgentSubjectSummary", "AgentProposalDecisionRight", "NH_ASSISTANT_MAX_SUBJECT_SUMMARY", "NhAssistantAgentRunConfigurationComponent", "RunCatalog", "AgentRunConfiguration", "DataSkill", "DataTrigger", "AgentRunSettings", "NhAssistantError", "AssistantAccount", "ApprovalPolicySummary", "ApproverSummary", "AgentSubjectType", "AgentSubjectSearch", "AgentSubjectSearchResult", "NH_ASSISTANT_SUBJECT_SEARCH", "NhAssistantSubjectLinkBuilder", "NhAssistantSubjectRef", "NhAssistantMockSubjectType", "NhAssistantMockSubject", "NhAssistantMcpConnectionsComponent", "McpConnection", "NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW", "NhAssistantMcpAuthorizationWindow", "NhAssistantMcpPopupAuthorizationWindow", "nhAssistantConnectMcp", "nhAssistantMcpAuthorizationFromFragment", "NhAssistantMockAuthorizationWindow", "McpDiscovery", "McpOrganizationConnection", "NhAssistantConnectionRequiredComponent", "NhAssistantMcpConnectService", "ConnectionRequiredPart", "ConnectionRequiredEvent", "NhAssistantObjectAgentsComponent", "AgentObjectAgents", "AgentObjectAgent", "AgentLatestRun", "NH_ASSISTANT_SYSTEM_SUBJECT_TYPE", "NH_ASSISTANT_SYSTEM_GLOBAL_ID", "NH_ASSISTANT_RESULT_PREVIEW_LENGTH", "NhAssistantMockDivision", "NhAssistantMockRunNow", "AgentProposalOrigin", "NhAssistantMockProposal", "NhAssistantRunResultComponent", "NhAssistantAgentRunHistoryComponent", "AgentRunFilter", "AgentRunHistory", "AgentRunHistoryItem", "AgentRunResult", "NH_ASSISTANT_RUN_RESULT_MAX_LENGTH", "NH_ASSISTANT_RUN_HISTORY_MAX_PAGE", "NhAssistantMockRun", "NhAssistantAgentBoardComponent", "NhAssistantBoardPanel", "AgentBoard", "AgentBoardAgent", "AgentBoardList", "AgentBoardSummary", "AgentBoardWorksOn", "AgentBoardSubjectType", "AgentBoardVisit", "AgentGroup", "AdminAgentGroups", "NhAssistantMockAgentGroup"]
+public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService", "getRequestHeaders", "NhAssistantAgentRunApiService", "NhAssistantAgentInboxComponent", "NhAssistantAgentThreadViewComponent", "NhAssistantAgentProposalsComponent", "NhAssistantRunTimelineComponent", "NhAssistantAgentMemoryComponent", "NhAssistantAgentArtifactsComponent", "NhAssistantAgentConsultationsComponent", "getHubQueryParameters", "NhAssistantApprovalRight", "NhAssistantApprovalChoice", "ConversationThread", "NhAssistantProposalFeedbackComponent", "NhAssistantProposalFeedbackSaved", "NhAssistantAgentFeedbackReportComponent", "NhAssistantFeedbackPeriod", "AgentProposalFeedback", "AgentProposalFeedbackCategory", "AgentProposalFeedbackGroup", "AgentFeedbackOutcome", "AgentFeedbackSummary", "AgentFeedbackSummaryRow", "AgentFeedbackItem", "AgentFeedbackList", "AgentFeedbackFilter", "NH_ASSISTANT_FEEDBACK_CATEGORIES", "NH_ASSISTANT_FEEDBACK_GROUPS", "NH_ASSISTANT_MAX_FEEDBACK_TEXT", "NH_ASSISTANT_MAX_BULK_FEEDBACK", "LiveAgentWorkChanged", "LiveAgentWorkReason", "NhAssistantSubjectBadgeComponent", "NhAssistantSubjectSummaryService", "NhAssistantSubjectSuggestionsComponent", "AgentSubjectWork", "AgentSubjectSummary", "AgentProposalDecisionRight", "NH_ASSISTANT_MAX_SUBJECT_SUMMARY", "NhAssistantAgentRunConfigurationComponent", "RunCatalog", "AgentRunConfiguration", "CodeRunSettings", "CodeTrigger", "ToolCatalogEntry", "DataSkill", "DataTrigger", "AgentRunSettings", "NhAssistantError", "AssistantAccount", "ApprovalPolicySummary", "ApproverSummary", "AgentSubjectType", "AgentSubjectSearch", "AgentSubjectSearchResult", "NH_ASSISTANT_SUBJECT_SEARCH", "NhAssistantSubjectLinkBuilder", "NhAssistantSubjectRef", "NhAssistantMockSubjectType", "NhAssistantMockSubject", "NhAssistantMcpConnectionsComponent", "McpConnection", "NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW", "NhAssistantMcpAuthorizationWindow", "NhAssistantMcpPopupAuthorizationWindow", "nhAssistantConnectMcp", "nhAssistantMcpAuthorizationFromFragment", "NhAssistantMockAuthorizationWindow", "McpDiscovery", "McpOrganizationConnection", "NhAssistantConnectionRequiredComponent", "NhAssistantMcpConnectService", "ConnectionRequiredPart", "ConnectionRequiredEvent", "NhAssistantObjectAgentsComponent", "AgentObjectAgents", "AgentObjectAgent", "AgentLatestRun", "NH_ASSISTANT_SYSTEM_SUBJECT_TYPE", "NH_ASSISTANT_SYSTEM_GLOBAL_ID", "NH_ASSISTANT_RESULT_PREVIEW_LENGTH", "NhAssistantMockDivision", "NhAssistantMockRunNow", "AgentProposalOrigin", "NhAssistantMockProposal", "NhAssistantRunResultComponent", "NhAssistantAgentRunHistoryComponent", "AgentRunFilter", "AgentRunHistory", "AgentRunHistoryItem", "AgentRunResult", "NH_ASSISTANT_RUN_RESULT_MAX_LENGTH", "NH_ASSISTANT_RUN_HISTORY_MAX_PAGE", "NhAssistantMockRun", "NhAssistantAgentBoardComponent", "NhAssistantBoardPanel", "AgentBoard", "AgentBoardAgent", "AgentBoardList", "AgentBoardSummary", "AgentBoardWorksOn", "AgentBoardSubjectType", "AgentBoardVisit", "AgentGroup", "AdminAgentGroups", "NhAssistantMockAgentGroup"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: high
@@ -303,8 +303,28 @@ optional reason. The forms check required fields and numbers before sending; an
 camelCase field name. Errors appear under their field, a form-level message next to the save button
 and the first invalid field receives the focus; a failed action of a skill, trigger or agent shows
 its error at that item. Settings that no longer fit the application, such as a removed rule
-handler, are listed above the skills with the server's problem; they stay out of effect
-until they are fixed.
+handler, stay out of effect until they are fixed.
+
+The run configuration opens with the agent's flow: an ordered overview, not an editor, of what it
+works on, when it runs (each trigger with what it runs for, from `CodeTrigger.subjectType`, the event's
+`RunBlock.subjectType` or the schedule's subject set, and whether and for what it can be run now), how
+it works (its rules or the model, its skills, its tools with where a run's proposal of each waits:
+at the object a tool's `ToolCatalogEntry.subjectType` names, otherwise in the run's own thread, and
+whether its MCP servers serve runs without a person by their `headlessUse` and whom the agent answers
+to), whom it answers to (the run settings, or `codeRunSettings` and the technical account of an agent
+in code), who approves its proposals (the policy sentence, also of skills with their own policy) and
+its results (its groups, who sees them for the whole application and its three latest runs from
+`getAgentRuns`). A problem of the server, a tool selector that no longer matches a tool, an MCP server
+without background use and an agent without run settings show as a warning at the step they concern,
+with the entry point that fixes them. Each step opens the form it summarizes below and returns the
+focus to its entry point when the form closes; the agent editor, the technical account of an agent in
+code, the runs view and the MCP servers belong to the host, which the component asks for with
+`editAgent`, `changeAccount`, `openRuns` and `openMcpServers`. `nh-assistant-admin-agents` handles
+them and returns to the run configuration after the editor or the runs; pass the MCP servers with
+`servers`, otherwise their use stays unknown. `nh-assistant-admin` switches to its MCP servers tab
+for `openMcpServers` of the agents page; a host that places `nh-assistant-admin-agents` itself handles
+that output. The flow keeps to its host's width: one step under the other at every width, without a
+graph library.
 
 The agent-run components refresh themselves: `NhAssistantLiveService.agentWork$` emits the
 hub's `AgentWorkChanged` for every run, proposal or feedback change on a subject the user
@@ -427,8 +447,9 @@ event stream, including approvals, cancellation and the disabled flag, and serve
 the preference and administration endpoints with the same rules as the server, so
 the panel and the administration page are exercised without a model or assistant
 back-end. Give the administration scenario a `runCatalog` with the building blocks the
-application registers, `codeTriggers` for its triggers in code and `accounts` for the account
-search, so the run configuration offers the same names as the server; the mock refuses other names
+application registers, `codeTriggers` for its triggers in code (with the `subjectType` they name up
+front), `codeRunSettings` on agents in code, the `subjectType` of tools that declare their object and
+`accounts` for the account search, so the run configuration and its flow show what the server shows; the mock refuses other names
 with field errors, accepts only those accounts when there are some and treats an account id
 starting with `unknown` as one that may not sign in. `divisions`, `callerPolicies` and `runNow`
 (`NhAssistantMockDivision`, `NhAssistantMockRunNow`) let the mock find divisions by name, decide who
@@ -441,6 +462,8 @@ the administration route under the same parent to share that scope.
 
 ## Avoid
 
+- Building a node editor or a graph of an agent's configuration beside the run configuration; its
+  flow is the overview and each step opens the form that changes it.
 - Rendering an agent's result (`AgentLatestRun.result`, `AgentRunHistoryItem.result` or
   `AgentRunResult.result`) as HTML or through an unsanitized Markdown pipe; it is model output. Show
   previews as text and the whole result with `nh-assistant-run-result`.
@@ -616,7 +639,14 @@ conversation from it (SPM-280). In the assistant playground's administration, op
 project planner's run configuration, add a skill by the progress-note rules and see it in
 shadow next to the skills in code (SPM-295). In the portal's real assistant administration, sign in
 as the project lead and open the project starter's run configuration: the account by name, the
-policy explained, the kickoff skill and its live trigger (SPM-298). The subject tests name the
+policy explained, the kickoff skill and its live trigger (SPM-298). The flow tests show an agent created
+here and one in code as six ordered steps with what each trigger runs for, where a tool's proposals
+wait and which MCP servers serve runs without a person; they show a trigger that no longer fits, a tool
+that is no longer offered and a server without background use at their step, open every form from its
+step and return the focus, open the editor and the runs and come back, open the MCP servers tab, ask
+an agent without run settings for the guided setup, retry its latest runs after a coded failure and fit
+375px without scrolling sideways. In the portal's real administration, open the run configuration of
+the project starter, the project follow-up and the project planner and read each as one flow (SPM-298). The subject tests name the
 type and open the server's link through the router, keep a modified click for the browser, apply a
 host's `subjectLinks` override, refuse links that are neither in the application nor `https`, and
 search a type's readable subjects by name or name a subject given by id through the mock API. In the

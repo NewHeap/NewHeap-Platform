@@ -55,7 +55,8 @@ export class NhAssistantMockAdminAgents {
     const admin = scenario.admin ?? {};
     const agents: NhAssistantMockAdminAgent[] = admin.agents
       ?? scenario.agents.map(agent => ({ ...codeAgentFromSummary(agent), source: 'code' as const }));
-    for (const { source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, ...input } of agents) {
+    // How a code agent runs belongs to its run configuration, not to the agent.
+    for (const { source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, codeRunSettings: _, ...input } of agents) {
       const agentShadow = shadowOf !== undefined || shadow === true;
       const initial = this.toAgent(input, source, 1, false);
       this.agents.set(input.id, {

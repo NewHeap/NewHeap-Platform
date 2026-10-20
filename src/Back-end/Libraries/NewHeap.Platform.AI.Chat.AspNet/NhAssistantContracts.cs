@@ -526,7 +526,15 @@ public sealed record NhAssistantToolCatalogEntryDto(
     string Id,
     string Source,
     string Effect,
-    string Description);
+    string Description)
+{
+    /// <summary>
+    /// The object type a call of the tool names, declared with <c>[NhAiSubject]</c>: a run places its
+    /// proposal for another object at that object. <see langword="null"/> when the tool declares none,
+    /// as MCP tools never do; their proposals stay in the run's own thread.
+    /// </summary>
+    public string? SubjectType { get; init; }
+}
 
 /// <summary>
 /// Agent input. <see cref="ExpectedVersion"/> is required on update and ignored on create.

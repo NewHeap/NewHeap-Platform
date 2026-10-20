@@ -1034,7 +1034,6 @@
         "title": "Runconfiguratie van {{name}}",
         "description": "Vaardigheden en triggers die het beheer zonder deploy toevoegt, gemaakt van de bouwstenen die de applicatie registreert. Nieuwe vaardigheden en triggers starten in schaduw, waar niemand een melding krijgt en niets wordt uitgevoerd.",
         "problems": {
-          "title": "Sommige instellingen passen niet meer bij de applicatie en werken niet:",
           "kind": {
             "agent": "Runinstellingen:",
             "skill": "Vaardigheid {{id}}:",
@@ -1377,12 +1376,143 @@
           "saved-shadow": "De agent werkt nu in schaduw: hij draait, maar niemand krijgt een melding en er wordt niets uitgevoerd. Zet de taak en de trigger live als de resultaten kloppen.",
           "saved-live": "De agent werkt nu live."
         },
-        "note-hint": "Blijft bij deze versie in de geschiedenis, met je naam en het tijdstip. De agent leest dit niet."
+        "note-hint": "Blijft bij deze versie in de geschiedenis, met je naam en het tijdstip. De agent leest dit niet.",
+        "flow": {
+          "title": "In één oogopslag",
+          "description": "Hoe de agent werkt, van waaraan hij werkt tot zijn resultaten. Elke stap opent het formulier dat hem wijzigt.",
+          "problems": "Sommige instellingen passen niet meer bij de applicatie en werken niet. Elke staat hieronder bij zijn stap, met wat hem oplost.",
+          "attention-one": "1 op te lossen",
+          "attention": "{{count}} op te lossen",
+          "warnings": "Op te lossen",
+          "steps": {
+            "works-on": "Waaraan hij werkt",
+            "when": "Wanneer hij werkt",
+            "skills": "Hoe hij werkt",
+            "account": "Aan wie hij verantwoording aflegt",
+            "approval": "Wie zijn voorstellen goedkeurt",
+            "results": "Zijn resultaten"
+          },
+          "works-on": {
+            "undeclared": "Zijn code zegt het niet, dus hij werkt aan alle objecten en niet aan de hele applicatie.",
+            "in-code": "Vastgelegd in de code van de applicatie."
+          },
+          "target": {
+            "application": "Voor de hele applicatie",
+            "every-division": "Voor elke divisie",
+            "type": "Voor het object dat het noemt: {{value}}",
+            "set": "Voor elk object in {{value}}",
+            "code-set": "Voor elk object van een set in code",
+            "when-fired": "Voor het object dat de gebeurtenis noemt"
+          },
+          "when": {
+            "none": "Geen trigger start hem: hij werkt alleen als iemand hem nu uitvoert.",
+            "scope": {
+              "objects": "Nu uitvoeren: voor een van de objecten waaraan hij werkt.",
+              "application": "Nu uitvoeren: voor de hele applicatie.",
+              "application-and-objects": "Nu uitvoeren: voor de hele applicatie of een van de objecten waaraan hij werkt.",
+              "division": "Nu uitvoeren: voor één divisie tegelijk.",
+              "division-and-objects": "Nu uitvoeren: voor één divisie tegelijk of een van de objecten waaraan hij werkt."
+            },
+            "run-policy": "Voor de hele applicatie alleen door: {{policy}}.",
+            "run-policy-default": "de beheerders van de assistent",
+            "paused": "Hij is gepauzeerd: een run die nu start wacht tot hij wordt hervat.",
+            "run-now-unavailable": {
+              "stopped": "Nu uitvoeren: niet zolang de agent gestopt is.",
+              "configured-off": "Nu uitvoeren: niet zolang de code van de applicatie de agent uitschakelt.",
+              "no-settings": "Nu uitvoeren: pas als de agent runinstellingen heeft.",
+              "no-catalog": "Nu uitvoeren: pas als de runcatalogus gelezen kan worden."
+            }
+          },
+          "skills": {
+            "code-rules": "Vaste regels in de code van de applicatie",
+            "none": "Geen vaardigheden: elke run werkt volgens zijn werkwijze en instructies.",
+            "tools": "Zijn tools",
+            "no-tools": "Geen tools: hij kan alleen antwoorden.",
+            "more-tools": "En nog {{count}}.",
+            "places-at": "Een voorstel van een run wacht bij het object dat het noemt ({{type}}), waar de goedkeurders van dat object beslissen.",
+            "places-in-run": "Een voorstel van een run wacht in de eigen thread van de run.",
+            "servers": "Zijn MCP-servers",
+            "tool-not-offered": "{{selector}} wordt niet meer aangeboden: geen tool van de applicatie past erbij."
+          },
+          "effect": {
+            "read-only": "Leest",
+            "idempotent-mutation": "Wijzigt",
+            "mutation": "Wijzigt",
+            "destructive": "Verwijdert"
+          },
+          "servers": {
+            "headless": {
+              "never": "Niet in zelfstandige runs",
+              "organization": "Account van de organisatie",
+              "personal": "Persoonlijke accounts"
+            },
+            "use": {
+              "unknown": "Of hij in zelfstandige runs wordt gebruikt, is hier niet bekend.",
+              "missing": "Deze server bestaat niet meer.",
+              "disabled": "De server staat uit.",
+              "never": "Zijn tools blijven buiten runs die zelfstandig starten, zoals runs van triggers.",
+              "organization": "Zijn tools worden in zelfstandige runs gebruikt, met de inloggegevens van de organisatie.",
+              "organization-grant": "Zijn tools worden in zelfstandige runs gebruikt met de inloggegevens van de organisatie zodra de code van de agent ze toekent, omdat de agent aan zichzelf verantwoording aflegt.",
+              "personal": "Zijn tools worden in zelfstandige runs alleen gebruikt met toestemming van de persoon voor wie een run werkt.",
+              "personal-responsible": "Zijn tools worden gebruikt met het account van de verantwoordelijke voor het object, zodra die gebruik op de achtergrond toestaat.",
+              "personal-initiator": "Zijn tools worden alleen gebruikt in runs die een persoon startte, met het account en de toestemming van die persoon.",
+              "personal-never-account": "Zijn tools worden niet gebruikt: een technisch account heeft geen persoonlijke verbinding.",
+              "personal-never-agent": "Zijn tools worden niet gebruikt: een agent die aan zichzelf verantwoording aflegt heeft geen persoonlijke verbinding."
+            },
+            "warning": {
+              "missing": "MCP-server {{server}} bestaat niet meer.",
+              "disabled": "MCP-server {{server}} staat uit.",
+              "never": "MCP-server {{server}} wordt niet gebruikt in runs die zelfstandig starten: gebruik op de achtergrond staat uit.",
+              "personal-never-account": "MCP-server {{server}} wordt niet gebruikt: hij werkt met persoonlijke accounts en de agent legt verantwoording af aan een technisch account.",
+              "personal-never-agent": "MCP-server {{server}} wordt niet gebruikt: hij werkt met persoonlijke accounts en de agent legt verantwoording af aan zichzelf."
+            }
+          },
+          "account": {
+            "no-settings": "Hij heeft nog geen runinstellingen en kan dus niet zelfstandig werken.",
+            "rights": {
+              "agent": "Hij heeft geen eigen rechten en kan alleen voorstellen.",
+              "subject-responsible": "Runs gebruiken wat de verantwoordelijke voor het object mag, binnen zijn tools.",
+              "service-account": "Runs gebruiken wat dit account mag, binnen zijn tools."
+            },
+            "delegates": "Hij gebruikt ook wat de persoon die een run start mag.",
+            "overridden": "Een beheerder heeft het account uit de code vervangen.",
+            "in-code": "Vastgelegd in de code van de applicatie."
+          },
+          "approval": {
+            "autonomy": "Wat hij mag:",
+            "skill": "Vaardigheid {{skill}}:",
+            "no-settings": "Gekozen met de runinstellingen.",
+            "in-code": "Vastgelegd in de code van de applicatie."
+          },
+          "results": {
+            "groups": "Groepen:",
+            "no-groups": "In geen groep, dus geen bord toont hem.",
+            "view-policy": "Zijn resultaten voor de hele applicatie zijn zichtbaar voor: {{policy}}.",
+            "view-policy-default": "iedereen die de agent mag gebruiken",
+            "shadow": "Hij werkt in schaduw: zijn runs gaan naar schaduwthreads die alleen beheerders zien.",
+            "latest": "Laatste runs",
+            "more-runs": "En {{count}} eerdere runs bij zijn runs."
+          },
+          "entry": {
+            "works-on": "Wijzigen waaraan hij werkt",
+            "tools": "Zijn tools en MCP-servers wijzigen",
+            "settings": "Runinstellingen wijzigen",
+            "approval": "Goedkeuring wijzigen",
+            "runs": "Alle runs",
+            "groups": "Zijn groepen wijzigen",
+            "mcp-servers": "MCP-servers openen",
+            "edit-trigger": "Trigger wijzigen",
+            "edit-skill": "Vaardigheid wijzigen",
+            "edit-trigger-named": "Trigger {{trigger}} bewerken",
+            "edit-skill-named": "Vaardigheid {{skill}} bewerken"
+          }
+        }
       },
       "runs": {
         "title": "Runs",
         "description": "Elke run van deze agent, de nieuwste eerst, met waar hij aan werkte, zijn resultaat, voorstellen, verbruik en duur. Schaduwruns zijn gemarkeerd.",
         "back": "Terug naar agents",
+        "back-to-run-config": "Terug naar de runconfiguratie",
         "back-to-runs": "Terug naar de runs",
         "filters": "Runs filteren",
         "subject-type": "Werkt aan",

@@ -8,6 +8,7 @@ import {
   AssistantPreferences,
   AssistantStatus,
   ClientContext,
+  CodeRunSettings,
   Conversation,
   McpDiscovery,
   McpServerInput,
@@ -153,6 +154,12 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
   worksOnDeclared?: boolean;
   /** The object types the agent is known to work on, shown as a hint next to "All objects". */
   knownSubjectTypes?: string[];
+  /**
+   * How a code agent runs, as its code says (`codeRunSettings` of its run configuration). By default
+   * it answers to its `serviceAccount` when it has one and to itself otherwise, with the platform's
+   * approval policy and the model.
+   */
+  codeRunSettings?: Partial<CodeRunSettings>;
 }
 
 /**
@@ -193,8 +200,17 @@ export interface NhAssistantMockAdminScenario {
    * administration work per division, as an application that lists its divisions does.
    */
   runCatalog?: Partial<RunCatalog>;
-  /** Triggers in code, per agent; they cannot change in the administration. */
-  codeTriggers?: { agentId: string; triggerId: string; source: 'event' | 'schedule' | 'webhook'; skillId?: string | null }[];
+  /**
+   * Triggers in code, per agent; they cannot change in the administration. `subjectType` is the type
+   * a trigger names up front, `nh-system` for a schedule for the whole application.
+   */
+  codeTriggers?: {
+    agentId: string;
+    triggerId: string;
+    source: 'event' | 'schedule' | 'webhook';
+    skillId?: string | null;
+    subjectType?: string | null;
+  }[];
   /**
    * The accounts `GET admin/accounts` finds, as the application's `INhActorSearch` would. With
    * accounts, run settings accept only these technical accounts; without, the account search is

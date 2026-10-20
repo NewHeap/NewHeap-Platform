@@ -1103,6 +1103,82 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_flow_view_shows_where_proposals_wait_what_triggers_run_for_and_whom_the_agents_answer_to()
+    {
+        // SPM-298: the run configuration opens with the agent's flow view, composed of the endpoints the
+        // administration already reads: the tool catalog says which tool places a run's proposal at the
+        // project it names, the run configuration what each trigger runs for and how an agent in code
+        // runs, and the agent's runs its latest results.
+        const string starter = SampleRuntimeAgentSeeder.AgentId;
+        const string followUp = SampleRuntimeAgentSeeder.FollowUpAgentId;
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+                Assert.True((await SampleRuntimeAgentSeeder.SeedFollowUpAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+            }
+
+            // How it works: the status tool names its project, so a run's proposal waits at that project.
+            var tools = (await administrator.GetFromJsonAsync<JsonElement>("/api/assistant/admin/tools", Json)).EnumerateArray().ToArray();
+            Assert.Equal(ProjectSubjects.Type, tools
+                .Single(tool => tool.GetProperty("id").GetString() == ProjectAiTools.ChangeStatusToolId)
+                .GetProperty("subjectType").GetString());
+
+            // The starter answers to the operations account under the intake policy; its trigger on
+            // created projects runs for the project the event names.
+            var starting = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{starter}/configuration", Json))!;
+            Assert.Null(starting.CodeRunSettings);
+            Assert.Equal((NhAssistantAccountabilities.ServiceAccount, host.OperationsAccountId.ToString("D"), SampleIntakeReviewerComposition.ApprovalPolicyId),
+                (starting.RunSettings!.Accountability, starting.RunSettings.ServiceAccountActorId, starting.RunSettings.ApprovalPolicy));
+            Assert.Equal(SampleProjectStarterComposition.ProjectCreatedEvent, Assert.Single(starting.DataTriggers).Event);
+            var catalog = await administrator.GetFromJsonAsync<JsonElement>("/api/assistant/admin/run-catalog", Json);
+            Assert.Equal(ProjectSubjects.Type, catalog.GetProperty("triggerEvents").EnumerateArray()
+                .Single(item => item.GetProperty("name").GetString() == SampleProjectStarterComposition.ProjectCreatedEvent)
+                .GetProperty("subjectType").GetString());
+
+            // The follow-up works by its routing rules; its Monday schedule names no set, so it runs for
+            // the whole application, and nothing is out of effect.
+            var following = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{followUp}/configuration", Json))!;
+            Assert.Equal(SampleProjectStarterComposition.FollowUpRoutingRules, following.RunSettings!.RuleHandler);
+            var schedule = Assert.Single(following.DataTriggers);
+            Assert.Equal((NewHeap.Platform.AI.Chat.Entities.NhAssistantDataTriggerSources.Schedule, (string?)null), (schedule.Source, schedule.SubjectSet));
+            Assert.Empty(following.Problems);
+
+            // The planner in code answers to the person responsible for the project, approves by the
+            // intake policy and names the project of its task trigger up front; its daily check runs over
+            // a set of projects that is known only when it ticks.
+            var planner = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{SampleProjectPlannerComposition.AgentId}/configuration", Json))!;
+            Assert.Equal(
+                new NhAssistantCodeRunSettingsDto(NhAssistantAccountabilities.SubjectResponsible, false, SampleIntakeReviewerComposition.ApprovalPolicyId, false),
+                planner.CodeRunSettings);
+            Assert.Equal(ProjectSubjects.Type, planner.CodeTriggers.Single(trigger => trigger.TriggerId == SampleProjectPlannerComposition.TaskTriggerId).SubjectType);
+            Assert.Null(planner.CodeTriggers.Single(trigger => trigger.TriggerId == SampleProjectPlannerComposition.DeadlineCheckTriggerId).SubjectType);
+
+            // Its results: the latest runs, newest first, three at a time.
+            var runs = await administrator.GetFromJsonAsync<JsonElement>($"/api/assistant/admin/agents/{followUp}/runs?page=1&itemsPerPage=3", Json);
+            Assert.True(runs.GetProperty("items").GetArrayLength() <= 3);
+        }
+        finally
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+                var actor = host.OwnerId.ToString("D");
+                await configuration.RemoveTriggerAsync(starter, SampleRuntimeAgentSeeder.TriggerId, null, actor, cancellationToken: CancellationToken.None);
+                await configuration.RemoveSkillAsync(starter, SampleRuntimeAgentSeeder.KickoffSkill, null, actor, cancellationToken: CancellationToken.None);
+                await configuration.RemoveRunSettingsAsync(starter, null, actor, cancellationToken: CancellationToken.None);
+            }
+            using (var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{starter}"))
+            {
+                Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+            }
+            await RemoveFollowUpAsync(administrator);
+        }
+    }
+
+    [Fact]
     public async Task The_project_follow_up_says_what_it_works_on_and_people_start_it_only_there()
     {
         // SPM-302: what an agent works on, in code and as data.

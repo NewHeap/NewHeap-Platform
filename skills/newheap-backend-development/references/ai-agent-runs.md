@@ -435,7 +435,14 @@ skill it names (`assistant-skill-in-use`). Every change is audited (`AdminAgentS
 every reader uses reloads when a stamp changes, checked before every fire and run start at most
 once per second and every half minute in the background, and data schedules get recurring jobs of
 their own. Data that no longer fits the code after a deploy, such as a removed event, is left out
-and shown as a problem in `GET admin/agents/{id}/configuration` instead of failing startup.
+and shown as a problem in `GET admin/agents/{id}/configuration` instead of failing startup. The same
+response says what an administration's overview of the agent needs without another request: each
+trigger in code names the subject type it runs for up front (`NhAssistantCodeTriggerDto.SubjectType`,
+`nh-system` for a schedule for the whole application, `null` when only the fire knows it), and an agent
+in code reports whom it answers to, whether it delegates from the initiator, its approval policy and
+whether it works by rules (`CodeRunSettings`, `NhAssistantCodeRunSettingsDto`). `GET admin/tools`
+names the object type a tool declares with `[NhAiSubject]` (`SubjectType`), so a screen can say that
+a run's proposal of it waits at that object; MCP tools never declare one.
 
 An agent created in the administration gets runs through run settings as data:
 `INhAssistantAgentConfiguration.SaveRunSettingsAsync` or `PUT admin/agents/{id}/run-settings` sets
@@ -1020,7 +1027,10 @@ stores only choices that differ from code and that they win over `InGroup`, that
 boards/{group}` show the agents by their view or required policy, that `IsNew` follows the visit per
 person and per scope (the whole application and a division), that open proposals count the proposals a
 run placed at objects, and that a board of another division or an unknown group answers
-`assistant-board-not-found`.
+`assistant-board-not-found`. For the overview of an agent, assert that `GET admin/tools` names the
+type of a tool with `[NhAiSubject]` and `null` for one without and for MCP tools, that a schedule in
+code without subjects reports `nh-system` and an untyped trigger `null`, and that an agent in code
+reports its accountability, approval policy and rules while an agent created as data reports none.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297 and SPM-301 to SPM-304 are the executable
 references.
 

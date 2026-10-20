@@ -1,0 +1,222 @@
+// The flow view of an agent: numbered steps joined by a line, one under the other at every width, so
+// lists of triggers, tools and runs keep their room and nothing scrolls sideways. Scoped to the
+// component, after the shared administration and run configuration styles.
+
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.flow-header {
+  display: grid;
+  gap: 2px;
+  max-width: 72ch;
+
+  h4 {
+    margin: 0;
+  }
+}
+
+.flow-steps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-step {
+  --marker: 28px;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--marker) minmax(0, 1fr);
+  column-gap: 12px;
+  min-width: 0;
+  padding-bottom: 14px;
+
+  // The line from one step's marker to the next one's.
+  &::before {
+    content: '';
+    position: absolute;
+    top: var(--marker);
+    bottom: 0;
+    left: calc(var(--marker) / 2 - 1px);
+    width: 2px;
+    background: var(--nha-border);
+  }
+
+  &:last-child {
+    padding-bottom: 0;
+
+    &::before {
+      display: none;
+    }
+  }
+}
+
+.step-head {
+  display: contents;
+
+  h5 {
+    grid-column: 2;
+    align-self: center;
+    min-height: var(--marker);
+    display: flex;
+    align-items: center;
+    overflow-wrap: anywhere;
+  }
+
+  .badge {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 4px;
+  }
+}
+
+.marker {
+  grid-column: 1;
+  grid-row: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--marker);
+  height: var(--marker);
+  border: 2px solid var(--nha-border);
+  border-radius: 999px;
+  color: var(--nha-text);
+  background: var(--nha-background);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.flow-step.attention .marker {
+  border-color: var(--nha-warning);
+  color: var(--nha-warning);
+  background: var(--nha-warning-soft);
+}
+
+.step-body {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 8px;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius);
+  padding: 12px 14px;
+  background: var(--nha-background);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+
+  > p,
+  .tools > p,
+  .latest > p {
+    margin: 0;
+  }
+}
+
+.flow-label {
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+span.flow-label {
+  margin-right: 4px;
+}
+
+.tools,
+.latest {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.items {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  > li {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    border-left: 3px solid var(--nha-border);
+    padding: 2px 0 2px 10px;
+  }
+
+  &.compact {
+    gap: 6px;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mono {
+  font-family: var(--nha-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+// A run's result is model output, shown as plain text on at most three lines.
+.preview {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  white-space: pre-line;
+}
+
+.warnings {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  .message {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+}
+
+// Actions keep to the step's width: their labels wrap instead of overflowing on a narrow screen.
+.step-body button {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+
+button.small {
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .marker {
+    transition: border-color .2s ease, background-color .2s ease;
+  }
+}

@@ -412,9 +412,12 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.True(lookup.GetProperty("readOnlyHint").GetBoolean());
         Assert.Equal("mcp.planning.lookup-order", lookup.GetProperty("localId").GetString());
         Assert.False(tools.EnumerateArray().Single(tool => tool.GetProperty("remoteName").GetString() == "reschedule").GetProperty("isEnabled").GetBoolean());
-        AssertNames(catalog[0], "id", "source", "effect", "description");
+        AssertNames(catalog[0], "id", "source", "effect", "description", "subjectType");
         Assert.Contains(catalog.EnumerateArray(), entry => entry.GetProperty("id").GetString() == "projects.search" && entry.GetProperty("source").GetString() == "local");
-        Assert.Contains(catalog.EnumerateArray(), entry => entry.GetProperty("id").GetString() == "mcp.planning.lookup-order" && entry.GetProperty("source").GetString() == "mcp");
+        // MCP tools never declare the object they concern.
+        Assert.Contains(catalog.EnumerateArray(), entry => entry.GetProperty("id").GetString() == "mcp.planning.lookup-order"
+                                                          && entry.GetProperty("source").GetString() == "mcp"
+                                                          && entry.GetProperty("subjectType").ValueKind == JsonValueKind.Null);
         Assert.DoesNotContain(secret, listText);
         Assert.Contains("\"lastConnectAt\":\"", listText, StringComparison.Ordinal);
         Assert.DoesNotContain(secret, await sync.Content.ReadAsStringAsync());

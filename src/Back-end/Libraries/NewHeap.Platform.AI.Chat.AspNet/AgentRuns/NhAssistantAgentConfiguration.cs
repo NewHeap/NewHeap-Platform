@@ -348,7 +348,33 @@ public sealed record NhAssistantAgentConfigurationDto(
     IReadOnlyList<NhAssistantDataTriggerDto> DataTriggers,
     IReadOnlyList<NhAssistantRunConfigurationProblem> Problems,
     string Source,
-    NhAssistantAgentRunSettingsDto? RunSettings);
+    NhAssistantAgentRunSettingsDto? RunSettings)
+{
+    /// <summary>
+    /// How an agent in code runs, as its code says, for an overview next to its skills and triggers;
+    /// <see langword="null"/> for an agent created in the administration, whose
+    /// <see cref="RunSettings"/> are data.
+    /// </summary>
+    public NhAssistantCodeRunSettingsDto? CodeRunSettings { get; init; }
+}
+
+/// <summary>
+/// The run settings of an agent in code that an administration shows; they change only in code.
+/// The technical account, which an administrator may replace at runtime, is part of the agent's
+/// state instead.
+/// </summary>
+/// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or
+/// <c>service-account</c>: whose rights its runs use.</param>
+/// <param name="DelegateFromInitiator">Its runs also use what the person who started them may
+/// use.</param>
+/// <param name="ApprovalPolicy">The agent's approval policy, used when no tool or trigger policy is
+/// more specific; <see langword="null"/> for the platform's default.</param>
+/// <param name="UsesRules">The agent works by a rule handler in code instead of the model.</param>
+public sealed record NhAssistantCodeRunSettingsDto(
+    string Accountability,
+    bool DelegateFromInitiator,
+    string? ApprovalPolicy,
+    bool UsesRules);
 
 /// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or
 /// <c>service-account</c>.</param>
@@ -422,7 +448,16 @@ public sealed record NhAssistantAgentRunSettingsRequest(
 public sealed record NhAssistantCodeSkillDto(string SkillId, string Description);
 
 /// <param name="Source"><c>event</c>, <c>schedule</c> or <c>webhook</c>.</param>
-public sealed record NhAssistantCodeTriggerDto(string TriggerId, string Source, string? SkillId);
+public sealed record NhAssistantCodeTriggerDto(string TriggerId, string Source, string? SkillId)
+{
+    /// <summary>
+    /// The subject type the trigger names up front: an object type such as <c>project</c>, or
+    /// <c>nh-system</c> for a schedule that runs for the whole application (once per division for an
+    /// agent that works per division). <see langword="null"/> when the type is known only when it
+    /// fires, such as a schedule over subjects or an event whose subject is chosen by a function.
+    /// </summary>
+    public string? SubjectType { get; init; }
+}
 
 /// <param name="InEffect">Whether the live version is in effect; <see langword="false"/> with
 /// <paramref name="Problem"/> when it no longer fits the code.</param>
@@ -748,12 +783,27 @@ internal sealed class NhAssistantAgentConfiguration(
             registration.CodeTriggers.Values
                 .Where(trigger => trigger.AgentId == agentId)
                 .OrderBy(trigger => trigger.Id, StringComparer.Ordinal)
-                .Select(trigger => new NhAssistantCodeTriggerDto(trigger.Id, SourceName(trigger.Source), trigger.SkillId))
+                .Select(trigger => new NhAssistantCodeTriggerDto(trigger.Id, SourceName(trigger.Source), trigger.SkillId)
+                {
+                    SubjectType = trigger.SubjectType
+                })
                 .ToArray(),
             triggers,
             problems,
             code is null ? NhAssistantAgentSources.Admin : NhAssistantAgentSources.Code,
-            settings is null ? null : ToDto(settings, problems));
+            settings is null ? null : ToDto(settings, problems))
+        {
+            CodeRunSettings = code is null ? null : ToCodeDto(code)
+        };
+    }
+
+    private static NhAssistantCodeRunSettingsDto ToCodeDto(NhAssistantAgentRunOptions code)
+    {
+        return new NhAssistantCodeRunSettingsDto(
+            NhAssistantAccountabilities.From(code.Accountability),
+            code.DelegateFromInitiator,
+            code.ApprovalPolicyId,
+            code.RuleHandlerType is not null);
     }
 
     public async Task<TaskResult<NhAssistantAgentRunSettingsDto>> SaveRunSettingsAsync(

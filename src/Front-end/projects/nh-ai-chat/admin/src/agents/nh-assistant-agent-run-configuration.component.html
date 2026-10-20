@@ -20,21 +20,22 @@
   } @else if (configuration(); as config) {
     <nh-assistant-account-names-error [names]="accountNames" />
     @if (problems().length > 0) {
-      <div class="message warning" role="status" data-problems>
-        <nh-assistant-icon name="warning" />
-        <div class="stack">
-          <strong>{{ 'nh-assistant.admin.run-config.problems.title' | translate }}</strong>
-          <ul>
-            @for (problem of problems(); track problem.kind + problem.id) {
-              <li>
-                {{ 'nh-assistant.admin.run-config.problems.kind.' + problem.kind | translate: { id: problem.id } }}
-                {{ 'nh-assistant.admin.run-config.problems.code.' + problem.code | translate }}
-              </li>
-            }
-          </ul>
-        </div>
-      </div>
+      <!-- Each problem shows at the step of the flow it concerns, with the form that fixes it. -->
+      <p class="message warning" role="status" data-problems>
+        <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.flow.problems' | translate }}
+      </p>
     }
+
+    <!-- The agent at a glance; the forms below change what each step shows. -->
+    <nh-assistant-agent-flow
+      [agent]="agent()"
+      [configuration]="config"
+      [catalog]="catalog()"
+      [tools]="tools()"
+      [servers]="servers()"
+      [accountName]="accountName()"
+      [busy]="busy()"
+      (entry)="onFlowEntry($event)" />
 
     @if (config.source === 'admin') {
       <section class="subsection" [attr.aria-labelledby]="id + '-settings-title'" data-run-settings>

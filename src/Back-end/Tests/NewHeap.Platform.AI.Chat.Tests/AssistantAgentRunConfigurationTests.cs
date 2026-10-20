@@ -150,7 +150,10 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
         Assert.Empty(view.DataSkills);
         Assert.Empty(view.DataTriggers);
         Assert.Equal([Review], view.CodeSkills.Select(item => item.SkillId));
-        Assert.Contains(view.CodeTriggers, item => item.TriggerId == "task-changed" && item.Source == NhAssistantDataTriggerSources.Event);
+        // Its subject is chosen by a function, so its type is known only when it fires.
+        Assert.Contains(view.CodeTriggers, item => item.TriggerId == "task-changed" && item.Source == NhAssistantDataTriggerSources.Event && item.SubjectType is null);
+        // How the agent runs, as its code says, for the administration's flow view.
+        Assert.Equal(new NhAssistantCodeRunSettingsDto(NhAssistantAccountabilities.Agent, false, "project-review", true), view.CodeRunSettings);
         var versions = await ConfigureAsync(host, configuration => configuration.GetSkillVersionsAsync(AgentId, FollowUp));
         Assert.Equal([(2, NhAssistantSkillDefinitionStatuses.Superseded), (1, NhAssistantSkillDefinitionStatuses.Superseded)], versions.Select(item => (item.Version, item.Status)));
         Assert.Equal("Sharper", versions[0].Reason);
@@ -261,6 +264,8 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
         var chatOnly = (await ConfigureAsync(host, configuration => configuration.GetAsync(Follower)))!;
         Assert.Equal(NhAssistantAgentSources.Admin, chatOnly.Source);
         Assert.Null(chatOnly.RunSettings);
+        // Its run settings are data; it has none in code.
+        Assert.Null(chatOnly.CodeRunSettings);
         Assert.Equal(NhAssistantErrorCodes.AgentNotConfigured, Code(await SaveFollowerTriggerAsync(host)));
         Assert.Equal(NhAssistantErrorCodes.ServiceAccountNotFound, Code(await SaveSettingsAsync(host, Settings("service-9"))));
 

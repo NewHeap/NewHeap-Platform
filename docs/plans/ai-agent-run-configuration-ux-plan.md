@@ -7,7 +7,7 @@ administration of `@newheap/platform-ai-chat/admin`, delivered in 15.0.0 by the
 
 ## Status
 
-Accepted on 2026-10-19 after a review of the screen in a consuming application; U1 to U5 implemented. The
+Accepted on 2026-10-19 after a review of the screen in a consuming application; U1 to U6 implemented. The
 decisions below are the defaults chosen for that review and can be adjusted while it is built.
 
 | Phase | Status |
@@ -18,7 +18,7 @@ decisions below are the defaults chosen for that review and can be adjusted whil
 | U4 | Implemented: policy summaries, the regrouped run settings and the guided setup. |
 | U5 | Implemented: mock API, the sample's runtime agent and real administration page (SPM-298), guidance and release notes. |
 | Review | Implemented after a walk-through in the sample: translated names and descriptions of agents in code (also in the editor, which keeps their keys), readable skill names and translatable skill descriptions and policies, people by name, notes instead of reasons, "Cancel" instead of "Keep", tool descriptions in the skill's tool choice, and singular counts. The sample got an optional real model and a connection state that follows every API answer. |
-| U6 | Proposed: a flow view of an agent (triggers, skills, tools, approval, account) as an overview with entry points to the forms; not a free node editor. It follows the [agents working on application objects plan](ai-agent-work-on-objects-plan.md), which adds what an agent works on and its results to the flow. |
+| U6 | Implemented, not released: the flow view of an agent at the top of its run configuration (what it works on, when, how, whom it answers to, approval, results) with problems at their step and entry points to the forms; not a node editor. Its notes and decisions are in the [agents working on application objects plan](ai-agent-work-on-objects-plan.md#u6-the-flow-view), which adds what an agent works on and its results to the flow. |
 
 ## Problem
 
@@ -115,6 +115,13 @@ The review found that the run configuration works, but is hard to use:
 - Guidance rules, the consumer guide and the release notes describe the picker behavior, the
   account search hook, `HideFromChat()` and `offeredInChat`.
 
+### U6: the flow view of an agent
+
+Implemented on top of the [agents working on application objects plan](ai-agent-work-on-objects-plan.md#u6-the-flow-view),
+where its implementation notes and decisions are recorded: the run configuration opens with an ordered
+overview of the agent in six steps, each with its problems and the entry point to the form that
+changes it; the forms stay below.
+
 ## Delivery order
 
 | Phase | Delivers | Verification |
@@ -124,6 +131,7 @@ The review found that the run configuration works, but is hard to use:
 | **U3** | `OfferedInChat`, `HideFromChat()`, the migrations and the editor choice | Status, create-conversation and agent-run tests on both providers |
 | **U4** | Policy summaries, the regrouped form and the guided setup | UI specs for the setup's steps, refusals and the shadow start |
 | **U5** | Mock, sample, guidance, consumer guide and release notes | Sample tests, browser walk-through, validators |
+| **U6** | The flow view of an agent with entry points to every form | Flow spec with every entry point, problems at their step and 375px; sample test of the endpoints it composes |
 
 ## Out of scope
 

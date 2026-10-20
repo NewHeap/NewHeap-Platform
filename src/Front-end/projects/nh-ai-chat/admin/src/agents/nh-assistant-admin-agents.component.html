@@ -5,9 +5,9 @@
     [servers]="servers()"
     [catalog]="catalog()"
     [catalogUnavailable]="catalogError() !== null"
-    (saved)="onSaved($event)"
+    (saved)="onEditorSaved($event)"
     (workRequested)="onWorkRequested($event)"
-    (cancelled)="editing.set(undefined)" />
+    (cancelled)="onEditorCancelled()" />
 } @else if (reporting(); as agent) {
   <div class="stack">
     <div>
@@ -25,13 +25,21 @@
         {{ 'nh-assistant.admin.run-config.back' | translate }}
       </button>
     </div>
-    <nh-assistant-agent-run-configuration [agent]="agent" [startSetup]="setupOnOpen()" [tools]="tools()" />
+    <nh-assistant-agent-run-configuration
+      [agent]="agent"
+      [startSetup]="setupOnOpen()"
+      [tools]="tools()"
+      [servers]="servers()"
+      (editAgent)="editFromRunConfiguration(agent)"
+      (openRuns)="runsFromRunConfiguration(agent)"
+      (changeAccount)="accountFromRunConfiguration(agent)"
+      (openMcpServers)="openMcpServers.emit()" />
   </div>
 } @else if (viewingRuns(); as agent) {
   <div class="stack">
     <div>
       <button #back class="secondary" type="button" (click)="closeRuns()">
-        {{ 'nh-assistant.admin.runs.back' | translate }}
+        {{ (returnTo() === agent.id ? 'nh-assistant.admin.runs.back-to-run-config' : 'nh-assistant.admin.runs.back') | translate }}
       </button>
     </div>
     <p class="muted">{{ 'nh-assistant.admin.feedback.agent' | translate: { name: (codeTextKeys(agent.source, agent.displayName) | nhAssistantTranslate: agent.displayName), id: agent.id } }}</p>

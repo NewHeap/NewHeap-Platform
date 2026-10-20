@@ -8,6 +8,7 @@ import {
   afterNextRender,
   computed,
   inject,
+  output,
   signal,
   viewChild
 } from '@angular/core';
@@ -38,7 +39,7 @@ import {
   type ɵNhAssistantRunNowAgent as NhAssistantRunNowAgent
 } from '@newheap/platform-ai-chat/agent-runs';
 import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
-import { codeTextKeys, policyKeys, readableId, skillDescriptionKeys, skillNameKeys, WorksOnSummary, worksOnSummary } from './agent-texts';
+import { codeTextKeys, policyKeys, readableId, runNowAgentOf, skillDescriptionKeys, skillNameKeys, WorksOnSummary, worksOnSummary } from './agent-texts';
 import { NhAssistantAdminAgentEditorComponent } from './nh-assistant-admin-agent-editor.component';
 import { NhAssistantAgentEvaluationComponent } from './nh-assistant-agent-evaluation.component';
 import { NhAssistantAgentFeedbackReportComponent } from './nh-assistant-agent-feedback-report.component';
@@ -75,7 +76,9 @@ interface CatalogRead {
  * the agent's conversation in the assistant panel. "Runs" opens `nh-assistant-agent-run-history`, the
  * agent's runs with their results. When the run catalog cannot be read, the page says why with its
  * code and offers to read it again; until then it offers no "Run now" and the editor leaves what an
- * agent works on and its groups as they are.
+ * agent works on and its groups as they are. The run configuration opens with the agent's flow, whose
+ * entry points open the editor, the runs and the technical account here and return to the run
+ * configuration afterwards; `openMcpServers` asks the host to show the MCP servers.
  */
 @Component({
   selector: 'nh-assistant-admin-agents',
@@ -134,6 +137,13 @@ export class NhAssistantAdminAgentsComponent {
   readonly configuring = signal<AdminAgent | null>(null);
   /** The agent whose runs are shown instead of the list. */
   readonly viewingRuns = signal<AdminAgent | null>(null);
+  /**
+   * The agent whose run configuration opened the editor or the runs from its flow; closing them
+   * returns to its run configuration instead of the list.
+   */
+  readonly returnTo = signal<string | null>(null);
+  /** The flow of a run configuration asks to show the MCP servers, whose background use it explains. */
+  readonly openMcpServers = output<void>();
   readonly confirming = signal<{ agentId: string; action: 'delete' | 'reset' } | null>(null);
   readonly busyAgentId = signal<string | null>(null);
   /** The state change whose reason is being entered, of the agent or one of its skills. */
@@ -172,14 +182,7 @@ export class NhAssistantAdminAgentsComponent {
     }
     const keys = codeTextKeys(agent.source, agent.displayName);
     const translated = keys.length > 0 ? this.translate.instant(keys[0]) as string : null;
-    return {
-      id: agent.id,
-      name: translated && translated !== keys[0] ? translated : agent.displayName,
-      worksOnSubjectTypes: agent.worksOnSubjectTypes ?? [],
-      worksOnAllSubjects: agent.worksOnAllSubjects ?? true,
-      worksOnApplication: agent.worksOnApplication ?? false,
-      perDivision: agent.perDivision ?? false
-    };
+    return runNowAgentOf(agent, translated && translated !== keys[0] ? translated : agent.displayName);
   });
   /** The run configuration opens with the guided setup, for an agent created to work on its own. */
   readonly setupOnOpen = signal(false);
@@ -315,6 +318,7 @@ export class NhAssistantAdminAgentsComponent {
   /** Returns to the list, refreshed, and to the run configuration action of the agent. */
   closeRunConfiguration(): void {
     const agentId = this.configuring()?.id;
+    this.returnTo.set(null);
     this.configuring.set(null);
     this.refreshAgents();
     if (agentId !== undefined) {
@@ -334,10 +338,16 @@ export class NhAssistantAdminAgentsComponent {
     afterNextRender(() => this.backButton()?.nativeElement.focus(), { injector: this.injector });
   }
 
-  /** Returns to the list and to the runs action of the agent whose runs were open. */
+  /**
+   * Returns to the run configuration whose flow opened the runs, or to the list and the runs action of
+   * the agent whose runs were open.
+   */
   closeRuns(): void {
     const agentId = this.viewingRuns()?.id;
     this.viewingRuns.set(null);
+    if (this.returnToRunConfiguration(agentId)) {
+      return;
+    }
     if (agentId !== undefined) {
       afterNextRender(() => {
         const action = Array.from(this.host.nativeElement.querySelectorAll<HTMLButtonElement>('[data-runs-agent]'))
@@ -376,8 +386,59 @@ export class NhAssistantAdminAgentsComponent {
 
   /** A new agent meant to work on its own continues in its run configuration's guided setup. */
   onWorkRequested(agent: AdminAgent): void {
+    this.returnTo.set(null);
     this.onSaved(agent);
     this.openRunConfiguration(agent, true);
+  }
+
+  /** The flow of the agent's run configuration opens the editor; saving or cancelling returns there. */
+  editFromRunConfiguration(agent: AdminAgent): void {
+    this.configuring.set(null);
+    this.returnTo.set(agent.id);
+    this.edit(agent);
+  }
+
+  /** The flow of the agent's run configuration opens its runs; going back returns there. */
+  runsFromRunConfiguration(agent: AdminAgent): void {
+    this.configuring.set(null);
+    this.returnTo.set(agent.id);
+    this.openRuns(agent);
+  }
+
+  /** The flow of an agent in code opens the form that replaces its technical account on its card. */
+  accountFromRunConfiguration(agent: AdminAgent): void {
+    this.configuring.set(null);
+    this.returnTo.set(null);
+    this.refreshAgents();
+    this.askAccount(agent, 'set');
+  }
+
+  /** The editor saved: back to the run configuration that opened it, or to the list. */
+  onEditorSaved(agent: AdminAgent): void {
+    this.onSaved(agent);
+    this.returnToRunConfiguration(agent.id, agent);
+  }
+
+  /** The editor closed without saving: back to the run configuration that opened it, or to the list. */
+  onEditorCancelled(): void {
+    const agentId = this.editing()?.id;
+    this.editing.set(undefined);
+    this.returnToRunConfiguration(agentId);
+  }
+
+  /** Opens the run configuration again when its flow opened what closes now; `false` otherwise. */
+  private returnToRunConfiguration(agentId: string | undefined, saved?: AdminAgent): boolean {
+    const returnTo = this.returnTo();
+    this.returnTo.set(null);
+    if (returnTo === null || returnTo !== agentId) {
+      return false;
+    }
+    const agent = saved ?? this.agents().find(item => item.id === returnTo);
+    if (!agent) {
+      return false;
+    }
+    this.openRunConfiguration(agent);
+    return true;
   }
 
   /** What the agent works on, with its object types named as the run catalog names them. */

@@ -1034,7 +1034,6 @@
         "title": "Run configuration of {{name}}",
         "description": "Skills and triggers that the administration adds without a deploy, made of the building blocks the application registers. New skills and triggers start in shadow, where nobody is notified and nothing executes.",
         "problems": {
-          "title": "Some settings no longer fit the application and are out of effect:",
           "kind": {
             "agent": "Run settings:",
             "skill": "Skill {{id}}:",
@@ -1377,12 +1376,143 @@
           "saved-shadow": "The agent works in shadow now: it runs, but nobody is notified and nothing executes. Put the task and its trigger live when the results are right.",
           "saved-live": "The agent works live now."
         },
-        "note-hint": "Kept with this version in its history, with your name and the time. The agent does not read it."
+        "note-hint": "Kept with this version in its history, with your name and the time. The agent does not read it.",
+        "flow": {
+          "title": "At a glance",
+          "description": "How the agent works, from what it works on to its results. Each step opens the form that changes it.",
+          "problems": "Some settings no longer fit the application and are out of effect. Each shows at its step below, with what fixes it.",
+          "attention-one": "1 to fix",
+          "attention": "{{count}} to fix",
+          "warnings": "To fix",
+          "steps": {
+            "works-on": "What it works on",
+            "when": "When it runs",
+            "skills": "How it works",
+            "account": "Who it answers to",
+            "approval": "Who approves its proposals",
+            "results": "Its results"
+          },
+          "works-on": {
+            "undeclared": "Its code does not say, so it works on all objects and not on the whole application.",
+            "in-code": "Set in the application's code."
+          },
+          "target": {
+            "application": "For the whole application",
+            "every-division": "For every division",
+            "type": "For the object it names: {{value}}",
+            "set": "For every object in {{value}}",
+            "code-set": "For every object of a set in code",
+            "when-fired": "For the object the event names"
+          },
+          "when": {
+            "none": "No trigger starts it: it runs only when someone runs it now.",
+            "scope": {
+              "objects": "Run now: for one of the objects it works on.",
+              "application": "Run now: for the whole application.",
+              "application-and-objects": "Run now: for the whole application or one of the objects it works on.",
+              "division": "Run now: for one division at a time.",
+              "division-and-objects": "Run now: for one division at a time or one of the objects it works on."
+            },
+            "run-policy": "For the whole application only by: {{policy}}.",
+            "run-policy-default": "the assistant's administrators",
+            "paused": "It is paused: a run started now waits until it is resumed.",
+            "run-now-unavailable": {
+              "stopped": "Run now: not while the agent is stopped.",
+              "configured-off": "Run now: not while the application's code switches the agent off.",
+              "no-settings": "Run now: only once the agent has run settings.",
+              "no-catalog": "Run now: not until the run catalog can be read."
+            }
+          },
+          "skills": {
+            "code-rules": "Fixed rules in the application's code",
+            "none": "No skills: every run works by its way of working and instructions.",
+            "tools": "Its tools",
+            "no-tools": "No tools: it can only answer.",
+            "more-tools": "And {{count}} more.",
+            "places-at": "A run's proposal waits at the object it names ({{type}}), where that object's approvers decide.",
+            "places-in-run": "A run's proposal waits in the run's own thread.",
+            "servers": "Its MCP servers",
+            "tool-not-offered": "{{selector}} is no longer offered: no tool of the application matches it."
+          },
+          "effect": {
+            "read-only": "Reads",
+            "idempotent-mutation": "Changes",
+            "mutation": "Changes",
+            "destructive": "Removes"
+          },
+          "servers": {
+            "headless": {
+              "never": "Not in runs on their own",
+              "organization": "The organization's account",
+              "personal": "Personal accounts"
+            },
+            "use": {
+              "unknown": "Whether it is used in runs that start on their own is not known here.",
+              "missing": "This server no longer exists.",
+              "disabled": "The server is switched off.",
+              "never": "Its tools are left out of runs that start on their own, such as trigger runs.",
+              "organization": "Its tools are used in runs that start on their own, with the organization's credential.",
+              "organization-grant": "Its tools are used in runs that start on their own with the organization's credential once the agent's code grants them, because the agent answers to itself.",
+              "personal": "Its tools are used in runs that start on their own only with the consent of the person a run acts for.",
+              "personal-responsible": "Its tools are used with the account of the person responsible for the object, once that person allows background use.",
+              "personal-initiator": "Its tools are used only in runs a person started, with that person's account and consent.",
+              "personal-never-account": "Its tools are not used: a technical account has no personal connection.",
+              "personal-never-agent": "Its tools are not used: an agent that answers to itself has no personal connection."
+            },
+            "warning": {
+              "missing": "MCP server {{server}} no longer exists.",
+              "disabled": "MCP server {{server}} is switched off.",
+              "never": "MCP server {{server}} is not used in runs that start on their own: its background use is off.",
+              "personal-never-account": "MCP server {{server}} is not used: it works with personal accounts and the agent answers to a technical account.",
+              "personal-never-agent": "MCP server {{server}} is not used: it works with personal accounts and the agent answers to itself."
+            }
+          },
+          "account": {
+            "no-settings": "It has no run settings yet, so it cannot run on its own.",
+            "rights": {
+              "agent": "It has no rights of its own and can only propose.",
+              "subject-responsible": "Runs use what the person responsible for the object may use, within its tools.",
+              "service-account": "Runs use what this account may use, within its tools."
+            },
+            "delegates": "It also uses what the person who starts a run may use.",
+            "overridden": "An administrator replaced the account in code.",
+            "in-code": "Set in the application's code."
+          },
+          "approval": {
+            "autonomy": "What it may do:",
+            "skill": "Skill {{skill}}:",
+            "no-settings": "Chosen with the run settings.",
+            "in-code": "Set in the application's code."
+          },
+          "results": {
+            "groups": "Groups:",
+            "no-groups": "In no group, so no board shows it.",
+            "view-policy": "Its results for the whole application are seen by: {{policy}}.",
+            "view-policy-default": "everyone who may use the agent",
+            "shadow": "It works in shadow: its runs go to shadow threads that only administrators see.",
+            "latest": "Latest runs",
+            "more-runs": "And {{count}} earlier runs in its runs."
+          },
+          "entry": {
+            "works-on": "Change what it works on",
+            "tools": "Change its tools and MCP servers",
+            "settings": "Change the run settings",
+            "approval": "Change the approval",
+            "runs": "All runs",
+            "groups": "Change its groups",
+            "mcp-servers": "Open the MCP servers",
+            "edit-trigger": "Change the trigger",
+            "edit-skill": "Change the skill",
+            "edit-trigger-named": "Edit trigger {{trigger}}",
+            "edit-skill-named": "Edit skill {{skill}}"
+          }
+        }
       },
       "runs": {
         "title": "Runs",
         "description": "Every run of this agent, newest first, with what it worked on, its result, proposals, usage and duration. Shadow runs are marked.",
         "back": "Back to agents",
+        "back-to-run-config": "Back to the run configuration",
         "back-to-runs": "Back to the runs",
         "filters": "Filter the runs",
         "subject-type": "Works on",

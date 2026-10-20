@@ -83,6 +83,12 @@ export interface ToolCatalogEntry {
   source: 'local' | 'bridge' | 'mcp';
   effect: ToolCatalogEffect;
   description: string;
+  /**
+   * The object type a call of the tool names (`[NhAiSubject]`): a run places its proposal for another
+   * object at that object. `null` when the tool declares none, as MCP tools never do; their proposals
+   * stay in the run's own thread. Missing on older servers.
+   */
+  subjectType?: string | null;
 }
 
 /** Equals `NhAiAutonomyLevel`. */
@@ -965,6 +971,27 @@ export interface CodeTrigger {
   triggerId: string;
   source: 'event' | 'schedule' | 'webhook';
   skillId: string | null;
+  /**
+   * The subject type the trigger names up front: an object type, or `nh-system` for a schedule that
+   * runs for the whole application (once per division for an agent that works per division). `null`
+   * when the type is known only when it fires; missing on older servers.
+   */
+  subjectType?: string | null;
+}
+
+/**
+ * How an agent in code runs, as its code says; it changes only in code. The technical account, which
+ * an administrator may replace, is the agent's `serviceAccount`.
+ */
+export interface CodeRunSettings {
+  /** Whose rights its runs use. */
+  accountability: AgentAccountability;
+  /** Its runs also use what the person who started them may use. */
+  delegateFromInitiator: boolean;
+  /** The agent's approval policy; `null` for the platform's default. */
+  approvalPolicy: string | null;
+  /** It works by a rule handler in code instead of the model. */
+  usesRules: boolean;
 }
 
 /** One version of a skill defined as data. */
@@ -1157,4 +1184,6 @@ export interface AgentRunConfiguration {
   source: 'code' | 'admin';
   /** The run settings of an agent created in the administration; `null` for an agent in code and one that only chats. */
   runSettings: AgentRunSettings | null;
+  /** How an agent in code runs, as its code says; `null` for an agent created here, missing on older servers. */
+  codeRunSettings?: CodeRunSettings | null;
 }

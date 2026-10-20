@@ -421,6 +421,21 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
         Assert.Null(await WithRunsAsync(app, runs => runs.FindThreadAsync(target.ScopeKey, ResponsibleAgent, target.Subject, CancellationToken.None, false)));
     }
 
+    [Fact]
+    public async Task The_tool_catalog_names_the_object_type_a_tool_places_its_proposals_at()
+    {
+        await using var app = await StartAsync(AssistantTestProvider.PostgreSql);
+        using var admin = app.CreateClient(Admin, admin: true);
+
+        // The administration's flow view shows where a tool's proposals of a run go.
+        var catalog = (await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/tools"))).EnumerateArray().ToArray();
+
+        var close = Assert.Single(catalog, entry => entry.GetProperty("id").GetString() == TestPlacementToolCatalog.CloseToolId);
+        Assert.Equal("project", close.GetProperty("subjectType").GetString());
+        var status = Assert.Single(catalog, entry => entry.GetProperty("id").GetString() == ChangeStatusTool);
+        Assert.Equal(JsonValueKind.Null, status.GetProperty("subjectType").ValueKind);
+    }
+
     private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider, int maxPlaced = 20)
     {
         return AssistantWebApplication.StartAsync(

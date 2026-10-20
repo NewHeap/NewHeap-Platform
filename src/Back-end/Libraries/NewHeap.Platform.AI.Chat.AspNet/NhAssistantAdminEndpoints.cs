@@ -357,7 +357,10 @@ internal static class NhAssistantAdminEndpoints
             var source = catalog is INhAiAttestedToolCatalog ? "bridge" : "local";
             entries.AddRange(catalog.Descriptors
                 .Where(descriptor => (descriptor.Exposure & NhAiToolExposure.Agent) != 0)
-                .Select(descriptor => new NhAssistantToolCatalogEntryDto(descriptor.Id, source, EffectName(descriptor.Effect), descriptor.Description)));
+                .Select(descriptor => new NhAssistantToolCatalogEntryDto(descriptor.Id, source, EffectName(descriptor.Effect), descriptor.Description)
+                {
+                    SubjectType = descriptor.Subject?.Type
+                }));
         }
         foreach (var (server, _) in await store.ListMcpServersAsync(httpContext.RequestAborted))
         {

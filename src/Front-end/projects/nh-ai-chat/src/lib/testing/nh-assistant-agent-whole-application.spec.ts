@@ -295,7 +295,9 @@ describe('A schedule for the whole application in the run configuration', () => 
     await narrowToProjects(statistics);
     const { fixture, view } = await openRunConfiguration('statistics');
 
-    expect(view().querySelector('[data-problems]')?.textContent?.replace(/\s+/g, ' '))
+    // The flow shows the problem at when the agent runs, with the trigger's form as its fix.
+    expect(view().querySelector('[data-problems]')).not.toBeNull();
+    expect(view().querySelector('[data-flow-step="when"] [data-flow-warning="problem:trigger:weekly-count:not-worked-on"]')?.textContent?.replace(/\s+/g, ' '))
       .toContain('Trigger weekly-count: it concerns a kind of object, or the whole application, that the agent does not work on.');
     const listed = view().querySelector('[data-data-trigger="weekly-count"]') as HTMLElement;
     expect(listed.textContent).toContain('Out of effect');

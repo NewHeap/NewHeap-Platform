@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "e934be1c0494af214f1dc1db620ecc1cb794acc238c89895959deddc45dad2e6",
-    "declarationCount": 9047,
+    "hash": "22aa60a91a385d73b1566d23aa737075d820e28206d3b83e0998f29dbd46f8d4",
+    "declarationCount": 9051,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1791,7 +1791,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantAgentConfigurationDto( string AgentId, IReadOnlyList<string> ToolSelectors, IReadOnlyList<NhAssistantCodeSkillDto> CodeSkills, IReadOnlyList<NhAssistantDataSkillDto> DataSkills, IReadOnlyList<NhAssistantCodeTriggerDto> CodeTriggers, IReadOnlyList<NhAssistantDataTriggerDto> DataTriggers, IReadOnlyList<NhAssistantRunConfigurationProblem> Problems, string Source, NhAssistantAgentRunSettingsDto? RunSettings);"
+        "declaration": "public sealed record NhAssistantAgentConfigurationDto( string AgentId, IReadOnlyList<string> ToolSelectors, IReadOnlyList<NhAssistantCodeSkillDto> CodeSkills, IReadOnlyList<NhAssistantDataSkillDto> DataSkills, IReadOnlyList<NhAssistantCodeTriggerDto> CodeTriggers, IReadOnlyList<NhAssistantDataTriggerDto> DataTriggers, IReadOnlyList<NhAssistantRunConfigurationProblem> Problems, string Source, NhAssistantAgentRunSettingsDto? RunSettings) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public NhAssistantCodeRunSettingsDto? CodeRunSettings { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public sealed record NhAssistantCodeRunSettingsDto( string Accountability, bool DelegateFromInitiator, string? ApprovalPolicy, bool UsesRules);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -1807,7 +1815,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantCodeTriggerDto(string TriggerId, string Source, string? SkillId);"
+        "declaration": "public sealed record NhAssistantCodeTriggerDto(string TriggerId, string Source, string? SkillId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public string? SubjectType { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -4247,7 +4259,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantToolCatalogEntryDto( string Id, string Source, string Effect, string Description);"
+        "declaration": "public sealed record NhAssistantToolCatalogEntryDto( string Id, string Source, string Effect, string Description) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public string? SubjectType { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -39888,6 +39904,7 @@
       "NhAssistantAgentConfigurationDto",
       "NhAssistantCodeSkillDto",
       "NhAssistantCodeTriggerDto",
+      "NhAssistantCodeRunSettingsDto",
       "NhAssistantDataSkillDto",
       "NhAssistantDataSkillVersionDto",
       "NhAssistantDataTriggerDto",
@@ -40510,6 +40527,9 @@
       "NhAssistantAgentRunConfigurationComponent",
       "RunCatalog",
       "AgentRunConfiguration",
+      "CodeRunSettings",
+      "CodeTrigger",
+      "ToolCatalogEntry",
       "DataSkill",
       "DataTrigger",
       "AgentRunSettings",

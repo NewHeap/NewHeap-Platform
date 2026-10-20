@@ -22,6 +22,7 @@ import {
   DataSkill,
   DataSkillVersion,
   DataTrigger,
+  McpServer,
   NhAssistantAdminApiService,
   NhAssistantError,
   RunCatalog,
@@ -35,6 +36,8 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 import { codeTextKeys, readableId, skillDescriptionKeys, skillNameKeys } from './agent-texts';
+import { AgentFlowEntry } from './run-config/agent-flow';
+import { NhAssistantAgentFlowComponent } from './run-config/nh-assistant-agent-flow.component';
 import { NhAssistantAgentWorkSetupComponent } from './run-config/nh-assistant-agent-work-setup.component';
 import { NhAssistantRunSettingsFormComponent } from './run-config/nh-assistant-run-settings-form.component';
 import { NhAssistantSkillFormComponent, SkillFormSaved } from './run-config/nh-assistant-skill-form.component';
@@ -54,8 +57,12 @@ interface Confirmation {
 /**
  * The run configuration of one agent as data: the run settings of an agent created in the
  * administration, its skills and triggers in code (read only) and as data, and the data that no
- * longer fits the code. An agent created here that only chats gets a guided setup that lets it work
- * on its own. Administrators add and change data skills, live at once or as a candidate in shadow that
+ * longer fits the code. It opens with the agent's flow: what it works on, when it runs, how it works,
+ * whom it answers to, who approves and its results, each step with its problems and an entry point
+ * to the form below that changes it; the agent editor (`editAgent`), the technical account of an
+ * agent in code (`changeAccount`), the runs view (`openRuns`) and the MCP servers (`openMcpServers`)
+ * belong to the page that hosts it. An agent created here that only chats gets a guided setup that
+ * lets it work on its own. Administrators add and change data skills, live at once or as a candidate in shadow that
  * they compare with the live version and promote or discard; they add data triggers on the
  * application's events or on a schedule and put them live; a schedule without a subject set runs for
  * the whole application, or for every division of an agent that works per division. New skills and
@@ -70,6 +77,7 @@ interface Confirmation {
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
+    NhAssistantAgentFlowComponent,
     NhAssistantAgentWorkSetupComponent,
     NhAssistantRunSettingsFormComponent,
     NhAssistantSkillFormComponent,
@@ -88,14 +96,29 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   private loadSubscription?: Subscription;
   private actionSubscription?: Subscription;
   private detailSubscription?: Subscription;
+  /** The flow's entry point that opened the form, which takes the focus back when the form closes. */
+  private returnFocus: HTMLElement | null = null;
 
   readonly agent = input.required<AdminAgent>();
   /** Opens the guided setup at once, for an agent that was just created to work on its own. */
   readonly startSetup = input(false);
-  /** The tool catalog, to show what the agent's tool selectors offer in the skill forms. */
+  /** The tool catalog, to show what the agent's tool selectors offer in the skill forms and the flow. */
   readonly tools = input<readonly ToolCatalogEntry[]>([]);
+  /**
+   * The MCP servers, so the flow shows whether the agent's servers are used in runs without a person;
+   * `null` while unknown.
+   */
+  readonly servers = input<readonly McpServer[] | null>(null);
   /** A change of the run configuration changed the agent's skills or state. */
   readonly changed = output<void>();
+  /** The flow asks to open the agent editor: what it works on, its tools, MCP servers and groups. */
+  readonly editAgent = output<void>();
+  /** The flow asks to change the technical account of an agent in code. */
+  readonly changeAccount = output<void>();
+  /** The flow asks to open the agent's runs. */
+  readonly openRuns = output<void>();
+  /** The flow asks to open the MCP servers, whose background use decides what runs without a person use. */
+  readonly openMcpServers = output<void>();
 
   readonly id = `nh-assistant-run-configuration-${nextId++}`;
   readonly maxReason = runConfigLimits.reason;
@@ -121,9 +144,15 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
    * and why they are not.
    */
   readonly accountNames = new NhAssistantAccountNames();
-  /** The name of the account the agent answers to, once known. */
+  /**
+   * The name of the account the agent answers to, once known: the technical account of its run
+   * settings, or of an agent in code.
+   */
   readonly accountName = computed(() => {
-    const actorId = this.configuration()?.runSettings?.serviceAccountActorId;
+    const configuration = this.configuration();
+    const actorId = configuration?.source === 'admin'
+      ? configuration.runSettings?.serviceAccountActorId
+      : this.agent().serviceAccount?.actorId;
     return actorId ? this.accountNames.names().get(actorId) ?? null : null;
   });
   /** The agent's name; an agent in code names itself with a translation key. */
@@ -201,6 +230,7 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
         this.loading.set(false);
         this.accountNames.load([
           configuration.runSettings?.serviceAccountActorId,
+          this.agent().serviceAccount?.actorId,
           ...configuration.dataSkills.map(skill => skill.changedBy)
         ]);
         if (openSetup && configuration.source === 'admin' && configuration.runSettings === null) {
@@ -355,13 +385,68 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     return confirming?.action === action && confirming.id === id;
   }
 
+  /**
+   * An entry point of the flow: the forms of the run configuration open below with the focus in them;
+   * the editor, the account, the runs and the MCP servers belong to the host.
+   */
+  onFlowEntry(entry: AgentFlowEntry): void {
+    const opener = this.host.nativeElement.ownerDocument.activeElement;
+    switch (entry.kind) {
+      case 'setup':
+        this.openFromFlow(opener, () => this.openSetup());
+        return;
+      case 'settings':
+        this.openFromFlow(opener, () => this.editSettings());
+        return;
+      case 'add-skill':
+        this.openFromFlow(opener, () => this.addSkill());
+        return;
+      case 'edit-skill': {
+        const skill = this.configuration()?.dataSkills.find(item => item.skillId === entry.skillId);
+        if (skill) {
+          this.openFromFlow(opener, () => this.editSkill(skill));
+        }
+        return;
+      }
+      case 'add-trigger':
+        this.openFromFlow(opener, () => this.addTrigger());
+        return;
+      case 'edit-trigger': {
+        const trigger = this.configuration()?.dataTriggers.find(item => item.triggerId === entry.triggerId);
+        if (trigger) {
+          this.openFromFlow(opener, () => this.editTrigger(trigger));
+        }
+        return;
+      }
+      case 'edit-agent':
+        this.editAgent.emit();
+        return;
+      case 'account':
+        this.changeAccount.emit();
+        return;
+      case 'runs':
+        this.openRuns.emit();
+        return;
+      case 'mcp-servers':
+        this.openMcpServers.emit();
+        return;
+    }
+  }
+
   cancel(): void {
     const form = this.form();
+    const opener = this.returnFocus;
+    this.returnFocus = null;
     this.form.set(null);
     this.confirming.set(null);
     this.error.set(null);
-    // Back to the action that opened the form.
-    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`[data-open-form="${form}"]`)?.focus(), { injector: this.injector });
+    // Back to the action that opened the form: the flow's entry point, or the action of its section.
+    afterNextRender(() => {
+      const target = opener?.isConnected
+        ? opener
+        : this.host.nativeElement.querySelector<HTMLElement>(`[data-open-form="${form}"]`);
+      target?.focus();
+    }, { injector: this.injector });
   }
 
   value(event: Event): string {
@@ -389,7 +474,14 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     return fallback;
   }
 
+  /** Opens a form for the flow and remembers the entry point that opened it. */
+  private openFromFlow(opener: Element | null, openForm: () => void): void {
+    openForm();
+    this.returnFocus = opener instanceof HTMLElement ? opener : null;
+  }
+
   private finish(savedKey: string): void {
+    this.returnFocus = null;
     this.form.set(null);
     this.saved.set(savedKey);
     this.changed.emit();
@@ -399,6 +491,7 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
 
   /** Opens one form at a time and moves the focus into it. */
   private open(form: Form): void {
+    this.returnFocus = null;
     this.confirming.set(null);
     this.error.set(null);
     this.saved.set(null);

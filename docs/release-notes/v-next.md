@@ -823,3 +823,47 @@ the whole application to people who pass the agent's view policy.
 | `downloadFailed` of the run result and artifacts components, `NhAssistantConnectionRequiredComponent.errorCode`, `NhAssistantAdminAgentsComponent.accountNames` and `NhAssistantAgentRunConfigurationComponent.accountName` are read-only computed signals. | Do not write them. |
 | The translation key `nh-assistant.agent-runs.thread.outcome.rejected` is removed and new keys are added. | Update host overrides of the assistant's texts. |
 | The mock API answers with the server's statuses and field errors (for example `400 assistant-subject-invalid`, `409 assistant-mcp-headless-not-allowed`, `409` for a stopped agent) and `NhAssistantMockRunNow.outcome` no longer accepts `rejected`. | Update host tests that assert the old mock answers. |
+
+## NewHeap.Platform.AI.Chat.AspNet: an overview of an agent
+
+`GET admin/tools` names the object type a tool declares with `[NhAiSubject]`
+(`NhAssistantToolCatalogEntryDto.SubjectType`; `null` for tools without one and for MCP tools), so an
+administration can say that a run's proposal of the tool waits at that object. `GET
+admin/agents/{id}/configuration` names what each trigger in code runs for up front
+(`NhAssistantCodeTriggerDto.SubjectType`: an object type, `nh-system` for a schedule for the whole
+application, `null` when only the fire knows it) and how an agent in code runs
+(`NhAssistantAgentConfigurationDto.CodeRunSettings`, `NhAssistantCodeRunSettingsDto`: whom it answers
+to, whether it delegates from the initiator, its approval policy and whether it works by rules;
+`null` for an agent created in the administration). All three are additions; existing clients keep
+working.
+
+| Breaking change | Required action |
+|---|---|
+| The JSON of `GET admin/tools` entries, code triggers and the run configuration gains `subjectType` and `codeRunSettings`. | Update tests that compare the whole JSON of these responses. |
+
+## @newheap/platform-ai-chat: the flow view of an agent
+
+The run configuration of `@newheap/platform-ai-chat/admin` (`NhAssistantAgentRunConfigurationComponent`)
+opens with the agent's flow: an ordered overview of what it works on, when it runs (each trigger with
+what it runs for, and whether and for what it can be run now), how it works (its rules or the model,
+its skills and its tools with where a run's proposal of each waits, and whether its MCP servers serve
+runs without a person by their background use and whom the agent answers to), whom it answers to,
+who approves its proposals, and its results (its groups, who sees them for the whole application and
+its latest runs). Problems of the run configuration, tool selectors that no longer match a tool, MCP
+servers that runs without a person cannot use and an agent without run settings show as warnings at
+their step with the entry point that fixes them. Each step opens the form it summarizes, which stays
+below; run now opens the run-now dialog in place. The component has a new `servers` input (the MCP
+servers, `null` while unknown) and the outputs `editAgent`, `changeAccount`, `openRuns` and
+`openMcpServers` for what belongs to its host; `NhAssistantAdminAgentsComponent` handles them, returns
+to the run configuration after the editor or the runs, and emits `openMcpServers`, which
+`NhAssistantAdminComponent` answers with its MCP servers tab. The models gain
+`ToolCatalogEntry.subjectType`, `CodeTrigger.subjectType` and `AgentRunConfiguration.codeRunSettings`
+(`CodeRunSettings`). The mock API serves them from `subjectType` on the scenario's tools and code
+triggers and `codeRunSettings` on its agents in code. The new texts are bundled in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| The run configuration shows the flow above its sections, and the list of problems above the skills became one notice; each problem shows at its step of the flow (`[data-flow-warning]`). | Update tests and styles that expect the problem list or select the run configuration's first section by position. |
+| "Add trigger", "Add skill" and "Change run settings" appear in the flow as well as in their sections. | Scope tests that find these buttons by text to the section or the flow. |
+| The translation key `nh-assistant.admin.run-config.problems.title` is removed and the keys under `nh-assistant.admin.run-config.flow` and `nh-assistant.admin.runs.back-to-run-config` are added. | Update host overrides of the assistant's texts. |
+| A host that places `nh-assistant-admin-agents` or `nh-assistant-agent-run-configuration` itself gets entry points that ask it to act. | Handle `openMcpServers` of the agents page, or `editAgent`, `changeAccount`, `openRuns` and `openMcpServers` of the run configuration, and pass `servers`. |

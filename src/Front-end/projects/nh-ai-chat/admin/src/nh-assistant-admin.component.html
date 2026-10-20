@@ -44,7 +44,7 @@
           <nh-assistant-admin-context />
         }
         @case ('agents') {
-          <nh-assistant-admin-agents />
+          <nh-assistant-admin-agents (openMcpServers)="showMcpServers()" />
         }
         @case ('mcp-servers') {
           <nh-assistant-admin-mcp-servers />

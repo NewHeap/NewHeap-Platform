@@ -220,7 +220,8 @@ export class NhAssistantMockAdminMcp {
     for (const stored of this.servers.values()) {
       for (const tool of stored.tools.values()) {
         if (tool.isEnabled) {
-          catalog.push({ id: tool.localId, source: 'mcp', effect: tool.effect, description: tool.descriptionOverride ?? tool.description });
+          // MCP tools never declare the object they concern.
+          catalog.push({ id: tool.localId, source: 'mcp', effect: tool.effect, description: tool.descriptionOverride ?? tool.description, subjectType: null });
         }
       }
     }
