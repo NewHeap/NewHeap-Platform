@@ -85,9 +85,10 @@ dotnet test examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectMan
 dotnet test examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests --filter ControllerOpenApiMetadataTests
 ```
 
-Run these commands from the repository root. The first command includes isolated
-Testcontainers tests for SQL Server and PostgreSQL. Docker must be healthy; the
-tests never connect to a consumer database. The translation-only tests separately
+Run these commands from the repository root. The first command includes the
+SQL Server and PostgreSQL provider tests: one shared Testcontainers server per
+provider for the test process, with an empty database of its own for each test.
+Docker must be healthy; the tests never connect to a consumer database. The translation-only tests separately
 verify provider SQL composition without opening a connection. They are not a
 substitute for the real database tests.
 
