@@ -3593,7 +3593,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/admin/src/nh-assistant-admin.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-agents.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-mcp.ts"
     ]
   },
   {
@@ -4277,7 +4279,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-agents.ts"
     ]
   },
   {
@@ -4521,7 +4524,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-run-configuration.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-accounts.ts"
     ]
   },
   {
