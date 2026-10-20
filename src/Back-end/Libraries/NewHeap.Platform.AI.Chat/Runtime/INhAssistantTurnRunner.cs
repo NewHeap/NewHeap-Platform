@@ -146,6 +146,13 @@ internal sealed record NhAssistantAgentTurnContext(
     public string? SkillId { get; init; }
 
     public string? SkillChosenBy { get; init; }
+
+    /// <summary>
+    /// The people whose messages the run answers: the authors of the messages among the inputs the
+    /// run claimed, such as a message typed while the run worked. A turn of the run reads its own
+    /// inputs as well; a turn that continues after a wait has only these.
+    /// </summary>
+    public IReadOnlyList<string> RequestedBy { get; init; } = [];
 }
 
 /// <summary>

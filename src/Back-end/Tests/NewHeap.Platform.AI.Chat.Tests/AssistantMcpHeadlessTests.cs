@@ -333,6 +333,111 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Agent_requests_and_queued_messages_use_only_the_asking_persons_own_personal_connection(AssistantTestProvider provider)
+    {
+        const string redirectUri = "https://assistant.example/api/assistant/mcp/oauth/callback";
+        var model = new NhAiScriptedChatClient()
+            .RespondWithText("I cannot look that up for the request.")
+            .RespondWithText("I cannot look that up for the queued message.")
+            .RespondWithText("I cannot look that up for the message in a scheduled run.")
+            .RespondWithText("I cannot look that up after the wait.")
+            .RespondWithFunctionCall(LookupFunction, new { order = "A-100" }, "call-own-message")
+            .RespondWithText("Order A-100 is planned for Monday.");
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync();
+        authorization.RegisterClient("assistant-web", "test-web-secret-asked", redirectUri);
+        var tools = new InMemoryMcpServers();
+        NhAiTestProtectedResource? resource = null;
+        await using var mcp = await HttpMcpTestServer.StartAsync(() => tools.PlanningTools(), guard: (context, next) => resource!.InvokeAsync(context, next));
+        resource = new NhAiTestProtectedResource(authorization, mcp.StreamableUrl, "/planning");
+        // The agent answers to the approver's account and acts with its rights in headless runs.
+        await using var host = await CreateHostAsync(provider, model, servers: null, grants: false, redirectUri: redirectUri, accountable: true);
+        var input = new NhAssistantMcpServerInput("planning", "Planning", mcp.StreamableUrl, NhAssistantMcpAuthModes.OAuth, null, null, null, true, NhAssistantMcpHeadlessUses.Personal)
+        {
+            ConnectionScope = NhAssistantMcpConnectionScopes.User,
+            OAuth = new NhAssistantMcpOAuthInput("assistant-web", "test-web-secret-asked", null, "mcp:read", null, ConfirmAuthorization: true)
+        };
+        Assert.True((await WithAdministrationAsync(host, administration => administration.CreateAsync(input, "admin-1", CancellationToken.None))).Success);
+        authorization.Options.Subject = "remote-admin";
+        await AuthorizeAdministratorAsync(host);
+        await ConnectPlanningServerAsync(host, ("Lookup_Order", NhAssistantMcpToolEffects.ReadOnly), input: input, created: true);
+        authorization.Options.Subject = "remote-approver";
+        await McpOAuthTestFlows.ConnectPersonAsync(host, Approver, "planning", allowBackgroundUse: true);
+        authorization.Options.Subject = "remote-member";
+        await McpOAuthTestFlows.ConnectPersonAsync(host, Member, "planning", allowBackgroundUse: true);
+
+        // The member asks through another assistant: the run acts for the account the agent answers
+        // to, whose connection never serves a request someone else made.
+        var requested = await RunTurnAsync(
+            host,
+            await StartRunAsync(host, initiator: Member, triggerId: NhAssistantTriggerIds.AgentRequest),
+            "When is order A-100 planned?",
+            author: Member);
+        // The member typed while a run worked; the message got a run of its own.
+        var queued = await RunTurnAsync(
+            host,
+            await StartRunAsync(host, initiator: Member, triggerId: NhAssistantTriggerIds.QueuedMessage),
+            "When is order A-100 planned?",
+            author: Member);
+        // The member's message joined a run nobody asked for, such as a scheduled one.
+        var joined = await RunTurnAsync(
+            host,
+            await StartRunAsync(host),
+            "When is order A-100 planned?",
+            author: Member,
+            triggerId: NhAssistantTriggerIds.QueuedMessage);
+        // A turn that continues after a wait knows the messages its run claimed before.
+        var waited = await StartRunAsync(host);
+        var continued = await RunTurnAsync(
+            host,
+            waited with { AgentTurn = waited.AgentTurn with { RequestedBy = [Member] } },
+            "Project PRJ-1 changed.");
+
+        Assert.All([requested, queued, joined, continued], turn => Assert.Equal(NhAssistantTurnStatuses.Completed, turn.Outcome));
+        for (var request = 0; request < 4; request++)
+        {
+            Assert.DoesNotContain(model.Requests[request].Options!.Tools ?? [], tool => tool.Name.StartsWith("mcp_", StringComparison.Ordinal));
+        }
+        Assert.Empty(tools.Calls);
+
+        // The account the agent answers to typed the message itself: its own connection serves it.
+        var own = await RunTurnAsync(
+            host,
+            await StartRunAsync(host),
+            "When is order A-100 planned?",
+            author: Approver,
+            triggerId: NhAssistantTriggerIds.QueuedMessage);
+        Assert.Equal(NhAssistantTurnStatuses.Completed, own.Outcome);
+        Assert.Equal(["lookup-order"], tools.Calls);
+        Assert.Equal("remote-approver", resource.Requests.Last().Subject);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_run_store_lists_the_people_whose_messages_a_run_claimed(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), servers: null, grants: false);
+        var run = await StartRunAsync(host);
+        var other = await StartRunAsync(host);
+        var store = RunStore(host);
+        var conversationId = run.Run.ConversationId;
+        await store.AddQueuedInputAsync(QueuedInput(conversationId, null, "project-created"), CancellationToken.None);
+        await store.AddQueuedInputAsync(QueuedInput(conversationId, Member, NhAssistantTriggerIds.QueuedMessage), CancellationToken.None);
+        await store.AddQueuedInputAsync(QueuedInput(conversationId, Approver, NhAssistantTriggerIds.QueuedMessage), CancellationToken.None);
+        await store.AddQueuedInputAsync(QueuedInput(conversationId, Member, NhAssistantTriggerIds.QueuedMessage), CancellationToken.None);
+        await store.AddQueuedInputAsync(QueuedInput(other.Run.ConversationId, Manager, NhAssistantTriggerIds.Manual), CancellationToken.None);
+
+        Assert.Empty(await store.ListInputAuthorsAsync(run.Run.Id, CancellationToken.None));
+        var claimed = await store.ClaimQueuedInputsAsync(conversationId, run.Run.Id, CancellationToken.None);
+
+        Assert.Equal(4, claimed.Count);
+        Assert.Equal([Approver, Member], await store.ListInputAuthorsAsync(run.Run.Id, CancellationToken.None));
+        Assert.Empty(await store.ListInputAuthorsAsync(other.Run.Id, CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task A_headless_run_calls_an_oauth_server_with_the_tokens_of_the_hosts_client_credentials(AssistantTestProvider provider)
     {
         var model = new NhAiScriptedChatClient()
@@ -542,15 +647,39 @@ public sealed class AssistantMcpHeadlessTests(AssistantDatabaseFixture database)
             IsRequestTurn: false));
     }
 
-    private static async Task<NhAssistantAgentTurnResult> RunTurnAsync(AssistantTestHost host, StartedRun run, string message)
+    /// <summary>
+    /// Runs one turn of the run with one input: the trigger's event, or the message of
+    /// <paramref name="author"/>, by default of the run's own trigger.
+    /// </summary>
+    private static async Task<NhAssistantAgentTurnResult> RunTurnAsync(
+        AssistantTestHost host,
+        StartedRun run,
+        string message,
+        string? author = null,
+        string? triggerId = null)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var runner = scope.ServiceProvider.GetRequiredService<INhAssistantTurnRunner>();
         return await runner.RunAgentTurnAsync(
             new NhAssistantAgentTurnRequest(
                 run.AgentTurn,
-                [new NhAssistantAgentTurnInput(Guid.NewGuid(), null, run.Run.TriggerId, message)]),
+                [new NhAssistantAgentTurnInput(Guid.NewGuid(), author, triggerId ?? run.Run.TriggerId, message)]),
             CancellationToken.None);
+    }
+
+    private static AssistantQueuedInput QueuedInput(Guid conversationId, string? author, string triggerId)
+    {
+        return new AssistantQueuedInput
+        {
+            Id = Guid.NewGuid(),
+            ConversationId = conversationId,
+            Kind = author is null ? NhAssistantQueuedInputKinds.Event : NhAssistantQueuedInputKinds.Message,
+            AuthorActorId = author,
+            TriggerId = triggerId,
+            Text = "When is order A-100 planned?",
+            InitiatorActorId = author,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
     }
 
     private static async Task<NhAssistantProposalExecutionResult> ExecuteAsync(AssistantTestHost host, StartedRun run, Guid approvalId)

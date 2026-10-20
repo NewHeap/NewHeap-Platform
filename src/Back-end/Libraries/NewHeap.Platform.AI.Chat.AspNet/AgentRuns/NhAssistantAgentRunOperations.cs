@@ -483,8 +483,11 @@ internal sealed class NhAssistantAgentRunOperation(
                 cancellationToken);
         }
 
+        // The continued turn answers the messages the run claimed before it waited; their authors
+        // decide whose personal MCP connection may serve it.
+        var requestedBy = await runs.ListInputAuthorsAsync(agentTurn.RunId!.Value, cancellationToken);
         var result = await runner.ResumeAgentTurnAsync(
-            new NhAssistantAgentResumeRequest(agentTurn, wait.ApprovalId),
+            new NhAssistantAgentResumeRequest(agentTurn with { RequestedBy = requestedBy }, wait.ApprovalId),
             cancellationToken);
         await context.Checkpoints.SetAsync<NhAssistantRunWait?>(WaitCheckpointKey, null, cancellationToken: cancellationToken);
         await RecordUsageAsync(agentTurn.RunId!.Value, result, cancellationToken);

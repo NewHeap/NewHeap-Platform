@@ -441,6 +441,13 @@ public sealed record NhAssistantSubjectAgentDto(
     bool CanStart)
 {
     /// <summary>
+    /// The agent's name: a translation key for an agent in code, the text itself for an agent created
+    /// in the administration, as <see cref="NhAssistantObjectAgentDto.DisplayNameKey"/>. Screens show
+    /// it also for an agent kept out of the chat, which the status does not list.
+    /// </summary>
+    public string? DisplayNameKey { get; init; }
+
+    /// <summary>
     /// For administrators, the agent's shadow thread about the subject, where its work goes while
     /// the agent or one of its skills works in shadow; <see langword="null"/> otherwise. A shadow
     /// variant's own threads are in <see cref="Thread"/>.

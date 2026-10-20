@@ -1003,6 +1003,24 @@ describe('agent-run components', () => {
       expect(agents[1].textContent).toContain('thread.no-thread');
     });
 
+    it('names agents kept out of the chat by the name their work gives, translated for agents in code', () => {
+      const translate = TestBed.inject(TranslateService);
+      translate.setTranslation('en', { 'nh-assistant': { agents: { intake: { name: 'Intake reviewer' } } } }, true);
+      translate.use('en');
+      // The status lists no agent: both are kept out of the chat.
+      api.getSubjectWork.and.returnValue(of(subjectWork({
+        agents: [
+          { agentId: 'intake', displayNameKey: 'nh-assistant.agents.intake.name', thread: thread(null), canStart: true },
+          { agentId: 'project-follow-up', displayNameKey: 'Project follow-up', thread: null, canStart: true }
+        ]
+      })));
+      const fixture = TestBed.createComponent(SuggestionsHostComponent);
+      fixture.detectChanges();
+
+      const agents = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li.subject-agent'));
+      expect(agents.map(agent => agent.querySelector('strong')?.textContent?.trim())).toEqual(['Intake reviewer', 'Project follow-up']);
+    });
+
     it('opens the conversation with an agent about the subject and reports it', fakeAsync(() => {
       const opened: AgentThreadLookup = { thread: thread(null), canStart: true, role: 'approver' };
       api.getSubjectWork.and.returnValue(of(subjectWork()));

@@ -288,7 +288,7 @@ internal sealed partial class NhAssistantTurnRunner(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var agentTurn = request.AgentTurn;
+        var agentTurn = WithRequesters(request.AgentTurn, request.Inputs);
         var conversation = await store.FindShareableConversationAsync(agentTurn.Thread.ConversationId, cancellationToken);
         if (conversation is null)
         {
@@ -1776,20 +1776,55 @@ internal sealed partial class NhAssistantTurnRunner(
             personGrantSource = NhAiGrantSource.Accountable;
         }
 
-        // A run a person started by hand serves only that person's own personal connection, and
-        // only with their consent; never the connection of someone else, such as the account the
-        // agent answers to (W4, Q3). The whole application lists no members to fall back to either.
-        var startedByOther = string.Equals(agentTurn.TriggerId, NhAssistantTriggerIds.Manual, StringComparison.Ordinal)
-            && person is not null
-            && !string.Equals(person, agentTurn.InitiatorActorId, StringComparison.Ordinal);
+        // A turn a person asked for, by hand, by a message typed while the run worked or through
+        // another assistant, serves only that person's own personal connection, and only with
+        // their consent; never the connection of someone else, such as the account the agent
+        // answers to (I18, I21). The whole application lists no members to fall back to either.
+        var askedByOther = person is not null && IsAskedByOtherThan(agentTurn, person);
         return new NhAssistantMcpToolRequest(state.EffectiveAgent)
         {
             IsHeadless = true,
             PersonActorId = person,
             PersonGrantSource = personGrantSource,
             Subject = agentTurn.Subject,
-            PersonalCredentialRefusal = startedByOther ? NhAssistantAdminErrorCodes.McpInitiatorOnly : null
+            PersonalCredentialRefusal = askedByOther ? NhAssistantAdminErrorCodes.McpInitiatorOnly : null
         };
+    }
+
+    /// <summary>
+    /// Whether someone other than <paramref name="person"/> asked for the turn: the initiator of a run
+    /// a person asked for, or the author of a message the run answers.
+    /// </summary>
+    private static bool IsAskedByOtherThan(NhAssistantAgentTurnContext agentTurn, string person)
+    {
+        if (NhAssistantTriggerIds.IsAskedByPerson(agentTurn.TriggerId)
+            && !string.Equals(agentTurn.InitiatorActorId, person, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return agentTurn.RequestedBy.Any(author => !string.Equals(author, person, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The turn context with the authors of the turn's messages among the people who asked for it.
+    /// </summary>
+    private static NhAssistantAgentTurnContext WithRequesters(
+        NhAssistantAgentTurnContext agentTurn,
+        IReadOnlyList<NhAssistantAgentTurnInput> inputs)
+    {
+        var authors = inputs
+            .Select(input => input.AuthorActorId)
+            .OfType<string>()
+            .Where(author => !agentTurn.RequestedBy.Contains(author, StringComparer.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (authors.Length == 0)
+        {
+            return agentTurn;
+        }
+
+        return agentTurn with { RequestedBy = [.. agentTurn.RequestedBy, .. authors] };
     }
 
     private async Task<(AIFunction Function, NhAiToolDescriptor Descriptor)?> FindMcpFunctionAsync(

@@ -29,7 +29,7 @@
     @if (agents().length > 0) {
       <ul class="subject-agents" [attr.aria-label]="'nh-assistant.agent-runs.subject.agents' | translate">
         @for (agent of agents(); track agent.agentId) {
-          @let name = agentNameKeys(agent.agentId) | nhAssistantTranslate: agent.agentId;
+          @let name = agentNameKeys(agent) | nhAssistantTranslate: (agent.displayNameKey ?? agent.agentId);
           <li class="subject-agent">
             <div class="subject-agent-text">
               <strong>{{ name }}</strong>

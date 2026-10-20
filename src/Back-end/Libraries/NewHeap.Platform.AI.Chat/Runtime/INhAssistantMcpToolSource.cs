@@ -96,9 +96,10 @@ internal sealed record NhAssistantMcpToolRequest(NhAssistantAgent Agent)
 
     /// <summary>
     /// Why no personal credential may serve this headless turn, or <see langword="null"/> when
-    /// <see cref="PersonActorId"/>'s may (with that person's consent). A run a person started by
-    /// hand uses only that person's own connection: when it acts for someone else, servers with
-    /// personal background use are left out with <see cref="NhAssistantAdminErrorCodes.McpInitiatorOnly"/>.
+    /// <see cref="PersonActorId"/>'s may (with that person's consent). A turn a person asked for (a
+    /// run started by hand, an agent request, or a message typed while the run worked) uses only that
+    /// person's own connection: when it acts for someone else, servers with personal background use
+    /// are left out with <see cref="NhAssistantAdminErrorCodes.McpInitiatorOnly"/>.
     /// </summary>
     public string? PersonalCredentialRefusal { get; init; }
 }

@@ -261,7 +261,7 @@
       "assistant-mcp-headless-not-allowed": "This MCP server may not be used in background runs.",
       "assistant-mcp-credential-mismatch": "The MCP call was not sent because it was authorized for someone other than the person whose token the connection carries.",
       "assistant-mcp-consent-required": "The person this background run acts for has not allowed this MCP server with their own account.",
-      "assistant-mcp-initiator-only": "A run someone started by hand uses only that person's own connection to this MCP server, and this run acts for someone else.",
+      "assistant-mcp-initiator-only": "A run someone asked for uses only that person's own connection to this MCP server, and this run acts for someone else.",
       "assistant-mcp-delegated-token-unavailable": "No short-lived token could be issued for the person this background run acts for.",
       "assistant-mcp-secret-reference-invalid": "The secret reference names no available secret. Check the prefix and the name.",
       "assistant-mcp-certificate-reference-invalid": "The client certificate is not configured or has no private key.",

@@ -2,6 +2,7 @@ import {
   AdminAgentInput,
   AgentProposalOrigin,
   AgentProposalStatus,
+  AgentRunSettingsRequest,
   AgentRunStatus,
   AgentSummary,
   AgentTriggerReceipt,
@@ -10,6 +11,8 @@ import {
   ClientContext,
   CodeRunSettings,
   Conversation,
+  DataSkillRequest,
+  DataTriggerRequest,
   McpDiscovery,
   McpServerInput,
   AssistantAccount,
@@ -160,6 +163,39 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
    * approval policy and the model.
    */
   codeRunSettings?: Partial<CodeRunSettings>;
+  /**
+   * The run configuration an agent created in the administration starts with, as administrators saved
+   * it: its run settings, skills and triggers defined as data. Without it such an agent has none and
+   * the administration offers the guided setup.
+   */
+  runConfiguration?: NhAssistantMockRunConfigurationPreset;
+}
+
+/**
+ * The run configuration as data an agent created in the administration starts with. The mock saves it
+ * through its own endpoints in order (the run settings, then each skill, then each trigger), so every
+ * part is checked as an administrator's save is, against the scenario's run catalog and accounts; a
+ * part the mock refuses fails the scenario at once, like a startup check. Skills and triggers start in
+ * shadow, as saved ones do, unless `shadow` is `false`.
+ */
+export interface NhAssistantMockRunConfigurationPreset {
+  runSettings: AgentRunSettingsRequest;
+  skills?: NhAssistantMockDataSkill[];
+  triggers?: NhAssistantMockDataTrigger[];
+}
+
+/** A skill defined as data of a preset run configuration. */
+export interface NhAssistantMockDataSkill extends DataSkillRequest {
+  skillId: string;
+  /** Default `true`, as for a saved skill; `false` puts it live. */
+  shadow?: boolean;
+}
+
+/** A trigger defined as data of a preset run configuration. */
+export interface NhAssistantMockDataTrigger extends DataTriggerRequest {
+  triggerId: string;
+  /** Default `true`, as for a saved trigger; `false` puts it live. */
+  shadow?: boolean;
 }
 
 /**

@@ -1562,4 +1562,14 @@ public static class NhAssistantTriggerIds
         return triggerId is Manual or ProposalDecided or ProposalExecuted or QueuedMessage or AgentRequest or Consultation
             or HandOff or HandOffEnded;
     }
+
+    /// <summary>
+    /// Whether a person asked for the work of the trigger: a start by hand, a message typed while a
+    /// run worked, or a request through another assistant. Its input is that person's message and
+    /// the person is the run's initiator.
+    /// </summary>
+    internal static bool IsAskedByPerson(string? triggerId)
+    {
+        return triggerId is Manual or QueuedMessage or AgentRequest;
+    }
 }

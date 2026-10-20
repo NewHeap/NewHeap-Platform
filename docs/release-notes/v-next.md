@@ -298,14 +298,19 @@ reads it. `GET subjects/{type}/{id}/agents` (`NhAssistantObjectAgentsDto`, `NhAs
 `CanStart`, the thread people open, the newest run with status, time and the first 300 characters of
 its result (until runs keep their full answer, the summary they end with) and the open proposals.
 With listed divisions `GET subjects/nh-system/search` finds the divisions a person works in by name.
-A run started by hand uses only the starter's own personal MCP connection, with their consent.
+A headless turn a person asked for uses only that person's own personal MCP connection, with their
+consent: a run started by hand, through another assistant's request tool or by a message typed while
+a run worked, and every turn that answers such a message, also in a scheduled run. `GET
+subjects/{type}/{id}/work` names each agent (`NhAssistantSubjectAgentDto.DisplayNameKey`: a key for an
+agent in code, the text for one created in the administration), also one kept out of the chat.
 
 | Breaking change | Required action |
 |---|---|
 | Starting an agent by hand on the whole application (`POST threads/start`, a new thread of `POST threads/open`, `canStart`) follows the agent's `RunPolicy` (by default the administration policy) instead of the approve policy of the whole application. | Give the people who run such agents the run policy, or name a run policy with `RunPolicy` that they pass. |
 | `canStart` of `GET subjects/{type}/{id}/work` also checks the scope of the whole application and the run policy, as the start does. | None; a start that the server refused before now reads `canStart: false`. |
 | The run catalog reports `Searchable: true` for `nh-system` when the application lists its divisions, and its search finds divisions. | Do not treat a searchable `IsSystem` type as one with objects to search. |
-| A run started by hand that acts for someone else, such as the account an agent with `ActWithAccountableRights` answers to, no longer uses that person's personal MCP connection; the server is left out with `assistant-mcp-initiator-only`. | Use `DelegateFromInitiator()` when runs started by hand should use the starter's own connection, or an organization credential. |
+| A headless turn a person asked for (a run started by hand, an agent request, a queued message, or a turn that answers a person's message in any run) that acts for someone else, such as the account an agent with `ActWithAccountableRights` answers to, no longer uses that person's personal MCP connection; the server is left out with `assistant-mcp-initiator-only`. | Use `DelegateFromInitiator()` when such runs should use the asking person's own connection, or an organization credential. |
+| The JSON of `GET subjects/{type}/{id}/work` gains `displayNameKey` per agent. | Update tests that compare the whole JSON of this response. |
 
 ## @newheap/platform-ai-chat: run an agent now
 
@@ -321,8 +326,10 @@ and ends with a receipt that opens the agent's conversation. The assistant's for
 `box-sizing: border-box`, so they keep within their width on a host page that does not set it. The
 mock API serves `POST threads/start`, `GET threads`, a thread's runs and `GET subjects/{type}/{id}/agents`
 with the server's rules, finds the scenario's `divisions` by name and takes `callerPolicies` and
-`runNow` (`NhAssistantMockDivision`, `NhAssistantMockRunNow`). New texts, among them the error
-`assistant-mcp-initiator-only`, are bundled in English and Dutch.
+`runNow` (`NhAssistantMockDivision`, `NhAssistantMockRunNow`). `nh-assistant-subject-suggestions` names
+each agent by `AgentSubjectWorkAgent.displayNameKey` of the subject's work, so an agent kept out of the
+chat shows its name instead of its id. New texts, among them the error `assistant-mcp-initiator-only`,
+are bundled in English and Dutch.
 
 | Breaking change | Required action |
 |---|---|
@@ -859,7 +866,12 @@ to the run configuration after the editor or the runs, and emits `openMcpServers
 `NhAssistantAdminComponent` answers with its MCP servers tab. The models gain
 `ToolCatalogEntry.subjectType`, `CodeTrigger.subjectType` and `AgentRunConfiguration.codeRunSettings`
 (`CodeRunSettings`). The mock API serves them from `subjectType` on the scenario's tools and code
-triggers and `codeRunSettings` on its agents in code. The new texts are bundled in English and Dutch.
+triggers and `codeRunSettings` on its agents in code. An agent created in the administration may start
+with `runConfiguration` (`NhAssistantMockRunConfigurationPreset` with `NhAssistantMockDataSkill` and
+`NhAssistantMockDataTrigger`): the mock saves its run settings, skills and triggers through its own
+endpoints, puts those with `shadow: false` live, and fails the scenario at once for a part it refuses,
+so the administration shows such an agent's flow instead of the guided setup. The new texts are
+bundled in English and Dutch.
 
 | Breaking change | Required action |
 |---|---|
@@ -867,3 +879,15 @@ triggers and `codeRunSettings` on its agents in code. The new texts are bundled 
 | "Add trigger", "Add skill" and "Change run settings" appear in the flow as well as in their sections. | Scope tests that find these buttons by text to the section or the flow. |
 | The translation key `nh-assistant.admin.run-config.problems.title` is removed and the keys under `nh-assistant.admin.run-config.flow` and `nh-assistant.admin.runs.back-to-run-config` are added. | Update host overrides of the assistant's texts. |
 | A host that places `nh-assistant-admin-agents` or `nh-assistant-agent-run-configuration` itself gets entry points that ask it to act. | Handle `openMcpServers` of the agents page, or `editAgent`, `changeAccount`, `openRuns` and `openMcpServers` of the run configuration, and pass `servers`. |
+
+## @newheap/platform-common: modals without sideways scrolling
+
+`nh-modal` sizes the modal by its holder instead of the viewport: the holder's single grid column is
+its content box, which excludes its scrollbar, and the modal's maximum width is 95% of it, all of it at
+920px and narrower, and all of the narrowed holder at 768px and narrower, instead of `95vw`, `100vw`
+and `calc(100vw - 30px)`. A modal taller than the page, such as a large edit form, scrolls vertically
+without scrolling sideways by the scrollbar's width.
+
+| Breaking change | Required action |
+|---|---|
+| The maximum width of `.nh-modal` is a percentage of `.nh-modal-holder` (95%, or 100% at 920px and narrower) instead of `95vw` or `100vw`, so a modal can be up to a scrollbar's width narrower. | Remove host styles that compensated for the sideways scroll; set an own `max-width` on `.nh-modal` only when content must use the viewport's width. |

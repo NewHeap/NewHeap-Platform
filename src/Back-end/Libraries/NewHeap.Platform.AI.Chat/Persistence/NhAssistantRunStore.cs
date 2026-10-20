@@ -1147,6 +1147,22 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// The people whose messages the run claimed, each once: the authors of its inputs that a person
+    /// wrote, such as a message typed while the run worked.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> ListInputAuthorsAsync(Guid runId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.QueuedInputs
+            .AsNoTracking()
+            .Where(input => input.ConsumedByRunId == runId && input.AuthorActorId != null)
+            .Select(input => input.AuthorActorId!)
+            .Distinct()
+            .OrderBy(author => author)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Whether the input with <paramref name="inputId"/> was written, consumed or not.
     /// </summary>
     public async Task<bool> QueuedInputExistsAsync(Guid inputId, CancellationToken cancellationToken)

@@ -342,7 +342,9 @@ detail page, load `nh-assistant-subject-suggestions` from `@newheap/platform-ai-
 lazily (for example in an `@defer` block) with the subject and the agent whose conversation the
 page offers: it shows the open proposals of every agent with the viewer's own decision rights,
 the feedback question after a rejection, and opens the conversation through
-`NhAssistantPanelService.openSubject`, which creates the agent's thread without starting a run.
+`NhAssistantPanelService.openSubject`, which creates the agent's thread without starting a run. It
+names each agent by `AgentSubjectWorkAgent.displayNameKey` from the subject's work, so an agent kept
+out of the chat, which the status does not list, shows its name rather than its id.
 
 A proposal can wait at an object although a run for another subject made it, such as a weekly run for
 the whole application that proposes to complete a project (`AgentProposal.placedBy`,
@@ -453,7 +455,11 @@ application registers, `codeTriggers` for its triggers in code (with the `subjec
 front), `codeRunSettings` on agents in code, the `subjectType` of tools that declare their object and
 `accounts` for the account search, so the run configuration and its flow show what the server shows; the mock refuses other names
 with field errors, accepts only those accounts when there are some and treats an account id
-starting with `unknown` as one that may not sign in. `divisions`, `callerPolicies` and `runNow`
+starting with `unknown` as one that may not sign in. Give an agent created in the administration the
+`runConfiguration` the application saves for it (`NhAssistantMockRunConfigurationPreset`: run
+settings, skills and triggers as data, `shadow: false` for live ones): the mock saves it through its
+own endpoints, fails the scenario at once for a part it refuses, and the administration shows the
+agent's flow instead of the guided setup. `divisions`, `callerPolicies` and `runNow`
 (`NhAssistantMockDivision`, `NhAssistantMockRunNow`) let the mock find divisions by name, decide who
 may run an agent as the server does and record runs by hand that end at once with a result and open
 proposals; `POST threads/start`, `GET threads`, a thread's runs and `GET subjects/{type}/{id}/agents`

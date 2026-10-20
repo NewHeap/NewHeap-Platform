@@ -251,10 +251,12 @@ invalid run filter. Clients map the code, never the status, to a text.
   server that refuses the connection's scopes records them and asks with `insufficient-scope`;
   connecting again requests them. A headless run uses the person whose rights it uses only with
   `personal` headless use and that person's consent, and an approved proposal executes with the
-  connection of the person who asked (Q10) or fails with `assistant-mcp-connection-required`. A run a
-  person started by hand (`POST threads/start`) uses only that person's own connection, with their
-  consent: when it acts for someone else, such as the account the agent answers to, the server is
-  left out with `assistant-mcp-initiator-only`; organization credentials are unaffected.
+  connection of the person who asked (Q10) or fails with `assistant-mcp-connection-required`. A
+  headless turn a person asked for uses only that person's own connection, with their consent: a run
+  started by hand (`POST threads/start`), through another assistant's request tool or by a message
+  typed while a run worked, and every turn that answers such a message, also in a run a schedule or
+  someone else started. When it acts for someone else, such as the account the agent answers to, the
+  server is left out with `assistant-mcp-initiator-only`; organization credentials are unaffected.
   Connections and tool lists are cached per person only. Administrators test and sync such a
   server with their own connection (`POST admin/mcp-servers/{id}/connection/authorize`; `GET` and
   `DELETE .../connection` then read and remove that own connection), count the personal connections

@@ -219,7 +219,13 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       ruleHandlers: [
         { name: 'project-progress-note', description: "Notes how many of the project's tasks are completed, without a model." },
         { name: 'project-progress-percentage', description: "Notes which share of the project's tasks is completed, without a model." },
-        { name: 'project-kickoff', description: 'Proposes to start a project that was created as a draft, without a model.' }
+        { name: 'project-kickoff', description: 'Proposes to start a project that was created as a draft, without a model.' },
+        // SPM-302: the project follow-up's routing and completion rules.
+        { name: 'project-follow-up-routing', description: 'Sends a run for the whole application to the complete-projects skill and a run on one project to the model.' },
+        {
+          name: 'project-follow-up-completion',
+          description: 'Counts the open projects and, with more than three, proposes to complete the finished ones at their projects, without a model.'
+        }
       ],
       approvalPolicies: ['project-intake', 'project-planning', 'project-closing'],
       profiles: ['project-assistant-chat'],
@@ -303,7 +309,40 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         worksOnAllSubjects: false,
         worksOnApplication: true,
         runPolicy: 'app.project.manage',
-        viewPolicy: 'app.project.view'
+        viewPolicy: 'app.project.view',
+        // SPM-302 and SPM-298: its run configuration as the API's development seeder saves it, so the
+        // administration shows its flow: it answers to the operations account, its routing rules send a
+        // run for the whole application to the complete-projects skill, and its Monday schedule is live.
+        runConfiguration: {
+          runSettings: {
+            accountability: 'service-account',
+            serviceAccountActorId: '9c2f4c58-2d7b-4a43-9c55-1f1b4f2a6e11',
+            approvalPolicy: 'project-intake',
+            maxRunsPerSubjectPerDay: 10,
+            ruleHandler: 'project-follow-up-routing',
+            reason: 'Development sample of an agent that works on its own'
+          },
+          skills: [
+            {
+              skillId: 'complete-projects',
+              description: 'Counts the open projects and proposes to complete the finished ones at their projects.',
+              ruleHandler: 'project-follow-up-completion',
+              tools: ['projects.change-status'],
+              shadow: false
+            }
+          ],
+          triggers: [
+            {
+              triggerId: 'project-follow-up-weekly',
+              source: 'schedule',
+              skill: 'complete-projects',
+              cron: '0 7 * * 1',
+              timeZone: 'Europe/Amsterdam',
+              message: 'It is Monday: count the open projects of the application and propose which ones can be completed.',
+              shadow: false
+            }
+          ]
+        }
       },
       {
         source: 'code',

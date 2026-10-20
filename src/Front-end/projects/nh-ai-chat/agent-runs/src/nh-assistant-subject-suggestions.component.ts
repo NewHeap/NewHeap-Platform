@@ -145,10 +145,15 @@ export class NhAssistantSubjectSuggestionsComponent {
     this.fetch(false);
   }
 
-  /** The translation keys of an agent's name: from the server's status, then the convention. */
-  agentNameKeys(agentId: string): string[] {
-    const known = this.store.agents().find(agent => agent.id === agentId)?.displayNameKey;
-    return known ? [known, `nh-assistant.agents.${agentId}.name`] : [`nh-assistant.agents.${agentId}.name`];
+  /**
+   * The translation keys of an agent's name: the name the subject's work gives, which names an agent
+   * kept out of the chat as well (the text itself for an agent created in the administration), then
+   * the server's status, then the convention.
+   */
+  agentNameKeys(agent: AgentSubjectWorkAgent): string[] {
+    const convention = `nh-assistant.agents.${agent.agentId}.name`;
+    const known = agent.displayNameKey ?? this.store.agents().find(item => item.id === agent.agentId)?.displayNameKey;
+    return known && known !== convention ? [known, convention] : [convention];
   }
 
   /** Readers may open an existing conversation; creating one needs the participant role. */

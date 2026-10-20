@@ -8,7 +8,7 @@ import {
   NhAssistantMcpAuthorizationOutcome,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
-import { NhAssistantMockRemoteTool, NhAssistantMockScenario } from './nh-assistant-mock.models';
+import { NhAssistantMockAdminAgent, NhAssistantMockRemoteTool, NhAssistantMockScenario } from './nh-assistant-mock.models';
 import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
 import { NhAssistantMockAdminAgents } from './nh-assistant-mock-admin-agents';
 import { NhAssistantMockAdminMcp } from './nh-assistant-mock-admin-mcp';
@@ -80,6 +80,7 @@ export class NhAssistantMockAdmin {
       removeServer: serverId => this.agents.removeServer(serverId),
       canAdminister: () => this.canAdminister
     });
+    this.presetRunConfigurations(admin.agents ?? []);
   }
 
   get administers(): boolean {
@@ -245,12 +246,51 @@ export class NhAssistantMockAdmin {
     return { status: 200, body: toContext(next) };
   }
 
+  /**
+   * Saves the run configuration the scenario gives agents created in the administration through the
+   * mock's own endpoints, as an administrator would: the run settings, then each skill and trigger,
+   * put live when the scenario says so. A part the mock refuses fails the scenario at once.
+   */
+  private presetRunConfigurations(agents: readonly NhAssistantMockAdminAgent[]): void {
+    const query = new URLSearchParams();
+    for (const agent of agents) {
+      const preset = agent.runConfiguration;
+      if (!preset) {
+        continue;
+      }
+      if (agent.source !== 'admin') {
+        throw new Error(`Mock agent '${agent.id}' runs as its code says; only an agent created in the administration has a run configuration as data.`);
+      }
+
+      presetStep(agent.id, 'run settings', this.runConfiguration.handle('PUT', agent.id, ['run-settings'], preset.runSettings, query));
+      for (const { skillId, shadow, ...skill } of preset.skills ?? []) {
+        presetStep(agent.id, `skill '${skillId}'`, this.runConfiguration.handle('PUT', agent.id, ['skills', skillId], skill, query));
+        if (shadow === false) {
+          presetStep(agent.id, `live skill '${skillId}'`, this.agents.skillShadowEndpoint('POST', agent.id, skillId, { mode: 'live' }));
+        }
+      }
+      for (const { triggerId, shadow, ...trigger } of preset.triggers ?? []) {
+        presetStep(agent.id, `trigger '${triggerId}'`, this.runConfiguration.handle('PUT', agent.id, ['triggers', triggerId], trigger, query));
+        if (shadow === false) {
+          presetStep(agent.id, `live trigger '${triggerId}'`, this.runConfiguration.handle('POST', agent.id, ['triggers', triggerId, 'shadow'], { mode: 'live' }, query));
+        }
+      }
+    }
+  }
+
   /** The scenario's tools, with the object type they name as the server reports it, and the enabled MCP tools. */
   private toolCatalog(): ToolCatalogEntry[] {
     return [
       ...(this.scenario.admin?.tools ?? []).map(tool => ({ ...tool, subjectType: tool.subjectType ?? null })),
       ...this.mcp.catalogEntries()
     ];
+  }
+}
+
+/** Fails the scenario when the mock refused a part of a preset run configuration, with the mock's answer. */
+function presetStep(agentId: string, part: string, result: NhAssistantMockResult | null): void {
+  if (!result || result.status >= 300) {
+    throw new Error(`The mock refused the ${part} of agent '${agentId}' in the scenario's run configuration: ${JSON.stringify(result?.body ?? null)}.`);
   }
 }
 

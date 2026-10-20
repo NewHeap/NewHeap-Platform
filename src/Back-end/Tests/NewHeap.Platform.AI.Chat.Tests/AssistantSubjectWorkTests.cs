@@ -48,6 +48,8 @@ public sealed class AssistantSubjectWorkTests(AssistantDatabaseFixture database)
         Assert.Equal("approver", approverView.Data!.Role);
         var agent = Assert.Single(approverView.Data.Agents);
         Assert.Equal(AgentId, agent.AgentId);
+        // The agent is kept out of the chat, so the status does not name it; its work does.
+        Assert.Equal("nh-assistant.agents.project-assistant.name", agent.DisplayNameKey);
         Assert.NotNull(agent.Thread);
         Assert.True(agent.CanStart);
         var proposal = Assert.Single(approverView.Data.OpenProposals);
@@ -64,6 +66,7 @@ public sealed class AssistantSubjectWorkTests(AssistantDatabaseFixture database)
         // A subject the agent never worked on shows the requested agent without a thread.
         var quiet = (await GetAsync(host, quietProject, Approver, AgentId)).Data!;
         var quietAgent = Assert.Single(quiet.Agents);
+        Assert.Equal("nh-assistant.agents.project-assistant.name", quietAgent.DisplayNameKey);
         Assert.Null(quietAgent.Thread);
         Assert.Empty(quiet.OpenProposals);
 
@@ -100,7 +103,8 @@ public sealed class AssistantSubjectWorkTests(AssistantDatabaseFixture database)
                     .BindTo(NhAiApprovalBinding.ToolContract))
                 .ConfigureAgent(AgentId, agent => agent
                     .Grant("projects.*")
-                    .UseApprovalPolicy("project-review")));
+                    .UseApprovalPolicy("project-review")
+                    .HideFromChat()));
     }
 
     private static async Task StartAndRunAsync(AssistantTestHost host, Guid projectId)

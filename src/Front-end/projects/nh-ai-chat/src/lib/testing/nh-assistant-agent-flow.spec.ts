@@ -1,9 +1,14 @@
 import { Type } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
-import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
+import {
+  NhAssistantMockBackend,
+  NhAssistantMockRunConfigurationPreset,
+  NhAssistantMockScenario,
+  provideNhAssistantMockApi
+} from '@newheap/platform-ai-chat/testing';
 import { firstValueFrom, throwError } from 'rxjs';
-import { AdminAgentInput, AgentRunConfiguration, ToolCatalogEntry } from '../models/assistant-admin.models';
+import { AdminAgent, AdminAgentInput, AgentRunConfiguration, ToolCatalogEntry } from '../models/assistant-admin.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
 import { NhAssistantApiError } from '../services/nh-assistant-transport';
@@ -504,4 +509,94 @@ describe('The mock API for the flow view', () => {
     const agents = (await call('GET', 'admin/agents')).body as Record<string, unknown>[];
     expect(Object.keys(agents.find(agent => agent['id'] === 'planner')!)).not.toContain('codeRunSettings');
   });
+
+  it('starts an agent created here with the run configuration the scenario saves for it, so its flow shows', async () => {
+    const script = scenario();
+    script.admin!.agents!.find(agent => agent.id === 'follow-up')!.runConfiguration = followUpConfiguration();
+    await configure(script);
+
+    const configuration = (await call('GET', 'admin/agents/follow-up/configuration')).body as AgentRunConfiguration;
+    expect(configuration.runSettings).toEqual(jasmine.objectContaining({
+      version: 1,
+      accountability: 'service-account',
+      serviceAccountActorId: 'operations',
+      approvalPolicy: 'project-review',
+      ruleHandler: 'project-follow-up'
+    }));
+    expect(configuration.dataSkills.map(skill => [skill.skillId, skill.ruleHandler])).toEqual([['complete-projects', 'project-follow-up']]);
+    // Saved triggers start in shadow unless the scenario puts them live.
+    expect(configuration.dataTriggers.map(trigger => [trigger.triggerId, trigger.shadow])).toEqual([['weekly', false], ['created', true]]);
+    expect(configuration.problems).toEqual([]);
+    const agents = (await call('GET', 'admin/agents')).body as AdminAgent[];
+    const followUp = agents.find(agent => agent.id === 'follow-up')!;
+    expect(followUp.skills?.find(skill => skill.skillId === 'complete-projects')?.shadow?.shadow).toBeFalse();
+    expect(Object.keys(followUp)).not.toContain('runConfiguration');
+
+    // The administration shows the agent's flow instead of asking it to work on its own first.
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const flow = await openFlow(fixture, element, 'follow-up');
+    expect(step(flow, 'account').querySelector('[data-flow-warning="no-settings"]')).toBeNull();
+    expect(text(step(flow, 'account').querySelector('[data-flow-account]'))).toBe('A technical account Operations operations');
+    expect(text(step(flow, 'when').querySelector('[data-flow-trigger="weekly"] [data-flow-target]'))).toBe('For the whole application');
+    expect(step(flow, 'skills').querySelector('[data-flow-skill="complete-projects"]')).not.toBeNull();
+    expect(element.querySelector('nh-assistant-agent-work-setup')).toBeNull();
+  });
+
+  it('refuses a scenario whose run configuration the mock would refuse to save', async () => {
+    const unknownRules = scenario();
+    unknownRules.admin!.agents!.find(agent => agent.id === 'follow-up')!.runConfiguration = {
+      runSettings: { accountability: 'service-account', serviceAccountActorId: 'operations', ruleHandler: 'unknown-rules' }
+    };
+    await expectAsync(start(unknownRules)).toBeRejectedWithError(/run settings of agent 'follow-up'.*"ruleHandler":\["not-found"\]/);
+
+    TestBed.resetTestingModule();
+    const unknownSkill = scenario();
+    unknownSkill.admin!.agents!.find(agent => agent.id === 'follow-up')!.runConfiguration = {
+      ...followUpConfiguration(),
+      triggers: [{ triggerId: 'weekly', source: 'schedule', skill: 'missing', cron: '0 7 * * 1', message: 'Count.' }]
+    };
+    await expectAsync(start(unknownSkill)).toBeRejectedWithError(/trigger 'weekly' of agent 'follow-up'.*"skill":\["not-found"\]/);
+
+    TestBed.resetTestingModule();
+    const inCode = scenario();
+    inCode.admin!.agents!.find(agent => agent.id === 'planner')!.runConfiguration = followUpConfiguration();
+    await expectAsync(start(inCode)).toBeRejectedWithError(/Mock agent 'planner' runs as its code says/);
+  });
 });
+
+/** Starts the mock API of the scenario. */
+async function start(script: NhAssistantMockScenario): Promise<void> {
+  await configure(script);
+  TestBed.inject(NhAssistantMockBackend);
+}
+
+/** The follow-up's run configuration as the sample's seeder saves it, as a scenario presets it. */
+function followUpConfiguration(): NhAssistantMockRunConfigurationPreset {
+  return {
+    runSettings: {
+      accountability: 'service-account',
+      serviceAccountActorId: 'operations',
+      approvalPolicy: 'project-review',
+      ruleHandler: 'project-follow-up'
+    },
+    skills: [{
+      skillId: 'complete-projects',
+      description: 'Counts the open projects and proposes to complete the finished ones.',
+      ruleHandler: 'project-follow-up',
+      tools: ['projects.change-status'],
+      shadow: false
+    }],
+    triggers: [
+      {
+        triggerId: 'weekly',
+        source: 'schedule',
+        skill: 'complete-projects',
+        cron: '0 7 * * 1',
+        timeZone: 'Europe/Amsterdam',
+        message: 'Count the open projects.',
+        shadow: false
+      },
+      { triggerId: 'created', source: 'event', event: 'project.created' }
+    ]
+  };
+}

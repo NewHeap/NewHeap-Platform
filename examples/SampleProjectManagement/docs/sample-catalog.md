@@ -159,6 +159,34 @@ that region next to `local`, and the assistant's profile gets a larger call budg
 Messages and the project data that tools read leave the machine, so use test data only; the
 [README](../README.md#a-real-model-for-the-assistant) lists the settings.
 
+An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
+Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
+server protects its address, from its challenge and protected resource metadata; saving the server
+with `oauth.confirmAuthorization` pins that issuer, so the assistant asks only it for tokens, always
+for the server's own address, and suspends the server's connections when it later names another
+one until an administrator confirms again. With `oauth-client-credentials` the sample's own client
+obtains a token on first use and reuses it: the planning server sees the client, never a person.
+With an `oauth` server for the organization the administrator authorizes the organization's account
+once in a popup. The callback checks the state, the issuer and PKCE, exchanges the code and hands a
+one-time completion code to the administrator's page, which completes the connection with the
+administrator's own session; the code alone completes nothing. Everyone who uses the server's agents
+then acts as that labelled account. The sample reads the callback address and the origins that may
+start an authorization from `NewHeap:AI:Assistant:Mcp:OAuth` in its development settings, and
+`AssistantAdministrationSamplesTests` runs both flows against `NhAiTestAuthorizationServer`.
+Disconnecting revokes the tokens at the authorization server, and no secret, code or token reaches a
+response, a log or an audit event.
+A server can also let each person connect their own account (SPM-300, `connectionScope: user`); it
+has no organization connection, so the administrator connects their own account to synchronize its
+tools. When Ann asks before she connected, the answer goes on without the server, says why and shows
+`nh-assistant-connection-required`, a card that survives a reload; she connects in a popup, completes
+with her own session and asks again, and the agent calls the server with her account. Bob is asked
+for his own account and never gets Ann's, and disconnecting in `nh-assistant-mcp-connections` revokes
+her tokens at once. The status advisor, which a participant starts and which acts with that
+participant's rights, uses the participant's connection in its background run only when an
+administrator offers the server in background runs (`headlessUse: personal`) and the participant
+consented while connecting; the audit names whose connection a call used. The playground shows the
+connect card in the chat, the preferences and the organization's CRM account on the mock.
+
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and
 `ProjectFieldSelectionSamplesTests`. The protected discovery endpoint reports
@@ -499,6 +527,9 @@ create or update and initializes form data; `appAfterViewInit` reports that the
 view is available, and `appOnDestroy` performs component-specific cleanup. The
 Angular hooks owned by the base are not overridden. `NhModalComponent` itself is
 the shell managed by `NhModalService`, not the base for consumer content.
+The large editor with the project's agent work is taller than the page: it
+scrolls vertically within the modal's holder, and the shell keeps the modal next
+to the holder's scrollbar, so nothing scrolls sideways (SPM-116).
 
 After `created` or `updated`, the register updates the concrete row and then
 closes the modal. The parent subsequently receives the `closed` event through

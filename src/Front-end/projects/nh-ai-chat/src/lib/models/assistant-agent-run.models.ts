@@ -131,6 +131,12 @@ export interface AgentProposalDecisionRight {
 /** One agent on a subject: its thread, `null` before it worked on the subject, and whether the caller may start it. */
 export interface AgentSubjectWorkAgent {
   agentId: string;
+  /**
+   * The agent's name: a translation key for an agent in code, the text itself for an agent created in
+   * the administration. It names an agent kept out of the chat as well, which the status does not list;
+   * missing from servers before it was added.
+   */
+  displayNameKey?: string | null;
   thread: AgentThread | null;
   canStart: boolean;
   /**

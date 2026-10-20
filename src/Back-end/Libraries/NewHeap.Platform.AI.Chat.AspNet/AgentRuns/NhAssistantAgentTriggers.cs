@@ -1432,9 +1432,7 @@ internal sealed class NhAssistantAgentTriggers(
 
     private AssistantQueuedInput CreateInput(NhAssistantTriggerFire fire, Guid conversationId)
     {
-        var personal = fire.TriggerId is NhAssistantTriggerIds.Manual
-            or NhAssistantTriggerIds.QueuedMessage
-            or NhAssistantTriggerIds.AgentRequest;
+        var personal = NhAssistantTriggerIds.IsAskedByPerson(fire.TriggerId);
         var text = fire.Message.Length > registration.Limits.MaxMessageChars
             ? fire.Message[..registration.Limits.MaxMessageChars]
             : fire.Message;

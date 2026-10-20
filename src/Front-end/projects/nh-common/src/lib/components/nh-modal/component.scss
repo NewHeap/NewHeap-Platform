@@ -32,6 +32,10 @@
   height: 100%;
   z-index: 250000;
   display: grid;
+  // One column as wide as the holder's content box, which excludes its scrollbar: the modal's
+  // percentage widths below resolve against it, never against the viewport (`vw` includes the
+  // scrollbar and made the holder scroll sideways by its width).
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   overscroll-behavior: none;
   @media all and (max-width: 768px) {
@@ -57,7 +61,7 @@
 .nh-modal {
   background-color: var(--color-background-white);
   border-radius: 5px;
-  max-width: 95vw;
+  max-width: 95%;
   width: 600px;
   position: relative;
   //margin: 60px auto 0;
@@ -135,7 +139,8 @@
     display: none;
   }
   @media all and (max-width: 768px) {
-    max-width: calc(100vw - 30px) !important;
+    // The holder is already 30px narrower than the page at this width.
+    max-width: 100% !important;
     margin: 0 auto;
   }
   .large-padding {
@@ -154,7 +159,7 @@
       //margin: 50px auto 0;
       border-bottom-left-radius: 0;
       border-bottom-right-radius: 0;
-      max-width: 100vw;
+      max-width: 100%;
       transition: transform 0.5s;
     }
 

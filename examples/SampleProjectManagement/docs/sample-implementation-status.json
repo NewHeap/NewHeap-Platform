@@ -1015,7 +1015,9 @@
     "SPM-116": [
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
       "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
-      "src/Front-end/projects/management/src/app/app.component.ts"
+      "src/Front-end/projects/management/src/app/app.component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.scss",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal.component.spec.ts"
     ],
     "SPM-117": [
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
@@ -2480,7 +2482,8 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-flow.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/agent-flow.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-flow.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-flow.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
     ],
     "SPM-299": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -2594,6 +2597,10 @@
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/internal/nh-assistant-run-now-dialog.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/internal/nh-assistant-subject-picker.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-object-agents.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-subject-suggestions.component.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectWork.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSubjectWorkTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-run-now.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-subject-picker.spec.ts",

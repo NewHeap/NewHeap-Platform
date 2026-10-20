@@ -261,7 +261,7 @@
       "assistant-mcp-headless-not-allowed": "Deze MCP-server mag niet in achtergrondruns worden gebruikt.",
       "assistant-mcp-credential-mismatch": "De MCP-aanroep is niet verstuurd, omdat hij is toegestaan voor iemand anders dan de persoon van wie de verbinding het token gebruikt.",
       "assistant-mcp-consent-required": "De persoon voor wie deze achtergrondrun werkt, heeft deze MCP-server niet toegestaan met het eigen account.",
-      "assistant-mcp-initiator-only": "Een run die iemand met de hand startte, gebruikt alleen de eigen verbinding van die persoon met deze MCP-server, en deze run werkt voor iemand anders.",
+      "assistant-mcp-initiator-only": "Een run waar iemand om vroeg, gebruikt alleen de eigen verbinding van die persoon met deze MCP-server, en deze run werkt voor iemand anders.",
       "assistant-mcp-delegated-token-unavailable": "Er kon geen kortlevend token worden uitgegeven voor de persoon voor wie deze achtergrondrun werkt.",
       "assistant-mcp-secret-reference-invalid": "De verwijzing wijst geen beschikbaar geheim aan. Controleer het voorvoegsel en de naam.",
       "assistant-mcp-certificate-reference-invalid": "Het clientcertificaat is niet geconfigureerd of heeft geen privésleutel.",

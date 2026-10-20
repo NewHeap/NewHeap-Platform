@@ -139,6 +139,7 @@ internal sealed class NhAssistantSubjectWork(
 
         var agentEntries = new List<NhAssistantSubjectAgentDto>(agentIds.Count);
         var proposals = new List<NhAssistantSubjectProposalDto>();
+        var names = await AgentNamesAsync(agentIds, cancellationToken);
         foreach (var id in agentIds.Order(StringComparer.Ordinal))
         {
             // The whole application shows an agent's thread only to people who pass its view policy.
@@ -155,6 +156,7 @@ internal sealed class NhAssistantSubjectWork(
                 thread is null ? null : await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(thread, access.Role, runs, subjects, cancellationToken),
                 canStart)
             {
+                DisplayNameKey = names.GetValueOrDefault(id),
                 ShadowThread = shadowThread is null ? null : await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(shadowThread, access.Role, runs, subjects, cancellationToken)
             });
             if (thread is not null)
@@ -224,6 +226,25 @@ internal sealed class NhAssistantSubjectWork(
                 : new NhAssistantSubjectSummaryDto(id, 0, 0, false))
             .ToArray();
         return TaskResult<NhAssistantSubjectSummaryListDto>.Succeeded(new NhAssistantSubjectSummaryListDto(subjectType, items));
+    }
+
+    /// <summary>
+    /// The names of the agents with work on the subject, also of an agent kept out of the chat or
+    /// stopped since, which the status does not list: a key for an agent in code, the text for one
+    /// created in the administration.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, string>> AgentNamesAsync(
+        IReadOnlyCollection<string> agentIds,
+        CancellationToken cancellationToken)
+    {
+        if (agentIds.Count == 0)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+
+        return (await agents.ListAsync(includeDisabled: true, cancellationToken))
+            .Where(agent => agentIds.Contains(agent.Id, StringComparer.Ordinal))
+            .ToDictionary(agent => agent.Id, agent => agent.Definition.DisplayNameKey, StringComparer.Ordinal);
     }
 
     /// <summary>

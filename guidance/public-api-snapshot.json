@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "22aa60a91a385d73b1566d23aa737075d820e28206d3b83e0998f29dbd46f8d4",
-    "declarationCount": 9051,
+    "hash": "5978954f3785a9b0b3f6713bd9de448f3af06096c2d3338fbd9e736fe0d70717",
+    "declarationCount": 9054,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2408,6 +2408,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
         "declaration": "public sealed record NhAssistantSubjectAgentDto( string AgentId, NhAssistantThreadDto? Thread, bool CanStart) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public string? DisplayNameKey { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
@@ -13687,6 +13691,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<string>> ListInputAuthorsAsync(Guid runId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<bool> QueuedInputExistsAsync(Guid inputId, CancellationToken cancellationToken) {"
       },
       {
@@ -14848,6 +14856,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public string? SkillChosenBy { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public IReadOnlyList<string> RequestedBy { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
@@ -40590,7 +40602,10 @@
       "AgentBoardVisit",
       "AgentGroup",
       "AdminAgentGroups",
-      "NhAssistantMockAgentGroup"
+      "NhAssistantMockAgentGroup",
+      "NhAssistantMockRunConfigurationPreset",
+      "NhAssistantMockDataSkill",
+      "NhAssistantMockDataTrigger"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

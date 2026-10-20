@@ -1173,9 +1173,10 @@ public static class NhAssistantAdminErrorCodes
     public const string McpConsentRequired = "assistant-mcp-consent-required";
 
     /// <summary>
-    /// A run a person started by hand acts for someone else, such as the account the agent answers
-    /// to; it may use only the starter's own connection to a server with personal background use,
-    /// never another person's.
+    /// A person asked for the run's turn (started it by hand, asked through another assistant, or
+    /// typed a message the run answers) and the turn acts for someone else, such as the account the
+    /// agent answers to; it may use only the asking person's own connection to a server with personal
+    /// background use, never another person's.
     /// </summary>
     public const string McpInitiatorOnly = "assistant-mcp-initiator-only";
 

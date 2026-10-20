@@ -31,7 +31,7 @@ override appOnInitAndLoad(): Promise<void> {
 
 Do not mechanically replace a deliberately unawaited call with `await`. Awaiting the promise returned by the hook delays the NewHeap metadata flush and the next lifecycle step until that task settles.
 
-Mutating modal content extends `NhModalMutateBaseComponent`; other dynamic content may extend `NhModalComponentImpl`. `NhModalComponent` is the service-owned shell. Pass `modalClasses: 'large'` to the modal service for a larger modal.
+Mutating modal content extends `NhModalMutateBaseComponent`; other dynamic content may extend `NhModalComponentImpl`. `NhModalComponent` is the service-owned shell. Pass `modalClasses: 'large'` to the modal service for a larger modal. The shell keeps the modal within its holder's content box, which excludes the holder's scrollbar: a modal taller than the page scrolls vertically and never sideways. Size modal content in percentages of the modal, not in `vw`.
 
 ## Avoid
 
@@ -40,8 +40,9 @@ Mutating modal content extends `NhModalMutateBaseComponent`; other dynamic conte
 - Adding `await` to a deliberately detached task without establishing a real ordering dependency.
 - Detaching a task that can reject without observing the error, or that can write stale state after a later route load.
 - Using the modal shell as the consumer content base.
+- Sizing modal content or overriding the modal's width with `vw` units, which include the scrollbar.
 - Solving route changes with full page reloads that rebuild the app shell and SignalR connection.
 
 ## Verification
 
-Test initial navigation, parameter changes inside the same shell, modal open, save, and cancel behavior, cleanup, and browser back and forward. Check console errors, subscription leaks, and that the initial collection load runs exactly once. For detached work, prove that the hook can complete before the task while failures are still observed; for awaited work, prove the dependent step cannot run early.
+Test initial navigation, parameter changes inside the same shell, modal open, save, and cancel behavior, cleanup, and browser back and forward. Open a large modal taller than the page at desktop and 375px widths and check that its holder does not scroll sideways. Check console errors, subscription leaks, and that the initial collection load runs exactly once. For detached work, prove that the hook can complete before the task while failures are still observed; for awaited work, prove the dependent step cannot run early.
