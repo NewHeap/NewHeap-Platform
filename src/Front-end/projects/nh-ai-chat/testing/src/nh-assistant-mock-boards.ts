@@ -211,7 +211,7 @@ export class NhAssistantMockBoards {
     requested: string | null
   ): AgentBoardAgent {
     const subject = this.subjectOf(agent, division, requested);
-    const work = subject ? this.agentRuns.boardWork(agent, subject) : null;
+    const work = subject ? this.agentRuns.boardWork(agent, subject, requested) : null;
     const ended = work?.latestRun && work.latestRun.status !== 'queued' && work.latestRun.status !== 'running'
       ? Date.parse(work.latestRun.at)
       : null;

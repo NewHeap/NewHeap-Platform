@@ -335,6 +335,62 @@ describe('The results of a thread and of an object', () => {
   });
 });
 
+describe('A result its rules wrote per culture', () => {
+  const english = '**5** projects are open; proposed completing PRJ-1.';
+  const dutch = 'Er zijn **5** projecten open; voorgesteld om PRJ-1 te voltooien.';
+
+  /** The follow-up's run for the whole application, as a run in Dutch whose rules wrote it per culture. */
+  function localizedScenario(): NhAssistantMockScenario {
+    return scenario({
+      agentGroups: [{ id: 'project-management', names: { en: 'Project management', nl: 'Projectbeheer' }, agentIds: ['follow-up'] }],
+      runs: [{
+        id: 'run-localized', agentId: 'follow-up', subjectType: 'nh-system', subjectId: 'global',
+        result: dutch, results: { 'nl-NL': dutch, 'en-US': english }, createdAt: '2026-10-19T07:00:00Z'
+      }]
+    });
+  }
+
+  async function callIn(path: string, language: string): Promise<any> {
+    const response = await TestBed.inject(NhAssistantMockBackend).fetch(`/api/assistant/${path}`, {
+      method: 'GET',
+      headers: { 'Accept-Language': language }
+    });
+    return JSON.parse(await response.text());
+  }
+
+  it('reads in the reader\'s language in the mock API wherever a result shows', async () => {
+    await configure(localizedScenario(), true);
+
+    for (const [language, expected] of [['en', english], ['en-US', english], ['nl', dutch], ['nl-NL', dutch], ['de', dutch]] as const) {
+      expect((await callIn('runs/run-localized', language)).result).withContext(language).toBe(expected);
+      expect((await callIn('runs', language)).items[0].result).withContext(language).toBe(expected);
+      expect((await callIn('admin/agents/follow-up/runs', language)).items[0].result).withContext(language).toBe(expected);
+      const agents = (await callIn('subjects/nh-system/global/agents', language)).agents;
+      expect(agents.find((agent: { agentId: string }) => agent.agentId === 'follow-up').latestRun.result).withContext(language).toBe(expected);
+      const board = await callIn('boards/project-management', language);
+      expect(board.agents.find((agent: { agentId: string }) => agent.agentId === 'follow-up').latestRun.result).withContext(language).toBe(expected);
+    }
+  });
+
+  it('shows an English reader the English result and a Dutch reader the Dutch result', async () => {
+    await configure(localizedScenario());
+    const translate = TestBed.inject(TranslateService);
+
+    let { element } = await (async () => {
+      const fixture = TestBed.createComponent(RunResultHost);
+      fixture.componentInstance.runId.set('run-localized');
+      return { element: await settle(fixture) };
+    })();
+    expect(text(element.querySelector('[data-run-answer]'))).toBe('5 projects are open; proposed completing PRJ-1.');
+
+    await firstValueFrom(translate.use('nl'));
+    const dutchFixture = TestBed.createComponent(RunResultHost);
+    dutchFixture.componentInstance.runId.set('run-localized');
+    element = await settle(dutchFixture);
+    expect(text(element.querySelector('[data-run-answer]'))).toBe('Er zijn 5 projecten open; voorgesteld om PRJ-1 te voltooien.');
+  });
+});
+
 describe('The runs view of an agent in the administration', () => {
   async function openRuns(agentId: string): Promise<{ fixture: ComponentFixture<NhAssistantAdminAgentsComponent>; element: HTMLElement }> {
     const fixture = TestBed.createComponent(NhAssistantAdminAgentsComponent);

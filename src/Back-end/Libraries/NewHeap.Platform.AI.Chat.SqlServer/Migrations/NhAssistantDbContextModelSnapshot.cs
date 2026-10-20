@@ -2120,6 +2120,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<bool>("ResultTruncated")
                         .HasColumnType("bit");
 
+                    b.Property<string>("ResultsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("Shadow")
                         .HasColumnType("bit");
 

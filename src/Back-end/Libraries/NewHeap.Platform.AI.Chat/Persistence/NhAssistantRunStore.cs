@@ -896,11 +896,16 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         Guid runId,
         string? result,
         bool truncated,
+        string? resultsJson,
         CancellationToken cancellationToken)
     {
         if (result is { Length: > NhAssistantLimits.MaxRunResultCharacters })
         {
             throw new ArgumentOutOfRangeException(nameof(result), "A run result is bounded before it is stored.");
+        }
+        if (resultsJson is { Length: > Runs.NhAssistantRunResults.MaxLocalizedSerializedLength })
+        {
+            throw new ArgumentOutOfRangeException(nameof(resultsJson), "The results per culture are bounded before they are stored.");
         }
 
         await using var context = contextFactory.CreateDbContext();
@@ -909,7 +914,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(run => run.Result, result)
-                    .SetProperty(run => run.ResultTruncated, truncated),
+                    .SetProperty(run => run.ResultTruncated, truncated)
+                    .SetProperty(run => run.ResultsJson, resultsJson),
                 cancellationToken);
     }
 

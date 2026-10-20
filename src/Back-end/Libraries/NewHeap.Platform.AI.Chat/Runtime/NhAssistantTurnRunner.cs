@@ -1091,7 +1091,8 @@ internal sealed partial class NhAssistantTurnRunner(
             Kind = state.Kind,
             SkillId = state.Skill?.Id,
             UsedRestrictedResults = state.UsedRestrictedResults,
-            ModelCalls = state.Scope.ModelCalls
+            ModelCalls = state.Scope.ModelCalls,
+            LocalizedAnswer = state.LocalizedAnswer
         };
     }
 
@@ -1170,10 +1171,9 @@ internal sealed partial class NhAssistantTurnRunner(
 
         if (outcomeStatus == NhAssistantTurnStatuses.Completed && result?.Summary is { } summary)
         {
-            state.AppendText(state.RuleRationales.Count == 0
-                ? summary
-                : summary + "\n\n" + string.Join("\n", state.RuleRationales.Select(why => "- " + why)));
+            state.AppendText(RuleAnswer(summary, state.RuleRationales));
             await interceptor.FlushAsync(CancellationToken.None);
+            state.LocalizedAnswer = LocalizeRuleAnswer(result, state.RuleRationaleWriters);
         }
         await store.SetMessageAuthorAsync(
             state.AssistantMessageId,
@@ -1199,6 +1199,56 @@ internal sealed partial class NhAssistantTurnRunner(
             errorCode));
         await AfterTurnAsync(state, outcomeStatus);
         return null;
+    }
+
+    /// <summary>
+    /// The answer of a rule turn as the thread shows it: the rules' summary, then why they made each
+    /// proposal.
+    /// </summary>
+    private static string RuleAnswer(string summary, IReadOnlyList<string> rationales)
+    {
+        if (rationales.Count == 0)
+        {
+            return summary;
+        }
+
+        return summary + "\n\n" + string.Join("\n", rationales.Select(why => "- " + why));
+    }
+
+    /// <summary>
+    /// The answer of a rule turn in each supported UI culture, for the run's result people read in their
+    /// own language: the summary of <see cref="NhAssistantRuleResult.Done(Func{CultureInfo, string})"/>
+    /// and the rationales of the proposals in each culture. A summary and rationales in one language
+    /// keep the answer in the run's culture only.
+    /// </summary>
+    private IReadOnlyDictionary<string, string>? LocalizeRuleAnswer(
+        NhAssistantRuleResult result,
+        IReadOnlyList<Func<CultureInfo, string?>> rationaleWriters)
+    {
+        if (result.LocalizedSummary is null && rationaleWriters.Count == 0)
+        {
+            return null;
+        }
+
+        var cultures = services.GetService<NhAssistantRunResultCultures>();
+        return cultures?.Render(culture =>
+        {
+            var summary = result.LocalizedSummary is null
+                ? result.Summary
+                : result.LocalizedSummary(culture)?.Trim();
+            if (string.IsNullOrEmpty(summary) || summary.Length > NhAssistantRuleResult.MaxSummaryLength)
+            {
+                // A culture without a valid summary reads the run's own culture.
+                return null;
+            }
+
+            var rationales = rationaleWriters
+                .Select(write => write(culture)?.Trim())
+                .Where(why => !string.IsNullOrEmpty(why))
+                .Select(why => NhAssistantContent.Bound(why!.ReplaceLineEndings(" "), NhAssistantLimits.MaxStaleExplanationCharacters))
+                .ToArray();
+            return RuleAnswer(summary, rationales);
+        });
     }
 
     /// <summary>
@@ -1255,6 +1305,7 @@ internal sealed partial class NhAssistantTurnRunner(
             cancellationToken);
         var snapshot = await memory.GetAsync(conversationId, cancellationToken);
         var rationales = state.RuleRationales;
+        var rationaleWriters = state.RuleRationaleWriters;
         return new NhAssistantRuleContext(
             agentTurn.Thread.AgentId,
             agentTurn.RunId ?? Guid.Empty,
@@ -1276,6 +1327,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 {
                     // The thread keeps why, so the model can answer a person who asks about it.
                     rationales.Add(NhAssistantContent.Bound(why.ReplaceLineEndings(" "), NhAssistantLimits.MaxStaleExplanationCharacters));
+                    rationaleWriters.Add(rationale);
                 }
 
                 return proposed;

@@ -131,18 +131,18 @@ public sealed class ProjectCloserRules(
         var handedOver = context.Inputs.Any(input => input.TriggerId == NhAssistantTriggerIds.HandOff);
         if (!handedOver && !context.Inputs.Any(input => input.GetPayload<ProjectTaskChange>()?.IsCompleted == true))
         {
-            return NhAssistantRuleResult.Done(localizer["CloserNoTaskCompleted"].Value);
+            return NhAssistantRuleResult.Done(_ => localizer["CloserNoTaskCompleted"].Value);
         }
 
         // The same check as the project briefing reports to the model (SPM-285).
         var check = await ProjectCompletionCheck.ReadAsync(dbContext, Guid.Parse(context.Subject.Subject.Id), cancellationToken);
         if (check is not { IsActive: true })
         {
-            return NhAssistantRuleResult.Done(localizer["CloserProjectNotActive"].Value);
+            return NhAssistantRuleResult.Done(_ => localizer["CloserProjectNotActive"].Value);
         }
         if (!check.ReadyToComplete)
         {
-            return NhAssistantRuleResult.Done(localizer["CloserTasksOpen", check.Open, check.Total].Value);
+            return NhAssistantRuleResult.Done(_ => localizer["CloserTasksOpen", check.Open, check.Total].Value);
         }
 
         var projectId = Guid.Parse(context.Subject.Subject.Id);
@@ -152,7 +152,7 @@ public sealed class ProjectCloserRules(
             // The platform asks once per supported culture, with that culture current.
             _ => localizer["CloserReason", check.Total].Value,
             cancellationToken);
-        return NhAssistantRuleResult.Done(proposal.Outcome switch
+        return NhAssistantRuleResult.Done(_ => proposal.Outcome switch
         {
             NhAssistantProposeOutcome.Created => localizer["CloserProposed"].Value,
             NhAssistantProposeOutcome.AlreadyOpen => localizer["CloserAlreadyOpen"].Value,

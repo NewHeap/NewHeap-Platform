@@ -1595,17 +1595,16 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             }
             var result = await WaitForRunResultAsync(viewer, receipt.RunId!.Value);
             Assert.Equal(NhAssistantRunStatuses.Completed, result.Run.Status);
-            // Runs work in the application's default culture, Dutch on this host: "N open projects;
-            // proposed completing X, Y" in the follow-up's Dutch text, with the keys of the projects.
-            var template = new ResourceManager(typeof(SampleAssistantToolPresenter)).GetString("FollowUpProposed", CultureInfo.GetCultureInfo("nl-NL"))!;
-            var pattern = "^" + System.Text.RegularExpressions.Regex.Escape(template)
-                .Replace(@"\{0}", @"\d+", StringComparison.Ordinal)
-                .Replace(@"\{1}", "(?<keys>[^.]+)", StringComparison.Ordinal)
-                .Replace(@"\{2}", @"\d+", StringComparison.Ordinal)
-                .Replace(@"\{3}", @"\d+", StringComparison.Ordinal);
-            var match = System.Text.RegularExpressions.Regex.Match(result.Result!, pattern);
-            Assert.True(match.Success, result.Result);
-            Assert.All(keys, key => Assert.Contains(key, match.Groups["keys"].Value, StringComparison.Ordinal));
+            // Runs work in the application's default culture, Dutch on this host, and the follow-up's
+            // rules write their result per culture: "N open projects; proposed completing X, Y" in
+            // English for the viewer, whose browser asks for English, and in the follow-up's Dutch text
+            // for a Dutch reader, each with the keys of the projects.
+            AssertFollowUpProposed(result.Result, "en-US", keys);
+            var dutch = await GetInAsync<NhAssistantRunResultDto>(viewer, $"/api/assistant/runs/{receipt.RunId}", "nl-NL");
+            AssertFollowUpProposed(dutch.Result, "nl-NL", keys);
+            var english = await GetInAsync<NhAssistantRunResultDto>(viewer, $"/api/assistant/runs/{receipt.RunId}", "en");
+            AssertFollowUpProposed(english.Result, "en-US", keys);
+            Assert.Equal(result.Run.Id, english.Run.Id);
             Assert.Equal((followUp, NhAiSubjectRef.SystemType, NhAiSystemSubjects.GlobalId), (result.Run.AgentId, result.Run.SubjectType, result.Run.SubjectId));
             Assert.False(result.ResultTruncated);
             // The summary for the follow-up's memory stays next to it.
@@ -1629,6 +1628,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var inView = Assert.Single(view.Items, item => item.Id == receipt.RunId);
             Assert.Equal((NhAssistantTriggerIds.Manual, NhAssistantRunKinds.Rule), (inView.TriggerId, inView.Kind));
             Assert.True(inView.ProposalCount >= finished.Count);
+            // An English administrator reads the result in English in the runs view and its flow view.
+            var englishView = await GetInAsync<NhAssistantRunHistoryListDto>(administrator, $"/api/assistant/admin/agents/{followUp}/runs?status=completed", "en");
+            Assert.StartsWith(english.Result![..20], Assert.Single(englishView.Items, item => item.Id == receipt.RunId).Result, StringComparison.Ordinal);
+            var englishHistory = await GetInAsync<NhAssistantRunHistoryListDto>(viewer, $"/api/assistant/runs?agentId={followUp}&subjectType=nh-system", "en");
+            Assert.StartsWith(english.Result![..20], Assert.Single(englishHistory.Items, item => item.Id == receipt.RunId).Result, StringComparison.Ordinal);
 
             var inbox = (await colleague.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox?itemsPerPage=100", Json))!;
             placed = inbox.Items.Where(item => item.AgentId == followUp && item.RunId == receipt.RunId).ToArray();
@@ -1717,6 +1721,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Equal((runId, true), (tile.LatestRun?.RunId, tile.IsNew));
             Assert.False(tile.CanStart);
             Assert.StartsWith(result.Result![..20], tile.LatestRun!.Result, StringComparison.Ordinal);
+            // The rules wrote the result per culture: the board shows a Dutch reader the Dutch result.
+            var resultInDutch = await GetInAsync<NhAssistantRunResultDto>(viewer, $"/api/assistant/runs/{runId}", "nl-NL");
+            Assert.NotEqual(result.Result, resultInDutch.Result);
+            var dutchTile = Assert.Single((await GetInAsync<NhAssistantBoardDto>(viewer, $"/api/assistant/boards/{group}", "nl-NL")).Agents, agent => agent.AgentId == followUp);
+            Assert.StartsWith(resultInDutch.Result![..20], dutchTile.LatestRun!.Result, StringComparison.Ordinal);
             using (var visited = await viewer.PostAsync($"/api/assistant/boards/{group}/visit", null))
             {
                 Assert.Equal(HttpStatusCode.OK, visited.StatusCode);
@@ -1744,6 +1753,36 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             }
             await RemoveFollowUpAsync(administrator);
         }
+    }
+
+    /// <summary>
+    /// Reads <paramref name="path"/> as a person whose browser asks for <paramref name="language"/>.
+    /// </summary>
+    private static async Task<T> GetInAsync<T>(HttpClient client, string path, string language)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.AcceptLanguage.ParseAdd(language);
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<T>(Json))!;
+    }
+
+    /// <summary>
+    /// Checks that <paramref name="result"/> is the project follow-up's "N open projects; proposed
+    /// completing X, Y" in the text of <paramref name="culture"/> and names every project of
+    /// <paramref name="keys"/>.
+    /// </summary>
+    private static void AssertFollowUpProposed(string? result, string culture, IReadOnlyCollection<string> keys)
+    {
+        var template = new ResourceManager(typeof(SampleAssistantToolPresenter)).GetString("FollowUpProposed", CultureInfo.GetCultureInfo(culture))!;
+        var pattern = "^" + System.Text.RegularExpressions.Regex.Escape(template)
+            .Replace(@"\{0}", @"\d+", StringComparison.Ordinal)
+            .Replace(@"\{1}", "(?<keys>[^.]+)", StringComparison.Ordinal)
+            .Replace(@"\{2}", @"\d+", StringComparison.Ordinal)
+            .Replace(@"\{3}", @"\d+", StringComparison.Ordinal);
+        var match = System.Text.RegularExpressions.Regex.Match(result ?? string.Empty, pattern);
+        Assert.True(match.Success, result);
+        Assert.All(keys, key => Assert.Contains(key, match.Groups["keys"].Value, StringComparison.Ordinal));
     }
 
     /// <summary>

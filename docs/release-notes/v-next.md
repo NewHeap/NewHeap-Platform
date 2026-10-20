@@ -906,3 +906,32 @@ consultation and the author of feedback. The new texts are bundled in English an
 |---|---|
 | The account ID no longer shows next to a known account name, and an ID without a name reads "Account ID …" or "account ID …" instead of the bare ID. | Update tests that read an account's ID from the text; read the tooltip (`title`) instead. |
 | The translation keys `nh-assistant.account-id`, `nh-assistant.account-id-title` and `nh-assistant.admin.account` are added. | Update host overrides of the assistant's texts. |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: results in the reader's language
+
+A run works in the application's default culture, so a rule handler's summary used to read in that
+language for everyone. `NhAssistantRuleResult.Done(Func<CultureInfo, string>)` lets a rule handler
+write it per culture: the platform asks once in the run's culture, which the thread and the agent's
+memory keep, and once per supported UI culture with that culture current, the rationales of its
+proposals included. The run keeps its result per culture in `AssistantRun.ResultsJson`, and `GET
+runs/{id}` (`NhAssistantRunResultDto.Result`), `GET runs` and `GET admin/agents/{id}/runs`
+(`NhAssistantRunHistoryDto.Result`), `GET subjects/{type}/{id}/agents` (`NhAssistantLatestRunDto.Result`)
+and the boards return each reader the result in the request's culture: the exact culture, its parents
+or another culture of the same language, and otherwise the run's own culture. A model's answer and a
+result written with `Done(string)` read as written.
+
+| Breaking change | Required action |
+|---|---|
+| Migration `AgentRunLocalizedResults` adds `ResultsJson` to `AssistantRun`. | Apply it for SQL Server or PostgreSQL. |
+| The result of a run whose rules write it per culture reads in the request's culture instead of the run's culture. | Send the reader's language as `Accept-Language`; update tests that expected the run's culture. |
+
+## @newheap/platform-ai-chat: results in the reader's language
+
+The run results, run histories, object agents and boards show a result whose rules wrote it per
+culture in the language the client sends as `Accept-Language`. The mock API takes such a result as
+`results` (per culture) on `NhAssistantMockRun` and `NhAssistantMockRunNow` and answers each request in
+its language, with `result` for other languages.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantMockRun` and `NhAssistantMockRunNow` gain the optional `results`; the mock answers runs, histories, object agents and boards in the request's language when a run has them. | None; scenarios without `results` read as before. |

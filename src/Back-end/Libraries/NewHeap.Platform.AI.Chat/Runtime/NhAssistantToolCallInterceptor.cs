@@ -193,6 +193,18 @@ internal sealed class NhAssistantTurnState
     public List<string> RuleRationales { get; } = [];
 
     /// <summary>
+    /// Why the agent's rules made each proposal of the turn, in any culture, for the turn's answer per
+    /// culture.
+    /// </summary>
+    public List<Func<CultureInfo, string?>> RuleRationaleWriters { get; } = [];
+
+    /// <summary>
+    /// The answer of a rule turn in each supported UI culture, by culture name; <see langword="null"/>
+    /// for a model's answer or an application with one culture.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? LocalizedAnswer { get; set; }
+
+    /// <summary>
     /// How the turn worked: one of the values in <see cref="NhAssistantRunKinds"/>.
     /// </summary>
     public string Kind => HandedOver

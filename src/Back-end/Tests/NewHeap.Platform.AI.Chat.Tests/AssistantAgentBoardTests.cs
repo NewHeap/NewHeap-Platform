@@ -170,7 +170,19 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
     {
         await using var app = await StartAsync(provider);
         var now = DateTimeOffset.UtcNow;
-        var statistics = await SeedRunAsync(app, Statistics, NhAiSystemSubjects.Global, now.AddHours(-2), "**12** projects are open.");
+        // The statistics' rules wrote their result per culture; readers see it in their own language.
+        var statistics = await SeedRunAsync(
+            app,
+            Statistics,
+            NhAiSystemSubjects.Global,
+            now.AddHours(-2),
+            "**12** projects are open.",
+            resultsJson: NhAssistantRunResults.AppendLocalized(
+                null,
+                null,
+                false,
+                "**12** projects are open.",
+                new Dictionary<string, string> { ["en-US"] = "**12** projects are open.", ["nl-NL"] = "Er zijn **12** projecten open." }));
         await SeedRunAsync(app, FollowUp, NhAiSystemSubjects.Global, now.AddHours(-1), "Proposed completing PRJ-1.");
         var north = await SeedRunAsync(app, Regional, NhAiSystemSubjects.ForDivision(AssistantSystemSubjectTests.North), now.AddMinutes(-30), "North is on track.");
 
@@ -201,7 +213,7 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
             tile.GetProperty("subjectType").GetString(),
             tile.GetProperty("subjectId").GetString(),
             tile.GetProperty("subjectDisplayName").GetString()));
-        Assert.Equal((statistics, "**12** projects are open.", true, false), (
+        Assert.Equal((statistics, "Er zijn **12** projecten open.", true, false), (
             tile.GetProperty("latestRun").GetProperty("runId").GetGuid(),
             tile.GetProperty("latestRun").GetProperty("result").GetString(),
             tile.GetProperty("isNew").GetBoolean(),
@@ -589,7 +601,8 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
         NhAiSubjectRef subject,
         DateTimeOffset createdAt,
         string result,
-        Guid? operationId = null)
+        Guid? operationId = null,
+        string? resultsJson = null)
     {
         var thread = await ThreadAtAsync(app, agentId, subject);
         var run = new AssistantRun
@@ -602,6 +615,7 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
             AgentVersion = 1,
             Summary = "Ended completed.",
             Result = result,
+            ResultsJson = resultsJson,
             CreatedAt = createdAt,
             StartedAt = createdAt,
             EndedAt = createdAt.AddSeconds(30),

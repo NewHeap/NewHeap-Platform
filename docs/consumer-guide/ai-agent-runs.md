@@ -262,7 +262,15 @@ in `AssistantRun.Result`, at most `NhAssistantLimits.MaxRunResultCharacters` (20
 thematic break, the rules' summary of a rule run included, while `NhAssistantRunSummaries` keeps writing
 the small summary the agent's next runs start from. Files the run saved stay artifacts. The result is
 model output, MCP tool output included: render it only with a safe Markdown renderer, never as HTML.
-It lives with the run, so it follows the thread's retention. `GET runs` lists for people the runs they
+It lives with the run, so it follows the thread's retention. A run works in the application's default
+culture, so a result the rules write once reads in that language for everyone; let rule handlers write
+it per culture instead with `NhAssistantRuleResult.Done(culture => ...)`, which the platform asks once
+per supported UI culture with that culture current, rationales included. The run then keeps its result
+per culture as well (`AssistantRun.ResultsJson`, migration `AgentRunLocalizedResults`), and `GET runs`,
+`GET runs/{id}`, `GET admin/agents/{id}/runs`, the agents of an object and the boards return each reader
+the result in the request's culture, by the exact culture, its parents or another culture of the same
+language, and otherwise in the run's own culture; the thread and the agent's memory keep the run's own
+culture. A model's answer stays as the model wrote it. `GET runs` lists for people the runs they
 may see (`NhAssistantRunHistoryListDto` of `NhAssistantRunHistoryDto`: agent and its name, subject,
 trigger, status, kind, skill, usage, times and the first 300 characters of the result), newest first,
 with the filters `agentId`, `subjectType` (`nh-system` for the whole application), `subjectId`,
@@ -708,7 +716,8 @@ rules), presenters, guards, deduplication, audit and live updates. Only tools th
 can be proposed and nothing executes before people decide; a tool the agent may not use, or one
 whose arguments do not fit, is `Refused`. The rationale is rendered in every supported culture;
 approvers read it as `rationale` on the proposal and its approval part, and it ends the rule's
-message in the thread. Finish with `NhAssistantRuleResult.Done(summary)`, or hand an unclear case
+message in the thread. Finish with `NhAssistantRuleResult.Done(culture => summary)` so people read the
+run's result in their own language (`Done(summary)` writes it in the run's culture only), or hand an unclear case
 over with `HandOver(reason)`: the same run continues with the model, which reads the reason and the
 proposals already made, and reads `rule-then-model`. `UseModel()` on a trigger sends its runs to the
 model. A person's message in the thread and a consultation always reach the model, so keep a model
@@ -828,6 +837,9 @@ profile and instructions that answer questions about the rules' proposals from t
   the agent a `RunPolicy` (by default the administration policy decides).
 - Showing a run's result from `NhAssistantLatestRunDto.Result`, `NhAssistantRunHistoryDto.Result` or
   `NhAssistantRunResultDto.Result` as HTML; it is model output and may carry MCP tool output.
+- Writing a rule handler's result once with `NhAssistantRuleResult.Done(summary)` in an application
+  with more languages; people would read it in the culture the run worked in. Use
+  `Done(culture => ...)` with the application's localized texts.
 - Listing runs for people straight from the database, or reading a run's answer from its summary; use
   `GET runs` and `GET runs/{id}`, which decide per object and per view policy who sees a run.
 - Granting the read policy of the whole application to people who should not see one agent's work
@@ -885,7 +897,10 @@ a throwing guard keeps a proposal open, that a waiting inline run continues with
 and that the report counts the invalidation apart from rejections, on both providers. Start a
 rule handler from an event and assert that no model was called, that the run reads `rule` with no
 tokens, that the proposal waits deferred with its rationale in each supported culture and that the
-thread's message reads `rule`; hand a run over and assert `rule-then-model`. Propose the same change
+thread's message reads `rule`; finish a rule run with `Done(culture => ...)` and assert that `GET
+runs/{id}`, `GET runs`, `GET admin/agents/{id}/runs`, the agents of the subject and the board read the
+result in an English and a Dutch request and a model's answer as written, on both providers; hand a
+run over and assert `rule-then-model`. Propose the same change
 twice from rules and from a model and assert one proposal and the deduplication audit; propose for
 the same objects with other arguments and assert the replacement, `Skip`, `Allow` and that an
 approved proposal stays; reject a proposal and assert that it is refused within the cooldown and
@@ -1196,7 +1211,7 @@ references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
   - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts)
   - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html)
-- SPM-304 — The administration's runs view lists every run of the project follow-up, and the portal's Project management board shows its latest result, what is new and its history to people who pass its view policy
+- SPM-304 — The administration's runs view lists every run of the project follow-up, and the portal's Project management board shows its latest result, what is new and its history to people who pass its view policy, each in their own language
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)

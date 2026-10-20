@@ -181,6 +181,14 @@ public sealed class AssistantRun
     /// </summary>
     public bool ResultTruncated { get; set; }
 
+    /// <summary>
+    /// The result in each supported UI culture, when the run's rules wrote their answer per culture: a
+    /// JSON object from culture name to the result in that culture and whether it was cut, the run's
+    /// own culture included. Readers get the result in their culture and <see cref="Result"/>
+    /// otherwise; <see langword="null"/> for a result in one language, such as a model's answer.
+    /// </summary>
+    public string? ResultsJson { get; set; }
+
     public bool Shadow { get; set; }
 
     /// <summary>

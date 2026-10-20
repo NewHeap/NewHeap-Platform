@@ -305,6 +305,8 @@ public sealed class NhAssistantDbContext : DbContext
             run.Property(item => item.FailureCode).HasMaxLength(128);
             run.Property(item => item.Summary).HasMaxLength(4_000);
             run.Property(item => item.Result).HasMaxLength(NhAssistantLimits.MaxRunResultCharacters);
+            // At most eight cultures of at most 20,000 characters each, bounded before it is stored.
+            run.Property(item => item.ResultsJson);
             run.Property(item => item.Kind)
                 .HasMaxLength(24)
                 .IsRequired()

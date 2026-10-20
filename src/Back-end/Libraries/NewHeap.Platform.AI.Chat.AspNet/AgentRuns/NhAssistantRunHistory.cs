@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using NewHeap.Platform.AI.Chat.Entities;
@@ -221,10 +222,12 @@ internal sealed class NhAssistantRunHistory(
                     cancellationToken)));
         }
 
+        // A result the run's rules wrote per culture reads in the reader's culture.
+        var (result, truncated) = NhAssistantRunResults.ResultOf(run, CultureInfo.CurrentUICulture);
         return TaskResult<NhAssistantRunResultDto>.Succeeded(new NhAssistantRunResultDto(
             (await ToDtosAsync([row], cancellationToken))[0],
-            run.Result,
-            run.ResultTruncated,
+            result,
+            truncated,
             run.Summary,
             proposals,
             hidden,
@@ -356,7 +359,7 @@ internal sealed class NhAssistantRunHistory(
     private NhAssistantRunHistoryDto ToDto(NhAssistantRunRow row)
     {
         var (run, thread) = (row.Run, row.Thread);
-        var (result, truncated) = NhAssistantRunResults.PreviewOf(run);
+        var (result, truncated) = NhAssistantRunResults.PreviewOf(run, CultureInfo.CurrentUICulture);
         var (typeName, link) = NhAssistantAgentRunDtoMapper.SubjectOf(_subjects, thread.SubjectType, thread.SubjectId);
         return new NhAssistantRunHistoryDto(
             run.Id,

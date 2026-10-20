@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
@@ -75,7 +76,7 @@ internal sealed class NhAssistantObjectAgents(
                 agent.Definition.DescriptionKey,
                 await starts.CanStartAsync(agent, subject, access, actorId, user, cancellationToken),
                 opened?.ConversationId,
-                latest is null ? null : ToDto(latest),
+                latest is null ? null : ToDto(latest, CultureInfo.CurrentUICulture),
                 own.Sum(thread => openProposals.GetValueOrDefault(thread.ConversationId))));
         }
 
@@ -121,9 +122,13 @@ internal sealed class NhAssistantObjectAgents(
         return candidates.OrderBy(agent => agent.Id, StringComparer.Ordinal).ToArray();
     }
 
-    internal static NhAssistantLatestRunDto ToDto(AssistantRun run)
+    /// <summary>
+    /// The latest run with the beginning of its result in <paramref name="culture"/>, the reader's
+    /// culture, when its rules wrote it per culture.
+    /// </summary>
+    internal static NhAssistantLatestRunDto ToDto(AssistantRun run, CultureInfo culture)
     {
-        var (result, truncated) = NhAssistantRunResults.PreviewOf(run);
+        var (result, truncated) = NhAssistantRunResults.PreviewOf(run, culture);
         return new NhAssistantLatestRunDto(
             run.Id,
             run.ConversationId,

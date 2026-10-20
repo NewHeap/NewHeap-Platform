@@ -38,7 +38,9 @@ public sealed class ProjectFollowUpRouting(IStringLocalizer<SampleAssistantToolP
 /// projects and that the operations account it answers to reads the project; the project's approvers
 /// decide it there and in their inbox. A run places at most twenty proposals. SPM-304: what the rules
 /// write ("N open projects; proposed completing X, Y") is the run's result, which the runs view and
-/// <c>GET runs</c> show to the people who pass the follow-up's view policy.
+/// <c>GET runs</c> show to the people who pass the follow-up's view policy. The rules write it per
+/// culture (<c>NhAssistantRuleResult.Done(culture =&gt; ...)</c>), so an English reader reads it in
+/// English and a Dutch reader in Dutch, whatever culture the run worked in.
 /// </summary>
 public sealed class ProjectFollowUpRules(
     SampleProjectManagementDbContext dbContext,
@@ -62,7 +64,8 @@ public sealed class ProjectFollowUpRules(
                 cancellationToken);
         if (open <= OpenThreshold)
         {
-            return NhAssistantRuleResult.Done(localizer["FollowUpFewOpen", open].Value);
+            // The platform asks once per supported culture, with that culture current.
+            return NhAssistantRuleResult.Done(_ => localizer["FollowUpFewOpen", open].Value);
         }
 
         // The same readiness as the project closer checks (SPM-283): active, with tasks, none open.
@@ -105,8 +108,9 @@ public sealed class ProjectFollowUpRules(
             }
         }
 
-        // The run's result names the projects it proposed to complete; people read it in the runs view.
-        return NhAssistantRuleResult.Done(proposed.Count > 0
+        // The run's result names the projects it proposed to complete; people read it in the runs view,
+        // on the board and with the project's agents, each in their own language.
+        return NhAssistantRuleResult.Done(_ => proposed.Count > 0
             ? localizer["FollowUpProposed", open, string.Join(", ", proposed), waiting, refused].Value
             : localizer["FollowUpNothingNew", open, waiting, refused].Value);
     }

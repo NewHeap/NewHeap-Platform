@@ -1,9 +1,12 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.AspNet;
@@ -57,9 +60,116 @@ public sealed class AssistantRunResultTests(AssistantDatabaseFixture database)
 
         // The preview of a listing is the beginning of the stored answer; without one, the summary.
         var run = new AssistantRun { Summary = "2026-10-20 07:00 UTC, trigger manual, completed.", Result = new string('r', 400) };
-        Assert.Equal((new string('r', NhAssistantRunResults.MaxPreviewCharacters), true), NhAssistantRunResults.PreviewOf(run));
+        Assert.Equal((new string('r', NhAssistantRunResults.MaxPreviewCharacters), true), NhAssistantRunResults.PreviewOf(run, English));
         run.Result = null;
-        Assert.Equal((run.Summary, false), NhAssistantRunResults.PreviewOf(run));
+        Assert.Equal((run.Summary, false), NhAssistantRunResults.PreviewOf(run, English));
+    }
+
+    [Fact]
+    public void A_result_the_rules_wrote_per_culture_reads_in_the_readers_language()
+    {
+        // A model's answer stays in one language: nothing per culture.
+        Assert.Null(NhAssistantRunResults.AppendLocalized(null, null, false, "A model's answer.", null));
+
+        // A rule turn answers per culture; the run's own culture (Dutch here) is one of them.
+        var localized = NhAssistantRunResults.AppendLocalized(
+            null,
+            null,
+            false,
+            "Er zijn **5** projecten open.",
+            new Dictionary<string, string> { ["nl-NL"] = "Er zijn **5** projecten open.", ["en-US"] = "**5** projects are open." });
+        var run = new AssistantRun { Summary = "Ended completed.", Result = "Er zijn **5** projecten open.", ResultsJson = localized };
+
+        // The exact culture, a parent or another culture of the same language, else the run's own culture.
+        Assert.Equal(("**5** projects are open.", false), NhAssistantRunResults.ResultOf(run, English));
+        Assert.Equal(("**5** projects are open.", false), NhAssistantRunResults.ResultOf(run, CultureInfo.GetCultureInfo("en")));
+        Assert.Equal(("**5** projects are open.", false), NhAssistantRunResults.ResultOf(run, CultureInfo.GetCultureInfo("en-GB")));
+        Assert.Equal(("Er zijn **5** projecten open.", false), NhAssistantRunResults.ResultOf(run, Dutch));
+        Assert.Equal(("Er zijn **5** projecten open.", false), NhAssistantRunResults.ResultOf(run, CultureInfo.GetCultureInfo("de-DE")));
+        Assert.Equal(("**5** projects are open.", false), NhAssistantRunResults.PreviewOf(run, English));
+        // A result without results per culture, or with unreadable ones, reads as stored.
+        Assert.Equal(("Er zijn **5** projecten open.", false), NhAssistantRunResults.ResultOf(new AssistantRun { Result = run.Result, ResultsJson = "not json" }, English));
+
+        // A later model turn adds the same answer to every culture; a culture the rules left out of a
+        // turn starts from the result so far and takes the run's own answer.
+        var withModel = NhAssistantRunResults.AppendLocalized(localized, run.Result, false, "Ik heb ook naar PRJ-1 gekeken.", null);
+        run.ResultsJson = withModel;
+        Assert.Equal("**5** projects are open." + NhAssistantRunResults.TurnSeparator + "Ik heb ook naar PRJ-1 gekeken.", NhAssistantRunResults.ResultOf(run, English).Text);
+        var withGerman = NhAssistantRunResults.AppendLocalized(
+            localized,
+            run.Result,
+            false,
+            "Nog een regel.",
+            new Dictionary<string, string> { ["de-DE"] = "Noch eine Regel.", ["en-US"] = "One more rule." });
+        run.ResultsJson = withGerman;
+        Assert.Equal("**5** projects are open." + NhAssistantRunResults.TurnSeparator + "One more rule.", NhAssistantRunResults.ResultOf(run, English).Text);
+        Assert.Equal("Er zijn **5** projecten open." + NhAssistantRunResults.TurnSeparator + "Nog een regel.", NhAssistantRunResults.ResultOf(run, Dutch).Text);
+        Assert.Equal("Er zijn **5** projecten open." + NhAssistantRunResults.TurnSeparator + "Noch eine Regel.", NhAssistantRunResults.ResultOf(run, CultureInfo.GetCultureInfo("de-DE")).Text);
+
+        // Every culture is bounded like the result, and a culture that was cut takes nothing more.
+        var cut = NhAssistantRunResults.AppendLocalized(
+            null,
+            null,
+            false,
+            "Kort.",
+            new Dictionary<string, string> { ["nl-NL"] = "Kort.", ["en-US"] = new string('e', NhAssistantLimits.MaxRunResultCharacters + 10) });
+        run.ResultsJson = NhAssistantRunResults.AppendLocalized(cut, "Kort.", false, "Meer.", null);
+        Assert.Equal((new string('e', NhAssistantLimits.MaxRunResultCharacters), true), NhAssistantRunResults.ResultOf(run, English));
+        Assert.Equal(("Kort." + NhAssistantRunResults.TurnSeparator + "Meer.", false), NhAssistantRunResults.ResultOf(run, Dutch));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_rule_runs_result_reads_in_each_readers_language_and_a_models_answer_as_written(AssistantTestProvider provider)
+    {
+        // The application works in Dutch and English; runs work in Dutch, its default culture.
+        await using var app = await StartAsync(provider, new NhAiScriptedChatClient().RespondWithText("Een antwoord van het model."), twoLanguages: true);
+        app.Services.GetRequiredService<TestRuleScript>().Run = (_, _) => Task.FromResult(NhAssistantRuleResult.Done(culture =>
+            culture.TwoLetterISOLanguageName == "nl" ? "Er zijn **5** projecten open." : "**5** projects are open."));
+
+        var receipt = await StartNowAsync(app, Statistics, NhAiSystemSubjects.Global, Admin, "Count now.");
+        await ExecuteRunAsync(app, receipt.RunId!.Value);
+
+        // The run keeps its result in its own culture, which its thread and memory use, and per culture.
+        var run = (await WithRunsAsync(app, runs => runs.FindRunAsync(receipt.RunId!.Value, CancellationToken.None)))!;
+        Assert.Equal((NhAssistantRunStatuses.Completed, NhAssistantRunKinds.Rule), (run.Status, run.Kind));
+        Assert.Equal("Er zijn **5** projecten open.", run.Result);
+        Assert.Contains("Answer: Er zijn **5** projecten open.", run.Summary, StringComparison.Ordinal);
+        Assert.Equal(("**5** projects are open.", false), NhAssistantRunResults.ResultOf(run, English));
+
+        // Every screen that shows the result reads it in the reader's language: the run's result, the
+        // run history, the administration's runs view (and the flow view), and the agents of the object.
+        using var admin = app.CreateClient(Admin, admin: true);
+        foreach (var (language, expected) in new[]
+        {
+            ("en-US", "**5** projects are open."),
+            ("en", "**5** projects are open."),
+            ("nl-NL", "Er zijn **5** projecten open.")
+        })
+        {
+            admin.DefaultRequestHeaders.AcceptLanguage.Clear();
+            admin.DefaultRequestHeaders.AcceptLanguage.ParseAdd(language);
+            var result = await ReadJsonAsync(await admin.GetAsync($"/api/assistant/runs/{run.Id}"));
+            Assert.Equal((language, expected), (language, result.GetProperty("result").GetString()));
+            Assert.Equal((language, expected), (language, result.GetProperty("run").GetProperty("result").GetString()));
+            var history = (await ReadJsonAsync(await admin.GetAsync($"/api/assistant/runs?agentId={Statistics}"))).GetProperty("items")[0];
+            Assert.Equal((language, expected), (language, history.GetProperty("result").GetString()));
+            var runsView = (await ReadJsonAsync(await admin.GetAsync($"/api/assistant/admin/agents/{Statistics}/runs"))).GetProperty("items")[0];
+            Assert.Equal((language, expected), (language, runsView.GetProperty("result").GetString()));
+            var agents = await ReadJsonAsync(await admin.GetAsync("/api/assistant/subjects/nh-system/global/agents"));
+            var latest = agents.GetProperty("agents").EnumerateArray().Single(agent => agent.GetProperty("agentId").GetString() == Statistics).GetProperty("latestRun");
+            Assert.Equal((language, expected), (language, latest.GetProperty("result").GetString()));
+        }
+
+        // A model's answer stays as the model wrote it, for every reader.
+        var answered = await StartNowAsync(app, ProjectAgent, NhAiSystemSubjects.Global, Admin, "Wat is er open?");
+        await ExecuteRunAsync(app, answered.RunId!.Value);
+        admin.DefaultRequestHeaders.AcceptLanguage.Clear();
+        admin.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US");
+        var modelResult = await ReadJsonAsync(await admin.GetAsync($"/api/assistant/runs/{answered.RunId}"));
+        Assert.Equal("Een antwoord van het model.", modelResult.GetProperty("result").GetString());
+        Assert.Null((await WithRunsAsync(app, runs => runs.FindRunAsync(answered.RunId!.Value, CancellationToken.None)))!.ResultsJson);
     }
 
     [Theory]
@@ -108,8 +218,8 @@ public sealed class AssistantRunResultTests(AssistantDatabaseFixture database)
         await using (var scope = app.Services.CreateAsyncScope())
         {
             var writer = scope.ServiceProvider.GetRequiredService<NhAssistantRunResultWriter>();
-            await writer.AppendTurnAsync(twoTurns.Run.Id, twoTurns.Thread.ConversationId, first.TurnId!.Value, CancellationToken.None);
-            await writer.AppendTurnAsync(twoTurns.Run.Id, twoTurns.Thread.ConversationId, second.TurnId!.Value, CancellationToken.None);
+            await writer.AppendTurnAsync(twoTurns.Run.Id, twoTurns.Thread.ConversationId, first.TurnId!.Value, null, CancellationToken.None);
+            await writer.AppendTurnAsync(twoTurns.Run.Id, twoTurns.Thread.ConversationId, second.TurnId!.Value, null, CancellationToken.None);
         }
         var kept = (await WithRunsAsync(app, runs => runs.FindRunAsync(twoTurns.Run.Id, CancellationToken.None)))!;
         Assert.Equal(("A first answer." + NhAssistantRunResults.TurnSeparator + "A second answer.", false), (kept.Result, kept.ResultTruncated));
@@ -324,13 +434,26 @@ public sealed class AssistantRunResultTests(AssistantDatabaseFixture database)
         Assert.Equal(0, asAdmin.GetProperty("hiddenProposals").GetInt32());
     }
 
-    private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider, NhAiScriptedChatClient model)
+    private static readonly CultureInfo English = CultureInfo.GetCultureInfo("en-US");
+    private static readonly CultureInfo Dutch = CultureInfo.GetCultureInfo("nl-NL");
+
+    private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider, NhAiScriptedChatClient model, bool twoLanguages = false)
     {
         return AssistantWebApplication.StartAsync(
             database,
             model,
             configure: services =>
             {
+                if (twoLanguages)
+                {
+                    // Runs work in the default culture, Dutch; people read in either language.
+                    services.Configure<RequestLocalizationOptions>(options =>
+                    {
+                        options.DefaultRequestCulture = new RequestCulture(Dutch);
+                        options.SupportedCultures = [Dutch, English];
+                        options.SupportedUICultures = [Dutch, English];
+                    });
+                }
                 services.AddSingleton<ResultProjects>();
                 services.AddSingleton<TestRuleScript>();
                 services.AddSingleton<RecordingOperations>();

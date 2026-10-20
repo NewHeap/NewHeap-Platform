@@ -210,6 +210,12 @@ internal sealed record NhAssistantAgentTurnResult(
     /// </summary>
     public int ModelCalls { get; init; }
 
+    /// <summary>
+    /// The answer of a rule turn in each supported UI culture, by culture name, for the run's result
+    /// per culture; <see langword="null"/> for a model's answer.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? LocalizedAnswer { get; init; }
+
     public const string Busy = "busy";
 
     public static NhAssistantAgentTurnResult BusyResult { get; } = new(Busy, NhAssistantErrorCodes.ConversationBusy, null, null, 0, 0, 0, 0);

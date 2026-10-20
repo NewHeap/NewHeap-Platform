@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "5978954f3785a9b0b3f6713bd9de448f3af06096c2d3338fbd9e736fe0d70717",
-    "declarationCount": 9054,
+    "hash": "e7adc0545ac7e0167b14f740b52ae0c038fafc956a6790e3d392bfae99848dba",
+    "declarationCount": 9071,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5222,6 +5222,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020180834_AgentRunLocalizedResults.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020180834_AgentRunLocalizedResults.cs",
+        "declaration": "public partial class AgentRunLocalizedResults : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020180834_AgentRunLocalizedResults.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020180834_AgentRunLocalizedResults.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -5699,6 +5715,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020110709_AgentBoards.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020180830_AgentRunLocalizedResults.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020180830_AgentRunLocalizedResults.cs",
+        "declaration": "public partial class AgentRunLocalizedResults : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020180830_AgentRunLocalizedResults.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020180830_AgentRunLocalizedResults.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -8383,6 +8415,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string? ResultsJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
         "declaration": "public bool Shadow { get; set; }"
       },
       {
@@ -9960,6 +9996,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
         "declaration": "public static NhAssistantRuleResult Done(string summary) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
+        "declaration": "public static NhAssistantRuleResult Done(Func<CultureInfo, string> summary) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
@@ -13655,7 +13695,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task SetRunResultAsync( Guid runId, string? result, bool truncated, CancellationToken cancellationToken) {"
+        "declaration": "public async Task SetRunResultAsync( Guid runId, string? result, bool truncated, string? resultsJson, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -14595,7 +14635,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunResults.cs",
-        "declaration": "public static (string? Text, bool Truncated) PreviewOf(AssistantRun run) {"
+        "declaration": "public const int MaxLocalizedSerializedLength ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunResults.cs",
+        "declaration": "public static (string? Text, bool Truncated) PreviewOf(AssistantRun run, CultureInfo culture) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunResults.cs",
+        "declaration": "public static (string? Text, bool Truncated) ResultOf(AssistantRun run, CultureInfo culture) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunResults.cs",
+        "declaration": "public static string? AppendLocalized( string? resultsJson, string? result, bool truncated, string answer, IReadOnlyDictionary<string, string>? localizedAnswer) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunResults.cs",
@@ -14603,7 +14655,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunResults.cs",
-        "declaration": "public async Task AppendTurnAsync( Guid runId, Guid conversationId, Guid turnId, CancellationToken cancellationToken) {"
+        "declaration": "public IReadOnlyDictionary<string, string>? Render(Func<CultureInfo, string?> write) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunResults.cs",
+        "declaration": "public async Task AppendTurnAsync( Guid runId, Guid conversationId, Guid turnId, IReadOnlyDictionary<string, string>? localizedAnswer, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunSummaries.cs",
@@ -14884,6 +14940,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public int ModelCalls { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public IReadOnlyDictionary<string, string>? LocalizedAnswer { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
@@ -15368,6 +15428,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public List<string> RuleRationales { get; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public List<Func<CultureInfo, string?>> RuleRationaleWriters { get; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public IReadOnlyDictionary<string, string>? LocalizedAnswer { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",

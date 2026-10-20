@@ -105,6 +105,7 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantBriefingService>();
         services.TryAddScoped<NhAssistantRunSummaries>();
         services.TryAddScoped<NhAssistantRunResultWriter>();
+        services.TryAddScoped<NhAssistantRunResultCultures>();
         services.TryAddScoped<NhAssistantArtifactStore>();
         services.TryAddScoped<NhAssistantProposalFeedbackStore>();
         services.TryAddScoped<NhAssistantBoardStore>();

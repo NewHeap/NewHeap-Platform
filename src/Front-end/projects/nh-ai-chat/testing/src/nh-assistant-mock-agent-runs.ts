@@ -15,7 +15,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockRun, NhAssistantMockRunNow, NhAssistantMockScenario } from './nh-assistant-mock.models';
 import { NhAssistantMockResult, mockFailure as failure } from './nh-assistant-mock-admin-shared';
-import { NhAssistantMockDescribedSubject, NhAssistantMockSubjects } from './nh-assistant-mock-subjects';
+import { NhAssistantMockDescribedSubject, NhAssistantMockSubjects, mockPickText } from './nh-assistant-mock-subjects';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
 
 /** What the agent runs read of the mock's agents and caller. */
@@ -87,6 +87,8 @@ export class NhAssistantMockAgentRuns {
   private readonly threads = new Map<string, StoredThread>();
   /** The answer of each run, by run id, at most 20,000 characters. */
   private readonly results = new Map<string, string | null>();
+  /** The answer per culture of the runs whose rules wrote it per culture, by run id. */
+  private readonly localizedResults = new Map<string, Readonly<Record<string, string>>>();
   /** The runs whose answer was longer and was cut. */
   private readonly truncated = new Set<string>();
   private sequence = 0;
@@ -141,7 +143,7 @@ export class NhAssistantMockAgentRuns {
 
     const result: AgentRunResult = {
       run: this.toHistoryItem(found.thread, found.run, language),
-      result: this.results.get(found.run.id) ?? null,
+      result: this.answerOf(found.run.id, language),
       resultTruncated: this.truncated.has(found.run.id),
       summary: found.run.summary,
       proposals: [],
@@ -244,7 +246,7 @@ export class NhAssistantMockAgentRuns {
             : agent.description,
           canStart: this.canStart(agent, subject),
           conversationId: thread?.conversationId ?? null,
-          latestRun: thread ? latestRun(thread, this.results) : null,
+          latestRun: thread ? latestRun(thread, runId => this.answerOf(runId, language)) : null,
           openProposals: thread?.openProposals ?? 0
         };
       });
@@ -265,12 +267,12 @@ export class NhAssistantMockAgentRuns {
    * latest run, open proposals (those the runs left and those the scenario lists in the thread) and
    * whether the caller may run it there now.
    */
-  boardWork(agent: AdminAgent, subject: NhAssistantMockDescribedSubject): NhAssistantMockBoardWork {
+  boardWork(agent: AdminAgent, subject: NhAssistantMockDescribedSubject, language: string | null = null): NhAssistantMockBoardWork {
     const thread = this.threads.get(key(agent.id, subject));
     const listed = thread ? (this.context.threadProposals?.(thread.conversationId) ?? []).filter(proposal => proposal.status === 'pending').length : 0;
     return {
       conversationId: thread?.conversationId ?? null,
-      latestRun: thread ? latestRun(thread, this.results) : null,
+      latestRun: thread ? latestRun(thread, runId => this.answerOf(runId, language)) : null,
       openProposals: (thread?.openProposals ?? 0) + listed,
       canStart: this.canStart(agent, subject)
     };
@@ -384,7 +386,7 @@ export class NhAssistantMockAgentRuns {
       kind: 'model'
     };
     thread.runs.push(run);
-    this.keep(run.id, runNow.result);
+    this.keep(run.id, runNow.result, runNow.results);
     thread.openProposals += runNow.proposals ?? 0;
     return run;
   }
@@ -648,7 +650,7 @@ export class NhAssistantMockAgentRuns {
     const agent = this.context.agents().find(item => item.id === thread.agentId);
     const subject = this.subjects.describe(thread.subject.subjectType, thread.subject.subjectId, language, this.context.administers())
       ?? thread.subject;
-    const answer = this.results.get(run.id) ?? null;
+    const answer = this.answerOf(run.id, language);
     const preview = answer ?? run.summary;
     return {
       id: run.id,
@@ -729,15 +731,31 @@ export class NhAssistantMockAgentRuns {
     };
     thread.runs.push(run);
     thread.runs.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
-    this.keep(run.id, seeded.result);
+    this.keep(run.id, seeded.result, seeded.results);
   }
 
-  /** Keeps a run's answer as the server bounds it: its first 20,000 characters, marked when cut. */
-  private keep(runId: string, answer: string | null | undefined): void {
+  /**
+   * Keeps a run's answer as the server bounds it: its first 20,000 characters, marked when cut, and its
+   * answer per culture when its rules wrote one.
+   */
+  private keep(runId: string, answer: string | null | undefined, results?: Readonly<Record<string, string>>): void {
     this.results.set(runId, answer === undefined || answer === null ? null : answer.slice(0, maxResult));
     if (answer && answer.length > maxResult) {
       this.truncated.add(runId);
     }
+    if (results && Object.keys(results).length > 0) {
+      this.localizedResults.set(runId, Object.fromEntries(Object.entries(results).map(([culture, text]) => [culture, text.slice(0, maxResult)])));
+    }
+  }
+
+  /**
+   * The run's answer for a reader of `language`, as the server picks it: the answer per culture of the
+   * exact culture or another of the same language when the rules wrote one, otherwise the answer.
+   */
+  private answerOf(runId: string, language: string | null): string | null {
+    const localized = this.localizedResults.get(runId);
+    const picked = localized ? mockPickText({ ...localized }, '', language) : null;
+    return picked ?? this.results.get(runId) ?? null;
   }
 
   /** Neither stopped nor disabled in code; a paused agent still works for people. */
@@ -817,13 +835,14 @@ function worksOn(agent: AdminAgent, subject: NhAssistantMockDescribedSubject): b
   return agent.perDivision === true ? subject.scope === 'division' : subject.scope === 'global';
 }
 
-function latestRun(thread: StoredThread, results: ReadonlyMap<string, string | null>): AgentLatestRun | null {
+function latestRun(thread: StoredThread, answerOf: (runId: string) => string | null): AgentLatestRun | null {
   const run = thread.runs.at(-1);
   if (!run) {
     return null;
   }
-  // The stored answer first, as the server reads it; without one, the summary the run ended with.
-  const result = results.get(run.id) ?? run.summary;
+  // The stored answer first, in the reader's language as the server reads it; without one, the
+  // summary the run ended with.
+  const result = answerOf(run.id) ?? run.summary;
   return {
     runId: run.id,
     conversationId: run.conversationId,

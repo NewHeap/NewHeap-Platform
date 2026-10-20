@@ -387,7 +387,10 @@ usage, its whole answer (`NhAssistantAgentRunApiService.getRunResult`, `AgentRun
 those it placed at objects the person reads included, how many wait at objects the person may not see,
 and its files, which download with `downloadRunArtifact`. The answer is model output: the component
 renders it with the assistant's safe Markdown rendering, which keeps a strict set of tags and links and
-shows inline HTML as text; never bind a result to `innerHTML` yourself. The server decides who sees a
+shows inline HTML as text; never bind a result to `innerHTML` yourself. The client sends the active
+language as `Accept-Language`, so a result whose rules wrote it per culture reads in the person's
+language here, in the run histories, the object agents and on the boards; a model's answer reads as the
+model wrote it. The server decides who sees a
 run (readers of its object; for the whole application the agent's view policy, by default its required
 policy; administrators every run) and a run the person may not see reads as not available. It emits
 `openConversation` for `NhAssistantPanelService.open` and offers the run's conversation only where the
@@ -704,8 +707,11 @@ the hidden proposals, download a file, open a run's result from the run timeline
 and stay within 375px; the runs-view tests list every run of an agent with shadow runs marked, send the
 status and the period, refuse an inverted period at its field, narrow to one object, open a run and
 return focus to its action, and let the mock API list and filter runs with the server's visibility and
-validation (`NhAssistantMockScenario.runs`, `NhAssistantMockRun`). The playground's administration
-shows earlier runs of the project follow-up (SPM-304). The board tests show a group's tiles with
+validation (`NhAssistantMockScenario.runs`, `NhAssistantMockRun`). A result the rules wrote per culture
+(`results` of `NhAssistantMockRun` and `NhAssistantMockRunNow`) reads in the request's language in the
+mock API's results, histories, object agents and boards, and the run-result tests show it to an English
+and a Dutch reader. The playground's administration shows earlier runs of the project follow-up
+(SPM-304). The board tests show a group's tiles with
 what each agent works on, render the latest result as safe Markdown, mark what is new, record the
 visit once after reading the board, show no "New" on the next visit, open the whole result, the
 history and run now, show a board that is not available, and keep one column without sideways scrolling

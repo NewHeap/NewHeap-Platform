@@ -184,7 +184,7 @@ public sealed class ProjectProgressNoteRules(
         var tasks = dbContext.ProjectTasks.AsNoTracking().Where(task => task.ProjectId == projectId);
         var total = await tasks.CountAsync(cancellationToken);
         var completed = await tasks.CountAsync(task => task.IsCompleted, cancellationToken);
-        return NhAssistantRuleResult.Done(localizer["PlannerProgressNote", completed, total].Value);
+        return NhAssistantRuleResult.Done(_ => localizer["PlannerProgressNote", completed, total].Value);
     }
 }
 
@@ -202,7 +202,7 @@ public sealed class ProjectProgressPercentageRules(
         var total = await tasks.CountAsync(cancellationToken);
         var completed = await tasks.CountAsync(task => task.IsCompleted, cancellationToken);
         var percentage = total == 0 ? 0 : completed * 100 / total;
-        return NhAssistantRuleResult.Done(localizer["PlannerProgressPercentage", percentage].Value);
+        return NhAssistantRuleResult.Done(_ => localizer["PlannerProgressPercentage", percentage].Value);
     }
 }
 
@@ -223,7 +223,7 @@ public sealed class ProjectTaskFollowUpRules(
         {
             // The closer's summary is data from another agent; the rules only pass it on, shortened
             // to fit a rule summary.
-            return NhAssistantRuleResult.Done(ended.Summary is { } summary
+            return NhAssistantRuleResult.Done(_ => ended.Summary is { } summary
                 ? localizer["PlannerCloserAnswered", summary.Length > 1_500 ? summary[..1_500] + "…" : summary].Value
                 : localizer["PlannerCloserEnded", ended.Status].Value);
         }
@@ -232,7 +232,7 @@ public sealed class ProjectTaskFollowUpRules(
         // decision is the answer, so the rules do not judge the project again.
         if (context.Inputs.Any(input => input.TriggerId is NhAssistantTriggerIds.ProposalExecuted or NhAssistantTriggerIds.ProposalDecided))
         {
-            return NhAssistantRuleResult.Done(localizer["PlannerDecisionFollowedUp"].Value);
+            return NhAssistantRuleResult.Done(_ => localizer["PlannerDecisionFollowedUp"].Value);
         }
 
         var projectId = Guid.Parse(context.Subject.Subject.Id);
@@ -261,7 +261,7 @@ public sealed class ProjectTaskFollowUpRules(
                 return NhAssistantRuleResult.HandOver(
                     $"A task was completed after the project's deadline of {lateSince:yyyy-MM-dd}, and {open.Count} of {total} tasks are still open. Judge whether to put the project on hold.");
             }
-            return NhAssistantRuleResult.Done(localizer["PlannerFollowUp", open.Count, total, open[0]].Value);
+            return NhAssistantRuleResult.Done(_ => localizer["PlannerFollowUp", open.Count, total, open[0]].Value);
         }
 
         var deadline = await dbContext.Projects
@@ -271,7 +271,7 @@ public sealed class ProjectTaskFollowUpRules(
             .FirstOrDefaultAsync(cancellationToken);
         if (deadline is null)
         {
-            return NhAssistantRuleResult.Done(localizer["PlannerAllDone", total].Value);
+            return NhAssistantRuleResult.Done(_ => localizer["PlannerAllDone", total].Value);
         }
 
         // The closer decides whether the project can be completed, in its own thread and under its
@@ -281,7 +281,7 @@ public sealed class ProjectTaskFollowUpRules(
             context.Subject.Subject,
             $"All {total} tasks of the project are completed and its deadline is {deadline.Value:yyyy-MM-dd}. Check whether it can be completed.",
             cancellationToken: cancellationToken);
-        return NhAssistantRuleResult.Done(handOff.Accepted
+        return NhAssistantRuleResult.Done(_ => handOff.Accepted
             ? localizer["PlannerHandedToCloser", total].Value
             : localizer["PlannerAllDone", total].Value);
     }

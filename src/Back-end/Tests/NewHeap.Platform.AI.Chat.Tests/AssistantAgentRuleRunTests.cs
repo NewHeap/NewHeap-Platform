@@ -61,6 +61,11 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
 
         Assert.Equal(NhAssistantTurnStatuses.Completed, result.Outcome);
         Assert.Equal(NhAssistantRunKinds.Rule, result.Kind);
+        // The answer per supported culture, for the run's result: the summary in one language with the
+        // rule's reason in each.
+        Assert.NotNull(result.LocalizedAnswer);
+        Assert.Equal("Proposed to activate the project.\n\n- De intake is compleet.", result.LocalizedAnswer!["nl"]);
+        Assert.Equal("Proposed to activate the project.\n\n- The intake is complete.", result.LocalizedAnswer["en"]);
         Assert.Equal(0, result.InputTokens + result.OutputTokens);
         Assert.Equal(1, result.ProposalCount);
         Assert.Equal(1, result.ToolCalls);

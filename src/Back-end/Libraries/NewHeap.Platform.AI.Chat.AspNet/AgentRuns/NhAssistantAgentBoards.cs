@@ -154,7 +154,7 @@ internal sealed class NhAssistantAgentBoards(
                 displayName,
                 canStart,
                 readable ? thread!.ConversationId : null,
-                latest is null ? null : NhAssistantObjectAgents.ToDto(latest),
+                latest is null ? null : NhAssistantObjectAgents.ToDto(latest, CultureInfo.CurrentUICulture),
                 open,
                 IsNew(latest, newestProposal, lastVisit)));
         }

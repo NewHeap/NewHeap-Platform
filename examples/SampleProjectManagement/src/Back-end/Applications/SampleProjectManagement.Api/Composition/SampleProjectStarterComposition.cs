@@ -89,7 +89,7 @@ public sealed class ProjectKickoffRules(
             .FirstOrDefaultAsync(cancellationToken);
         if (status != ProjectStatus.Draft)
         {
-            return NhAssistantRuleResult.Done(localizer["StarterNotDraft"].Value);
+            return NhAssistantRuleResult.Done(_ => localizer["StarterNotDraft"].Value);
         }
 
         var proposal = await context.ProposeAsync(
@@ -98,7 +98,7 @@ public sealed class ProjectKickoffRules(
             // The platform asks once per supported culture, with that culture current.
             _ => localizer["StarterReason"].Value,
             cancellationToken);
-        return NhAssistantRuleResult.Done(proposal.Outcome switch
+        return NhAssistantRuleResult.Done(_ => proposal.Outcome switch
         {
             NhAssistantProposeOutcome.Created => localizer["StarterProposed"].Value,
             NhAssistantProposeOutcome.AlreadyOpen => localizer["StarterAlreadyOpen"].Value,

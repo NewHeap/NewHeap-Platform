@@ -23,11 +23,16 @@ public sealed class NhAssistantRuleResult
     /// <summary>The longest summary a rule run writes into the thread.</summary>
     public const int MaxSummaryLength = 2_000;
 
-    private NhAssistantRuleResult(string? summary, string? handOverReason, string? skillId = null)
+    private NhAssistantRuleResult(
+        string? summary,
+        string? handOverReason,
+        string? skillId = null,
+        Func<CultureInfo, string>? localizedSummary = null)
     {
         Summary = summary;
         HandOverReason = handOverReason;
         SkillId = skillId;
+        LocalizedSummary = localizedSummary;
     }
 
     /// <summary>
@@ -38,9 +43,16 @@ public sealed class NhAssistantRuleResult
     public bool UsesSkill => SkillId is not null;
 
     /// <summary>
-    /// What the rules did, written to the thread as the agent's message and kept as the run summary.
+    /// What the rules did, written to the thread as the agent's message and kept as the run summary,
+    /// in the culture the run works in.
     /// </summary>
     public string? Summary { get; }
+
+    /// <summary>
+    /// The summary in a culture, for the run's result in each language people read it in; set by
+    /// <see cref="Done(Func{CultureInfo, string})"/>.
+    /// </summary>
+    internal Func<CultureInfo, string>? LocalizedSummary { get; }
 
     /// <summary>
     /// Why the rules hand the run over to the model; <see langword="null"/> when they finished it.
@@ -62,6 +74,27 @@ public sealed class NhAssistantRuleResult
         }
 
         return new NhAssistantRuleResult(summary.Trim(), null);
+    }
+
+    /// <summary>
+    /// Ends the run with a summary in every language people read its result in. The platform asks
+    /// for <paramref name="summary"/> once in the culture the run works in, which the thread shows
+    /// and the agent's memory keeps, and once per supported UI culture, with that culture current, for
+    /// the run's result: the runs view, the board, the run history and an object's agents show each
+    /// reader the summary in their own language. A culture whose summary fails, is empty or is too
+    /// long falls back to the run's culture.
+    /// </summary>
+    public static NhAssistantRuleResult Done(Func<CultureInfo, string> summary)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+        var current = summary(CultureInfo.CurrentUICulture);
+        ArgumentException.ThrowIfNullOrWhiteSpace(current, nameof(summary));
+        if (current.Length > MaxSummaryLength)
+        {
+            throw new ArgumentException($"A rule summary has at most {MaxSummaryLength} characters.", nameof(summary));
+        }
+
+        return new NhAssistantRuleResult(current.Trim(), null, localizedSummary: summary);
     }
 
     /// <summary>

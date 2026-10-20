@@ -2120,6 +2120,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<bool>("ResultTruncated")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("ResultsJson")
+                        .HasColumnType("text");
+
                     b.Property<bool>("Shadow")
                         .HasColumnType("boolean");
 

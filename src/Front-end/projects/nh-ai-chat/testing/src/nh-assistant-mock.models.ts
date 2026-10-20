@@ -312,6 +312,11 @@ export interface NhAssistantMockRunNow {
   status?: AgentRunStatus;
   /** The run's result; default none. */
   result?: string | null;
+  /**
+   * The run's result per culture (`en`, `nl-NL`), as a run whose rules wrote it per culture keeps it:
+   * a reader gets the one of the request's language (exact, then the language), `result` otherwise.
+   */
+  results?: Readonly<Record<string, string>>;
   /** The open proposals the run leaves on its subject. Default 0. */
   proposals?: number;
   /**
@@ -350,6 +355,11 @@ export interface NhAssistantMockRun {
   triggerId?: string;
   /** The run's answer as Markdown, model output; default none. */
   result?: string | null;
+  /**
+   * The run's result per culture (`en`, `nl-NL`), as a run whose rules wrote it per culture keeps it:
+   * a reader gets the one of the request's language (exact, then the language), `result` otherwise.
+   */
+  results?: Readonly<Record<string, string>>;
   /** When the run was queued, ISO 8601; default now. */
   createdAt?: string;
   /** How long the run took. Default 30. */

@@ -511,7 +511,7 @@ internal sealed class NhAssistantAgentRunOperation(
             return;
         }
 
-        await results.AppendTurnAsync(runId, conversationId, turnId, cancellationToken);
+        await results.AppendTurnAsync(runId, conversationId, turnId, result.LocalizedAnswer, cancellationToken);
     }
 
     private async Task<TaskResult> CompleteAsync(
