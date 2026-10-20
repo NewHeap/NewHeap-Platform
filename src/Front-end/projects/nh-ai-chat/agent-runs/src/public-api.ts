@@ -15,6 +15,7 @@ export * from './nh-assistant-agent-artifacts.component';
 export * from './nh-assistant-agent-consultations.component';
 export * from './nh-assistant-subject-suggestions.component';
 export * from './nh-assistant-object-agents.component';
+export * from './nh-assistant-run-result.component';
 
 /*
  * Internal building blocks shared with the administration entry point; they live here so the chat's

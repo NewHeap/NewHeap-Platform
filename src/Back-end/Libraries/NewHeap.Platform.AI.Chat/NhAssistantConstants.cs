@@ -653,6 +653,12 @@ public static class NhAssistantErrorCodes
     public const string AgentNotConfigured = "assistant-agent-not-configured";
     public const string RunNotFound = "assistant-run-not-found";
     public const string RunNotRetryable = "assistant-run-not-retryable";
+
+    /// <summary>
+    /// A run history was asked with an invalid filter: an unknown status, an invalid subject type, a
+    /// subject id without its type, a period that ends before it starts, or a page out of range.
+    /// </summary>
+    public const string RunFilterInvalid = "assistant-run-filter-invalid";
     public const string ApprovalPolicyDenied = "assistant-approval-policy-denied";
     public const string FourEyesRequired = "assistant-four-eyes-required";
     public const string ExecutionNotUncertain = "assistant-execution-not-uncertain";

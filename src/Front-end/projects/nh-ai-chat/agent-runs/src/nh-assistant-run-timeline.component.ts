@@ -14,19 +14,23 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { NhAssistantRunResultComponent } from './nh-assistant-run-result.component';
+
+let nextId = 0;
 
 const endedStatuses = new Set(['completed', 'failed', 'cancelled']);
 
 /**
  * The runs of an agent thread, newest first: trigger, status, failure, usage, proposals and the
- * summary the next run starts from, and the agent that handed a run its work. Participants cancel
+ * summary the next run starts from, and the agent that handed a run its work. "Show the result"
+ * opens a run's whole result, proposals and files in `nh-assistant-run-result`. Participants cancel
  * an open run; approvers resume or restart a failed or cancelled one. With live updates it reloads
  * by itself when a run or proposal of the thread changes.
  */
 @Component({
   selector: 'nh-assistant-run-timeline',
   standalone: true,
-  imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
+  imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantRunResultComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-run-timeline.component.html',
   styleUrl: './nh-assistant-agent-runs.scss'
@@ -43,9 +47,12 @@ export class NhAssistantRunTimelineComponent {
   /** Emits the thread of the agent that handed a run its work, so the host can open it. */
   readonly openConversation = output<string>();
 
+  readonly id = `nh-assistant-run-timeline-${nextId++}`;
   readonly loading = signal(true);
   readonly loadFailed = signal(false);
   readonly runs = signal<AgentRun[]>([]);
+  /** The run whose result is shown; one at a time. */
+  readonly openedRunId = signal<string | null>(null);
   readonly busyRunId = signal<string | null>(null);
   readonly error = signal<NhAssistantError | null>(null);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
@@ -69,6 +76,10 @@ export class NhAssistantRunTimelineComponent {
 
   load(): void {
     this.fetch(false);
+  }
+
+  toggleResult(run: AgentRun): void {
+    this.openedRunId.update(current => current === run.id ? null : run.id);
   }
 
   isOpen(run: AgentRun): boolean {

@@ -36,7 +36,9 @@ public sealed class ProjectFollowUpRouting(IStringLocalizer<SampleAssistantToolP
 /// input names the project with <c>[NhAiSubject("project")]</c>, so the platform places each
 /// proposal in the follow-up's thread at that project, after checking that the follow-up works on
 /// projects and that the operations account it answers to reads the project; the project's approvers
-/// decide it there and in their inbox. A run places at most twenty proposals.
+/// decide it there and in their inbox. A run places at most twenty proposals. SPM-304: what the rules
+/// write ("N open projects; proposed completing X, Y") is the run's result, which the runs view and
+/// <c>GET runs</c> show to the people who pass the follow-up's view policy.
 /// </summary>
 public sealed class ProjectFollowUpRules(
     SampleProjectManagementDbContext dbContext,
@@ -71,11 +73,11 @@ public sealed class ProjectFollowUpRules(
                 && project.Tasks.All(task => task.IsCompleted))
             .OrderByDescending(project => project.LastModifiedDateTime)
             .ThenBy(project => project.Id)
-            .Select(project => new { project.Id, Tasks = project.Tasks.Count })
+            .Select(project => new { project.Id, project.Key, Tasks = project.Tasks.Count })
             .Take(MaxProposals)
             .ToListAsync(cancellationToken);
 
-        var proposed = 0;
+        var proposed = new List<string>();
         var waiting = 0;
         var refused = 0;
         foreach (var project in finished)
@@ -89,7 +91,7 @@ public sealed class ProjectFollowUpRules(
             switch (proposal.Outcome)
             {
                 case NhAssistantProposeOutcome.Created:
-                    proposed++;
+                    proposed.Add(project.Key);
                     break;
                 case NhAssistantProposeOutcome.AlreadyOpen:
                 case NhAssistantProposeOutcome.RecentlyRejected:
@@ -103,6 +105,9 @@ public sealed class ProjectFollowUpRules(
             }
         }
 
-        return NhAssistantRuleResult.Done(localizer["FollowUpProposed", open, proposed, waiting, refused].Value);
+        // The run's result names the projects it proposed to complete; people read it in the runs view.
+        return NhAssistantRuleResult.Done(proposed.Count > 0
+            ? localizer["FollowUpProposed", open, string.Join(", ", proposed), waiting, refused].Value
+            : localizer["FollowUpNothingNew", open, waiting, refused].Value);
     }
 }

@@ -245,9 +245,9 @@ export interface AgentLatestRun {
   /** When the run ended, or started, or was queued. */
   at: string;
   /**
-   * The first `NH_ASSISTANT_RESULT_PREVIEW_LENGTH` characters of the run's result: model output, to
-   * show as text. Until runs store their full answer it is the summary they end with; `null` while
-   * the run has none.
+   * The first `NH_ASSISTANT_RESULT_PREVIEW_LENGTH` characters of the run's stored answer: model
+   * output, to show as text. For a run without one, such as a run that ended before runs kept their
+   * answer, the summary it ended with; `null` while the run has none. `getRunResult` returns all of it.
    */
   result: string | null;
   /** The result is longer than `result`. */
@@ -285,6 +285,108 @@ export interface AgentObjectAgents {
   /** The caller's live role. Without a role the server answers `404 assistant-subject-not-found`. */
   role: Exclude<AgentSubjectRole, 'none'>;
   agents: AgentObjectAgent[];
+}
+
+/** The most characters of a run's answer that `getRunResult` returns; a longer answer is cut. */
+export const NH_ASSISTANT_RUN_RESULT_MAX_LENGTH = 20_000;
+
+/** The most runs one page of a run history holds. */
+export const NH_ASSISTANT_RUN_HISTORY_MAX_PAGE = 50;
+
+/**
+ * Which runs a run history lists. Every part is optional: an agent, a subject type (`nh-system` for
+ * the whole application) or one subject of it, a status, and a period by when runs were created
+ * (`from` inclusive, `to` exclusive, ISO 8601). `page` starts at 1; `itemsPerPage` is 1 to
+ * `NH_ASSISTANT_RUN_HISTORY_MAX_PAGE` (default 20).
+ */
+export interface AgentRunFilter {
+  agentId?: string;
+  subjectType?: string;
+  subjectId?: string;
+  status?: AgentRunStatus;
+  from?: string;
+  to?: string;
+  page?: number;
+  itemsPerPage?: number;
+}
+
+/** One run in a run history: its agent, subject, trigger, status, usage, times and result preview. */
+export interface AgentRunHistoryItem {
+  id: string;
+  conversationId: string;
+  agentId: string;
+  /**
+   * The agent's name: a translation key for an agent in code, the text itself for one created in the
+   * administration; `null` for an agent that no longer exists.
+   */
+  agentDisplayNameKey?: string | null;
+  subjectType: string;
+  subjectId: string;
+  subjectDisplayName: string | null;
+  subjectTypeName?: string | null;
+  subjectLink?: string | null;
+  triggerId: string;
+  status: AgentRunStatus;
+  failureClass: string | null;
+  failureCode: string | null;
+  kind: AgentRunKind;
+  skill: string | null;
+  initiatorActorId: string | null;
+  toolCalls: number;
+  modelCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  proposalCount: number;
+  /**
+   * The first `NH_ASSISTANT_RESULT_PREVIEW_LENGTH` characters of the run's answer, model output to
+   * show as text; for a run without a stored answer, the summary it ended with.
+   */
+  result: string | null;
+  /** The answer is longer than `result`. */
+  resultTruncated: boolean;
+  /** The run worked in the agent's shadow thread: nothing it proposed executes. */
+  shadow: boolean;
+  createdAt: string;
+  startedAt: string | null;
+  endedAt: string | null;
+}
+
+/**
+ * A page of a run history, newest first (`getRunHistory` for people, the administration's
+ * `getAgentRuns` for every run of an agent).
+ */
+export interface AgentRunHistory {
+  items: AgentRunHistoryItem[];
+  /** The runs that match the filter and that the caller may see. */
+  total: number;
+  /**
+   * People's history considered only the agent threads with the most recent matching runs; a
+   * narrower filter, such as one object or a period, reaches older ones.
+   */
+  limited: boolean;
+}
+
+/** One run with its whole result, its proposals and its files (`getRunResult`). */
+export interface AgentRunResult {
+  run: AgentRunHistoryItem;
+  /**
+   * The run's whole answer as Markdown, at most `NH_ASSISTANT_RUN_RESULT_MAX_LENGTH` characters:
+   * model output, untrusted. Render it only with the assistant's safe Markdown rendering
+   * (`nh-assistant-run-result` does), never as HTML. `null` while the run has none.
+   */
+  result: string | null;
+  /** The answer was longer and `result` is its beginning. */
+  resultTruncated: boolean;
+  /** The bounded summary the run ended with, which the agent's next runs start from. */
+  summary: string | null;
+  /** The proposals the caller may see: in the run's own thread and placed at objects the caller reads. */
+  proposals: AgentProposal[];
+  /** The proposals the run placed at objects the caller may not read. */
+  hiddenProposals: number;
+  /** The files the run saved; `restricted` ones cannot be downloaded by the caller. */
+  artifacts: AgentArtifact[];
+  /** Whether the caller may open the run's thread conversation. */
+  canOpenConversation: boolean;
 }
 
 export interface StartAgentRequest {

@@ -1461,6 +1461,129 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
     }
 
+    [Fact]
+    public async Task The_project_follow_ups_result_is_shown_to_people_who_pass_its_view_policy_and_in_the_administrations_runs_view()
+    {
+        // SPM-304: results and history. A run keeps its whole answer; people who pass the follow-up's
+        // view policy (app.project.view) read its runs for the whole application, others do not, and
+        // the administration lists every run of the agent.
+        const string followUp = SampleRuntimeAgentSeeder.FollowUpAgentId;
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var viewerId = await host.CreatePersonAsync(SampleProjectStarterComposition.ProjectViewPolicy);
+        using var viewer = host.CreateClient(viewerId.ToString());
+        var managerId = await host.CreatePersonAsync(SampleProjectStarterComposition.ProjectViewPolicy, SampleProjectStarterComposition.ProjectManagePolicy);
+        using var manager = host.CreateClient(managerId.ToString());
+        var keys = new List<string>();
+        var placed = Array.Empty<NhAssistantProposalDto>();
+        try
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedFollowUpAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+            }
+
+            // Four finished projects that the operations account reads, approved by the colleague.
+            var finished = new List<Guid>();
+            for (var index = 0; index < 4; index++)
+            {
+                var project = await host.CreateProjectAsync("RESULT", ownerId: host.OwnerId, status: ProjectStatus.Active);
+                await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+                await host.AddMemberAsync(project, host.OperationsAccountId, ProjectMemberRole.Reader);
+                await host.CompleteTaskByHandAsync(await host.CreateTaskAsync(project, "Hand the project over"), host.ColleagueId);
+                finished.Add(project);
+            }
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var projects = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>().Projects;
+                keys.AddRange(await projects.Where(project => finished.Contains(project.Id)).Select(project => project.Key).ToListAsync());
+            }
+
+            // A project manager runs the follow-up now for the whole application; its rules write the result.
+            NhAssistantTriggerReceiptDto receipt;
+            using (var started = await manager.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new { agentId = followUp, subjectType = NhAiSubjectRef.SystemType, subjectId = NhAiSystemSubjects.GlobalId }))
+            {
+                Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+                receipt = (await started.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!;
+            }
+            var result = await WaitForRunResultAsync(viewer, receipt.RunId!.Value);
+            Assert.Equal(NhAssistantRunStatuses.Completed, result.Run.Status);
+            // Runs work in the application's default culture, Dutch on this host: "N open projects;
+            // proposed completing X, Y" in the follow-up's Dutch text, with the keys of the projects.
+            var template = new ResourceManager(typeof(SampleAssistantToolPresenter)).GetString("FollowUpProposed", CultureInfo.GetCultureInfo("nl-NL"))!;
+            var pattern = "^" + System.Text.RegularExpressions.Regex.Escape(template)
+                .Replace(@"\{0}", @"\d+", StringComparison.Ordinal)
+                .Replace(@"\{1}", "(?<keys>[^.]+)", StringComparison.Ordinal)
+                .Replace(@"\{2}", @"\d+", StringComparison.Ordinal)
+                .Replace(@"\{3}", @"\d+", StringComparison.Ordinal);
+            var match = System.Text.RegularExpressions.Regex.Match(result.Result!, pattern);
+            Assert.True(match.Success, result.Result);
+            Assert.All(keys, key => Assert.Contains(key, match.Groups["keys"].Value, StringComparison.Ordinal));
+            Assert.Equal((followUp, NhAiSubjectRef.SystemType, NhAiSystemSubjects.GlobalId), (result.Run.AgentId, result.Run.SubjectType, result.Run.SubjectId));
+            Assert.False(result.ResultTruncated);
+            // The summary for the follow-up's memory stays next to it.
+            Assert.Contains("Placed at other objects:", result.Summary);
+            // The proposals it placed at the projects, which the viewer reads through the application-wide view permission.
+            Assert.True(result.Proposals.Count(proposal => proposal.PlacedBy is not null) >= finished.Count);
+
+            // People who pass the view policy find the run in their history; others do not.
+            var history = (await viewer.GetFromJsonAsync<NhAssistantRunHistoryListDto>($"/api/assistant/runs?agentId={followUp}&subjectType=nh-system", Json))!;
+            var listed = Assert.Single(history.Items, item => item.Id == receipt.RunId);
+            Assert.StartsWith(result.Result![..20], listed.Result, StringComparison.Ordinal);
+            var hidden = (await colleague.GetFromJsonAsync<NhAssistantRunHistoryListDto>($"/api/assistant/runs?agentId={followUp}", Json))!;
+            Assert.DoesNotContain(hidden.Items, item => item.Id == receipt.RunId);
+            using (var refused = await colleague.GetAsync($"/api/assistant/runs/{receipt.RunId}"))
+            {
+                Assert.Equal(HttpStatusCode.NotFound, refused.StatusCode);
+            }
+
+            // The administration's runs view lists every run of the follow-up with its result.
+            var view = (await administrator.GetFromJsonAsync<NhAssistantRunHistoryListDto>($"/api/assistant/admin/agents/{followUp}/runs?status=completed", Json))!;
+            var inView = Assert.Single(view.Items, item => item.Id == receipt.RunId);
+            Assert.Equal((NhAssistantTriggerIds.Manual, NhAssistantRunKinds.Rule), (inView.TriggerId, inView.Kind));
+            Assert.True(inView.ProposalCount >= finished.Count);
+
+            var inbox = (await colleague.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox?itemsPerPage=100", Json))!;
+            placed = inbox.Items.Where(item => item.AgentId == followUp && item.RunId == receipt.RunId).ToArray();
+        }
+        finally
+        {
+            // The colleague rejects what waits, so later ticks on the shared host stay quiet.
+            foreach (var proposal in placed)
+            {
+                using var rejected = await DecideAsync(colleague, proposal, "reject");
+            }
+            await RemoveFollowUpAsync(administrator);
+        }
+    }
+
+    /// <summary>
+    /// Reads a run with its result until it ended.
+    /// </summary>
+    private static async Task<NhAssistantRunResultDto> WaitForRunResultAsync(HttpClient client, Guid runId)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        NhAssistantRunResultDto? read = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync($"/api/assistant/runs/{runId}");
+            if (response.IsSuccessStatusCode)
+            {
+                read = await response.Content.ReadFromJsonAsync<NhAssistantRunResultDto>(Json);
+                if (read is not null && NhAssistantRunStatuses.IsTerminal(read.Run.Status))
+                {
+                    return read;
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        }
+
+        throw new TimeoutException($"The run did not end; last status {read?.Run.Status ?? "unknown"}.");
+    }
+
     /// <summary>
     /// The runs of the follow-up's thread of the whole application so far. With
     /// <paramref name="waitForNextTick"/> it waits until the minute of the latest run passed: a

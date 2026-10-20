@@ -265,6 +265,42 @@ export interface NhAssistantMockRunNow {
 }
 
 /**
+ * A run that happened before the first request, for the run histories (`GET runs`, the
+ * administration's runs view) and `GET runs/{id}`. The mock shows it to the caller as the server
+ * would: on an object the caller reads, for the whole application when the caller passes the agent's
+ * view policy, by default its required policy; administrators see every run of an agent.
+ */
+export interface NhAssistantMockRun {
+  /** Default a generated id. */
+  id?: string;
+  agentId: string;
+  /** An object type of `subjectTypes`, or `nh-system` for the whole application. */
+  subjectType: string;
+  /** The object's id, or `global` (or `division-…`) for the whole application. */
+  subjectId: string;
+  /** The object's name; default the name `subjectTypes` gives it, or the id. */
+  subjectDisplayName?: string;
+  /** Default `completed`. */
+  status?: AgentRunStatus;
+  /** Default `manual`. */
+  triggerId?: string;
+  /** The run's answer as Markdown, model output; default none. */
+  result?: string | null;
+  /** When the run was queued, ISO 8601; default now. */
+  createdAt?: string;
+  /** How long the run took. Default 30. */
+  durationSeconds?: number;
+  /** Default 0. */
+  proposalCount?: number;
+  /** Default 0. */
+  toolCalls?: number;
+  /** Default 0. */
+  tokens?: number;
+  /** The run worked in the agent's shadow thread. Default `false`. */
+  shadow?: boolean;
+}
+
+/**
  * A subject type the application registered with `AddSubjectType`, with its names per language, the
  * entity it stands for, its link template and the subjects people can find. The mock checks it as
  * the server checks the registration at startup: a dash-case id outside the reserved `nh-` prefix,
@@ -321,6 +357,8 @@ export interface NhAssistantMockScenario {
   callerPolicies?: string[];
   /** What a run by hand does, per agent id; `POST threads/start` and the agents of a subject show it. */
   runNow?: Record<string, NhAssistantMockRunNow>;
+  /** Runs that happened before the first request, for the run histories and their results. */
+  runs?: NhAssistantMockRun[];
   /**
    * Proposals the agents left, for example ones a run for the whole application placed at projects:
    * the approval inbox, their thread and their subject's work list them, and people decide them.

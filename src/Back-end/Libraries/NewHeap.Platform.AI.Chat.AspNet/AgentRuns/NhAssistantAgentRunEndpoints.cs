@@ -424,7 +424,7 @@ internal static class NhAssistantAgentRunEndpoints
             artifact.Name + "-v" + artifact.Version.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
-    private static async Task<bool> MayReadArtifactAsync(
+    internal static async Task<bool> MayReadArtifactAsync(
         NhAssistantRestrictedResults shield,
         INhAssistantStore store,
         Guid? toolInvocationId,

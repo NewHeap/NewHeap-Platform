@@ -26,6 +26,19 @@
     </div>
     <nh-assistant-agent-run-configuration [agent]="agent" [startSetup]="setupOnOpen()" [tools]="tools()" />
   </div>
+} @else if (viewingRuns(); as agent) {
+  <div class="stack">
+    <div>
+      <button #back class="secondary" type="button" (click)="closeRuns()">
+        {{ 'nh-assistant.admin.runs.back' | translate }}
+      </button>
+    </div>
+    <p class="muted">{{ 'nh-assistant.admin.feedback.agent' | translate: { name: (codeTextKeys(agent.source, agent.displayName) | nhAssistantTranslate: agent.displayName), id: agent.id } }}</p>
+    <nh-assistant-agent-run-history
+      [agentId]="agent.id"
+      [subjectTypes]="catalog()?.subjectTypes ?? []"
+      (openConversation)="openConversation($event)" />
+  </div>
 } @else if (evaluating(); as agent) {
   <div class="stack">
     <div>
@@ -235,6 +248,11 @@
               @if (hasRunConfiguration(agent)) {
                 <button class="secondary" type="button" [attr.data-run-config-agent]="agent.id" (click)="openRunConfiguration(agent)">
                   <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agents.run-config' | translate }}
+                </button>
+              }
+              @if (hasRunConfiguration(agent)) {
+                <button class="secondary" type="button" [attr.data-runs-agent]="agent.id" (click)="openRuns(agent)">
+                  <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agents.runs' | translate }}
                 </button>
               }
               @if (canRunNow(agent)) {

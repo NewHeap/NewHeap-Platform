@@ -388,6 +388,58 @@ scenario's `proposals` (`NhAssistantMockProposal`) in `GET approvals/inbox`, `GE
 | `nh-assistant-agent-inbox` and `nh-assistant-agent-thread-view` emit `openConversation` for the run that placed a proposal; the thread view emitted it only for its own thread before. | Open the emitted conversation with `NhAssistantPanelService.open`; check the id when the thread view's own conversation needs other handling. |
 | The mock API answers `approvals/inbox`, `approvals/{id}`, `approvals/lookup` and the decision endpoints instead of `404`. | Update tests that expected `404`; list proposals in `NhAssistantMockScenario.proposals`. |
 
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: results and history
+
+A run keeps its whole answer as Markdown in `AssistantRun.Result`, at most
+`NhAssistantLimits.MaxRunResultCharacters` (20,000) characters with `ResultTruncated` when it was cut:
+the final answer of each of its turns that completed, the summary a rule handler wrote included, next
+to the small summary the agent's next runs start from. The answer is model output and may carry MCP
+tool output; render it only with a safe Markdown renderer. `GET runs` lists the runs a person may see
+(`NhAssistantRunHistoryListDto`, `NhAssistantRunHistoryDto`): runs on objects the person reads, or
+whose thread they were invited to, and runs for the whole application of agents whose `ViewPolicy`,
+by default their required policy, the person passes, evaluated like the roles of the whole
+application; shadow work for administrators only. It filters by `agentId`, `subjectType`,
+`subjectId`, `status`, `from` and `to`, pages up to 50 runs and considers the 100 agent threads with
+the most recent matching runs (`Limited`). `GET runs/{id}` (`NhAssistantRunResultDto`) returns one run
+with its whole result, its summary, its proposals (those it placed at objects the person reads, the
+others counted in `HiddenProposals`) and its files, which `GET runs/{id}/artifacts/{artifactId}/content`
+downloads; administrators open every run. `GET admin/agents/{id}/runs` lists every run of an agent,
+live and shadow, for its runs view. An invalid filter answers `400 assistant-run-filter-invalid`
+(`NhAssistantErrorCodes.RunFilterInvalid`). A proposal a run places at another object no longer
+creates the agent's thread there when a later check, such as the duplicate check, refuses it.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantLatestRunDto.Result` of `GET subjects/{type}/{id}/agents` is the beginning of the run's stored answer instead of the summary it ended with; runs without a stored answer keep the summary. | None; keep showing it as text. |
+| The assistant maps `GET runs`, `GET runs/{id}`, `GET runs/{id}/artifacts/{artifactId}/content` and `GET admin/agents/{id}/runs` below its prefix. | Move host routes that used these paths below the assistant's prefix. |
+| Migration `AgentRunResults` adds `Result` and `ResultTruncated` to `AssistantRun` and an index of `AssistantThread` by agent and subject type. | Apply it for SQL Server or PostgreSQL. |
+
+## @newheap/platform-ai-chat: results and history
+
+`nh-assistant-run-result` (`NhAssistantRunResultComponent`, `runId`) of
+`@newheap/platform-ai-chat/agent-runs` shows one run: what it worked on, its status, trigger, start,
+duration and usage, its whole answer rendered with the assistant's safe Markdown rendering, the
+proposals it made (also those it placed at objects the person reads, and how many wait elsewhere) and
+its files; it emits `openConversation`, and `conversationLink` hides the conversation where it is
+already shown. The run timeline opens it with "Show the result", and `nh-assistant-object-agents`
+shows the latest run's whole result on demand. `NhAssistantAgentRunApiService.getRunHistory`
+(`AgentRunFilter`, `AgentRunHistory`, `AgentRunHistoryItem`), `getRunResult` (`AgentRunResult`,
+`NH_ASSISTANT_RUN_RESULT_MAX_LENGTH`) and `downloadRunArtifact` read the server's results and history;
+`NH_ASSISTANT_RUN_HISTORY_MAX_PAGE` bounds a page. The administration's agent cards offer "Runs", which
+opens `nh-assistant-agent-run-history` (`NhAssistantAgentRunHistoryComponent`) of
+`@newheap/platform-ai-chat/admin` with `NhAssistantAdminApiService.getAgentRuns`: every run of the
+agent with shadow runs marked, filtered by kind of object, object, the whole application, status and
+period, each opened with its result. The mock API serves the run histories with the server's
+visibility, filters and validation and takes earlier runs in `NhAssistantMockScenario.runs`
+(`NhAssistantMockRun`). The error `assistant-run-filter-invalid` is registered and the new texts are
+bundled in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| The cards of `nh-assistant-run-timeline` and `nh-assistant-object-agents` gain "Show the result", and the administration's agent cards gain "Runs". | Update tests and styles that select card buttons by position. |
+| The mock API answers `GET runs`, `GET runs/{id}`, `GET runs/{id}/artifacts/{artifactId}/content` and `GET admin/agents/{id}/runs` instead of `404`, and a run by hand keeps `runNow.result` as its answer and the first 600 characters as its summary. | Update tests that expected `404` or the whole result as the summary; seed runs with `runs`. |
+| The conversation's Markdown styles come from a shared partial that also styles thematic breaks (`hr`). | None; remove host styles that styled `hr` inside the panel. |
+
 ## NewHeap.Platform.AI.Mcp, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: MCP servers in background runs
 
 An administrator-connected MCP server is now offered in headless agent runs, and in the execution

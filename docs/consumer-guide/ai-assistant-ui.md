@@ -354,6 +354,28 @@ works per division, or an object of one of its kinds through the object picker. 
 who may run it (participants of an object; for the whole application the agent's run policy, by
 default the administration policy) and its refusal shows in the dialog.
 
+Show what a run did with `nh-assistant-run-result` (`NhAssistantRunResultComponent`, `runId`) from
+`@newheap/platform-ai-chat/agent-runs`: what the run worked on, its status, trigger, start, duration and
+usage, its whole answer (`NhAssistantAgentRunApiService.getRunResult`, `AgentRunResult`, at most
+`NH_ASSISTANT_RUN_RESULT_MAX_LENGTH` characters, with a note when it was cut), the proposals it made,
+those it placed at objects the person reads included, how many wait at objects the person may not see,
+and its files, which download with `downloadRunArtifact`. The answer is model output: the component
+renders it with the assistant's safe Markdown rendering, which keeps a strict set of tags and links and
+shows inline HTML as text; never bind a result to `innerHTML` yourself. The server decides who sees a
+run (readers of its object; for the whole application the agent's view policy, by default its required
+policy; administrators every run) and a run the person may not see reads as not available. It emits
+`openConversation` for `NhAssistantPanelService.open` and offers the run's conversation only where the
+person may open it (`conversationLink` turns it off where that conversation is already shown). The
+run timeline of the thread view opens it with "Show the result", and `nh-assistant-object-agents` shows
+the latest run's whole result on demand. `getRunHistory` (`AgentRunFilter`, `AgentRunHistory`,
+`AgentRunHistoryItem`) lists the runs a person may see with the server's filters and paging, up to
+`NH_ASSISTANT_RUN_HISTORY_MAX_PAGE` per page. In the administration, "Runs" on an agent card opens
+`nh-assistant-agent-run-history` (`NhAssistantAgentRunHistoryComponent`, `agentId`, `subjectTypes`) of
+`@newheap/platform-ai-chat/admin`: every run of the agent (`NhAssistantAdminApiService.getAgentRuns`),
+shadow runs marked, with its trigger, object, the beginning of its result, proposals, usage and
+duration, filtered by kind of object, one object by id, the whole application, status and a period
+whose last day counts in full; "Show the result" opens the run in `nh-assistant-run-result`.
+
 Live updates connect to the hub path the server reports in `status.collaboration`,
 using `@microsoft/signalr`, loaded on first use, and the same `getAccessToken`. When
 a proxy serves the API below a prefix, set `hubBaseUrl` to that prefix (for example
@@ -397,7 +419,9 @@ the administration route under the same parent to share that scope.
 
 ## Avoid
 
-- Rendering an agent's result (`AgentLatestRun.result`) as HTML; it is model output, shown as text.
+- Rendering an agent's result (`AgentLatestRun.result`, `AgentRunHistoryItem.result` or
+  `AgentRunResult.result`) as HTML or through an unsanitized Markdown pipe; it is model output. Show
+  previews as text and the whole result with `nh-assistant-run-result`.
 - Showing "Run now" from the client's own idea of who may run an agent; use the server's `canStart`.
 - Sending the assistant requests through host `HttpClient` interceptors or
   `EventSource`; the library streams through `fetch` with the token from
@@ -597,8 +621,16 @@ inbox and the thread view, open it in the panel from the subject suggestions, ke
 375px, decide a placed proposal from the inbox, and let the mock API serve and decide such proposals
 (`NhAssistantMockScenario.proposals`, `NhAssistantMockProposal`) with the server's validation. The
 portal's intake reviews inbox and the project editor's suggestions open the follow-up's conversation
-of the whole application from its proposals at a project (SPM-302).
-SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298 and SPM-301 to SPM-303 are the
+of the whole application from its proposals at a project (SPM-302). The run-result tests render an
+answer with inline HTML, an image and a script link as safe Markdown without running anything, say
+when an answer was cut, when a run kept none and when it is not available, list the visible and count
+the hidden proposals, download a file, open a run's result from the run timeline and the object agents,
+and stay within 375px; the runs-view tests list every run of an agent with shadow runs marked, send the
+status and the period, refuse an inverted period at its field, narrow to one object, open a run and
+return focus to its action, and let the mock API list and filter runs with the server's visibility and
+validation (`NhAssistantMockScenario.runs`, `NhAssistantMockRun`). The playground's administration
+shows earlier runs of the project follow-up (SPM-304).
+SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298 and SPM-301 to SPM-304 are the
 executable references.
 
 ## Executable evidence
@@ -688,3 +720,8 @@ executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
   - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts)
   - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html)
+- SPM-304 — The administration's runs view lists every run of the project follow-up, and people who pass its view policy read its result for the whole application
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
+  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)

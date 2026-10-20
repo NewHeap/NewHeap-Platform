@@ -2,6 +2,7 @@
 // includes this stylesheet.
 @use '../../src/lib/styles/tokens';
 @use '../../src/lib/styles/forms';
+@use '../../src/lib/styles/markdown';
 
 @include tokens.tokens;
 
@@ -406,4 +407,88 @@ pre {
   min-width: 0;
   border-top: 1px solid var(--nha-border);
   padding-top: 12px;
+}
+
+// One run with its result: what it worked on, its facts, its answer, proposals and files.
+.run-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+
+  h4 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 750;
+    overflow-wrap: anywhere;
+  }
+
+  h5 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+}
+
+.run-result-header {
+  min-width: 0;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+
+  div { min-width: 0; }
+
+  dt {
+    color: var(--nha-text-muted);
+    font-size: 12px;
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.result-body,
+.result-section {
+  min-width: 0;
+  border-top: 1px solid var(--nha-border);
+  padding-top: 10px;
+}
+
+.files {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+}
+
+.file-name {
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+// The answer is rendered with innerHTML and carries no encapsulation attributes.
+:host ::ng-deep .markdown {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  @include markdown.content;
 }

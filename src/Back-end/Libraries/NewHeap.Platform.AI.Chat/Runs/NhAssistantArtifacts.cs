@@ -68,6 +68,34 @@ internal sealed partial class NhAssistantArtifactStore(NhAssistantDbContextFacto
     }
 
     /// <summary>
+    /// The versions one run saved in its thread, newest first, without content.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantArtifactRow>> ListOfRunAsync(
+        Guid conversationId,
+        Guid runId,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Artifacts
+            .AsNoTracking()
+            .Where(item => item.ConversationId == conversationId && item.RunId == runId)
+            .OrderByDescending(item => item.CreatedAt)
+            .ThenByDescending(item => item.Version)
+            .Take(maximum)
+            .Select(item => new NhAssistantArtifactRow(
+                item.Id,
+                item.Name,
+                item.Version,
+                item.ContentType,
+                item.SizeBytes,
+                item.CreatedAt,
+                item.RunId,
+                item.ToolInvocationId))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// The latest version of each name, newest first.
     /// </summary>
     public async Task<IReadOnlyList<NhAssistantArtifactRow>> ListLatestAsync(Guid conversationId, int maximum, CancellationToken cancellationToken)

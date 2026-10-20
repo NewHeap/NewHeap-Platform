@@ -5,11 +5,15 @@ import {
   AgentObjectAgent,
   AgentObjectAgents,
   AgentRun,
+  AgentRunHistory,
+  AgentRunHistoryItem,
+  AgentRunResult,
+  AgentRunStatus,
   AgentThread,
   AgentThreadLookup,
   AgentTriggerReceipt
 } from '@newheap/platform-ai-chat';
-import { NhAssistantMockScenario } from './nh-assistant-mock.models';
+import { NhAssistantMockRun, NhAssistantMockScenario } from './nh-assistant-mock.models';
 import { NhAssistantMockResult, mockFailure as failure } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockDescribedSubject, NhAssistantMockSubjects } from './nh-assistant-mock-subjects';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
@@ -30,13 +34,30 @@ interface StoredThread {
   subject: NhAssistantMockDescribedSubject;
   runs: AgentRun[];
   openProposals: number;
+  /** The agent's shadow thread, which only administrators see. */
+  shadow?: boolean;
 }
 
 const dashCase = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const maxMessage = 8_000;
 const maxSubjectId = 200;
 const resultPreview = 300;
+const maxResult = 20_000;
+const maxItemsPerPage = 50;
 const activeStatuses = ['queued', 'running', 'waiting-for-approval'];
+const runStatuses: readonly AgentRunStatus[] = ['queued', 'running', 'waiting-for-approval', 'completed', 'failed', 'cancelled'];
+
+/** A run history's filter as the server reads it. */
+interface RunFilter {
+  agentId: string | null;
+  subjectType: string | null;
+  subjectId: string | null;
+  status: string | null;
+  from: number | null;
+  to: number | null;
+  page: number;
+  itemsPerPage: number;
+}
 
 /**
  * Agents run by hand in the mock API, which runs no agents itself: `POST threads/start` checks who
@@ -45,10 +66,16 @@ const activeStatuses = ['queued', 'running', 'waiting-for-approval'];
  * scope; its required policy; shadow for administrators only), records a run that ends at once as the
  * scenario's `runNow` says, and `GET subjects/{type}/{id}/agents`, `GET threads` and the thread's runs
  * show it. The thread's memory, artifacts and consultations are empty; its proposals are those the
- * scenario lists in it.
+ * scenario lists in it. The scenario's `runs` happened before; `GET runs`, `GET runs/{id}` and the
+ * administration's `GET admin/agents/{id}/runs` list them and the runs by hand, with the server's
+ * filters, validation and visibility.
  */
 export class NhAssistantMockAgentRuns {
   private readonly threads = new Map<string, StoredThread>();
+  /** The answer of each run, by run id, at most 20,000 characters. */
+  private readonly results = new Map<string, string | null>();
+  /** The runs whose answer was longer and was cut. */
+  private readonly truncated = new Set<string>();
   private sequence = 0;
 
   constructor(
@@ -56,7 +83,67 @@ export class NhAssistantMockAgentRuns {
     private readonly subjects: NhAssistantMockSubjects,
     private readonly context: NhAssistantMockAgentRunContext,
     private readonly now: () => string
-  ) {}
+  ) {
+    for (const seeded of scenario.runs ?? []) {
+      this.seed(seeded);
+    }
+  }
+
+  /** `GET runs`, `GET runs/{id}` and `GET runs/{id}/artifacts/{id}/content`; `null` for other paths. */
+  handleRuns(method: string, segments: string[], query: URLSearchParams, language: string | null): NhAssistantMockResult | null {
+    if (segments[0] !== 'runs' || (segments.length !== 1 && segments.length !== 2 && segments.length !== 5)) {
+      return null;
+    }
+    if (method !== 'GET') {
+      return segments.length === 1 || segments.length === 2 ? { status: 405 } : null;
+    }
+    if (segments.length === 1) {
+      const filter = readFilter(query, true);
+      if (!filter) {
+        return failure(400, 'assistant-run-filter-invalid');
+      }
+      return { status: 200, body: this.history(filter, language, false) };
+    }
+
+    const found = this.findRun(segments[1]);
+    if (!found || !(this.context.administers() || this.mayView(found.thread, language))) {
+      return failure(404, 'assistant-run-not-found');
+    }
+    if (segments.length === 5) {
+      // The mock's runs save no files.
+      return segments[2] === 'artifacts' && segments[4] === 'content' ? failure(404, 'assistant-artifact-not-found') : null;
+    }
+
+    const body: AgentRunResult = {
+      run: this.toHistoryItem(found.thread, found.run, language),
+      result: this.results.get(found.run.id) ?? null,
+      resultTruncated: this.truncated.has(found.run.id),
+      summary: found.run.summary,
+      proposals: [],
+      hiddenProposals: 0,
+      artifacts: [],
+      canOpenConversation: this.mayView(found.thread, language)
+    };
+    return { status: 200, body };
+  }
+
+  /** `GET admin/agents/{id}/runs`: every run of the agent, for administrators. */
+  handleAgentRuns(method: string, agentId: string, query: URLSearchParams, language: string | null): NhAssistantMockResult {
+    if (method !== 'GET') {
+      return { status: 405 };
+    }
+    if (!this.context.administers()) {
+      return failure(403, 'assistant-forbidden');
+    }
+    if (!this.context.agents().some(agent => agent.id === agentId)) {
+      return failure(404, 'assistant-agent-not-found');
+    }
+    const filter = readFilter(query, false);
+    if (!filter) {
+      return failure(400, 'assistant-run-filter-invalid');
+    }
+    return { status: 200, body: this.history({ ...filter, agentId }, language, true) };
+  }
 
   /** `POST threads/start`, `GET threads` and `GET threads/{id}/…`; `null` for other paths. */
   handleThreads(method: string, segments: string[], query: URLSearchParams, body: unknown, language: string | null): NhAssistantMockResult | null {
@@ -126,7 +213,7 @@ export class NhAssistantMockAgentRuns {
             : agent.description,
           canStart: this.refusal(agent, subject) === null,
           conversationId: thread?.conversationId ?? null,
-          latestRun: thread ? latestRun(thread) : null,
+          latestRun: thread ? latestRun(thread, this.results) : null,
           openProposals: thread?.openProposals ?? 0
         };
       });
@@ -196,7 +283,7 @@ export class NhAssistantMockAgentRuns {
       inputTokens: 0,
       outputTokens: 0,
       proposalCount: runNow.proposals ?? 0,
-      summary: runNow.result ?? null,
+      summary: runNow.result === undefined || runNow.result === null ? null : runNow.result.slice(0, 600),
       shadow: false,
       createdAt: now,
       startedAt: status === 'queued' ? null : now,
@@ -205,6 +292,7 @@ export class NhAssistantMockAgentRuns {
       kind: 'model'
     };
     thread.runs.push(run);
+    this.keep(run.id, runNow.result);
     thread.openProposals += runNow.proposals ?? 0;
     const receipt: AgentTriggerReceipt = { triggerId: 'manual', outcome, runId: run.id, conversationId: thread.conversationId, reasonCode: null };
     return { status: 202, body: receipt };
@@ -261,6 +349,154 @@ export class NhAssistantMockAgentRuns {
     return null;
   }
 
+  /** A page of the runs the caller may see, or with `everything` every run, newest first. */
+  private history(filter: RunFilter, language: string | null, everything: boolean): AgentRunHistory {
+    const matching = [...this.threads.values()]
+      .filter(thread => (filter.agentId === null || thread.agentId === filter.agentId)
+        && (filter.subjectType === null || thread.subject.subjectType === filter.subjectType)
+        && (filter.subjectId === null || thread.subject.subjectId === filter.subjectId)
+        && (everything || this.mayView(thread, language)))
+      .flatMap(thread => thread.runs
+        .filter(run => (filter.status === null || run.status === filter.status)
+          && (filter.from === null || Date.parse(run.createdAt) >= filter.from)
+          && (filter.to === null || Date.parse(run.createdAt) < filter.to))
+        .map(run => ({ thread, run })))
+      .sort((left, right) => Date.parse(right.run.createdAt) - Date.parse(left.run.createdAt) || right.run.id.localeCompare(left.run.id));
+    const start = (filter.page - 1) * filter.itemsPerPage;
+    return {
+      items: matching.slice(start, start + filter.itemsPerPage).map(item => this.toHistoryItem(item.thread, item.run, language)),
+      total: matching.length,
+      limited: false
+    };
+  }
+
+  /**
+   * Whether the caller may see the runs of the thread: shadow work for administrators only, an object
+   * the caller reads, the whole application by the agent's view policy, by default its required
+   * policy.
+   */
+  private mayView(thread: StoredThread, language: string | null): boolean {
+    if (thread.shadow && !this.context.administers()) {
+      return false;
+    }
+    const subject = this.subjects.describe(thread.subject.subjectType, thread.subject.subjectId, language, this.context.administers());
+    if (!subject) {
+      return false;
+    }
+    if (subject.scope === 'object') {
+      return true;
+    }
+    const agent = this.context.agents().find(item => item.id === thread.agentId);
+    const policy = agent?.viewPolicy ?? agent?.requiredPolicy ?? null;
+    return agent !== undefined && (policy === null || this.passes(policy));
+  }
+
+  private findRun(runId: string): { thread: StoredThread; run: AgentRun } | null {
+    for (const thread of this.threads.values()) {
+      const run = thread.runs.find(item => item.id === runId);
+      if (run) {
+        return { thread, run };
+      }
+    }
+    return null;
+  }
+
+  private toHistoryItem(thread: StoredThread, run: AgentRun, language: string | null): AgentRunHistoryItem {
+    const agent = this.context.agents().find(item => item.id === thread.agentId);
+    const subject = this.subjects.describe(thread.subject.subjectType, thread.subject.subjectId, language, this.context.administers())
+      ?? thread.subject;
+    const answer = this.results.get(run.id) ?? null;
+    const preview = answer ?? run.summary;
+    return {
+      id: run.id,
+      conversationId: run.conversationId,
+      agentId: thread.agentId,
+      agentDisplayNameKey: agent ? this.nameKeyOf(agent) : null,
+      subjectType: thread.subject.subjectType,
+      subjectId: thread.subject.subjectId,
+      subjectDisplayName: subject.displayName,
+      subjectTypeName: subject.typeName,
+      subjectLink: subject.link,
+      triggerId: run.triggerId,
+      status: run.status,
+      failureClass: run.failureClass,
+      failureCode: run.failureCode,
+      kind: run.kind ?? 'model',
+      skill: run.skill ?? null,
+      initiatorActorId: run.initiatorActorId,
+      toolCalls: run.toolCalls,
+      modelCalls: 0,
+      inputTokens: run.inputTokens,
+      outputTokens: run.outputTokens,
+      proposalCount: run.proposalCount,
+      result: preview === null ? null : preview.slice(0, resultPreview),
+      resultTruncated: preview !== null && (preview.length > resultPreview || this.truncated.has(run.id)),
+      shadow: run.shadow,
+      createdAt: run.createdAt,
+      startedAt: run.startedAt,
+      endedAt: run.endedAt
+    };
+  }
+
+  /** Stores a run of the scenario in its agent's thread on its subject. */
+  private seed(seeded: NhAssistantMockRun): void {
+    const described = this.subjects.describe(seeded.subjectType, seeded.subjectId, null, true);
+    const system = seeded.subjectType === mockSystemSubjectType;
+    const subject: NhAssistantMockDescribedSubject = {
+      subjectType: seeded.subjectType,
+      subjectId: seeded.subjectId,
+      displayName: seeded.subjectDisplayName ?? described?.displayName ?? seeded.subjectId,
+      typeName: described?.typeName ?? null,
+      link: described?.link ?? null,
+      role: described?.role ?? 'reader',
+      scope: described?.scope ?? (system ? 'global' : 'object')
+    };
+    const shadow = seeded.shadow === true;
+    const threadKey = key(seeded.agentId, subject) + (shadow ? '|shadow' : '');
+    const thread = this.threads.get(threadKey)
+      ?? { conversationId: this.nextId(), agentId: seeded.agentId, subject, runs: [], openProposals: 0, shadow };
+    this.threads.set(threadKey, thread);
+    const createdAt = seeded.createdAt ?? this.now();
+    const status = seeded.status ?? 'completed';
+    const ended = !activeStatuses.includes(status);
+    const endedAt = new Date(Date.parse(createdAt) + (seeded.durationSeconds ?? 30) * 1000).toISOString();
+    const tokens = seeded.tokens ?? 0;
+    const run: AgentRun = {
+      id: seeded.id ?? this.nextId(),
+      conversationId: thread.conversationId,
+      triggerId: seeded.triggerId ?? 'manual',
+      status,
+      failureClass: status === 'failed' ? 'internal' : null,
+      failureCode: status === 'failed' ? 'assistant-turn-failed' : null,
+      initiatorActorId: null,
+      accountableOwnerId: `assistant-agent:${seeded.agentId}`,
+      attempt: 1,
+      agentVersion: 1,
+      toolCalls: seeded.toolCalls ?? 0,
+      inputTokens: Math.ceil(tokens / 2),
+      outputTokens: Math.floor(tokens / 2),
+      proposalCount: seeded.proposalCount ?? 0,
+      summary: seeded.result ? seeded.result.slice(0, 600) : null,
+      shadow,
+      createdAt,
+      startedAt: status === 'queued' ? null : createdAt,
+      endedAt: ended ? endedAt : null,
+      backgroundOperationId: null,
+      kind: 'model'
+    };
+    thread.runs.push(run);
+    thread.runs.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+    this.keep(run.id, seeded.result);
+  }
+
+  /** Keeps a run's answer as the server bounds it: its first 20,000 characters, marked when cut. */
+  private keep(runId: string, answer: string | null | undefined): void {
+    this.results.set(runId, answer === undefined || answer === null ? null : answer.slice(0, maxResult));
+    if (answer && answer.length > maxResult) {
+      this.truncated.add(runId);
+    }
+  }
+
   /** Neither stopped nor disabled in code; a paused agent still works for people. */
   private isWorking(agent: AdminAgent): boolean {
     return agent.runState === 'active' || agent.runState === 'paused';
@@ -307,12 +543,13 @@ function worksOn(agent: AdminAgent, subject: NhAssistantMockDescribedSubject): b
   return agent.perDivision === true ? subject.scope === 'division' : subject.scope === 'global';
 }
 
-function latestRun(thread: StoredThread): AgentLatestRun | null {
+function latestRun(thread: StoredThread, results: ReadonlyMap<string, string | null>): AgentLatestRun | null {
   const run = thread.runs.at(-1);
   if (!run) {
     return null;
   }
-  const result = run.summary;
+  // The stored answer first, as the server reads it; without one, the summary the run ended with.
+  const result = results.get(run.id) ?? run.summary;
   return {
     runId: run.id,
     conversationId: run.conversationId,
@@ -343,4 +580,38 @@ function toThread(thread: StoredThread): AgentThread {
     subjectTypeName: thread.subject.typeName,
     subjectLink: thread.subject.link
   };
+}
+
+/**
+ * Reads a run history's filter and page as the server does; `null` when a part is invalid. People's
+ * history takes an agent, the administration's runs view names its agent in the path.
+ */
+function readFilter(query: URLSearchParams, withAgent: boolean): RunFilter | null {
+  const page = query.has('page') ? Number(query.get('page')) : 1;
+  const itemsPerPage = query.has('itemsPerPage') ? Number(query.get('itemsPerPage')) : 20;
+  if (!Number.isInteger(page) || page < 1 || !Number.isInteger(itemsPerPage) || itemsPerPage < 1 || itemsPerPage > maxItemsPerPage) {
+    return null;
+  }
+  const agentId = withAgent ? query.get('agentId') : null;
+  if (agentId !== null && (agentId.trim().length === 0 || agentId.length > 128)) {
+    return null;
+  }
+  const subjectType = query.get('subjectType');
+  if (subjectType !== null && (!dashCase.test(subjectType) || subjectType.length > 100)) {
+    return null;
+  }
+  const subjectId = query.get('subjectId');
+  if (subjectId !== null && (subjectType === null || subjectId.trim().length === 0 || subjectId.length > maxSubjectId || subjectId.trim() !== subjectId)) {
+    return null;
+  }
+  const status = query.get('status');
+  if (status !== null && !runStatuses.includes(status as AgentRunStatus)) {
+    return null;
+  }
+  const from = query.has('from') ? Date.parse(query.get('from')!) : null;
+  const to = query.has('to') ? Date.parse(query.get('to')!) : null;
+  if ((from !== null && Number.isNaN(from)) || (to !== null && Number.isNaN(to)) || (from !== null && to !== null && to <= from)) {
+    return null;
+  }
+  return { agentId, subjectType, subjectId, status, from, to, page, itemsPerPage };
 }

@@ -1,0 +1,150 @@
+@if (opened(); as run) {
+  <div class="stack">
+    <div>
+      <button class="secondary" type="button" data-runs-back (click)="close()">
+        {{ 'nh-assistant.admin.runs.back-to-runs' | translate }}
+      </button>
+    </div>
+    <nh-assistant-run-result [runId]="run.id" (openConversation)="openConversation.emit($event)" />
+  </div>
+} @else {
+  <section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()">
+    <header class="section-header">
+      <div>
+        <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.runs.title' | translate }}</h3>
+        <p class="muted">{{ 'nh-assistant.admin.runs.description' | translate }}</p>
+      </div>
+    </header>
+
+    <form class="filters" [attr.aria-label]="'nh-assistant.admin.runs.filters' | translate" (submit)="$event.preventDefault(); apply()">
+      <div class="field">
+        <label [for]="id + '-type'">{{ 'nh-assistant.admin.runs.subject-type' | translate }}</label>
+        <select [id]="id + '-type'" (change)="update('subjectType', $event)">
+          <option value="" [selected]="form().subjectType === ''">{{ 'nh-assistant.admin.runs.any-subject' | translate }}</option>
+          <option [value]="systemType" [selected]="form().subjectType === systemType">{{ 'nh-assistant.admin.runs.whole-application' | translate }}</option>
+          @for (type of objectTypes(); track type.id) {
+            <option [value]="type.id" [selected]="form().subjectType === type.id">{{ type.pluralName ?? type.name }}</option>
+          }
+        </select>
+      </div>
+      @if (objectChoosable()) {
+        <div class="field">
+          <label [for]="id + '-object'">{{ 'nh-assistant.admin.runs.subject-id' | translate }}</label>
+          <input
+            type="text"
+            autocomplete="off"
+            maxlength="200"
+            [id]="id + '-object'"
+            [attr.aria-describedby]="id + '-object-hint'"
+            [value]="form().subjectId"
+            (input)="update('subjectId', $event)" />
+          <p class="hint" [id]="id + '-object-hint'"><span>{{ 'nh-assistant.admin.runs.subject-id-hint' | translate }}</span></p>
+        </div>
+      }
+      <div class="field">
+        <label [for]="id + '-status'">{{ 'nh-assistant.admin.runs.status' | translate }}</label>
+        <select [id]="id + '-status'" (change)="update('status', $event)">
+          <option value="" [selected]="form().status === ''">{{ 'nh-assistant.admin.runs.any-status' | translate }}</option>
+          @for (status of statuses; track status) {
+            <option [value]="status" [selected]="form().status === status">{{ 'nh-assistant.agent-runs.run.status.' + status | translate }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label [for]="id + '-from'">{{ 'nh-assistant.admin.runs.from' | translate }}</label>
+        <input type="date" [id]="id + '-from'" [value]="form().from" (change)="update('from', $event)" />
+      </div>
+      <div class="field">
+        <label [for]="id + '-to'">{{ 'nh-assistant.admin.runs.to' | translate }}</label>
+        <input
+          type="date"
+          [id]="id + '-to'"
+          [value]="form().to"
+          [attr.aria-invalid]="periodInvalid()"
+          [attr.aria-describedby]="periodInvalid() ? id + '-to-error' : null"
+          (change)="update('to', $event)" />
+        @if (periodInvalid()) {
+          <p class="field-error" role="alert" [id]="id + '-to-error'"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.runs.period-invalid' | translate }}</p>
+        }
+      </div>
+      <div class="filter-actions">
+        <button class="primary" type="submit" [disabled]="loading()">{{ 'nh-assistant.admin.runs.apply' | translate }}</button>
+        <button class="secondary" type="button" [disabled]="loading()" (click)="clear()">{{ 'nh-assistant.admin.runs.clear' | translate }}</button>
+      </div>
+    </form>
+
+    @if (error(); as failure) {
+      <div class="state" role="alert">
+        <p>{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+        <button class="secondary" type="button" (click)="apply()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+      </div>
+    } @else if (loading()) {
+      <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+    } @else if (items().length === 0) {
+      <p class="state" data-runs-empty>{{ 'nh-assistant.admin.runs.empty' | translate }}</p>
+    } @else {
+      <p class="muted" role="status" data-runs-count>{{ 'nh-assistant.admin.runs.count' | translate: { shown: items().length, total: total() } }}</p>
+      <ol class="cards" [attr.aria-labelledby]="id + '-title'">
+        @for (run of items(); track run.id) {
+          <li class="card" [attr.data-run]="run.id">
+            <div class="card-header">
+              <strong><time [attr.datetime]="run.createdAt">{{ run.createdAt | date: 'medium' }}</time></strong>
+              <span
+                class="badge"
+                [class.success]="run.status === 'completed'"
+                [class.warning]="run.status === 'waiting-for-approval' || run.status === 'queued' || run.status === 'running'"
+                [class.danger]="run.status === 'failed'">{{ 'nh-assistant.agent-runs.run.status.' + run.status | translate }}</span>
+              @if (run.shadow) {
+                <span class="badge warning" data-run-shadow>{{ 'nh-assistant.agent-runs.run.shadow' | translate }}</span>
+              }
+              @if (run.kind !== 'model') {
+                <span class="badge">{{ 'nh-assistant.agent-runs.run.kind.' + run.kind | translate }}</span>
+              }
+              <span class="mono muted">{{ 'nh-assistant.agent-runs.run.trigger' | translate: { trigger: run.triggerId } }}</span>
+            </div>
+            <p class="run-subject">
+              <nh-assistant-subject-link
+                [subjectType]="run.subjectType"
+                [subjectId]="run.subjectId"
+                [label]="run.subjectDisplayName ?? run.subjectId"
+                [typeName]="run.subjectTypeName"
+                [link]="run.subjectLink" />
+            </p>
+            <!-- The beginning of the result is model output, shown as text. -->
+            @if (run.result; as result) {
+              <p class="run-preview" data-run-preview>{{ result }}@if (run.resultTruncated) {…}</p>
+            } @else {
+              <p class="muted">{{ 'nh-assistant.agent-runs.object-agents.no-result' | translate }}</p>
+            }
+            <div class="meta">
+              <span>{{ 'nh-assistant.agent-runs.run.proposals' | translate: { count: run.proposalCount } }}</span>
+              <span>{{ 'nh-assistant.agent-runs.run.tool-calls' | translate: { count: run.toolCalls } }}</span>
+              <span>{{ 'nh-assistant.agent-runs.run.tokens' | translate: { count: run.inputTokens + run.outputTokens } }}</span>
+              @if (durationOf(run); as took) {
+                <span data-run-duration>{{ took.key | translate: { count: took.value } }}</span>
+              }
+              @if (run.failureCode; as code) {
+                <span>{{ ['nh-assistant.errors.' + code] | nhAssistantTranslate: code }}</span>
+              }
+            </div>
+            <div class="card-actions">
+              <button class="secondary" type="button" [attr.data-open-run]="run.id" (click)="open(run)">
+                <nh-assistant-icon name="page" />{{ 'nh-assistant.agent-runs.result.show' | translate }}
+              </button>
+              <button class="secondary" type="button" data-only-object (click)="onlyObject(run)">
+                <nh-assistant-icon name="list" />{{ (run.subjectType === systemType ? 'nh-assistant.admin.runs.only-application' : 'nh-assistant.admin.runs.only-object') | translate }}
+              </button>
+            </div>
+          </li>
+        }
+      </ol>
+      @if (hasMore()) {
+        <div>
+          <button class="secondary" type="button" data-runs-more [disabled]="loadingMore()" (click)="loadMore()">
+            {{ (loadingMore() ? 'nh-assistant.admin.loading' : 'nh-assistant.admin.runs.more') | translate }}
+          </button>
+        </div>
+      }
+    }
+  </section>
+}

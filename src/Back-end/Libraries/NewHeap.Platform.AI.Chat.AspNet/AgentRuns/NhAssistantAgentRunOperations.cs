@@ -219,6 +219,7 @@ internal sealed class NhAssistantAgentRunOperation(
     NhAssistantAgentEvents events,
     NhAssistantAgentNotifier notifier,
     NhAssistantRunSummaries summaries,
+    NhAssistantRunResultWriter results,
     NhAssistantAgentWorkUpdates workUpdates,
     NhAssistantHandOffService handOffs,
     NhAssistantAgentTriggers triggers,
@@ -421,6 +422,7 @@ internal sealed class NhAssistantAgentRunOperation(
             new NhAssistantAgentTurnRequest(agentTurn, inputs.Select(ToInput).ToArray()),
             cancellationToken);
         await RecordUsageAsync(run.Id, result, cancellationToken);
+        await KeepAnswerAsync(run.Id, run.ConversationId, result, cancellationToken);
         return result;
     }
 
@@ -486,7 +488,27 @@ internal sealed class NhAssistantAgentRunOperation(
             cancellationToken);
         await context.Checkpoints.SetAsync<NhAssistantRunWait?>(WaitCheckpointKey, null, cancellationToken: cancellationToken);
         await RecordUsageAsync(agentTurn.RunId!.Value, result, cancellationToken);
+        await KeepAnswerAsync(agentTurn.RunId!.Value, agentTurn.Thread.ConversationId, result, cancellationToken);
         return result;
+    }
+
+    /// <summary>
+    /// Keeps the answer of a turn that completed as part of the run's result (K13): people read the
+    /// run's full answer, while its summary stays small for the agent's memory. A turn that waits,
+    /// failed or was cancelled adds nothing; its run ends with a status and a failure code instead.
+    /// </summary>
+    private async Task KeepAnswerAsync(
+        Guid runId,
+        Guid conversationId,
+        NhAssistantAgentTurnResult result,
+        CancellationToken cancellationToken)
+    {
+        if (result.Outcome != NhAssistantTurnStatuses.Completed || result.TurnId is not { } turnId)
+        {
+            return;
+        }
+
+        await results.AppendTurnAsync(runId, conversationId, turnId, cancellationToken);
     }
 
     private async Task<TaskResult> CompleteAsync(

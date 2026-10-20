@@ -40,6 +40,7 @@ import { codeTextKeys, policyKeys, readableId, skillDescriptionKeys, skillNameKe
 import { NhAssistantAdminAgentEditorComponent } from './nh-assistant-admin-agent-editor.component';
 import { NhAssistantAgentEvaluationComponent } from './nh-assistant-agent-evaluation.component';
 import { NhAssistantAgentFeedbackReportComponent } from './nh-assistant-agent-feedback-report.component';
+import { NhAssistantAgentRunHistoryComponent } from './nh-assistant-agent-run-history.component';
 import { NhAssistantAgentRunConfigurationComponent } from './nh-assistant-agent-run-configuration.component';
 import { NhAssistantAccountPickerComponent } from './run-config/nh-assistant-account-picker.component';
 
@@ -60,7 +61,8 @@ const maxStateReason = 500;
  * `nh-assistant-agent-run-configuration` for the skills, triggers and run settings defined as data.
  * "Run now" on an agent that runs on its own opens the run-now dialog: the whole application (or a
  * division of it) or an object of one of its types, and an optional instruction; the receipt opens
- * the agent's conversation in the assistant panel.
+ * the agent's conversation in the assistant panel. "Runs" opens `nh-assistant-agent-run-history`, the
+ * agent's runs with their results.
  */
 @Component({
   selector: 'nh-assistant-admin-agents',
@@ -73,6 +75,7 @@ const maxStateReason = 500;
     NhAssistantAdminAgentEditorComponent,
     NhAssistantAgentEvaluationComponent,
     NhAssistantAgentFeedbackReportComponent,
+    NhAssistantAgentRunHistoryComponent,
     NhAssistantAgentRunConfigurationComponent,
     NhAssistantAccountPickerComponent,
     NhAssistantRunNowDialogComponent
@@ -109,6 +112,8 @@ export class NhAssistantAdminAgentsComponent {
   readonly evaluating = signal<AdminAgent | null>(null);
   /** The agent whose run configuration is shown instead of the list. */
   readonly configuring = signal<AdminAgent | null>(null);
+  /** The agent whose runs are shown instead of the list. */
+  readonly viewingRuns = signal<AdminAgent | null>(null);
   readonly confirming = signal<{ agentId: string; action: 'delete' | 'reset' } | null>(null);
   readonly busyAgentId = signal<string | null>(null);
   /** The state change whose reason is being entered, of the agent or one of its skills. */
@@ -268,6 +273,27 @@ export class NhAssistantAdminAgentsComponent {
       afterNextRender(() => {
         const action = Array.from(this.host.nativeElement.querySelectorAll<HTMLButtonElement>('[data-run-config-agent]'))
           .find(item => item.dataset['runConfigAgent'] === agentId);
+        action?.focus();
+      }, { injector: this.injector });
+    }
+  }
+
+  /** Shows the agent's runs with their results. */
+  openRuns(agent: AdminAgent): void {
+    this.error.set(null);
+    this.confirming.set(null);
+    this.viewingRuns.set(agent);
+    afterNextRender(() => this.backButton()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /** Returns to the list and to the runs action of the agent whose runs were open. */
+  closeRuns(): void {
+    const agentId = this.viewingRuns()?.id;
+    this.viewingRuns.set(null);
+    if (agentId !== undefined) {
+      afterNextRender(() => {
+        const action = Array.from(this.host.nativeElement.querySelectorAll<HTMLButtonElement>('[data-runs-agent]'))
+          .find(item => item.dataset['runsAgent'] === agentId);
         action?.focus();
       }, { injector: this.injector });
     }

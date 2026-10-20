@@ -28,16 +28,18 @@ import {
   NhAssistantRunNowSubject
 } from './internal/nh-assistant-run-now-dialog.component';
 import { NhAssistantAgentThreadViewComponent } from './nh-assistant-agent-thread-view.component';
+import { NhAssistantRunResultComponent } from './nh-assistant-run-result.component';
 
 let nextId = 0;
 
 /**
  * The agents that work on one object, for the object's page, for example on a project: per agent its
- * latest run with the beginning of its result, its open proposals, "Run now" for people who may run
- * it (the participants of the object; for the whole application, `nh-system`, the agent's run
- * policy), and on demand its work on the object in `nh-assistant-agent-thread-view`. The server lists
- * only the agents that work on the object and that the person may use, and checks every start again.
- * With live updates the list reloads by itself when an agent's work on the object changes.
+ * latest run with the beginning of its result, the whole result on demand in `nh-assistant-run-result`,
+ * its open proposals, "Run now" for people who may run it (the participants of the object; for the
+ * whole application, `nh-system`, the agent's run policy), and on demand its work on the object in
+ * `nh-assistant-agent-thread-view`. The server lists only the agents that work on the object and that
+ * the person may use, and checks every start again. With live updates the list reloads by itself when
+ * an agent's work on the object changes.
  */
 @Component({
   selector: 'nh-assistant-object-agents',
@@ -48,7 +50,8 @@ let nextId = 0;
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
     NhAssistantRunNowDialogComponent,
-    NhAssistantAgentThreadViewComponent
+    NhAssistantAgentThreadViewComponent,
+    NhAssistantRunResultComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-object-agents.component.html',
@@ -73,6 +76,8 @@ export class NhAssistantObjectAgentsComponent {
   readonly agents = computed(() => this.listing()?.agents ?? []);
   /** The agent whose work on the object is shown; one at a time. */
   readonly expanded = signal<string | null>(null);
+  /** The agent whose latest result is shown in full; one at a time. */
+  readonly resultShown = signal<string | null>(null);
   /** The agent the run-now dialog runs; `null` while it is closed. */
   readonly runningNow = signal<AgentObjectAgent | null>(null);
   readonly runNowAgent = computed<NhAssistantRunNowAgent | null>(() => {
@@ -100,6 +105,7 @@ export class NhAssistantObjectAgentsComponent {
       this.subjectId();
       untracked(() => {
         this.expanded.set(null);
+        this.resultShown.set(null);
         this.runningNow.set(null);
         this.fetch(false);
       });
@@ -115,6 +121,10 @@ export class NhAssistantObjectAgentsComponent {
   nameOf(agent: AgentObjectAgent): string {
     const translated = this.translate.instant(agent.displayNameKey) as string;
     return translated && translated !== agent.displayNameKey ? translated : agent.displayNameKey;
+  }
+
+  toggleResult(agent: AgentObjectAgent): void {
+    this.resultShown.update(current => current === agent.agentId ? null : agent.agentId);
   }
 
   toggleWork(agent: AgentObjectAgent): void {

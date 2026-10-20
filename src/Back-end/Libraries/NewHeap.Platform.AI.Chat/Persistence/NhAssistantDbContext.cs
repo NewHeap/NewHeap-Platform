@@ -279,6 +279,8 @@ public sealed class NhAssistantDbContext : DbContext
             thread.Property(item => item.MemoryConcurrencyStamp).IsConcurrencyToken();
             thread.HasIndex(item => new { item.ScopeKey, item.AgentId, item.SubjectType, item.SubjectId, item.Shadow }).IsUnique();
             thread.HasIndex(item => new { item.SubjectType, item.SubjectId });
+            // The runs of one agent, for its runs view and people's run history.
+            thread.HasIndex(item => new { item.AgentId, item.SubjectType });
             thread.HasOne<AssistantConversation>()
                 .WithOne()
                 .HasForeignKey<AssistantThread>(item => item.ConversationId)
@@ -298,6 +300,7 @@ public sealed class NhAssistantDbContext : DbContext
             run.Property(item => item.FailureClass).HasMaxLength(32);
             run.Property(item => item.FailureCode).HasMaxLength(128);
             run.Property(item => item.Summary).HasMaxLength(4_000);
+            run.Property(item => item.Result).HasMaxLength(NhAssistantLimits.MaxRunResultCharacters);
             run.Property(item => item.Kind)
                 .HasMaxLength(24)
                 .IsRequired()

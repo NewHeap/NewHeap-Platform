@@ -551,7 +551,7 @@ public sealed record NhAssistantObjectAgentDto(
 /// The newest run of an agent on a subject, with the beginning of its result.
 /// </summary>
 /// <param name="At">When the run ended, or started, or was queued.</param>
-/// <param name="Result">The first 300 characters of the run's result, model output to show as untrusted text; until runs store their full answer, the summary they end with.</param>
+/// <param name="Result">The first 300 characters of the run's stored answer (<c>GET runs/{id}</c> returns all of it), model output to show as untrusted text; for a run without one, such as a run that ended before runs kept their answer, the summary it ended with.</param>
 /// <param name="ResultTruncated">The result is longer than <paramref name="Result"/>.</param>
 /// <param name="Shadow">The run worked in the agent's shadow thread, which only administrators see.</param>
 public sealed record NhAssistantLatestRunDto(
@@ -564,6 +564,99 @@ public sealed record NhAssistantLatestRunDto(
     string? Result,
     bool ResultTruncated,
     bool Shadow);
+
+/// <summary>
+/// One run in a run history (<c>GET runs</c> for people, <c>GET admin/agents/{id}/runs</c> for
+/// administrators): the agent, the subject it worked on, its trigger, status, usage and times, and the
+/// beginning of its result.
+/// </summary>
+/// <param name="Kind">How the run worked: <c>model</c>, <c>rule</c> or <c>rule-then-model</c>.</param>
+/// <param name="Skill">The skill the run worked in; <see langword="null"/> for the agent's own tools.</param>
+/// <param name="Result">The first 300 characters of the run's answer, model output to show as untrusted text; for a run without a stored answer, the summary it ended with. <c>GET runs/{id}</c> returns the whole answer.</param>
+/// <param name="ResultTruncated">The result is longer than <paramref name="Result"/>.</param>
+/// <param name="Shadow">The run worked in the agent's shadow thread: nothing it proposed executes, and only administrators see it.</param>
+public sealed record NhAssistantRunHistoryDto(
+    Guid Id,
+    Guid ConversationId,
+    string AgentId,
+    string SubjectType,
+    string SubjectId,
+    string? SubjectDisplayName,
+    string TriggerId,
+    string Status,
+    string? FailureClass,
+    string? FailureCode,
+    string Kind,
+    string? Skill,
+    string? InitiatorActorId,
+    int ToolCalls,
+    int ModelCalls,
+    long InputTokens,
+    long OutputTokens,
+    int ProposalCount,
+    string? Result,
+    bool ResultTruncated,
+    bool Shadow,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? EndedAt)
+{
+    /// <summary>
+    /// The agent's name: a translation key for an agent in code, the text itself for one created in
+    /// the administration, as in the agent picker; <see langword="null"/> for an agent that no longer
+    /// exists.
+    /// </summary>
+    public string? AgentDisplayNameKey { get; init; }
+
+    /// <summary>
+    /// The name of the subject type in the caller's language, when the application named the type;
+    /// <see langword="null"/> otherwise.
+    /// </summary>
+    public string? SubjectTypeName { get; init; }
+
+    /// <summary>
+    /// Where the application shows the subject; <see langword="null"/> without a link template.
+    /// </summary>
+    public string? SubjectLink { get; init; }
+}
+
+/// <summary>
+/// A page of a run history, newest first.
+/// </summary>
+/// <param name="Total">The number of runs that match the filter and that the caller may see.</param>
+public sealed record NhAssistantRunHistoryListDto(
+    IReadOnlyList<NhAssistantRunHistoryDto> Items,
+    int Total)
+{
+    /// <summary>
+    /// The history of <c>GET runs</c> considered only the agent threads with the most recent matching
+    /// runs: older threads were left out. Narrow the filter, for example to one object or a period, to
+    /// reach them. Always <see langword="false"/> in an agent's runs view for administrators.
+    /// </summary>
+    public bool Limited { get; init; }
+}
+
+/// <summary>
+/// One run with its whole result, the proposals it made and the files it saved
+/// (<c>GET runs/{id}</c>).
+/// </summary>
+/// <param name="Run">The run as a history lists it.</param>
+/// <param name="Result">The run's whole answer as Markdown, at most 20,000 characters: model output, untrusted text that clients render only with a safe Markdown renderer and never as HTML; <see langword="null"/> while the run has none.</param>
+/// <param name="ResultTruncated">The answer was longer than 20,000 characters and <paramref name="Result"/> is its beginning.</param>
+/// <param name="Summary">The bounded summary the run ended with, which the agent's next runs start from.</param>
+/// <param name="Proposals">The run's proposals the caller may see, oldest first: those in its own thread and those it placed at other objects the caller may read.</param>
+/// <param name="HiddenProposals">The proposals the run placed at objects the caller may not read.</param>
+/// <param name="Artifacts">The files the run saved, newest first; those of the agent's own grant that the caller may not read are marked restricted.</param>
+/// <param name="CanOpenConversation">Whether the caller may open the run's thread conversation.</param>
+public sealed record NhAssistantRunResultDto(
+    NhAssistantRunHistoryDto Run,
+    string? Result,
+    bool ResultTruncated,
+    string? Summary,
+    IReadOnlyList<NhAssistantProposalDto> Proposals,
+    int HiddenProposals,
+    IReadOnlyList<NhAssistantArtifactDto> Artifacts,
+    bool CanOpenConversation);
 
 /// <summary>
 /// The subjects of one type a search found that the caller may see, in the order the application's
@@ -740,6 +833,8 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantReplayListDto))]
 [JsonSerializable(typeof(NhAssistantSubjectWorkDto))]
 [JsonSerializable(typeof(NhAssistantObjectAgentsDto))]
+[JsonSerializable(typeof(NhAssistantRunHistoryListDto))]
+[JsonSerializable(typeof(NhAssistantRunResultDto))]
 [JsonSerializable(typeof(NhAssistantSubjectProposalDto))]
 [JsonSerializable(typeof(NhAssistantProposalLookupRequest))]
 [JsonSerializable(typeof(NhAssistantProposalLookupDto))]

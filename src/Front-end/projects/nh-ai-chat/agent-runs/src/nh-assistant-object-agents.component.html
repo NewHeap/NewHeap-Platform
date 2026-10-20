@@ -70,6 +70,17 @@
                 <nh-assistant-icon name="send" />{{ 'nh-assistant.agent-runs.object-agents.run-now' | translate }}
               </button>
             }
+            @if (agent.latestRun) {
+              <button
+                class="secondary"
+                type="button"
+                data-toggle-result
+                [attr.aria-expanded]="resultShown() === agent.agentId"
+                [attr.aria-controls]="id + '-' + agent.agentId + '-result'"
+                (click)="toggleResult(agent)">
+                <nh-assistant-icon name="page" />{{ (resultShown() === agent.agentId ? 'nh-assistant.agent-runs.result.hide' : 'nh-assistant.agent-runs.result.show') | translate }}
+              </button>
+            }
             @if (agent.conversationId) {
               <button
                 class="secondary"
@@ -82,6 +93,12 @@
               </button>
             }
           </div>
+
+          @if (resultShown() === agent.agentId && agent.latestRun; as run) {
+            <div class="work" [id]="id + '-' + agent.agentId + '-result'">
+              <nh-assistant-run-result [runId]="run.runId" (openConversation)="openConversation.emit($event)" />
+            </div>
+          }
 
           @if (expanded() === agent.agentId) {
             <div class="work" [id]="id + '-' + agent.agentId + '-work'">

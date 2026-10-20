@@ -146,6 +146,43 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       result: 'The project is on track: three of its four tasks are done and its deadline is two weeks away.'
     }
   },
+  // SPM-304: earlier runs of the project follow-up, which the administration's runs view lists and
+  // opens with their results; the answers are Markdown, rendered safely.
+  runs: [
+    {
+      agentId: 'project-follow-up',
+      subjectType: 'nh-system',
+      subjectId: 'global',
+      triggerId: 'project-follow-up-weekly',
+      createdAt: '2026-10-19T05:00:00Z',
+      durationSeconds: 4,
+      proposalCount: 2,
+      result: [
+        '**5** open projects; proposed completing PRJ-ALPHA, PRJ-BETA.',
+        '',
+        'Their approvers decide at each project.'
+      ].join('\n')
+    },
+    {
+      agentId: 'project-follow-up',
+      subjectType: 'nh-system',
+      subjectId: 'global',
+      triggerId: 'project-follow-up-weekly',
+      createdAt: '2026-10-12T05:00:00Z',
+      durationSeconds: 3,
+      result: '3 open projects; with three or fewer there is nothing to follow up.'
+    },
+    {
+      agentId: 'project-follow-up',
+      subjectType: 'project',
+      subjectId: 'PRJ-GAMMA',
+      status: 'failed',
+      createdAt: '2026-10-08T14:30:00Z',
+      durationSeconds: 75,
+      toolCalls: 2,
+      tokens: 1840
+    }
+  ],
   admin: {
     context: [
       'Sample Project Management tracks projects for divisions.',

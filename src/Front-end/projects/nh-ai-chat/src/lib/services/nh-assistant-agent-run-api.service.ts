@@ -14,7 +14,10 @@ import {
   AgentProposalFeedback,
   AgentProposalFeedbackCategory,
   AgentProposalLookup,
+  AgentRunFilter,
+  AgentRunHistory,
   AgentRunList,
+  AgentRunResult,
   AgentRunRetryMode,
   AgentSubjectSearch,
   AgentSubjectSummaryList,
@@ -167,6 +170,34 @@ export class NhAssistantAgentRunApiService {
     });
   }
 
+  /**
+   * The agent runs the caller may see, newest first: runs on objects the caller reads and runs for
+   * the whole application whose agent's view policy the caller passes. Errors with
+   * `assistant-run-filter-invalid` for an invalid filter.
+   */
+  getRunHistory(filter: AgentRunFilter = {}): Observable<AgentRunHistory> {
+    return this.transport.json<AgentRunHistory>('GET', withQuery('runs', filter));
+  }
+
+  /**
+   * One run with its whole result, its proposals and its files. Fails with `assistant-run-not-found`
+   * for an unknown run and for one the caller may not see.
+   */
+  getRunResult(runId: string): Observable<AgentRunResult> {
+    return this.transport.json<AgentRunResult>('GET', `runs/${encodeURIComponent(runId)}`);
+  }
+
+  /** Downloads one file a run saved, with the host's credentials. */
+  downloadRunArtifact(runId: string, artifactId: string): Promise<Blob> {
+    const path = `runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifactId)}/content`;
+    return this.transport.fetch('GET', path, '*/*', undefined, new AbortController().signal).then(response => {
+      if (!response.ok) {
+        throw new Error(`Artifact download failed with status ${response.status}.`);
+      }
+      return response.blob();
+    });
+  }
+
   /** Cancels a run at its next safe point and withdraws its open proposals; needs the participant role. */
   cancelRun(runId: string): Observable<void> {
     return this.transport.json<void>('POST', `runs/${encodeURIComponent(runId)}/cancel`);
@@ -254,4 +285,17 @@ export class NhAssistantAgentRunApiService {
       text: text?.trim() || null
     });
   }
+}
+
+/** Appends the filter values that are set as query parameters. */
+function withQuery(path: string, filter: object): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(filter)) {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value));
+    }
+  }
+
+  const suffix = query.toString();
+  return suffix ? `${path}?${suffix}` : path;
 }

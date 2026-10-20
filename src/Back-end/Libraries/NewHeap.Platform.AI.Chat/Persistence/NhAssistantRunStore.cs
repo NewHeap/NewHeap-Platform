@@ -844,6 +844,211 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ExecuteUpdateAsync(setters => setters.SetProperty(run => run.Summary, bounded), cancellationToken);
     }
 
+    /// <summary>
+    /// The stored parts of the assistant messages of one turn, oldest first: what the turn answered.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> GetTurnAnswerPartsAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Messages
+            .AsNoTracking()
+            .Where(message => message.ConversationId == conversationId
+                && message.TurnId == turnId
+                && message.Role == NhAssistantMessageRoles.Assistant)
+            .OrderBy(message => message.Sequence)
+            .Select(message => message.PartsJson)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Stores the run's result, already bounded to <see cref="NhAssistantLimits.MaxRunResultCharacters"/>.
+    /// </summary>
+    public async Task SetRunResultAsync(
+        Guid runId,
+        string? result,
+        bool truncated,
+        CancellationToken cancellationToken)
+    {
+        if (result is { Length: > NhAssistantLimits.MaxRunResultCharacters })
+        {
+            throw new ArgumentOutOfRangeException(nameof(result), "A run result is bounded before it is stored.");
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        await context.Runs
+            .Where(run => run.Id == runId)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(run => run.Result, result)
+                    .SetProperty(run => run.ResultTruncated, truncated),
+                cancellationToken);
+    }
+
+    /// <summary>
+    /// The run with its thread, or <see langword="null"/> for an unknown run.
+    /// </summary>
+    public async Task<NhAssistantRunRow?> FindRunWithThreadAsync(Guid runId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var row = await (
+                from run in context.Runs.AsNoTracking()
+                join thread in context.Threads.AsNoTracking() on run.ConversationId equals thread.ConversationId
+                where run.Id == runId
+                select new { run, thread })
+            .SingleOrDefaultAsync(cancellationToken);
+        return row is null ? null : new NhAssistantRunRow(row.run, row.thread);
+    }
+
+    /// <summary>
+    /// One page of the runs of an agent that match the filter, live and shadow, newest first, with
+    /// their threads and the number of matching runs.
+    /// </summary>
+    public async Task<(IReadOnlyList<NhAssistantRunRow> Items, int Total)> ListAgentRunsAsync(
+        string agentId,
+        NhAssistantRunFilter filter,
+        int page,
+        int itemsPerPage,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentNullException.ThrowIfNull(filter);
+        await using var context = contextFactory.CreateDbContext();
+        var threads = FilterThreads(context, filter with { AgentId = agentId });
+        var query = FilterRuns(context, filter)
+            .Join(threads, run => run.ConversationId, thread => thread.ConversationId, (run, thread) => new { run, thread });
+        var total = await query.CountAsync(cancellationToken);
+        var rows = await query
+            .OrderByDescending(row => row.run.CreatedAt)
+            .ThenByDescending(row => row.run.Id)
+            .Skip((page - 1) * itemsPerPage)
+            .Take(itemsPerPage)
+            .ToListAsync(cancellationToken);
+        return (rows.Select(row => new NhAssistantRunRow(row.run, row.thread)).ToArray(), total);
+    }
+
+    /// <summary>
+    /// The threads with at least one run that matches the filter, in <paramref name="tenantId"/>'s
+    /// tenant (none for a caller without one), ordered by their newest matching run, at most
+    /// <paramref name="maximum"/>. Shadow threads only with <paramref name="includeShadow"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantThread>> FindThreadsWithRunsAsync(
+        NhAssistantRunFilter filter,
+        string? tenantId,
+        bool includeShadow,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        await using var context = contextFactory.CreateDbContext();
+        var threads = FilterThreads(context, filter).Where(thread => thread.TenantId == tenantId);
+        if (!includeShadow)
+        {
+            threads = threads.Where(thread => !thread.Shadow);
+        }
+
+        var newest = await FilterRuns(context, filter)
+            .Join(threads, run => run.ConversationId, thread => thread.ConversationId, (run, thread) => run)
+            .GroupBy(run => run.ConversationId)
+            .Select(group => new { ConversationId = group.Key, Latest = group.Max(run => run.CreatedAt) })
+            .OrderByDescending(item => item.Latest)
+            .ThenBy(item => item.ConversationId)
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
+        if (newest.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = newest.Select(item => item.ConversationId).ToArray();
+        var found = await context.Threads
+            .AsNoTracking()
+            .Where(thread => ids.Contains(thread.ConversationId))
+            .ToDictionaryAsync(thread => thread.ConversationId, cancellationToken);
+        return ids.Where(found.ContainsKey).Select(id => found[id]).ToArray();
+    }
+
+    /// <summary>
+    /// One page of the runs in <paramref name="conversationIds"/> that match the filter's status and
+    /// period, newest first, with their threads and the number of matching runs.
+    /// </summary>
+    public async Task<(IReadOnlyList<NhAssistantRunRow> Items, int Total)> ListRunsOfThreadsAsync(
+        IReadOnlyCollection<Guid> conversationIds,
+        NhAssistantRunFilter filter,
+        int page,
+        int itemsPerPage,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(conversationIds);
+        ArgumentNullException.ThrowIfNull(filter);
+        if (conversationIds.Count == 0)
+        {
+            return ([], 0);
+        }
+
+        var ids = conversationIds.Distinct().ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        var query = FilterRuns(context, filter)
+            .Where(run => ids.Contains(run.ConversationId))
+            .Join(context.Threads.AsNoTracking(), run => run.ConversationId, thread => thread.ConversationId, (run, thread) => new { run, thread });
+        var total = await query.CountAsync(cancellationToken);
+        var rows = await query
+            .OrderByDescending(row => row.run.CreatedAt)
+            .ThenByDescending(row => row.run.Id)
+            .Skip((page - 1) * itemsPerPage)
+            .Take(itemsPerPage)
+            .ToListAsync(cancellationToken);
+        return (rows.Select(row => new NhAssistantRunRow(row.run, row.thread)).ToArray(), total);
+    }
+
+    /// <summary>
+    /// The runs that match the filter's status and period. Times are compared in UTC.
+    /// </summary>
+    private static IQueryable<AssistantRun> FilterRuns(NhAssistantDbContext context, NhAssistantRunFilter filter)
+    {
+        var runs = context.Runs.AsNoTracking();
+        if (filter.Status is { } status)
+        {
+            runs = runs.Where(run => run.Status == status);
+        }
+        if (filter.From is { } from)
+        {
+            var since = from.ToUniversalTime();
+            runs = runs.Where(run => run.CreatedAt >= since);
+        }
+        if (filter.To is { } to)
+        {
+            var until = to.ToUniversalTime();
+            runs = runs.Where(run => run.CreatedAt < until);
+        }
+
+        return runs;
+    }
+
+    /// <summary>
+    /// The threads that match the filter's agent and subject.
+    /// </summary>
+    private static IQueryable<AssistantThread> FilterThreads(NhAssistantDbContext context, NhAssistantRunFilter filter)
+    {
+        var threads = context.Threads.AsNoTracking();
+        if (filter.AgentId is { } agentId)
+        {
+            threads = threads.Where(thread => thread.AgentId == agentId);
+        }
+        if (filter.SubjectType is { } subjectType)
+        {
+            threads = threads.Where(thread => thread.SubjectType == subjectType);
+        }
+        if (filter.SubjectId is { } subjectId)
+        {
+            threads = threads.Where(thread => thread.SubjectId == subjectId);
+        }
+
+        return threads;
+    }
+
     public async Task MarkRunCancelRequestedAsync(Guid runId, string actorId, CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
@@ -2057,6 +2262,20 @@ internal sealed record NhAssistantInboxFilter(
     Guid? RunId);
 
 internal sealed record NhAssistantInboxRow(AssistantApproval Approval, AssistantThread Thread);
+
+/// <summary>
+/// Which runs a run history lists: of an agent, on a subject type or one subject, in a status, created
+/// from <see cref="From"/> (inclusive) until <see cref="To"/> (exclusive). Every part is optional.
+/// </summary>
+internal sealed record NhAssistantRunFilter(
+    string? AgentId,
+    string? SubjectType,
+    string? SubjectId,
+    string? Status,
+    DateTimeOffset? From,
+    DateTimeOffset? To);
+
+internal sealed record NhAssistantRunRow(AssistantRun Run, AssistantThread Thread);
 
 internal sealed record NhAssistantOpenProposalRow(AssistantApproval Approval, AssistantThread Thread);
 

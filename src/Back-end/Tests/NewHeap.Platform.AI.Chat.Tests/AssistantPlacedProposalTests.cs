@@ -142,6 +142,41 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_placement_that_a_later_check_refuses_leaves_no_empty_thread_at_the_object(AssistantTestProvider provider)
+    {
+        await using var app = await StartAsync(provider);
+        var project = AddProject(app);
+        var first = await RunAndProposeAsync(app, FollowUp, NhAiSystemSubjects.Global, project);
+        Assert.Equal(NhAssistantProposeOutcome.Created, first.Outcome);
+        var approval = Assert.Single(await WithRunsAsync(app, runs => runs.GetRunApprovalsAsync(Script(app).Contexts.Last().RunId, CancellationToken.None)));
+        var placedThread = (await WithRunsAsync(app, runs => runs.FindThreadByConversationAsync(approval.ConversationId, CancellationToken.None)))!;
+        var systemThread = (await WithRunsAsync(app, runs => runs.FindThreadAsync("global", FollowUp, NhAiSystemSubjects.Global, CancellationToken.None)))!;
+
+        // The same proposal waits in another thread of the agent in the object's scope, and the agent
+        // has no thread at the object (yet).
+        await using (var context = app.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            await context.Approvals
+                .Where(item => item.Id == approval.Id)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(item => item.ConversationId, systemThread.ConversationId)
+                    .SetProperty(item => item.PlacedFromConversationId, (Guid?)null));
+        }
+        await WithRunsAsync(app, async runs =>
+        {
+            await runs.DeleteThreadAsync(placedThread, CancellationToken.None);
+            return true;
+        });
+
+        // The duplicate check refuses the next one; no thread was created at the object for it.
+        var again = await RunAndProposeAsync(app, FollowUp, NhAiSystemSubjects.Global, project);
+        Assert.Equal((NhAssistantProposeOutcome.AlreadyOpen, approval.Id), (again.Outcome, again.ApprovalId));
+        Assert.Null(await WithRunsAsync(app, runs => runs.FindThreadAsync("global", FollowUp, Project(project), CancellationToken.None)));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Placing_checks_what_the_agent_works_on_the_object_its_scope_the_access_and_the_limit(AssistantTestProvider provider)
     {
         await using var app = await StartAsync(provider, maxPlaced: 2);

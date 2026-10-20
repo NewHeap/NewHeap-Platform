@@ -151,6 +151,7 @@ internal static class NhAssistantAdminEndpoints
         AgentRuns.NhAssistantProposalFeedbackEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentEvaluationEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentConfigurationEndpoints.MapAdmin(admin);
+        AgentRuns.NhAssistantRunHistoryEndpoints.MapAdmin(admin);
         admin.MapDelete("agents/{id}", DeleteAgentAsync)
             .WithName("NhAssistantAdminDeleteAgent")
             .WithSummary("Delete an agent")

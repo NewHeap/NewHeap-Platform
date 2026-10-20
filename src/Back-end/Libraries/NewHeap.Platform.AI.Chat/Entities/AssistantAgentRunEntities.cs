@@ -163,9 +163,23 @@ public sealed class AssistantRun
     public Guid? ReplayOfRunId { get; set; }
 
     /// <summary>
-    /// A bounded summary of what the run did, proposed and left open.
+    /// A bounded summary of what the run did, proposed and left open. The next runs of the thread
+    /// start from it; people read <see cref="Result"/>.
     /// </summary>
     public string? Summary { get; set; }
+
+    /// <summary>
+    /// The run's full answer as Markdown: the final answer of each of its turns that completed, at
+    /// most <see cref="NhAssistantLimits.MaxRunResultCharacters"/> characters. It is model output,
+    /// untrusted text; <see langword="null"/> while the run has none.
+    /// </summary>
+    public string? Result { get; set; }
+
+    /// <summary>
+    /// The answer was longer than <see cref="NhAssistantLimits.MaxRunResultCharacters"/> characters
+    /// and <see cref="Result"/> holds its beginning.
+    /// </summary>
+    public bool ResultTruncated { get; set; }
 
     public bool Shadow { get; set; }
 

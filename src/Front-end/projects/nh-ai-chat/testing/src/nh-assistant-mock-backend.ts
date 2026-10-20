@@ -258,6 +258,9 @@ export class NhAssistantMockBackend {
     if (path === 'notifications/push-subscription') {
       return this.error(404, 'assistant-push-unavailable');
     }
+    if (segments[0] === 'admin' && segments[1] === 'agents' && segments[3] === 'runs' && segments.length === 4) {
+      return this.result(this.agentRuns.handleAgentRuns(method, segments[2], query, language));
+    }
     if (segments[0] === 'admin') {
       const result = this.admin.handleAdmin(method, segments, body, query);
       // The run catalog lists the subject types in the request's language, as the server does.
@@ -269,6 +272,9 @@ export class NhAssistantMockBackend {
       return this.result(this.agentRuns.handleSubjects(method, segments, language)
         ?? this.subjects.handle(method, segments, query, language)
         ?? { status: 404 });
+    }
+    if (segments[0] === 'runs') {
+      return this.result(this.agentRuns.handleRuns(method, segments, query, language) ?? { status: 404 });
     }
     if (segments[0] === 'threads') {
       return this.result(this.agentRuns.handleThreads(method, segments, query, body, language) ?? { status: 404 });

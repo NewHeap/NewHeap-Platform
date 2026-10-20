@@ -334,6 +334,7 @@
       "assistant-agent-not-configured": "This agent cannot run on its own.",
       "assistant-run-not-found": "The run was not found.",
       "assistant-run-not-retryable": "This run cannot be retried.",
+      "assistant-run-filter-invalid": "The filter of the runs is not valid.",
       "assistant-approval-policy-denied": "You may not decide this proposal.",
       "assistant-four-eyes-required": "Someone other than the person who started this must decide it.",
       "assistant-execution-not-uncertain": "This execution is not waiting to be resolved.",
@@ -626,6 +627,7 @@
         },
         "run-config": "Run configuration",
         "run-now": "Run now",
+        "runs": "Runs",
         "chat": {
           "hidden": "Not in the chat"
         },
@@ -1355,6 +1357,30 @@
           "saved-live": "The agent works live now."
         },
         "note-hint": "Kept with this version in its history, with your name and the time. The agent does not read it."
+      },
+      "runs": {
+        "title": "Runs",
+        "description": "Every run of this agent, newest first, with what it worked on, its result, proposals, usage and duration. Shadow runs are marked.",
+        "back": "Back to agents",
+        "back-to-runs": "Back to the runs",
+        "filters": "Filter the runs",
+        "subject-type": "Works on",
+        "any-subject": "Everything",
+        "whole-application": "The whole application",
+        "subject-id": "Object",
+        "subject-id-hint": "The object's id, as a run shows it; leave it empty for every object of this kind.",
+        "status": "Status",
+        "any-status": "Every status",
+        "from": "From",
+        "to": "Until (inclusive)",
+        "period-invalid": "The end of the period comes before its start.",
+        "apply": "Show runs",
+        "clear": "Clear filters",
+        "empty": "No runs match.",
+        "count": "{{shown}} of {{total}} runs",
+        "more": "Show more runs",
+        "only-object": "Runs on this object",
+        "only-application": "Runs for the whole application"
       }
     },
     "page-context": {
@@ -1590,6 +1616,25 @@
         "show-work": "Show the work",
         "hide-work": "Hide the work",
         "failure": "Why: {{reason}}"
+      },
+      "result": {
+        "loading": "Loading the run…",
+        "not-found": "This run does not exist or you may not see it.",
+        "show": "Show the result",
+        "hide": "Hide the result",
+        "started": "Started",
+        "duration": "Duration",
+        "duration-seconds": "{{count}} s",
+        "duration-minutes": "{{count}} min",
+        "usage": "Usage",
+        "failure": "Why it stopped",
+        "answer": "Result",
+        "truncated": "The answer was longer; this is its beginning.",
+        "no-answer": "This run kept no answer.",
+        "proposals": "Proposals",
+        "no-proposals": "This run proposed nothing.",
+        "hidden-proposals": "{{count}} more proposals wait at objects you may not see.",
+        "files": "Files"
       }
     },
     "subject-picker": {

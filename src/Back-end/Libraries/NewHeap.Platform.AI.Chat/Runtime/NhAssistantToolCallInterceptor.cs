@@ -414,7 +414,9 @@ internal sealed class NhAssistantToolCallInterceptor(
                     return await NotPlacedAsync(descriptor, row, NhAssistantPlacementReasons.NotFound, target.Subject, cancellationToken);
                 }
 
-                var thread = await placements!.ThreadAtAsync(state.EffectiveAgent, target, state.AgentTurn!.Thread.Shadow, cancellationToken);
+                // The thread at the object is created only once every check passed, right before
+                // the proposal is recorded there.
+                var thread = await placements!.PrepareThreadAtAsync(state.EffectiveAgent, target, state.AgentTurn!.Thread.Shadow, cancellationToken);
                 if (!thread.Success)
                 {
                     // Nobody answers for the agent at the object, so it cannot wait there.
@@ -431,6 +433,11 @@ internal sealed class NhAssistantToolCallInterceptor(
                 presentationCulture,
                 cancellationToken,
                 placed);
+            if (requested is { NotPlacedReason: { } notPlaced } && placed is not null)
+            {
+                // Rules read the reason from the call's result, as for a refusal before the call ran.
+                return await NotPlacedAsync(descriptor, row, notPlaced, placed.Subject.Subject, cancellationToken);
+            }
             _lastProposal = requested;
             if (requested is { Outcome: not NhAssistantProposeOutcome.Created } skipped)
             {
@@ -909,6 +916,24 @@ internal sealed class NhAssistantToolCallInterceptor(
         if (presentation is not null)
         {
             row.DisplayName = presentation.ToolDisplayName;
+        }
+
+        if (placed is not null)
+        {
+            // Every check passed: the proposal waits in the agent's thread at the object, which is
+            // created now when it is new.
+            var stored = await placements!.ThreadAtAsync(state.EffectiveAgent, placed.Subject, placed.Thread.Shadow, cancellationToken);
+            if (!stored.Success)
+            {
+                return new NhAssistantRecordedProposal(Guid.Empty, Guid.Empty, mode, shadow)
+                {
+                    Outcome = NhAssistantProposeOutcome.Refused,
+                    NotPlacedReason = NhAssistantPlacementReasons.NoAccess
+                };
+            }
+
+            placed = placed with { Thread = stored.Data! };
+            home = placed.Thread;
         }
 
         // A placed proposal executes from its own copy of the call in the thread at the object, so
@@ -1400,6 +1425,12 @@ internal sealed record NhAssistantRecordedProposal(
     /// The object the proposal waits at, when the run placed it at another object than its own.
     /// </summary>
     public NhAiSubjectRef? PlacedAt { get; init; }
+
+    /// <summary>
+    /// Why a proposal for another object was not placed after all: one of
+    /// <see cref="Runs.NhAssistantPlacementReasons"/>.
+    /// </summary>
+    public string? NotPlacedReason { get; init; }
 }
 
 /// <summary>

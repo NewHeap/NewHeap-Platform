@@ -51,6 +51,7 @@ import {
   UpdateApplicationContextRequest,
   UpdateMcpToolRequest
 } from '../models/assistant-admin.models';
+import { AgentRunFilter, AgentRunHistory } from '../models/assistant-agent-run.models';
 import { NhAssistantClientErrorCodes } from '../models/assistant-sse.models';
 import {
   NhAssistantApiError,
@@ -325,6 +326,15 @@ export class NhAssistantAdminApiService {
    */
   saveRunSettings(agentId: string, request: AgentRunSettingsRequest): Observable<AgentRunSettings> {
     return this.request<AgentRunSettings>('PUT', `${agentPath(agentId)}/run-settings`, request);
+  }
+
+  /**
+   * Every run of the agent, live and shadow, newest first, for its runs view. Read one run's whole
+   * result with `NhAssistantAgentRunApiService.getRunResult`. Errors with `assistant-agent-not-found`
+   * for an unknown agent and `assistant-run-filter-invalid` for an invalid filter.
+   */
+  getAgentRuns(agentId: string, filter: Omit<AgentRunFilter, 'agentId'> = {}): Observable<AgentRunHistory> {
+    return this.request<AgentRunHistory>('GET', withQuery(`${agentPath(agentId)}/runs`, filter));
   }
 
   /** Removes the run settings; while data skills or triggers belong to the agent, `assistant-run-settings-in-use`. */

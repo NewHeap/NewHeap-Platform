@@ -64,8 +64,17 @@
         @if (run.summary) {
           <p class="summary">{{ run.summary }}</p>
         }
-        @if ((isOpen(run) && canCancel()) || canRetryRun(run)) {
-          <div class="card-actions">
+        <div class="card-actions">
+          <button
+            class="secondary"
+            type="button"
+            data-toggle-run-result
+            [attr.aria-expanded]="openedRunId() === run.id"
+            [attr.aria-controls]="id + '-' + run.id + '-result'"
+            (click)="toggleResult(run)">
+            <nh-assistant-icon name="list" />{{ (openedRunId() === run.id ? 'nh-assistant.agent-runs.result.hide' : 'nh-assistant.agent-runs.result.show') | translate }}
+          </button>
+          @if ((isOpen(run) && canCancel()) || canRetryRun(run)) {
             @if (isOpen(run) && canCancel()) {
               <button class="secondary" type="button" [disabled]="busyRunId() !== null" (click)="cancel(run)">
                 <nh-assistant-icon name="stop" />{{ 'nh-assistant.agent-runs.run.cancel' | translate }}
@@ -79,6 +88,14 @@
                 <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.run.restart' | translate }}
               </button>
             }
+          }
+        </div>
+        @if (openedRunId() === run.id) {
+          <div class="work" [id]="id + '-' + run.id + '-result'">
+            <nh-assistant-run-result
+              [runId]="run.id"
+              [conversationLink]="false"
+              (openConversation)="openConversation.emit($event)" />
           </div>
         }
       </li>

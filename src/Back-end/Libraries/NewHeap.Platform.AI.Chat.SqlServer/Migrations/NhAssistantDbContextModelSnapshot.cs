@@ -2064,6 +2064,13 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<Guid?>("RequestedByRunId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Result")
+                        .HasMaxLength(20000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("ResultTruncated")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("Shadow")
                         .HasColumnType("bit");
 
@@ -2253,6 +2260,8 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.HasKey("ConversationId");
+
+                    b.HasIndex("AgentId", "SubjectType");
 
                     b.HasIndex("SubjectType", "SubjectId");
 

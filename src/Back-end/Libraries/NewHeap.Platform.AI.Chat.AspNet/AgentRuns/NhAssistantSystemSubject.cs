@@ -22,7 +22,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// headless runs, never from the request, and against the subject with its division: app-wide no
 /// division policy is met, in a division it is evaluated for that division. A division subject needs
 /// access to the division as well. Who may run an agent for it by hand is the agent's run policy,
-/// evaluated the same way (<see cref="MayRunAsync"/>); endpoints add the agent's view policy on top.
+/// evaluated the same way (<see cref="MayRunAsync"/>), and who sees its results is the agent's view
+/// policy, by default its required policy (<see cref="MayViewAsync"/>).
 /// With listed divisions people find the divisions by name, as the subjects of a per-division agent.
 /// </summary>
 /// <remarks>
@@ -172,6 +173,43 @@ internal sealed class NhAssistantSystemSubjectResolver(
         }
 
         return (await authorization.AuthorizeAsync(person.Principal, person.Resource, runPolicy)).Succeeded;
+    }
+
+    /// <summary>
+    /// Whether the person may see an agent's results for <paramref name="subject"/> (K14): the agent's
+    /// view policy, otherwise its required policy, evaluated as the roles are: for the person as the
+    /// principal factory rebuilds them, against the subject with its division, and in a division only
+    /// for people who may work there. Without either policy every person who may work in the subject's
+    /// scope with an account that may sign in sees them.
+    /// </summary>
+    public async Task<bool> MayViewAsync(
+        NhAiSubjectRef subject,
+        string actorId,
+        string? viewPolicy,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        if (string.IsNullOrWhiteSpace(actorId))
+        {
+            return false;
+        }
+
+        if (await PersonAsync(subject, actorId, cancellationToken) is not { } person)
+        {
+            return false;
+        }
+
+        return viewPolicy is null
+            || (await authorization.AuthorizeAsync(person.Principal, person.Resource, viewPolicy)).Succeeded;
+    }
+
+    /// <summary>
+    /// The policy a person needs to see an agent's results for the whole application: its view policy,
+    /// otherwise its required policy; <see langword="null"/> when it names neither.
+    /// </summary>
+    internal static string? ViewPolicyOf(NhAssistantAgentRunOptions? runOptions, NhAssistantAgentDefinition? definition)
+    {
+        return runOptions?.WorksOn.ViewPolicy ?? definition?.RequiredPolicy;
     }
 
     /// <summary>

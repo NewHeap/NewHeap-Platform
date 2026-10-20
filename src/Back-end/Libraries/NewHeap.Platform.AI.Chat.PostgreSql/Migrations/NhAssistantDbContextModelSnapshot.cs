@@ -2064,6 +2064,13 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<Guid?>("RequestedByRunId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Result")
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
+
+                    b.Property<bool>("ResultTruncated")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("Shadow")
                         .HasColumnType("boolean");
 
@@ -2253,6 +2260,8 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("ConversationId");
+
+                    b.HasIndex("AgentId", "SubjectType");
 
                     b.HasIndex("SubjectType", "SubjectId");
 

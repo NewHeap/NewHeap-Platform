@@ -178,6 +178,46 @@ internal sealed class NhAssistantProposalPlacement(
     }
 
     /// <summary>
+    /// The agent's thread at the object as the checks before a placed proposal is recorded see it: the
+    /// existing thread, or a description of the one <see cref="ThreadAtAsync"/> creates, which is not
+    /// stored yet. A proposal that a later check refuses, such as a duplicate, then leaves no empty
+    /// thread at the object. Fails when nobody answers for the agent at the object.
+    /// </summary>
+    public async Task<TaskResult<AssistantThread>> PrepareThreadAtAsync(
+        NhAssistantAgent agent,
+        NhAiSubjectInfo target,
+        bool shadow,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(agent);
+        ArgumentNullException.ThrowIfNull(target);
+        if (await runs.FindThreadAsync(target.ScopeKey, agent.Id, target.Subject, cancellationToken, shadow) is { } existing)
+        {
+            return TaskResult<AssistantThread>.Succeeded(existing);
+        }
+
+        var accountable = threads.ResolveAccountableOwner(agent, target);
+        if (!accountable.Success)
+        {
+            return TaskResult<AssistantThread>.Failed(accountable);
+        }
+
+        return TaskResult<AssistantThread>.Succeeded(new AssistantThread
+        {
+            ScopeKey = target.ScopeKey,
+            AgentId = agent.Id,
+            SubjectType = target.Subject.Type,
+            SubjectId = target.Subject.Id,
+            SubjectDisplayName = target.DisplayName,
+            DivisionId = target.DivisionId,
+            TenantId = target.TenantId,
+            SubjectVersion = target.Version,
+            AccountableOwnerId = accountable.Data!,
+            Shadow = shadow
+        });
+    }
+
+    /// <summary>
     /// The agent's thread at the object, created when needed; a run in shadow places in the agent's
     /// shadow thread there.
     /// </summary>

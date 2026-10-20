@@ -1,4 +1,5 @@
 @use '../../styles/tokens';
+@use '../../styles/markdown';
 
 @include tokens.tokens;
 
@@ -107,55 +108,7 @@ cdk-virtual-scroll-viewport.scroller {
 
 // Markdown output is inserted with innerHTML and carries no encapsulation attributes.
 :host ::ng-deep .markdown {
-  :first-child { margin-top: 0; }
-  :last-child { margin-bottom: 0; }
-
-  p, ul, ol, pre, blockquote, table { margin: 0 0 8px; }
-  ul, ol { padding-left: 20px; }
-  h1, h2, h3, h4, h5, h6 { margin: 10px 0 6px; font-size: 15px; line-height: 1.3; }
-
-  a {
-    color: var(--nha-highlight);
-    text-decoration: underline;
-    @include tokens.focus-ring;
-  }
-
-  code {
-    border-radius: 6px;
-    padding: 1px 4px;
-    background: var(--nha-surface-strong);
-    font-family: var(--nha-mono);
-    font-size: 12.5px;
-  }
-
-  pre {
-    overflow-x: auto;
-    border-radius: 8px;
-    padding: 8px;
-    background: var(--nha-surface-strong);
-
-    code { padding: 0; background: none; }
-  }
-
-  blockquote {
-    border-left: 3px solid var(--nha-border);
-    padding-left: 10px;
-    color: var(--nha-text-muted);
-  }
-
-  table {
-    display: block;
-    max-width: 100%;
-    overflow-x: auto;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-
-  th, td {
-    border: 1px solid var(--nha-border);
-    padding: 4px 8px;
-    text-align: left;
-  }
+  @include markdown.content;
 }
 
 .working {

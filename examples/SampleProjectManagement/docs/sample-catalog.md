@@ -96,6 +96,15 @@ after the platform checked the project and that the operations account reads it;
 approver finds it in the inbox and on the project as "Proposed by a run for the whole application",
 opens that run's conversation from it and approves it, which changes that project's status. People
 with the application-wide project view permission read every project's agent work.
+Each run keeps its whole answer as its result (SPM-304): the follow-up's completion rules write
+"N open projects; proposed completing X, Y" with the keys of the projects they proposed, which the run
+keeps next to the small summary its next runs start from. People who pass the follow-up's view policy
+find its runs for the whole application in `GET runs` and read a run's result with the proposals it
+placed at the projects they read; a colleague without that permission does not see them. The
+administration's agent cards offer "Runs": every run of the follow-up with its trigger, object, result,
+proposals, usage and duration, filtered by kind of object, object, the whole application, status and
+period, each opened with its whole result rendered as safe Markdown. The playground lists earlier runs
+of the follow-up through the mock.
 The project assistant can consult the intake reviewer (SPM-278): the reviewer allows
 consultation about projects with `AllowConsultation`, and the project assistant selects
 the generated `assistant.consult.*` and `assistant.request.*` tools, which the sample's

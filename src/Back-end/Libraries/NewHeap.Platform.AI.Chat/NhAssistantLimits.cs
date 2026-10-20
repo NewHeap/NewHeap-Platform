@@ -63,6 +63,12 @@ public sealed class NhAssistantLimits
     public const int MaxStateReasonCharacters = 500;
 
     /// <summary>
+    /// Maximum characters of the answer a run keeps as its result (K13); a longer answer keeps its
+    /// beginning and is marked truncated. Files the run saved stay artifacts.
+    /// </summary>
+    public const int MaxRunResultCharacters = 20_000;
+
+    /// <summary>
     /// Maximum governed tool calls in one turn. Further calls end the turn gracefully.
     /// </summary>
     public int MaxToolCallsPerTurn { get; set; } = 8;

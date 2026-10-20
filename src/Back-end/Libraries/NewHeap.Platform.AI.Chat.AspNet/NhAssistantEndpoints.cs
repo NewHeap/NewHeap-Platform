@@ -118,6 +118,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         AgentRuns.NhAssistantAgentRunEndpoints.Map(enabled);
         AgentRuns.NhAssistantProposalFeedbackEndpoints.Map(enabled);
         AgentRuns.NhAssistantSubjectEndpoints.Map(enabled);
+        AgentRuns.NhAssistantRunHistoryEndpoints.Map(enabled);
 
         // Webhook triggers carry no user: they are authenticated by their signature.
         var webhooks = endpoints.MapGroup(prefix)

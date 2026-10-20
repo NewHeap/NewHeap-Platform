@@ -9,9 +9,9 @@ application groups them on its own pages. It was written on 2026-10-19 during th
 
 ## Status
 
-Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 to W5 are implemented and not
-released; W6 and W7 are designed and not yet implemented; the flow view (U6 of the run configuration
-UX plan) follows on top of them. The
+Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 to W6 are implemented and not
+released; W7 is designed and not yet implemented; the flow view (U6 of the run configuration UX plan)
+follows on top of them. The
 [MCP connections plan](ai-assistant-mcp-connections-plan.md) uses SPM-299 and SPM-300; this plan
 uses SPM-301 onwards.
 
@@ -22,7 +22,7 @@ uses SPM-301 onwards.
 | W3 | Implemented, not released: the whole application as a scope. |
 | W4 | Implemented, not released: run now. |
 | W5 | Implemented, not released: proposals placed at their object. |
-| W6 | Designed: results and history. |
+| W6 | Implemented, not released: results and history. |
 | W7 | Designed: groups and boards. |
 | U6 | Designed in outline: the flow view of an agent. |
 
@@ -189,6 +189,20 @@ Choices the plan left open, taken during implementation for Lars to review.
 | W5 | A placed proposal's approval policy is the one the agent's configuration gives the tool for the run's trigger and skill, as for its own proposals; its approver rules, the subject version precondition and the guards are evaluated on the object, and the listing roles of the whole application are kept ten seconds per person across requests (`NhAssistantSystemRoleCache`, at most 1,024). | Policies belong to agents and tools, not to objects; "those of the object" means who decides and what is checked. The resolver of the whole application caches per request only, and the inbox reloads on every live update. | For Lars to review. |
 | W5 | Sample SPM-281: the partner portal names its projects with the subject type `project` (it registers only its own resolver for it), because its agent reuses the sample's status tool, whose input now declares `[NhAiSubject("project")]`; with `partner-project` its calls named another object and no proposal was made. The release notes list this as a breaking change for applications that reuse a tool under another subject type. | The portal's narrative already speaks of the project's approver; a separate portal tool would need the generator in the test project. | For Lars to review. |
 | W5 | `NhAssistantRunResults.PreviewOf` is unchanged; W6 reads placed proposals of a run through `RunId`. | The handover keeps the seam for W6. | For Lars to review. |
+| W6 | A run's result is the answer of each of its turns that completed, in order, separated by a Markdown thematic break; a turn that waits, fails or is cancelled adds nothing, and a rule run's result is the summary its rules wrote with their reasons, as the thread shows it (a rule run without one keeps none). | A run has more turns when messages arrive while it works; the summary keeps only the last answer, which would hide the run's real work behind a reply to a later message. | For Lars to review. |
+| W6 | The run operation appends a turn's answer right after the turn (`NhAssistantRunResultWriter`), bounded to 20,000 characters with `ResultTruncated`; a result that was cut takes nothing more. | A run that waited for an approval resumes in another execution and keeps the answers of its earlier turns; one writer per run needs no concurrency token. A crash between a turn and its append loses that turn's answer, which the thread still shows. | For Lars to review. |
+| W6 | `NhAssistantRunResults.PreviewOf` reads the stored answer first and the summary for runs without one (runs that ended before W6 and runs that failed before they answered); history items use the same preview. | The W4 seam; listings keep showing something for old runs. | For Lars to review. |
+| W6 | People's `GET runs` decides who sees a run per thread after the query: it takes the 100 agent threads with the most recent matching runs, decides each once (`Limited` when there were more), and pages the runs of the visible threads in the database with an exact total among them; `page` and `itemsPerPage` as the plan named, at most 50 per page. | Whether a person reads an object is the application's resolver's decision, which SQL cannot make; the member snapshot misses readers by permission, such as the sample's app-wide project viewers. A narrower filter (an object, a period) reaches older threads. | For Lars to review. |
+| W6 | A run on an object is visible to its readers and to people invited to the agent's thread there, as the thread itself; a run for the whole application to whoever passes the agent's view policy, otherwise its required policy, evaluated like the run policy (rebuilt principal, the subject's resource, division access); without either policy to every person who may work in its scope with an account that may sign in. The read role of the whole application is not required on top. Threads of another tenant never show. | K14, and one way to evaluate the policies of the whole application (W4); the thread view's run timeline opens results for everyone who reads the thread. | For Lars to review. |
+| W6 | Administrators see shadow work in people's history (still by the rules of objects and view policies), open every run with `GET runs/{id}` and see every proposal of it; `GET admin/agents/{id}/runs` lists every run of an agent with an exact total, an unknown agent `404`. | The runs view opens runs on objects an administrator does not read; people's history stays the people's rule. | For Lars to review. |
+| W6 | `GET runs/{id}` lists the run's proposals in its own thread and those it placed at objects the reader reads (or was invited to), and counts the others in `HiddenProposals`; files download through `GET runs/{id}/artifacts/{artifactId}/content` with the run's visibility and the thread's shield; `CanOpenConversation` says whether the reader may open the run's thread. The MCP connection owner is not shown (recorded in the MCP plan as I20). | A reader of the run may not read the other objects or the thread; administrators and view-policy readers need the files without the thread. The owner is on audit events only. | For Lars to review. |
+| W6 | `NhAssistantRunHistoryDto` carries `AgentDisplayNameKey` (a key for an agent in code, the text for one created as data) next to the subject's name, type name and link; `GET runs` filters by `agentId`, `subjectType`, `subjectId`, `status`, `from` and `to` (creation, UTC, from inclusive, to exclusive) and answers `400 assistant-run-filter-invalid` for anything invalid. | Screens name the agent as the agent picker does; one code for every invalid filter. | For Lars to review. |
+| W6 | The migration `AgentRunResults` also adds the index `IX_AssistantThread_AgentId_SubjectType`. | The runs view and the history filter threads by agent and kind of object. | For Lars to review. |
+| W6 | Handover of W5: the agent's thread at an object is created only after every check passed, right before the proposal is recorded there; `NhAssistantProposalPlacement.PrepareThreadAtAsync` checks who answers for the agent without storing a thread, and a thread that cannot be created after all ends the call as not placed (`no-access`). | A duplicate in another thread of the scope, or another refusal after the object's checks, left an empty thread at the object. | For Lars to review. |
+| W6 | Open for review: the thread of an agent for the whole application stays readable by the read policy of the whole application (W3), which may be wider than the agent's view policy; its conversation shows the answers the results view hides from such readers. | Aligning thread reads with view policies changes W3's access model and the inbox; left for Lars to decide. | For Lars to review. |
+| W6 | Angular: `nh-assistant-run-result` is one public component of `agent-runs` that the run timeline expands inline per run ("Show the result") and `nh-assistant-object-agents` opens for the latest run; the administration's "Runs" opens `nh-assistant-agent-run-history` of `admin` in place of the list, like the feedback report. The runs view filters one object by its id with "Runs on this object" on each run, loads 20 runs at a time with "Show more runs", and counts the last day of the period in full in the browser's time zone. The result renders through the existing safe Markdown pipe, now exported as an internal building block (`ɵNhAssistantMarkdownPipe`); its styles moved to a shared `_markdown.scss` partial that the conversation uses as well. | No route of its own is needed; the object picker shows only objects the administrator reads, while the runs view lists every run. | For Lars to review. |
+| W6 | Mock API: runs by hand keep `runNow.result` as their answer and its first 600 characters as their summary; `NhAssistantMockScenario.runs` seeds earlier runs; `GET runs`, `GET runs/{id}` and `GET admin/agents/{id}/runs` follow the server's visibility, filters and validation; a run's detail has no proposals or files in the mock. | The playground and the specs exercise the history without a back-end. | For Lars to review. |
+| W6 | Sample: the follow-up's completion rules write "N open projects; proposed completing X, Y" with the keys of the projects they proposed (or "nothing new to complete"), in the application's default culture, Dutch in the agent-run sample host. SPM-304 is registered `implemented` for the runs view; W7 extends its title, surface and outcome with the board page. The playground seeds three earlier runs of the follow-up. | The brief's evidence; the guidance generator accepts only implemented cases (W2's decision for SPM-302). | For Lars to review. |
 
 ## Design
 
@@ -401,6 +415,25 @@ the weekly tick and a run now that place proposals at finished projects whose ap
   object) with a link to that run.
 
 ### W6: results and history
+
+**Implementation notes.** Implemented in `AssistantRun.Result` and `ResultTruncated` with
+`NhAssistantLimits.MaxRunResultCharacters`, `NhAssistantRunResults` (the bounded append and the preview
+that reads the stored answer first) and `NhAssistantRunResultWriter`, which the run operation calls after
+every turn that completed; the run store's history queries (`FindThreadsWithRunsAsync`,
+`ListRunsOfThreadsAsync`, `ListAgentRunsAsync`, `FindRunWithThreadAsync`) and the artifacts of a run;
+`NhAssistantRunHistory` (who sees a run, K14, with `NhAssistantSystemSubjectResolver.MayViewAsync` for the
+agent's view policy) and `NhAssistantRunHistoryEndpoints` with `GET runs`, `GET runs/{id}`, `GET
+runs/{id}/artifacts/{artifactId}/content` and `GET admin/agents/{id}/runs` (`NhAssistantRunHistoryDto`,
+`NhAssistantRunHistoryListDto`, `NhAssistantRunResultDto`, `assistant-run-filter-invalid`). The W5 handover
+is fixed: a placed proposal's thread is created only after every check passed. Migration `AgentRunResults`
+for SQL Server and PostgreSQL. Angular: `nh-assistant-run-result` in `agent-runs`, opened from the run
+timeline and `nh-assistant-object-agents`; `nh-assistant-agent-run-history` in `admin` behind "Runs" on the
+agent cards; `getRunHistory`, `getRunResult`, `downloadRunArtifact` and `getAgentRuns` with their models;
+texts, the error code and the mock API's run histories (`NhAssistantMockScenario.runs`). Tests:
+`AssistantRunResultTests` and the placement regression in `AssistantPlacedProposalTests` on SQL Server and
+PostgreSQL, `nh-assistant-run-results.spec.ts`. Sample case SPM-304: the follow-up's result naming the
+projects it proposed, shown to people who pass its view policy and listed in the administration's runs
+view, and earlier runs in the playground.
 
 - `AssistantRun` gains `Result` (Markdown, at most 20,000 characters) and `ResultTruncated`;
   `NhAssistantRunSummaries` keeps writing the summary for memory. Migration `AgentRunResults` for
