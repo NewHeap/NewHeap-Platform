@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Mapping;
 using NewHeap.Platform.Common.Models;
@@ -55,16 +56,16 @@ public class CollectionAndProjectionSamplesTests
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void StatusFiltersReuseCompilationAcrossRequests(bool sqlServer)
+    [InlineData(DatabaseProvider.SqlServer)]
+    [InlineData(DatabaseProvider.PostgreSql)]
+    public void StatusFiltersReuseCompilationAcrossRequests(DatabaseProvider provider)
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var compilations = 0;
         var options = new DbContextOptionsBuilder<SampleProjectManagementDbContext>()
             .UseMemoryCache(cache)
             .LogTo(_ => compilations++, [CoreEventId.QueryCompilationStarting]);
-        if (sqlServer)
+        if (provider == DatabaseProvider.SqlServer)
         {
             options.UseSqlServer("Server=localhost;Database=TranslationOnly;Integrated Security=true");
         }

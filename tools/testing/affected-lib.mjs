@@ -169,6 +169,17 @@ const persistencePatterns = [
   /\/NewHeap\.Platform\.Tests\.Relational\//
 ];
 
+/**
+ * The boolean parameters in C# test source whose name says SQL Server, such as `bool sqlServer`.
+ * `providerRuns` sends a test to the SQL Server process when its display name contains `SqlServer`
+ * in any casing, and a theory flag puts its name into the display name of both of its cases: the
+ * other provider's case then leaves the PostgreSQL process and the default run. Name the provider
+ * instead, for example with `RelationalTestProvider`, so only the SQL Server case says so.
+ */
+export function sqlServerFlagParameters(source) {
+  return [...source.matchAll(/[(,]\s*bool\??\s+(\w*sql_?server\w*)\s*(?=[,)=])/gi)].map(match => match[1]);
+}
+
 /** Whether a change needs both database providers. */
 export function needsAllProviders(changedFiles) {
   return changedFiles.map(normalizePath).some(file => persistencePatterns.some(pattern => pattern.test(file)));

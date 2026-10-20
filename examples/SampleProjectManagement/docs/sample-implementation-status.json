@@ -2541,6 +2541,7 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectSubjectSearchTranslationTests.cs",
       "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts",
       "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",

@@ -3196,30 +3196,6 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Single(catalog.SubjectTypes, type => type.Id == ProjectSubjects.Type));
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void The_project_search_stays_one_case_insensitive_server_side_query_on_both_providers(bool sqlServer)
-    {
-        // SPM-301: the search above runs on PostgreSQL; SQL Server translates the same query.
-        var options = new DbContextOptionsBuilder<SampleProjectManagementDbContext>();
-        if (sqlServer)
-        {
-            options.UseSqlServer("Server=localhost;Database=TranslationOnly;Integrated Security=true");
-        }
-        else
-        {
-            options.UseNpgsql("Host=localhost;Database=translation_only");
-        }
-
-        using var dbContext = new SampleProjectManagementDbContext(options.Options);
-        var sql = ProjectSubjectAccessResolver.Find(dbContext.Projects, Guid.NewGuid(), "Find", 20).ToQueryString();
-
-        Assert.Contains("lower(", sql, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(sqlServer ? "TOP" : "LIMIT", sql, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ORDER BY", sql, StringComparison.OrdinalIgnoreCase);
-    }
-
     /// <summary>
     /// Reads live updates until <paramref name="count"/> of them named the run.
     /// </summary>

@@ -1,5 +1,9 @@
-// Tests of the helpers behind `npm run test:affected`.
+// Tests of the helpers behind `npm run test:affected`, and a check that the repository's tests keep
+// to the naming its SQL Server filter relies on.
 import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   affectedFrontEndLibraries,
   affectedTestProjects,
@@ -7,10 +11,12 @@ import {
   dotnetTestArguments,
   isTestProject,
   needsAllProviders,
+  normalizePath,
   ownerProject,
   parseProjectReferences,
   providerRuns,
   resolveRelative,
+  sqlServerFlagParameters,
   testableFrontEndLibraries
 } from './affected-lib.mjs';
 
@@ -100,4 +106,28 @@ assert.deepEqual(
   dotnetTestArguments(chatTests, 'DisplayName!~SqlServer', { windowsShell: true }),
   ['test', chatTests, '-v', 'q', '-nologo', '--filter', '"DisplayName!~SqlServer"']);
 
-console.log('Verified affected test selection: project graph, shared build files, front-end libraries, their headless test run, providers and their test processes.');
+// A provider flag named after SQL Server would send both of its cases to the SQL Server process.
+assert.deepEqual(sqlServerFlagParameters('public void Translates(bool sqlServer)'), ['sqlServer']);
+assert.deepEqual(sqlServerFlagParameters('public void Translates(string query,\n        bool useSqlServer = false)'), ['useSqlServer']);
+assert.deepEqual(
+  sqlServerFlagParameters('public void Translates(RelationalTestProvider provider) { bool sqlServer = provider == RelationalTestProvider.SqlServer; }'),
+  []);
+const repositoryRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
+const flagged = [];
+function scanTests(folder) {
+  for (const entry of readdirSync(folder, { withFileTypes: true })) {
+    const path = join(folder, entry.name);
+    if (entry.isDirectory() && !['bin', 'obj'].includes(entry.name)) {
+      scanTests(path);
+    } else if (entry.isFile() && entry.name.endsWith('.cs')) {
+      for (const name of sqlServerFlagParameters(readFileSync(path, 'utf8'))) {
+        flagged.push(`${normalizePath(relative(repositoryRoot, path))}: bool ${name}`);
+      }
+    }
+  }
+}
+scanTests(join(repositoryRoot, 'src/Back-end/Tests'));
+scanTests(join(repositoryRoot, 'examples/SampleProjectManagement/src/Back-end/Tests'));
+assert.deepEqual(flagged, [], 'Name the provider of these tests instead of a SQL Server flag; see "Test project ownership" in AGENTS.md.');
+
+console.log('Verified affected test selection: project graph, shared build files, front-end libraries, their headless test run, providers, their test processes and provider names in tests.');

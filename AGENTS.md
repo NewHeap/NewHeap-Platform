@@ -266,6 +266,13 @@ and mutate models where applicable.
   tests as theories over `RelationalTestProvider`, so `test:affected` can run the
   SQL Server cases in a process of their own. The sample's tests share one
   PostgreSQL container through the `SamplePostgreSqlServer` assembly fixture.
+- `test:affected` runs a test in its SQL Server process when the display name
+  (class, method and arguments) contains `SqlServer` in any casing. Let only SQL
+  Server cases say so: pass the provider as `RelationalTestProvider` (in the
+  sample, `DatabaseProvider`), never as a `bool sqlServer` flag, whose other case
+  says it too, and keep a SQL Server case that needs no database out of a class
+  whose fixture starts a host or a database. `test:affected:test` rejects such
+  flags.
 
 ### Scalar and OpenAPI controller contract
 

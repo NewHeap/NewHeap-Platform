@@ -4,6 +4,7 @@ using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.SqlServer;
+using NewHeap.Platform.Tests.Relational;
 using System.Text.Json;
 using Xunit;
 
@@ -11,12 +12,23 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 
 public sealed class RepositoryProviderBoundaryTests
 {
+    /// <summary>
+    /// The provider-neutral package (no provider) restores neither provider; each provider package
+    /// restores only its own. Only the SQL Server case names SQL Server, so <c>test:affected</c> runs
+    /// the others with the PostgreSQL tests.
+    /// </summary>
     [Theory]
-    [InlineData("", "SqlServer", "SqlClient", "Npgsql", "PostgreSql")]
-    [InlineData(".SqlServer", "Npgsql", "PostgreSql")]
-    [InlineData(".PostgreSql", "SqlServer", "SqlClient")]
-    public void RestoredDependenciesRespectProviderBoundaries(string suffix, params string[] forbidden)
+    [InlineData(null)]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public void RestoredDependenciesRespectProviderBoundaries(RelationalTestProvider? provider)
     {
+        var (suffix, forbidden) = provider switch
+        {
+            null => (string.Empty, new[] { "SqlServer", "SqlClient", "Npgsql", "PostgreSql" }),
+            RelationalTestProvider.SqlServer => (".SqlServer", new[] { "Npgsql", "PostgreSql" }),
+            _ => (".PostgreSql", new[] { "SqlServer", "SqlClient" })
+        };
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "release", "manifest.json")))
         {
@@ -34,16 +46,16 @@ public sealed class RepositoryProviderBoundaryTests
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void IdentityFactoryRetainsTheSelectedProviderAndOptions(bool sqlServer)
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public void IdentityFactoryRetainsTheSelectedProviderAndOptions(RelationalTestProvider provider)
     {
         var factory = new InternalNhIdentityDbContextFactory<
             IdentityContext, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole,
             NhDivisionRoleClaim, NhUser, NhUserRole, NhLog, NhLogMessageArgument, NhLogFile,
             NhLogMessageTranslated>(options =>
             {
-                if (sqlServer)
+                if (provider == RelationalTestProvider.SqlServer)
                 {
                     options.UseNewHeapSqlServer("Server=localhost;Database=sample;Integrated Security=true",
                         provider => provider.CommandTimeout(37));
@@ -56,19 +68,19 @@ public sealed class RepositoryProviderBoundaryTests
             });
 
         using var context = factory.CreateDbContext();
-        Assert.Equal(sqlServer ? "Microsoft.EntityFrameworkCore.SqlServer" : "Npgsql.EntityFrameworkCore.PostgreSQL",
+        Assert.Equal(provider == RelationalTestProvider.SqlServer ? "Microsoft.EntityFrameworkCore.SqlServer" : "Npgsql.EntityFrameworkCore.PostgreSQL",
             context.Database.ProviderName);
         Assert.Equal(37, context.Database.GetCommandTimeout());
         Assert.Equal(context.Database.ProviderName, NhRepositoryProvider.GetRequired(context).ProviderName);
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task NativeEfRegistrationWithoutNewHeapFailsBeforeReadingInput(bool sqlServer)
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task NativeEfRegistrationWithoutNewHeapFailsBeforeReadingInput(RelationalTestProvider provider)
     {
         var options = new DbContextOptionsBuilder<IdentityContext>();
-        if (sqlServer)
+        if (provider == RelationalTestProvider.SqlServer)
         {
             options.UseSqlServer("Server=localhost;Database=sample;Integrated Security=true");
         }
@@ -89,7 +101,7 @@ public sealed class RepositoryProviderBoundaryTests
 
         var error = await Assert.ThrowsAsync<NotSupportedException>(() =>
             repository.ExecuteUpsertAsync(Rows(), division => division.Id));
-        Assert.Contains(sqlServer ? "UseNewHeapSqlServer" : "UseNewHeapPostgreSql", error.Message);
+        Assert.Contains(provider == RelationalTestProvider.SqlServer ? "UseNewHeapSqlServer" : "UseNewHeapPostgreSql", error.Message);
         Assert.False(enumerated);
     }
 
