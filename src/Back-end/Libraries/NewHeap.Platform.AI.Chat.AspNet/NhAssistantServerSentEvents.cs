@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.Runtime;
 
 namespace NewHeap.Platform.AI.Chat.AspNet;
@@ -15,13 +16,13 @@ namespace NewHeap.Platform.AI.Chat.AspNet;
 /// </summary>
 internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle handle) : IResult
 {
-    internal static TimeSpan KeepAliveInterval { get; set; } = TimeSpan.FromSeconds(15);
-
     private static readonly byte[] KeepAlive = Encoding.UTF8.GetBytes(": keep-alive\n\n");
 
     public async Task ExecuteAsync(HttpContext httpContext)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
+        var timing = httpContext.RequestServices.GetService<NhAssistantServerSentEventsTiming>()
+            ?? NhAssistantServerSentEventsTiming.Default;
         var response = httpContext.Response;
         response.StatusCode = StatusCodes.Status200OK;
         response.ContentType = "text/event-stream";
@@ -36,7 +37,7 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
             while (true)
             {
                 using var wait = CancellationTokenSource.CreateLinkedTokenSource(aborted);
-                wait.CancelAfter(KeepAliveInterval);
+                wait.CancelAfter(timing.KeepAliveInterval);
                 bool available;
                 try
                 {
@@ -122,6 +123,21 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
     {
         return JsonSerializer.Serialize(value, typeInfo);
     }
+}
+
+/// <summary>
+/// Timing of the server-sent event stream of one host. The library registers none and uses
+/// <see cref="Default"/>; a test registers its own instance to shorten the keep-alive interval of its
+/// host without affecting other hosts in the same process.
+/// </summary>
+internal sealed class NhAssistantServerSentEventsTiming
+{
+    internal static NhAssistantServerSentEventsTiming Default { get; } = new();
+
+    /// <summary>
+    /// How long the stream may stay silent before a <c>: keep-alive</c> comment is written.
+    /// </summary>
+    internal TimeSpan KeepAliveInterval { get; init; } = TimeSpan.FromSeconds(15);
 }
 
 internal static class NhAssistantDtoMapper

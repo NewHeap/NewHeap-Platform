@@ -2,6 +2,7 @@ using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
@@ -183,34 +184,32 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
     public async Task Keep_alive_comments_flow_and_cancel_ends_the_stream()
     {
         var model = new BlockingChatClient();
-        NhAssistantServerSentEventsResult.KeepAliveInterval = TimeSpan.FromMilliseconds(200);
-        try
-        {
-            await using var app = await AssistantWebApplication.StartAsync(database, model);
-            using var client = app.CreateClient();
-            var id = await CreateConversationAsync(client);
-
-            using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/assistant/conversations/{id}/messages")
+        await using var app = await AssistantWebApplication.StartAsync(
+            database,
+            model,
+            configure: services => services.AddSingleton(new NhAssistantServerSentEventsTiming
             {
-                Content = Json(new { text = "Take your time.", clientMessageId = "slow" })
-            };
-            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-            var reading = ReadAllAsync(response);
-            await model.Started.Task.WaitAsync(TimeSpan.FromSeconds(30));
-            await Task.Delay(600);
-            using var cancel = await client.PostAsync($"/api/assistant/conversations/{id}/cancel", null);
-            var (events, comments) = await reading.WaitAsync(TimeSpan.FromSeconds(30));
+                KeepAliveInterval = TimeSpan.FromMilliseconds(200)
+            }));
+        using var client = app.CreateClient();
+        var id = await CreateConversationAsync(client);
 
-            Assert.Equal(HttpStatusCode.Accepted, cancel.StatusCode);
-            Assert.Contains(": keep-alive", comments);
-            Assert.Equal("cancelled", events[^1].Data.GetProperty("status").GetString());
-            var conversation = await ReadJsonAsync(await client.GetAsync($"/api/assistant/conversations/{id}"));
-            Assert.Equal("idle", conversation.GetProperty("status").GetString());
-        }
-        finally
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/assistant/conversations/{id}/messages")
         {
-            NhAssistantServerSentEventsResult.KeepAliveInterval = TimeSpan.FromSeconds(15);
-        }
+            Content = Json(new { text = "Take your time.", clientMessageId = "slow" })
+        };
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        var reading = ReadAllAsync(response);
+        await model.Started.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        await Task.Delay(600);
+        using var cancel = await client.PostAsync($"/api/assistant/conversations/{id}/cancel", null);
+        var (events, comments) = await reading.WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal(HttpStatusCode.Accepted, cancel.StatusCode);
+        Assert.Contains(": keep-alive", comments);
+        Assert.Equal("cancelled", events[^1].Data.GetProperty("status").GetString());
+        var conversation = await ReadJsonAsync(await client.GetAsync($"/api/assistant/conversations/{id}"));
+        Assert.Equal("idle", conversation.GetProperty("status").GetString());
     }
 
     [Fact]
