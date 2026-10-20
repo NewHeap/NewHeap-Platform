@@ -374,7 +374,13 @@ public sealed record PartnerProjectSubmitted(Guid SubmissionId, Guid ProjectId);
 
 public static class PartnerProjects
 {
-    public const string Type = "partner-project";
+    /// <summary>
+    /// The portal's projects are the platform's <c>project</c> subjects: the agent reuses the
+    /// sample's status tool, whose input names its object as a project with
+    /// <c>[NhAiSubject("project")]</c>, so a call about the run's own project proposes in the
+    /// run's thread. The portal registers only its own resolver for the type.
+    /// </summary>
+    public const string Type = ProjectSubjects.Type;
 
     public static NhAiSubjectRef For(Guid projectId)
     {

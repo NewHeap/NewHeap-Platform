@@ -67,7 +67,10 @@ internal sealed class NhAssistantApproverCheck(
         {
             qualifies = rule switch
             {
-                NhAiInitiatorApproverRule => string.Equals(actorId, approval.InitiatorActorId, StringComparison.Ordinal),
+                // A proposal a run placed at another object is that object's to decide: the run's
+                // initiator decides it only as one of the object's approvers.
+                NhAiInitiatorApproverRule => approval.PlacedFromConversationId is null
+                    && string.Equals(actorId, approval.InitiatorActorId, StringComparison.Ordinal),
                 NhAiSubjectRoleApproverRule role => access.Has(role.Role)
                     && (role.NamedRole is null || access.NamedRoles.Contains(role.NamedRole)),
                 NhAiPolicyApproverRule named => (await authorization.AuthorizeAsync(user, resource, named.PolicyName)).Succeeded,

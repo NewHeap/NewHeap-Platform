@@ -2556,7 +2556,22 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhIdentityDivisionDirectoryProviderTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-trigger-form.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-whole-application.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts"
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Models/AI/ProjectAiModels.cs",
+      "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020080619_AgentPlacedProposals.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020080623_AgentPlacedProposals.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPlacedProposalTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-placed-proposals.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-proposals.ts"
     ],
     "SPM-303": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",

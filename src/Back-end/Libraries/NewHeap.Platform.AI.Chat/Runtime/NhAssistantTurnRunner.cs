@@ -2620,7 +2620,9 @@ internal sealed partial class NhAssistantTurnRunner(
             proposalGuards,
             duplicates,
             invalidation,
-            texts);
+            texts,
+            services.GetService<NhAssistantProposalPlacement>(),
+            services.GetService<Live.NhAssistantAgentWorkUpdates>());
     }
 
     private async Task FinishWithErrorAsync(

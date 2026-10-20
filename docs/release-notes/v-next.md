@@ -332,6 +332,62 @@ with the server's rules, finds the scenario's `divisions` by name and takes `cal
 | The mock's `nh-system` type is `searchable` when the scenario lists `divisions`. | Leave `divisions` out of scenarios that expect no division search. |
 | `NhAssistantStore.openConversation` and `NhAssistantPanelService.open` open an agent's thread also for an agent kept out of the chat, without choosing that agent in the picker; before, the panel stayed empty. | None; hosts that hid such threads on purpose check `kind` and the agent themselves. |
 
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Generators, NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: proposals placed at their object
+
+A tool declares which input property names which object type with `[NhAiSubject("project")]`
+(`NhAiSubjectAttribute`) on a property of its input record, or the parameter of a positional record,
+of type `Guid`, `string` or an integer. The source generator writes `NhAiToolDescriptor.Subject`
+(`NhAiToolSubject`: the type and the JSON argument name), adds it to the contract hash only when
+declared and reports `NHAI015` to `NHAI017` for invalid declarations; hand-built and attested catalogs
+set `Subject` themselves, MCP tools never declare one. When an agent run proposes such a tool for
+another object than its own, for example a weekly run for the whole application that proposes to
+complete a project, the platform checks the object before the call runs: the agent works on its type
+(per division only in its own division, a run bound to a tenant only in that tenant), the object
+exists, the account the run answers to reads it, and the run placed fewer than
+`NhAssistantLimits.MaxPlacedProposalsPerRun` (default 20). The call runs in the object's scope and
+waits, deferred, in the agent's thread at that object, created when needed, with the object's version
+and execution scope and the run that made it; the object's approvers decide it in its thread, on its
+page and in their inbox, and it executes in the object's scope with the agent's account. A refused
+placement does not fail the run: the call ends with `assistant-proposal-not-placed` and a reason
+(`NhAssistantPlacementReasons`: `does-not-work-on`, `not-found`, `no-access`, `limit`), which rule
+handlers read as `NhAssistantRuleProposal.PlacementReason`; a placed one answers
+`assistant-proposal-placed` and `NhAssistantRuleProposal.PlacedAt` names the object. The audit records
+`AgentProposalPlaced` and `AgentProposalNotPlaced`, proposal DTOs name the run with `PlacedBy`
+(`NhAssistantProposalOriginDto`), and the approvers of each object are notified once per object when
+the run ends. The whole application, which lists no members, now reaches its approvers: the approval
+inbox and `POST subjects/nh-system/summary` ask the caller's live role on its subjects, and
+notifications about its proposals reach the approvers among the people of its thread. The migration
+`AgentPlacedProposals` adds the nullable column `PlacedFromConversationId` to `AssistantApproval`.
+
+| Breaking change | Required action |
+|---|---|
+| A tool that starts declaring `NhAiSubject` gets a new contract hash; its pending approvals no longer execute (`tool-contract-mismatch`). | None, or let the agents propose again; tools without the attribute keep their hashes. |
+| A run's proposal of a tool with a declared subject for another object than the run's own waits at that object, deferred, for that object's approvers, instead of in the run's thread under the run's scope; a refused one ends with `assistant-proposal-not-placed`. | Give the account an agent answers to read access to the objects it proposes for, and let the objects' approvers decide; read `PlacementReason` in rule handlers. |
+| An agent that runs on a subject type other than the one a tool declares (for example an application that reuses a `project` tool for its own `partner-project` objects) no longer proposes that tool's calls in its own thread: the call names another object, which is refused (`does-not-work-on` or `not-found`) or placed. | Register the objects under the type the tool declares, or give the application a tool that declares its own type. |
+| A proposal placed at another object is no longer decided by the run's initiator through the initiator approver rule, and it is no longer in the initiator's inbox. | Let the object's approvers decide it. |
+| The approval inbox and `POST subjects/nh-system/summary` list and count proposals of the whole application for callers whose live role is approver; notifications about them reach the approvers among the people of its thread. | None; inboxes of administrators may grow. |
+| `NhAssistantAuditEventKind` gains `AgentProposalPlaced` and `AgentProposalNotPlaced`; the agent notification `RunEndedWithProposals` also goes to the approvers of each object a run placed proposals at, once per object. | Handle the new kinds in exhaustive switches of business audit sinks; notification policies and channels see the object's subject in the context. |
+| Migration `AgentPlacedProposals`. | Apply it for SQL Server or PostgreSQL. |
+
+## @newheap/platform-ai-chat: proposals placed at their object
+
+`AgentProposal.placedBy` (`AgentProposalOrigin`) names the run that placed a proposal at its object
+from another subject. The proposal cards of `nh-assistant-agent-proposals`, the inbox, the thread view
+and the subject suggestions say "Proposed by a run for the whole application" (with the division's name
+in a division) or "Proposed by a run for another object" with its kind, and offer that run's
+conversation: `nh-assistant-agent-proposals`, `nh-assistant-agent-inbox` and
+`nh-assistant-agent-thread-view` emit `openConversation`, and `nh-assistant-subject-suggestions` opens
+it in the panel and emits `runConversationOpened`. The errors `assistant-proposal-placed` and
+`assistant-proposal-not-placed` are registered and bundled in English and Dutch. The mock API serves the
+scenario's `proposals` (`NhAssistantMockProposal`) in `GET approvals/inbox`, `GET approvals/{id}`,
+`POST approvals/lookup`, a thread's proposals and a subject's work, and decides them with
+`POST approvals/{id}/decisions` and `POST approvals/decisions` with the server's validation.
+
+| Breaking change | Required action |
+|---|---|
+| `nh-assistant-agent-inbox` and `nh-assistant-agent-thread-view` emit `openConversation` for the run that placed a proposal; the thread view emitted it only for its own thread before. | Open the emitted conversation with `NhAssistantPanelService.open`; check the id when the thread view's own conversation needs other handling. |
+| The mock API answers `approvals/inbox`, `approvals/{id}`, `approvals/lookup` and the decision endpoints instead of `404`. | Update tests that expected `404`; list proposals in `NhAssistantMockScenario.proposals`. |
+
 ## NewHeap.Platform.AI.Mcp, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: MCP servers in background runs
 
 An administrator-connected MCP server is now offered in headless agent runs, and in the execution

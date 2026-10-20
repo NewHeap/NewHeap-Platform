@@ -191,6 +191,66 @@ public sealed class NhAiToolExportNameAttribute(string name) : Attribute
     public string Name { get; } = name;
 }
 
+/// <summary>
+/// Declares that a property of a tool's input names an object of the application, for example
+/// <c>[NhAiSubject("project")] Guid ProjectId</c>. The source generator writes it to
+/// <see cref="NhAiToolDescriptor.Subject"/>. When an agent run proposes the tool for another object
+/// than the run's own, the assistant checks that object and places the proposal in the agent's
+/// thread at that object, where the object's approvers decide; the platform never trusts the model
+/// to say which object a call concerns. Put it on one property of the input record, or on the
+/// parameter of a positional record, of type <see cref="Guid"/>, <see cref="string"/> or an integer.
+/// The type is a registered subject type in dash-case and never one of the platform's
+/// <c>nh-</c> types.
+/// </summary>
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]
+public sealed class NhAiSubjectAttribute(string type) : Attribute
+{
+    /// <summary>
+    /// The subject type the property names, such as <c>project</c>.
+    /// </summary>
+    public string Type { get; } = type;
+}
+
+/// <summary>
+/// The object a tool call concerns: the subject <paramref name="Type"/> and the name of the input
+/// argument that holds the object's id, as the tool's JSON contract names it. Generated catalogs set
+/// it from <see cref="NhAiSubjectAttribute"/>; hand-built and attested catalogs set it themselves and
+/// include it in their contract hash.
+/// </summary>
+public sealed record NhAiToolSubject
+{
+    /// <summary>The longest argument name a subject declaration names.</summary>
+    public const int MaxArgumentNameLength = 128;
+
+    public NhAiToolSubject(string type, string argumentName)
+    {
+        if (!NhAiSubjectRef.IsValidType(type) || NhAiSubjectRef.IsReservedType(type))
+        {
+            throw new ArgumentException(
+                "A tool's subject type is a dash-case subject type of at most 100 characters and not one of the platform's nh- types.",
+                nameof(type));
+        }
+
+        if (string.IsNullOrWhiteSpace(argumentName)
+            || argumentName.Length > MaxArgumentNameLength
+            || argumentName.Trim() != argumentName)
+        {
+            throw new ArgumentException(
+                "A tool's subject argument is a non-empty name of at most 128 characters without surrounding whitespace.",
+                nameof(argumentName));
+        }
+
+        Type = type;
+        ArgumentName = argumentName;
+    }
+
+    /// <summary>The subject type the argument names, such as <c>project</c>.</summary>
+    public string Type { get; }
+
+    /// <summary>The input argument that holds the object's id, such as <c>projectId</c>.</summary>
+    public string ArgumentName { get; }
+}
+
 public sealed record NhAiToolDescriptor(
     string Id,
     int Version,
@@ -243,6 +303,13 @@ public sealed record NhAiToolDescriptor(
     /// <see cref="AuthorizationPolicies"/>.
     /// </summary>
     public string? ApprovalPolicy { get; init; }
+
+    /// <summary>
+    /// The object a call of this tool concerns, declared with <see cref="NhAiSubjectAttribute"/>;
+    /// <see langword="null"/> when the tool declares none, as MCP tools never do. Agent runs place a
+    /// proposal for another object than their own at that object.
+    /// </summary>
+    public NhAiToolSubject? Subject { get; init; }
 
     /// <summary>
     /// The policies an approver must satisfy: <see cref="ApprovalPolicy"/> when declared,

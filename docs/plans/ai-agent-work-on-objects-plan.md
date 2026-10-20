@@ -9,8 +9,8 @@ application groups them on its own pages. It was written on 2026-10-19 during th
 
 ## Status
 
-Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 to W4 are implemented and not
-released; W5 to W7 are designed and not yet implemented; the flow view (U6 of the run configuration
+Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 to W5 are implemented and not
+released; W6 and W7 are designed and not yet implemented; the flow view (U6 of the run configuration
 UX plan) follows on top of them. The
 [MCP connections plan](ai-assistant-mcp-connections-plan.md) uses SPM-299 and SPM-300; this plan
 uses SPM-301 onwards.
@@ -21,7 +21,7 @@ uses SPM-301 onwards.
 | W2 | Implemented, not released: what an agent works on. |
 | W3 | Implemented, not released: the whole application as a scope. |
 | W4 | Implemented, not released: run now. |
-| W5 | Designed: proposals placed at their object. |
+| W5 | Implemented, not released: proposals placed at their object. |
 | W6 | Designed: results and history. |
 | W7 | Designed: groups and boards. |
 | U6 | Designed in outline: the flow view of an agent. |
@@ -168,6 +168,27 @@ Choices the plan left open, taken during implementation for Lars to review.
 | W3 | The trigger form and the guided setup ask with a radio choice what a schedule runs for ("The whole application" or "Every object in a set"), defaulting to the whole application for an agent that works on it; a server `subjectSet` refusal while the whole application is chosen shows at the choice as `application-not-worked-on`; a stored schedule without a set of an agent that no longer works on the application asks for a set. | Explicit and accessible, the Monday example needs no set, and a bare "Required" would not explain a statement another administrator narrowed. | For Lars to review. |
 | W3 | The subject link hides the type name when it equals the label, so the whole application app-wide reads once and a division reads "The whole application North". | No special case for `nh-system` in the component. | For Lars to review. |
 | W3 | The mock API also marks typed events and schedules that no longer fit what an agent works on as `not-worked-on`, answers `nh-system/global` subject work and refuses its search; it has no division names. | The same rule as the server; the playground has no divisions to describe. | For Lars to review. |
+| W5 | Placing applies to runs only (a run id, not a person's turn in the thread, not a consultation) and to tools with an effect; a read with a declared subject runs in the run's scope as before. | K11 concerns what runs propose; a person's own turn decides inline in its conversation and a consultation proposes for the consulted subject; a read proposes nothing. | For Lars to review. |
+| W5 | A placed call runs in the object's agent invocation scope with `RequireApprovalForEffects`: the gate authorizes the tool against the object and its division, and every effect becomes a proposal, also one a policy would let run directly. | The proposal's authorization, execution scope and targets must be the object's; "proposals stay governed". The sample's status tool needs the project's division, which a run for the whole application has not. | For Lars to review. |
+| W5 | The object is read before the call by binding the call's input with the tool's serializer (deserialized into the input type and serialized again) and confirmed against the input the shared invoker evaluated; arguments that do not bind or name no object stay in the run's own thread and fail on their own binding. | A Guid or a number reads as the tool sees it, so one object has one thread; the platform never trusts the model's spelling. | For Lars to review. |
+| W5 | A placed proposal always waits deferred, whatever the policy's mode, and executes from its own copy of the call in the thread at the object (outside its message history); the run's own call ends `not-executed` with `assistant-proposal-placed` and a result that names the object. | A run never waits in another thread (`ResumeAgentTurnAsync` works in the approval's own conversation); execution replays the stored call of the approval's conversation; the run's thread shows what happened. | For Lars to review. |
+| W5 | Rule (3) checks the run's `AccountableOwnerId`: the agent's own actor for an agent that answers to itself, otherwise the responsible person or the technical account; never the initiator. | The plan's "the agent's account (or the accountable person)"; an application's resolver decides whether it knows agent actors. | For Lars to review. |
+| W5 | Reasons beyond the plan: a run bound to a tenant places only in that tenant (`not-found`, so another tenant's object stays unknown), a per-division agent outside its division reads `does-not-work-on`, an object where nobody answers for the agent (no responsible person for `SubjectResponsible`) reads `no-access`, and an evaluated object that differs from the one read reads `not-found`. The limit counts every proposal the run placed, in any status; 0 places none, at most 200. | Four reason codes stay readable for the model; tenants are an isolation boundary even for app-wide agents. | For Lars to review. |
+| W5 | Migration `AgentPlacedProposals` for SQL Server and PostgreSQL adds `AssistantApproval.PlacedFromConversationId` (the run's thread); `RunId` stays the run that made it, so the proposal set, feedback, evaluation and the evidence (bound to the run's turn) keep working. | The inbox, the approver check, the summary and the notifications must tell a placed proposal apart without a join to runs, which chat and consultation proposals lack; the plan named no column, so this is an addition. | For Lars to review. |
+| W5 | A placed proposal keeps the run's initiator for four-eyes, but the initiator neither decides it through the initiator approver rule nor sees it in the inbox, unless an approver of the object; the inbox's initiator clause and the subject summary leave placed proposals out. | K11: the object's approvers decide; the initiator may not read the object at all. | For Lars to review. |
+| W5 | `PlacedBy` (`NhAssistantProposalOriginDto`) carries the run's thread, the run and its subject type; the subject's id and name only for the whole application, the kind's name (`SubjectTypeName`) otherwise. | A reader of the object may not read the other object; "for the whole application" is safe for everyone. | For Lars to review. |
+| W5 | Approvers of the whole application (handover of W3): the inbox asks the caller's live role on the subjects of the whole application with pending proposals, at most 100 by id, with the resolver's 10-second cache, and lists their proposals for approvers; a caller bound to a tenant decides none (as `GET approvals/{id}` hides threads without the caller's tenant). `POST subjects/nh-system/summary` counts with the caller's live roles on at most 100 requested ids. | The whole application lists no members; evaluating at query time keeps W3's decision and stays bounded. | For Lars to review. |
+| W5 | Notifications about proposals of the whole application reach the people of its thread (its conversation's participants, then the people who decided its proposals, at most 50), each with the role the resolver gives them now; the notification policy picks the approvers as for any subject. Live updates are unchanged. | Everyone who passes a policy cannot be listed; the people who opened or decided in the thread are the ones who work with it, and a live check keeps it governed. | For Lars to review. |
+| W5 | A run's placed proposals notify the approvers of each object once per object (`RunEndedWithProposals` with the object's thread, without the initiator), when the run completes and also after it failed; the run's summary counts placed proposals per tool and status; cancelling a run withdraws its placed proposals as well. | The object's approvers are who must act; a failed run's placed proposals still wait; the proposals belong to the run's proposal set. | For Lars to review. |
+| W5 | Audit: `ApprovalRequested` and the new `AgentProposalPlaced` are recorded about the object (its subject and thread, the run's thread as `ObjectId`), `AgentProposalNotPlaced` with the reason and the named object; rule handlers read `NhAssistantRuleProposal.PlacedAt` and `PlacementReason`. | Content-free and about the object people look at; rules need the reason to summarize their run. | For Lars to review. |
+| W5 | Generator: the attribute is accepted on a property or on the parameter of a positional record (matched by name); its JSON name follows the serializer contract; `NHAI015` refuses an invalid or `nh-` type, `NHAI016` another property type, an ignored property or a declaration on the whole input, `NHAI017` a second declaration. A read-only tool may declare one; it is not placed. | Positional records are the common input shape; the JSON name must match what the model sends. | For Lars to review. |
+| W5 | MCP: MCP tools never declare a subject, and placing also skips every `mcp.` tool id; their proposals stay in the run's thread under Q10. A placed proposal is always a governed tool and executes through the governed function, never through the MCP re-checks. Recorded in the MCP plan as I19. | K12; the brief asks to keep Q10 untouched. | For Lars to review. |
+| W5 | Angular: the proposal cards say "Proposed by a run for the whole application" (in a division with its name) or "for another object" with its kind and offer "Open the run's conversation"; `nh-assistant-agent-proposals`, `nh-assistant-agent-inbox` and `nh-assistant-agent-thread-view` emit `openConversation`, `nh-assistant-subject-suggestions` opens the panel itself and emits `runConversationOpened`. The mock API serves `proposals` of the scenario in the inbox, by id, by lookup, in a thread and on a subject's work, and decides them with the server's validation; an approved one executes at once. | Hosts keep control of the panel as for the thread view; the suggestions already own the panel. | For Lars to review. |
+| W5 | Sample: the follow-up's skill `complete-projects` works by fixed rules (`AddRuleHandler`, like `project-kickoff`) instead of a scripted deterministic model, and the agent's routing rules (run settings `RuleHandler`) send every run for the whole application, the tick and a run now, to it; a run on a project goes to the model. The schedule names the skill; `MaxRunsPerSubjectPerDay` of the follow-up rose from 2 to 10. A development database with the follow-up of W2 to W4 keeps it; remove it in the administration to seed this one. | Deterministic, model-free and shows the platform's placement with `ProposeAsync`; run now places as well; the tick, run now and tests must fit in a day. | For Lars to review. |
+| W5 | Sample: `ProjectSubjectAccessResolver` gives people with the application-wide `app.project.view` permission the reader role on every project, so the development operations account (project lead role) reads the projects the follow-up proposes for. The sample test makes the test host's operations account a reader of its own projects only, so the shared host's other finished projects are refused (`no-access`) instead of polluted; ticks in the tests wait for a fresh minute, because a schedule ticks once per minute. | Rule (3) needs the account to read the project; the application's own pages already let app-wide viewers read every project. | For Lars to review. |
+| W5 | A placed proposal's approval policy is the one the agent's configuration gives the tool for the run's trigger and skill, as for its own proposals; its approver rules, the subject version precondition and the guards are evaluated on the object, and the listing roles of the whole application are kept ten seconds per person across requests (`NhAssistantSystemRoleCache`, at most 1,024). | Policies belong to agents and tools, not to objects; "those of the object" means who decides and what is checked. The resolver of the whole application caches per request only, and the inbox reloads on every live update. | For Lars to review. |
+| W5 | Sample SPM-281: the partner portal names its projects with the subject type `project` (it registers only its own resolver for it), because its agent reuses the sample's status tool, whose input now declares `[NhAiSubject("project")]`; with `partner-project` its calls named another object and no proposal was made. The release notes list this as a breaking change for applications that reuse a tool under another subject type. | The portal's narrative already speaks of the project's approver; a separate portal tool would need the generator in the test project. | For Lars to review. |
+| W5 | `NhAssistantRunResults.PreviewOf` is unchanged; W6 reads placed proposals of a run through `RunId`. | The handover keeps the seam for W6. | For Lars to review. |
 
 ## Design
 
@@ -340,6 +361,25 @@ for the whole application, the project editor's agents and the playground. No mi
 
 ### W5: proposals placed at their object
 
+**Implementation notes.** Implemented in `NhAiSubjectAttribute` and `NhAiToolSubject` (AI.Common) with
+`NhAiToolDescriptor.Subject`, the generator's subject declaration, contract hash and diagnostics
+`NHAI015` to `NHAI017` (AI.Generators), the internal `NhAssistantProposalPlacement` (the rules, the
+binding of the object and the thread at the object), the tool-call interceptor's placing (the call in
+the object's scope, the deferred proposal at the object with its own copy of the call, the run's call
+as placed or not placed), `NhAssistantLimits.MaxPlacedProposalsPerRun`, `NhAssistantPlacementReasons`,
+the error codes `assistant-proposal-placed` and `assistant-proposal-not-placed`, the audit kinds
+`AgentProposalPlaced` and `AgentProposalNotPlaced`, `NhAssistantRuleProposal.PlacedAt` and
+`PlacementReason`, `PlacedBy` (`NhAssistantProposalOriginDto`) on proposal DTOs, the inbox and approver
+rules for placed proposals, notifications per object and the run summary, and the approvers of the whole
+application (`NhAssistantSystemApprovers` for the inbox and the subject summary, the people of its thread
+for notifications). Migration `AgentPlacedProposals` for SQL Server and PostgreSQL. Angular:
+`AgentProposalOrigin`, the origin line and its conversation on the proposal cards, `openConversation` of
+the inbox and the proposals list, `runConversationOpened` of the subject suggestions, texts, error codes
+and the mock API's proposals, inbox and decisions. Tests: `AssistantPlacedProposalTests` on SQL Server and
+PostgreSQL, the generator tests and `nh-assistant-placed-proposals.spec.ts`. Sample case SPM-302: the
+status tool's input declares its project, the follow-up's `complete-projects` skill and routing rules,
+the weekly tick and a run now that place proposals at finished projects whose approver approves one.
+
 - **Declaration (K12).** `[NhAiSubject("project")]` on a property of a tool's input record (a
   `Guid`, `string` or integer). The source generator emits `NhAiToolDescriptor.Subject` (type and
   JSON argument name), which becomes part of the contract hash only when present; hand-built
@@ -424,7 +464,7 @@ latest runs). Each step opens the form it summarizes; the flow is an overview, n
 | --- | --- | --- |
 | `nh-` subject types are reserved. | Startup fails for an application type starting with `nh-`. | Rename such a type. |
 | `NhAiToolDescriptor.Subject`. | Contract hashes change only for tools that declare a subject; their pending approvals become invalid. | None, or re-propose. |
-| Migrations `AgentWorkOnObjects`, `AgentRunResults`, `AgentBoards`. | Schema changes. | Apply them for SQL Server or PostgreSQL. |
+| Migrations `AgentWorkOnObjects`, `AgentPlacedProposals`, `AgentRunResults`, `AgentBoards`. | Schema changes. | Apply them for SQL Server or PostgreSQL. |
 | New interface members (`INhAssistantAgentConfiguration` and admin DTOs gain the new fields). | Source compatibility of own implementations and test doubles. | Implement the members; recompile. |
 | Existing agents. | Work on all object types, not on the application, app-wide. | Optionally declare `WorksOn`. |
 

@@ -70,7 +70,10 @@ export class NhAssistantAgentThreadViewComponent {
   readonly agentId = input.required<string>();
   readonly subjectType = input.required<string>();
   readonly subjectId = input.required<string>();
-  /** Emits the thread's conversation id, so the host can open it in the assistant panel. */
+  /**
+   * Emits the thread's conversation id, so the host can open it in the assistant panel; also the
+   * conversation of a run that placed one of the thread's proposals here from another subject.
+   */
   readonly openConversation = output<string>();
 
   readonly tab = signal<NhAssistantAgentThreadTab>('proposals');

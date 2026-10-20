@@ -78,7 +78,8 @@
       [proposals]="proposals()"
       [decisionRights]="decisionRights()"
       [holdClosedCards]="true"
-      (changed)="load()" />
+      (changed)="load()"
+      (openConversation)="openRunConversation($event)" />
     @if (proposals().length === 0) {
       <p class="state">{{ 'nh-assistant.agent-runs.subject.empty' | translate }}</p>
     }

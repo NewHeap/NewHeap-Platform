@@ -513,6 +513,109 @@ public sealed class NhAiToolTests
         return Assert.Single(runResult.GeneratedTrees).ToString();
     }
 
+    [Fact]
+    public void Generator_emits_the_declared_subject_and_includes_it_in_the_contract_hash_only_when_present()
+    {
+        var plain = GenerateSubjectTool("public sealed record CloseInput(Guid ProjectId, string Reason);");
+        var positional = GenerateSubjectTool("public sealed record CloseInput([NhAiSubject(\"project\")] Guid ProjectId, string Reason);");
+        var property = GenerateSubjectTool("""
+            public sealed class CloseInput
+            {
+                [NhAiSubject("project")]
+                public Guid ProjectId { get; init; }
+
+                public string Reason { get; init; } = "";
+            }
+            """);
+        var number = GenerateSubjectTool("public sealed record CloseInput([NhAiSubject(\"project-task\")] long? TaskNumber, string Reason);");
+
+        Assert.DoesNotContain("Subject =", plain, StringComparison.Ordinal);
+        Assert.Contains("Subject = new global::NewHeap.Platform.AI.NhAiToolSubject(\"project\", \"projectId\"),", positional, StringComparison.Ordinal);
+        Assert.Contains("Subject = new global::NewHeap.Platform.AI.NhAiToolSubject(\"project\", \"projectId\"),", property, StringComparison.Ordinal);
+        Assert.Contains("Subject = new global::NewHeap.Platform.AI.NhAiToolSubject(\"project-task\", \"taskNumber\"),", number, StringComparison.Ordinal);
+        // The declaration enters the contract only when present; the same declaration hashes the same.
+        Assert.NotEqual(ReadContractHash(plain), ReadContractHash(positional));
+        Assert.Equal(ReadContractHash(positional), ReadContractHash(property));
+        Assert.NotEqual(ReadContractHash(positional), ReadContractHash(number));
+        Assert.Equal(ReadContractHash(plain), ReadContractHash(GenerateSubjectTool("public sealed record CloseInput(Guid ProjectId, string Reason);")));
+    }
+
+    [Theory]
+    [InlineData("public sealed record CloseInput([NhAiSubject(\"Project\")] Guid ProjectId);", "NHAI015")]
+    [InlineData("public sealed record CloseInput([NhAiSubject(\"nh-system\")] string Id);", "NHAI015")]
+    [InlineData("public sealed record CloseInput([NhAiSubject(\"1-project\")] Guid ProjectId);", "NHAI015")]
+    [InlineData("public sealed record CloseInput([NhAiSubject(\"project\")] DateTime ProjectId);", "NHAI016")]
+    [InlineData("public sealed class CloseInput { [NhAiSubject(\"project\")] [System.Text.Json.Serialization.JsonIgnore] public Guid ProjectId { get; init; } }", "NHAI016")]
+    [InlineData("public sealed record CloseInput([NhAiSubject(\"project\")] Guid ProjectId, [NhAiSubject(\"project\")] Guid OtherId);", "NHAI017")]
+    public void Generator_rejects_invalid_subject_declarations(string inputDeclaration, string expectedDiagnostic)
+    {
+        AssertGeneratorDiagnostic(SubjectToolSource(inputDeclaration, "CloseInput input"), expectedDiagnostic);
+    }
+
+    [Fact]
+    public void Generator_rejects_a_subject_on_the_whole_input()
+    {
+        AssertGeneratorDiagnostic(
+            SubjectToolSource("public sealed record CloseInput(Guid ProjectId);", "[NhAiSubject(\"project\")] Guid input"),
+            "NHAI016");
+    }
+
+    private static string GenerateSubjectTool(string inputDeclaration)
+    {
+        var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+            .Split(Path.PathSeparator)
+            .Select(path => MetadataReference.CreateFromFile(path));
+        var references = trustedAssemblies
+            .Append(MetadataReference.CreateFromFile(typeof(NhAiToolAttribute).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(TaskResult<>).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute).Assembly.Location));
+        var compilation = CSharpCompilation.Create(
+            "GeneratorSubject",
+            [CSharpSyntaxTree.ParseText(SubjectToolSource(inputDeclaration, "CloseInput input"))],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new NhAiToolGenerator());
+
+        driver = driver.RunGenerators(compilation);
+
+        var runResult = driver.GetRunResult();
+        Assert.DoesNotContain(runResult.Diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        return Assert.Single(runResult.GeneratedTrees).ToString();
+    }
+
+    private static string SubjectToolSource(string inputDeclaration, string inputParameter)
+    {
+        return $$"""
+            using System;
+            using System.ComponentModel;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using Microsoft.AspNetCore.Authorization;
+            using NewHeap.Platform.AI;
+            using NewHeap.Platform.Common.Models;
+
+            {{inputDeclaration}}
+
+            [NhAiToolSet("projects")]
+            [Authorize(Policy = "projects.manage")]
+            public sealed class ProjectTools
+            {
+                [NhAiTool(
+                    "close",
+                    1,
+                    NhAiToolEffect.Mutation,
+                    NhAiToolExposure.Agent,
+                    Approval = NhAiApprovalRequirement.Required,
+                    Idempotency = NhAiIdempotencySupport.Required)]
+                [Description("Close a project.")]
+                public Task<TaskResult<string>> CloseAsync(
+                    {{inputParameter}},
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+            }
+            """;
+    }
+
     private static string ReadContractHash(string generated)
     {
         const string marker = "ContractHash = \"";
@@ -592,7 +695,8 @@ public sealed class NhAiToolTests
             .Select(path => MetadataReference.CreateFromFile(path));
         var references = trustedAssemblies
             .Append(MetadataReference.CreateFromFile(typeof(NhAiToolAttribute).Assembly.Location))
-            .Append(MetadataReference.CreateFromFile(typeof(TaskResult<>).Assembly.Location));
+            .Append(MetadataReference.CreateFromFile(typeof(TaskResult<>).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute).Assembly.Location));
         var compilation = CSharpCompilation.Create(
             "GeneratorExportDiagnostics",
             [syntaxTree],

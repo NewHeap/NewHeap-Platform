@@ -49,7 +49,8 @@ interface NhAssistantStartedAgent {
  * whose conversation the host offers also before it worked on the subject. With live updates the
  * view reloads by itself when agent work on its subject changes; a proposal that closes because it
  * no longer fits stays as a closed card with the reason until it is dismissed. Opening a
- * conversation uses `NhAssistantPanelService.openSubject` and emits `conversationOpened` afterwards.
+ * conversation uses `NhAssistantPanelService.openSubject` and emits `conversationOpened` afterwards;
+ * opening the conversation of a run that placed a proposal here emits `runConversationOpened`.
  */
 @Component({
   selector: 'nh-assistant-subject-suggestions',
@@ -75,6 +76,11 @@ export class NhAssistantSubjectSuggestionsComponent {
   readonly agentId = input<string | undefined>(undefined);
   /** Emits once the panel opens the conversation, so a host in a dialog can make room for it. */
   readonly conversationOpened = output<AgentThreadLookup>();
+  /**
+   * Emits once the panel opens the conversation of a run that placed a proposal here from another
+   * subject, so a host in a dialog can make room for it.
+   */
+  readonly runConversationOpened = output<string>();
 
   readonly headingId = `nh-assistant-subject-suggestions-${++nextSuggestionsId}`;
   readonly loading = signal(true);
@@ -141,6 +147,15 @@ export class NhAssistantSubjectSuggestionsComponent {
   /** Readers may open an existing conversation; creating one needs the participant role. */
   canOpen(agent: AgentSubjectWorkAgent): boolean {
     return agent.thread !== null || this.work()?.role !== 'reader';
+  }
+
+  /**
+   * Opens the conversation of the run that placed a proposal here, such as a run for the whole
+   * application, in the assistant panel; the server checks the reader's access to it.
+   */
+  openRunConversation(conversationId: string): void {
+    this.panel.open(conversationId);
+    this.runConversationOpened.emit(conversationId);
   }
 
   async open(agent: AgentSubjectWorkAgent): Promise<void> {

@@ -625,6 +625,7 @@ internal sealed class NhAssistantAgentRunOperation(
                 run.Shadow,
                 CancellationToken.None,
                 failureCode: code);
+            await NotifyPlacedProposalsAsync(run);
         }
     }
 
@@ -697,20 +698,51 @@ internal sealed class NhAssistantAgentRunOperation(
         var waiting = (await runs.GetRunApprovalsAsync(run.Id, CancellationToken.None))
             .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending)
             .ToArray();
-        if (waiting.Length == 0)
+        var own = waiting.Where(approval => approval.ConversationId == run.ConversationId).ToArray();
+        if (own.Length > 0)
         {
-            return;
+            await notifier.NotifyAsync(
+                NhAssistantAgentNotificationKind.RunEndedWithProposals,
+                thread,
+                run.Id,
+                own[0],
+                run.InitiatorActorId,
+                run.Shadow,
+                CancellationToken.None,
+                proposalCount: own.Length);
         }
 
-        await notifier.NotifyAsync(
-            NhAssistantAgentNotificationKind.RunEndedWithProposals,
-            thread,
-            run.Id,
-            waiting[0],
-            run.InitiatorActorId,
-            run.Shadow,
-            CancellationToken.None,
-            proposalCount: waiting.Length);
+        await NotifyPlacedProposalsAsync(run, waiting);
+    }
+
+    /// <summary>
+    /// Proposals a run placed at other objects reach those objects' approvers, once per object, also
+    /// when the run failed afterwards; the run's initiator is told only about its own thread.
+    /// </summary>
+    private async Task NotifyPlacedProposalsAsync(AssistantRun run, IReadOnlyList<AssistantApproval>? waiting = null)
+    {
+        waiting ??= (await runs.GetRunApprovalsAsync(run.Id, CancellationToken.None))
+            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending)
+            .ToArray();
+        foreach (var placed in waiting
+            .Where(approval => approval.PlacedFromConversationId is not null && approval.ConversationId != run.ConversationId)
+            .GroupBy(approval => approval.ConversationId))
+        {
+            if (await runs.FindThreadByConversationAsync(placed.Key, CancellationToken.None) is not { } target)
+            {
+                continue;
+            }
+
+            await notifier.NotifyAsync(
+                NhAssistantAgentNotificationKind.RunEndedWithProposals,
+                target,
+                run.Id,
+                placed.First(),
+                null,
+                run.Shadow,
+                CancellationToken.None,
+                proposalCount: placed.Count());
+        }
     }
 
     private async Task RecordUsageAsync(Guid runId, NhAssistantAgentTurnResult result, CancellationToken cancellationToken)

@@ -1,5 +1,7 @@
 namespace SampleProjectManagement.Core.Models.AI;
 
+using NewHeap.Platform.AI;
+using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.DAL.Entities;
 
 public sealed record ProjectAiSearchInput(string? Query, int Limit = 10);
@@ -12,8 +14,13 @@ public sealed record ProjectAiApprovalItem(
     string Name,
     ProjectStatus Status);
 
+/// <summary>
+/// The input of <c>projects.change-status</c>. SPM-302: <see cref="ProjectId"/> names the project the
+/// change concerns, so a run of an agent for another subject, such as the project follow-up for the
+/// whole application, places its proposal at that project after the platform checked it.
+/// </summary>
 public sealed record ProjectAiStatusChangeInput(
-    Guid ProjectId,
+    [NhAiSubject(ProjectSubjects.Type)] Guid ProjectId,
     ProjectStatus Status);
 
 public sealed record ProjectAiStatusChangeReport(

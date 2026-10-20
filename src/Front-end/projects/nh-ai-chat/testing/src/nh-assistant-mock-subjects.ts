@@ -1,4 +1,4 @@
-import { AgentSubjectSearch, AgentSubjectType, AgentSubjectWork } from '@newheap/platform-ai-chat';
+import { AgentSubjectSearch, AgentSubjectType, AgentSubjectWork, AgentSubjectWorkProposal } from '@newheap/platform-ai-chat';
 import { NhAssistantMockDivision, NhAssistantMockSubjectType } from './nh-assistant-mock.models';
 
 /** A mock response: status plus optional JSON body. */
@@ -47,7 +47,11 @@ export class NhAssistantMockSubjects {
   private readonly types: NhAssistantMockSubjectType[];
   private readonly divisions: NhAssistantMockDivision[];
 
-  constructor(types: readonly NhAssistantMockSubjectType[] = [], divisions: readonly NhAssistantMockDivision[] = []) {
+  constructor(
+    types: readonly NhAssistantMockSubjectType[] = [],
+    divisions: readonly NhAssistantMockDivision[] = [],
+    private readonly openProposals: (subjectType: string, subjectId: string) => AgentSubjectWorkProposal[] = () => []
+  ) {
     const ids = new Set<string>();
     for (const type of types) {
       if (!dashCase.test(type.id) || type.id.length > 100) {
@@ -208,7 +212,10 @@ export class NhAssistantMockSubjects {
     return { status: 200, body };
   }
 
-  /** The name of a subject chosen by id; the mock runs no agents, so it has no agent work. */
+  /**
+   * The name of a subject chosen by id and the proposals the scenario lists on it; the mock runs no
+   * agents, so it has no other agent work.
+   */
   private work(typeId: string, subjectId: string, language: string | null): MockResult {
     if (typeId === systemType) {
       return this.systemWork(subjectId, language);
@@ -230,7 +237,7 @@ export class NhAssistantMockSubjects {
       subjectLink: linkFor(type, subject.id),
       role: 'reader',
       agents: [],
-      openProposals: []
+      openProposals: this.openProposals(type.id, subject.id)
     };
     return { status: 200, body };
   }
@@ -255,7 +262,7 @@ export class NhAssistantMockSubjects {
       subjectLink: null,
       role: 'reader',
       agents: [],
-      openProposals: []
+      openProposals: this.openProposals(systemType, subjectId)
     };
     return { status: 200, body };
   }

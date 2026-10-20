@@ -23,7 +23,8 @@
       [canDecide]="true"
       [selectable]="true"
       [holdClosedCards]="true"
-      (changed)="load()" />
+      (changed)="load()"
+      (openConversation)="openConversation.emit($event)" />
     @if (items().length === 0) {
       <p class="state">{{ 'nh-assistant.agent-runs.inbox.empty' | translate }}</p>
     }

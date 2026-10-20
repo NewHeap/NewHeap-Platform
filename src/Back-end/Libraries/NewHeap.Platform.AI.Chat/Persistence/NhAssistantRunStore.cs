@@ -86,6 +86,26 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// The threads among <paramref name="conversationIds"/>, by conversation id; unknown ids are left out.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, AssistantThread>> FindThreadsByConversationsAsync(
+        IReadOnlyCollection<Guid> conversationIds,
+        CancellationToken cancellationToken)
+    {
+        if (conversationIds.Count == 0)
+        {
+            return new Dictionary<Guid, AssistantThread>();
+        }
+
+        var ids = conversationIds.Distinct().ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Threads
+            .AsNoTracking()
+            .Where(thread => ids.Contains(thread.ConversationId))
+            .ToDictionaryAsync(thread => thread.ConversationId, cancellationToken);
+    }
+
+    /// <summary>
     /// Adds a thread and its conversation, or returns the thread another worker created first for
     /// the same scope key, agent and subject.
     /// </summary>
@@ -1326,6 +1346,76 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// How many proposals the run placed at other objects than its own, in any status.
+    /// </summary>
+    public async Task<int> CountPlacedProposalsAsync(Guid runId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Approvals
+            .AsNoTracking()
+            .CountAsync(approval => approval.RunId == runId && approval.PlacedFromConversationId != null, cancellationToken);
+    }
+
+    /// <summary>
+    /// The ids of the whole application's subjects (<see cref="NhAiSubjectRef.SystemType"/>) with a
+    /// pending, unexpired agent proposal, ordered by id, at most <paramref name="maximum"/>. The inbox
+    /// asks the caller's live role on each.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> GetSystemSubjectsWithPendingProposalsAsync(
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        return await (
+                from approval in context.Approvals.AsNoTracking()
+                join thread in context.Threads.AsNoTracking() on approval.ConversationId equals thread.ConversationId
+                where thread.SubjectType == NhAiSubjectRef.SystemType
+                    && approval.Status == NhAssistantApprovalStatuses.Pending
+                    && approval.ExpiresAt > now
+                    && (approval.Mode != NhAssistantApprovalModes.Inline || approval.RunId != null)
+                select thread.SubjectId)
+            .Distinct()
+            .OrderBy(subjectId => subjectId)
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The people of a thread a notification about its proposals may reach when its subject lists no
+    /// members, as the whole application does: those who take part in its conversation, then those who
+    /// decided its proposals, most recent first, each once and at most <paramref name="maximum"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> GetThreadPeopleAsync(
+        Guid conversationId,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var participants = await context.Participants
+            .AsNoTracking()
+            .Where(participant => participant.ConversationId == conversationId)
+            .OrderByDescending(participant => participant.JoinedAt)
+            .Select(participant => participant.ActorId)
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
+        var deciders = await context.Approvals
+            .AsNoTracking()
+            .Where(approval => approval.ConversationId == conversationId
+                && approval.DecidedByActorId != null
+                && approval.DecidedAt != null)
+            .OrderByDescending(approval => approval.DecidedAt)
+            .Select(approval => approval.DecidedByActorId!)
+            .Take(maximum * 4)
+            .ToListAsync(cancellationToken);
+        return participants
+            .Concat(deciders)
+            .Distinct(StringComparer.Ordinal)
+            .Take(maximum)
+            .ToArray();
+    }
+
+    /// <summary>
     /// Moves an approval from one of <paramref name="expected"/> to <paramref name="status"/> and
     /// applies <paramref name="decision"/> fields. Returns false when another actor or worker moved
     /// it first.
@@ -1792,16 +1882,27 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     /// may decide as the inbox counts them. Subjects without visible work are left out; shadow
     /// threads count only with <paramref name="includeShadow"/>.
     /// </summary>
+    /// <param name="liveRoles">The caller's live roles on subjects that list no members, such as the
+    /// whole application; they replace the member snapshot for those subjects.</param>
     public async Task<IReadOnlyList<NhAssistantSubjectSummaryRow>> SummarizeSubjectsAsync(
         string actorId,
         string subjectType,
         IReadOnlyCollection<string> subjectIds,
         IReadOnlyCollection<string> hiddenAgentIds,
         CancellationToken cancellationToken,
-        bool includeShadow = false)
+        bool includeShadow = false,
+        IReadOnlyDictionary<string, NhAiSubjectRole>? liveRoles = null)
     {
         await using var context = contextFactory.CreateDbContext();
         var now = DateTimeOffset.UtcNow;
+        var readerIds = (liveRoles ?? new Dictionary<string, NhAiSubjectRole>())
+            .Where(entry => entry.Value >= NhAiSubjectRole.Reader)
+            .Select(entry => entry.Key)
+            .ToArray();
+        var approverIds = (liveRoles ?? new Dictionary<string, NhAiSubjectRole>())
+            .Where(entry => entry.Value >= NhAiSubjectRole.Approver)
+            .Select(entry => entry.Key)
+            .ToArray();
         var memberships = context.SubjectMembers
             .Where(member => member.ActorId == actorId
                 && member.SubjectType == subjectType
@@ -1812,7 +1913,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 && subjectIds.Contains(thread.SubjectId)
                 && !hiddenAgentIds.Contains(thread.AgentId)
                 && (includeShadow || !thread.Shadow)
-                && memberships.Any(member => member.ScopeKey == thread.ScopeKey && member.SubjectId == thread.SubjectId));
+                && (memberships.Any(member => member.ScopeKey == thread.ScopeKey && member.SubjectId == thread.SubjectId)
+                    || readerIds.Contains(thread.SubjectId)));
         var pending =
             from approval in context.Approvals.AsNoTracking()
             join thread in threads on approval.ConversationId equals thread.ConversationId
@@ -1824,7 +1926,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .Select(group => new { SubjectId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(row => row.SubjectId, row => row.Count, cancellationToken);
         var toDecide = await pending
-            .Where(row => row.approval.InitiatorActorId == actorId
+            .Where(row => (row.approval.InitiatorActorId == actorId && row.approval.PlacedFromConversationId == null)
+                || approverIds.Contains(row.thread.SubjectId)
                 || memberships.Any(member => member.ScopeKey == row.thread.ScopeKey
                     && member.SubjectId == row.thread.SubjectId
                     && member.Role >= NhAiSubjectRole.Approver))
@@ -1852,18 +1955,22 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
 
     /// <summary>
     /// The pending proposals <paramref name="actorId"/> may decide according to the member
-    /// snapshot: as an approver of the subject, or as the initiator of the run. Each decision is
-    /// checked live again.
+    /// snapshot: as an approver of the subject, or as the initiator of the run that made it in its own
+    /// thread. The whole application lists no members, so its subjects among
+    /// <paramref name="systemApproverSubjectIds"/>, where the caller's live role is approver, count as
+    /// well. Each decision is checked live again.
     /// </summary>
     public async Task<(IReadOnlyList<NhAssistantInboxRow> Items, int Total)> ListInboxAsync(
         string actorId,
         NhAssistantInboxFilter filter,
         int page,
         int itemsPerPage,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyCollection<string>? systemApproverSubjectIds = null)
     {
         await using var context = contextFactory.CreateDbContext();
         var now = DateTimeOffset.UtcNow;
+        var systemIds = (systemApproverSubjectIds ?? []).ToArray();
         var approverSubjects = context.SubjectMembers
             .Where(member => member.ActorId == actorId && member.Role >= NhAiSubjectRole.Approver);
         var query =
@@ -1874,7 +1981,9 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 && (approverSubjects.Any(member => member.ScopeKey == thread.ScopeKey
                         && member.SubjectType == thread.SubjectType
                         && member.SubjectId == thread.SubjectId)
-                    || approval.InitiatorActorId == actorId)
+                    // A proposal placed at another object waits for that object's approvers only.
+                    || (approval.InitiatorActorId == actorId && approval.PlacedFromConversationId == null)
+                    || (thread.SubjectType == NhAiSubjectRef.SystemType && systemIds.Contains(thread.SubjectId)))
             select new { approval, thread };
         if (filter.SubjectType is { } subjectType)
         {

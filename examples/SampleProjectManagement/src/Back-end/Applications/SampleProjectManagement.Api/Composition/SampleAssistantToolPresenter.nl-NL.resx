@@ -46,4 +46,9 @@
   <data name="CloserRefused" xml:space="preserve"><value>Het voltooien van het project kon niet worden voorgesteld.</value></data>
   <data name="SubjectTypeProject" xml:space="preserve"><value>Project</value></data>
   <data name="SubjectTypeProjects" xml:space="preserve"><value>Projecten</value></data>
+  <data name="FollowUpFewOpen" xml:space="preserve"><value>Er zijn {0} projecten open; met drie of minder valt er niets op te volgen.</value></data>
+  <data name="FollowUpReason" xml:space="preserve"><value>Alle {0} taken van het project zijn voltooid, en er zijn {1} projecten open.</value></data>
+  <data name="FollowUpProposed" xml:space="preserve"><value>Er zijn {0} projecten open. Voorgesteld om er {1} te voltooien bij hun project, waar hun goedkeurders beslissen; {2} wachtten al en {3} konden niet worden voorgesteld.</value></data>
+  <data name="FollowUpOnProject" xml:space="preserve"><value>Op één project valt niets te tellen; het model antwoordt hier.</value></data>
+  <data name="FollowUpWholeApplication" xml:space="preserve"><value>Een run voor de hele applicatie telt de open projecten.</value></data>
 </root>

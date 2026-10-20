@@ -20,6 +20,7 @@ import {
   AgentProposalDecision,
   AgentProposalDecisionRight,
   AgentProposalFeedback,
+  AgentProposalOrigin,
   NH_ASSISTANT_MAX_PROPOSAL_LOOKUP,
   NhAssistantAgentRunApiService,
   NhAssistantError,
@@ -54,7 +55,8 @@ interface NhAssistantFeedbackRequest {
  * With `holdClosedCards`, a list of open proposals keeps such a proposal, or one a newer proposal
  * replaced, as a closed card when it closes while shown, or when an approval is refused because of
  * it, until the person dismisses it. It reads those proposals by id with one lookup, never through
- * their threads.
+ * their threads. A proposal that a run placed here from another subject, such as a run for the whole
+ * application, says so and offers that run's conversation through `openConversation`.
  */
 @Component({
   selector: 'nh-assistant-agent-proposals',
@@ -94,6 +96,11 @@ export class NhAssistantAgentProposalsComponent {
   readonly holdClosedCards = input(false);
   /** Emits after a proposal or its feedback changed, so the host reloads its list. */
   readonly changed = output<void>();
+  /**
+   * Emits the conversation of the run that placed a proposal here from another subject, so the host
+   * opens it, for example in the assistant panel. The server checks the reader's access again.
+   */
+  readonly openConversation = output<string>();
 
   readonly busy = signal(false);
   readonly selected = signal<ReadonlySet<string>>(new Set());
@@ -135,6 +142,22 @@ export class NhAssistantAgentProposalsComponent {
     return isSuperseded(proposal)
       ? 'nh-assistant.approval.superseded'
       : `nh-assistant.agent-runs.proposal.status.${proposal.status}`;
+  }
+
+  /**
+   * The translation key and parameters that say where a placed proposal came from: the whole
+   * application, a division of it, or another object, named only by its kind.
+   */
+  originText(origin: AgentProposalOrigin): { key: string; params: Record<string, string> } {
+    if (origin.subjectType === 'nh-system') {
+      return origin.subjectId?.startsWith('division-') && origin.subjectDisplayName
+        ? { key: 'nh-assistant.agent-runs.proposal.placed-by.division', params: { name: origin.subjectDisplayName } }
+        : { key: 'nh-assistant.agent-runs.proposal.placed-by.application', params: {} };
+    }
+
+    return origin.subjectTypeName
+      ? { key: 'nh-assistant.agent-runs.proposal.placed-by.object-named', params: { type: origin.subjectTypeName } }
+      : { key: 'nh-assistant.agent-runs.proposal.placed-by.object', params: {} };
   }
 
   /** True when the newer proposal that replaced this one is in the list. */

@@ -44,15 +44,23 @@ internal sealed class NhAssistantAgentNotifier(
         try
         {
             var subject = new NhAiSubjectRef(thread.SubjectType, thread.SubjectId);
-            if (thread.MembersRefreshedAt is null)
+            IReadOnlyList<NhAiSubjectMember> members;
+            if (NhAiSystemSubjects.IsSystem(subject))
             {
-                // The first notification of a thread fills its member snapshot.
-                await subjects.RefreshAsync(subject, cancellationToken);
+                members = await SystemMembersAsync(thread, subject, cancellationToken);
             }
+            else
+            {
+                if (thread.MembersRefreshedAt is null)
+                {
+                    // The first notification of a thread fills its member snapshot.
+                    await subjects.RefreshAsync(subject, cancellationToken);
+                }
 
-            var members = (await runs.GetMembersAsync(thread.ScopeKey, subject, cancellationToken))
-                .Select(member => new NhAiSubjectMember(member.ActorId, member.Role) { DisplayName = member.DisplayName })
-                .ToArray();
+                members = (await runs.GetMembersAsync(thread.ScopeKey, subject, cancellationToken))
+                    .Select(member => new NhAiSubjectMember(member.ActorId, member.Role) { DisplayName = member.DisplayName })
+                    .ToArray();
+            }
             var context = new NhAssistantAgentNotificationContext(
                 kind,
                 thread.AgentId,
@@ -105,6 +113,35 @@ internal sealed class NhAssistantAgentNotifier(
                 exception.GetType().Name);
         }
     }
+
+    /// <summary>
+    /// The whole application lists no members, so the people of its thread stand in for them: those
+    /// who take part in the thread's conversation and those who decided its proposals, at most
+    /// <see cref="MaxSystemRecipients"/>, each with the role the resolver gives them now. The
+    /// notification policy then picks the approvers among them as for any subject.
+    /// </summary>
+    private async Task<IReadOnlyList<NhAiSubjectMember>> SystemMembersAsync(
+        AssistantThread thread,
+        NhAiSubjectRef subject,
+        CancellationToken cancellationToken)
+    {
+        var members = new List<NhAiSubjectMember>();
+        foreach (var actorId in await runs.GetThreadPeopleAsync(thread.ConversationId, MaxSystemRecipients, cancellationToken))
+        {
+            var access = await subjects.ResolveAsync(subject, actorId, cancellationToken);
+            if (access.Role != NhAiSubjectRole.None)
+            {
+                members.Add(new NhAiSubjectMember(actorId, access.Role));
+            }
+        }
+
+        return members;
+    }
+
+    /// <summary>
+    /// The most people of a thread of the whole application one notification considers.
+    /// </summary>
+    internal const int MaxSystemRecipients = 50;
 }
 
 /// <summary>

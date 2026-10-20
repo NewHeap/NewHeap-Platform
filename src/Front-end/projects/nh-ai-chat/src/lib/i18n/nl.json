@@ -236,7 +236,9 @@
       "assistant-proposal-stale": "Niet uitgevoerd: het voorstel was niet meer van toepassing.",
       "assistant-proposal-execution-failed": "Het goedgekeurde voorstel kon niet worden uitgevoerd.",
       "assistant-proposal-already-open": "Niet opnieuw voorgesteld: hetzelfde voorstel wacht al.",
-      "assistant-proposal-recently-rejected": "Niet opnieuw voorgesteld: het is kort geleden afgewezen."
+      "assistant-proposal-recently-rejected": "Niet opnieuw voorgesteld: het is kort geleden afgewezen.",
+      "assistant-proposal-placed": "Voorgesteld bij het object; wacht op de goedkeurders daarvan",
+      "assistant-proposal-not-placed": "Niet voorgesteld: het object waar het om gaat accepteert het niet."
     },
     "errors": {
       "generic": "Er ging iets mis. Probeer het opnieuw.",
@@ -388,7 +390,9 @@
       "assistant-mcp-oauth-not-configured": "De applicatie heeft geen OAuth-terugkeeradres voor MCP-servers. Vraag de ontwikkelaars dit in te stellen.",
       "assistant-mcp-too-many-authorizations": "Er staan te veel autorisaties open. Rond ze af of wacht even en probeer het opnieuw.",
       "assistant-mcp-authorization-cancelled": "Het autorisatievenster is gesloten voordat het klaar was.",
-      "assistant-mcp-popup-blocked": "De browser heeft het autorisatievenster geblokkeerd. Sta pop-ups toe voor deze site en probeer het opnieuw."
+      "assistant-mcp-popup-blocked": "De browser heeft het autorisatievenster geblokkeerd. Sta pop-ups toe voor deze site en probeer het opnieuw.",
+      "assistant-proposal-placed": "Het voorstel wacht bij het object waar het om gaat, op de goedkeurders daarvan.",
+      "assistant-proposal-not-placed": "Het voorstel is niet bij het object geplaatst waar het om gaat."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
@@ -1498,7 +1502,15 @@
         "dismiss": "Wegklikken",
         "dismiss-label": "Gesloten voorstel wegklikken: {{summary}}",
         "show-successor": "Toon het nieuwere voorstel",
-        "stale-by": "Ingehaald door {{actor}}"
+        "stale-by": "Ingehaald door {{actor}}",
+        "placed-by": {
+          "application": "Voorgesteld door een run voor de hele applicatie",
+          "division": "Voorgesteld door een run voor de hele applicatie in {{name}}",
+          "object": "Voorgesteld door een run voor een ander object",
+          "object-named": "Voorgesteld door een run voor een ander object: {{type}}",
+          "open": "Gesprek van de run openen",
+          "open-label": "Het gesprek openen van de run die dit voorstelde"
+        }
       },
       "run": {
         "empty": "Nog geen runs.",

@@ -60,7 +60,8 @@
           [agentId]="intakeReviewerId"
           subjectType="project"
           [subjectId]="current.id"
-          (conversationOpened)="onConversationOpened()" />
+          (conversationOpened)="onConversationOpened()"
+          (runConversationOpened)="onConversationOpened()" />
       } @placeholder {
         <div class="agent-suggestions-placeholder" aria-hidden="true"></div>
       } @loading (minimum 200ms) {

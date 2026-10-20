@@ -160,6 +160,13 @@ public sealed class NhAssistantLimits
     public int MaxHandOffDepth { get; set; } = 2;
 
     /// <summary>
+    /// How many proposals one run may place at other objects than its own, such as a weekly run for
+    /// the whole application that proposes to complete projects. Further ones are not placed and the
+    /// model reads the reason <c>limit</c>; 0 places none. At most 200.
+    /// </summary>
+    public int MaxPlacedProposalsPerRun { get; set; } = 20;
+
+    /// <summary>
     /// How many rejected proposals of its thread, with the feedback people gave, a new agent run
     /// starts with, so it does not propose them again unchanged. 0 leaves them out. At most 20.
     /// </summary>
@@ -228,6 +235,7 @@ public sealed class NhAssistantLimits
             || MaxConsultationDepth is < 1 or > 3
             || MaxConsultationsPerActorPerDay < 1
             || MaxHandOffDepth is < 1 or > 3
+            || MaxPlacedProposalsPerRun is < 0 or > 200
             || MaxRejectionsInContext is < 0 or > 20
             || RejectionContextWindow < TimeSpan.FromDays(1)
             || RejectionContextWindow > TimeSpan.FromDays(365)

@@ -23,6 +23,7 @@ import {
 import { Observable, Subject } from 'rxjs';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
 import { NhAssistantMockAgentRuns } from './nh-assistant-mock-agent-runs';
+import { NhAssistantMockProposals } from './nh-assistant-mock-proposals';
 import { NhAssistantMockSubjects } from './nh-assistant-mock-subjects';
 import { NhAssistantMockAuthorizationWindow } from './nh-assistant-mock-authorization';
 import {
@@ -82,14 +83,25 @@ export class NhAssistantMockBackend {
   private readonly pageContexts = new Map<string, ClientContext | null>();
   private readonly enabledState = signal(this.scenario.enabled ?? true);
   private readonly admin = new NhAssistantMockAdmin(this.scenario, () => new Date().toISOString());
-  private readonly subjects = new NhAssistantMockSubjects(this.scenario.subjectTypes, this.scenario.divisions);
+  private readonly currentUser = this.scenario.collaboration?.currentUser ?? defaultUser;
+  private readonly proposals = new NhAssistantMockProposals(
+    this.scenario.proposals,
+    () => this.currentUser.actorId,
+    () => new Date().toISOString());
+  private readonly subjects = new NhAssistantMockSubjects(
+    this.scenario.subjectTypes,
+    this.scenario.divisions,
+    (type, id) => this.proposals.openOfSubject(type, id));
   private readonly agentRuns = new NhAssistantMockAgentRuns(
     this.scenario,
     this.subjects,
-    { agents: () => this.admin.allAgents(), administers: () => this.admin.administers },
+    {
+      agents: () => this.admin.allAgents(),
+      administers: () => this.admin.administers,
+      threadProposals: conversationId => this.proposals.ofThread(conversationId)
+    },
     () => new Date().toISOString());
   private readonly canAdministerState = signal(this.admin.administers);
-  private readonly currentUser = this.scenario.collaboration?.currentUser ?? defaultUser;
   private readonly members = new Map<string, ConversationMember[]>();
   private readonly readPositions = new Map<string, number>();
   private readonly shareTokens = new Map<string, string>();
@@ -260,6 +272,9 @@ export class NhAssistantMockBackend {
     }
     if (segments[0] === 'threads') {
       return this.result(this.agentRuns.handleThreads(method, segments, query, body, language) ?? { status: 404 });
+    }
+    if (segments[0] === 'approvals') {
+      return this.result(this.proposals.handle(method, segments, query, body) ?? { status: 404 });
     }
     if (segments[0] !== 'conversations') {
       return this.empty(404);

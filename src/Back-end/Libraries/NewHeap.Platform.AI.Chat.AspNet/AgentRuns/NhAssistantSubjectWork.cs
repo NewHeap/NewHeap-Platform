@@ -87,7 +87,8 @@ internal sealed class NhAssistantSubjectWork(
     NhAssistantAgentCatalog agents,
     NhAssistantAgentAccess agentAccess,
     NhAssistantApproverCheck approvers,
-    NhAssistantManualStarts starts) : INhAssistantSubjectWork
+    NhAssistantManualStarts starts,
+    NhAssistantSystemApprovers systemApprovers) : INhAssistantSubjectWork
 {
     public const int MaxSummarySubjects = 200;
     private const int MaxProposalsPerThread = 50;
@@ -196,7 +197,11 @@ internal sealed class NhAssistantSubjectWork(
             .Where(entry => !IsVisible(entry.Key, administrator))
             .Select(entry => entry.Key)
             .ToArray();
-        var rows = (await runs.SummarizeSubjectsAsync(actorId, subjectType, ids, hidden, cancellationToken, includeShadow: administrator))
+        // The whole application lists no members: the caller's live roles stand in for the snapshot.
+        var liveRoles = string.Equals(subjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal)
+            ? await systemApprovers.RolesAsync(ids, actorId, cancellationToken)
+            : null;
+        var rows = (await runs.SummarizeSubjectsAsync(actorId, subjectType, ids, hidden, cancellationToken, includeShadow: administrator, liveRoles: liveRoles))
             .ToDictionary(row => row.SubjectId, StringComparer.Ordinal);
         var items = subjectIds
             .Select(id => rows.TryGetValue(id, out var row)

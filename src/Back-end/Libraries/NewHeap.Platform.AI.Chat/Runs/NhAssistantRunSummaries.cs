@@ -26,10 +26,25 @@ internal sealed class NhAssistantRunSummaries(INhAssistantStore store, NhAssista
             .Append('.');
 
         var proposals = await runs.GetRunApprovalsAsync(run.Id, cancellationToken);
-        if (proposals.Count > 0)
+        var own = proposals.Where(proposal => proposal.PlacedFromConversationId is null).ToArray();
+        if (own.Length > 0)
         {
             summary.Append(" Proposals: ")
-                .Append(string.Join(", ", proposals.Select(proposal => proposal.ToolId + " (" + proposal.Status + ")")))
+                .Append(string.Join(", ", own.Select(proposal => proposal.ToolId + " (" + proposal.Status + ")")))
+                .Append('.');
+        }
+
+        // Proposals placed at other objects wait there; the summary counts them per tool and status.
+        var placed = proposals
+            .Where(proposal => proposal.PlacedFromConversationId is not null)
+            .GroupBy(proposal => (proposal.ToolId, proposal.Status))
+            .OrderBy(group => group.Key.ToolId, StringComparer.Ordinal)
+            .ThenBy(group => group.Key.Status, StringComparer.Ordinal)
+            .ToArray();
+        if (placed.Length > 0)
+        {
+            summary.Append(" Placed at other objects: ")
+                .Append(string.Join(", ", placed.Select(group => group.Count().ToString(CultureInfo.InvariantCulture) + " x " + group.Key.ToolId + " (" + group.Key.Status + ")")))
                 .Append('.');
         }
 

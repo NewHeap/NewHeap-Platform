@@ -279,7 +279,9 @@ internal sealed class NhAssistantToolCallInterceptor(
     NhAssistantProposalGuards? proposalGuards = null,
     NhAssistantProposalDuplicates? duplicates = null,
     NhAssistantProposalInvalidation? invalidation = null,
-    NhAssistantStaleExplanations? texts = null)
+    NhAssistantStaleExplanations? texts = null,
+    NhAssistantProposalPlacement? placements = null,
+    Live.NhAssistantAgentWorkUpdates? workUpdates = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
     public const string ProposalRecordedCode = "assistant-proposal-recorded";
@@ -368,27 +370,77 @@ internal sealed class NhAssistantToolCallInterceptor(
             context.Arguments,
             displayName,
             cancellationToken);
+
+        // A run's call that names another object than the run's own is checked against that object
+        // before it runs, and runs in that object's scope (K11, K12).
+        var placement = placements is not null
+            && state.AgentTurn is { } agentTurn
+            && NhAssistantProposalPlacement.Applies(agentTurn, state.Scope.Consultation is not null, descriptor)
+                ? await placements.DecideAsync(agentTurn, descriptor, context.Function, context.Arguments, cancellationToken)
+                : NhAssistantPlacementDecision.Own;
+        if (placement.Refused)
+        {
+            return await NotPlacedAsync(descriptor, row, placement.RefusalReason!, placement.Named, cancellationToken);
+        }
+
+        NhAiAgentInvocationScope? targetScope = null;
+        if (placement.Target is { } placedAt)
+        {
+            // Every call of a run works in the agent's invocation scope; the object's derives from it.
+            var currentScope = NhAiAgentInvocationScopes.Current
+                ?? throw new InvalidOperationException("A tool call of an agent run has no agent invocation scope.");
+            targetScope = currentScope with
+            {
+                Subject = placedAt,
+                // A call for another object never changes it directly: every effect is a proposal.
+                RequireApprovalForEffects = true
+            };
+        }
         var execution = await ExecuteAsync(
             descriptor,
             row,
             null,
             null,
-            token => next(context, token),
+            token => InvokeInScopeAsync(targetScope, () => next(context, token)),
             cancellationToken,
             logger);
         if (execution.Outcome.Kind == NhAssistantToolOutcomeKind.ApprovalMissing)
         {
+            NhAssistantPlacedThread? placed = null;
+            if (placement.Target is { } target)
+            {
+                if (!NhAssistantProposalPlacement.Confirms(placement, descriptor, execution.Call.CapturedArguments))
+                {
+                    return await NotPlacedAsync(descriptor, row, NhAssistantPlacementReasons.NotFound, target.Subject, cancellationToken);
+                }
+
+                var thread = await placements!.ThreadAtAsync(state.EffectiveAgent, target, state.AgentTurn!.Thread.Shadow, cancellationToken);
+                if (!thread.Success)
+                {
+                    // Nobody answers for the agent at the object, so it cannot wait there.
+                    return await NotPlacedAsync(descriptor, row, NhAssistantPlacementReasons.NoAccess, target.Subject, cancellationToken);
+                }
+
+                placed = new NhAssistantPlacedThread(thread.Data!, target);
+            }
+
             var requested = await RequestApprovalAsync(
                 descriptor,
                 row,
                 execution.Call,
                 presentationCulture,
-                cancellationToken);
+                cancellationToken,
+                placed);
             _lastProposal = requested;
             if (requested is { Outcome: not NhAssistantProposeOutcome.Created } skipped)
             {
                 // The same proposal is open or was rejected recently; nothing new waits for people.
                 return Duplicate(skipped);
+            }
+            if (requested is { PlacedAt: { } placedSubject } placedProposal)
+            {
+                // The proposal waits at the object for its approvers while the run continues.
+                return ProposalPlaced(placedProposal.ProposalId, placedSubject);
             }
             if (requested is { Mode: NhAiApprovalMode.Inline } inline && !inline.Shadow)
             {
@@ -416,6 +468,69 @@ internal sealed class NhAssistantToolCallInterceptor(
             context.Terminate = true;
         }
         return execution.Result;
+    }
+
+    /// <summary>
+    /// Runs the call in the scope of the object it concerns, when it concerns another one than the
+    /// run's own: the invocation gate then authorizes the tool against that object and its division,
+    /// and the proposal carries that object's execution scope.
+    /// </summary>
+    private static async ValueTask<object?> InvokeInScopeAsync(
+        NhAiAgentInvocationScope? scope,
+        Func<ValueTask<object?>> invoke)
+    {
+        if (scope is null)
+        {
+            return await invoke();
+        }
+
+        using (NhAiAgentInvocationScopes.Begin(scope))
+        {
+            return await invoke();
+        }
+    }
+
+    /// <summary>
+    /// Ends a call whose proposal concerns another object that refused it: nothing ran, the run
+    /// continues, and the model reads why.
+    /// </summary>
+    private async Task<JsonElement> NotPlacedAsync(
+        NhAiToolDescriptor descriptor,
+        AssistantToolInvocation row,
+        string reason,
+        NhAiSubjectRef? named,
+        CancellationToken cancellationToken)
+    {
+        var result = NotPlaced(reason, named);
+        row.Status = NhAssistantToolCallStatuses.NotExecuted;
+        row.ResultCode = NhAssistantErrorCodes.ProposalNotPlaced;
+        row.ResultJson = NhAssistantContent.SerializeResult(result);
+        row.CompletedAt = DateTimeOffset.UtcNow;
+        await store.UpdateToolInvocationAsync(row, cancellationToken);
+        await state.EmitAsync(new NhAssistantToolCompletedEvent(
+            row.Id,
+            row.Status,
+            row.ResultCode,
+            NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification)));
+        await RecordBusinessEventAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.AgentProposalNotPlaced,
+                state.Conversation.Id,
+                state.Scope.TurnId,
+                state.Scope.OwnerActorId,
+                state.Scope.Agent.Id,
+                state.Scope.Agent.Version,
+                DateTimeOffset.UtcNow)
+            {
+                ToolId = descriptor.Id,
+                ToolVersion = descriptor.Version,
+                InvocationId = row.Id,
+                ResultCode = reason,
+                ObjectId = named?.ToString(),
+                StartedAt = row.StartedAt
+            },
+            cancellationToken);
+        return result;
     }
 
     /// <summary>
@@ -601,8 +716,12 @@ internal sealed class NhAssistantToolCallInterceptor(
                 cancellationToken);
             if (_lastProposal is not { } recorded)
             {
-                // The call failed before it became a proposal, for example on its arguments or rights.
-                return NhAssistantRuleProposal.Refused(CodeOf(result) ?? NhAssistantErrorCodes.ProposalRefused);
+                // The call failed before it became a proposal, for example on its arguments or rights,
+                // or the object it concerns refused it.
+                return NhAssistantRuleProposal.Refused(CodeOf(result) ?? NhAssistantErrorCodes.ProposalRefused) with
+                {
+                    PlacementReason = ValueOf(result, "reason")
+                };
             }
 
             return new NhAssistantRuleProposal(
@@ -610,7 +729,10 @@ internal sealed class NhAssistantToolCallInterceptor(
                 recorded.ApprovalId,
                 recorded.Superseded,
                 recorded.Outcome == NhAssistantProposeOutcome.RecentlyRejected ? recorded.Existing?.DecidedAt : null,
-                null);
+                null)
+            {
+                PlacedAt = recorded.PlacedAt
+            };
         }
         finally
         {
@@ -621,10 +743,15 @@ internal sealed class NhAssistantToolCallInterceptor(
 
     private static string? CodeOf(object? result)
     {
+        return ValueOf(result, "code");
+    }
+
+    private static string? ValueOf(object? result, string name)
+    {
         return result is JsonElement { ValueKind: JsonValueKind.Object } json
-               && json.TryGetProperty("code", out var code)
-               && code.ValueKind == JsonValueKind.String
-            ? code.GetString()
+               && json.TryGetProperty(name, out var value)
+               && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
             : null;
     }
 
@@ -645,16 +772,20 @@ internal sealed class NhAssistantToolCallInterceptor(
             cancellationToken);
     }
 
-    public async Task RecordBusinessEventAsync(NhAssistantAuditEvent evt, CancellationToken cancellationToken)
+    public async Task RecordBusinessEventAsync(
+        NhAssistantAuditEvent evt,
+        CancellationToken cancellationToken,
+        NhAiSubjectRef? subject = null)
     {
         if (state.AgentTurn is { } agentTurn)
         {
+            // A proposal placed at another object is recorded about that object.
             evt = evt with
             {
                 RunId = agentTurn.RunId,
                 TriggerId = agentTurn.TriggerId,
-                SubjectType = agentTurn.Thread.SubjectType,
-                SubjectId = agentTurn.Thread.SubjectId,
+                SubjectType = subject?.Type ?? agentTurn.Thread.SubjectType,
+                SubjectId = subject?.Id ?? agentTurn.Thread.SubjectId,
                 InitiatorActorId = agentTurn.InitiatorActorId
             };
         }
@@ -679,7 +810,8 @@ internal sealed class NhAssistantToolCallInterceptor(
         AssistantToolInvocation row,
         NhAssistantToolCallScope call,
         CultureInfo culture,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        NhAssistantPlacedThread? placed = null)
     {
         if (call.CapturedArguments is null
             || call.CapturedContext is not { RunId: not null, AccountableOwnerId: not null } context)
@@ -701,16 +833,20 @@ internal sealed class NhAssistantToolCallInterceptor(
                 }
             : null;
         // A request turn cannot wait days for a decision: a person typing always decides inline. A
-        // rule turn has no model to continue with a decision, so its proposals always wait deferred.
+        // rule turn has no model to continue with a decision, so its proposals always wait deferred,
+        // as a proposal placed at another object does: the run never waits in another thread.
         var mode = policy is null || (agentTurn!.IsRequestTurn && consultation is null)
             ? NhAiApprovalMode.Inline
-            : state.RuleTurn
+            : state.RuleTurn || placed is not null
                 ? NhAiApprovalMode.Deferred
                 : policy.Mode;
-        // A run in a shadow thread proposes only shadow proposals, which never execute.
+        // A run in a shadow thread proposes only shadow proposals, which never execute; a proposal it
+        // places waits in the agent's shadow thread at the object.
         var shadow = agentTurn is { RunId: not null } && agentTurn.Thread.Shadow;
         var bindPrompt = policy is null || policy.BindTo == NhAiApprovalBinding.ToolContractAndPrompt;
         var lifetime = policy?.Lifetime ?? state.Scope.Limits.ApprovalLifetime;
+        // The thread the proposal waits in: the run's own, or the agent's thread at the object.
+        var home = placed?.Thread ?? agentTurn?.Thread;
 
         var now = DateTimeOffset.UtcNow;
         var expiresAt = now.Add(lifetime);
@@ -753,10 +889,10 @@ internal sealed class NhAssistantToolCallInterceptor(
         // revalidated or deduplicated.
         var agentProposal = agentTurn is not null && !shadow && !(mode == NhAiApprovalMode.Inline && agentTurn.RunId is null);
         var keys = agentProposal
-            ? await GuardKeysAsync(approvalId, descriptor.Id, proposal, now, cancellationToken)
+            ? await GuardKeysAsync(home!, descriptor.Id, proposal, now, cancellationToken)
             : [];
         var duplicate = agentProposal && duplicates is not null && policy is not null
-            ? await duplicates.CheckAsync(agentTurn!.Thread, descriptor.Id, argumentsHash, keys, policy, cancellationToken)
+            ? await duplicates.CheckAsync(home!, descriptor.Id, argumentsHash, keys, policy, cancellationToken)
             : NhAssistantDuplicateCheck.None;
         if (duplicate is { Outcome: not NhAssistantProposeOutcome.Created, Existing: { } existing })
         {
@@ -774,12 +910,16 @@ internal sealed class NhAssistantToolCallInterceptor(
         {
             row.DisplayName = presentation.ToolDisplayName;
         }
+
+        // A placed proposal executes from its own copy of the call in the thread at the object, so
+        // the run's thread keeps its call as it ended here.
+        var waitingCall = placed is null ? row : CopyForPlacement(row, placed.Thread.ConversationId);
         var approval = new AssistantApproval
         {
             Id = approvalId,
-            ConversationId = state.Conversation.Id,
+            ConversationId = placed?.Thread.ConversationId ?? state.Conversation.Id,
             TurnId = state.Scope.TurnId,
-            ToolInvocationId = row.Id,
+            ToolInvocationId = waitingCall.Id,
             ProposalId = proposal.ProposalId,
             ProposalHash = proposal.ProposalHash,
             ProposalJson = NhAssistantProposalSerializer.Serialize(proposal),
@@ -793,11 +933,13 @@ internal sealed class NhAssistantToolCallInterceptor(
             CreatedAt = now,
             ExpiresAt = expiresAt,
             RunId = agentTurn?.RunId,
+            PlacedFromConversationId = placed is null ? null : state.Conversation.Id,
             PolicyId = policy?.Id,
             Mode = NhAssistantApprovalModes.From(mode),
             PolicyJson = policy is null ? null : NhAssistantApprovalPolicySnapshot.Serialize(policy),
             InitiatorActorId = agentTurn is null ? state.Scope.OwnerActorId : agentTurn.InitiatorActorId,
-            SubjectVersion = agentTurn?.Subject.Version,
+            // The precondition compares the version of the object the proposal waits at.
+            SubjectVersion = placed?.Subject.Version ?? agentTurn?.Subject.Version,
             GrantSource = context.GrantSource,
             ConsultationId = consultation?.ConsultationId,
             NextReminderAt = policy is not null && mode == NhAiApprovalMode.Deferred && !shadow
@@ -807,10 +949,14 @@ internal sealed class NhAssistantToolCallInterceptor(
             RationalesJson = _rationale is null ? null : texts?.Render(_rationale),
             ConcurrencyStamp = Guid.NewGuid()
         };
-        if (consultation is not null)
+        if (consultation is not null || placed is not null)
         {
             // The execution of an approved proposal replays the stored invocation.
-            await store.AddToolInvocationAsync(row, cancellationToken);
+            waitingCall.Status = NhAssistantToolCallStatuses.AwaitingApproval;
+            waitingCall.ProposalId = proposal.ProposalId;
+            waitingCall.ApprovalId = approval.Id;
+            waitingCall.GrantSource = context.GrantSource;
+            await store.AddToolInvocationAsync(waitingCall, cancellationToken);
         }
 
         await store.AddApprovalAsync(
@@ -818,7 +964,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             keys.Select(key => new AssistantApprovalKey
                 {
                     ApprovalId = approval.Id,
-                    ScopeKey = agentTurn!.Thread.ScopeKey,
+                    ScopeKey = home!.ScopeKey,
                     KeyType = key.Type,
                     KeyId = key.Id
                 })
@@ -829,10 +975,16 @@ internal sealed class NhAssistantToolCallInterceptor(
         {
             // The newer proposal for the same objects replaces the pending one.
             if (invalidation is not null
-                && await invalidation.SupersedeAsync(older, agentTurn!.Thread, approval.Id, state.Scope.Agent.ActorId, CancellationToken.None) is not null)
+                && await invalidation.SupersedeAsync(older, home!, approval.Id, state.Scope.Agent.ActorId, CancellationToken.None) is not null)
             {
                 superseded.Add(older.Id);
             }
+        }
+
+        state.ProposalCount++;
+        if (placed is not null)
+        {
+            return await CompletePlacedAsync(descriptor, row, approval, placed, superseded, mode, shadow, cancellationToken);
         }
 
         row.Status = NhAssistantToolCallStatuses.AwaitingApproval;
@@ -840,7 +992,6 @@ internal sealed class NhAssistantToolCallInterceptor(
         row.ApprovalId = approval.Id;
         row.GrantSource = context.GrantSource;
         await store.UpdateToolInvocationAsync(row, cancellationToken);
-        state.ProposalCount++;
 
         var view = new NhAssistantApprovalView(
             approval.Id,
@@ -885,6 +1036,107 @@ internal sealed class NhAssistantToolCallInterceptor(
         return new NhAssistantRecordedProposal(approval.Id, proposal.ProposalId, mode, shadow)
         {
             Superseded = superseded
+        };
+    }
+
+    /// <summary>
+    /// Ends the run's call of a proposal it placed at another object: the call did not run here and
+    /// names where its proposal waits; the people of that thread learn about it, and the audit records
+    /// the proposal about that object.
+    /// </summary>
+    private async Task<NhAssistantRecordedProposal> CompletePlacedAsync(
+        NhAiToolDescriptor descriptor,
+        AssistantToolInvocation row,
+        AssistantApproval approval,
+        NhAssistantPlacedThread placed,
+        IReadOnlyList<Guid> superseded,
+        NhAiApprovalMode mode,
+        bool shadow,
+        CancellationToken cancellationToken)
+    {
+        var subject = placed.Subject.Subject;
+        row.Status = NhAssistantToolCallStatuses.NotExecuted;
+        row.ResultCode = NhAssistantErrorCodes.ProposalPlaced;
+        row.ResultJson = NhAssistantContent.SerializeResult(ProposalPlaced(approval.ProposalId, subject));
+        row.ProposalId = approval.ProposalId;
+        row.ApprovalId = approval.Id;
+        row.GrantSource = approval.GrantSource;
+        row.CompletedAt = DateTimeOffset.UtcNow;
+        await store.UpdateToolInvocationAsync(row, cancellationToken);
+        await state.EmitAsync(new NhAssistantToolCompletedEvent(
+            row.Id,
+            row.Status,
+            row.ResultCode,
+            NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification)));
+        if (workUpdates is not null)
+        {
+            await workUpdates.PublishAsync(
+                placed.Thread.ConversationId,
+                Live.NhAssistantAgentWorkReasons.Proposal,
+                approval.Id,
+                approval.RunId,
+                CancellationToken.None);
+        }
+
+        foreach (var kind in new[] { NhAssistantAuditEventKind.ApprovalRequested, NhAssistantAuditEventKind.AgentProposalPlaced })
+        {
+            await RecordBusinessEventAsync(
+                new NhAssistantAuditEvent(
+                    kind,
+                    placed.Thread.ConversationId,
+                    state.Scope.TurnId,
+                    state.Scope.OwnerActorId,
+                    state.Scope.Agent.Id,
+                    state.Scope.Agent.Version,
+                    approval.CreatedAt)
+                {
+                    ToolId = descriptor.Id,
+                    ToolVersion = descriptor.Version,
+                    InvocationId = approval.ToolInvocationId,
+                    ResultCode = kind == NhAssistantAuditEventKind.ApprovalRequested
+                        ? NhAiToolFailureCodes.ApprovalRequired
+                        : NhAssistantErrorCodes.ProposalPlaced,
+                    ApprovalId = approval.Id,
+                    ProposalId = approval.ProposalId,
+                    ObjectId = kind == NhAssistantAuditEventKind.AgentProposalPlaced
+                        ? state.Conversation.Id.ToString("D")
+                        : null,
+                    StartedAt = row.StartedAt
+                },
+                cancellationToken,
+                subject);
+        }
+
+        return new NhAssistantRecordedProposal(approval.Id, approval.ProposalId, mode, shadow)
+        {
+            Superseded = superseded,
+            PlacedAt = subject
+        };
+    }
+
+    /// <summary>
+    /// The call as it waits in the thread at the object: the same tool, arguments and identity, in
+    /// that thread's conversation and outside its message history.
+    /// </summary>
+    private static AssistantToolInvocation CopyForPlacement(AssistantToolInvocation row, Guid conversationId)
+    {
+        return new AssistantToolInvocation
+        {
+            Id = Guid.NewGuid(),
+            ConversationId = conversationId,
+            TurnId = row.TurnId,
+            MessageId = Guid.Empty,
+            CallId = row.CallId,
+            FunctionName = row.FunctionName,
+            ToolId = row.ToolId,
+            ToolVersion = row.ToolVersion,
+            ContractHash = row.ContractHash,
+            DisplayName = row.DisplayName,
+            Status = NhAssistantToolCallStatuses.AwaitingApproval,
+            ArgumentsJson = row.ArgumentsJson,
+            DataClassification = row.DataClassification,
+            RetentionCategory = row.RetentionCategory,
+            StartedAt = row.StartedAt
         };
     }
 
@@ -944,18 +1196,17 @@ internal sealed class NhAssistantToolCallInterceptor(
     /// can revalidate it by object and recognize a newer proposal for the same objects.
     /// </summary>
     private async Task<IReadOnlyList<NhAiProposalKey>> GuardKeysAsync(
-        Guid approvalId,
+        AssistantThread thread,
         string toolId,
         NhAiProposal proposal,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        if (proposalGuards is null || state.AgentTurn is not { } agentTurn)
+        if (proposalGuards is null || state.AgentTurn is null)
         {
             return [];
         }
 
-        var thread = agentTurn.Thread;
         return await proposalGuards.GetKeysAsync(
             new NhAiProposalGuardContext(
                 proposal.ProposalId,
@@ -1002,6 +1253,49 @@ internal sealed class NhAssistantToolCallInterceptor(
                 ["code"] = ProposalRecordedCode,
                 ["proposalId"] = proposalId,
                 ["message"] = "The proposal was recorded and waits for a person's approval. The action has not happened. Do not retry it; continue with other work and mention it in your answer."
+            },
+            NhAssistantContent.JsonOptions);
+    }
+
+    /// <summary>
+    /// The result the model receives for a proposal placed at another object: it waits there for that
+    /// object's approvers, the action has not happened, and the run continues.
+    /// </summary>
+    private static JsonElement ProposalPlaced(Guid proposalId, NhAiSubjectRef placedAt)
+    {
+        return JsonSerializer.SerializeToElement(
+            new Dictionary<string, object?>
+            {
+                ["success"] = false,
+                ["code"] = NhAssistantErrorCodes.ProposalPlaced,
+                ["proposalId"] = proposalId,
+                ["subjectType"] = placedAt.Type,
+                ["subjectId"] = placedAt.Id,
+                ["message"] = "The proposal was recorded at that object and waits for its approvers. The action has not happened. Do not retry it; continue with other work and mention it in your answer."
+            },
+            NhAssistantContent.JsonOptions);
+    }
+
+    /// <summary>
+    /// The result the model receives when a proposal for another object was not placed there.
+    /// </summary>
+    private static JsonElement NotPlaced(string reason, NhAiSubjectRef? named)
+    {
+        return JsonSerializer.SerializeToElement(
+            new Dictionary<string, object?>
+            {
+                ["success"] = false,
+                ["code"] = NhAssistantErrorCodes.ProposalNotPlaced,
+                ["reason"] = reason,
+                ["subjectType"] = named?.Type,
+                ["subjectId"] = named?.Id,
+                ["message"] = reason switch
+                {
+                    NhAssistantPlacementReasons.DoesNotWorkOn => "Nothing was proposed: this agent does not work on that object or not in its scope. Do not retry it.",
+                    NhAssistantPlacementReasons.NoAccess => "Nothing was proposed: the account this agent answers to may not read that object. Do not retry it.",
+                    NhAssistantPlacementReasons.Limit => "Nothing was proposed: this run placed as many proposals at other objects as it may. Do not propose more; mention the rest in your answer.",
+                    _ => "Nothing was proposed: that object was not found. Check the id; do not retry the same call."
+                }
             },
             NhAssistantContent.JsonOptions);
     }
@@ -1101,4 +1395,15 @@ internal sealed record NhAssistantRecordedProposal(
     /// The pending proposals a newly recorded one replaced.
     /// </summary>
     public IReadOnlyList<Guid> Superseded { get; init; } = [];
+
+    /// <summary>
+    /// The object the proposal waits at, when the run placed it at another object than its own.
+    /// </summary>
+    public NhAiSubjectRef? PlacedAt { get; init; }
 }
+
+/// <summary>
+/// The agent's thread at the object a run's proposal is placed at, with that object as its resolver
+/// described it.
+/// </summary>
+internal sealed record NhAssistantPlacedThread(AssistantThread Thread, NhAiSubjectInfo Subject);

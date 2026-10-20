@@ -6,6 +6,7 @@ import {
   effect,
   inject,
   input,
+  output,
   signal,
   untracked,
   viewChild
@@ -28,7 +29,8 @@ import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposa
  * With live updates the inbox reloads by itself when agent work changes, for example when a
  * colleague decided a proposal or a run proposed a new one. A proposal that closes because it no
  * longer fits, for example because someone did the work by hand, stays as a closed card with the
- * reason until it is dismissed.
+ * reason until it is dismissed. A proposal a run placed at its object from another subject, such as a
+ * run for the whole application, names that run; `openConversation` emits its conversation.
  */
 @Component({
   selector: 'nh-assistant-agent-inbox',
@@ -48,6 +50,11 @@ export class NhAssistantAgentInboxComponent {
   /** Limits the inbox to one kind of subject, for example `project`. */
   readonly subjectType = input<string | undefined>(undefined);
   readonly itemsPerPage = input(20);
+  /**
+   * Emits the conversation of the run that placed a proposal at its object from another subject, so
+   * the host opens it, for example in the assistant panel.
+   */
+  readonly openConversation = output<string>();
 
   readonly page = signal(1);
   readonly loading = signal(true);

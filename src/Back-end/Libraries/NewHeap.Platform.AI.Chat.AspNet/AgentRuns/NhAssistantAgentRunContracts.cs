@@ -260,6 +260,44 @@ public sealed record NhAssistantProposalDto(
     /// Where the application shows the subject; <see langword="null"/> without a link template.
     /// </summary>
     public string? SubjectLink { get; init; }
+
+    /// <summary>
+    /// The run that placed this proposal here from another subject, such as a run for the whole
+    /// application; <see langword="null"/> for a proposal made in this thread. Clients show "Proposed by
+    /// a run for …" with a link to that run's thread.
+    /// </summary>
+    public NhAssistantProposalOriginDto? PlacedBy { get; init; }
+}
+
+/// <summary>
+/// The run that placed a proposal at another object, and the thread it ran in. A reader of the object
+/// may not read the run's own subject, so its name is given only for the whole application; opening
+/// the thread checks the reader's access as always.
+/// </summary>
+/// <param name="ConversationId">The thread of the run that placed the proposal.</param>
+/// <param name="RunId">The run that placed it.</param>
+/// <param name="SubjectType">The run's subject type, such as <c>nh-system</c> for the whole application.</param>
+public sealed record NhAssistantProposalOriginDto(
+    Guid ConversationId,
+    Guid? RunId,
+    string? SubjectType)
+{
+    /// <summary>
+    /// The run's subject id for the whole application (<c>global</c> or <c>division-{id}</c>);
+    /// <see langword="null"/> for another object.
+    /// </summary>
+    public string? SubjectId { get; init; }
+
+    /// <summary>
+    /// The name of the run's subject for the whole application, in the caller's language;
+    /// <see langword="null"/> for another object.
+    /// </summary>
+    public string? SubjectDisplayName { get; init; }
+
+    /// <summary>
+    /// The name of the run's subject type in the caller's language, when the application named it.
+    /// </summary>
+    public string? SubjectTypeName { get; init; }
 }
 
 /// <summary>
@@ -790,7 +828,11 @@ internal static class NhAssistantAgentRunDtoMapper
             SupersededByApprovalId = approval.SupersededByApprovalId,
             Rationale = NhAssistantStaleExplanations.Pick(
                 approval.RationalesJson,
-                System.Globalization.CultureInfo.CurrentUICulture)
+                System.Globalization.CultureInfo.CurrentUICulture),
+            // The run's subject follows in CompleteAsync.
+            PlacedBy = approval.PlacedFromConversationId is { } origin
+                ? new NhAssistantProposalOriginDto(origin, approval.RunId, null)
+                : null
         };
     }
 
@@ -814,6 +856,12 @@ internal static class NhAssistantAgentRunDtoMapper
         var names = await runs.GetDisplayNamesAsync(
             proposals.SelectMany(proposal => new[] { proposal.DecidedByActorId, proposal.StaleByActorId }),
             cancellationToken);
+        var origins = await runs.FindThreadsByConversationsAsync(
+            proposals
+                .Where(proposal => proposal.PlacedBy is not null)
+                .Select(proposal => proposal.PlacedBy!.ConversationId)
+                .ToArray(),
+            cancellationToken);
         return proposals
             .Select(proposal =>
             {
@@ -826,10 +874,38 @@ internal static class NhAssistantAgentRunDtoMapper
                     StaleByDisplayName = proposal.StaleByActorId is { } staleBy ? names.GetValueOrDefault(staleBy) : null,
                     SubjectDisplayName = DisplayNameOf(subjects, proposal.SubjectType, proposal.SubjectId, proposal.SubjectDisplayName),
                     SubjectTypeName = typeName,
-                    SubjectLink = link
+                    SubjectLink = link,
+                    PlacedBy = proposal.PlacedBy is { } placedBy ? OriginOf(subjects, placedBy, origins) : null
                 };
             })
             .ToArray();
+    }
+
+    /// <summary>
+    /// The subject of the run that placed a proposal: named for the whole application, only by its kind
+    /// for another object, whose name a reader of this one may not read. A removed thread names nothing.
+    /// </summary>
+    private static NhAssistantProposalOriginDto OriginOf(
+        NhAssistantSubjectAccessService subjects,
+        NhAssistantProposalOriginDto placedBy,
+        IReadOnlyDictionary<Guid, AssistantThread> origins)
+    {
+        if (!origins.TryGetValue(placedBy.ConversationId, out var origin))
+        {
+            return placedBy;
+        }
+
+        var (typeName, _) = SubjectOf(subjects, origin.SubjectType, origin.SubjectId);
+        var system = string.Equals(origin.SubjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal);
+        return placedBy with
+        {
+            SubjectType = origin.SubjectType,
+            SubjectId = system ? origin.SubjectId : null,
+            SubjectDisplayName = system
+                ? DisplayNameOf(subjects, origin.SubjectType, origin.SubjectId, origin.SubjectDisplayName)
+                : null,
+            SubjectTypeName = typeName
+        };
     }
 
     /// <summary>

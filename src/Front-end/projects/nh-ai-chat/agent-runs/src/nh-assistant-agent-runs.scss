@@ -109,6 +109,19 @@ h3 {
   background: var(--nha-surface-strong);
 }
 
+// Where a proposal placed at this object came from, with that run's conversation.
+.placed-by {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--nha-text-muted);
+  font-size: 13px;
+}
+
 // The rule's reason sits with the proposal it explains.
 .rationale {
   margin: 0;

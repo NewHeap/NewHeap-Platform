@@ -79,6 +79,19 @@
               </span>
             }
           </div>
+          @if (proposal.placedBy; as origin) {
+            @let placedBy = originText(origin);
+            <p class="placed-by">
+              <span>{{ placedBy.key | translate: placedBy.params }}</span>
+              <button
+                class="text-button"
+                type="button"
+                [attr.aria-label]="'nh-assistant.agent-runs.proposal.placed-by.open-label' | translate"
+                (click)="openConversation.emit(origin.conversationId)">
+                {{ 'nh-assistant.agent-runs.proposal.placed-by.open' | translate }}
+              </button>
+            </p>
+          }
           @if (proposal.presentation; as presentation) {
             <p class="summary">{{ presentation.summary }}</p>
             @if (presentation.fields.length > 0) {

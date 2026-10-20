@@ -391,6 +391,30 @@ export interface AgentProposal {
    * Missing on older servers.
    */
   rationale?: string | null;
+  /**
+   * The run that placed this proposal here from another subject, such as a run for the whole
+   * application; `null` for a proposal made in this thread. Missing on older servers.
+   */
+  placedBy?: AgentProposalOrigin | null;
+}
+
+/**
+ * The run that placed a proposal at another object than its own, and the thread it ran in. Its subject
+ * is named only for the whole application (`subjectType` `nh-system`); for another object only its kind
+ * is known, because a reader of this object may not read that one.
+ */
+export interface AgentProposalOrigin {
+  /** The thread of the run that placed the proposal; opening it checks the reader's access. */
+  conversationId: string;
+  runId: string | null;
+  /** The run's subject type; `null` when its thread no longer exists. */
+  subjectType: string | null;
+  /** The run's subject id for the whole application (`global` or `division-…`); `null` otherwise. */
+  subjectId?: string | null;
+  /** The name of the whole application or its division in the caller's language; `null` otherwise. */
+  subjectDisplayName?: string | null;
+  /** The name of the run's subject type in the caller's language, when the application named it. */
+  subjectTypeName?: string | null;
 }
 
 /** An application object a proposal changes, such as `{ type: 'project-task', id: '4711' }`. */

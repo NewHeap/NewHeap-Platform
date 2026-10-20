@@ -1253,13 +1253,17 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var system = catalog.GetProperty("subjectTypes").EnumerateArray().Single(type => type.GetProperty("id").GetString() == NhAiSubjectRef.SystemType);
             Assert.True(system.GetProperty("isSystem").GetBoolean());
 
-            // One tick starts one run, in the follow-up's thread of the whole application.
+            // One tick starts one run, in the follow-up's thread of the whole application. The thread
+            // outlives the agent, so runs of other tests on the shared host may be there before.
+            var lookup = $"/api/assistant/threads?agentId={followUp}&subjectType={NhAiSubjectRef.SystemType}&subjectId={NhAiSystemSubjects.GlobalId}";
+            var before = await CountSystemRunsAsync(reader, lookup, waitForNextTick: true);
             host.Services.GetRequiredService<IRecurringJobManager>()
                 .Trigger("nh-assistant-data-trigger-" + SampleRuntimeAgentSeeder.FollowUpScheduleId);
-            var lookup = $"/api/assistant/threads?agentId={followUp}&subjectType={NhAiSubjectRef.SystemType}&subjectId={NhAiSystemSubjects.GlobalId}";
             var thread = await WaitForSystemThreadAsync(reader, lookup);
             Assert.Equal(("The whole application", "The whole application", (string?)null), (thread.SubjectDisplayName, thread.SubjectTypeName, thread.SubjectLink));
-            var run = Assert.Single(await WaitForRunCountAsync(reader, thread.ConversationId, 1));
+            var runs = await WaitForRunCountAsync(reader, thread.ConversationId, before + 1);
+            Assert.Equal(before + 1, runs.Length);
+            var run = runs.OrderByDescending(item => item.CreatedAt).First();
             Assert.Equal((SampleRuntimeAgentSeeder.FollowUpScheduleId, (string?)null, host.OperationsAccountId.ToString("D")), (run.TriggerId, run.InitiatorActorId, run.AccountableOwnerId));
 
             // People who do not read the projects do not see the whole application.
@@ -1337,9 +1341,157 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
     }
 
+    [Fact]
+    public async Task The_project_follow_up_proposes_to_complete_finished_projects_at_each_project_where_its_approvers_decide()
+    {
+        // SPM-302: proposals placed at their object. The follow-up runs for the whole application; the
+        // status tool's input names its project with [NhAiSubject("project")], so each proposal waits
+        // in the follow-up's thread at that project and reaches that project's approvers.
+        const string followUp = SampleRuntimeAgentSeeder.FollowUpAgentId;
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        colleague.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US");
+        var readerId = await host.CreatePersonAsync(SampleProjectStarterComposition.ProjectViewPolicy);
+        using var reader = host.CreateClient(readerId.ToString());
+        var managerId = await host.CreatePersonAsync(SampleProjectStarterComposition.ProjectViewPolicy, SampleProjectStarterComposition.ProjectManagePolicy);
+        using var manager = host.CreateClient(managerId.ToString());
+        var placed = Array.Empty<NhAssistantProposalDto>();
+        try
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedFollowUpAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+                var configured = (await scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>().GetAsync(followUp))!;
+                Assert.Equal(SampleRuntimeAgentSeeder.FollowUpSkill, Assert.Single(configured.DataTriggers).SkillId);
+            }
+
+            // Four finished projects, whose tasks are all completed, approved by the colleague, and an
+            // active project with an open task. The operations account the follow-up answers to must
+            // read a project before a proposal is placed there: here it is a reader of these projects
+            // only, so the finished projects of other tests on the shared host are not proposed; the
+            // development account reads every project through the application-wide view permission.
+            var finished = new List<Guid>();
+            for (var index = 0; index < 4; index++)
+            {
+                var project = await host.CreateProjectAsync("FINISHED", ownerId: host.OwnerId, status: ProjectStatus.Active);
+                await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+                await host.AddMemberAsync(project, host.OperationsAccountId, ProjectMemberRole.Reader);
+                await host.CompleteTaskByHandAsync(await host.CreateTaskAsync(project, "Hand the project over"), host.ColleagueId);
+                finished.Add(project);
+            }
+            var unfinished = await host.CreateProjectAsync("UNFINISHED", ownerId: host.OwnerId, status: ProjectStatus.Active);
+            await host.AddMemberAsync(unfinished, host.ColleagueId, ProjectMemberRole.Approver);
+            await host.AddMemberAsync(unfinished, host.OperationsAccountId, ProjectMemberRole.Reader);
+            await host.CreateTaskAsync(unfinished, "Write the report");
+
+            // People with the application-wide view permission read every project's agent work.
+            Assert.Equal("reader", (await reader.GetFromJsonAsync<NhAssistantSubjectWorkDto>($"/api/assistant/subjects/{ProjectSubjects.Type}/{unfinished:D}/work", Json))!.Role);
+
+            // One tick of the weekly schedule counts the open projects by the skill's rules and
+            // places one proposal at each finished project.
+            var lookup = $"/api/assistant/threads?agentId={followUp}&subjectType={NhAiSubjectRef.SystemType}&subjectId={NhAiSystemSubjects.GlobalId}";
+            var before = await CountSystemRunsAsync(reader, lookup, waitForNextTick: true);
+            host.Services.GetRequiredService<IRecurringJobManager>()
+                .Trigger("nh-assistant-data-trigger-" + SampleRuntimeAgentSeeder.FollowUpScheduleId);
+            var thread = await WaitForSystemThreadAsync(reader, lookup);
+            var tick = (await WaitForRunCountAsync(reader, thread.ConversationId, before + 1)).OrderByDescending(run => run.CreatedAt).First();
+            Assert.Equal((SampleRuntimeAgentSeeder.FollowUpScheduleId, SampleRuntimeAgentSeeder.FollowUpSkill, NhAssistantRunKinds.Rule), (tick.TriggerId, tick.Skill, tick.Kind));
+            Assert.True(tick.ProposalCount >= finished.Count, $"The tick proposed {tick.ProposalCount} completions.");
+            Assert.Contains("Placed at other objects:", tick.Summary);
+
+            // The project's approver finds each proposal in the inbox, at its project, with the run
+            // for the whole application that placed it; the unfinished project has none.
+            var inbox = (await colleague.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox?itemsPerPage=100", Json))!;
+            placed = finished
+                .Select(project => Assert.Single(inbox.Items, item => item.AgentId == followUp && item.SubjectId == project.ToString("D")))
+                .ToArray();
+            Assert.All(placed, proposal =>
+            {
+                Assert.Equal((ProjectAiTools.ChangeStatusToolId, tick.Id, NhAssistantApprovalModes.Deferred), (proposal.ToolId, proposal.RunId, proposal.Mode));
+                Assert.Equal((thread.ConversationId, NhAiSubjectRef.SystemType, "The whole application"), (proposal.PlacedBy!.ConversationId, proposal.PlacedBy.SubjectType, proposal.PlacedBy.SubjectDisplayName));
+                Assert.NotEqual(thread.ConversationId, proposal.ConversationId);
+                Assert.Equal("Project", proposal.SubjectTypeName);
+            });
+            Assert.DoesNotContain(inbox.Items, item => item.SubjectId == unfinished.ToString("D"));
+
+            // The project page shows the proposal in the follow-up's thread at the project.
+            var work = await colleague.GetFromJsonAsync<NhAssistantSubjectWorkDto>($"/api/assistant/subjects/{ProjectSubjects.Type}/{finished[0]:D}/work", Json);
+            var atProject = Assert.Single(work!.OpenProposals, item => item.Proposal.ApprovalId == placed[0].ApprovalId);
+            Assert.True(atProject.CanDecide);
+            Assert.Equal(followUp, Assert.Single(work.Agents, agent => agent.AgentId == followUp).Thread!.AgentId);
+
+            // The colleague approves one; it executes at that project with the operations account's
+            // rights and changes that project's status.
+            using (var decision = await DecideAsync(colleague, placed[0], "approve"))
+            {
+                Assert.Equal(HttpStatusCode.OK, decision.StatusCode);
+            }
+            var executed = await WaitForProposalAsync(colleague, placed[0].ConversationId, NhAssistantApprovalStatuses.Executed);
+            Assert.Equal(placed[0].ApprovalId, executed.ApprovalId);
+            Assert.Equal(host.ColleagueId.ToString(), executed.DecidedByActorId);
+            Assert.Contains(host.Projects.StatusChanges, change => change.ProjectId == finished[0] && change.Status == ProjectStatus.Completed);
+            Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == finished[1]);
+
+            // A project manager's run now for the whole application works in the same skill, chosen
+            // by the follow-up's routing rules; the proposals that wait are not placed again.
+            NhAssistantTriggerReceiptDto receipt;
+            using (var started = await manager.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new { agentId = followUp, subjectType = NhAiSubjectRef.SystemType, subjectId = NhAiSystemSubjects.GlobalId }))
+            {
+                Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+                receipt = (await started.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!;
+            }
+            var byHand = Assert.Single(await WaitForRunCountAsync(manager, receipt.ConversationId!.Value, before + 2), run => run.Id == receipt.RunId);
+            Assert.Equal((SampleRuntimeAgentSeeder.FollowUpSkill, NhAssistantSkillChoosers.Rules), (byHand.Skill, byHand.SkillChosenBy));
+            var afterRunNow = (await colleague.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox?itemsPerPage=100", Json))!;
+            foreach (var project in finished.Skip(1))
+            {
+                Assert.Single(afterRunNow.Items, item => item.AgentId == followUp && item.SubjectId == project.ToString("D"));
+            }
+        }
+        finally
+        {
+            // The colleague rejects what still waits, so later ticks on the shared host stay quiet.
+            foreach (var proposal in placed.Skip(1))
+            {
+                using var rejected = await DecideAsync(colleague, proposal, "reject");
+            }
+            await RemoveFollowUpAsync(administrator);
+        }
+    }
+
     /// <summary>
-    /// Removes the project follow-up as an administrator does: its schedule, its run settings and the
-    /// agent.
+    /// The runs of the follow-up's thread of the whole application so far. With
+    /// <paramref name="waitForNextTick"/> it waits until the minute of the latest run passed: a
+    /// schedule ticks once per minute, so a second tick in the same minute starts nothing.
+    /// </summary>
+    private static async Task<int> CountSystemRunsAsync(HttpClient client, string lookup, bool waitForNextTick = false)
+    {
+        using var response = await client.GetAsync(lookup);
+        if (response.StatusCode != HttpStatusCode.OK
+            || (await response.Content.ReadFromJsonAsync<NhAssistantThreadLookupDto>(Json))?.Thread is not { } thread)
+        {
+            return 0;
+        }
+
+        var runs = (await client.GetFromJsonAsync<NhAssistantRunListDto>($"/api/assistant/threads/{thread.ConversationId}/runs", Json))!;
+        if (waitForNextTick && runs.Items.Count > 0)
+        {
+            var latest = runs.Items.Max(run => run.CreatedAt).UtcDateTime;
+            var nextMinute = new DateTime(latest.Year, latest.Month, latest.Day, latest.Hour, latest.Minute, 0, DateTimeKind.Utc).AddMinutes(1);
+            while (DateTime.UtcNow < nextMinute)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500));
+            }
+        }
+
+        return runs.Total;
+    }
+
+    /// <summary>
+    /// Removes the project follow-up as an administrator does: its schedule, its skill, its run
+    /// settings and the agent.
     /// </summary>
     private async Task RemoveFollowUpAsync(HttpClient administrator)
     {
@@ -1347,6 +1499,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         await using var scope = host.Services.CreateAsyncScope();
         var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
         await configuration.RemoveTriggerAsync(followUp, SampleRuntimeAgentSeeder.FollowUpScheduleId, null, host.OwnerId.ToString("D"), cancellationToken: CancellationToken.None);
+        await configuration.RemoveSkillAsync(followUp, SampleRuntimeAgentSeeder.FollowUpSkill, null, host.OwnerId.ToString("D"), cancellationToken: CancellationToken.None);
         await configuration.RemoveRunSettingsAsync(followUp, null, host.OwnerId.ToString("D"), cancellationToken: CancellationToken.None);
         using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{followUp}");
         Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);

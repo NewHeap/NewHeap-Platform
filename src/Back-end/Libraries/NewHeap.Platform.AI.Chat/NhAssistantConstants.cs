@@ -240,6 +240,34 @@ public static class NhAssistantStaleKinds
 }
 
 /// <summary>
+/// Why a run's proposal for another object was not placed at that object, as the tool result of
+/// <see cref="NhAssistantErrorCodes.ProposalNotPlaced"/> names it for the model and the audit records it.
+/// </summary>
+public static class NhAssistantPlacementReasons
+{
+    /// <summary>
+    /// The agent does not work on the object's type, or not in its scope: a per-division agent places
+    /// only in its own division.
+    /// </summary>
+    public const string DoesNotWorkOn = "does-not-work-on";
+
+    /// <summary>
+    /// The object does not exist, or the call names no object the platform can confirm.
+    /// </summary>
+    public const string NotFound = "not-found";
+
+    /// <summary>
+    /// The account the run answers to may not read the object.
+    /// </summary>
+    public const string NoAccess = "no-access";
+
+    /// <summary>
+    /// The run placed <see cref="NhAssistantLimits.MaxPlacedProposalsPerRun"/> proposals already.
+    /// </summary>
+    public const string Limit = "limit";
+}
+
+/// <summary>
 /// The moments at which a proposal guard closed a proposal, as recorded in audit events.
 /// </summary>
 public static class NhAssistantInvalidationStages
@@ -657,6 +685,19 @@ public static class NhAssistantErrorCodes
     /// with arguments the tool does not accept.
     /// </summary>
     public const string ProposalRefused = "assistant-proposal-refused";
+
+    /// <summary>
+    /// The result of a run's tool call whose proposal concerns another object than the run's own: the
+    /// proposal waits in the agent's thread at that object, where the object's approvers decide. The
+    /// call itself did not execute.
+    /// </summary>
+    public const string ProposalPlaced = "assistant-proposal-placed";
+
+    /// <summary>
+    /// A run's tool call concerns another object, and the proposal was not placed there; the result
+    /// names the reason, one of <see cref="NhAssistantPlacementReasons"/>. The run continues.
+    /// </summary>
+    public const string ProposalNotPlaced = "assistant-proposal-not-placed";
     public const string WebhookSignatureInvalid = "assistant-webhook-signature-invalid";
     public const string MemoryNotConfigured = "assistant-memory-not-configured";
     public const string MemoryInvalid = "assistant-memory-invalid";

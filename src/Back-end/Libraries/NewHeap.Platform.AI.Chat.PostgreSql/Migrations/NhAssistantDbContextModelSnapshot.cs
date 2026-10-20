@@ -679,6 +679,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<DateTimeOffset?>("NextReminderAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("PlacedFromConversationId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("PolicyId")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");

@@ -87,8 +87,15 @@ follow-up's own thread of `nh-system/global`, which the platform registers as "T
 application". The composition lets everyone who reads projects read the whole application with
 `UseSystemSubject(system => system.ReadPolicy("app.project.view"))`, because the assistant's access
 policy needs an active division. NewHeap Identity lists the sample's divisions through
-`INhDivisionDirectory`, so the editor offers to work per division. The skill that counts the open
-projects and its proposals at each project follow in later phases.
+`INhDivisionDirectory`, so the editor offers to work per division. The status tool's input names its
+project with `[NhAiSubject(ProjectSubjects.Type)]`, and the follow-up's `complete-projects` skill works
+by fixed rules: it counts the open projects and, with more than three, proposes to complete every
+active project whose tasks are all completed. Its weekly tick, and a project manager's run now that
+its routing rules send to the same skill, place each proposal in the follow-up's thread at its project
+after the platform checked the project and that the operations account reads it; the project's
+approver finds it in the inbox and on the project as "Proposed by a run for the whole application",
+opens that run's conversation from it and approves it, which changes that project's status. People
+with the application-wide project view permission read every project's agent work.
 The project assistant can consult the intake reviewer (SPM-278): the reviewer allows
 consultation about projects with `AllowConsultation`, and the project assistant selects
 the generated `assistant.consult.*` and `assistant.request.*` tools, which the sample's

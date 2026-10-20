@@ -146,6 +146,19 @@ public sealed record NhAssistantRuleProposal(
     DateTimeOffset? RejectedAt,
     string? Code)
 {
+    /// <summary>
+    /// The object the proposal waits at, when it concerns another object than the run's own and the
+    /// platform placed it in the agent's thread there; <see langword="null"/> in the run's own thread.
+    /// </summary>
+    public NhAiSubjectRef? PlacedAt { get; init; }
+
+    /// <summary>
+    /// Why a proposal for another object was not placed there, one of
+    /// <see cref="NhAssistantPlacementReasons"/>, when <see cref="Code"/> is
+    /// <c>assistant-proposal-not-placed</c>.
+    /// </summary>
+    public string? PlacementReason { get; init; }
+
     internal static NhAssistantRuleProposal Refused(string code)
     {
         return new NhAssistantRuleProposal(NhAssistantProposeOutcome.Refused, null, [], null, code);

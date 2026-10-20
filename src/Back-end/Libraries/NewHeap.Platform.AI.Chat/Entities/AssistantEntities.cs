@@ -245,6 +245,13 @@ public sealed class AssistantApproval
     /// </summary>
     public Guid? RunId { get; set; }
 
+    /// <summary>
+    /// The thread of the run that placed this proposal here, at another object than its own;
+    /// <see langword="null"/> for a proposal made in its own thread. A placed proposal waits for the
+    /// approvers of this thread's subject and never for the run's initiator.
+    /// </summary>
+    public Guid? PlacedFromConversationId { get; set; }
+
     public string? PolicyId { get; set; }
 
     /// <summary>

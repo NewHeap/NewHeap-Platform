@@ -60,6 +60,18 @@ names honor `JsonPropertyName`, and `JsonIgnore` conditions keep or remove
 properties per direction. Keep the schema and the wire in agreement through these
 serializer attributes rather than by editing the generated schema.
 
+When the input names an application object, such as the project a status change concerns, mark that
+one property with `[NhAiSubject("project")]`, or the parameter of a positional record
+(`record ChangeStatusInput([NhAiSubject("project")] Guid ProjectId, ProjectStatus Status)`). The
+property is a `Guid`, `string` or integer the input contract reads, and the type is a dash-case subject
+type the assistant registers, never one of the platform's `nh-` types. The generator writes
+`NhAiToolDescriptor.Subject` (`NhAiToolSubject`: the type and the property's JSON name under the
+serializer contract) and adds it to the contract hash only when declared; it reports `NHAI015` for an
+invalid type, `NHAI016` for another property type, an ignored property or a declaration on the whole
+input, and `NHAI017` for more than one declaration. A hand-built or attested catalog sets
+`Subject` itself and includes it in its own contract hash. The assistant then places an agent run's
+proposal for another object at that object after checking it (see the agent runs rule).
+
 `AddNewHeapPlatformAI` registers the shared `INhAiToolInvoker`. Register an
 `INhAiToolInvocationGate`, through `AddNewHeapPlatformAIAspNet` or
 `UseInvocationGate<TGate>()`, in every host that creates or runs tool functions.
@@ -131,6 +143,7 @@ the existing generated `<toolset>_<tool>_v<version>` name remains unchanged.
 - Returning ad-hoc exceptions for expected business outcomes instead of `TaskResult`.
 - Failing an expected outcome without a result code, so the model only sees `ai-tool-failed`.
 - Returning a raw serialized `TaskResult` from a hand-written governed function; the model then receives no code or message.
+- Declaring `NhAiSubject` on a property that does not name the object the call changes, or more than one; the platform checks and places proposals by it.
 
 ## Verification
 
@@ -145,7 +158,9 @@ reach the application service. Invoke a governed function with flat arguments an
 with `input` mixed with another property: the first runs once with the enveloped
 result, the second returns `ai-tool-input-invalid` without execution. Assert that
 a successful call returns only `success` and `data`, and that an expected failure
-returns its own `code` and `message`. Build and
+returns its own `code` and `message`. Assert that a declared subject appears in the
+descriptor with its JSON name, changes the contract hash only when declared, and that
+invalid declarations report `NHAI015` to `NHAI017`. Build and
 start the host in the Development environment, where the container validates
 scopes and registrations on build; a run-scoped catalog must be validated at
 startup and released with its validation scope. SPM-228 registers such a catalog

@@ -40,7 +40,7 @@ internal static class NhAssistantSubjectEndpoints
         group.MapPost("subjects/{type}/summary", SummarizeAsync)
             .WithName("NhAssistantSummarizeSubjects")
             .WithSummary("Summarize the agent work on many subjects")
-            .WithDescription("Returns, for at most 200 subjects of one type, the open proposals, the proposals the caller may decide and whether an agent works on it now, in one query. Counts follow the subjects' member snapshot like the approval inbox; subjects the caller does not see count zero.")
+            .WithDescription("Returns, for at most 200 subjects of one type, the open proposals, the proposals the caller may decide and whether an agent works on it now, in one query. Counts follow the subjects' member snapshot like the approval inbox, and the caller's live role for the whole application (nh-system), which lists no members; subjects the caller does not see count zero.")
             .Produces<NhAssistantSubjectSummaryListDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);

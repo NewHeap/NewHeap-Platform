@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "7f022ba420beafcff23d40c5cd89d0498c0af327202c736410641507397ba039",
-    "declarationCount": 8823,
+    "hash": "6c6396801620c8701d74cc492f9ccdd51568ec75e2545d67be121658a5db82ce",
+    "declarationCount": 8886,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2223,6 +2223,26 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public NhAssistantProposalOriginDto? PlacedBy { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public sealed record NhAssistantProposalOriginDto( Guid ConversationId, Guid? RunId, string? SubjectType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public string? SubjectId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public string? SubjectDisplayName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public string? SubjectTypeName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
         "declaration": "public sealed record NhAssistantProposalObjectDto(string Type, string Id);"
       },
       {
@@ -2924,6 +2944,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
         "declaration": "public async Task<bool> MayRunAsync( NhAiSubjectRef subject, string actorId, string runPolicy, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public async Task<IReadOnlyList<string>> ApproverSubjectsAsync( string actorId, string? tenantId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public async Task<IReadOnlyDictionary<string, NhAiSubjectRole>> RolesAsync( IReadOnlyCollection<string> subjectIds, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public bool TryGet(string subjectId, string actorId, out NhAiSubjectRole role) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public void Set(string subjectId, string actorId, NhAiSubjectRole role) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantThreadStanding.cs",
@@ -4846,6 +4882,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020080623_AgentPlacedProposals.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020080623_AgentPlacedProposals.cs",
+        "declaration": "public partial class AgentPlacedProposals : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020080623_AgentPlacedProposals.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020080623_AgentPlacedProposals.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -5275,6 +5327,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020003103_AgentWorkOnObjects.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020080619_AgentPlacedProposals.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020080619_AgentPlacedProposals.cs",
+        "declaration": "public partial class AgentPlacedProposals : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020080619_AgentPlacedProposals.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020080619_AgentPlacedProposals.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -8771,6 +8839,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
+        "declaration": "public Guid? PlacedFromConversationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
         "declaration": "public string? PolicyId { get; set; }"
       },
       {
@@ -9432,6 +9504,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
         "declaration": "public sealed record NhAssistantRuleProposal( NhAssistantProposeOutcome Outcome, Guid? ApprovalId, IReadOnlyList<Guid> Superseded, DateTimeOffset? RejectedAt, string? Code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
+        "declaration": "public NhAiSubjectRef? PlacedAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
+        "declaration": "public string? PlacementReason { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
@@ -10167,6 +10247,26 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public static class NhAssistantPlacementReasons {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string DoesNotWorkOn = \"does-not-work-on\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string NotFound = \"not-found\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string NoAccess = \"no-access\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Limit = \"limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public static class NhAssistantInvalidationStages {"
       },
       {
@@ -10632,6 +10732,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string ProposalRefused = \"assistant-proposal-refused\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ProposalPlaced = \"assistant-proposal-placed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ProposalNotPlaced = \"assistant-proposal-not-placed\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -11520,6 +11628,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public int MaxHandOffDepth { get; set; } = 2;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public int MaxPlacedProposalsPerRun { get; set; } = 20;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
@@ -12799,6 +12911,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyDictionary<Guid, AssistantThread>> FindThreadsByConversationsAsync( IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<AssistantThread> AddThreadAsync( AssistantConversation conversation, AssistantThread thread, CancellationToken cancellationToken) {"
       },
       {
@@ -13047,6 +13163,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<int> CountPlacedProposalsAsync(Guid runId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<string>> GetSystemSubjectsWithPendingProposalsAsync( int maximum, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<string>> GetThreadPeopleAsync( Guid conversationId, int maximum, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<bool> TryTransitionApprovalAsync( Guid approvalId, IReadOnlyCollection<string> expected, string status, NhAssistantApprovalTransition decision, CancellationToken cancellationToken) {"
       },
       {
@@ -13099,11 +13227,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task<IReadOnlyList<NhAssistantSubjectSummaryRow>> SummarizeSubjectsAsync( string actorId, string subjectType, IReadOnlyCollection<string> subjectIds, IReadOnlyCollection<string> hiddenAgentIds, CancellationToken cancellationToken, bool includeShadow = false)"
+        "declaration": "public async Task<IReadOnlyList<NhAssistantSubjectSummaryRow>> SummarizeSubjectsAsync( string actorId, string subjectType, IReadOnlyCollection<string> subjectIds, IReadOnlyCollection<string> hiddenAgentIds, CancellationToken cancellationToken, bool includeShadow = false, IReadOnlyDictionary<string, NhAiSubjectRole>? liveRoles = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task<(IReadOnlyList<NhAssistantInboxRow> Items, int Total)> ListInboxAsync( string actorId, NhAssistantInboxFilter filter, int page, int itemsPerPage, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<(IReadOnlyList<NhAssistantInboxRow> Items, int Total)> ListInboxAsync( string actorId, NhAssistantInboxFilter filter, int page, int itemsPerPage, CancellationToken cancellationToken, IReadOnlyCollection<string>? systemApproverSubjectIds = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -13776,6 +13904,50 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
         "declaration": "public async Task<NhAssistantRevalidationResult> RevalidateKeysAsync( IReadOnlyCollection<NhAiProposalKey> keys, string? scopeKey = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public static NhAssistantPlacementDecision Own { get; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public NhAiSubjectInfo? Target { get; private init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public string? RefusalReason { get; private init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public NhAiSubjectRef? Named { get; private init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public bool Refused => RefusalReason is not null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public static NhAssistantPlacementDecision Placed(NhAiSubjectInfo target, JsonSerializerOptions inputOptions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public static NhAssistantPlacementDecision Refuse(string reason, NhAiSubjectRef? named) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public static bool Applies( NhAssistantAgentTurnContext? agentTurn, bool consultation, NhAiToolDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public async Task<NhAssistantPlacementDecision> DecideAsync( NhAssistantAgentTurnContext agentTurn, NhAiToolDescriptor descriptor, AIFunction function, IEnumerable<KeyValuePair<string, object?>>? arguments, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public static bool Confirms(NhAssistantPlacementDecision decision, NhAiToolDescriptor descriptor, object? evaluatedInput) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public Task<TaskResult<AssistantThread>> ThreadAtAsync( NhAssistantAgent agent, NhAiSubjectInfo target, bool shadow, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunResults.cs",
@@ -14603,7 +14775,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
-        "declaration": "public async Task RecordBusinessEventAsync(NhAssistantAuditEvent evt, CancellationToken cancellationToken) {"
+        "declaration": "public async Task RecordBusinessEventAsync( NhAssistantAuditEvent evt, CancellationToken cancellationToken, NhAiSubjectRef? subject = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -14616,6 +14788,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public IReadOnlyList<Guid> Superseded { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public NhAiSubjectRef? PlacedAt { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolHistory.cs",
@@ -17195,6 +17371,34 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "[AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)] public sealed class NhAiSubjectAttribute(string type) : Attribute {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string Type { get; } = type;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public sealed record NhAiToolSubject {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public const int MaxArgumentNameLength = 128;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolSubject(string type, string argumentName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string Type { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string ArgumentName { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public sealed record NhAiToolDescriptor( string Id, int Version, string Description, Type InputType, Type OutputType, NhAiToolEffect Effect, NhAiToolExposure Exposure, bool RequiresAuthorization, IReadOnlyList<string> AuthorizationPolicies) {"
       },
       {
@@ -17296,6 +17500,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public string? ApprovalPolicy { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolSubject? Subject { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
@@ -17895,6 +18103,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public static IEnumerable<(IPropertySymbol Symbol, int? IgnoreCondition)> GetSerializableProperties( INamedTypeSymbol type, SchemaDirection direction) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public static string GetJsonName(IPropertySymbol property, SerializerContract contract) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
         "declaration": "public static string ToCamelCase(string name) {"
       },
       {
@@ -18048,6 +18264,42 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
         "declaration": "public string? ApprovalPolicy { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string? SubjectType { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string? SubjectArgument { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public static readonly SubjectModel None = new(null, null, null, null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public SubjectModel(string? type, string? argumentName, DiagnosticDescriptor? failure, string? detail) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string? Type { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string? ArgumentName { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public DiagnosticDescriptor? Failure { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string? Detail { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public static SubjectModel Invalid(DiagnosticDescriptor failure, string? detail) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpCallContext.cs",
@@ -39044,7 +39296,12 @@
       "NhAssistantSystemSubjectBuilder",
       "NhAssistantObjectAgentsDto",
       "NhAssistantObjectAgentDto",
-      "NhAssistantLatestRunDto"
+      "NhAssistantLatestRunDto",
+      "NhAiSubjectAttribute",
+      "NhAiToolSubject",
+      "MaxPlacedProposalsPerRun",
+      "NhAssistantPlacementReasons",
+      "NhAssistantProposalOriginDto"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
@@ -39393,7 +39650,9 @@
       "NhAiToolInvoker",
       "NhAiToolManifestEntry",
       "NhAiToolResult",
-      "NhAiToolSetAttribute"
+      "NhAiToolSetAttribute",
+      "NhAiSubjectAttribute",
+      "NhAiToolSubject"
     ],
     "nh-backend-collection-processing": [
       "ICollectionProcessingService",
@@ -39626,7 +39885,9 @@
       "NH_ASSISTANT_SYSTEM_GLOBAL_ID",
       "NH_ASSISTANT_RESULT_PREVIEW_LENGTH",
       "NhAssistantMockDivision",
-      "NhAssistantMockRunNow"
+      "NhAssistantMockRunNow",
+      "AgentProposalOrigin",
+      "NhAssistantMockProposal"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

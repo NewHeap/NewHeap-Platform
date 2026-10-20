@@ -237,7 +237,23 @@ public enum NhAssistantAuditEventKind
     /// <summary>
     /// An administrator confirmed a server's authorization server and resource after discovery.
     /// </summary>
-    AdminMcpServerAuthorizationConfirmed = 59
+    AdminMcpServerAuthorizationConfirmed = 59,
+
+    /// <summary>
+    /// A run placed a proposal for another object in the agent's thread at that object.
+    /// <see cref="NhAssistantAuditEvent.ConversationId"/> is the thread at the object,
+    /// <see cref="NhAssistantAuditEvent.SubjectType"/> and <see cref="NhAssistantAuditEvent.SubjectId"/>
+    /// name the object and <see cref="NhAssistantAuditEvent.ObjectId"/> is the run's own thread.
+    /// </summary>
+    AgentProposalPlaced = 60,
+
+    /// <summary>
+    /// A run's proposal for another object was not placed there.
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> is the reason, one of
+    /// <see cref="NhAssistantPlacementReasons"/>, and <see cref="NhAssistantAuditEvent.ObjectId"/> the
+    /// object the call named as <c>type/id</c>, when it named a valid one.
+    /// </summary>
+    AgentProposalNotPlaced = 61
 }
 
 /// <summary>

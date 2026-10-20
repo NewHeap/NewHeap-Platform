@@ -18,7 +18,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// it answers to. SPM-302: it also lists the policies an administrator may choose as the run and view
 /// policy of such an agent, and lets everyone who reads the projects read the whole application: the
 /// assistant's access policy needs an active division, which the whole application app-wide has
-/// not. Call it after <c>AddSampleIntakeReviewer</c>, which registers the project subject type.
+/// not. SPM-302: the follow-up's rules count the open projects for the whole application and propose
+/// to complete the finished ones, each placed at its project. Call it after
+/// <c>AddSampleIntakeReviewer</c>, which registers the project subject type.
 /// </summary>
 public static class SampleProjectStarterComposition
 {
@@ -27,6 +29,13 @@ public static class SampleProjectStarterComposition
     /// </summary>
     public const string ProjectCreatedEvent = "project.created";
     public const string KickoffRules = "project-kickoff";
+
+    /// <summary>
+    /// SPM-302: the project follow-up's rules: the agent's routing, and its skill that counts the open
+    /// projects and proposes to complete the finished ones at their projects.
+    /// </summary>
+    public const string FollowUpRoutingRules = "project-follow-up-routing";
+    public const string FollowUpCompletionRules = "project-follow-up-completion";
 
     /// <summary>
     /// SPM-302: who may run an agent created here for the whole application, and who sees its results.
@@ -50,7 +59,11 @@ public static class SampleProjectStarterComposition
                 .Initiator(created => created.CreatedByUserId?.ToString("D"))
                 .Message(created => $"Project {created.ProjectKey} was created.")
                 .Dedupe(created => created.EventId.ToString("N")))
-            .AddRuleHandler<ProjectKickoffRules>(KickoffRules, "Proposes to start a project that was created as a draft, without a model."));
+            .AddRuleHandler<ProjectKickoffRules>(KickoffRules, "Proposes to start a project that was created as a draft, without a model.")
+            // SPM-302: the follow-up counts the open projects for the whole application and places
+            // its proposals at the projects they concern.
+            .AddRuleHandler<ProjectFollowUpRouting>(FollowUpRoutingRules, "Sends a run for the whole application to the complete-projects skill and a run on one project to the model.")
+            .AddRuleHandler<ProjectFollowUpRules>(FollowUpCompletionRules, "Counts the open projects and, with more than three, proposes to complete the finished ones at their projects, without a model."));
         return services;
     }
 }

@@ -324,6 +324,18 @@ page offers: it shows the open proposals of every agent with the viewer's own de
 the feedback question after a rejection, and opens the conversation through
 `NhAssistantPanelService.openSubject`, which creates the agent's thread without starting a run.
 
+A proposal can wait at an object although a run for another subject made it, such as a weekly run for
+the whole application that proposes to complete a project (`AgentProposal.placedBy`,
+`AgentProposalOrigin`). The proposal cards of the inbox, the thread view and the subject suggestions
+then say "Proposed by a run for the whole application" (with the division's name in a division) or
+"Proposed by a run for another object" with its kind, never the other object's name, and offer that
+run's conversation: `nh-assistant-agent-proposals`, `nh-assistant-agent-inbox` and
+`nh-assistant-agent-thread-view` emit `openConversation` for `NhAssistantPanelService.open`, and
+`nh-assistant-subject-suggestions` opens it in the panel itself and emits `runConversationOpened`, so
+a host in a dialog makes room for the panel as after `conversationOpened`. The server checks the
+reader's access to that conversation; the card never assumes it. The tool-call card of the run reads
+`assistant-proposal-placed`, or `assistant-proposal-not-placed` when the object refused the proposal.
+
 Let people run an agent now where they work. On an object's page, load `nh-assistant-object-agents`
 (`NhAssistantObjectAgentsComponent`, `subjectType`, `subjectId`) from
 `@newheap/platform-ai-chat/agent-runs` lazily, like the suggestions: it lists the agents that work on
@@ -579,7 +591,13 @@ The subject picker names the whole application as the one subject of an app-wide
 the divisions for a per-division agent, and a form of the assistant keeps its fields within a 375px
 page that sets no `box-sizing` of its own. The portal's project editor shows the agents of the project
 with `nh-assistant-object-agents`, and the playground's administration runs the project follow-up now
-(SPM-303).
+(SPM-303). The placed-proposal tests name the run of the whole application, of a division and of
+another object of an unnamed or a named kind on the cards, emit its conversation from the list, the
+inbox and the thread view, open it in the panel from the subject suggestions, keep the line within
+375px, decide a placed proposal from the inbox, and let the mock API serve and decide such proposals
+(`NhAssistantMockScenario.proposals`, `NhAssistantMockProposal`) with the server's validation. The
+portal's intake reviews inbox and the project editor's suggestions open the follow-up's conversation
+of the whole application from its proposals at a project (SPM-302).
 SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298 and SPM-301 to SPM-303 are the
 executable references.
 

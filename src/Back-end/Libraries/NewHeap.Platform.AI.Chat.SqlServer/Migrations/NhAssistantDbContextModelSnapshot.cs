@@ -679,6 +679,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<DateTimeOffset?>("NextReminderAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid?>("PlacedFromConversationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PolicyId")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");

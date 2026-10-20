@@ -114,6 +114,7 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantStaleExplanations>();
         services.TryAddScoped<NhAssistantProposalInvalidation>();
         services.TryAddScoped<NhAssistantProposalDuplicates>();
+        services.TryAddScoped<NhAssistantProposalPlacement>();
         services.TryAddScoped<INhAssistantProposalRevalidation, NhAssistantProposalRevalidation>();
         return state;
     }

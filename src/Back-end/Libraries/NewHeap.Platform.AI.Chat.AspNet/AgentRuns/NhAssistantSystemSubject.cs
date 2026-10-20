@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.Common.Actors;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
@@ -25,9 +27,11 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// </summary>
 /// <remarks>
 /// The whole application lists no members: who passes a policy cannot be listed without the user
-/// store, so its member snapshot stays empty and listings that follow the snapshot, such as the
-/// approval inbox, show its proposals to their initiator only. Roles are kept for a few seconds per
-/// scope, so a listing asks the principal factory once per person.
+/// store, so its member snapshot stays empty. Listings that follow the snapshot, such as the approval
+/// inbox and the subject summary, ask the caller's live role on its subjects instead
+/// (<see cref="NhAssistantSystemApprovers"/>), and notifications reach its approvers among the people
+/// of the thread. Roles are kept for a few seconds per scope, so a listing asks the principal factory
+/// once per person.
 /// </remarks>
 internal sealed class NhAssistantSystemSubjectResolver(
     IServiceProvider services,
@@ -264,5 +268,120 @@ internal sealed class NhAssistantSystemSubjectResolver(
             DivisionId = division.Id,
             DisplayName = name
         };
+    }
+}
+
+/// <summary>
+/// The whole application's subjects whose proposals a person may decide, evaluated live because the
+/// whole application lists no members: the inbox asks the person's role on each subject of the whole
+/// application with a pending proposal, at most <see cref="MaxSubjects"/> of them, and the subject
+/// summary on each requested one. Roles are kept for ten seconds per person and subject across
+/// requests (<see cref="NhAssistantSystemRoleCache"/>), so a listing that reloads often evaluates the
+/// policies at most once per subject and person in that time; every decision is checked live again.
+/// </summary>
+internal sealed class NhAssistantSystemApprovers(
+    NhAssistantRunStore runs,
+    NhAssistantSubjectAccessService subjects,
+    NhAssistantSystemRoleCache cache)
+{
+    /// <summary>
+    /// The most subjects of the whole application one listing evaluates: the application itself and
+    /// its divisions.
+    /// </summary>
+    internal const int MaxSubjects = 100;
+
+    /// <summary>
+    /// The subjects of the whole application with a pending proposal on which the person is an
+    /// approver. A person bound to a tenant decides none: the whole application belongs to no tenant,
+    /// as its proposals' threads do not.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> ApproverSubjectsAsync(
+        string actorId,
+        string? tenantId,
+        CancellationToken cancellationToken)
+    {
+        if (tenantId is not null)
+        {
+            return [];
+        }
+
+        var approverOf = new List<string>();
+        foreach (var subjectId in await runs.GetSystemSubjectsWithPendingProposalsAsync(MaxSubjects, cancellationToken))
+        {
+            if (await RoleAsync(subjectId, actorId, cancellationToken) >= NhAiSubjectRole.Approver)
+            {
+                approverOf.Add(subjectId);
+            }
+        }
+
+        return approverOf;
+    }
+
+    /// <summary>
+    /// The person's live role on each of <paramref name="subjectIds"/> of the whole application, the
+    /// first <see cref="MaxSubjects"/> of them; subjects without a role are left out.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, NhAiSubjectRole>> RolesAsync(
+        IReadOnlyCollection<string> subjectIds,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        var roles = new Dictionary<string, NhAiSubjectRole>(StringComparer.Ordinal);
+        foreach (var subjectId in subjectIds.Distinct(StringComparer.Ordinal).Take(MaxSubjects))
+        {
+            var role = await RoleAsync(subjectId, actorId, cancellationToken);
+            if (role != NhAiSubjectRole.None)
+            {
+                roles[subjectId] = role;
+            }
+        }
+
+        return roles;
+    }
+
+    private async Task<NhAiSubjectRole> RoleAsync(string subjectId, string actorId, CancellationToken cancellationToken)
+    {
+        if (cache.TryGet(subjectId, actorId, out var known))
+        {
+            return known;
+        }
+
+        var access = await subjects.ResolveAsync(new NhAiSubjectRef(NhAiSubjectRef.SystemType, subjectId), actorId, cancellationToken);
+        cache.Set(subjectId, actorId, access.Role);
+        return access.Role;
+    }
+}
+
+/// <summary>
+/// The roles people had on subjects of the whole application in listings, for ten seconds, at most
+/// <see cref="MaxEntries"/> at a time. Only listings read it; authorization asks the resolver.
+/// </summary>
+internal sealed class NhAssistantSystemRoleCache
+{
+    internal const int MaxEntries = 1_024;
+    private static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(10);
+
+    private readonly ConcurrentDictionary<(string SubjectId, string ActorId), (NhAiSubjectRole Role, long At)> _roles = new();
+
+    public bool TryGet(string subjectId, string actorId, out NhAiSubjectRole role)
+    {
+        if (_roles.TryGetValue((subjectId, actorId), out var cached)
+            && Environment.TickCount64 - cached.At < (long)Lifetime.TotalMilliseconds)
+        {
+            role = cached.Role;
+            return true;
+        }
+
+        role = NhAiSubjectRole.None;
+        return false;
+    }
+
+    public void Set(string subjectId, string actorId, NhAiSubjectRole role)
+    {
+        if (_roles.Count >= MaxEntries)
+        {
+            _roles.Clear();
+        }
+        _roles[(subjectId, actorId)] = (role, Environment.TickCount64);
     }
 }

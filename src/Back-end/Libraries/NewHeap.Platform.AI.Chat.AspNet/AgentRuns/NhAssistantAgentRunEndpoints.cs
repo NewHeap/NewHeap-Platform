@@ -91,7 +91,7 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapGet("approvals/inbox", GetInboxAsync)
             .WithName("NhAssistantGetApprovalInbox")
             .WithSummary("List the proposals the caller may decide")
-            .WithDescription("Returns pending agent proposals across threads that the caller may decide, sorted by expiry and paged. Each decision is checked live again.")
+            .WithDescription("Returns pending agent proposals across threads that the caller may decide, sorted by expiry and paged: proposals on subjects the caller approves according to the member snapshot, proposals of runs the caller started made in the run's own thread, and proposals of the whole application (nh-system) where the caller's live role is approver. A proposal a run placed at another object waits for that object's approvers only; its placedBy names the run. Each decision is checked live again.")
             .Produces<NhAssistantInboxDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
         group.MapGet("approvals/{approvalId:guid}", GetProposalAsync)
@@ -537,6 +537,7 @@ internal static class NhAssistantAgentRunEndpoints
         HttpContext httpContext,
         NhAssistantRunStore runs,
         NhAssistantSubjectAccessService subjects,
+        NhAssistantSystemApprovers systemApprovers,
         string? subjectType,
         string? agentId,
         Guid? divisionId,
@@ -556,12 +557,17 @@ internal static class NhAssistantAgentRunEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
         }
 
+        // The whole application lists no members: its approvers are evaluated now.
+        var systemApproverOf = subjectType is null || subjectType == NhAiSubjectRef.SystemType
+            ? await systemApprovers.ApproverSubjectsAsync(caller.Data!.ActorId, caller.Data.TenantId, httpContext.RequestAborted)
+            : [];
         var (items, total) = await runs.ListInboxAsync(
             caller.Data!.ActorId,
             new NhAssistantInboxFilter(subjectType, agentId, divisionId, runId),
             pageNumber,
             size,
-            httpContext.RequestAborted);
+            httpContext.RequestAborted,
+            systemApproverOf);
         var proposals = await NhAssistantAgentRunDtoMapper.CompleteAsync(
             items.Select(row => NhAssistantAgentRunDtoMapper.ToDto(row.Approval, row.Thread)).ToArray(),
             runs,

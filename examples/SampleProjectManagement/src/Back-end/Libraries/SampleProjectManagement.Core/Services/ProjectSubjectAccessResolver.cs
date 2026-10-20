@@ -1,7 +1,10 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI;
+using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Identity.Claims;
 using SampleProjectManagement.DAL;
 using SampleProjectManagement.DAL.Entities;
 
@@ -19,6 +22,13 @@ public static class ProjectSubjects
     /// page with the project chosen.
     /// </summary>
     public const string LinkTemplate = "/management/intake-reviews?project={id}";
+
+    /// <summary>
+    /// SPM-302: the application-wide permission that reads every project. People and technical
+    /// accounts that hold it, such as the operations account the project follow-up answers to, read the
+    /// agent threads of every project, so the follow-up may place its proposals there.
+    /// </summary>
+    public const string ViewEveryProjectPermission = "app.project.view";
 
     public static NhAiSubjectRef For(Guid projectId)
     {
@@ -40,11 +50,15 @@ public static class ProjectSubjects
 /// keep their role; the project owner is an approver without a member row. The assistant asks on
 /// every request, so removing a member takes effect at once. SPM-301: the same class finds
 /// projects by key or name for people who choose a project, among the projects they own or are a
-/// member of; the assistant still checks every result with <see cref="ResolveAsync"/>.
+/// member of; the assistant still checks every result with <see cref="ResolveAsync"/>. SPM-302:
+/// everyone else with the application-wide project view permission reads every project, as the
+/// application's own project pages let them.
 /// </summary>
-public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContext dbContext)
+public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContext dbContext, IServiceProvider services)
     : INhAiSubjectAccessResolver, INhAiSubjectSearch
 {
+    private readonly Dictionary<Guid, bool> _readsEveryProject = [];
+
     public string SubjectType => ProjectSubjects.Type;
 
     public async IAsyncEnumerable<NhAiSubjectInfo> SearchAsync(
@@ -168,7 +182,34 @@ public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContex
             .Where(member => member.ProjectId == projectId && member.UserId == userId)
             .Select(member => (ProjectMemberRole?)member.Role)
             .SingleOrDefaultAsync(cancellationToken);
-        return role is { } memberRole ? new NhAiSubjectAccess(ToSubjectRole(memberRole)) : NhAiSubjectAccess.None;
+        if (role is { } memberRole)
+        {
+            return new NhAiSubjectAccess(ToSubjectRole(memberRole));
+        }
+
+        return await ReadsEveryProjectAsync(userId, cancellationToken)
+            ? new NhAiSubjectAccess(NhAiSubjectRole.Reader)
+            : NhAiSubjectAccess.None;
+    }
+
+    /// <summary>
+    /// Whether the person holds <see cref="ProjectSubjects.ViewEveryProjectPermission"/>, directly or
+    /// through a role, as the identity store gives it now; asked once per person and request.
+    /// </summary>
+    private async Task<bool> ReadsEveryProjectAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        if (_readsEveryProject.TryGetValue(userId, out var known))
+        {
+            return known;
+        }
+
+        var users = services.GetService<INhUserManager>();
+        var reads = users is not null
+            && (await users.GetValidClaimsByUserIdAsync(userId, false, cancellationToken))
+                .Any(claim => claim.Type == NhPlatformClaimTypes.Permission
+                    && claim.Value == ProjectSubjects.ViewEveryProjectPermission);
+        _readsEveryProject[userId] = reads;
+        return reads;
     }
 
     public async IAsyncEnumerable<NhAiSubjectMember> ListMembersAsync(

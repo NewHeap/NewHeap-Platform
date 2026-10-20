@@ -18,6 +18,9 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
     private const string ToolSetAttributeName = "NewHeap.Platform.AI.NhAiToolSetAttribute";
     private const string ToolAttributeName = "NewHeap.Platform.AI.NhAiToolAttribute";
     private const string ToolExportNameAttributeName = "NewHeap.Platform.AI.NhAiToolExportNameAttribute";
+    private const string SubjectAttributeName = "NewHeap.Platform.AI.NhAiSubjectAttribute";
+    private const int MaxSubjectTypeLength = 100;
+    private const string ReservedSubjectTypePrefix = "nh-";
     private const string InvocationContextName = "NewHeap.Platform.AI.NhAiInvocationContext";
     private const string CancellationTokenName = "System.Threading.CancellationToken";
     private const string DescriptionAttributeName = "System.ComponentModel.DescriptionAttribute";
@@ -131,6 +134,30 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         "NHAI014",
         "AI tool agent grant is invalid",
         "AI tool '{0}' allows an agent grant or names an approval policy, which requires Agent exposure and an authorization policy",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
+    private static readonly DiagnosticDescriptor InvalidSubjectType = new(
+        "NHAI015",
+        "AI tool subject type is invalid",
+        "AI tool '{0}' declares the subject type '{1}', which must be a dash-case subject type of at most 100 characters that starts with a letter and is not one of the platform's nh- types",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
+    private static readonly DiagnosticDescriptor InvalidSubjectProperty = new(
+        "NHAI016",
+        "AI tool subject property is unsupported",
+        "AI tool '{0}' declares a subject on '{1}', which must be a serialized property of the input type of type Guid, string or an integer",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
+    private static readonly DiagnosticDescriptor DuplicateSubject = new(
+        "NHAI017",
+        "AI tool declares more than one subject",
+        "AI tool '{0}' declares a subject on more than one input property; a tool concerns at most one object",
         "NewHeap.AI",
         DiagnosticSeverity.Error,
         true);
@@ -384,6 +411,17 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                     setId + "." + toolId));
                 continue;
             }
+            var subject = FindSubject(method, inputTypeSymbol!, serializerContract);
+            if (subject.Failure is not null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    subject.Failure,
+                    location,
+                    setId + "." + toolId,
+                    subject.Detail));
+                continue;
+            }
+
             var schemaHash = ComputeHash(inputSchema + "\n" + outputSchema);
             var contractMaterial = string.Join(
                 "\n",
@@ -430,6 +468,12 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 // contracts keep their published hashes.
                 contractMaterial += "\nagent-grant:" + allowAgentGrant.ToString() + "," + (approvalPolicy ?? string.Empty);
             }
+            if (subject.Type is not null)
+            {
+                // Only a declared subject enters the contract hash, so tools without one keep their
+                // published hashes.
+                contractMaterial += "\nsubject:" + subject.Type + "," + subject.ArgumentName;
+            }
             var contractHash = ComputeHash(contractMaterial);
 
             tools.Add(new ToolModel(
@@ -467,7 +511,9 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 authorizationAttributes.Length > 0,
                 policies,
                 allowAgentGrant,
-                approvalPolicy));
+                approvalPolicy,
+                subject.Type,
+                subject.ArgumentName));
         }
 
         var duplicateGroups = tools.GroupBy(tool => tool.LogicalId + "@" + tool.Version)
@@ -717,6 +763,12 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         {
             builder.Append("        ApprovalPolicy = ").Append(Literal(tool.ApprovalPolicy)).AppendLine(",");
         }
+        if (tool.SubjectType is not null && tool.SubjectArgument is not null)
+        {
+            builder.Append("        Subject = new global::NewHeap.Platform.AI.NhAiToolSubject(")
+                .Append(Literal(tool.SubjectType)).Append(", ")
+                .Append(Literal(tool.SubjectArgument)).AppendLine("),");
+        }
         builder.AppendLine("        RequiredCapabilities = new global::System.String[]");
         builder.AppendLine("        {");
         foreach (var capability in tool.RequiredCapabilities)
@@ -726,6 +778,143 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         builder.AppendLine("        }");
         builder.AppendLine("    };");
         builder.AppendLine();
+    }
+
+    /// <summary>
+    /// Finds the input property that names the object a call concerns: a property with
+    /// <c>NhAiSubject</c>, or the parameter of the constructor that sets it, such as the parameter of a
+    /// positional record. Its JSON name follows the serializer contract the function binds with.
+    /// </summary>
+    private static SubjectModel FindSubject(
+        IMethodSymbol method,
+        ITypeSymbol inputType,
+        SerializerContract contract)
+    {
+        if (FindAttribute(method.Parameters[0], SubjectAttributeName) is not null)
+        {
+            // The whole input cannot be the object's id: the declaration belongs on a property.
+            return SubjectModel.Invalid(InvalidSubjectProperty, method.Parameters[0].Name);
+        }
+        if (inputType is not INamedTypeSymbol namedType)
+        {
+            return SubjectModel.None;
+        }
+
+        var parameterDeclarations = namedType.InstanceConstructors
+            .SelectMany(constructor => constructor.Parameters)
+            .Select(parameter => new { Parameter = parameter, Attribute = FindAttribute(parameter, SubjectAttributeName) })
+            .Where(item => item.Attribute is not null)
+            .ToArray();
+        var serializable = SchemaWriter.GetSerializableProperties(namedType, SchemaDirection.Input)
+            .Select(item => item.Symbol)
+            .ToArray();
+
+        // A declaration on a property or parameter the input contract never reads cannot name the
+        // object.
+        for (var current = namedType; current is not null; current = current.BaseType)
+        {
+            foreach (var property in current.GetMembers().OfType<IPropertySymbol>())
+            {
+                if (FindAttribute(property, SubjectAttributeName) is not null
+                    && !serializable.Contains(property, SymbolEqualityComparer.Default))
+                {
+                    return SubjectModel.Invalid(InvalidSubjectProperty, property.Name);
+                }
+            }
+        }
+        foreach (var declaration in parameterDeclarations)
+        {
+            if (!serializable.Any(property => string.Equals(property.Name, declaration.Parameter.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                return SubjectModel.Invalid(InvalidSubjectProperty, declaration.Parameter.Name);
+            }
+        }
+
+        var declarations = new List<KeyValuePair<IPropertySymbol, AttributeData>>();
+        foreach (var property in serializable)
+        {
+            var attribute = FindAttribute(property, SubjectAttributeName)
+                ?? parameterDeclarations
+                    .Where(item => string.Equals(item.Parameter.Name, property.Name, StringComparison.OrdinalIgnoreCase))
+                    .Select(item => item.Attribute)
+                    .FirstOrDefault();
+            if (attribute is not null)
+            {
+                declarations.Add(new KeyValuePair<IPropertySymbol, AttributeData>(property, attribute));
+            }
+        }
+
+        var distinct = declarations
+            .GroupBy(item => item.Key.Name, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToArray();
+        if (distinct.Length == 0)
+        {
+            return SubjectModel.None;
+        }
+        if (distinct.Length > 1)
+        {
+            return SubjectModel.Invalid(DuplicateSubject, null);
+        }
+
+        var subjectProperty = distinct[0].Key;
+        var subjectAttribute = distinct[0].Value;
+        var type = subjectAttribute.ConstructorArguments.Length > 0
+            ? subjectAttribute.ConstructorArguments[0].Value as string
+            : null;
+        if (!IsSubjectType(type))
+        {
+            return SubjectModel.Invalid(InvalidSubjectType, type ?? string.Empty);
+        }
+        if (!IsSubjectIdType(subjectProperty.Type))
+        {
+            return SubjectModel.Invalid(InvalidSubjectProperty, subjectProperty.Name);
+        }
+
+        return new SubjectModel(type, SchemaWriter.GetJsonName(subjectProperty, contract), null, null);
+    }
+
+    /// <summary>
+    /// Mirrors <c>NhAiSubjectRef.IsValidType</c> and refuses the platform's reserved types.
+    /// </summary>
+    private static bool IsSubjectType(string? type)
+    {
+        if (type is null
+            || type.Length == 0
+            || type.Length > MaxSubjectTypeLength
+            || type.StartsWith(ReservedSubjectTypePrefix, StringComparison.Ordinal)
+            || type[0] < 'a'
+            || type[0] > 'z')
+        {
+            return false;
+        }
+
+        return IsDashCase(type);
+    }
+
+    private static bool IsSubjectIdType(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol nullable
+            && nullable.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+        {
+            type = nullable.TypeArguments[0];
+        }
+
+        switch (type.SpecialType)
+        {
+            case SpecialType.System_String:
+            case SpecialType.System_Byte:
+            case SpecialType.System_SByte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+                return true;
+        }
+
+        return type.ToDisplayString() == "System.Guid";
     }
 
     private static bool TryGetSignature(
@@ -1306,7 +1495,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             return builder.ToString();
         }
 
-        private static IEnumerable<(IPropertySymbol Symbol, int? IgnoreCondition)> GetSerializableProperties(
+        public static IEnumerable<(IPropertySymbol Symbol, int? IgnoreCondition)> GetSerializableProperties(
             INamedTypeSymbol type,
             SchemaDirection direction)
         {
@@ -1357,7 +1546,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                     converter.ConstructorArguments.FirstOrDefault().Value as ITypeSymbol);
         }
 
-        private static string GetJsonName(IPropertySymbol property, SerializerContract contract)
+        public static string GetJsonName(IPropertySymbol property, SerializerContract contract)
         {
             var nameAttribute = FindAttribute(property, JsonPropertyNameName);
             var explicitName = nameAttribute is null
@@ -1625,7 +1814,9 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             bool requiresAuthorization,
             ImmutableArray<string?> authorizationPolicies,
             bool allowAgentGrant,
-            string? approvalPolicy)
+            string? approvalPolicy,
+            string? subjectType,
+            string? subjectArgument)
         {
             Method = method;
             SetId = setId;
@@ -1662,6 +1853,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             AuthorizationPolicies = authorizationPolicies;
             AllowAgentGrant = allowAgentGrant;
             ApprovalPolicy = approvalPolicy;
+            SubjectType = subjectType;
+            SubjectArgument = subjectArgument;
         }
 
         public IMethodSymbol Method { get; }
@@ -1700,5 +1893,33 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         public ImmutableArray<string?> AuthorizationPolicies { get; }
         public bool AllowAgentGrant { get; }
         public string? ApprovalPolicy { get; }
+        public string? SubjectType { get; }
+        public string? SubjectArgument { get; }
+    }
+
+    /// <summary>
+    /// The subject a tool declares, none, or why its declaration is invalid.
+    /// </summary>
+    private sealed class SubjectModel
+    {
+        public static readonly SubjectModel None = new(null, null, null, null);
+
+        public SubjectModel(string? type, string? argumentName, DiagnosticDescriptor? failure, string? detail)
+        {
+            Type = type;
+            ArgumentName = argumentName;
+            Failure = failure;
+            Detail = detail;
+        }
+
+        public string? Type { get; }
+        public string? ArgumentName { get; }
+        public DiagnosticDescriptor? Failure { get; }
+        public string? Detail { get; }
+
+        public static SubjectModel Invalid(DiagnosticDescriptor failure, string? detail)
+        {
+            return new SubjectModel(null, null, failure, detail);
+        }
     }
 }

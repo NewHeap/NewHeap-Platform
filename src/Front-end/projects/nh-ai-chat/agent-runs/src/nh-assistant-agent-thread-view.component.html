@@ -89,7 +89,11 @@
             @if (proposals().length === 0) {
               <p class="state">{{ 'nh-assistant.agent-runs.thread.no-proposals' | translate }}</p>
             } @else {
-              <nh-assistant-agent-proposals [proposals]="proposals()" [canDecide]="role() === 'approver'" (changed)="loadProposals()" />
+              <nh-assistant-agent-proposals
+                [proposals]="proposals()"
+                [canDecide]="role() === 'approver'"
+                (changed)="loadProposals()"
+                (openConversation)="openConversation.emit($event)" />
             }
           }
           @case ('runs') {

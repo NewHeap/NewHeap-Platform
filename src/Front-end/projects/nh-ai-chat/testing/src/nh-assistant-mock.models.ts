@@ -1,5 +1,7 @@
 import {
   AdminAgentInput,
+  AgentProposalOrigin,
+  AgentProposalStatus,
   AgentRunStatus,
   AgentSummary,
   AgentTriggerReceipt,
@@ -10,6 +12,7 @@ import {
   McpDiscovery,
   McpServerInput,
   AssistantAccount,
+  ApprovalPresentation,
   RunCatalog,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
@@ -318,6 +321,38 @@ export interface NhAssistantMockScenario {
   callerPolicies?: string[];
   /** What a run by hand does, per agent id; `POST threads/start` and the agents of a subject show it. */
   runNow?: Record<string, NhAssistantMockRunNow>;
+  /**
+   * Proposals the agents left, for example ones a run for the whole application placed at projects:
+   * the approval inbox, their thread and their subject's work list them, and people decide them.
+   */
+  proposals?: NhAssistantMockProposal[];
+}
+
+/**
+ * A proposal an agent left, as the mock serves it; the mock fills what it leaves out. With
+ * `placedBy` a run placed it here from another subject, such as a run for the whole application.
+ */
+export interface NhAssistantMockProposal {
+  approvalId: string;
+  agentId: string;
+  subjectType: string;
+  subjectId: string;
+  subjectDisplayName?: string | null;
+  subjectTypeName?: string | null;
+  subjectLink?: string | null;
+  /** The thread the proposal waits in. Default `{approvalId}-thread`. */
+  conversationId?: string;
+  runId?: string | null;
+  toolId: string;
+  presentation?: ApprovalPresentation | null;
+  /** Default `pending`. */
+  status?: AgentProposalStatus;
+  rationale?: string | null;
+  placedBy?: AgentProposalOrigin | null;
+  /** Whether the signed-in user may decide it. Default `true`. */
+  canDecide?: boolean;
+  /** Why not, when `canDecide` is `false`. Default `assistant-approval-policy-denied`. */
+  reasonCode?: string | null;
 }
 
 /** One request the mock API received, for assertions in tests. */

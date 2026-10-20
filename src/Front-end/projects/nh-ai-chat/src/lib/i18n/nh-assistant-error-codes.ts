@@ -93,6 +93,8 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-proposal-recently-rejected',
   'assistant-proposal-superseded',
   'assistant-proposal-refused',
+  'assistant-proposal-placed',
+  'assistant-proposal-not-placed',
   'assistant-trigger-not-found',
   'assistant-webhook-signature-invalid',
   'assistant-webhook-payload-invalid',

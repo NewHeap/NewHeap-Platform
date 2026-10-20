@@ -46,4 +46,9 @@
   <data name="CloserRefused" xml:space="preserve"><value>Completing the project could not be proposed.</value></data>
   <data name="SubjectTypeProject" xml:space="preserve"><value>Project</value></data>
   <data name="SubjectTypeProjects" xml:space="preserve"><value>Projects</value></data>
+  <data name="FollowUpFewOpen" xml:space="preserve"><value>{0} projects are open; with three or fewer there is nothing to follow up.</value></data>
+  <data name="FollowUpReason" xml:space="preserve"><value>All {0} tasks of the project are completed, and {1} projects are open.</value></data>
+  <data name="FollowUpProposed" xml:space="preserve"><value>{0} projects are open. Proposed to complete {1} at their projects, where their approvers decide; {2} already waited and {3} could not be proposed.</value></data>
+  <data name="FollowUpOnProject" xml:space="preserve"><value>On one project there is nothing to count; the model answers here.</value></data>
+  <data name="FollowUpWholeApplication" xml:space="preserve"><value>A run for the whole application counts the open projects.</value></data>
 </root>

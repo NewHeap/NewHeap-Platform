@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, and run agents for the whole application, app-wide or per division.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, and place a run's proposals at the objects they concern.
 
 ## Preferred approach
 
@@ -181,8 +181,13 @@ administration policy) also take part and decide its proposals, evaluated for th
 principal factory rebuilds them and against the subject with its division, with access to the division
 for a division subject; configure both with `UseSystemSubject(system => system.ReadPolicy("app.project.view").ApprovePolicy("app.project.manage"))`.
 Name an app-wide read policy when the access policy needs an active division, which the whole
-application app-wide has not. The whole application lists no members, so the approval inbox shows its
-proposals to their initiator only. With listed divisions `GET subjects/nh-system/search` finds the
+application app-wide has not. The whole application lists no members, so the approval inbox asks the
+caller's live role on its subjects that have pending proposals (at most 100, the roles kept a few
+seconds) and lists their proposals for its approvers, and `POST subjects/nh-system/summary` counts with
+the caller's live role; a caller bound to a tenant decides none of them. Notifications about its
+proposals reach the approvers among the people of its thread: those who take part in its conversation
+and those who decided its proposals, at most 50, each with the role the resolver gives them now. With
+listed divisions `GET subjects/nh-system/search` finds the
 divisions a person works in by name (`Searchable` in the run catalog), as the subjects of a
 per-division agent.
 
@@ -201,6 +206,43 @@ per agent `CanStart`, the thread people open, the newest run (`NhAssistantLatest
 and the first 300 characters of its result, until runs keep their full answer the summary they end
 with) and the open proposals; the caller needs a role on the subject. A run started by hand never uses
 another person's personal MCP connection: only the initiator's own, with their consent.
+
+Place a run's proposal at the object it concerns. Declare which input property of a tool names which
+object type with `[NhAiSubject("project")]` (`NhAiSubjectAttribute`) on a property of the input record,
+or on the parameter of a positional record, of type `Guid`, `string` or an integer, at most one per
+tool. The source generator writes `NhAiToolDescriptor.Subject` (`NhAiToolSubject`: the type and the
+JSON argument name) and adds it to the contract hash only when present, so tools without one keep their
+hashes; a tool that starts declaring one changes its hash, and its pending approvals no longer execute.
+The build fails for an invalid type, including the platform's `nh-` types (`NHAI015`), a property of
+another type or one the input contract does not read (`NHAI016`) and more than one declaration
+(`NHAI017`). Hand-built and attested catalogs set `Subject` themselves; MCP tools never declare one,
+so they always propose in the run's own thread. When an agent run (not a person's turn in the thread
+and not a consultation) calls such a tool with an effect and the argument names another object than
+the run's own, for example a weekly run for the whole application that proposes to complete a
+project, the platform reads the object as the tool binds its input and checks it before the call
+runs: the agent works on its type, a per-division agent only in its own division and a run bound to a
+tenant only in that tenant; the object exists (`DescribeAsync`); the account the run answers to (its
+`AccountableOwnerId`: the agent's own, the responsible person or the technical account) is at least
+`Reader`; and the run placed fewer than `NhAssistantLimits.MaxPlacedProposalsPerRun` proposals
+(default 20, 0 to 200). The call then runs in the object's scope, authorized against the object and its
+division, and always becomes a deferred proposal: it waits in the agent's thread at that object,
+created when needed (a run in shadow places it in the shadow thread there), with the object's version,
+execution scope, guards and duplicate check, the run that made it (`RunId`) and the thread it came from.
+The object's approvers decide it, in its thread, on its page and in their inbox; the run's initiator
+does not through the initiator rule, and four-eyes still applies. An approved one executes in the
+object's scope with the agent's account, from its own copy of the call, through the governed tool
+(never through the MCP re-checks, which concern only `mcp.` tools); the run's own thread keeps the call
+as `not-executed` with `assistant-proposal-placed`. A refused placement does not fail the run: the call
+ends `not-executed` with `assistant-proposal-not-placed` and a `reason` the model reads
+(`NhAssistantPlacementReasons`: `does-not-work-on`, `not-found`, `no-access`, `limit`), a rule handler
+reads `NhAssistantRuleProposal.PlacementReason`, and the audit records `AgentProposalNotPlaced`; a
+placed one answers with the object, `NhAssistantRuleProposal.PlacedAt` names it, and the audit records
+`ApprovalRequested` and `AgentProposalPlaced` about the object. Proposal DTOs name the run with
+`PlacedBy` (`NhAssistantProposalOriginDto`: its thread, the run and its subject type; the subject's id
+and name only for the whole application, which every reader may know). When the run ends, also after a
+failure, the approvers of each object are notified once per object, and the run's summary counts its
+placed proposals per tool and status. The migration `AgentPlacedProposals` adds the column that marks a
+placed proposal.
 
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
@@ -600,6 +642,11 @@ profile and instructions that answer questions about the rules' proposals from t
   needs, or to itself when it must use tools: it then has no rights at all.
 - A technical account with more rights than the agent needs: it lends them to gateway reads.
 - Letting the model read a subject's basic facts through tool calls in every run; brief it.
+- A tool whose input names an object without `[NhAiSubject]` when runs for the whole application or for
+  another object propose it: the proposal then waits in the run's own thread and is authorized in the
+  run's scope instead of the object's.
+- Trusting the model, or a rule, to choose where a proposal waits; declare the subject and let the
+  platform check the object.
 - Splitting one role into several agents with their own threads only to give its tasks separate
   tools, models or budgets; declare skills. Use separate agents for separate roles.
 - Model triage for events a trigger or rule can route.
@@ -846,7 +893,19 @@ object may not start, and that `GET subjects/{type}/{id}/agents` lists only agen
 subject and that the caller may use, with the newest run, the first 300 characters of its result and
 the open, unexpired proposals. Assert that a run started by hand that acts for the accountable account
 leaves a personal MCP server out while a scheduled run and the accountable person's own start use
-that person's connection.
+that person's connection. Assert that the generator emits a declared subject, keeps the contract hash of tools
+without one and refuses invalid declarations. On both providers, run an agent for the whole application
+whose rules propose a tool with a declared subject for other objects and assert that each proposal
+waits deferred in the agent's thread at its object with the run, the origin, the object's version and
+execution scope, that the run's thread keeps the call as placed, that a type the agent does not work on,
+a missing object, another tenant, another division for a per-division agent, an account without read
+access and the run's limit are refused with their reasons without failing the run, that a call about
+the run's own object and a tool without a declared subject stay in the run's thread, that a run in
+shadow places shadow proposals in the shadow thread, that duplicates are refused, that the object's
+approver (not the run's initiator, not a reader) decides it and that it executes in the object's scope
+with the agent's account; assert that the inbox and the thread list it with `PlacedBy`, and that the
+proposals of the whole application reach its approvers in the inbox, the subject summary and the
+notifications.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297 and SPM-301 to SPM-303 are the executable
 references.
 

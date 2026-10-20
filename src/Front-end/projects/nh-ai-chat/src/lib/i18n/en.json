@@ -236,7 +236,9 @@
       "assistant-proposal-stale": "Not run: the proposal no longer applied.",
       "assistant-proposal-execution-failed": "The approved proposal could not be run.",
       "assistant-proposal-already-open": "Not proposed again: the same proposal already waits.",
-      "assistant-proposal-recently-rejected": "Not proposed again: people rejected it recently."
+      "assistant-proposal-recently-rejected": "Not proposed again: people rejected it recently.",
+      "assistant-proposal-placed": "Proposed at its object; waits for that object's approvers",
+      "assistant-proposal-not-placed": "Not proposed: the object it concerns does not accept it."
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",
@@ -388,7 +390,9 @@
       "assistant-mcp-oauth-not-configured": "The application has no OAuth redirect address for MCP servers. Ask the developers to configure it.",
       "assistant-mcp-too-many-authorizations": "Too many authorizations are still open. Finish or wait for them, then try again.",
       "assistant-mcp-authorization-cancelled": "The authorization window was closed before it finished.",
-      "assistant-mcp-popup-blocked": "The browser blocked the authorization window. Allow pop-ups for this site and try again."
+      "assistant-mcp-popup-blocked": "The browser blocked the authorization window. Allow pop-ups for this site and try again.",
+      "assistant-proposal-placed": "The proposal waits at the object it concerns, for that object's approvers.",
+      "assistant-proposal-not-placed": "The proposal was not placed at the object it concerns."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",
@@ -1498,7 +1502,15 @@
         "dismiss": "Dismiss",
         "dismiss-label": "Dismiss the closed proposal: {{summary}}",
         "show-successor": "Show the newer proposal",
-        "stale-by": "Overtaken by {{actor}}"
+        "stale-by": "Overtaken by {{actor}}",
+        "placed-by": {
+          "application": "Proposed by a run for the whole application",
+          "division": "Proposed by a run for the whole application in {{name}}",
+          "object": "Proposed by a run for another object",
+          "object-named": "Proposed by a run for another object: {{type}}",
+          "open": "Open the run's conversation",
+          "open-label": "Open the conversation of the run that proposed this"
+        }
       },
       "run": {
         "empty": "No runs yet.",

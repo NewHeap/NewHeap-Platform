@@ -1,6 +1,7 @@
 import {
   AdminAgent,
   AgentLatestRun,
+  AgentProposal,
   AgentObjectAgent,
   AgentObjectAgents,
   AgentRun,
@@ -19,6 +20,8 @@ export interface NhAssistantMockAgentRunContext {
   agents(): AdminAgent[];
   /** Whether the caller passes the administration policy. */
   administers(): boolean;
+  /** The scenario's proposals in a thread; `null` when it lists none there. */
+  threadProposals?(conversationId: string): AgentProposal[] | null;
 }
 
 interface StoredThread {
@@ -41,7 +44,8 @@ const activeStatuses = ['queued', 'running', 'waiting-for-approval'];
  * the agent's run policy, by default the administration policy; what the agent works on, with its
  * scope; its required policy; shadow for administrators only), records a run that ends at once as the
  * scenario's `runNow` says, and `GET subjects/{type}/{id}/agents`, `GET threads` and the thread's runs
- * show it. The thread's proposals, memory, artifacts and consultations are empty.
+ * show it. The thread's memory, artifacts and consultations are empty; its proposals are those the
+ * scenario lists in it.
  */
 export class NhAssistantMockAgentRuns {
   private readonly threads = new Map<string, StoredThread>();
@@ -63,6 +67,10 @@ export class NhAssistantMockAgentRuns {
       return method === 'GET' ? this.lookup(query, language) : { status: 405 };
     }
     if (segments.length === 3 && method === 'GET') {
+      const listed = segments[2] === 'proposals' ? this.context.threadProposals?.(segments[1]) ?? null : null;
+      if (listed) {
+        return { status: 200, body: listed };
+      }
       const thread = [...this.threads.values()].find(item => item.conversationId === segments[1]);
       if (!thread) {
         return failure(404, 'assistant-conversation-not-found');

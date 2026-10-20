@@ -37,6 +37,12 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
     /// </summary>
     public const string FollowUpScheduleId = "project-follow-up-weekly";
 
+    /// <summary>
+    /// SPM-302: the follow-up's skill that counts the open projects and proposes to complete the
+    /// finished ones, each at its project.
+    /// </summary>
+    public const string FollowUpSkill = ProjectFollowUpRouting.CompletionSkill;
+
     private const string Reason = "Development sample of an agent that works on its own";
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -170,7 +176,11 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
     /// may run for the whole application and whose results for it everyone who reads projects sees,
     /// answering to <paramref name="operationsAccountId"/>. Its schedule every Monday names no subject
     /// set, so each tick starts one run for the whole application, in the agent's thread of
-    /// <c>nh-system/global</c>; the seeder puts it live.
+    /// <c>nh-system/global</c>, in its <c>complete-projects</c> skill, which proposes to complete the
+    /// finished projects, each placed at its project; its routing rules send a run by hand for the whole
+    /// application there as well. The seeder puts the skill and the schedule live. A development
+    /// database that has the follow-up of an earlier version keeps it; remove the agent in the
+    /// administration to seed this one.
     /// </summary>
     public static async Task<TaskResult> SeedFollowUpAsync(
         IServiceProvider services,
@@ -208,29 +218,48 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
 
         var steps = new Func<Task<TaskResult>>[]
         {
+            // SPM-302: its routing rules send a run for the whole application, also one a project
+            // manager starts by hand, to the complete-projects skill.
             async () => await configuration.SaveRunSettingsAsync(
                 FollowUpAgentId,
                 new NhAssistantAgentRunSettingsRequest(
                     NhAssistantAccountabilities.ServiceAccount,
                     operationsAccountId.ToString("D"),
                     ApprovalPolicy: SampleIntakeReviewerComposition.ApprovalPolicyId,
-                    MaxRunsPerSubjectPerDay: 2,
+                    // The weekly tick and a few runs by hand a day for the whole application.
+                    MaxRunsPerSubjectPerDay: 10,
+                    RuleHandler: SampleProjectStarterComposition.FollowUpRoutingRules,
+                    Reason: Reason),
+                actorId,
+                cancellationToken),
+            // SPM-302: the skill counts the open projects and proposes to complete the finished ones;
+            // each proposal is placed at its project, where the project's approvers decide.
+            async () => await configuration.SaveSkillAsync(
+                FollowUpAgentId,
+                FollowUpSkill,
+                new NhAssistantDataSkillRequest(
+                    "Counts the open projects and proposes to complete the finished ones at their projects.",
+                    RuleHandler: SampleProjectStarterComposition.FollowUpCompletionRules,
+                    Tools: [ProjectAiTools.ChangeStatusToolId],
                     Reason: Reason),
                 actorId,
                 cancellationToken),
             // Without a subject set the schedule runs for the whole application, which the
-            // follow-up works on.
+            // follow-up works on, in the skill.
             async () => await configuration.SaveTriggerAsync(
                 FollowUpAgentId,
                 FollowUpScheduleId,
                 new NhAssistantDataTriggerRequest(
                     NhAssistantDataTriggerSources.Schedule,
+                    FollowUpSkill,
                     Cron: "0 7 * * 1",
                     TimeZone: "Europe/Amsterdam",
                     Message: "It is Monday: count the open projects of the application and propose which ones can be completed.",
                     Reason: Reason),
                 actorId,
                 cancellationToken),
+            async () => await services.GetRequiredService<INhAssistantAgentControl>()
+                .SetSkillShadowAsync(FollowUpAgentId, FollowUpSkill, false, actorId, Reason, cancellationToken),
             async () => await configuration.SetTriggerShadowAsync(FollowUpAgentId, FollowUpScheduleId, false, actorId, Reason, cancellationToken)
         };
         foreach (var step in steps)
