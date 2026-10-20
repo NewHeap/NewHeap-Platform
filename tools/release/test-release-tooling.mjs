@@ -8,6 +8,9 @@ import {
   assertPluginReleaseBaseline,
   bumpVersion,
   isSingleVersionBump,
+  linkedPackageLockDrift,
+  linkedPackageLocks,
+  linkedReleasePackages,
   loadReleaseManifest,
   missingTargetFrameworks,
   projectTargetFrameworks,
@@ -17,6 +20,7 @@ import {
   releaseSelection,
   releaseTag,
   repositoryRoot,
+  syncLinkedPackageLock,
   validateReleaseNoteSections
 } from './lib.mjs';
 import { validateNpmArtifactEntries, validateNugetArtifactEntries } from './validate-package-artifacts.mjs';
@@ -108,6 +112,65 @@ assert.match(validateNpmArtifactEntries({
 }).join('\n'), /contains a nested package archive/);
 
 const manifest = await loadReleaseManifest();
+
+/**
+ * A package lock as npm writes it for the sample front end: its own package, the linked release
+ * packages from source and a registry package with the same name pattern.
+ */
+function linkedLockFixture(aiChatVersion, commonVersion) {
+  return {
+    name: 'sample-front-end',
+    version: '0.1.0',
+    lockfileVersion: 3,
+    requires: true,
+    packages: {
+      '': {
+        name: 'sample-front-end',
+        version: '0.1.0',
+        dependencies: {
+          '@newheap/platform-ai-chat': 'file:../../../../src/Front-end/projects/nh-ai-chat',
+          '@newheap/platform-common': 'file:../../../../src/Front-end/projects/nh-common'
+        }
+      },
+      '../../../../src/Front-end/projects/nh-ai-chat': { name: '@newheap/platform-ai-chat', version: aiChatVersion, license: 'Apache-2.0' },
+      '../../../../src/Front-end/projects/nh-common': { name: '@newheap/platform-common', version: commonVersion, license: 'Apache-2.0' },
+      'node_modules/@newheap/platform-ai-chat': { resolved: '../../../../src/Front-end/projects/nh-ai-chat', link: true },
+      'node_modules/@newheap/platform-common': { resolved: '../../../../src/Front-end/projects/nh-common', link: true },
+      'node_modules/@newheap/registry-only': { version: '0.0.1', resolved: 'https://registry.npmjs.org/@newheap/registry-only/-/registry-only-0.0.1.tgz' }
+    }
+  };
+}
+
+// The sample's lock records the versions of the release packages it links from source.
+assert.ok(linkedPackageLocks.includes('examples/SampleProjectManagement/src/Front-end/package-lock.json'));
+const sampleLockPath = resolve(repositoryRoot, linkedPackageLocks[0]);
+const linkedPackages = linkedReleasePackages(manifest, sampleLockPath);
+assert.deepEqual(linkedPackages.get('../../../../src/Front-end/projects/nh-ai-chat'),
+  { name: '@newheap/platform-ai-chat', version: manifest.units['npm-ai-chat'].version });
+assert.deepEqual(linkedReleasePackages(manifest, sampleLockPath, new Map([['npm-ai-chat', '9.9.9']]))
+  .get('../../../../src/Front-end/projects/nh-ai-chat').version, '9.9.9');
+const currentLock = linkedLockFixture(manifest.units['npm-ai-chat'].version, manifest.units['npm-platform-common'].version);
+assert.deepEqual(linkedPackageLockDrift(currentLock, linkedPackages), []);
+assert.equal(syncLinkedPackageLock(currentLock, linkedPackages).lock, currentLock, 'A lock without drift stays the same object.');
+const staleLock = linkedLockFixture('0.8.1', '1.4.0');
+assert.deepEqual(linkedPackageLockDrift(staleLock, linkedPackages), [
+  { key: '../../../../src/Front-end/projects/nh-ai-chat', name: '@newheap/platform-ai-chat', locked: '0.8.1', version: manifest.units['npm-ai-chat'].version },
+  { key: '../../../../src/Front-end/projects/nh-common', name: '@newheap/platform-common', locked: '1.4.0', version: manifest.units['npm-platform-common'].version }
+]);
+const synced = syncLinkedPackageLock(staleLock, linkedPackages);
+assert.equal(synced.drift.length, 2);
+assert.deepEqual(synced.lock, currentLock, 'Syncing corrects exactly the linked versions.');
+assert.equal(staleLock.packages['../../../../src/Front-end/projects/nh-ai-chat'].version, '0.8.1', 'Syncing must not mutate its input.');
+const renamedLock = linkedLockFixture('0.8.1', '1.4.0');
+renamedLock.packages['../../../../src/Front-end/projects/nh-ai-chat'].name = '@newheap/other';
+delete renamedLock.packages['node_modules/@newheap/platform-common'];
+assert.deepEqual(linkedPackageLockDrift(renamedLock, linkedPackages), [],
+  'Only linked entries of the same release package count.');
+assert.deepEqual(
+  linkedPackageLockDrift(JSON.parse(await readFile(sampleLockPath, 'utf8')), linkedPackages),
+  [],
+  'The sample lock must record the current versions of the packages it links.');
+
 const notesDirectory = await mkdtemp(resolve(tmpdir(), 'newheap-release-notes-'));
 try {
   const nextPath = resolve(notesDirectory, 'v-next.md');
@@ -210,6 +273,26 @@ try {
     assert.equal(await readFile(fixtureNext, 'utf8'), dryRun ? original : ['# v-next', media, npm, plugin].join('\n\n') + '\n');
   }
   assert.equal(await readFile(resolve(fixture, 'docs/release-notes', `v${commonRelease.version}.md`), 'utf8'), `# v${commonRelease.version}\n\n${common}\n`);
+
+  // Preparing an npm release refreshes the version that a sample's package lock records for the
+  // package it links from source, and leaves the other linked packages alone.
+  const aiChat = manifest.units['npm-ai-chat'];
+  const platformCommon = manifest.units['npm-platform-common'];
+  const fixtureLockPath = resolve(fixture, linkedPackageLocks[0]);
+  await mkdir(resolve(fixture, aiChat.packageJson, '..'), { recursive: true });
+  await writeFile(resolve(fixture, aiChat.packageJson), `${JSON.stringify({ name: aiChat.packageName, version: aiChat.version }, null, 2)}\n`);
+  await mkdir(resolve(fixtureLockPath, '..'), { recursive: true });
+  const fixtureLock = linkedLockFixture(aiChat.version, platformCommon.version);
+  await writeFile(fixtureLockPath, `${JSON.stringify(fixtureLock, null, 2)}\n`);
+  const preparedNpm = spawnSync(process.execPath, [resolve(fixture, 'tools/release/prepare-release.mjs'),
+    '--component', 'npm-ai-chat', '--bump', 'minor'], { cwd: fixture, encoding: 'utf8' });
+  assert.equal(preparedNpm.status, 0, preparedNpm.stderr);
+  const refreshedLock = JSON.parse(await readFile(fixtureLockPath, 'utf8'));
+  assert.equal(refreshedLock.packages['../../../../src/Front-end/projects/nh-ai-chat'].version, bumpVersion(aiChat.version, 'minor'),
+    'Release preparation must refresh the linked package version in the sample lock.');
+  assert.equal(refreshedLock.packages['../../../../src/Front-end/projects/nh-common'].version, platformCommon.version,
+    'Release preparation must not change linked packages it does not release.');
+  assert.deepEqual(Object.keys(refreshedLock.packages), Object.keys(fixtureLock.packages), 'The lock must keep npm\'s key order.');
 } finally {
   await rm(notesDirectory, { recursive: true, force: true });
 }

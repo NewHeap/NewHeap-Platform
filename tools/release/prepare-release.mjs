@@ -1,9 +1,11 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { access, readFile, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import {
   assertPluginReleaseBaseline,
   bumpVersion,
+  linkedPackageLocks,
+  linkedReleasePackages,
   loadReleaseManifest,
   parseArguments,
   prepareReleaseNotes,
@@ -13,6 +15,7 @@ import {
   releaseTag,
   repositoryRoot,
   resolveRepositoryPath,
+  syncLinkedPackageLock,
   validateReleaseNoteSections,
   writeJson
 } from './lib.mjs';
@@ -108,6 +111,24 @@ for (const { component, unit, previousVersion, version } of releases) {
     const pattern = /(<PackageVersion Include="NewHeap\.Platform\.Common" Version=")[^"]+("\s*\/?>)/;
     if (!pattern.test(source)) throw new Error('Directory.Packages.props has no NewHeap.Platform.Common package version.');
     textWrites.push([versionsPath, source.replace(pattern, `$1${version}$2`)]);
+  }
+}
+
+// Applications in this repository that link npm release packages from source record their
+// versions in their package lock; keep those locks in step with the bumped packages.
+const releasedVersions = new Map(releases.map(({ component, version }) => [component, version]));
+for (const lockPath of linkedPackageLocks.map(resolveRepositoryPath)) {
+  try {
+    await access(lockPath);
+  } catch {
+    continue;
+  }
+
+  const { lock, drift } = syncLinkedPackageLock(
+    await readJson(lockPath),
+    linkedReleasePackages(manifest, lockPath, releasedVersions));
+  if (drift.length > 0) {
+    jsonWrites.push([lockPath, lock]);
   }
 }
 

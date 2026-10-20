@@ -6,6 +6,15 @@ export const toolDirectory = dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = resolve(toolDirectory, '..', '..');
 export const releaseManifestPath = resolve(repositoryRoot, 'release', 'manifest.json');
 
+/**
+ * Package locks in this repository that install npm release packages from their source folder
+ * (`file:` dependencies). npm records the linked package's version in the lock, so a version bump
+ * leaves the lock stale until the lock is refreshed with it.
+ */
+export const linkedPackageLocks = [
+  'examples/SampleProjectManagement/src/Front-end/package-lock.json'
+];
+
 const stableSemverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const packageSemverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
@@ -273,6 +282,68 @@ export async function prepareReleaseNotes(releases, directory = resolve(reposito
     writes.push([nextPath, `${['# v-next', ...pending].join('\n\n')}\n`]);
   }
   return writes;
+}
+
+/**
+ * The npm release packages a lock may link, keyed by their package directory relative to the
+ * lock's directory as npm writes it (forward slashes), with the version each package has.
+ * `versions` maps a release unit id to the version to use; units it does not name keep the
+ * manifest's version.
+ */
+export function linkedReleasePackages(manifest, lockPath, versions = new Map()) {
+  const lockDirectory = dirname(lockPath);
+  const packages = new Map();
+  for (const [id, unit] of Object.entries(manifest.units)) {
+    if (unit.kind !== 'npm') {
+      continue;
+    }
+
+    const packageDirectory = dirname(resolve(repositoryRoot, unit.packageJson));
+    const key = relative(lockDirectory, packageDirectory).replaceAll('\\', '/');
+    packages.set(key, { name: unit.packageName, version: versions.get(id) ?? unit.version });
+  }
+  return packages;
+}
+
+/**
+ * Compares the linked packages recorded in a parsed package lock with `packages` (from
+ * `linkedReleasePackages`) and returns each difference as `{ key, name, locked, version }`.
+ * Only packages the lock links (`"link": true`) count; other entries never change.
+ */
+export function linkedPackageLockDrift(lock, packages) {
+  const drift = [];
+  const linkedKeys = new Set(Object.values(lock?.packages ?? {})
+    .filter(entry => entry?.link === true && typeof entry.resolved === 'string')
+    .map(entry => entry.resolved));
+  for (const key of linkedKeys) {
+    const expected = packages.get(key);
+    const entry = lock.packages[key];
+    if (!expected || !entry || entry.name !== expected.name) {
+      continue;
+    }
+    if (entry.version !== expected.version) {
+      drift.push({ key, name: expected.name, locked: entry.version, version: expected.version });
+    }
+  }
+  return drift;
+}
+
+/**
+ * Returns a copy of a parsed package lock whose linked release packages carry the versions in
+ * `packages`, and the differences it corrected. The lock keeps its key order, so it serializes as
+ * npm writes it.
+ */
+export function syncLinkedPackageLock(lock, packages) {
+  const drift = linkedPackageLockDrift(lock, packages);
+  if (drift.length === 0) {
+    return { lock, drift };
+  }
+
+  const updated = structuredClone(lock);
+  for (const { key, version } of drift) {
+    updated.packages[key].version = version;
+  }
+  return { lock: updated, drift };
 }
 
 export function addLocalNugetSource(configuration, source, name = 'newheap-release-local') {

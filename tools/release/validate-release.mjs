@@ -1,6 +1,9 @@
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
+  linkedPackageLockDrift,
+  linkedPackageLocks,
+  linkedReleasePackages,
   loadReleaseManifest,
   missingTargetFrameworks,
   projectTargetFrameworks,
@@ -399,6 +402,22 @@ for (const workflowPath of workflowPaths) {
 failures.push(...validateReleaseNoteSections(
   manifest,
   await readFile(resolve(repositoryRoot, 'docs', 'release-notes', 'v-next.md'), 'utf8')));
+
+// A lock that links release packages from source must record their current versions; release
+// preparation refreshes them, so a difference means a lock was committed out of step.
+for (const lockRelativePath of linkedPackageLocks) {
+  const lockPath = resolveRepositoryPath(lockRelativePath);
+  let lock;
+  try {
+    lock = await readJson(lockPath);
+  } catch (error) {
+    failures.push(`${lockRelativePath}: cannot read the package lock (${error.code ?? error.message}).`);
+    continue;
+  }
+  for (const { name, locked, version } of linkedPackageLockDrift(lock, linkedReleasePackages(manifest, lockPath))) {
+    failures.push(`${lockRelativePath}: links ${name} ${locked}, but the package is ${version}; refresh the lock (npm install in its directory) or run release preparation.`);
+  }
+}
 
 if (failures.length > 0) throw new Error(failures.join('\n'));
 console.log(`Validated ${Object.keys(manifest.units).length} release units, ${workflowPaths.length} GitHub workflows and the pending release notes.`);
