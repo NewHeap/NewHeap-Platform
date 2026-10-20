@@ -1,27 +1,29 @@
 // Runs the tests a change reaches instead of every suite: the .NET test projects that depend on a
 // changed project, one database provider unless the change concerns persistence, the Angular
-// libraries that changed and the sample checks when the sample changed.
+// libraries that changed and the sample checks when the sample changed. With both providers a test
+// project is built once and its SQL Server variants run in a second process next to the other tests.
 //
 //   npm run test:affected                    uncommitted changes: what you are working on now
 //   npm run test:affected -- --branch        everything since the merge base with origin/main (a whole PR)
 //   npm run test:affected -- --base <ref>    everything since <ref>, uncommitted included
-//   npm run test:affected -- --all-providers run SQL Server and PostgreSQL variants
+//   npm run test:affected -- --all-providers run SQL Server and PostgreSQL variants, side by side
 //   npm run test:affected -- --all           every test project, provider and library
 //   npm run test:affected -- --dry-run       print the plan only
 //   npm run test:affected -- --files a,b     plan and run for these files instead of the git changes
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   affectedFrontEndLibraries,
   affectedTestProjects,
   angularTestArguments,
+  dotnetTestArguments,
   isTestProject,
   needsAllProviders,
   normalizePath,
   parseProjectReferences,
-  providerFilter,
+  providerRuns,
   testableFrontEndLibraries
 } from './affected-lib.mjs';
 
@@ -120,23 +122,69 @@ async function frontEndLibraries() {
   return testableFrontEndLibraries(angular.projects, await findSpecFiles('projects'));
 }
 
-function run(label, command, commandArgs, cwd) {
-  const started = Date.now();
-  const result = spawnSync(command, commandArgs, {
-    cwd: resolve(repositoryRoot, cwd),
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-    maxBuffer: 256 * 1024 * 1024
-  });
-  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+const windowsShell = process.platform === 'win32';
+
+/** Prints one line per process and, when it failed, the end of its output. */
+function report(label, started, status, output) {
   const seconds = Math.round((Date.now() - started) / 1000);
-  const passed = result.status === 0;
+  const passed = status === 0;
   const summary = output.split(/\r?\n/).reverse().find(line => /Passed!|Failed!|TOTAL:|Executed .* of/.test(line))?.trim();
   console.log(`${passed ? 'PASS' : 'FAIL'} ${label} (${seconds}s)${summary ? ` - ${summary.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')}` : ''}`);
   if (!passed) {
     console.log(output.split(/\r?\n/).slice(-60).join('\n'));
   }
   return passed;
+}
+
+/**
+ * The file, arguments and options that start a process. On Windows it starts through the shell as
+ * one command line: the shell would join the arguments anyway, and Node warns about separate
+ * arguments together with a shell (DEP0190).
+ */
+function processStart(command, commandArgs, cwd) {
+  const options = { cwd: resolve(repositoryRoot, cwd) };
+  return windowsShell
+    ? [[command, ...commandArgs].join(' '), [], { ...options, shell: true }]
+    : [command, commandArgs, options];
+}
+
+function run(label, command, commandArgs, cwd) {
+  const started = Date.now();
+  const [file, fileArgs, options] = processStart(command, commandArgs, cwd);
+  const result = spawnSync(file, fileArgs, { ...options, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+  return report(label, started, result.status, `${result.stdout ?? ''}${result.stderr ?? ''}`);
+}
+
+/** Like `run` without blocking, so that processes run side by side; each reports when it ends. */
+function runAlongside(label, command, commandArgs, cwd) {
+  const started = Date.now();
+  return new Promise(done => {
+    const child = spawn(...processStart(command, commandArgs, cwd));
+    const output = [];
+    child.stdout.on('data', chunk => output.push(chunk));
+    child.stderr.on('data', chunk => output.push(chunk));
+    child.on('error', error => output.push(Buffer.from(String(error))));
+    child.on('close', status => done(report(label, started, status, Buffer.concat(output).toString('utf8'))));
+  });
+}
+
+/**
+ * Tests one project with one process per provider run. Several runs share one build, made first,
+ * and run at the same time.
+ */
+async function testProject(project, runs) {
+  if (runs.length === 1) {
+    return run(project, 'dotnet', dotnetTestArguments(project, runs[0].filter, { windowsShell }), '.');
+  }
+  if (!run(`${project} (build)`, 'dotnet', ['build', project, '-v', 'q', '-nologo'], '.')) {
+    return false;
+  }
+  const results = await Promise.all(runs.map(providerRun => runAlongside(
+    `${project} [${providerRun.label}]`,
+    'dotnet',
+    dotnetTestArguments(project, providerRun.filter, { noBuild: true, windowsShell }),
+    '.')));
+  return results.every(Boolean);
 }
 
 const everything = option('--all');
@@ -153,7 +201,7 @@ const { graph, tests } = await projectGraph();
 const { testable: libraries, withoutSpecs: librariesWithoutSpecs } = await frontEndLibraries();
 const testProjects = everything ? [...tests].sort() : affectedTestProjects(files, graph, tests);
 const allProviders = everything || option('--all-providers') || needsAllProviders(files);
-const filter = providerFilter(allProviders);
+const runs = providerRuns(allProviders);
 const angularLibraries = everything ? libraries : affectedFrontEndLibraries(files, libraries);
 const sampleChanged = everything || files.some(file => file.startsWith(`${sampleRoot}/`));
 
@@ -164,7 +212,10 @@ console.log(everything
     : branchScope
       ? `Scope: ${files.length} changed files since ${base.slice(0, 10)}.`
       : `Scope: ${files.length} uncommitted changed files (--branch covers everything since origin/main).`);
-console.log(`Database providers: ${allProviders ? 'SQL Server and PostgreSQL' : 'PostgreSQL only (no persistence change; --all-providers runs both)'}.`);
+console.log(allProviders
+  ? 'Database providers: SQL Server and PostgreSQL. Each project is built once, then two test processes run at the same time: '
+    + runs.map(providerRun => `${providerRun.label} (--filter "${providerRun.filter}")`).join(' next to ') + '.'
+  : `Database providers: PostgreSQL only (--filter "${runs[0].filter}"; no persistence change; --all-providers runs both).`);
 console.log(`.NET test projects: ${testProjects.length === 0 ? 'none' : ''}`);
 testProjects.forEach(project => console.log(`  ${project}`));
 console.log(`Angular libraries: ${angularLibraries.length === 0 ? 'none' : angularLibraries.join(', ')}`);
@@ -179,12 +230,7 @@ if (option('--dry-run')) {
 
 let passed = true;
 for (const project of testProjects) {
-  const testArgs = ['test', project, '-v', 'q', '-nologo'];
-  if (filter) {
-    // Through the Windows shell the filter needs quotes; spawned directly it does not.
-    testArgs.push('--filter', process.platform === 'win32' ? `"${filter}"` : filter);
-  }
-  passed = run(project, 'dotnet', testArgs, '.') && passed;
+  passed = await testProject(project, runs) && passed;
 }
 for (const library of angularLibraries) {
   passed = run(`ng test ${library}`, 'npx', angularTestArguments(library), frontEndRoot) && passed;

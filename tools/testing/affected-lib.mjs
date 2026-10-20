@@ -172,9 +172,37 @@ export function needsAllProviders(changedFiles) {
 }
 
 /**
- * The `dotnet test` filter that runs the tests of one provider: SQL Server variants are left out and
- * PostgreSQL, the faster container, stands for both. `null` runs every test.
+ * The `dotnet test` processes of one test project, each with its filter. Without a persistence change
+ * one process leaves the SQL Server variants out and PostgreSQL, the faster container, stands for
+ * both. With both providers the SQL Server variants and all other tests run as two processes at the
+ * same time: together they run every test once, each starts only the database container its tests
+ * use, and a test class no longer runs its SQL Server and PostgreSQL variants one after the other.
+ * @returns {{ label: string, filter: string }[]}
  */
-export function providerFilter(allProviders) {
-  return allProviders ? null : 'DisplayName!~SqlServer';
+export function providerRuns(allProviders) {
+  const withoutSqlServer = 'DisplayName!~SqlServer';
+  return allProviders
+    ? [
+      { label: 'SQL Server', filter: 'DisplayName~SqlServer' },
+      { label: 'PostgreSQL and other tests', filter: withoutSqlServer }
+    ]
+    : [{ label: 'PostgreSQL', filter: withoutSqlServer }];
+}
+
+/**
+ * The arguments of `dotnet test` for one provider process. Processes that run at the same time test
+ * one build made beforehand (`noBuild`): building in each would write the same files. Through the
+ * Windows shell the filter needs quotes; spawned directly it does not.
+ */
+export function dotnetTestArguments(project, filter, { noBuild = false, windowsShell = false } = {}) {
+  return [
+    'test',
+    project,
+    '-v',
+    'q',
+    '-nologo',
+    ...(noBuild ? ['--no-build'] : []),
+    '--filter',
+    windowsShell ? `"${filter}"` : filter
+  ];
 }

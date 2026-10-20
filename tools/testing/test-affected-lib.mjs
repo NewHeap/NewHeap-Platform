@@ -4,11 +4,12 @@ import {
   affectedFrontEndLibraries,
   affectedTestProjects,
   angularTestArguments,
+  dotnetTestArguments,
   isTestProject,
   needsAllProviders,
   ownerProject,
   parseProjectReferences,
-  providerFilter,
+  providerRuns,
   resolveRelative,
   testableFrontEndLibraries
 } from './affected-lib.mjs';
@@ -81,7 +82,18 @@ assert.ok(needsAllProviders(['src/Back-end/Libraries/NewHeap.Platform.AI.Chat.Sq
 assert.ok(needsAllProviders(['src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs']));
 assert.ok(needsAllProviders(['src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs']));
 assert.ok(!needsAllProviders(['src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NhConfigurationSecrets.cs']));
-assert.equal(providerFilter(true), null);
-assert.equal(providerFilter(false), 'DisplayName!~SqlServer');
+// One provider leaves the SQL Server variants out; both providers split every test over two processes.
+assert.deepEqual(providerRuns(false), [{ label: 'PostgreSQL', filter: 'DisplayName!~SqlServer' }]);
+assert.deepEqual(providerRuns(true), [
+  { label: 'SQL Server', filter: 'DisplayName~SqlServer' },
+  { label: 'PostgreSQL and other tests', filter: 'DisplayName!~SqlServer' }
+]);
+// Processes that run side by side test one build; the Windows shell needs the filter quoted.
+assert.deepEqual(
+  dotnetTestArguments(chatTests, 'DisplayName~SqlServer', { noBuild: true }),
+  ['test', chatTests, '-v', 'q', '-nologo', '--no-build', '--filter', 'DisplayName~SqlServer']);
+assert.deepEqual(
+  dotnetTestArguments(chatTests, 'DisplayName!~SqlServer', { windowsShell: true }),
+  ['test', chatTests, '-v', 'q', '-nologo', '--filter', '"DisplayName!~SqlServer"']);
 
-console.log('Verified affected test selection: project graph, shared build files, front-end libraries, their headless test run and providers.');
+console.log('Verified affected test selection: project graph, shared build files, front-end libraries, their headless test run, providers and their test processes.');
