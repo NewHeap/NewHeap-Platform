@@ -22,7 +22,7 @@
     "@angular/forms": "20.3.32",
     "@angular/platform-browser": "20.3.32",
     "@angular/platform-browser-dynamic": "20.3.32",
-    "@angular/router": "20.3.32",
+    "@angular/router": "20.3.33",
     "@microsoft/signalr": "^10.0.11",
     "@msgpack/msgpack": "^2.8.0",
     "@newheap/nh-toastr": "file:../../../../src/Front-end/projects/nh-toastr",
