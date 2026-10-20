@@ -151,7 +151,8 @@ export function angularTestArguments(library) {
 
 /**
  * Changes that concern how data is stored, which must be verified on SQL Server and PostgreSQL:
- * migrations, EF models and contexts, stores, repositories, provider projects and provider tests.
+ * migrations, EF models and contexts, stores, repositories, provider projects, provider tests and
+ * the relational test infrastructure they run on.
  */
 const persistencePatterns = [
   /\/Migrations\//,
@@ -162,8 +163,10 @@ const persistencePatterns = [
   /Repository[^/]*\.cs$/,
   /Store\.cs$/,
   /\.(SqlServer|PostgreSql|Sqlite)\//,
-  /ProviderTests\.cs$/,
-  /DatabaseFixture[^/]*\.cs$/
+  /ProviderTest[^/]*\.cs$/,
+  /DatabaseFixture[^/]*\.cs$/,
+  /SchemaPool[^/]*\.cs$/,
+  /\/NewHeap\.Platform\.Tests\.Relational\//
 ];
 
 /** Whether a change needs both database providers. */

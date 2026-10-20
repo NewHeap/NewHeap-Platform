@@ -81,6 +81,10 @@ assert.deepEqual(angularTestArguments('nh-ai-chat'), ['ng', 'test', 'nh-ai-chat'
 assert.ok(needsAllProviders(['src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261019_X.cs']));
 assert.ok(needsAllProviders(['src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs']));
 assert.ok(needsAllProviders(['src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs']));
+// So do the shared relational test servers and pools and the provider tests' own database setup.
+assert.ok(needsAllProviders(['src/Back-end/Tests/NewHeap.Platform.Tests.Relational/RelationalTestServer.cs']));
+assert.ok(needsAllProviders(['src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/ProviderTestDatabase.cs']));
+assert.ok(needsAllProviders(['src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/Infrastructure/AssistantSchemaPool.cs']));
 assert.ok(!needsAllProviders(['src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NhConfigurationSecrets.cs']));
 // One provider leaves the SQL Server variants out; both providers split every test over two processes.
 assert.deepEqual(providerRuns(false), [{ label: 'PostgreSQL', filter: 'DisplayName!~SqlServer' }]);

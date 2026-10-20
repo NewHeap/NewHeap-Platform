@@ -257,6 +257,15 @@ and mutate models where applicable.
   internal `*.Tests` projects.
 - EF Core InMemory helpers are for isolated unit tests only. They do not replace
   SQL Server/PostgreSQL evidence for relational behavior.
+- Relational tests under `src/Back-end/Tests` share one SQL Server and one
+  PostgreSQL container per test process through the non-packable
+  `NewHeap.Platform.Tests.Relational` project; a server starts when a test first
+  uses its provider. Give each test an empty database of its own
+  (`RelationalTestServer.CreateDatabaseAsync`) or lease a prepared one from a
+  `RelationalTestPool`; never start a container per test or class. Write provider
+  tests as theories over `RelationalTestProvider`, so `test:affected` can run the
+  SQL Server cases in a process of their own. The sample's tests share one
+  PostgreSQL container through the `SamplePostgreSqlServer` assembly fixture.
 
 ### Scalar and OpenAPI controller contract
 
