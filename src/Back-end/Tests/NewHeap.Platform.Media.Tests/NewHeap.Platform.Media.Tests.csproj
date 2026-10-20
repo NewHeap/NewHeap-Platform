@@ -18,8 +18,6 @@
     <PackageReference Include="NewHeap.Platform.Common" VersionOverride="$(MediaCommonTestVersion)"
                       Condition="'$(UseLocalNewHeapProjects)' == 'false' and '$(MediaCommonTestVersion)' != ''" />
     <PackageReference Include="SSH.NET" PrivateAssets="all" />
-    <PackageReference Include="Testcontainers.MsSql" />
-    <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
@@ -30,6 +28,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.FileStructureStorage.SqlServer\NewHeap.Platform.Media.FileStructureStorage.SqlServer.csproj" />
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.FileStructureStorage.PostgreSql\NewHeap.Platform.Media.FileStructureStorage.PostgreSql.csproj" />
+    <ProjectReference Include="..\NewHeap.Platform.Tests.Relational\NewHeap.Platform.Tests.Relational.csproj" />
   </ItemGroup>
 
 </Project>

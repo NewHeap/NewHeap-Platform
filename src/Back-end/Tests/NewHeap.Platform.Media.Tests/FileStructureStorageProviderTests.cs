@@ -10,12 +10,11 @@ using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.FileStructureStorage.SqlServer.Entities;
 using NewHeap.Media.Models;
 using NewHeap.Media.Modules;
+using NewHeap.Platform.Tests.Relational;
 using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Testcontainers.MsSql;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace NewHeap.Platform.Media.Tests;
@@ -57,11 +56,10 @@ public sealed class FileStructureStorageProviderTests
     [InlineData("media\"archive")]
     public async Task PostgreSqlUpgradesOriginalSchemaAndPreservesFilesAndFolders(string schema)
     {
-        await using var database = new PostgreSqlBuilder("postgres:15.1").Build();
-        await database.StartAsync();
+        var database = await CreateDatabaseAsync(RelationalTestProvider.PostgreSql);
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddMediaPostgreSqlStorage(database.GetConnectionString(), options =>
+        services.AddMediaPostgreSqlStorage(database, options =>
         {
             options.Scheme = schema;
             options.RunMigrations = false;
@@ -159,12 +157,10 @@ public sealed class FileStructureStorageProviderTests
     public async Task SqlServerUpgradesLookupColumnsInTheConfiguredSchema(string schema, bool migrateOnStartup)
     {
         const string indexedLookupsMigration = "20260606154446_IndexedMediaLibraryLookups";
-        await using var database = new MsSqlBuilder(
-            "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
-        await database.StartAsync();
+        var database = await CreateDatabaseAsync(RelationalTestProvider.SqlServer);
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddMediaSqlServerStorage(database.GetConnectionString(), options =>
+        services.AddMediaSqlServerStorage(database, options =>
         {
             options.Scheme = schema;
             options.RunMigrations = migrateOnStartup;
@@ -257,46 +253,61 @@ public sealed class FileStructureStorageProviderTests
         Assert.NotNull(postgreSqlModel.FindEntityType(typeof(FolderEntity))!.FindProperty("PathNameLookupHash"));
     }
 
-    [Fact]
-    public async Task FileStructureStorageWorksOnBothRelationalProviders()
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task FileStructureStorageWorksOnEachRelationalProvider(RelationalTestProvider provider)
     {
-        await using var sqlServer = new MsSqlBuilder(
-            "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
-        await sqlServer.StartAsync();
-        await VerifyProviderAsync(services => services.AddMediaSqlServerStorage(
-            sqlServer.GetConnectionString(), options => options.RunMigrations = false));
-
-        await using var postgreSql = new PostgreSqlBuilder("postgres:15.1").Build();
-        await postgreSql.StartAsync();
-        await VerifyProviderAsync(services => services.AddMediaPostgreSqlStorage(
-            postgreSql.GetConnectionString(), options => options.RunMigrations = false),
-            verifyQueryPlan: AssertPostgreSqlUsesLookupIndexAsync,
-            migrateDatabase: MigratePostgreSqlWithExistingLookupRowAsync);
+        var database = await CreateDatabaseAsync(provider);
+        if (provider == RelationalTestProvider.SqlServer)
+        {
+            await VerifyProviderAsync(services => services.AddMediaSqlServerStorage(
+                database, options => options.RunMigrations = false));
+        }
+        else
+        {
+            await VerifyProviderAsync(services => services.AddMediaPostgreSqlStorage(
+                database, options => options.RunMigrations = false),
+                verifyQueryPlan: AssertPostgreSqlUsesLookupIndexAsync,
+                migrateDatabase: MigratePostgreSqlWithExistingLookupRowAsync);
+        }
     }
 
-    [Fact]
-    public async Task FileLookupsUseFixedRoundTripsAndLookupIndexesOnBothRelationalProviders()
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task FileLookupsUseFixedRoundTripsAndLookupIndexesOnEachRelationalProvider(RelationalTestProvider provider)
     {
-        await using var sqlServer = new MsSqlBuilder(
-            "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
-        await sqlServer.StartAsync();
-        await VerifyFileLookupsAsync(
-            services => services.AddMediaSqlServerStorage(
-                sqlServer.GetConnectionString(), options => options.RunMigrations = false),
-            "UPDATE STATISTICS",
-            "IX_Files_PathNameLookup",
-            "IX_Folders_PathNameLookup",
-            AssertSqlServerCommandUsesIndexesAsync);
+        var database = await CreateDatabaseAsync(provider);
+        if (provider == RelationalTestProvider.SqlServer)
+        {
+            await VerifyFileLookupsAsync(
+                services => services.AddMediaSqlServerStorage(
+                    database, options => options.RunMigrations = false),
+                "UPDATE STATISTICS",
+                "IX_Files_PathNameLookup",
+                "IX_Folders_PathNameLookup",
+                AssertSqlServerCommandUsesIndexesAsync);
+        }
+        else
+        {
+            await VerifyFileLookupsAsync(
+                services => services.AddMediaPostgreSqlStorage(
+                    database, options => options.RunMigrations = false),
+                "ANALYZE",
+                "IX_Files_PathNameLookupHash",
+                "IX_Folders_PathNameLookupHash",
+                AssertPostgreSqlCommandUsesIndexesAsync);
+        }
+    }
 
-        await using var postgreSql = new PostgreSqlBuilder("postgres:15.1").Build();
-        await postgreSql.StartAsync();
-        await VerifyFileLookupsAsync(
-            services => services.AddMediaPostgreSqlStorage(
-                postgreSql.GetConnectionString(), options => options.RunMigrations = false),
-            "ANALYZE",
-            "IX_Files_PathNameLookupHash",
-            "IX_Folders_PathNameLookupHash",
-            AssertPostgreSqlCommandUsesIndexesAsync);
+    /// <summary>
+    /// An empty database of its own on the provider's server that the test process shares: the
+    /// tests migrate it from the start, so each needs one without the migration history of another.
+    /// </summary>
+    private static async Task<string> CreateDatabaseAsync(RelationalTestProvider provider)
+    {
+        return await RelationalTestServer.For(provider).CreateDatabaseAsync("media");
     }
 
     private static async Task VerifyFileLookupsAsync(Action<IServiceCollection> configureProvider,
