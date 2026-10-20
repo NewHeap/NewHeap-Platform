@@ -98,6 +98,33 @@ assert.doesNotMatch(commonPublicApi, /^export[^;]*'\.\/lib\/sample-cases'/m,
 assert.match(sampleCaseCatalog, /from 'sample-project-management-common\/sample-cases'/,
   'The lazy case catalog page must import the generated cases from their own path.');
 
+// Initial bundle budget: pages that routes load lazily stay out of both initial bundles.
+const commonPages = read('projects/sample-project-management-common/src/pages.ts');
+const managementRoutes = read('projects/management/src/app/sample.routes.ts');
+const workspaceRoutes = read('projects/workspace/src/app/workspace.routes.ts');
+for (const page of ['sample-login.component', 'sample-profile.component', 'background-operations-page.component']) {
+  assert.doesNotMatch(commonPublicApi, new RegExp(`^export[^;]*'\\./lib/${page}'`, 'm'),
+    `The lazy page ${page} must stay out of the shared barrel, which both initial bundles load.`);
+  assert.match(commonPages, new RegExp(`^export \\* from '\\./lib/${page}';`, 'm'),
+    `The lazy page ${page} must be exported from 'sample-project-management-common/pages'.`);
+}
+for (const [name, routes] of [['management', managementRoutes], ['workspace', workspaceRoutes]]) {
+  assert.doesNotMatch(routes, /import\('sample-project-management-common'\)/,
+    `The ${name} routes must not import the shared barrel lazily: that keeps all of its exports in the initial bundle.`);
+  for (const page of ['SampleLoginComponent', 'SampleProfileComponent', 'BackgroundOperationsPageComponent']) {
+    assert.match(routes, new RegExp(`import\\('sample-project-management-common/pages'\\)\\s*\\.then\\(module => module\\.${page}\\)`),
+      `The ${name} routes must load ${page} lazily from 'sample-project-management-common/pages'.`);
+  }
+}
+assert.doesNotMatch(managementRoutes, /from '\.\/app\.component'/,
+  'The management catalog home must be loaded lazily, not with the initial bundle.');
+assert.match(managementRoutes, /loadComponent: \(\) => import\('\.\/app\.component'\)\.then\(module => module\.AppComponent\)/,
+  'The management catalog home must be loaded with loadComponent.');
+assert.match(providers, /provideAnimationsAsync\(\)/,
+  'The shared providers must load the animation engine asynchronously, after the first render.');
+assert.doesNotMatch(providers, /provideAnimations\(\)/,
+  'The shared providers must not put the animation engine in both initial bundles.');
+
 const detachedLoad = pageLifecycleSample.indexOf(
   'void this.loadProjectSummary().catch(error => this.handleProjectSummaryLoadError(error))'
 );

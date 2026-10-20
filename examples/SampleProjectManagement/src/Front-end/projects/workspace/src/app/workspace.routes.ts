@@ -1,9 +1,5 @@
 import { Routes } from '@angular/router';
-import {
-  SampleLoginComponent,
-  SampleProfileComponent,
-  sampleIsAuthenticatedGuard
-} from 'sample-project-management-common';
+import { sampleIsAuthenticatedGuard } from 'sample-project-management-common';
 import { AppComponent } from './app.component';
 import { WorkspaceLayoutComponent } from './workspace-layout/workspace-layout.component';
 
@@ -11,7 +7,8 @@ export const WORKSPACE_ROUTES: Routes = [
   {
     path: 'auth/login',
     title: 'Sign in',
-    component: SampleLoginComponent
+    loadComponent: () => import('sample-project-management-common/pages')
+      .then(module => module.SampleLoginComponent)
   },
   {
     path: '',
@@ -28,16 +25,21 @@ export const WORKSPACE_ROUTES: Routes = [
       {
         path: 'background-operations',
         title: 'Background operations',
-        loadComponent: () => import('sample-project-management-common')
+        loadComponent: () => import('sample-project-management-common/pages')
           .then(module => module.BackgroundOperationsPageComponent)
       },
       {
         path: 'background-operations/:id',
         title: 'Background operation progress',
-        loadComponent: () => import('sample-project-management-common')
+        loadComponent: () => import('sample-project-management-common/pages')
           .then(module => module.BackgroundOperationsPageComponent)
       },
-      { path: 'profile', title: 'Edit profile', component: SampleProfileComponent }
+      {
+        path: 'profile',
+        title: 'Edit profile',
+        loadComponent: () => import('sample-project-management-common/pages')
+          .then(module => module.SampleProfileComponent)
+      }
     ]
   },
   {

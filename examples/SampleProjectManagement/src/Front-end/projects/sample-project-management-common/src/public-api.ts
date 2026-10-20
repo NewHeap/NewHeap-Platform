@@ -13,11 +13,11 @@ export * from './lib/sample-project-auth.pipes';
 export * from './lib/sample-auth.guard';
 export * from './lib/sample-api-connection-state.service';
 export * from './lib/sample-frontend-error-handler';
-export * from './lib/sample-login.component';
-export * from './lib/sample-profile.component';
 export * from './lib/sample-project-management.providers';
 export * from './lib/sample-user-menu.component';
-export * from './lib/background-operations-page.component';
 
 // The generated case catalog is imported from 'sample-project-management-common/sample-cases'
 // by the lazy catalog page. Re-exporting it here would put it in both initial bundles.
+// The pages that routes load lazily (sign in, profile, background operations) come from
+// 'sample-project-management-common/pages': a route that imports this barrel dynamically keeps every
+// export of it, so lazy pages exported here would load with both initial bundles.

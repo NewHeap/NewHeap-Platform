@@ -109,7 +109,11 @@ lazy route guarded by the host's admin permission (for example
 `provideNhAssistant`. The panel links to it only when the server reports
 `canAdminister`, and the page shows a no-access state otherwise, so the host guard,
 the server status and the admin policy on the endpoints agree. The separate entry
-point keeps the administration out of the initial bundle.
+point keeps the administration out of the initial bundle. Load the pages that show the
+administration, boards and inboxes with `loadComponent`, and never import one of the
+application's own barrels lazily: a dynamic import keeps all exports of the module, so a barrel
+the shell imports statically brings every page it exports into the initial bundle. The root entry
+point, with the launcher, panel, store and bundled texts, loads with the application.
 
 Keep the bundled `en` and `nl` texts (`translations: 'bundled'`); a host language with
 a region, such as `nl-NL`, receives the texts of its base language, so do not merge the

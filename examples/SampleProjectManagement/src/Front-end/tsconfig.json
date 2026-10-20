@@ -15,6 +15,9 @@
       ],
       "sample-project-management-common/sample-cases": [
         "./projects/sample-project-management-common/src/lib/sample-cases"
+      ],
+      "sample-project-management-common/pages": [
+        "./projects/sample-project-management-common/src/pages"
       ]
     },
     "esModuleInterop": true,

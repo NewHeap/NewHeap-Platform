@@ -8,19 +8,15 @@ import {
   NhIsOneClaimGrantedGuard,
   NhIsOnePermissionGrantedGuard
 } from '@newheap/platform-common';
-import {
-  SampleLoginComponent,
-  SampleProfileComponent,
-  sampleIsAuthenticatedGuard
-} from 'sample-project-management-common';
-import { AppComponent } from './app.component';
+import { sampleIsAuthenticatedGuard } from 'sample-project-management-common';
 import { ManagementLayoutComponent } from './management-layout/management-layout.component';
 
 export const SAMPLE_ROUTES: Routes = [
   {
     path: 'auth/login',
     title: 'Sign in',
-    component: SampleLoginComponent
+    loadComponent: () => import('sample-project-management-common/pages')
+      .then(module => module.SampleLoginComponent)
   },
   {
     path: '',
@@ -33,7 +29,12 @@ export const SAMPLE_ROUTES: Routes = [
     canActivate: [sampleIsAuthenticatedGuard],
     canActivateChild: [sampleIsAuthenticatedGuard],
     children: [
-      { path: '', pathMatch: 'full', title: 'Samplecatalogus', component: AppComponent },
+      {
+        path: '',
+        pathMatch: 'full',
+        title: 'Samplecatalogus',
+        loadComponent: () => import('./app.component').then(module => module.AppComponent)
+      },
       {
         path: 'collections',
         title: 'Collecties',
@@ -55,13 +56,13 @@ export const SAMPLE_ROUTES: Routes = [
       {
         path: 'background-operations',
         title: 'Background operations',
-        loadComponent: () => import('sample-project-management-common')
+        loadComponent: () => import('sample-project-management-common/pages')
           .then(module => module.BackgroundOperationsPageComponent)
       },
       {
         path: 'background-operations/:id',
         title: 'Background operation progress',
-        loadComponent: () => import('sample-project-management-common')
+        loadComponent: () => import('sample-project-management-common/pages')
           .then(module => module.BackgroundOperationsPageComponent)
       },
       {
@@ -162,7 +163,12 @@ export const SAMPLE_ROUTES: Routes = [
         loadComponent: () => import('./sample-case-catalog/sample-case-catalog.component')
           .then(module => module.SampleCaseCatalogComponent)
       },
-      { path: 'profile', title: 'Edit profile', component: SampleProfileComponent },
+      {
+        path: 'profile',
+        title: 'Edit profile',
+        loadComponent: () => import('sample-project-management-common/pages')
+          .then(module => module.SampleProfileComponent)
+      },
       {
         path: 'samples/admin',
         canActivate: [NhIsOneClaimGrantedGuard],

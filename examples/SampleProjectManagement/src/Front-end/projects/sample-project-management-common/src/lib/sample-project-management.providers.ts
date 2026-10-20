@@ -9,7 +9,7 @@ import { registerLocaleData } from '@angular/common';
 import { HTTP_INTERCEPTORS, HttpClient } from '@angular/common/http';
 import localeEn from '@angular/common/locales/en';
 import localeNl from '@angular/common/locales/nl';
-import { provideAnimations } from '@angular/platform-browser/animations';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, Routes, withInMemoryScrolling } from '@angular/router';
 import {
   NhAuthorization,
@@ -94,7 +94,8 @@ export function provideSampleProjectManagement(routes: Routes = []) {
     provideEnvironmentInitializer(() => {
       inject(SampleAuthSessionService).start();
     }),
-    provideAnimations(),
+    // The animation engine loads after the first render instead of with the initial bundle.
+    provideAnimationsAsync(),
     provideRouter(
       routes,
       withInMemoryScrolling({
