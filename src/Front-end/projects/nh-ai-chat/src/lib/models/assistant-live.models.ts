@@ -47,6 +47,15 @@ export interface LiveAgentWorkChanged {
 }
 
 /**
+ * The hub's answer to `WatchAgentWork`: how many agents' work of the whole application the connection
+ * follows now, and when to renew the watch so the server checks the person's rights again.
+ */
+export interface LiveAgentWorkWatch {
+  watched: number;
+  refreshAfterSeconds: number;
+}
+
+/**
  * `ConversationEvent`: one turn event with the same `type` and `data` as the server-sent events
  * of the starting request, or `message.created` with a `Message` when a participant's message
  * was stored.

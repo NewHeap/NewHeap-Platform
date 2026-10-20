@@ -459,6 +459,22 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
                 cancellationToken: CancellationToken.None);
         }
         Assert.Equal([Manager, Viewer], Assert.Single(live.Sent).ActorIds.Order(StringComparer.Ordinal).ToArray());
+        // The whole application lists no members: its work also reaches the people who watch it.
+        var watched = Assert.Single(live.Watched);
+        Assert.Equal(new NhAssistantWatchedWork(FollowUp, NhAiSystemSubjects.GlobalId), watched.Work);
+        Assert.Equal((thread.ConversationId, runId), (watched.Event.ConversationId, watched.Event.RunId));
+
+        // The work of an object reaches its people only; nobody watches it.
+        var project = await ThreadAtAsync(app, ProjectAgent, new NhAiSubjectRef("project", Guid.NewGuid().ToString()));
+        live.Clear();
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<NhAssistantAgentWorkUpdates>().PublishAsync(
+                project.ConversationId,
+                NhAssistantAgentWorkReasons.Proposal,
+                cancellationToken: CancellationToken.None);
+        }
+        Assert.Empty(live.Watched);
     }
 
     [Theory]

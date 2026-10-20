@@ -57,6 +57,14 @@ internal sealed record NhAssistantLiveAgentWorkChanged(
     : NhAssistantLiveEvent(ConversationId);
 
 /// <summary>
+/// The work of one agent for the whole application in one scope (<c>nh-system/global</c> or a
+/// division), which people who may read it follow live while a screen such as the approval inbox or a
+/// board shows it. The whole application lists no members, so its updates reach these watchers besides
+/// the people of the thread.
+/// </summary>
+internal sealed record NhAssistantWatchedWork(string AgentId, string SubjectId);
+
+/// <summary>
 /// The <c>Reason</c> values of <see cref="NhAssistantLiveAgentWorkChanged"/>.
 /// </summary>
 internal static class NhAssistantAgentWorkReasons
@@ -76,6 +84,18 @@ internal interface INhAssistantLiveUpdateTransport
         IReadOnlyCollection<string> actorIds,
         NhAssistantLiveEvent evt,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Sends an update about an agent's work for the whole application to the connections that watch
+    /// that work. A transport without watchers sends nothing.
+    /// </summary>
+    Task SendToWatchersAsync(
+        NhAssistantWatchedWork work,
+        NhAssistantLiveAgentWorkChanged evt,
+        CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class NhAssistantNoLiveUpdateTransport : INhAssistantLiveUpdateTransport
@@ -222,6 +242,28 @@ internal sealed class NhAssistantLivePublisher(
         {
             var entry = await audience.GetEntryAsync(evt.ConversationId, cancellationToken);
             await transport.SendAsync(await ReadersAsync(entry, [.. entry.ActorIds, .. actorIds], cancellationToken), evt, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            LogFailure(evt.ConversationId, exception);
+        }
+    }
+
+    /// <summary>
+    /// Sends an update about an agent's work for the whole application to the people who watch that
+    /// work: they joined after the server checked that they read the agent's thread there, its view
+    /// policy included, and that check is repeated while they keep watching.
+    /// </summary>
+    public async ValueTask PublishToWatchersAsync(
+        NhAssistantWatchedWork work,
+        NhAssistantLiveAgentWorkChanged evt,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        ArgumentNullException.ThrowIfNull(evt);
+        try
+        {
+            await transport.SendToWatchersAsync(work, evt, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {

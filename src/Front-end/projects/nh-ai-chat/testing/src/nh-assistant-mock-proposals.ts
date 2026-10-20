@@ -41,7 +41,8 @@ export class NhAssistantMockProposals {
     scenario: readonly NhAssistantMockProposal[] = [],
     private readonly actorId: () => string,
     private readonly now: () => string,
-    private readonly mayDecideApplication: (agentId: string) => boolean = () => true
+    private readonly mayDecideApplication: (agentId: string) => boolean = () => true,
+    private readonly decided: (proposal: AgentProposal) => void = () => undefined
   ) {
     const created = new Date(now()).getTime();
     for (const item of scenario) {
@@ -250,6 +251,7 @@ export class NhAssistantMockProposals {
       decidedAt: now,
       executedAt: approve ? now : null
     };
+    this.decided(stored.proposal);
     return { code: null };
   }
 

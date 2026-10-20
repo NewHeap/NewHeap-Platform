@@ -48,7 +48,10 @@ export * from './lib/components/subject-badge/nh-assistant-subject-badge.compone
  */
 export { NhAssistantIconComponent as ɵNhAssistantIconComponent } from './lib/internal/nh-assistant-icon.component';
 export { NhAssistantTranslatePipe as ɵNhAssistantTranslatePipe } from './lib/internal/nh-assistant-translate.pipe';
-export { nhAssistantReloadOnAgentWork as ɵnhAssistantReloadOnAgentWork } from './lib/internal/nh-assistant-agent-work';
+export {
+  nhAssistantReloadOnAgentWork as ɵnhAssistantReloadOnAgentWork,
+  nhAssistantWatchAgentWork as ɵnhAssistantWatchAgentWork
+} from './lib/internal/nh-assistant-agent-work';
 export {
   NhAssistantPickerComponent as ɵNhAssistantPickerComponent,
   type NhAssistantPickerOption as ɵNhAssistantPickerOption

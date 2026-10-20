@@ -2643,7 +2643,11 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agent-editor.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-boards.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-boards.ts",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentWorkWatchers.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentWorkWatchTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-work-watch.spec.ts"
     ]
   }
 }

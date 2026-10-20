@@ -109,6 +109,7 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantAgentBoards>();
             services.TryAddScoped<NhAssistantSystemApprovers>();
             services.TryAddSingleton<NhAssistantSystemRoleCache>();
+            services.TryAddScoped<NhAssistantAgentWorkWatchers>();
             services.TryAddScoped<NhAssistantProposalDecisions>();
             services.TryAddScoped<NhAssistantProposalFeedbackService>();
             services.TryAddScoped<INhAssistantSubjectWork, NhAssistantSubjectWork>();

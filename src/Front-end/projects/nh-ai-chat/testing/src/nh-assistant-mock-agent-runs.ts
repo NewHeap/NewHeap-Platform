@@ -11,7 +11,8 @@ import {
   AgentRunStatus,
   AgentThread,
   AgentThreadLookup,
-  AgentTriggerReceipt
+  AgentTriggerReceipt,
+  LiveAgentWorkChanged
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockRun, NhAssistantMockRunNow, NhAssistantMockScenario } from './nh-assistant-mock.models';
 import { NhAssistantMockResult, mockFailure as failure } from './nh-assistant-mock-admin-shared';
@@ -26,6 +27,8 @@ export interface NhAssistantMockAgentRunContext {
   administers(): boolean;
   /** The scenario's proposals in a thread; `null` when it lists none there. */
   threadProposals?(conversationId: string): AgentProposal[] | null;
+  /** Announces that an agent's work changed, as the server's live updates do. */
+  workChanged?(change: LiveAgentWorkChanged, agentId: string): void;
 }
 
 interface StoredThread {
@@ -388,6 +391,14 @@ export class NhAssistantMockAgentRuns {
     thread.runs.push(run);
     this.keep(run.id, runNow.result, runNow.results);
     thread.openProposals += runNow.proposals ?? 0;
+    this.context.workChanged?.({
+      conversationId: thread.conversationId,
+      reason: 'run',
+      approvalId: null,
+      runId: run.id,
+      subjectType: thread.subject.subjectType,
+      subjectId: thread.subject.subjectId
+    }, agent.id);
     return run;
   }
 

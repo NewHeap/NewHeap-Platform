@@ -1755,6 +1755,64 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
     }
 
+    [Fact]
+    public async Task People_who_watch_the_project_follow_ups_work_for_the_whole_application_see_its_runs_live()
+    {
+        // SPM-304: the whole application lists no members, so its agents' work reaches people only while
+        // a screen of theirs, such as the Project management board or the approval inbox, watches it on
+        // the assistant hub. The hub joins the work the server decides the person reads: the follow-up's
+        // view policy (app.project.view) lets the viewer follow it, the colleague without it does not.
+        const string followUp = SampleRuntimeAgentSeeder.FollowUpAgentId;
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        var viewerId = await host.CreatePersonAsync(SampleProjectStarterComposition.ProjectViewPolicy);
+        var managerId = await host.CreatePersonAsync(SampleProjectStarterComposition.ProjectViewPolicy, SampleProjectStarterComposition.ProjectManagePolicy);
+        using var manager = host.CreateClient(managerId.ToString());
+        try
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedFollowUpAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+            }
+
+            var viewerUpdates = Channel.CreateUnbounded<NhAssistantLiveAgentWorkDto>();
+            var colleagueUpdates = Channel.CreateUnbounded<NhAssistantLiveAgentWorkDto>();
+            await using var viewerHub = await host.ConnectAssistantHubAsync(viewerId.ToString());
+            await using var colleagueHub = await host.ConnectAssistantHubAsync(host.ColleagueId.ToString());
+            viewerHub.On<NhAssistantLiveAgentWorkDto>(nameof(INhAssistantHubClient.AgentWorkChanged), update => viewerUpdates.Writer.TryWrite(update));
+            colleagueHub.On<NhAssistantLiveAgentWorkDto>(nameof(INhAssistantHubClient.AgentWorkChanged), update => colleagueUpdates.Writer.TryWrite(update));
+            var viewerWatch = await viewerHub.InvokeAsync<NhAssistantLiveWatchDto>(nameof(NhAssistantHub.WatchAgentWork));
+            await colleagueHub.InvokeAsync<NhAssistantLiveWatchDto>(nameof(NhAssistantHub.WatchAgentWork));
+            Assert.True(viewerWatch.Watched >= 1);
+            Assert.Equal(300, viewerWatch.RefreshAfterSeconds);
+
+            // A project manager runs the follow-up now for the whole application; the viewer's board hears
+            // that it started and ended without reloading.
+            NhAssistantTriggerReceiptDto receipt;
+            using (var started = await manager.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new { agentId = followUp, subjectType = NhAiSubjectRef.SystemType, subjectId = NhAiSystemSubjects.GlobalId }))
+            {
+                Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+                receipt = (await started.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!;
+            }
+            var seen = await ReadRunUpdatesAsync(viewerUpdates.Reader, receipt.RunId!.Value, count: 2);
+            Assert.All(seen, update => Assert.Equal(
+                (receipt.ConversationId, NhAiSubjectRef.SystemType, NhAiSystemSubjects.GlobalId),
+                (update.ConversationId, update.SubjectType, update.SubjectId)));
+
+            // The colleague, who does not pass the follow-up's view policy, heard nothing of its run.
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            while (colleagueUpdates.Reader.TryRead(out var update))
+            {
+                Assert.NotEqual(receipt.ConversationId, update.ConversationId);
+            }
+        }
+        finally
+        {
+            await RemoveFollowUpAsync(administrator);
+        }
+    }
+
     /// <summary>
     /// Reads <paramref name="path"/> as a person whose browser asks for <paramref name="language"/>.
     /// </summary>
@@ -3702,8 +3760,8 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
             .Build();
         await connection.StartAsync();
 
-        // The hub takes no calls. It answers one only after it handled the connection, so the
-        // refusal shows that live updates for the person reach this connection from now on.
+        // The hub has no method "Ready". It answers a call only after it handled the connection, so
+        // the refusal shows that live updates for the person reach this connection from now on.
         await Assert.ThrowsAsync<HubException>(() => connection.InvokeAsync("Ready"));
         return connection;
     }

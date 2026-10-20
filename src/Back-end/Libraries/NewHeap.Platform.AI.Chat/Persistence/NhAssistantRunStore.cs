@@ -1702,6 +1702,30 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// The live (not shadow) agent threads of the whole application, ordered by subject, agent and
+    /// thread, at most <paramref name="maximum"/>, for the people who follow the work of its agents
+    /// live.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantSystemThread>> GetLiveSystemThreadsAsync(
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var threads = await context.Threads
+            .AsNoTracking()
+            .Where(thread => thread.SubjectType == NhAiSubjectRef.SystemType && !thread.Shadow)
+            .OrderBy(thread => thread.SubjectId)
+            .ThenBy(thread => thread.AgentId)
+            .ThenBy(thread => thread.ConversationId)
+            .Select(thread => new { thread.ConversationId, thread.SubjectId, thread.AgentId })
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
+        return threads
+            .Select(thread => new NhAssistantSystemThread(thread.ConversationId, thread.SubjectId, thread.AgentId))
+            .ToArray();
+    }
+
+    /// <summary>
     /// The people of a thread a notification about its proposals may reach when its subject lists no
     /// members, as the whole application does: those who take part in its conversation, then those who
     /// decided its proposals, most recent first, each once and at most <paramref name="maximum"/>.

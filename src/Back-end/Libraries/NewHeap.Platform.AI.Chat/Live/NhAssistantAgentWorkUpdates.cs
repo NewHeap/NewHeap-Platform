@@ -10,7 +10,9 @@ namespace NewHeap.Platform.AI.Chat.Live;
 /// participants, everyone in the subject's member snapshot, so an approval inbox refreshes before
 /// its owner ever opened the thread, and the person who started the run while they still have a
 /// role on the subject. The first update of a thread fills a snapshot that was never filled. The
-/// update carries no content; access to what changed is checked again when clients reload.
+/// update carries no content; access to what changed is checked again when clients reload. The whole
+/// application lists no members, so the work of its agents also reaches the people who watch it, such
+/// as its approvers while their inbox is shown (<see cref="NhAssistantWatchedWork"/>).
 /// </summary>
 internal sealed class NhAssistantAgentWorkUpdates(
     NhAssistantLivePublisher live,
@@ -49,10 +51,12 @@ internal sealed class NhAssistantAgentWorkUpdates(
             return;
         }
 
-        await live.PublishWithAsync(
-            people,
-            new NhAssistantLiveAgentWorkChanged(conversationId, reason, approvalId, runId, thread.SubjectType, thread.SubjectId),
-            cancellationToken);
+        var change = new NhAssistantLiveAgentWorkChanged(conversationId, reason, approvalId, runId, thread.SubjectType, thread.SubjectId);
+        await live.PublishWithAsync(people, change, cancellationToken);
+        if (!thread.Shadow && string.Equals(thread.SubjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal))
+        {
+            await live.PublishToWatchersAsync(new NhAssistantWatchedWork(thread.AgentId, thread.SubjectId), change, cancellationToken);
+        }
     }
 
     /// <summary>

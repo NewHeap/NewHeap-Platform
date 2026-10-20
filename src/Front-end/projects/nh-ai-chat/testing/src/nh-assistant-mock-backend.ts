@@ -7,6 +7,7 @@ import {
   ConversationSummary,
   CreateConversationRequest,
   DecideApprovalRequest,
+  LiveAgentWorkChanged,
   LiveConversationChanged,
   LiveConversationEvent,
   LiveConversationRead,
@@ -43,12 +44,16 @@ export const NH_ASSISTANT_MOCK_SCENARIO = new InjectionToken<NhAssistantMockScen
 /** Path the mock reports as hub; the mock live service answers it in memory. */
 export const NH_ASSISTANT_MOCK_HUB_PATH = '/hub/assistant-mock';
 
-/** One live update of the mock, as the assistant hub would send it. */
+/**
+ * One live update of the mock, as the assistant hub would send it. Agent work for the whole
+ * application (`wholeApplication`) reaches the caller only while a screen watches it, as on the hub.
+ */
 export type NhAssistantMockLiveMessage =
   | { kind: 'changed'; data: LiveConversationChanged }
   | { kind: 'read'; data: LiveConversationRead }
   | { kind: 'removed'; data: LiveConversationRemoved }
-  | { kind: 'event'; data: LiveConversationEvent };
+  | { kind: 'event'; data: LiveConversationEvent }
+  | { kind: 'agent-work'; data: LiveAgentWorkChanged; wholeApplication: boolean };
 
 const defaultLimits = { maxMessageChars: 4_000, maxToolCallsPerTurn: 8 };
 const defaultUser: NhAssistantMockPerson = { actorId: 'mock-user', displayName: 'You' };
@@ -90,7 +95,15 @@ export class NhAssistantMockBackend {
     this.scenario.proposals,
     () => this.currentUser.actorId,
     () => new Date().toISOString(),
-    agentId => this.decidesForApplication(agentId));
+    agentId => this.decidesForApplication(agentId),
+    proposal => this.publishAgentWork({
+      conversationId: proposal.conversationId,
+      reason: 'proposal',
+      approvalId: proposal.approvalId,
+      runId: proposal.runId,
+      subjectType: proposal.subjectType,
+      subjectId: proposal.subjectId
+    }, proposal.agentId));
   private readonly subjects = new NhAssistantMockSubjects(
     this.scenario.subjectTypes,
     this.scenario.divisions,
@@ -101,7 +114,8 @@ export class NhAssistantMockBackend {
     {
       agents: () => this.admin.allAgents(),
       administers: () => this.admin.administers,
-      threadProposals: conversationId => this.proposals.ofThread(conversationId)
+      threadProposals: conversationId => this.proposals.ofThread(conversationId),
+      workChanged: (change, agentId) => this.publishAgentWork(change, agentId)
     },
     () => new Date().toISOString());
   private readonly boards = new NhAssistantMockBoards(
@@ -818,6 +832,22 @@ export class NhAssistantMockBackend {
     });
   }
 
+  /**
+   * Announces that the work of an agent changed, as the server does after its runs and proposals:
+   * the work of an object reaches the caller, the work of the whole application only when the caller
+   * passes the agent's view policy, by default its required policy, and only while a screen watches it
+   * (`NhAssistantMockLiveService.watchAgentWork`). The mock runs no agents on its own; call it to show a
+   * screen what a run in the background would change. Runs by hand and decisions announce themselves.
+   */
+  publishAgentWork(change: LiveAgentWorkChanged, agentId: string): void {
+    const wholeApplication = change.subjectType === 'nh-system';
+    if (wholeApplication && !this.readsApplicationWork(agentId)) {
+      return;
+    }
+
+    this.emitLive({ kind: 'agent-work', data: change, wholeApplication });
+  }
+
   private emitLive(message: NhAssistantMockLiveMessage): void {
     // Delivered after the current request, as a hub message would arrive.
     queueMicrotask(() => this.liveSubject.next(message));
@@ -837,6 +867,13 @@ export class NhAssistantMockBackend {
    * application (an administrator in the mock) who passes the agent's view policy, by default its
    * required policy.
    */
+  /** Whether the caller passes the agent's view policy, by default its required policy. */
+  private readsApplicationWork(agentId: string): boolean {
+    const agent = this.admin.allAgents().find(item => item.id === agentId);
+    const policy = agent?.viewPolicy ?? agent?.requiredPolicy ?? null;
+    return policy === null || (this.scenario.callerPolicies?.includes(policy) ?? true);
+  }
+
   private decidesForApplication(agentId: string): boolean {
     if (!this.admin.administers) {
       return false;

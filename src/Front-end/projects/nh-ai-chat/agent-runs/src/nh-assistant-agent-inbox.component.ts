@@ -17,7 +17,8 @@ import {
   AgentProposal,
   NhAssistantAgentRunApiService,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
-  ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork
+  ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
+  ɵnhAssistantWatchAgentWork as nhAssistantWatchAgentWork
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposals.component';
 
@@ -27,7 +28,8 @@ import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposa
  * server checks each decision against the proposal's approval policy again. After a rejection the
  * inbox asks, optionally, what was wrong, also when the rejected proposals have left the list.
  * With live updates the inbox reloads by itself when agent work changes, for example when a
- * colleague decided a proposal or a run proposed a new one. A proposal that closes because it no
+ * colleague decided a proposal or a run proposed a new one; it watches the work of agents for the
+ * whole application, whose approvers are no members of it, while it is shown. A proposal that closes because it no
  * longer fits, for example because someone did the work by hand, stays as a closed card with the
  * reason until it is dismissed. A proposal a run placed at its object from another subject, such as a
  * run for the whole application, names that run; `openConversation` emits its conversation.
@@ -75,7 +77,9 @@ export class NhAssistantAgentInboxComponent {
         this.load();
       });
     });
-    // Any agent's work may add, decide or close a proposal of this inbox.
+    // Any agent's work may add, decide or close a proposal of this inbox, also work for the whole
+    // application, which reaches the approvers only while they watch it.
+    nhAssistantWatchAgentWork();
     nhAssistantReloadOnAgentWork(() => true, () => this.refresh());
   }
 

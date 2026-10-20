@@ -416,12 +416,23 @@ public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database)
 internal sealed class RecordedLiveUpdates : INhAssistantLiveUpdateTransport
 {
     private readonly ConcurrentQueue<(IReadOnlyCollection<string> ActorIds, NhAssistantLiveEvent Event)> _sent = new();
+    private readonly ConcurrentQueue<(NhAssistantWatchedWork Work, NhAssistantLiveAgentWorkChanged Event)> _watched = new();
 
     public IReadOnlyList<(IReadOnlyCollection<string> ActorIds, NhAssistantLiveEvent Event)> Sent => _sent.ToArray();
+
+    /// <summary>The updates sent to the people who watch an agent's work for the whole application.</summary>
+    public IReadOnlyList<(NhAssistantWatchedWork Work, NhAssistantLiveAgentWorkChanged Event)> Watched => _watched.ToArray();
 
     public void Clear()
     {
         _sent.Clear();
+        _watched.Clear();
+    }
+
+    public Task SendToWatchersAsync(NhAssistantWatchedWork work, NhAssistantLiveAgentWorkChanged evt, CancellationToken cancellationToken)
+    {
+        _watched.Enqueue((work, evt));
+        return Task.CompletedTask;
     }
 
     public Task SendAsync(IReadOnlyCollection<string> actorIds, NhAssistantLiveEvent evt, CancellationToken cancellationToken)

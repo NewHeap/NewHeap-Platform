@@ -935,3 +935,38 @@ its language, with `result` for other languages.
 | Breaking change | Required action |
 |---|---|
 | `NhAssistantMockRun` and `NhAssistantMockRunNow` gain the optional `results`; the mock answers runs, histories, object agents and boards in the request's language when a run has them. | None; scenarios without `results` read as before. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: live updates for the approvers of the whole application
+
+The whole application lists no members, so the runs and proposals of its agents reached their
+approvers and readers only when a screen reloaded. A client that shows that work now watches it on the
+assistant hub: `NhAssistantHub.WatchAgentWork()` joins the connection to the work of every agent for
+the whole application, per agent and scope (`nh-system/global` or a division), whose thread there the
+person reads, that is the read role of the whole application and the agent's view policy, by default
+its required policy, at most 200, and answers `NhAssistantLiveWatchDto` (`Watched`,
+`RefreshAfterSeconds`, 300). Work the person may no longer read is left whenever the client renews the
+watch; `UnwatchAgentWork()` stops it. A person bound to a tenant watches nothing. Watchers receive
+`AgentWorkChanged`, which carries ids only; every read checks access again.
+
+| Breaking change | Required action |
+|---|---|
+| The assistant hub accepts the client calls `WatchAgentWork` and `UnwatchAgentWork`; until now clients sent nothing to it. | None; allow them if a gateway filters hub invocations. |
+| An agent's work for the whole application reaches the connections that watch it as well as the people of its thread. | None; a client that handles `AgentWorkChanged` reloads as before. |
+
+## @newheap/platform-ai-chat: live updates for the approvers of the whole application
+
+`NhAssistantLiveService.watchAgentWork()` watches the work of agents for the whole application until
+the function it returns is called: it asks the hub when connected, renews the watch when the server
+says and after every reconnect, and stops with the last screen that watches. `nh-assistant-agent-inbox`
+and `nh-assistant-agent-board` watch while they are shown, so a proposal of a run for the whole
+application reaches its approvers' inbox and a board without a reload. The model `LiveAgentWorkWatch`
+describes the hub's answer. The mock API delivers agent work through `NhAssistantMockLiveService`
+(`watchAgentWork`, `watching`), announces runs by hand and decisions, and offers
+`NhAssistantMockBackend.publishAgentWork(change, agentId)` for work a background run would change;
+work of the whole application reaches the caller only while watched and when the caller passes the
+agent's view policy.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantLiveService` gains `watchAgentWork`, and the mock live service delivers `agentWork$` instead of never emitting. | Add `watchAgentWork` to own replacements of the live service; update tests that expected no agent work from the mock. |
+| `NhAssistantMockLiveMessage` gains the `agent-work` kind. | Handle or ignore it in own consumers of `NhAssistantMockBackend.live$`. |

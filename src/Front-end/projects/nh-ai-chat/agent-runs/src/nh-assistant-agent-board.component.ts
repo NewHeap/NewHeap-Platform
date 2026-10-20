@@ -24,7 +24,8 @@ import {
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantMarkdownPipe as NhAssistantMarkdownPipe,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
-  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
+  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
+  ɵnhAssistantWatchAgentWork as nhAssistantWatchAgentWork
 } from '@newheap/platform-ai-chat';
 import { NhAssistantBoardHistoryComponent } from './internal/nh-assistant-board-history.component';
 import {
@@ -129,6 +130,9 @@ export class NhAssistantAgentBoardComponent {
         this.fetch(false);
       });
     });
+    // The board shows the work of its agents for the whole application, which reaches the people who
+    // may read it only while they watch it.
+    nhAssistantWatchAgentWork();
     nhAssistantReloadOnAgentWork(change => this.concerns(change), () => this.fetch(true));
   }
 

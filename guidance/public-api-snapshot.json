@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "e7adc0545ac7e0167b14f740b52ae0c038fafc956a6790e3d392bfae99848dba",
-    "declarationCount": 9071,
+    "hash": "3e7d3577c0ec73a16e51016dc597e5324011e5e7d0a25d920ef35399d8f645ea",
+    "declarationCount": 9079,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2830,6 +2830,14 @@
         "declaration": "public async Task<NhAssistantTriggerReceipt> StartAsync( string agentId, NhAiSubjectRef subject, string initiatorActorId, string? message, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentWorkWatchers.cs",
+        "declaration": "public static readonly TimeSpan RefreshAfter = TimeSpan.FromMinutes(5);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentWorkWatchers.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantWatchedWork>> WatchableAsync( string actorId, string? tenantId, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantBoardEndpoints.cs",
         "declaration": "public static void Map(RouteGroupBuilder group) {"
       },
@@ -3219,6 +3227,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
+        "declaration": "public sealed record NhAssistantLiveWatchDto(int Watched, int RefreshAfterSeconds);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
         "declaration": "public sealed class NhAssistantHub : Hub<INhAssistantHubClient> {"
       },
       {
@@ -3227,7 +3239,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
+        "declaration": "public async Task<NhAssistantLiveWatchDto> WatchAgentWork() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
+        "declaration": "public async Task UnwatchAgentWork() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
         "declaration": "public Task SendAsync( IReadOnlyCollection<string> actorIds, NhAssistantLiveEvent evt, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
+        "declaration": "public Task SendToWatchersAsync( NhAssistantWatchedWork work, NhAssistantLiveAgentWorkChanged evt, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
@@ -9959,6 +9983,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+        "declaration": "public async ValueTask PublishToWatchersAsync( NhAssistantWatchedWork work, NhAssistantLiveAgentWorkChanged evt, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
         "declaration": "public void MembershipChanged(Guid conversationId) {"
       },
       {
@@ -13832,6 +13860,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<IReadOnlyList<NhAssistantSystemThread>> GetSystemThreadsAsync( IReadOnlyCollection<string> subjectIds, int maximum, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantSystemThread>> GetLiveSystemThreadsAsync( int maximum, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -40060,7 +40092,8 @@
       "NhAssistantBoardAgentDto",
       "NhAssistantBoardWorksOnDto",
       "NhAssistantBoardSubjectTypeDto",
-      "NhAssistantBoardVisitDto"
+      "NhAssistantBoardVisitDto",
+      "NhAssistantLiveWatchDto"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
@@ -40673,7 +40706,8 @@
       "NhAssistantMockAgentGroup",
       "NhAssistantMockRunConfigurationPreset",
       "NhAssistantMockDataSkill",
-      "NhAssistantMockDataTrigger"
+      "NhAssistantMockDataTrigger",
+      "LiveAgentWorkWatch"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

@@ -301,7 +301,14 @@ needs the view policy as well, so the thread it leads to can be opened. Its prop
 inbox, counted in the subject summary and decided only by people who pass the view policy as well (and
 the approve policy and the approval policy's rules); to anyone else such a proposal reads as unknown
 (`404 assistant-approval-not-found`). The status of the background operations of its runs and proposal
-executions, its notifications and the live updates of its thread follow the same rule.
+executions, its notifications and the live updates of its thread follow the same rule. The whole
+application lists no members, so its approvers and readers receive its agents' work while a screen of
+theirs watches it: the hub method `WatchAgentWork()` joins the connection to the work, per agent and
+scope, of every agent whose thread of the whole application the person reads (the read role and the
+view policy), also before its first run, at most 200, and answers `NhAssistantLiveWatchDto` with
+`RefreshAfterSeconds` (300); renewing the watch leaves what the person may no longer read, and
+`UnwatchAgentWork()` stops it. A person bound to a tenant watches nothing. Watchers receive the same
+content-free `AgentWorkChanged` as the people of the thread.
 
 Group agents on boards (K15, K16). Register a group in code with `AddAgentGroup("project-management",
 group => group.Named(new() { ["en"] = "Project management", ["nl"] = "Projectbeheer" }, fallbackLanguage:
@@ -897,7 +904,9 @@ a throwing guard keeps a proposal open, that a waiting inline run continues with
 and that the report counts the invalidation apart from rejections, on both providers. Start a
 rule handler from an event and assert that no model was called, that the run reads `rule` with no
 tokens, that the proposal waits deferred with its rationale in each supported culture and that the
-thread's message reads `rule`; finish a rule run with `Done(culture => ...)` and assert that `GET
+thread's message reads `rule`; watch the whole application's work on the hub as a person who passes
+an agent's view policy and as one who does not and assert who receives its proposals, that renewing
+sends nothing twice and that stopping the watch ends them, on both providers; finish a rule run with `Done(culture => ...)` and assert that `GET
 runs/{id}`, `GET runs`, `GET admin/agents/{id}/runs`, the agents of the subject and the board read the
 result in an English and a Dutch request and a model's answer as written, on both providers; hand a
 run over and assert `rule-then-model`. Propose the same change

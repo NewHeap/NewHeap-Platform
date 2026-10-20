@@ -4,6 +4,7 @@ import type { HubConnection } from '@microsoft/signalr';
 import { Observable, Subject } from 'rxjs';
 import {
   LiveAgentWorkChanged,
+  LiveAgentWorkWatch,
   LiveConversationChanged,
   LiveConversationEvent,
   LiveConversationRead,
@@ -16,6 +17,10 @@ export type NhAssistantLiveState = 'off' | 'connecting' | 'connected' | 'reconne
 
 const reconnectDelaysMs = [0, 2_000, 5_000, 10_000, 30_000];
 const restartDelayMs = 30_000;
+/** How long a watch of the whole application's agent work lasts when the server does not say. */
+const defaultWatchRenewalSeconds = 300;
+/** The shortest renewal of a watch, whatever the server says. */
+const minimumWatchRenewalSeconds = 30;
 /** Query parameters the library and SignalR set themselves. */
 const reservedHubQueryParameters = new Set(['access_token', 'id', 'negotiateversion']);
 
@@ -23,7 +28,8 @@ const reservedHubQueryParameters = new Set(['access_token', 'id', 'negotiatevers
  * Live updates of the assistant hub: conversation changes, read positions, removals, the turn
  * events of other sessions and changes to the work of agents that run on their own. Connects only
  * while the store asks for it, reconnects on its own and emits `resync` after every (re)connect,
- * because updates sent while disconnected are lost.
+ * because updates sent while disconnected are lost. The work of agents for the whole application
+ * lists no members, so it arrives only while a screen watches it (`watchAgentWork`).
  */
 @Injectable()
 export class NhAssistantLiveService {
@@ -44,6 +50,9 @@ export class NhAssistantLiveService {
   private hubUrl: string | null = null;
   private revision = 0;
   private restartTimer?: ReturnType<typeof setTimeout>;
+  /** The screens that watch the work of agents for the whole application. */
+  private agentWorkWatchers = 0;
+  private watchTimer?: ReturnType<typeof setTimeout>;
 
   readonly changed$: Observable<LiveConversationChanged> = this.changedSubject.asObservable();
   readonly read$: Observable<LiveConversationRead> = this.readSubject.asObservable();
@@ -60,6 +69,7 @@ export class NhAssistantLiveService {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
+      this.agentWorkWatchers = 0;
       void this.stop();
       this.changedSubject.complete();
       this.readSubject.complete();
@@ -101,6 +111,7 @@ export class NhAssistantLiveService {
       if (revision === this.revision) {
         this.stateSignal.set('connected');
         this.resyncSubject.next();
+        void this.renewAgentWorkWatch();
       }
     } catch {
       // Live updates are optional; snapshots keep the assistant correct. Try again later.
@@ -111,10 +122,43 @@ export class NhAssistantLiveService {
     }
   }
 
+  /**
+   * Follows the work of agents for the whole application, such as their proposals and runs, while the
+   * returned function has not been called; a screen that shows it, such as the approval inbox or a
+   * board, watches it while it is shown. The whole application lists no members, so the hub sends its
+   * agents' work only to connections that watch it: it joins the work the server decides the person
+   * may read, the agent's view policy included, renews the watch when the server says and after every
+   * reconnect, and so checks the person's rights again. The watch ends when the last screen releases
+   * it. Without a connection nothing arrives and screens keep their own reload.
+   */
+  watchAgentWork(): () => void {
+    this.agentWorkWatchers++;
+    if (this.agentWorkWatchers === 1) {
+      void this.renewAgentWorkWatch();
+    }
+
+    let released = false;
+    return () => {
+      if (released) {
+        return;
+      }
+      released = true;
+      this.agentWorkWatchers = Math.max(0, this.agentWorkWatchers - 1);
+      if (this.agentWorkWatchers === 0) {
+        clearTimeout(this.watchTimer);
+        const connection = this.connection;
+        if (connection && this.stateSignal() === 'connected') {
+          connection.invoke('UnwatchAgentWork').catch(() => undefined);
+        }
+      }
+    };
+  }
+
   async stop(): Promise<void> {
     this.revision++;
     this.hubUrl = null;
     clearTimeout(this.restartTimer);
+    clearTimeout(this.watchTimer);
     const connection = this.connection;
     this.connection = undefined;
     this.stateSignal.set('off');
@@ -145,6 +189,8 @@ export class NhAssistantLiveService {
     connection.onreconnected(() => {
       this.stateSignal.set('connected');
       this.resyncSubject.next();
+      // A new connection belongs to no watch yet.
+      void this.renewAgentWorkWatch();
     });
     connection.onclose(() => {
       if (this.connection === connection) {
@@ -154,6 +200,34 @@ export class NhAssistantLiveService {
       }
     });
     return connection;
+  }
+
+  /**
+   * Asks the hub to watch the work of agents for the whole application for the screens that watch it,
+   * and schedules the renewal the server asks for. An older server without watching, or a failed call,
+   * is tried again later; live updates stay optional.
+   */
+  private async renewAgentWorkWatch(): Promise<void> {
+    clearTimeout(this.watchTimer);
+    const connection = this.connection;
+    if (this.agentWorkWatchers === 0 || !connection || this.stateSignal() !== 'connected') {
+      return;
+    }
+
+    let seconds = defaultWatchRenewalSeconds;
+    try {
+      const watch = await connection.invoke<LiveAgentWorkWatch | null>('WatchAgentWork');
+      if (typeof watch?.refreshAfterSeconds === 'number' && Number.isFinite(watch.refreshAfterSeconds)) {
+        seconds = Math.max(minimumWatchRenewalSeconds, watch.refreshAfterSeconds);
+      }
+    } catch {
+      // Tried again at the next renewal or reconnect.
+    }
+
+    if (connection === this.connection && this.agentWorkWatchers > 0) {
+      clearTimeout(this.watchTimer);
+      this.watchTimer = setTimeout(() => void this.renewAgentWorkWatch(), seconds * 1_000);
+    }
   }
 
   /** Starts over after the automatic reconnect gave up or the first start failed. */

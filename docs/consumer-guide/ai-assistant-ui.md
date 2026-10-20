@@ -333,7 +333,11 @@ graph library.
 The agent-run components refresh themselves: `NhAssistantLiveService.agentWork$` emits the
 hub's `AgentWorkChanged` for every run, proposal or feedback change on a subject the user
 belongs to, and the inbox, the thread view and the open panel session reload after a short
-pause. Tool calls of proposals that closed without running read `not-executed`, and
+pause. The whole application lists no members, so the inbox and the boards also watch its agents'
+work while they are shown (`NhAssistantLiveService.watchAgentWork()` returns the function that ends
+the watch): the service asks the hub, which decides what the person may read, renews the watch when
+the server says and after every reconnect, and stops with the last screen. A page of your own that
+shows the work of the whole application watches it the same way while it is shown. Tool calls of proposals that closed without running read `not-executed`, and
 proposals and the report show names (`decidedByDisplayName`, `authorDisplayName`) with the
 id as fallback.
 
@@ -627,7 +631,10 @@ and the launcher badge, share the conversation and let the simulated colleague
 continue it. The agent-run API tests call every agent-run endpoint with the documented
 method and path, bind a decision to the proposal hash and report a four-eyes refusal
 with its code; the transport tests send the extra headers without letting them replace
-the library's own, and the live tests put `getHubQueryParameters` on the hub URL without
+the library's own, and the live tests ask the hub to watch the whole application's agent work while a screen watches it,
+renew the watch and stop with the last screen, the inbox reloads on a proposal of the whole application
+while it is shown, not after it closed and not for a person without the agent's view policy
+(`NhAssistantMockBackend.publishAgentWork`), and the live tests put `getHubQueryParameters` on the hub URL without
 letting them replace `access_token`. The store tests offer each open proposal of an agent
 thread to the approvers the server names, decide a run's proposal once with its hash
 through the agent-run endpoint and reload the thread, and show a refused decision; the
