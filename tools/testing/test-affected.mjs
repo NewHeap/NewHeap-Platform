@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import {
   affectedFrontEndLibraries,
   affectedTestProjects,
+  angularTestArguments,
   isTestProject,
   needsAllProviders,
   normalizePath,
@@ -154,7 +155,7 @@ for (const project of testProjects) {
   passed = run(project, 'dotnet', testArgs, '.') && passed;
 }
 for (const library of angularLibraries) {
-  passed = run(`ng test ${library}`, 'npx', ['ng', 'test', library, '--watch=false'], frontEndRoot) && passed;
+  passed = run(`ng test ${library}`, 'npx', angularTestArguments(library), frontEndRoot) && passed;
 }
 if (sampleChanged) {
   passed = run('sample verify:samples', 'npm', ['run', 'verify:samples'], sampleRoot) && passed;

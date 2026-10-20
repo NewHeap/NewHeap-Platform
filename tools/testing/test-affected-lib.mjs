@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   affectedFrontEndLibraries,
   affectedTestProjects,
+  angularTestArguments,
   isTestProject,
   needsAllProviders,
   ownerProject,
@@ -59,6 +60,8 @@ assert.deepEqual(affectedTestProjects(['src/Back-end/Directory.Packages.props'],
 assert.deepEqual(
   affectedFrontEndLibraries(['src/Front-end/projects/nh-ai-chat/src/lib/x.ts', 'src/Front-end/package.json'], ['nh-common', 'nh-ai-chat']),
   ['nh-ai-chat']);
+// Angular libraries run once, in headless Chrome, so a hidden browser window cannot fail them.
+assert.deepEqual(angularTestArguments('nh-ai-chat'), ['ng', 'test', 'nh-ai-chat', '--watch=false', '--browsers=ChromeHeadless']);
 
 // Persistence changes run both providers; other changes one.
 assert.ok(needsAllProviders(['src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261019_X.cs']));
@@ -68,4 +71,4 @@ assert.ok(!needsAllProviders(['src/Back-end/Libraries/NewHeap.Platform.Common/Ex
 assert.equal(providerFilter(true), null);
 assert.equal(providerFilter(false), 'DisplayName!~SqlServer');
 
-console.log('Verified affected test selection: project graph, shared build files, front-end libraries and providers.');
+console.log('Verified affected test selection: project graph, shared build files, front-end libraries, their headless test run and providers.');

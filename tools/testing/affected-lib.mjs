@@ -117,6 +117,15 @@ export function affectedFrontEndLibraries(changedFiles, libraries) {
 }
 
 /**
+ * The `npx` arguments that test one Angular library once. Karma runs it in headless Chrome: a
+ * visible Chrome window that is hidden or minimized throttles timers and focus, and specs that need
+ * a visible page, such as the collaboration specs of `nh-ai-chat`, then fail.
+ */
+export function angularTestArguments(library) {
+  return ['ng', 'test', library, '--watch=false', '--browsers=ChromeHeadless'];
+}
+
+/**
  * Changes that concern how data is stored, which must be verified on SQL Server and PostgreSQL:
  * migrations, EF models and contexts, stores, repositories, provider projects and provider tests.
  */

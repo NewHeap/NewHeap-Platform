@@ -631,8 +631,9 @@ which receiving hosts validate without being able to mint and the audience can b
 - **Secrets** (Q7, M2). Each secret of a server (bearer token, API key, password, OAuth client secret) is
   one of three sources, chosen per secret:
   - **stored**: protected with Data Protection, as today;
-  - **`config:<name>`**: read from `NewHeap:AI:Assistant:Mcp:Secrets:<name>` per request, so a
-    configuration reload (for example of a Key Vault configuration provider) rotates it;
+  - **`config:<name>`**: read from `NewHeap:AI:Assistant:Mcp:Secrets:<name>` per request with
+    `NhConfigurationSecrets.Read`, so a configuration reload (for example of a Key Vault configuration
+    provider) rotates it, and a blank value or an unresolved `${...}` reference counts as missing;
   - **`<prefix>:<name>`**: resolved by an `INhAssistantMcpSecretResolver` that the application registers
     for its own prefix with `AddMcpSecretResolver<T>(prefix)`, for example a vault SDK.
 
