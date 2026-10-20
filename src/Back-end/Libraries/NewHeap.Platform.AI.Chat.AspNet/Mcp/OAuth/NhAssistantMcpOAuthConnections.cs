@@ -287,6 +287,36 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
         return removed;
     }
 
+    /// <summary>
+    /// Removes every personal token connection of a person, as retention does: the tokens are deleted
+    /// and revoked, a consent to background use stays on the row, and each removal is audited with
+    /// <paramref name="reason"/>. Returns the number of connections this call removed.
+    /// </summary>
+    public async Task<int> RemoveOwnerAsync(
+        string ownerActorId,
+        string reason,
+        Func<string, CancellationToken, Task<AssistantMcpServer?>> findServer,
+        CancellationToken cancellationToken)
+    {
+        var removed = 0;
+        foreach (var connection in await store.ListTokenConnectionsAsync(NhAssistantMcpConnectionOwners.User, ownerActorId, cancellationToken))
+        {
+            if (!await store.RemoveTokensAsync(connection.Id, cancellationToken))
+            {
+                continue;
+            }
+            cache.Remove(connection.Id);
+            await ForgetConnectionAsync(connection);
+            if (await findServer(connection.ServerId, cancellationToken) is { } server)
+            {
+                await RevokeAsync(server, connection, cancellationToken);
+            }
+            await AuditAsync(NhAssistantAuditEventKind.McpConnectionDisconnected, connection.ServerId, connection.OwnerActorId, reason, cancellationToken);
+            removed++;
+        }
+        return removed;
+    }
+
     private async Task RevokeAsync(AssistantMcpServer server, AssistantMcpConnection connection, CancellationToken cancellationToken)
     {
         var issuer = connection.Issuer ?? server.AuthorizationServerIssuer;

@@ -794,6 +794,21 @@ for another audience with `CreateTokenForAudienceAsync`.
 | `INhAuthenticationService` has a new `CreateDelegatedTokenAsync` overload with `audience`, a default method that creates the token of the existing overload. | None for implementations. A test substitute that stubs the delegated MCP token stubs the overload with `audience`. |
 | With asymmetric signing, delegated MCP tokens carry the MCP server's origin as `aud` instead of the issuer. | Validate them on the first-party server with `UseNewHeapJwks(jwksUri, issuer, issuer, origin)` next to `Accept(origin, "/mcp")`, and remove the shared key from that server. |
 
+## NewHeap.Platform.AI.Chat.AspNet: connections of people the platform no longer resolves
+
+The MCP maintenance now removes the personal connections of people the platform no longer resolves,
+long before `ConnectionRetention`: it asks `INhAiPrincipalFactory` for every owner of a personal token
+connection, with the whole application as subject, at most 100 people per maintenance run and a pass
+over everyone at most every hour. A person it does not resolve, because the person was removed or may
+no longer sign in, loses the tokens of every personal connection; they are revoked at the
+authorization server and audited as `McpConnectionDisconnected` with `owner-unresolved`. A consent to
+background use stays without tokens, as after retention. A host whose built-in principal factory
+cannot resolve anyone, because the NewHeap user manager is missing, is not swept.
+
+| Breaking change | Required action |
+|---|---|
+| A person who may no longer sign in, also for a while such as during a lock-out, loses their personal MCP connections within about an hour. | None; the person connects again from the chat or the preferences. A host with its own `INhAiPrincipalFactory` makes sure it resolves every person who may use the assistant, also for the whole application as subject. |
+
 ## NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: one status per error code and error handling after the review
 
 Every assistant endpoint (chat, administration, agent runs, subjects, run histories, boards, MCP

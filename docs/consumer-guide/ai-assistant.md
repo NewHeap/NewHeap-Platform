@@ -266,7 +266,12 @@ invalid run filter. Clients map the code, never the status, to a text.
   server with their own connection (`POST admin/mcp-servers/{id}/connection/authorize`; `GET` and
   `DELETE .../connection` then read and remove that own connection), count the personal connections
   and revoke them all. Personal connections unused for `ConnectionRetention` lose their tokens, which
-  are revoked; a person's consent to background use stays on the row, as after a disconnect. `ToolInvoked` names whose credential a call carried in
+  are revoked; a person's consent to background use stays on the row, as after a disconnect. The MCP
+  maintenance also asks `INhAiPrincipalFactory` about every owner of a personal connection, with the
+  whole application as subject, in batches of 100 and a pass at most every hour: a person it no longer
+  resolves (removed, or no longer allowed to sign in) loses the tokens the same way, audited as
+  `McpConnectionDisconnected` with `owner-unresolved`. A host with its own principal factory resolves
+  every person who may use the assistant for that subject too. `ToolInvoked` names whose credential a call carried in
   `McpConnectionOwner`.
 - Every administration change is a content-free audit event
   (`AdminContextUpdated`, `AdminAgent*`, `AdminMcpServer*`, `AdminMcpToolUpdated`).

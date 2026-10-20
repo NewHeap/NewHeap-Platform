@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "a9b7c91e03f56b1d61f1908f8949c8f514608b21bd3ccd51241f76f5adf0c95c",
-    "declarationCount": 9093,
+    "hash": "9ae10fcd7a34f9b33ff5d5cd58b6d844c0b5651e17714c2b6ecc3a4ea3a04f5d",
+    "declarationCount": 9098,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3726,6 +3726,14 @@
         "declaration": "public static void Authorization(string outcome) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpOwnerSweep.cs",
+        "declaration": "public const string UnresolvedReason = \"owner-unresolved\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpOwnerSweep.cs",
+        "declaration": "public async Task<NhAssistantMcpOwnerSweepBatch> RunBatchAsync(string? after, int take, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpAuthorizationFlows.cs",
         "declaration": "public override string ToString() {"
       },
@@ -3944,6 +3952,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
         "declaration": "public async Task<int> RemoveStaleAsync( Func<string, CancellationToken, Task<AssistantMcpServer?>> findServer, int take, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
+        "declaration": "public async Task<int> RemoveOwnerAsync( string ownerActorId, string reason, Func<string, CancellationToken, Task<AssistantMcpServer?>> findServer, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthCredentialProvider.cs",
@@ -13276,6 +13288,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpOAuthStore.cs",
         "declaration": "public async Task<IReadOnlyList<AssistantMcpConnection>> ListTokenConnectionsAsync( string ownerKind, string? ownerActorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpOAuthStore.cs",
+        "declaration": "public async Task<IReadOnlyList<string>> ListTokenConnectionOwnersAsync( string after, int take, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpOAuthStore.cs",
+        "declaration": "public async Task<bool> RemoveTokensAsync(Guid id, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpOAuthStore.cs",

@@ -62,6 +62,7 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantMcpOAuthClient>();
             services.TryAddScoped<NhAssistantMcpOAuthConnections>();
             services.TryAddScoped<NhAssistantMcpAuthorizationFlows>();
+            services.TryAddScoped<NhAssistantMcpOwnerSweep>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantMcpMaintenance>());
             services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAssistantMcpCredentialProvider, NhAssistantMcpOAuthCredentialProvider>());
             // Delegated MCP tokens that this host mints are never accepted by the host itself.
