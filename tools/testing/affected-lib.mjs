@@ -104,6 +104,30 @@ export function affectedTestProjects(changedFiles, graph, testProjects) {
   return [...reached].filter(project => testProjects.has(project)).sort();
 }
 
+/**
+ * The Angular projects of `angular.json` that `ng test` can run: those with a test target and at
+ * least one spec file below their root. Karma stops with TS18003 for a library without specs, so such
+ * a library is reported as untested instead of failing the run. `specFiles` are paths relative to the
+ * Angular workspace, such as `projects/nh-common/src/x.spec.ts`.
+ */
+export function testableFrontEndLibraries(projects, specFiles) {
+  const specs = specFiles.map(normalizePath);
+  const testable = [];
+  const withoutSpecs = [];
+  for (const [name, project] of Object.entries(projects)) {
+    if (!project.architect?.test) {
+      continue;
+    }
+    const root = normalizePath(project.root ?? `projects/${name}`).replace(/\/$/, '');
+    if (specs.some(file => file.startsWith(`${root}/`))) {
+      testable.push(name);
+    } else {
+      withoutSpecs.push(name);
+    }
+  }
+  return { testable, withoutSpecs };
+}
+
 /** The Angular libraries under `src/Front-end/projects` whose files changed. */
 export function affectedFrontEndLibraries(changedFiles, libraries) {
   const affected = new Set();

@@ -28,8 +28,8 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
   `FitsAuthMode` refuses `organization` for `forward-user-token` at save, in the API and the mock.
 - **Credential providers stay internal in M1.** `INhAssistantMcpCredentialProvider` and
   `NhAssistantMcpCredentialHandler` are internal; the last registered provider of a mode wins, which the
-  renewal test uses. `AddMcpCredentialProvider<T>` becomes public in M3, when a second kind of provider
-  exists.
+  renewal test uses. `AddMcpCredentialProvider<T>` was to become public in M3, when a second kind of
+  provider exists; I8 kept it internal, and publishing it is a [proposed follow-up](#proposed-follow-ups).
 - **Request checks.** The handler keeps every request on the planned origin and re-applies
   `CheckUri`, including `AllowedHosts`. The client also no longer opens the standalone stream for
   server-initiated messages (`EnableStandaloneGetStream = false`), which the assistant does not handle.
@@ -81,7 +81,8 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
   (`NhAssistantMcpConnectionsComponent`, exported for profile pages); M4 extends it with connection
   status and "Connect". A headless run without consent leaves the server out with
   `assistant-mcp-consent-required`, which a deferred proposal reports as its result code; notifying the
-  person, as planned for a missing personal connection, follows in M4.
+  person, as planned for a missing personal connection, was left for M4 and is a
+  [proposed follow-up](#proposed-follow-ups).
 - **Secret references.** Names contain no `:` and no `..`. A `config:` value is read with
   `NhConfigurationSecrets.Read` (since the merge of `main`): the key itself or `Secrets:<key>` from the
   secrets files, and a blank value or an unresolved `${...}` reference counts as missing (fail

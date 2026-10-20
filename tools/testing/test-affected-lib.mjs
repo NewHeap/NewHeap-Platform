@@ -9,7 +9,8 @@ import {
   ownerProject,
   parseProjectReferences,
   providerFilter,
-  resolveRelative
+  resolveRelative,
+  testableFrontEndLibraries
 } from './affected-lib.mjs';
 
 const common = 'src/Back-end/Libraries/NewHeap.Platform.Common/NewHeap.Platform.Common.csproj';
@@ -60,6 +61,18 @@ assert.deepEqual(affectedTestProjects(['src/Back-end/Directory.Packages.props'],
 assert.deepEqual(
   affectedFrontEndLibraries(['src/Front-end/projects/nh-ai-chat/src/lib/x.ts', 'src/Front-end/package.json'], ['nh-common', 'nh-ai-chat']),
   ['nh-ai-chat']);
+// Only libraries with a test target and specs below their root are run; Karma refuses one without specs.
+assert.deepEqual(
+  testableFrontEndLibraries(
+    {
+      'nh-common': { root: 'projects/nh-common', architect: { test: {} } },
+      'nh-toastr': { root: 'projects/nh-toastr', architect: { test: {} } },
+      'nh-ai-chat': { root: 'projects/nh-ai-chat/', architect: { test: {} } },
+      'nh-ai-chat-extra': { root: 'projects/nh-ai-chat-extra', architect: { test: {} } },
+      management: { root: 'projects/management', architect: { build: {} } }
+    },
+    ['projects/nh-common/two-factor/src/x.spec.ts', String.raw`projects\nh-ai-chat\src\y.spec.ts`, 'projects/management/z.spec.ts']),
+  { testable: ['nh-common', 'nh-ai-chat'], withoutSpecs: ['nh-toastr', 'nh-ai-chat-extra'] });
 // Angular libraries run once, in headless Chrome, so a hidden browser window cannot fail them.
 assert.deepEqual(angularTestArguments('nh-ai-chat'), ['ng', 'test', 'nh-ai-chat', '--watch=false', '--browsers=ChromeHeadless']);
 

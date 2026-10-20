@@ -21,7 +21,8 @@ import {
   needsAllProviders,
   normalizePath,
   parseProjectReferences,
-  providerFilter
+  providerFilter,
+  testableFrontEndLibraries
 } from './affected-lib.mjs';
 
 const repositoryRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
@@ -97,11 +98,26 @@ async function projectGraph() {
   return { graph, tests };
 }
 
+async function findSpecFiles(folder, found = []) {
+  let entries;
+  try {
+    entries = await readdir(resolve(repositoryRoot, frontEndRoot, folder), { withFileTypes: true });
+  } catch {
+    return found;
+  }
+  for (const entry of entries) {
+    if (entry.isDirectory() && !skippedFolders.has(entry.name)) {
+      await findSpecFiles(join(folder, entry.name), found);
+    } else if (entry.isFile() && entry.name.endsWith('.spec.ts')) {
+      found.push(normalizePath(join(folder, entry.name)));
+    }
+  }
+  return found;
+}
+
 async function frontEndLibraries() {
   const angular = JSON.parse(await readFile(resolve(repositoryRoot, frontEndRoot, 'angular.json'), 'utf8'));
-  return Object.entries(angular.projects)
-    .filter(([, project]) => project.architect?.test)
-    .map(([name]) => name);
+  return testableFrontEndLibraries(angular.projects, await findSpecFiles('projects'));
 }
 
 function run(label, command, commandArgs, cwd) {
@@ -134,7 +150,7 @@ const branchScope = option('--branch') || valueOf('--base') !== undefined;
 
 const files = everything ? [] : explicitFiles ?? changedFiles(base);
 const { graph, tests } = await projectGraph();
-const libraries = await frontEndLibraries();
+const { testable: libraries, withoutSpecs: librariesWithoutSpecs } = await frontEndLibraries();
 const testProjects = everything ? [...tests].sort() : affectedTestProjects(files, graph, tests);
 const allProviders = everything || option('--all-providers') || needsAllProviders(files);
 const filter = providerFilter(allProviders);
@@ -152,6 +168,9 @@ console.log(`Database providers: ${allProviders ? 'SQL Server and PostgreSQL' : 
 console.log(`.NET test projects: ${testProjects.length === 0 ? 'none' : ''}`);
 testProjects.forEach(project => console.log(`  ${project}`));
 console.log(`Angular libraries: ${angularLibraries.length === 0 ? 'none' : angularLibraries.join(', ')}`);
+if (librariesWithoutSpecs.length > 0) {
+  console.log(`Angular libraries without specs, not run: ${librariesWithoutSpecs.join(', ')}`);
+}
 console.log(`Sample checks: ${sampleChanged ? 'npm run verify:samples' : 'none'}`);
 
 if (option('--dry-run')) {
