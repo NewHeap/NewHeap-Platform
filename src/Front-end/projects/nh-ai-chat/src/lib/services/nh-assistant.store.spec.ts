@@ -874,6 +874,29 @@ describe('NhAssistantStore', () => {
       };
     }
 
+    it('opens the thread of an agent kept out of the chat without choosing that agent for a new chat', async () => {
+      api.getConversation.and.returnValue(of({ ...thread([]), agentId: 'follow-up' }));
+      const store = setup();
+      await store.initialize();
+      const selected = store.selectedAgentId();
+
+      await store.openConversation('t1');
+
+      expect(store.activeConversation()?.id).toBe('t1');
+      expect(store.isAgentThread()).toBeTrue();
+      expect(store.selectedAgentId()).toBe(selected);
+    });
+
+    it('does not open a chat conversation of an agent the caller is not offered', async () => {
+      api.getConversation.and.returnValue(of({ ...conversation(), id: 'c9', agentId: 'follow-up' }));
+      const store = setup();
+      await store.initialize();
+
+      await store.openConversation('c9');
+
+      expect(store.activeConversation()).toBeNull();
+    });
+
     it('offers each open proposal to the approvers the server names, not to the author of a turn', async () => {
       api.getConversation.and.returnValue(of(thread([
         { approvalId: 'intake-1', runId: 'run-1', canDecide: true, reasonCode: null },

@@ -4707,8 +4707,8 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSubjectTypeTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRegistrationTests.cs",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-subject-link.component.ts",
-        "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-subject-picker.component.ts",
-        "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-subject-picker.component.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/internal/nh-assistant-subject-picker.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-subject-picker.spec.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/components/subject-links.spec.ts",
         "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-subjects.ts"
       ]
@@ -4746,6 +4746,37 @@
         "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-trigger-form.component.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-whole-application.spec.ts",
         "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts"
+      ]
+    },
+    {
+      "id": "SPM-303",
+      "categoryId": "18",
+      "title": "Project managers run the project follow-up now for the whole application, and participants run an agent on their project from its page",
+      "surface": "`POST threads/start` for `nh-system` with the agent's `RunPolicy` (by default the administration policy) instead of the approve policy of the whole application, and for an object with the participant role, through the one works-on rule with its scope; `GET subjects/{type}/{id}/agents` with `NhAssistantObjectAgentsDto`, `NhAssistantObjectAgentDto` and `NhAssistantLatestRunDto`; `GET subjects/nh-system/search` for listed divisions; `assistant-mcp-initiator-only` for a run by hand that acts for someone else; `NhAssistantAgentRunApiService.getObjectAgents` with `AgentObjectAgents`, `AgentObjectAgent`, `AgentLatestRun`, `NH_ASSISTANT_SYSTEM_SUBJECT_TYPE`, `NH_ASSISTANT_SYSTEM_GLOBAL_ID` and `NH_ASSISTANT_RESULT_PREVIEW_LENGTH`; `NhAssistantObjectAgentsComponent` (`nh-assistant-object-agents`) of `@newheap/platform-ai-chat/agent-runs`; \"Run now\" on the agent cards of `NhAssistantAdminAgentsComponent`; `divisions`, `callerPolicies` and `runNow` of the mock scenario with `NhAssistantMockDivision` and `NhAssistantMockRunNow`",
+      "outcome": "A project manager runs the project follow-up now for the whole application: the agent's run policy, project managers, decides, so a person who only reads the projects sees the agent without being able to run it and is refused. The run works in the follow-up's thread of the whole application, started by the manager and answering to the operations account like the Monday schedule, and the agents of the whole application list it with its latest run. On a project, its participants see the agents that work on projects with their latest result and open proposals and may run them: the portal's project editor shows them with nh-assistant-object-agents, runs an agent on the project without asking what, opens its work on the project on demand and opens its conversation in the assistant panel. The playground's administration runs the follow-up now for the whole application, a division or a project chosen with the object picker, and shows its result and proposals through the mock.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantObjectAgents.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunResults.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRunNowTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpHeadlessTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/internal/nh-assistant-run-now-dialog.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/internal/nh-assistant-subject-picker.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-object-agents.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-run-now.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-subject-picker.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-runs.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-subjects.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts"
       ]
     }
   ]

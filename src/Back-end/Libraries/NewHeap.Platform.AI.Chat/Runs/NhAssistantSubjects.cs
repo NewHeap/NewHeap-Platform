@@ -47,7 +47,18 @@ internal sealed class NhAssistantSubjectAccessService(
     /// </summary>
     public INhAiSubjectSearch? FindSearch(string subjectType)
     {
-        return _resolvers.GetValueOrDefault(subjectType) as INhAiSubjectSearch;
+        var resolver = _resolvers.GetValueOrDefault(subjectType);
+        return OffersSearch(resolver) ? (INhAiSubjectSearch)resolver! : null;
+    }
+
+    /// <summary>
+    /// Whether people find the resolver's subjects by name: it implements
+    /// <see cref="INhAiSubjectSearch"/>, and a platform resolver offers its search now.
+    /// </summary>
+    private static bool OffersSearch(INhAiSubjectAccessResolver? resolver)
+    {
+        return resolver is INhAiSubjectSearch
+            && (resolver is not INhAssistantPlatformSubjectResolver platform || platform.OffersSearch);
     }
 
     /// <summary>
@@ -105,7 +116,7 @@ internal sealed class NhAssistantSubjectAccessService(
                 entry.Key,
                 entry.Value.GetType(),
                 registration.SubjectTypes.GetValueOrDefault(entry.Value.GetType()),
-                entry.Value is INhAiSubjectSearch,
+                OffersSearch(entry.Value),
                 NhAiSubjectRef.IsReservedType(entry.Key)),
             StringComparer.Ordinal);
 

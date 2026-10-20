@@ -466,6 +466,68 @@ public sealed record NhAssistantSubjectWorkDto(
 }
 
 /// <summary>
+/// The agents that work on one subject and that the caller may use, as an object's page shows them
+/// (<c>GET subjects/{type}/{id}/agents</c>): for each its latest run, its open proposals and whether
+/// the caller may run it now. The subject may be an object or the whole application.
+/// </summary>
+/// <param name="Role">The caller's live role on the subject: reader, participant or approver.</param>
+/// <param name="Agents">The agents ordered by id.</param>
+public sealed record NhAssistantObjectAgentsDto(
+    string SubjectType,
+    string SubjectId,
+    string? SubjectDisplayName,
+    string Role,
+    IReadOnlyList<NhAssistantObjectAgentDto> Agents)
+{
+    /// <summary>
+    /// The name of the subject type in the caller's language, when the application named the type;
+    /// <see langword="null"/> otherwise.
+    /// </summary>
+    public string? SubjectTypeName { get; init; }
+
+    /// <summary>
+    /// Where the application shows the subject; <see langword="null"/> without a link template.
+    /// </summary>
+    public string? SubjectLink { get; init; }
+}
+
+/// <summary>
+/// One agent that works on the subject.
+/// </summary>
+/// <param name="DisplayNameKey">The agent's name: a translation key for an agent in code, the text itself for one created in the administration, as in the agent picker.</param>
+/// <param name="DescriptionKey">The agent's description, in the same way.</param>
+/// <param name="CanStart">Whether the caller may run the agent on the subject now (<c>POST threads/start</c>).</param>
+/// <param name="ConversationId">The agent's thread about the subject that people open, or <see langword="null"/> before it worked on it.</param>
+/// <param name="LatestRun">The agent's newest run on the subject, or <see langword="null"/> before its first.</param>
+/// <param name="OpenProposals">The agent's proposals on the subject that wait for a decision.</param>
+public sealed record NhAssistantObjectAgentDto(
+    string AgentId,
+    string DisplayNameKey,
+    string DescriptionKey,
+    bool CanStart,
+    Guid? ConversationId,
+    NhAssistantLatestRunDto? LatestRun,
+    int OpenProposals);
+
+/// <summary>
+/// The newest run of an agent on a subject, with the beginning of its result.
+/// </summary>
+/// <param name="At">When the run ended, or started, or was queued.</param>
+/// <param name="Result">The first 300 characters of the run's result, model output to show as untrusted text; until runs store their full answer, the summary they end with.</param>
+/// <param name="ResultTruncated">The result is longer than <paramref name="Result"/>.</param>
+/// <param name="Shadow">The run worked in the agent's shadow thread, which only administrators see.</param>
+public sealed record NhAssistantLatestRunDto(
+    Guid RunId,
+    Guid ConversationId,
+    string TriggerId,
+    string Status,
+    string? FailureCode,
+    DateTimeOffset At,
+    string? Result,
+    bool ResultTruncated,
+    bool Shadow);
+
+/// <summary>
 /// The subjects of one type a search found that the caller may see, in the order the application's
 /// search returned them.
 /// </summary>
@@ -639,6 +701,7 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantReplayDto))]
 [JsonSerializable(typeof(NhAssistantReplayListDto))]
 [JsonSerializable(typeof(NhAssistantSubjectWorkDto))]
+[JsonSerializable(typeof(NhAssistantObjectAgentsDto))]
 [JsonSerializable(typeof(NhAssistantSubjectProposalDto))]
 [JsonSerializable(typeof(NhAssistantProposalLookupRequest))]
 [JsonSerializable(typeof(NhAssistantProposalLookupDto))]

@@ -1097,6 +1097,13 @@ public static class NhAssistantAdminErrorCodes
     public const string McpConsentRequired = "assistant-mcp-consent-required";
 
     /// <summary>
+    /// A run a person started by hand acts for someone else, such as the account the agent answers
+    /// to; it may use only the starter's own connection to a server with personal background use,
+    /// never another person's.
+    /// </summary>
+    public const string McpInitiatorOnly = "assistant-mcp-initiator-only";
+
+    /// <summary>
     /// No delegated token could be issued for the person, for example because the account may not
     /// sign in, or because the host does not restrict delegated tokens in every bearer scheme.
     /// </summary>

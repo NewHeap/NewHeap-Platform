@@ -1772,12 +1772,20 @@ internal sealed partial class NhAssistantTurnRunner(
             person = scope.AccountableOwnerId;
             personGrantSource = NhAiGrantSource.Accountable;
         }
+
+        // A run a person started by hand serves only that person's own personal connection, and
+        // only with their consent; never the connection of someone else, such as the account the
+        // agent answers to (W4, Q3). The whole application lists no members to fall back to either.
+        var startedByOther = string.Equals(agentTurn.TriggerId, NhAssistantTriggerIds.Manual, StringComparison.Ordinal)
+            && person is not null
+            && !string.Equals(person, agentTurn.InitiatorActorId, StringComparison.Ordinal);
         return new NhAssistantMcpToolRequest(state.EffectiveAgent)
         {
             IsHeadless = true,
             PersonActorId = person,
             PersonGrantSource = personGrantSource,
-            Subject = agentTurn.Subject
+            Subject = agentTurn.Subject,
+            PersonalCredentialRefusal = startedByOther ? NhAssistantAdminErrorCodes.McpInitiatorOnly : null
         };
     }
 

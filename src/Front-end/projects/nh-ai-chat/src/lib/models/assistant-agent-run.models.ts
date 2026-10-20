@@ -226,6 +226,67 @@ export interface AgentSubjectSearch {
 /** The shortest and longest text `searchSubjects` accepts, and the most results it returns. */
 export const NH_ASSISTANT_SUBJECT_SEARCH = { minQueryLength: 2, maxQueryLength: 100, maxLimit: 50 } as const;
 
+/** The platform's subject type of the whole application, which the server registers itself. */
+export const NH_ASSISTANT_SYSTEM_SUBJECT_TYPE = 'nh-system';
+
+/** The whole application as one subject, for an agent that works app-wide. */
+export const NH_ASSISTANT_SYSTEM_GLOBAL_ID = 'global';
+
+/** The most characters of a run's result that `getObjectAgents` returns for its latest run. */
+export const NH_ASSISTANT_RESULT_PREVIEW_LENGTH = 300;
+
+/** The newest run of an agent on a subject, with the beginning of its result. */
+export interface AgentLatestRun {
+  runId: string;
+  conversationId: string;
+  triggerId: string;
+  status: AgentRunStatus;
+  failureCode: string | null;
+  /** When the run ended, or started, or was queued. */
+  at: string;
+  /**
+   * The first `NH_ASSISTANT_RESULT_PREVIEW_LENGTH` characters of the run's result: model output, to
+   * show as text. Until runs store their full answer it is the summary they end with; `null` while
+   * the run has none.
+   */
+  result: string | null;
+  /** The result is longer than `result`. */
+  resultTruncated: boolean;
+  /** The run worked in the agent's shadow thread, which only administrators see. */
+  shadow: boolean;
+}
+
+/** One agent that works on a subject, as `getObjectAgents` lists it. */
+export interface AgentObjectAgent {
+  agentId: string;
+  /** A translation key for an agent in code, the text itself for one created in the administration. */
+  displayNameKey: string;
+  descriptionKey: string;
+  /** Whether the caller may run the agent on the subject now. */
+  canStart: boolean;
+  /** The agent's thread about the subject that people open; `null` before it worked on it. */
+  conversationId: string | null;
+  /** The agent's newest run on the subject; `null` before its first. */
+  latestRun: AgentLatestRun | null;
+  /** The agent's proposals on the subject that wait for a decision. */
+  openProposals: number;
+}
+
+/**
+ * The agents that work on one subject and that the caller may use (`GET subjects/{type}/{id}/agents`),
+ * ordered by id. The subject is an object or the whole application.
+ */
+export interface AgentObjectAgents {
+  subjectType: string;
+  subjectId: string;
+  subjectDisplayName: string | null;
+  subjectTypeName?: string | null;
+  subjectLink?: string | null;
+  /** The caller's live role. Without a role the server answers `404 assistant-subject-not-found`. */
+  role: Exclude<AgentSubjectRole, 'none'>;
+  agents: AgentObjectAgent[];
+}
+
 export interface StartAgentRequest {
   agentId: string;
   subjectType: string;

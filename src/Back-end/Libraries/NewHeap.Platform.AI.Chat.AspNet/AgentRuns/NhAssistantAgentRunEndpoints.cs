@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -29,7 +28,7 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapPost("threads/start", StartAgentAsync)
             .WithName("NhAssistantStartAgent")
             .WithSummary("Start an agent on a subject")
-            .WithDescription("Starts a run of the agent with the caller as initiator. The caller needs at least the participant role on the subject, and the agent must work on the subject's type (409 assistant-agent-does-not-work-on otherwise).")
+            .WithDescription("Starts a run of the agent with the caller as initiator, by hand. On an object the caller needs at least the participant role and the agent's required policy. On the whole application (subjectType nh-system, subjectId global or division-{id:N}) the agent's run policy decides, by default the administration policy, evaluated for the caller as headless runs see them, and the caller reads it; the approve policy of the whole application gives no start. The agent must work on the subject and, for the whole application, on its scope: app-wide on global, per division on a division (409 assistant-agent-does-not-work-on otherwise).")
             .Produces<NhAssistantTriggerReceiptDto>(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
@@ -142,7 +141,7 @@ internal static class NhAssistantAgentRunEndpoints
         NhAssistantSubjectAccessService subjects,
         NhAssistantThreadService threads,
         NhAssistantRunStore runs,
-        NhAssistantAgentAccess agentAccess,
+        NhAssistantManualStarts starts,
         NhAssistantAgentCatalog agents)
     {
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
@@ -170,11 +169,7 @@ internal static class NhAssistantAgentRunEndpoints
 
         var agent = await agents.FindAsync(agentId!, includeDisabled: false, cancellationToken);
         var runOptions = registration.AgentRuns[agentId!];
-        var canStart = agent is not null
-            && runOptions.Enabled
-            && access.Has(NhAiSubjectRole.Participant)
-            && await agentAccess.CanUseAsync(httpContext.User, agent.Definition)
-            && await MayStartAsync(httpContext, runOptions, agent, subject!);
+        var canStart = await starts.CanStartAsync(agent, subject!, access, caller.Data!.ActorId, httpContext.User, cancellationToken);
         // People open the live thread; a shadow variant has shadow threads only.
         var thread = await runs.FindThreadAsync(info.ScopeKey, agentId!, subject!, cancellationToken, runOptions.ShadowOfAgentId is not null);
         NhAssistantThreadDto? threadDto = null;
@@ -193,7 +188,7 @@ internal static class NhAssistantAgentRunEndpoints
         HttpContext httpContext,
         NhAssistantRegistrationState registration,
         NhAssistantSubjectAccessService subjects,
-        NhAssistantAgentAccess agentAccess,
+        NhAssistantManualStarts starts,
         NhAssistantAgentCatalog agents,
         NhAssistantAgentTriggers triggers)
     {
@@ -216,54 +211,15 @@ internal static class NhAssistantAgentRunEndpoints
 
         var cancellationToken = httpContext.RequestAborted;
         var access = await subjects.ResolveAsync(subject!, caller.Data!.ActorId, cancellationToken);
-        if (!access.Has(NhAiSubjectRole.Participant))
-        {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
-        }
         var agent = await agents.FindAsync(request.AgentId!, includeDisabled: false, cancellationToken);
-        if (agent is null || !await agentAccess.CanUseAsync(httpContext.User, agent.Definition))
+        // K9: on an object the participant role, on the whole application the agent's run policy.
+        if (await starts.RefusalAsync(agent, subject!, access, caller.Data.ActorId, httpContext.User, cancellationToken) is { } refusal)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
-        }
-        // An agent starts only on what it works on, by hand as from a trigger.
-        if (httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().RefusalOf(agent.Id, subject!) is { } notWorkedOn)
-        {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status409Conflict, notWorkedOn);
-        }
-        if (!await MayStartAsync(httpContext, registration.AgentRuns[request.AgentId!], agent, subject!))
-        {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(refusal.Status, refusal.Code);
         }
 
         var receipt = await triggers.StartNowAsync(request.AgentId!, subject!, caller.Data.ActorId, request.Message, cancellationToken);
         return Receipt(receipt);
-    }
-
-    /// <summary>
-    /// Whether the caller may start the agent by hand on <paramref name="subject"/>: the agent works
-    /// on it, an agent in shadow works in shadow threads, which only administrators see, so only they
-    /// start it, and for the whole application the caller passes the agent's run policy when it names
-    /// one, next to the role on the whole application.
-    /// </summary>
-    internal static async Task<bool> MayStartAsync(
-        HttpContext httpContext,
-        NhAssistantAgentRunOptions runOptions,
-        NhAssistantAgent agent,
-        NhAiSubjectRef subject)
-    {
-        if (!httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().Allows(agent.Id, subject))
-        {
-            return false;
-        }
-        if (NhAiSystemSubjects.IsSystem(subject)
-            && runOptions.WorksOn.RunPolicy is { } runPolicy
-            && !(await httpContext.RequestServices.GetRequiredService<IAuthorizationService>().AuthorizeAsync(httpContext.User, runPolicy)).Succeeded)
-        {
-            return false;
-        }
-
-        return !NhAssistantShadowModes.IsAgentShadow(runOptions, agent.ShadowOverride)
-            || await NhAssistantEndpointRouteBuilderExtensions.IsAdministratorAsync(httpContext);
     }
 
     private static async Task<IResult> ListRunsAsync(

@@ -11,7 +11,7 @@ import {
   signal,
   viewChild
 } from '@angular/core';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Observable, Subscription, catchError, forkJoin, of } from 'rxjs';
 import {
   AdminAgent,
@@ -24,6 +24,7 @@ import {
   NhAssistantError,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  NhAssistantPanelService,
   NhAssistantStore,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError,
@@ -31,6 +32,10 @@ import {
   SetAgentStateRequest,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
+import {
+  ɵNhAssistantRunNowDialogComponent as NhAssistantRunNowDialogComponent,
+  type ɵNhAssistantRunNowAgent as NhAssistantRunNowAgent
+} from '@newheap/platform-ai-chat/agent-runs';
 import { codeTextKeys, policyKeys, readableId, skillDescriptionKeys, skillNameKeys, WorksOnSummary, worksOnSummary } from './agent-texts';
 import { NhAssistantAdminAgentEditorComponent } from './nh-assistant-admin-agent-editor.component';
 import { NhAssistantAgentEvaluationComponent } from './nh-assistant-agent-evaluation.component';
@@ -53,6 +58,9 @@ const maxStateReason = 500;
  * `nh-assistant-agent-feedback-report` for the agent, the evaluation action of an agent with
  * shadow variants opens `nh-assistant-agent-evaluation`, and the run configuration action opens
  * `nh-assistant-agent-run-configuration` for the skills, triggers and run settings defined as data.
+ * "Run now" on an agent that runs on its own opens the run-now dialog: the whole application (or a
+ * division of it) or an object of one of its types, and an optional instruction; the receipt opens
+ * the agent's conversation in the assistant panel.
  */
 @Component({
   selector: 'nh-assistant-admin-agents',
@@ -66,7 +74,8 @@ const maxStateReason = 500;
     NhAssistantAgentEvaluationComponent,
     NhAssistantAgentFeedbackReportComponent,
     NhAssistantAgentRunConfigurationComponent,
-    NhAssistantAccountPickerComponent
+    NhAssistantAccountPickerComponent,
+    NhAssistantRunNowDialogComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-agents.component.html',
@@ -75,6 +84,8 @@ const maxStateReason = 500;
 export class NhAssistantAdminAgentsComponent {
   private readonly admin = inject(NhAssistantAdminApiService);
   private readonly store = inject(NhAssistantStore);
+  private readonly panel = inject(NhAssistantPanelService);
+  private readonly translate = inject(TranslateService);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly backButton = viewChild<ElementRef<HTMLButtonElement>>('back');
@@ -113,6 +124,25 @@ export class NhAssistantAdminAgentsComponent {
   readonly accountNames = signal<ReadonlyMap<string, string>>(new Map());
   /** The agent whose last action failed, so its error shows on its card. */
   readonly errorAgentId = signal<string | null>(null);
+  /** The agent the run-now dialog runs; `null` while it is closed. */
+  readonly runningNow = signal<AdminAgent | null>(null);
+  /** The agent of the run-now dialog as the dialog needs it: its name and what it works on. */
+  readonly runNowAgent = computed<NhAssistantRunNowAgent | null>(() => {
+    const agent = this.runningNow();
+    if (!agent) {
+      return null;
+    }
+    const keys = codeTextKeys(agent.source, agent.displayName);
+    const translated = keys.length > 0 ? this.translate.instant(keys[0]) as string : null;
+    return {
+      id: agent.id,
+      name: translated && translated !== keys[0] ? translated : agent.displayName,
+      worksOnSubjectTypes: agent.worksOnSubjectTypes ?? [],
+      worksOnAllSubjects: agent.worksOnAllSubjects ?? true,
+      worksOnApplication: agent.worksOnApplication ?? false,
+      perDivision: agent.perDivision ?? false
+    };
+  });
   /** The run configuration opens with the guided setup, for an agent created to work on its own. */
   readonly setupOnOpen = signal(false);
   readonly stateReason = signal('');
@@ -199,6 +229,25 @@ export class NhAssistantAdminAgentsComponent {
    */
   hasRunConfiguration(agent: AdminAgent): boolean {
     return agent.source === 'admin' || (agent.shadow !== null && agent.shadow !== undefined);
+  }
+
+  /**
+   * Whether the agent can be run now: it runs on its own, so it has a run configuration, and it is
+   * neither stopped nor disabled in code. The server decides the rest when the run starts.
+   */
+  canRunNow(agent: AdminAgent): boolean {
+    return this.hasRunConfiguration(agent) && (agent.runState === 'active' || agent.runState === 'paused');
+  }
+
+  /** Opens the run-now dialog of the agent. */
+  runNow(agent: AdminAgent): void {
+    this.closeForms();
+    this.runningNow.set(agent);
+  }
+
+  /** Opens the conversation the run works in, in the assistant panel. */
+  openConversation(conversationId: string): void {
+    this.panel.open(conversationId);
   }
 
   /** Shows the agent's skills, triggers and run settings defined as data. */

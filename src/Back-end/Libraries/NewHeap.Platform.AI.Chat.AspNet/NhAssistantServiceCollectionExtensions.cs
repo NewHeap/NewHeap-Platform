@@ -100,6 +100,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantReplayService>();
             services.TryAddScoped<INhAssistantHandOffs>(provider => provider.GetRequiredService<NhAssistantHandOffService>());
             services.TryAddScoped<NhAssistantApproverCheck>();
+            services.TryAddScoped<NhAssistantManualStarts>();
+            services.TryAddScoped<NhAssistantObjectAgents>();
             services.TryAddScoped<NhAssistantProposalDecisions>();
             services.TryAddScoped<NhAssistantProposalFeedbackService>();
             services.TryAddScoped<INhAssistantSubjectWork, NhAssistantSubjectWork>();

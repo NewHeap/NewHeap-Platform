@@ -245,9 +245,9 @@ policy) and people who pass the approve policy (by default the administration po
 it and decide its proposals; configure both with
 `UseSystemSubject(system => system.ReadPolicy("…").ApprovePolicy("…"))` (`NhAssistantSystemSubjectBuilder`).
 The policies are evaluated for the person as `INhAiPrincipalFactory` rebuilds them, against the
-subject with its division; a division subject also needs `INhDivisionAccess`. A manual start for the
-whole application also needs the agent's `RunPolicy` when it has one. The whole application lists no
-members, so the approval inbox shows its proposals to their initiator only.
+subject with its division; a division subject also needs `INhDivisionAccess`. Who runs an agent by
+hand for the whole application is decided by its run policy (see "run an agent now"). The whole
+application lists no members, so the approval inbox shows its proposals to their initiator only.
 
 Divisions stay optional. `NewHeap.Platform.Common.Actors` gains `INhDivisionDirectory` and
 `NhDivisionInfo`; NewHeap Identity registers a directory over its divisions, and an application lists
@@ -263,7 +263,6 @@ an app-wide agent is refused in a division and a per-division agent app-wide wit
 | Startup fails for `PerDivision()` in code when the application lists no divisions, for a schedule without `Subjects` on an agent that does not work on the application, and for an unregistered `UseSystemSubject` policy. | Use NewHeap Identity or `AddNewHeapDivisionDirectory<T>()`, add `WorksOnApplication()` or name the subjects, and register the policy. |
 | Saving a data schedule without a subject set no longer answers `subjectSet: required` for an agent that works on the application; it runs for the whole application. | Send a subject set when the schedule should run per object. |
 | Tool calls of a run on `nh-system` have no subject execution scope, and a per-division run has the division as its execution scope. | Do not require an `nh-system` execution scope in capability grants or context sources. |
-| A manual start (`POST threads/start`, `POST threads/open`) for the whole application also checks the agent's `RunPolicy`. | Give the people who start such agents the run policy as well. |
 
 ## @newheap/platform-ai-chat: the whole application as a scope
 
@@ -285,6 +284,53 @@ marks stored triggers that no longer fit what the agent works on as `inEffect: f
 | The run catalog's `subjectTypes`, from the server and the mock API, include the platform's `nh-system` type. | Find types by id or leave out `isSystem` where you list the application's own kinds of objects or take `subjectTypes[0]`. |
 | A schedule in the trigger form and the guided setup has a target choice before the subject set, and the set picker shows only for "Every object in a set". | Update tests and styles that select the schedule fields by position or expect the set picker for every schedule. |
 | Subject links no longer repeat a type name that equals the subject's name. | Update tests that expect the type span for such subjects. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: run an agent now
+
+People run an agent now, by hand, with `POST threads/start` on an object or on the whole application
+(`nh-system/global`, or `nh-system/division-{id:N}` for a per-division agent). One rule decides who
+may, for the start, a new thread of `POST threads/open` and every `canStart`: the agent works on the
+subject and, for the whole application, its scope; the person passes the agent's required policy; on
+an object the person is a participant; on the whole application the agent's `RunPolicy` decides, by
+default the administration policy, evaluated like the roles of the whole application, and the person
+reads it. `GET subjects/{type}/{id}/agents` (`NhAssistantObjectAgentsDto`, `NhAssistantObjectAgentDto`,
+`NhAssistantLatestRunDto`) lists the agents that work on a subject and that the caller may use, with
+`CanStart`, the thread people open, the newest run with status, time and the first 300 characters of
+its result (until runs keep their full answer, the summary they end with) and the open proposals.
+With listed divisions `GET subjects/nh-system/search` finds the divisions a person works in by name.
+A run started by hand uses only the starter's own personal MCP connection, with their consent.
+
+| Breaking change | Required action |
+|---|---|
+| Starting an agent by hand on the whole application (`POST threads/start`, a new thread of `POST threads/open`, `canStart`) follows the agent's `RunPolicy` (by default the administration policy) instead of the approve policy of the whole application. | Give the people who run such agents the run policy, or name a run policy with `RunPolicy` that they pass. |
+| `canStart` of `GET subjects/{type}/{id}/work` also checks the scope of the whole application and the run policy, as the start does. | None; a start that the server refused before now reads `canStart: false`. |
+| The run catalog reports `Searchable: true` for `nh-system` when the application lists its divisions, and its search finds divisions. | Do not treat a searchable `IsSystem` type as one with objects to search. |
+| A run started by hand that acts for someone else, such as the account an agent with `ActWithAccountableRights` answers to, no longer uses that person's personal MCP connection; the server is left out with `assistant-mcp-initiator-only`. | Use `DelegateFromInitiator()` when runs started by hand should use the starter's own connection, or an organization credential. |
+
+## @newheap/platform-ai-chat: run an agent now
+
+`nh-assistant-object-agents` (`NhAssistantObjectAgentsComponent`, `subjectType`, `subjectId`) of
+`@newheap/platform-ai-chat/agent-runs` shows the agents that work on an object, or on the whole
+application with `NH_ASSISTANT_SYSTEM_SUBJECT_TYPE` and `NH_ASSISTANT_SYSTEM_GLOBAL_ID`, each with its
+latest result (`AgentLatestRun`, at most `NH_ASSISTANT_RESULT_PREVIEW_LENGTH` characters, as text), its
+open proposals, "Run now" for people who may run it and its work on demand; it emits
+`openConversation`. `NhAssistantAgentRunApiService.getObjectAgents` returns `AgentObjectAgents`. The
+administration's agent cards offer "Run now": a dialog asks for the whole application, a division
+found by name for a per-division agent or an object of one of its kinds, and an optional instruction,
+and ends with a receipt that opens the agent's conversation. The assistant's form fields use
+`box-sizing: border-box`, so they keep within their width on a host page that does not set it. The
+mock API serves `POST threads/start`, `GET threads`, a thread's runs and `GET subjects/{type}/{id}/agents`
+with the server's rules, finds the scenario's `divisions` by name and takes `callerPolicies` and
+`runNow` (`NhAssistantMockDivision`, `NhAssistantMockRunNow`). New texts, among them the error
+`assistant-mcp-initiator-only`, are bundled in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| The mock API answers `POST threads/start`, `GET threads`, `GET threads/{id}/runs`, `proposals`, `memory`, `artifacts` and `consultations`, and `GET subjects/{type}/{id}/agents`, instead of `404`. | Update tests that expected `404` from these paths; script results with `runNow`. |
+| The agent cards of the administration show "Run now" for agents that run on their own. | Update tests and styles that select card buttons by position. |
+| Fields and buttons of the assistant's forms use `box-sizing: border-box`. | Remove host styles that compensated for the overflow. |
+| The mock's `nh-system` type is `searchable` when the scenario lists `divisions`. | Leave `divisions` out of scenarios that expect no division search. |
+| `NhAssistantStore.openConversation` and `NhAssistantPanelService.open` open an agent's thread also for an agent kept out of the chat, without choosing that agent in the picker; before, the panel stayed empty. | None; hosts that hid such threads on purpose check `kind` and the agent themselves. |
 
 ## NewHeap.Platform.AI.Mcp, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: MCP servers in background runs
 

@@ -1274,6 +1274,69 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
     }
 
+    [Fact]
+    public async Task Project_managers_run_the_project_follow_up_now_for_the_whole_application_and_participants_on_their_project()
+    {
+        // SPM-303: run now, for the whole application and on a project.
+        const string followUp = SampleRuntimeAgentSeeder.FollowUpAgentId;
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        var managerId = await host.CreatePersonAsync(SampleProjectStarterComposition.ProjectViewPolicy, SampleProjectStarterComposition.ProjectManagePolicy);
+        using var manager = host.CreateClient(managerId.ToString());
+        var readerId = await host.CreatePersonAsync(SampleProjectStarterComposition.ProjectViewPolicy);
+        using var reader = host.CreateClient(readerId.ToString());
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        try
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedFollowUpAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+            }
+
+            // The follow-up's run policy decides who runs it for the whole application: project
+            // managers may, people who only read the projects may not.
+            const string applicationAgents = "/api/assistant/subjects/nh-system/global/agents";
+            var listed = await manager.GetFromJsonAsync<NhAssistantObjectAgentsDto>(applicationAgents, Json);
+            var forManager = Assert.Single(listed!.Agents, agent => agent.AgentId == followUp);
+            // The schedule of the shared host may have run it before; its latest run is listed then.
+            Assert.True(forManager.CanStart);
+            var forReader = Assert.Single((await reader.GetFromJsonAsync<NhAssistantObjectAgentsDto>(applicationAgents, Json))!.Agents, agent => agent.AgentId == followUp);
+            Assert.False(forReader.CanStart);
+            var start = new { agentId = followUp, subjectType = NhAiSubjectRef.SystemType, subjectId = NhAiSystemSubjects.GlobalId, message = "Count the open projects now." };
+            using (var refused = await reader.PostAsJsonAsync("/api/assistant/threads/start", start))
+            {
+                Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+                Assert.Equal(NhAssistantErrorCodes.AgentForbidden, (await refused.Content.ReadFromJsonAsync<JsonElement>(Json)).GetProperty("code").GetString());
+            }
+
+            // A manager runs it now; the run works in the follow-up's thread of the whole application,
+            // started by hand by the manager and answering to the operations account like its schedule.
+            NhAssistantTriggerReceiptDto receipt;
+            using (var started = await manager.PostAsJsonAsync("/api/assistant/threads/start", start))
+            {
+                Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+                receipt = (await started.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!;
+            }
+            Assert.Equal(NhAssistantTriggerOutcomes.Started, receipt.Outcome);
+            var run = Assert.Single(await WaitForRunCountAsync(manager, receipt.ConversationId!.Value, 1), item => item.Id == receipt.RunId);
+            Assert.Equal((NhAssistantTriggerIds.Manual, managerId.ToString("D"), host.OperationsAccountId.ToString("D")), (run.TriggerId, run.InitiatorActorId, run.AccountableOwnerId));
+            var afterRun = Assert.Single((await manager.GetFromJsonAsync<NhAssistantObjectAgentsDto>(applicationAgents, Json))!.Agents, agent => agent.AgentId == followUp);
+            Assert.Equal((receipt.ConversationId, receipt.RunId), (afterRun.ConversationId, afterRun.LatestRun?.RunId));
+
+            // On a project its participants run it: the project page lists the agents that work on
+            // projects with nh-assistant-object-agents.
+            var project = await host.CreateProjectAsync("RUNNOW", ownerId: host.OwnerId);
+            await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Participant);
+            var onProject = await colleague.GetFromJsonAsync<NhAssistantObjectAgentsDto>($"/api/assistant/subjects/{ProjectSubjects.Type}/{project:D}/agents", Json);
+            Assert.Equal("participant", onProject!.Role);
+            Assert.Contains(onProject.Agents, agent => agent.AgentId == SampleIntakeReviewerComposition.AgentId);
+            Assert.True(Assert.Single(onProject.Agents, agent => agent.AgentId == followUp).CanStart);
+        }
+        finally
+        {
+            await RemoveFollowUpAsync(administrator);
+        }
+    }
+
     /// <summary>
     /// Removes the project follow-up as an administrator does: its schedule, its run settings and the
     /// agent.

@@ -22,6 +22,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { Observable, Subject } from 'rxjs';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
+import { NhAssistantMockAgentRuns } from './nh-assistant-mock-agent-runs';
 import { NhAssistantMockSubjects } from './nh-assistant-mock-subjects';
 import { NhAssistantMockAuthorizationWindow } from './nh-assistant-mock-authorization';
 import {
@@ -81,7 +82,12 @@ export class NhAssistantMockBackend {
   private readonly pageContexts = new Map<string, ClientContext | null>();
   private readonly enabledState = signal(this.scenario.enabled ?? true);
   private readonly admin = new NhAssistantMockAdmin(this.scenario, () => new Date().toISOString());
-  private readonly subjects = new NhAssistantMockSubjects(this.scenario.subjectTypes);
+  private readonly subjects = new NhAssistantMockSubjects(this.scenario.subjectTypes, this.scenario.divisions);
+  private readonly agentRuns = new NhAssistantMockAgentRuns(
+    this.scenario,
+    this.subjects,
+    { agents: () => this.admin.allAgents(), administers: () => this.admin.administers },
+    () => new Date().toISOString());
   private readonly canAdministerState = signal(this.admin.administers);
   private readonly currentUser = this.scenario.collaboration?.currentUser ?? defaultUser;
   private readonly members = new Map<string, ConversationMember[]>();
@@ -248,7 +254,12 @@ export class NhAssistantMockBackend {
         : result);
     }
     if (segments[0] === 'subjects') {
-      return this.result(this.subjects.handle(method, segments, query, language) ?? { status: 404 });
+      return this.result(this.agentRuns.handleSubjects(method, segments, language)
+        ?? this.subjects.handle(method, segments, query, language)
+        ?? { status: 404 });
+    }
+    if (segments[0] === 'threads') {
+      return this.result(this.agentRuns.handleThreads(method, segments, query, body, language) ?? { status: 404 });
     }
     if (segments[0] !== 'conversations') {
       return this.empty(404);

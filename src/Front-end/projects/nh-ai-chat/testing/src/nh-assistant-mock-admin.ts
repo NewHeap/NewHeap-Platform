@@ -1,4 +1,5 @@
 import {
+  AdminAgent,
   AgentSummary,
   ApplicationContext,
   ApplicationContextVersion,
@@ -127,6 +128,11 @@ export class NhAssistantMockAdmin {
   /** Chat agents: code agents keep their keys, admin agents carry literal text; stopped agents are left out. */
   chatAgents(): AgentSummary[] {
     return this.agents.chatAgents();
+  }
+
+  /** Every agent of the administration, also those kept out of the chat, for the agent runs. */
+  allAgents(): AdminAgent[] {
+    return this.agents.all();
   }
 
   handlePreferences(method: string, body: unknown): NhAssistantMockResult {

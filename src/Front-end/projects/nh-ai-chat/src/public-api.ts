@@ -55,11 +55,6 @@ export {
 } from './lib/internal/nh-assistant-picker.component';
 export { NhAssistantSubjectLinkComponent as ɵNhAssistantSubjectLinkComponent } from './lib/internal/nh-assistant-subject-link.component';
 export {
-  NhAssistantSubjectPickerComponent as ɵNhAssistantSubjectPickerComponent,
-  nhAssistantSubjectSearch as ɵnhAssistantSubjectSearch,
-  type NhAssistantChosenSubject as ɵNhAssistantChosenSubject
-} from './lib/internal/nh-assistant-subject-picker.component';
-export {
   NH_ASSISTANT_DASH_CASE as ɵNH_ASSISTANT_DASH_CASE,
   nhAssistantErrorKeys as ɵnhAssistantErrorKeys,
   toNhAssistantError as ɵtoNhAssistantError

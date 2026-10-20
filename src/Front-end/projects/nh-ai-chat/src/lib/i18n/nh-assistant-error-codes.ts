@@ -136,6 +136,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-mcp-headless-not-allowed',
   'assistant-mcp-credential-mismatch',
   'assistant-mcp-consent-required',
+  'assistant-mcp-initiator-only',
   'assistant-mcp-delegated-token-unavailable',
   'assistant-mcp-secret-reference-invalid',
   'assistant-mcp-certificate-reference-invalid',

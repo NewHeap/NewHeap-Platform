@@ -93,6 +93,14 @@ internal sealed record NhAssistantMcpToolRequest(NhAssistantAgent Agent)
     /// The subject of a headless turn, for building the person's principal.
     /// </summary>
     public NhAiSubjectInfo? Subject { get; init; }
+
+    /// <summary>
+    /// Why no personal credential may serve this headless turn, or <see langword="null"/> when
+    /// <see cref="PersonActorId"/>'s may (with that person's consent). A run a person started by
+    /// hand uses only that person's own connection: when it acts for someone else, servers with
+    /// personal background use are left out with <see cref="NhAssistantAdminErrorCodes.McpInitiatorOnly"/>.
+    /// </summary>
+    public string? PersonalCredentialRefusal { get; init; }
 }
 
 /// <summary>

@@ -45,7 +45,8 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         bool enabled = true,
         Action<NhAssistantLimits>? limits = null,
         Action<IServiceCollection>? configure = null,
-        Action<NhAssistantBuilder>? assistantBuilder = null)
+        Action<NhAssistantBuilder>? assistantBuilder = null,
+        AssistantTestProvider provider = AssistantTestProvider.PostgreSql)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.WebHost.UseTestServer();
@@ -81,18 +82,32 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         services.AddScoped<INhAiToolDiscoveryPolicy>(_ => NhAiTestDiscoveryPolicy.Allowed());
         services.AddNewHeapPlatformAIAspNet(ai => ai.UseToolInvocationPurpose("project-assistance"));
         var schema = AssistantDatabaseFixture.UniqueSchema();
-        services.AddNewHeapAssistant(assistant => assistant
-            .UsePostgreSql(
-                database.ConnectionString(AssistantTestProvider.PostgreSql),
-                options =>
+        var connectionString = database.ConnectionString(provider);
+        services.AddNewHeapAssistant(assistant =>
+        {
+            // PostgreSQL by default; tests of relational behavior over HTTP pass SQL Server as well.
+            if (provider == AssistantTestProvider.SqlServer)
+            {
+                assistant.UseSqlServer(connectionString, options =>
                 {
                     options.Schema = schema;
                     options.RunMigrations = true;
-                })
-            .UseChatProfile("project-chat")
-            .AddAgent(AssistantTestData.Agent() with { ProfileName = "project-chat" })
-            .AddAgent(AssistantTestData.Agent("project-manager", requiredPolicy: TestAuthenticationHandler.ManagerPolicy))
-            .WithLimits(configured => limits?.Invoke(configured)));
+                });
+            }
+            else
+            {
+                assistant.UsePostgreSql(connectionString, options =>
+                {
+                    options.Schema = schema;
+                    options.RunMigrations = true;
+                });
+            }
+            assistant
+                .UseChatProfile("project-chat")
+                .AddAgent(AssistantTestData.Agent() with { ProfileName = "project-chat" })
+                .AddAgent(AssistantTestData.Agent("project-manager", requiredPolicy: TestAuthenticationHandler.ManagerPolicy))
+                .WithLimits(configured => limits?.Invoke(configured));
+        });
         if (assistantBuilder is not null)
         {
             services.AddNewHeapAssistant(assistantBuilder);

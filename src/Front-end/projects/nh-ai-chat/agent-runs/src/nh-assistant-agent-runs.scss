@@ -375,3 +375,22 @@ pre {
     overflow-wrap: anywhere;
   }
 }
+
+// The latest run of an agent on an object's page: status and time, then the beginning of its result.
+.latest-run {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.result {
+  white-space: pre-line;
+}
+
+// An agent's work on the object, shown on demand below its card.
+.work {
+  min-width: 0;
+  border-top: 1px solid var(--nha-border);
+  padding-top: 12px;
+}

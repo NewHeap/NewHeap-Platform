@@ -7,8 +7,11 @@ import {
   NhModalMutateBaseComponent,
   TaskResult
 } from '@newheap/platform-common';
-import { NhAssistantStore } from '@newheap/platform-ai-chat';
-import { NhAssistantSubjectSuggestionsComponent } from '@newheap/platform-ai-chat/agent-runs';
+import { NhAssistantPanelService, NhAssistantStore } from '@newheap/platform-ai-chat';
+import {
+  NhAssistantObjectAgentsComponent,
+  NhAssistantSubjectSuggestionsComponent
+} from '@newheap/platform-ai-chat/agent-runs';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import {
   ProjectApiService,
@@ -25,11 +28,22 @@ let nextProjectFormId = 0;
  * proposals of every agent on the project with the viewer's own decision right, and the
  * conversation with the intake reviewer about the project. The suggestions load in an `@defer`
  * block, so the `agent-runs` entry point stays out of the portal's initial bundle.
+ *
+ * SPM-303: below them `nh-assistant-object-agents` lists the agents that work on projects with their
+ * latest result and open proposals; the project's participants run one now, and its work on the
+ * project opens on demand.
  */
 @Component({
   selector: 'app-project-edit-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, NhCommonModule, TranslateModule, NhAssistantSubjectSuggestionsComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    NhCommonModule,
+    TranslateModule,
+    NhAssistantSubjectSuggestionsComponent,
+    NhAssistantObjectAgentsComponent
+  ],
   templateUrl: './project-edit-modal.component.html',
   styleUrl: './project-edit-modal.component.scss'
 })
@@ -43,6 +57,7 @@ export class ProjectEditModalComponent
   readonly intakeReviewerId = 'sample-project-intake-reviewer';
   /** Agent work shows only while the assistant is enabled and the access policy allows the user. */
   readonly assistantEnabled = inject(NhAssistantStore).enabled;
+  private readonly panel = inject(NhAssistantPanelService);
   /** The footer's save button sits outside the form and submits it by id. */
   readonly formId = `project-edit-form-${++nextProjectFormId}`;
 
@@ -72,6 +87,16 @@ export class ProjectEditModalComponent
   onConversationOpened(): void {
     this.lifecycleReporter()('content event: agent conversation opened');
     this.closeDialog();
+  }
+
+  /**
+   * An agent's conversation about the project opens in the assistant panel, from a run's receipt or
+   * from its work; the dialog closes to make room for the drawer below its layer.
+   */
+  onAgentConversation(conversationId: string): void {
+    this.lifecycleReporter()('content event: agent conversation opened');
+    this.closeDialog();
+    this.panel.open(conversationId);
   }
 
   override async onNewFormData(

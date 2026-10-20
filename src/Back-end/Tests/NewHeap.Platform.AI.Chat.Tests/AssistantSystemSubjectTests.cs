@@ -254,7 +254,8 @@ public sealed class AssistantSystemSubjectTests(AssistantDatabaseFixture databas
         Assert.True(catalog.GetProperty("divisions").GetBoolean());
         var types = catalog.GetProperty("subjectTypes").EnumerateArray().ToArray();
         Assert.Equal(["nh-system", "project"], types.Select(type => type.GetProperty("id").GetString()));
-        Assert.Equal(("De hele applicatie", true, false, JsonValueKind.Null),
+        // With listed divisions the whole application is searched for its divisions (W4).
+        Assert.Equal(("De hele applicatie", true, true, JsonValueKind.Null),
             (types[0].GetProperty("name").GetString(), types[0].GetProperty("isSystem").GetBoolean(), types[0].GetProperty("searchable").GetBoolean(), types[0].GetProperty("link").ValueKind));
 
         // The default system policy is the administration policy: administrators may start the agent

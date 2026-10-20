@@ -227,7 +227,10 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   server that refuses the connection's scopes records them and asks with `insufficient-scope`;
   connecting again requests them. A headless run uses the person whose rights it uses only with
   `personal` headless use and that person's consent, and an approved proposal executes with the
-  connection of the person who asked (Q10) or fails with `assistant-mcp-connection-required`.
+  connection of the person who asked (Q10) or fails with `assistant-mcp-connection-required`. A run a
+  person started by hand (`POST threads/start`) uses only that person's own connection, with their
+  consent: when it acts for someone else, such as the account the agent answers to, the server is
+  left out with `assistant-mcp-initiator-only`; organization credentials are unaffected.
   Connections and tool lists are cached per person only. Administrators test and sync such a
   server with their own connection (`POST admin/mcp-servers/{id}/connection/authorize`), count the
   personal connections and revoke them all. Personal connections unused for `ConnectionRetention`

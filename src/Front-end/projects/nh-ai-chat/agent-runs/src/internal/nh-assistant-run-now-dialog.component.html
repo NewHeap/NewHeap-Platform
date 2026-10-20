@@ -1,0 +1,149 @@
+<dialog #dialog class="dialog" [attr.aria-labelledby]="id + '-title'" (close)="onClosed()">
+  <div class="dialog-body">
+    <header class="dialog-header">
+      <h2 [id]="id + '-title'">{{ 'nh-assistant.run-now.title' | translate: { agent: agent().name } }}</h2>
+      <button class="icon-button" type="button" [attr.aria-label]="'nh-assistant.run-now.close' | translate" (click)="close()">
+        <nh-assistant-icon name="close" />
+      </button>
+    </header>
+
+    @if (receipt(); as started) {
+      <!-- The receipt: what happens now, on what, and the conversation the run works in. -->
+      <div class="stack" data-receipt>
+        @if (started.receipt.outcome === 'rejected') {
+          <p class="message warning" role="status" tabindex="-1" data-receipt-focus>
+            <nh-assistant-icon name="warning" />
+            <span>
+              {{ 'nh-assistant.agent-runs.thread.outcome.rejected' | translate }}
+              @if (started.receipt.reasonCode; as reason) {
+                {{ ['nh-assistant.errors.' + reason] | nhAssistantTranslate }}
+              }
+            </span>
+          </p>
+        } @else {
+          <p class="message success" role="status" tabindex="-1" data-receipt-focus>
+            <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.thread.outcome.' + started.receipt.outcome | translate }}
+          </p>
+        }
+        <p class="muted" data-receipt-subject>
+          <span>{{ 'nh-assistant.run-now.receipt-subject' | translate }}</span>{{ ' ' }}
+          <nh-assistant-subject-link
+            [subjectType]="started.subject.type"
+            [subjectId]="started.subject.id"
+            [label]="started.subject.displayName ?? started.subject.id"
+            [typeName]="receiptTypeName(started)"
+            [link]="receiptLink(started)" />
+        </p>
+        <div class="actions">
+          @if (started.receipt.conversationId; as conversationId) {
+            <button class="secondary" type="button" data-open-conversation (click)="open(conversationId)">
+              <nh-assistant-icon name="link" />{{ 'nh-assistant.run-now.open-conversation' | translate }}
+            </button>
+          }
+          <button class="primary" type="button" (click)="close()">{{ 'nh-assistant.run-now.done' | translate }}</button>
+        </div>
+      </div>
+    } @else {
+      <form class="stack" novalidate (submit)="$event.preventDefault(); submit()">
+        @if (subject(); as fixed) {
+          <p class="muted" data-fixed-subject>
+            <span>{{ 'nh-assistant.run-now.on' | translate }}</span>{{ ' ' }}
+            <nh-assistant-subject-link
+              [subjectType]="fixed.type"
+              [subjectId]="fixed.id"
+              [label]="fixed.displayName ?? fixed.id"
+              [typeName]="fixed.typeName ?? null"
+              [link]="fixed.link ?? null" />
+          </p>
+        } @else if (targets().length === 0) {
+          <p class="message warning" role="status" data-no-target>
+            <nh-assistant-icon name="warning" />{{ 'nh-assistant.run-now.no-target' | translate }}
+          </p>
+        } @else {
+          <fieldset class="field">
+            <legend [id]="id + '-target-label'">{{ 'nh-assistant.run-now.target' | translate }}</legend>
+            <div class="choices" role="radiogroup" [attr.aria-labelledby]="id + '-target-label'">
+              @for (item of targets(); track item.key) {
+                <label class="choice" [attr.data-target]="item.key">
+                  <input
+                    type="radio"
+                    data-target-choice
+                    [name]="id + '-target'"
+                    [value]="item.key"
+                    [checked]="target()?.key === item.key"
+                    (change)="chooseTarget(item.key)" />
+                  <span>
+                    {{ item.type.isSystem ? item.type.name : (item.type.pluralName ?? item.type.name) }}
+                    @if (item.perDivision) {
+                      <small>{{ 'nh-assistant.run-now.per-division' | translate }}</small>
+                    }
+                  </span>
+                </label>
+              }
+            </div>
+          </fieldset>
+
+          @if (target(); as current) {
+            <div class="field" data-subject-field>
+              <label [for]="subjectFieldId()">
+                {{ (current.type.isSystem ? (current.perDivision ? 'nh-assistant.run-now.division' : 'nh-assistant.run-now.application') : 'nh-assistant.run-now.object') | translate: { type: current.type.name } }}
+              </label>
+              @if (divisionUnavailable()) {
+                <p class="message warning" role="status">
+                  <nh-assistant-icon name="warning" />{{ 'nh-assistant.run-now.no-divisions' | translate }}
+                </p>
+              } @else {
+                <nh-assistant-subject-picker
+                  [inputId]="subjectFieldId()"
+                  [subjectType]="current.type"
+                  [perDivision]="current.perDivision"
+                  [value]="chosen()?.id ?? null"
+                  [selectedLabel]="chosen()?.displayName ?? null"
+                  [invalid]="subjectMissing()"
+                  [describedBy]="subjectMissing() ? subjectErrorId() : null"
+                  (subjectChange)="onSubject($event)" />
+              }
+              @if (subjectMissing()) {
+                <p class="field-error" [id]="subjectErrorId()">
+                  <nh-assistant-icon name="warning" />{{ 'nh-assistant.run-now.subject-required' | translate }}
+                </p>
+              }
+            </div>
+          }
+        }
+
+        <div class="field">
+          <label [for]="id + '-message'">{{ 'nh-assistant.run-now.message' | translate }}</label>
+          <textarea
+            rows="3"
+            [id]="id + '-message'"
+            [maxLength]="maxMessage"
+            [value]="message()"
+            [attr.aria-describedby]="id + '-message-hint'"
+            (input)="onMessage($event)"></textarea>
+          <p class="hint" [id]="id + '-message-hint'">
+            <span>{{ 'nh-assistant.run-now.message-hint' | translate }}</span>
+            <span class="counter">{{ message().length }}/{{ maxMessage }}</span>
+          </p>
+        </div>
+
+        @if (error(); as failure) {
+          <p class="form-error" role="alert" data-run-now-error>
+            <nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}
+          </p>
+        }
+
+        <div class="actions">
+          <button class="secondary" type="button" (click)="close()">{{ 'nh-assistant.run-now.cancel' | translate }}</button>
+          <button
+            class="primary"
+            type="submit"
+            data-run-now-submit
+            [disabled]="starting() || (subject() === null && (targets().length === 0 || divisionUnavailable()))">
+            <nh-assistant-icon name="send" />{{ (starting() ? 'nh-assistant.run-now.starting' : 'nh-assistant.run-now.submit') | translate }}
+          </button>
+        </div>
+      </form>
+    }
+  </div>
+</dialog>

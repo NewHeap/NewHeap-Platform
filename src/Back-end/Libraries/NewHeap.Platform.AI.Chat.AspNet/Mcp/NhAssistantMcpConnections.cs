@@ -804,6 +804,11 @@ internal sealed partial class NhAssistantMcpToolSource(
         {
             return NhAssistantAdminErrorCodes.McpHeadlessNotAllowed;
         }
+        // A run started by hand that acts for someone else never uses that person's connection.
+        if (request.PersonalCredentialRefusal is { } refusal)
+        {
+            return refusal;
+        }
         var connection = await store.FindMcpConnectionAsync(
             server.Id,
             NhAssistantMcpConnectionOwners.User,

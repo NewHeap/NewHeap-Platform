@@ -131,6 +131,21 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       ]
     }
   ],
+  // SPM-303: the divisions NewHeap Identity lists, which a per-division agent is run in.
+  divisions: [
+    { id: '3f2b8c1a-6d4e-4f5a-9b7c-1e2d3c4b5a61', name: 'Assistant sample division' },
+    { id: '8a7b6c5d-4e3f-4a2b-9c1d-0e9f8a7b6c52', name: 'Other division' }
+  ],
+  // SPM-303: what a run by hand does in the playground, which runs no agents itself.
+  runNow: {
+    'project-follow-up': {
+      result: 'Five projects are open. PRJ-ALPHA and PRJ-BETA have no open tasks left, so I propose to complete them.',
+      proposals: 2
+    },
+    [PROJECT_PLANNER_ID]: {
+      result: 'The project is on track: three of its four tasks are done and its deadline is two weeks away.'
+    }
+  },
   admin: {
     context: [
       'Sample Project Management tracks projects for divisions.',
@@ -212,6 +227,25 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
           { skillId: 'task-follow-up', description: 'Follows up completed tasks by rule.' },
           { skillId: 'deadline-risk', description: 'Judges whether an active project will miss its deadline.' }
         ]
+      },
+      {
+        // SPM-302 and SPM-303: the project follow-up created as data, which works on projects and on
+        // the whole application; project managers run it now, for the whole application or a project.
+        source: 'admin',
+        id: 'project-follow-up',
+        displayName: 'Project follow-up',
+        description: 'Keeps the projects moving: counts the open projects and proposes which ones can be completed.',
+        instructions: 'Count the open projects; when there are more than three, propose which ones can be completed.',
+        toolSelectors: ['sample-api.project.*'],
+        mcpServerIds: [],
+        requiredPolicy: null,
+        autonomy: 'propose',
+        offeredInChat: false,
+        worksOnSubjectTypes: ['project'],
+        worksOnAllSubjects: false,
+        worksOnApplication: true,
+        runPolicy: 'app.project.manage',
+        viewPolicy: 'app.project.view'
       },
       {
         source: 'code',

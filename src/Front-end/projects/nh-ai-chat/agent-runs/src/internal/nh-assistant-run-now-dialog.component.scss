@@ -1,0 +1,137 @@
+@use '../../../src/lib/styles/tokens';
+@use '../../../src/lib/styles/forms';
+
+@include tokens.tokens;
+
+:host {
+  display: contents;
+}
+
+.dialog {
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius);
+  padding: 0;
+  overflow: auto;
+  color: var(--nha-text);
+  background: var(--nha-background);
+  box-shadow: var(--nha-shadow);
+  font-family: var(--nha-font);
+  font-size: 14px;
+  @include forms.controls;
+
+  &::backdrop {
+    background: rgb(0 0 0 / 45%);
+  }
+}
+
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+
+  h2 {
+    min-width: 0;
+    margin: 0;
+    font-size: 17px;
+    font-weight: 750;
+    overflow-wrap: anywhere;
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.muted {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 8px;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  box-sizing: border-box;
+  min-width: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+
+  input {
+    flex: none;
+    margin: 2px 0 0;
+    @include tokens.focus-ring;
+  }
+
+  span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  small {
+    color: var(--nha-text-muted);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  &:has(input:checked) {
+    border-color: var(--nha-accent);
+  }
+}
+
+.actions {
+  flex-wrap: wrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dialog[open] {
+    animation: nha-run-now-in .14s ease-out;
+  }
+}
+
+@keyframes nha-run-now-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

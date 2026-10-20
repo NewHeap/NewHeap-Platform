@@ -9,8 +9,8 @@ application groups them on its own pages. It was written on 2026-10-19 during th
 
 ## Status
 
-Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 to W3 are implemented and not
-released; W4 to W7 are designed and not yet implemented; the flow view (U6 of the run configuration
+Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 to W4 are implemented and not
+released; W5 to W7 are designed and not yet implemented; the flow view (U6 of the run configuration
 UX plan) follows on top of them. The
 [MCP connections plan](ai-assistant-mcp-connections-plan.md) uses SPM-299 and SPM-300; this plan
 uses SPM-301 onwards.
@@ -20,7 +20,7 @@ uses SPM-301 onwards.
 | W1 | Implemented, not released: object types with names, entity binding, search and links. |
 | W2 | Implemented, not released: what an agent works on. |
 | W3 | Implemented, not released: the whole application as a scope. |
-| W4 | Designed: run now. |
+| W4 | Implemented, not released: run now. |
 | W5 | Designed: proposals placed at their object. |
 | W6 | Designed: results and history. |
 | W7 | Designed: groups and boards. |
@@ -145,6 +145,25 @@ Choices the plan left open, taken during implementation for Lars to review.
 | W3 | A system run's invocation context has no subject execution scope; a per-division run gets the division through the existing active-division mapping (`AddActiveDivisionScope`), and none without it. | The plan: no object, and the division as a person's active division. | For Lars to review. |
 | W3 | A manual start on `nh-system` (`POST threads/start`, `POST threads/open`, `canStart`) also needs the agent's `RunPolicy` when it names one, next to the participant role. | A narrower run policy is never bypassed before W4 replaces the participant role by the run policy (K9). | For Lars to review. |
 | W3 | W3 changes no schema, so it has no migrations. | Scope keys, subject columns, `PerDivision` and nullable subject sets exist. | For Lars to review. |
+| W4 | Decided by the implementer on 2026-10-20, for Lars to review: on `nh-system` a start by hand needs the agent's run policy (by default the administration policy) and the reader role of the read policy; the approve policy gives no start. This replaces W3's participant role plus run policy. | K9; a person who could start but not read would get a receipt to a thread they cannot open, and the read role carries the division access check. | For Lars to review. |
+| W4 | The run policy is evaluated like the roles of the whole application: for the principal `INhAiPrincipalFactory` rebuilds, against the subject's `NhAiSubjectAuthorizationResource`, with division access in a division, not for the request's principal as in W3. | One way to evaluate every policy of the whole application; a division policy never grants an app-wide start. | For Lars to review. |
+| W4 | The agent's required policy still applies to starts on the whole application. | K9 adds the run policy; who may use an agent is never widened. | For Lars to review. |
+| W4 | One internal service, `NhAssistantManualStarts`, holds the rule for `POST threads/start`, a new thread of `POST threads/open` and `canStart` of `GET threads`, the subject work and the agents of a subject. A refused new thread keeps answering `403 assistant-subject-access-denied` (`409` for what the agent works on). | One rule, checked through `NhAssistantWorksOnRule` with its scope, in every place people start or see a start; existing clients see the same codes. | For Lars to review. |
+| W4 | `GET subjects/{type}/{id}/agents` lists agents with run settings that work on the subject (scope included), are neither stopped nor disabled in code, whose required policy the caller passes, and shadow variants for administrators only, ordered by id. Agents whose old threads no longer fit what they work on are not listed. | The plan's "work on that object and that the caller may use"; their threads stay readable through the subject work and the thread lookup. | For Lars to review. |
+| W4 | The latest run is the newest run, by creation, in the agent's visible threads of the subject's scope (shadow threads for administrators), with status, time (ended, started or queued), failure code and the first 300 characters of the run's summary, never cutting a character in two. `NhAssistantRunResults.PreviewOf` is the seam W6 changes to read the stored result first. Open proposals are pending and unexpired. Two queries serve all agents of a subject. | The full result arrives in W6; one place changes then. | For Lars to review. |
+| W4 | The listing is an internal service behind the endpoint, not a new member of the public `INhAssistantSubjectWork`. | A new interface member breaks implementations and test doubles; W7's board can use the service in process. | For Lars to review. |
+| W4 | The system resolver searches the divisions (`INhAiSubjectSearch`), offered only with a division directory (the internal `OffersSearch` of platform resolvers), so the run catalog's `nh-system` reports `Searchable` with listed divisions. It filters the directory's first 1,000 divisions by name, case-insensitively, and the search service keeps the ones the person reads; a caller bound to a tenant finds none, because the whole application has no tenant. | The run-now dialog chooses a division for a per-division agent through the existing search and picker. | For Lars to review. |
+| W4 | MCP: a run started by hand (trigger `manual`) uses a personal connection only of its initiator, with the initiator's consent (Q3). When the person whose rights the run uses is someone else, such as the account an agent with `ActWithAccountableRights` answers to, servers with personal headless use are left out with the new code `assistant-mcp-initiator-only`; organization credentials are unaffected. Runs from agent requests and queued messages are not covered. | Never someone else's personal account at a moment another person chose; the whole application has no members to fall back to. Recorded in the MCP plan as I18. | For Lars to review; extending the rule to agent requests and queued messages is a follow-up. |
+| W4 | The run-now dialog is an internal building block of the `agent-runs` entry point (`ɵNhAssistantRunNowDialogComponent`), a native modal `dialog`: focus stays inside, Escape closes it and focus returns to its opener. The subject picker moved with it from the root entry point (`ɵNhAssistantSubjectPickerComponent`), and the `admin` entry point now imports both from `agent-runs`. The administration, `nh-assistant-object-agents` and W7's board tile use it. | Reusable without new public API; the platform's modal behavior without a focus trap of our own. In the root entry point the dialog and picker pushed the sample's initial bundle 10.77 kB over its 1.70 MB budget; `agent-runs` loads with the pages that need it. | For Lars to review. |
+| W4 | The receipt opens the agent's conversation in the assistant panel (the administration calls `NhAssistantPanelService.open`, the object agents component emits `openConversation`) and names the subject with its link. | There is no page of one run before W6. | For Lars to review. |
+| W4 | The internal subject picker takes the platform's type: app-wide it is "The whole application" itself, an `output` that the field's label names, chosen as soon as the type is; per division a combobox that searches the divisions. The dialog offers the whole application first, then the agent's kinds of objects, all registered kinds for an agent that works on all objects. | The brief's whole-application option without a second picker. | For Lars to review. |
+| W4 | The dialog accepts an instruction of at most 4,000 characters, like the thread view's start; the server accepts 8,000. | The same limit wherever people start an agent. | For Lars to review. |
+| W4 | `AssistantWebApplication` takes a provider, so the start authorization and the agents of a subject are tested over HTTP on SQL Server and PostgreSQL. | The rules live in the endpoints; PostgreSQL alone was not enough evidence. | For Lars to review. |
+| W4 | The mock API runs no agents: `POST threads/start` checks who may run the agent as the server does and records a run that ends at once as the scenario's `runNow` says; `callerPolicies` defaults to every policy; the thread's proposals, memory, artifacts and consultations are empty. The mock administration was split per area first (agents, MCP, accounts; the run configuration was already apart), with the account search moved out of the run configuration. | The playground and the specs exercise run now and the thread view without a back-end; both lanes edit smaller files. | For Lars to review. |
+| W4 | The shared `_forms.scss` sets `box-sizing: border-box` on fields, buttons and messages of the assistant's components; a spec checks a form at 375px on a page without a global rule. | The W3 finding: fields overflowed 22 to 48px on a bare page. | For Lars to review. |
+| W4 | Sample: `nh-assistant-object-agents` sits in the project editor below the agent suggestions, deferred; opening a conversation closes the editor first. The playground adds the follow-up as a data agent with run-now results. SPM-303 covers the administration and the project page; the board follows in W7. | The editor is where the portal shows one project; the panel is a drawer below the modal's layer. | For Lars to review. |
+| W4 | The panel opens an agent's thread conversation also for an agent kept out of the chat (`HideFromChat`, `offeredInChat: false`), and then leaves the agent picker as it was; a chat conversation of such an agent still does not open. | The receipt of a run by hand, as for the project follow-up, and the thread view's "Open conversation" led to an empty panel; the server already checks the reader's role on the thread. | For Lars to review. |
+| W4 | W4 changes no schema, so it has no migrations. | Runs, threads and proposals hold everything the listing shows. | For Lars to review. |
 | W3 | The sample reads the whole application with `app.project.view` and keeps the administration policy for approvers; the follow-up's Monday schedule (`project-follow-up-weekly`, 07:00 Europe/Amsterdam) is seeded live without a skill, app-wide. Per division is not shown in the sample beyond the directory and `divisions: true`. | The sample's access policy needs an active division; the counting skill and placed proposals belong to W5; per-division adds no value for the follow-up. | For Lars to review. |
 | W3 | The trigger form and the guided setup ask with a radio choice what a schedule runs for ("The whole application" or "Every object in a set"), defaulting to the whole application for an agent that works on it; a server `subjectSet` refusal while the whole application is chosen shows at the choice as `application-not-worked-on`; a stored schedule without a set of an agent that no longer works on the application asks for a set. | Explicit and accessible, the Monday example needs no set, and a bare "Required" would not explain a statement another administrator narrowed. | For Lars to review. |
 | W3 | The subject link hides the type name when it equals the label, so the whole application app-wide reads once and a division reads "The whole application North". | No special case for `nh-system` in the component. | For Lars to review. |
@@ -291,6 +310,19 @@ No migration.
   execution scope, as an active division does for a person today.
 
 ### W4: run now
+
+**Implementation notes.** Implemented in `NhAssistantManualStarts` (the one rule of starts by hand, K9),
+`NhAssistantSystemSubjectResolver.MayRunAsync` and its division search, `NhAssistantObjectAgents` with
+`GET subjects/{type}/{id}/agents` (`NhAssistantObjectAgentsDto`, `NhAssistantObjectAgentDto`,
+`NhAssistantLatestRunDto`), the run store's latest runs and open proposal counts per thread,
+`NhAssistantRunResults` (the result seam for W6) and the MCP rule for runs by hand
+(`assistant-mcp-initiator-only`). Angular: the internal run-now dialog, "Run now" on the agent cards,
+`nh-assistant-object-agents` in `agent-runs`, `getObjectAgents` with its models and constants, the
+subject picker's whole application and divisions, `box-sizing` in the shared form styles, texts, and the
+mock API's runs by hand, threads, agents of a subject and divisions, after splitting the mock
+administration per area. Tests: `AssistantRunNowTests` and the MCP test in `AssistantMcpHeadlessTests`
+on SQL Server and PostgreSQL, the run-now and picker specs. Sample case SPM-303: the follow-up run now
+for the whole application, the project editor's agents and the playground. No migration.
 
 - `POST threads/start` accepts `nh-system` like any subject: `{ agentId, subjectType: "nh-system",
   subjectId: "global" | "division-…", message? }`. `MayStartAsync` checks `WorksOn`, and for

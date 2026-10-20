@@ -237,6 +237,17 @@
                   <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agents.run-config' | translate }}
                 </button>
               }
+              @if (canRunNow(agent)) {
+                <button
+                  class="secondary"
+                  type="button"
+                  aria-haspopup="dialog"
+                  [attr.data-run-now-agent]="agent.id"
+                  [disabled]="busyAgentId() !== null"
+                  (click)="runNow(agent)">
+                  <nh-assistant-icon name="send" />{{ 'nh-assistant.admin.agents.run-now' | translate }}
+                </button>
+              }
               <button class="secondary" type="button" [attr.data-feedback-agent]="agent.id" (click)="openReport(agent)">
                 <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agents.feedback' | translate }}
               </button>
@@ -432,6 +443,14 @@
           </li>
         }
       </ul>
+    }
+    @if (runNowAgent(); as runAgent) {
+      <nh-assistant-run-now-dialog
+        [agent]="runAgent"
+        [subjectTypes]="catalog()?.subjectTypes ?? []"
+        [divisions]="catalog()?.divisions === true"
+        (openConversation)="openConversation($event)"
+        (closed)="runningNow.set(null)" />
     }
   </section>
 }

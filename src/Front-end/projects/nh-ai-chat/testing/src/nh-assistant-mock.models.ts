@@ -1,6 +1,8 @@
 import {
   AdminAgentInput,
+  AgentRunStatus,
   AgentSummary,
+  AgentTriggerReceipt,
   AssistantPreferences,
   AssistantStatus,
   ClientContext,
@@ -228,6 +230,35 @@ export interface NhAssistantMockSubject {
   divisionId?: string | null;
   /** Whether the signed-in user may read the subject; others never find it. Default `true`. */
   readable?: boolean;
+  /** The signed-in user's role on a readable subject. Default `participant`, who may run its agents. */
+  role?: 'reader' | 'participant' | 'approver';
+}
+
+/**
+ * A division the application lists, for agents that work on the whole application per division:
+ * the run catalog then reports divisions only when `admin.runCatalog.divisions` says so.
+ */
+export interface NhAssistantMockDivision {
+  /** The division's id, a GUID; its subject of the whole application is `nh-system/division-{id:N}`. */
+  id: string;
+  name: string;
+  /** Whether the signed-in user works in the division. Default `true`. */
+  readable?: boolean;
+}
+
+/**
+ * What a run of an agent started by hand does in the mock, which runs no agents: it ends at once with
+ * this status and result, leaving this many open proposals.
+ */
+export interface NhAssistantMockRunNow {
+  /** Default `completed`. */
+  status?: AgentRunStatus;
+  /** The run's result; default none. */
+  result?: string | null;
+  /** The open proposals the run leaves on its subject. Default 0. */
+  proposals?: number;
+  /** The receipt's outcome. Default `started`. */
+  outcome?: AgentTriggerReceipt['outcome'];
 }
 
 /**
@@ -274,6 +305,19 @@ export interface NhAssistantMockScenario {
    * names a subject chosen by id, `nh-system/global` included.
    */
   subjectTypes?: NhAssistantMockSubjectType[];
+  /**
+   * The application's divisions: `GET subjects/nh-system/search` finds those the user works in by
+   * name, and the whole application in a division is named after it.
+   */
+  divisions?: NhAssistantMockDivision[];
+  /**
+   * The authorization policies the signed-in user passes: agents' required, run and view policies.
+   * Default: every policy. Without a run policy an agent runs for the whole application for
+   * administrators (`admin.canAdminister`), as the server's administration policy decides.
+   */
+  callerPolicies?: string[];
+  /** What a run by hand does, per agent id; `POST threads/start` and the agents of a subject show it. */
+  runNow?: Record<string, NhAssistantMockRunNow>;
 }
 
 /** One request the mock API received, for assertions in tests. */

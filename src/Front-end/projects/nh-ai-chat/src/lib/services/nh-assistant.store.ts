@@ -1114,7 +1114,8 @@ export class NhAssistantStore {
   private async loadConversation(conversationId: string, restoring: boolean): Promise<void> {
     if (this.sessionsState().has(conversationId)) {
       const session = this.sessionsState().get(conversationId)!;
-      this.setActive(conversationId, session.conversation.agentId);
+      const offered = this.agents().some(agent => agent.id === session.conversation.agentId);
+      this.setActive(conversationId, offered ? session.conversation.agentId : undefined);
       return;
     }
     if (this.activeIdState() === conversationId) {
@@ -1129,12 +1130,15 @@ export class NhAssistantStore {
       if (revision !== this.accountRevision) {
         return;
       }
-      if (!this.agents().some(agent => agent.id === conversation.agentId)) {
+      // An agent's thread about a subject opens for whoever the server lets read it, also for an
+      // agent kept out of the chat, such as one run by hand; it is never chosen for a new chat.
+      const offered = this.agents().some(agent => agent.id === conversation.agentId);
+      if (!offered && conversation.kind !== 'thread') {
         this.uiState.update({ conversationId: null });
         return;
       }
       this.upsertSession(conversation);
-      this.setActive(conversationId, conversation.agentId);
+      this.setActive(conversationId, offered ? conversation.agentId : undefined);
     } catch (error) {
       if (revision !== this.accountRevision) {
         return;

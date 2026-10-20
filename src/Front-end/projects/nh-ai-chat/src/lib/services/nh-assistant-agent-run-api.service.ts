@@ -8,6 +8,7 @@ import {
   AgentFeedbackOutcome,
   AgentInbox,
   AgentInboxFilter,
+  AgentObjectAgents,
   AgentProposal,
   AgentProposalDecision,
   AgentProposalFeedback,
@@ -50,7 +51,12 @@ export class NhAssistantAgentRunApiService {
     return this.transport.json<AgentThreadLookup>('POST', 'threads/open', { agentId, subjectType, subjectId });
   }
 
-  /** Starts the agent on the subject with the caller as initiator; needs the participant role. */
+  /**
+   * Runs the agent now on the subject with the caller as initiator. On an object it needs the
+   * participant role; on the whole application (`nh-system`) the agent's run policy, by default the
+   * administration policy. Errors with `assistant-agent-does-not-work-on` (409) when the agent does
+   * not work on the subject or its scope.
+   */
   startAgent(request: StartAgentRequest): Observable<AgentTriggerReceipt> {
     return this.transport.json<AgentTriggerReceipt>('POST', 'threads/start', request);
   }
@@ -64,6 +70,19 @@ export class NhAssistantAgentRunApiService {
     const path = `subjects/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}/work`;
     const query = agentId ? `?${new URLSearchParams({ agentId }).toString()}` : '';
     return this.transport.json<AgentSubjectWork>('GET', path + query);
+  }
+
+  /**
+   * The agents that work on the subject and that the caller may use, with whether the caller may run
+   * each now, its newest run with the beginning of its result and its open proposals. The subject is
+   * an object or the whole application (`nh-system`, `global` or `division-…`). Errors with
+   * `assistant-subject-not-found` when the caller has no role on the subject.
+   */
+  getObjectAgents(subjectType: string, subjectId: string): Observable<AgentObjectAgents> {
+    return this.transport.json<AgentObjectAgents>(
+      'GET',
+      `subjects/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}/agents`
+    );
   }
 
   /**

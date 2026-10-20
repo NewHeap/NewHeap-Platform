@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 
@@ -22,6 +21,14 @@ internal static class NhAssistantSubjectEndpoints
             .Produces<NhAssistantSubjectWorkDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        group.MapGet("subjects/{type}/{id}/agents", ListAgentsAsync)
+            .WithName("NhAssistantListSubjectAgents")
+            .WithSummary("List the agents that work on a subject")
+            .WithDescription("Returns the agents that work on the subject (an object, or the whole application as nh-system/global or nh-system/division-{id:N}) and that the caller may use, ordered by id: what each works on includes the subject and its scope, the caller passes its required policy, and shadow variants only for administrators. Per agent whether the caller may run it now (on an object the participant role, on the whole application the agent's run policy), the thread people open, the newest run with its status, time and the first 300 characters of its result, and the number of open proposals. The caller needs a role on the subject.")
+            .Produces<NhAssistantObjectAgentsDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         group.MapGet("subjects/{type}/search", SearchAsync)
             .WithName("NhAssistantSearchSubjects")
             .WithSummary("Find subjects of one type by name")
@@ -40,7 +47,7 @@ internal static class NhAssistantSubjectEndpoints
         group.MapPost("threads/open", OpenThreadAsync)
             .WithName("NhAssistantOpenThread")
             .WithSummary("Open the conversation with an agent about a subject")
-            .WithDescription("Returns the agent's thread about the subject and creates it, without starting a run, when it does not exist yet. Readers may open an existing thread; creating one needs the participant role and the agent's required policy, and the agent must work on the subject's type (409 assistant-agent-does-not-work-on otherwise).")
+            .WithDescription("Returns the agent's thread about the subject and creates it, without starting a run, when it does not exist yet. Readers may open an existing thread; creating one needs what starting the agent by hand needs: on an object the participant role and the agent's required policy, on the whole application the agent's run policy (by default the administration policy). The agent must work on the subject and, for the whole application, its scope (409 assistant-agent-does-not-work-on otherwise).")
             .Produces<NhAssistantThreadLookupDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
@@ -70,6 +77,34 @@ internal static class NhAssistantSubjectEndpoints
         }
 
         return TypedResults.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSubjectWorkDto);
+    }
+
+    private static async Task<IResult> ListAgentsAsync(
+        string type,
+        string id,
+        HttpContext httpContext,
+        NhAssistantObjectAgents objectAgents)
+    {
+        if (!NhAiSubjectRef.IsValidType(type)
+            || string.IsNullOrWhiteSpace(id)
+            || id.Length > NhAiSubjectRef.MaxIdLength)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.SubjectNotFound);
+        }
+
+        var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
+        }
+
+        var result = await objectAgents.ListAsync(new NhAiSubjectRef(type, id), caller.Data!.ActorId, httpContext.User, httpContext.RequestAborted);
+        if (!result.Success)
+        {
+            return Failure(result);
+        }
+
+        return TypedResults.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantObjectAgentsDto);
     }
 
     private static async Task<IResult> SearchAsync(
@@ -146,7 +181,7 @@ internal static class NhAssistantSubjectEndpoints
         NhAssistantSubjectAccessService subjects,
         NhAssistantThreadService threads,
         NhAssistantRunStore runs,
-        NhAssistantAgentAccess agentAccess,
+        NhAssistantManualStarts starts,
         NhAssistantAgentCatalog agents)
     {
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
@@ -181,26 +216,20 @@ internal static class NhAssistantSubjectEndpoints
 
         var agent = await agents.FindAsync(agentId, includeDisabled: false, cancellationToken);
         var runOptions = registration.AgentRuns[agentId];
-        var mayUse = agent is not null && await agentAccess.CanUseAsync(httpContext.User, agent.Definition);
         // People open the live thread; a shadow variant has shadow threads only.
         var variant = runOptions.ShadowOfAgentId is not null;
         var thread = await runs.FindThreadAsync(info.ScopeKey, agentId, subject!, cancellationToken, variant);
         if (thread is null)
         {
             // A new thread holds the conversation people start; no run and no model call happen here.
-            // An agent gets no new thread about a type it does not work on, and an agent in shadow no
-            // new live thread from anyone but an administrator.
-            if (access.Has(NhAiSubjectRole.Participant)
-                && mayUse
-                && httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().RefusalOf(agentId, subject!) is { } notWorkedOn)
+            // Whoever may start the agent by hand creates it (K9): an agent gets no new thread about
+            // what it does not work on, and an agent in shadow no new live thread from anyone but an
+            // administrator.
+            if (await starts.RefusalAsync(agent, subject!, access, caller.Data!.ActorId, httpContext.User, cancellationToken) is { } refusal)
             {
-                return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status409Conflict, notWorkedOn);
-            }
-            if (!access.Has(NhAiSubjectRole.Participant)
-                || !mayUse
-                || !await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!, subject!))
-            {
-                return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
+                return refusal.Status == StatusCodes.Status409Conflict
+                    ? NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status409Conflict, refusal.Code)
+                    : NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
             }
 
             var created = await threads.GetOrCreateAsync(agent!, info, cancellationToken, variant);
@@ -213,10 +242,7 @@ internal static class NhAssistantSubjectEndpoints
         }
 
         await threads.ResolveAccessAsync(thread.ConversationId, caller.Data!.ActorId, null, cancellationToken);
-        var canStart = mayUse
-            && runOptions.Enabled
-            && access.Has(NhAiSubjectRole.Participant)
-            && await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!, subject!);
+        var canStart = await starts.CanStartAsync(agent, subject!, access, caller.Data.ActorId, httpContext.User, cancellationToken);
         return TypedResults.Json(
             new NhAssistantThreadLookupDto(
                 await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(thread, access.Role, runs, subjects, cancellationToken),

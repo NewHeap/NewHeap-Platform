@@ -1258,6 +1258,61 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// How many proposals wait for a decision and have not expired in each of the threads; threads
+    /// without one are left out.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, int>> CountOpenThreadApprovalsAsync(
+        IReadOnlyCollection<Guid> conversationIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(conversationIds);
+        if (conversationIds.Count == 0)
+        {
+            return new Dictionary<Guid, int>();
+        }
+
+        var ids = conversationIds.Distinct().ToArray();
+        var now = DateTimeOffset.UtcNow;
+        await using var context = contextFactory.CreateDbContext();
+        var counts = await context.Approvals
+            .AsNoTracking()
+            .Where(approval => ids.Contains(approval.ConversationId)
+                && approval.Status == NhAssistantApprovalStatuses.Pending
+                && approval.ExpiresAt > now)
+            .GroupBy(approval => approval.ConversationId)
+            .Select(group => new { ConversationId = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+        return counts.ToDictionary(item => item.ConversationId, item => item.Count);
+    }
+
+    /// <summary>
+    /// The newest run of each of the threads, by when it was created; threads without runs are left
+    /// out.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantRun>> GetLatestRunsAsync(
+        IReadOnlyCollection<Guid> conversationIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(conversationIds);
+        if (conversationIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = conversationIds.Distinct().ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Runs
+            .AsNoTracking()
+            .Where(run => ids.Contains(run.ConversationId))
+            .GroupBy(run => run.ConversationId)
+            .Select(group => group
+                .OrderByDescending(run => run.CreatedAt)
+                .ThenByDescending(run => run.Id)
+                .First())
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<AssistantApproval>> GetRunApprovalsAsync(
         Guid runId,
         CancellationToken cancellationToken)

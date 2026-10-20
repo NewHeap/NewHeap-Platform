@@ -1,0 +1,42 @@
+@use '../../../src/lib/styles/tokens';
+@use '../../../src/lib/styles/forms';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  min-width: 0;
+  color: var(--nha-text);
+  font-family: var(--nha-font);
+  @include forms.controls;
+}
+
+// The whole application app-wide: a field that names the one subject there is.
+.fixed {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 8px 10px;
+  color: var(--nha-text);
+  background: var(--nha-surface-strong);
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.hint {
+  margin: 4px 2px 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+
+  &.error {
+    color: var(--nha-danger);
+  }
+}

@@ -91,7 +91,15 @@ public sealed class NhAssistantSubjectTypeBuilder
 /// Marks the access resolver of a subject type the platform registers itself, such as the whole
 /// application. Only such a resolver may handle a type in the reserved <c>nh-</c> prefix.
 /// </summary>
-internal interface INhAssistantPlatformSubjectResolver : INhAiSubjectAccessResolver;
+internal interface INhAssistantPlatformSubjectResolver : INhAiSubjectAccessResolver
+{
+    /// <summary>
+    /// Whether people can find the type's subjects by name in this application now, when the resolver
+    /// implements <see cref="INhAiSubjectSearch"/>: the whole application searches its divisions only
+    /// when the application lists them.
+    /// </summary>
+    bool OffersSearch { get; }
+}
 
 /// <summary>
 /// How people see the platform's subject type of the whole application.

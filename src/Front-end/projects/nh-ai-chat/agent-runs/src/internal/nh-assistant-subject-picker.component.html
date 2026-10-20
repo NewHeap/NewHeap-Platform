@@ -1,10 +1,18 @@
-@if (search(); as find) {
+@if (wholeApplication()) {
+  <!-- The whole application app-wide is one subject: the field names it, there is nothing to choose. -->
+  <output
+    class="fixed"
+    data-whole-application
+    [id]="inputId()"
+    [attr.aria-describedby]="fieldDescribedBy()">{{ subjectType().name }}</output>
+  <p class="hint" [id]="hintId">{{ 'nh-assistant.subject-picker.whole-application-hint' | translate }}</p>
+} @else if (search(); as find) {
   <nh-assistant-picker
     [inputId]="inputId()"
     [value]="value()"
     [selectedLabel]="selectedLabel()"
     [search]="find"
-    [placeholder]="'nh-assistant.subject-picker.search-placeholder' | translate"
+    [placeholder]="placeholderKey() | translate"
     [invalid]="invalid()"
     [describedBy]="describedBy()"
     [disabled]="disabled()"

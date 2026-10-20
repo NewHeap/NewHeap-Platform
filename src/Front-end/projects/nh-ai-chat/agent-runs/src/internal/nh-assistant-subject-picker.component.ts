@@ -12,10 +12,14 @@ import {
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Observable, Subscription, map } from 'rxjs';
-import { AgentSubjectType } from '../models/assistant-admin.models';
-import { NhAssistantAgentRunApiService } from '../services/nh-assistant-agent-run-api.service';
-import { toNhAssistantError } from './nh-assistant-errors';
-import { NhAssistantPickerComponent, NhAssistantPickerOption } from './nh-assistant-picker.component';
+import {
+  AgentSubjectType,
+  NH_ASSISTANT_SYSTEM_GLOBAL_ID,
+  NhAssistantAgentRunApiService,
+  ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
+  type ɵNhAssistantPickerOption as NhAssistantPickerOption,
+  ɵtoNhAssistantError as toNhAssistantError
+} from '@newheap/platform-ai-chat';
 
 /** A subject chosen in the subject picker, with the name the application gives it. */
 export interface NhAssistantChosenSubject {
@@ -43,7 +47,10 @@ let nextId = 0;
 /**
  * Chooses one subject of a type (internal). A searchable type is a combobox that searches the
  * caller's readable subjects by name; for any other type people give the id, and the picker shows
- * the name the application gives that subject, or why it was not found, below the field.
+ * the name the application gives that subject, or why it was not found, below the field. The
+ * platform's type of the whole application (`isSystem`) is "The whole application" itself for an
+ * app-wide agent, chosen as soon as the type is, and a search of the divisions by name for an agent
+ * that works per division (`perDivision`).
  */
 @Component({
   selector: 'nh-assistant-subject-picker',
@@ -60,6 +67,11 @@ export class NhAssistantSubjectPickerComponent {
   /** The id of the field, for the label's `for`. */
   readonly inputId = input.required<string>();
   readonly subjectType = input.required<AgentSubjectType>();
+  /**
+   * For the whole application: choose one of the application's divisions, for an agent that works
+   * per division, instead of the whole application app-wide.
+   */
+  readonly perDivision = input(false);
   /** The chosen subject's id. */
   readonly value = input<string | null>(null);
   /** The name of the chosen subject, when the host knows it. */
@@ -72,10 +84,20 @@ export class NhAssistantSubjectPickerComponent {
   readonly subjectChange = output<NhAssistantChosenSubject | null>();
 
   readonly hintId = `nh-assistant-subject-picker-hint-${nextId++}`;
+  /** The whole application app-wide: nothing to choose beyond the type itself. */
+  readonly wholeApplication = computed(() => this.subjectType().isSystem && !this.perDivision());
   readonly search = computed(() => {
     const type = this.subjectType();
+    if (type.isSystem) {
+      // The whole application is searched for its divisions only.
+      return this.perDivision() ? nhAssistantSubjectSearch(this.api, type.id) : null;
+    }
+
     return type.searchable ? nhAssistantSubjectSearch(this.api, type.id) : null;
   });
+  readonly placeholderKey = computed(() => this.subjectType().isSystem
+    ? 'nh-assistant.subject-picker.division-placeholder'
+    : 'nh-assistant.subject-picker.search-placeholder');
   readonly typedId = signal('');
   readonly lookingUp = signal(false);
   readonly found = signal<NhAssistantChosenSubject | null>(null);
@@ -84,15 +106,19 @@ export class NhAssistantSubjectPickerComponent {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.lookup?.unsubscribe());
-    // A new type starts a new choice.
+    // A new type starts a new choice; the whole application app-wide is chosen with its type.
     effect(() => {
-      this.subjectType();
+      const type = this.subjectType();
+      const whole = this.wholeApplication();
       untracked(() => {
         this.lookup?.unsubscribe();
         this.typedId.set(this.value() ?? '');
         this.found.set(null);
         this.lookupError.set(null);
         this.lookingUp.set(false);
+        if (whole) {
+          this.subjectChange.emit({ type: type.id, id: NH_ASSISTANT_SYSTEM_GLOBAL_ID, displayName: type.name });
+        }
       });
     });
   }

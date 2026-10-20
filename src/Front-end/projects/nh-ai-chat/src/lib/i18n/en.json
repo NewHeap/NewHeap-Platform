@@ -259,6 +259,7 @@
       "assistant-mcp-headless-not-allowed": "This MCP server may not be used in background runs.",
       "assistant-mcp-credential-mismatch": "The MCP call was not sent because it was authorized for someone other than the person whose token the connection carries.",
       "assistant-mcp-consent-required": "The person this background run acts for has not allowed this MCP server with their own account.",
+      "assistant-mcp-initiator-only": "A run someone started by hand uses only that person's own connection to this MCP server, and this run acts for someone else.",
       "assistant-mcp-delegated-token-unavailable": "No short-lived token could be issued for the person this background run acts for.",
       "assistant-mcp-secret-reference-invalid": "The secret reference names no available secret. Check the prefix and the name.",
       "assistant-mcp-certificate-reference-invalid": "The client certificate is not configured or has no private key.",
@@ -620,6 +621,7 @@
           "input-label-search": "Account"
         },
         "run-config": "Run configuration",
+        "run-now": "Run now",
         "chat": {
           "hidden": "Not in the chat"
         },
@@ -1558,6 +1560,24 @@
           "completed": "Answered",
           "failed": "Not answered"
         }
+      },
+      "object-agents": {
+        "title": "Agents",
+        "description": "The agents that work on this, their latest result and what they propose.",
+        "loading": "Loading the agents…",
+        "empty": "No agent works on this that you may use.",
+        "latest": "Latest run",
+        "never": "Not run here yet.",
+        "no-result": "No result yet.",
+        "result-label": "Result",
+        "shadow": "In shadow",
+        "proposals": "{{count}} open proposals",
+        "proposals-one": "1 open proposal",
+        "proposals-none": "No open proposals",
+        "run-now": "Run now",
+        "show-work": "Show the work",
+        "hide-work": "Hide the work",
+        "failure": "Why: {{reason}}"
       }
     },
     "subject-picker": {
@@ -1566,7 +1586,36 @@
       "id-hint": "This kind of object is chosen by its id.",
       "looking-up": "Looking up…",
       "found": "Found: {{name}}",
-      "not-found": "No object with this id was found, or you may not see it."
+      "not-found": "No object with this id was found, or you may not see it.",
+      "whole-application-hint": "The agent runs once, for the application as a whole.",
+      "division-placeholder": "Search a division by name"
+    },
+    "run-now": {
+      "title": "Run {{agent}} now",
+      "close": "Close",
+      "whole-application": "The whole application",
+      "target": "What should the agent work on this time?",
+      "per-division": "In one division",
+      "application": "The whole application",
+      "division": "Division",
+      "object": "{{type}}",
+      "subject-required": "Choose what the agent works on.",
+      "no-target": "This agent works on nothing it can be run on here.",
+      "no-divisions": "The application lists no divisions, so this agent cannot be run now.",
+      "on": "Runs on",
+      "message": "Instruction for the agent (optional)",
+      "message-hint": "The agent reads it at the start of this run.",
+      "cancel": "Cancel",
+      "submit": "Run now",
+      "starting": "Starting…",
+      "receipt-subject": "On",
+      "open-conversation": "Open the conversation",
+      "done": "Done",
+      "errors": {
+        "assistant-agent-forbidden": "You may not run this agent here.",
+        "assistant-subject-access-denied": "Your role on this does not allow running the agent.",
+        "assistant-agent-does-not-work-on": "The agent does not work on this. Choose something it works on."
+      }
     },
     "picker": {
       "toggle": "Show the choices",

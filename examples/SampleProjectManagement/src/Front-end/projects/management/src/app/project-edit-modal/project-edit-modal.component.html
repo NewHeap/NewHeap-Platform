@@ -71,6 +71,31 @@
     </section>
   }
 
+  <!--
+    SPM-303: the agents that work on the project, each with its latest result and open proposals,
+    "Run now" for the project's participants and its work on the project on demand. Deferred like the
+    suggestions, so @newheap/platform-ai-chat/agent-runs stays out of the initial bundle.
+  -->
+  @if (formData && assistantEnabled() && project(); as current) {
+    <section class="agent-suggestions" data-object-agents [attr.aria-label]="'project.object-agents-label' | translate">
+      <p class="agent-suggestions-note">
+        <i class="ph ph-play-circle" aria-hidden="true"></i>{{ 'project.object-agents-description' | translate }}
+      </p>
+      @defer (on viewport) {
+        <nh-assistant-object-agents
+          subjectType="project"
+          [subjectId]="current.id"
+          (openConversation)="onAgentConversation($event)" />
+      } @placeholder {
+        <div class="agent-suggestions-placeholder" aria-hidden="true"></div>
+      } @loading (minimum 200ms) {
+        <p class="agent-suggestions-state" role="status">{{ 'project.object-agents-loading' | translate }}</p>
+      } @error {
+        <p class="agent-suggestions-state error" role="alert">{{ 'project.object-agents-load-failed' | translate }}</p>
+      }
+    </section>
+  }
+
   @if (formData) {
     <footer>
       <button type="button" class="secondary-button" (click)="closeDialog()">

@@ -1,0 +1,108 @@
+<section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()">
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ 'nh-assistant.agent-runs.object-agents.title' | translate }}</h3>
+      <p class="muted">{{ 'nh-assistant.agent-runs.object-agents.description' | translate }}</p>
+    </div>
+    <div class="toolbar">
+      <button class="secondary" type="button" [disabled]="loading()" (click)="load()">
+        <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.refresh' | translate }}
+      </button>
+    </div>
+  </header>
+
+  @if (loading() && !listing()) {
+    <p class="state" role="status">{{ 'nh-assistant.agent-runs.object-agents.loading' | translate }}</p>
+  } @else if (loadFailed()) {
+    <div class="state" role="alert">
+      <p>{{ 'nh-assistant.agent-runs.load-failed' | translate }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.agent-runs.retry' | translate }}</button>
+    </div>
+  } @else if (agents().length === 0) {
+    <p class="state" data-object-agents-empty>{{ 'nh-assistant.agent-runs.object-agents.empty' | translate }}</p>
+  } @else {
+    <ul class="cards">
+      @for (agent of agents(); track agent.agentId) {
+        <li class="card" [attr.data-object-agent]="agent.agentId">
+          <div class="card-header">
+            <strong>{{ [agent.displayNameKey] | nhAssistantTranslate: agent.displayNameKey }}</strong>
+            <span class="badge" [class.warning]="agent.openProposals > 0" data-open-proposals>
+              {{ proposalsKey(agent.openProposals) | translate: { count: agent.openProposals } }}
+            </span>
+          </div>
+          @if ([agent.descriptionKey] | nhAssistantTranslate: agent.descriptionKey; as description) {
+            <p class="muted">{{ description }}</p>
+          }
+
+          <!-- The latest run: its status and time, and the beginning of its result as plain text. -->
+          @if (agent.latestRun; as run) {
+            <div class="latest-run" data-latest-run>
+              <div class="meta">
+                <span>{{ 'nh-assistant.agent-runs.object-agents.latest' | translate }}</span>
+                <span
+                  class="badge"
+                  [class.success]="run.status === 'completed'"
+                  [class.danger]="run.status === 'failed'"
+                  [class.warning]="run.status === 'waiting-for-approval'">{{ 'nh-assistant.agent-runs.run.status.' + run.status | translate }}</span>
+                <time [attr.datetime]="run.at">{{ run.at | date: 'medium' }}</time>
+                @if (run.shadow) {
+                  <span class="badge warning">{{ 'nh-assistant.agent-runs.object-agents.shadow' | translate }}</span>
+                }
+              </div>
+              @if (run.failureCode; as reason) {
+                <p class="muted">{{ 'nh-assistant.agent-runs.object-agents.failure' | translate: { reason: (['nh-assistant.errors.' + reason] | nhAssistantTranslate: reason) } }}</p>
+              }
+              @if (run.result; as result) {
+                <p class="summary result" data-latest-result>
+                  <span class="visually-hidden">{{ 'nh-assistant.agent-runs.object-agents.result-label' | translate }}: </span>{{ result }}@if (run.resultTruncated) {…}
+                </p>
+              } @else {
+                <p class="muted">{{ 'nh-assistant.agent-runs.object-agents.no-result' | translate }}</p>
+              }
+            </div>
+          } @else {
+            <p class="muted" data-never-run>{{ 'nh-assistant.agent-runs.object-agents.never' | translate }}</p>
+          }
+
+          <div class="card-actions">
+            @if (agent.canStart) {
+              <button class="primary" type="button" aria-haspopup="dialog" data-object-run-now (click)="runNow(agent)">
+                <nh-assistant-icon name="send" />{{ 'nh-assistant.agent-runs.object-agents.run-now' | translate }}
+              </button>
+            }
+            @if (agent.conversationId) {
+              <button
+                class="secondary"
+                type="button"
+                data-toggle-work
+                [attr.aria-expanded]="expanded() === agent.agentId"
+                [attr.aria-controls]="id + '-' + agent.agentId + '-work'"
+                (click)="toggleWork(agent)">
+                <nh-assistant-icon name="list" />{{ (expanded() === agent.agentId ? 'nh-assistant.agent-runs.object-agents.hide-work' : 'nh-assistant.agent-runs.object-agents.show-work') | translate }}
+              </button>
+            }
+          </div>
+
+          @if (expanded() === agent.agentId) {
+            <div class="work" [id]="id + '-' + agent.agentId + '-work'">
+              <nh-assistant-agent-thread-view
+                [agentId]="agent.agentId"
+                [subjectType]="subjectType()"
+                [subjectId]="subjectId()"
+                (openConversation)="openConversation.emit($event)" />
+            </div>
+          }
+        </li>
+      }
+    </ul>
+  }
+
+  @if (runNowAgent(); as runAgent) {
+    <nh-assistant-run-now-dialog
+      [agent]="runAgent"
+      [subject]="runNowSubject()"
+      (started)="onStarted()"
+      (openConversation)="openConversation.emit($event)"
+      (closed)="runningNow.set(null)" />
+  }
+</section>

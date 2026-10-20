@@ -1,13 +1,18 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
+import {
+  AgentSubjectType,
+  NH_ASSISTANT_TRANSLATIONS,
+  NhAssistantAdminApiService,
+  provideNhAssistant
+} from '@newheap/platform-ai-chat';
 import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
 import { firstValueFrom } from 'rxjs';
-import { NH_ASSISTANT_TRANSLATIONS } from '../i18n/nh-assistant-translations';
-import { AgentSubjectType } from '../models/assistant-admin.models';
-import { provideNhAssistant } from '../provide-nh-assistant';
-import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
-import { NhAssistantChosenSubject, NhAssistantSubjectPickerComponent } from './nh-assistant-subject-picker.component';
+import {
+  type ɵNhAssistantChosenSubject as NhAssistantChosenSubject,
+  ɵNhAssistantSubjectPickerComponent as NhAssistantSubjectPickerComponent
+} from '@newheap/platform-ai-chat/agent-runs';
 
 const scenario: NhAssistantMockScenario = {
   agents: [{ id: 'projects', version: 1, displayNameKey: 'agents.projects', descriptionKey: 'agents.projects-description', canMutate: true }],
@@ -239,5 +244,102 @@ describe('the mock subject search', () => {
       });
       expect(() => TestBed.inject(NhAssistantMockBackend)).withContext(JSON.stringify(subjectTypes)).toThrowError();
     }
+  });
+});
+
+const north = '7f0c0000-0000-4000-8000-0000000000a1';
+const south = '7f0c0000-0000-4000-8000-0000000000b2';
+
+const systemType: AgentSubjectType = {
+  id: 'nh-system',
+  name: 'The whole application',
+  pluralName: null,
+  entityType: null,
+  entityTypeFull: null,
+  link: null,
+  searchable: true,
+  isSystem: true
+};
+
+@Component({
+  standalone: true,
+  imports: [NhAssistantSubjectPickerComponent],
+  template: `
+    <label for="subject">Subject</label>
+    <nh-assistant-subject-picker inputId="subject" [subjectType]="type()" [perDivision]="perDivision()" (subjectChange)="chosen.push($event)" />
+  `
+})
+class WholeApplicationHost {
+  readonly type = signal<AgentSubjectType>(systemType);
+  readonly perDivision = signal(false);
+  readonly chosen: (NhAssistantChosenSubject | null)[] = [];
+}
+
+describe('NhAssistantSubjectPickerComponent for the whole application', () => {
+  let fixture: ComponentFixture<WholeApplicationHost>;
+  let element: HTMLElement;
+
+  beforeEach(async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideTranslateService({ fallbackLang: 'en' }),
+        provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => 'mock-token', translations: 'host' }),
+        provideNhAssistantMockApi({
+          ...scenario,
+          divisions: [
+            { id: north, name: 'North' },
+            { id: south, name: 'South' },
+            { id: '7f0c0000-0000-4000-8000-0000000000c3', name: 'Northwest', readable: false }
+          ]
+        })
+      ]
+    });
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('en', NH_ASSISTANT_TRANSLATIONS.en, true);
+    await firstValueFrom(translate.use('en'));
+    fixture = TestBed.createComponent(WholeApplicationHost);
+    fixture.detectChanges();
+    element = fixture.nativeElement as HTMLElement;
+  });
+
+  async function settle(): Promise<void> {
+    for (let index = 0; index < 5; index++) {
+      await fixture.whenStable();
+      await new Promise(resolve => setTimeout(resolve, 0));
+      fixture.detectChanges();
+    }
+  }
+
+  it('names the whole application as the one subject of an app-wide agent and chooses it at once', async () => {
+    await settle();
+    const field = element.querySelector('#subject') as HTMLOutputElement;
+    expect(field.tagName).toBe('OUTPUT');
+    expect(field.textContent?.trim()).toBe('The whole application');
+    // The label names the field, and the hint says what it means.
+    expect((element.querySelector('label') as HTMLLabelElement).control).toBe(field);
+    const hint = document.getElementById(field.getAttribute('aria-describedby')!.split(' ')[0])!;
+    expect(hint.textContent).toContain('The agent runs once, for the application as a whole.');
+    expect(fixture.componentInstance.chosen).toEqual([{ type: 'nh-system', id: 'global', displayName: 'The whole application' }]);
+  });
+
+  it('searches the divisions the caller works in by name for an agent that works per division', async () => {
+    fixture.componentInstance.perDivision.set(true);
+    fixture.detectChanges();
+    await settle();
+    const field = element.querySelector('#subject') as HTMLInputElement;
+    expect(field.getAttribute('role')).toBe('combobox');
+    expect(field.placeholder).toBe('Search a division by name');
+    // Choosing per division chooses nothing yet.
+    expect(fixture.componentInstance.chosen.filter(item => item?.id === 'global').length).toBe(1);
+
+    field.value = 'no';
+    field.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve, 300));
+    await settle();
+    expect(Array.from(element.querySelectorAll('[role="option"]')).map(option => option.textContent?.trim())).toEqual(['North']);
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.chosen.at(-1)).toEqual({ type: 'nh-system', id: 'division-' + north.replace(/-/g, ''), displayName: 'North' });
   });
 });

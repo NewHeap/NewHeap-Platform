@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -18,7 +19,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// proposals. Policies are evaluated for the actor as the principal factory rebuilds it, as for
 /// headless runs, never from the request, and against the subject with its division: app-wide no
 /// division policy is met, in a division it is evaluated for that division. A division subject needs
-/// access to the division as well. Endpoints add an agent's own run and view policies on top.
+/// access to the division as well. Who may run an agent for it by hand is the agent's run policy,
+/// evaluated the same way (<see cref="MayRunAsync"/>); endpoints add the agent's view policy on top.
+/// With listed divisions people find the divisions by name, as the subjects of a per-division agent.
 /// </summary>
 /// <remarks>
 /// The whole application lists no members: who passes a policy cannot be listed without the user
@@ -30,7 +33,7 @@ internal sealed class NhAssistantSystemSubjectResolver(
     IServiceProvider services,
     NhAssistantRegistrationState state,
     IOptionsMonitor<NhAssistantOptions> options,
-    IAuthorizationService authorization) : INhAssistantPlatformSubjectResolver
+    IAuthorizationService authorization) : INhAssistantPlatformSubjectResolver, INhAiSubjectSearch
 {
     /// <summary>
     /// The purpose of the authorization resource the policies are evaluated against.
@@ -44,6 +47,11 @@ internal sealed class NhAssistantSystemSubjectResolver(
     private readonly ConcurrentDictionary<(string SubjectId, string ActorId), (NhAiSubjectAccess Access, long At)> _roles = new();
 
     public string SubjectType => NhAiSubjectRef.SystemType;
+
+    /// <summary>
+    /// The divisions are found by name only when the application lists them.
+    /// </summary>
+    public bool OffersSearch => services.GetService<INhDivisionDirectory>() is not null;
 
     public async ValueTask<NhAiSubjectInfo?> DescribeAsync(
         NhAiSubjectRef subject,
@@ -73,12 +81,7 @@ internal sealed class NhAssistantSystemSubjectResolver(
             return null;
         }
 
-        var name = division.Name.Length <= MaxDisplayNameLength ? division.Name : division.Name[..MaxDisplayNameLength];
-        return new NhAiSubjectInfo(subject, NhAiSubjectInfo.CreateScopeKey(null, divisionId))
-        {
-            DivisionId = divisionId,
-            DisplayName = name
-        };
+        return Describe(division);
     }
 
     public async ValueTask<NhAiSubjectAccess> ResolveAsync(
@@ -116,42 +119,68 @@ internal sealed class NhAssistantSystemSubjectResolver(
         yield break;
     }
 
-    private async ValueTask<NhAiSubjectAccess> ResolveCoreAsync(
+    /// <summary>
+    /// The listed divisions whose name contains the query, as the subjects of the whole application in
+    /// those divisions; the search keeps those the person may read. The whole application app-wide is
+    /// chosen as such and never searched.
+    /// </summary>
+    public async IAsyncEnumerable<NhAiSubjectInfo> SearchAsync(
+        NhAiSubjectSearchRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (services.GetService<INhDivisionDirectory>() is not { } directory)
+        {
+            yield break;
+        }
+
+        foreach (var division in await directory.ListAsync(NhDivisionInfo.MaxListLimit, cancellationToken))
+        {
+            if (division.Name.Contains(request.Query, StringComparison.CurrentCultureIgnoreCase))
+            {
+                yield return Describe(division);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the person may run an agent by hand for <paramref name="subject"/> under
+    /// <paramref name="runPolicy"/>: the agent's run policy, or the administration policy without one
+    /// (K9). It is evaluated as the roles are: for the person as the principal factory rebuilds them,
+    /// against the subject with its division, and in a division only for people who may work there.
+    /// </summary>
+    public async Task<bool> MayRunAsync(
         NhAiSubjectRef subject,
         string actorId,
-        CancellationToken cancellationToken)
+        string runPolicy,
+        CancellationToken cancellationToken = default)
     {
-        var info = await DescribeAsync(subject, cancellationToken);
-        if (info is null)
+        ArgumentNullException.ThrowIfNull(subject);
+        ArgumentException.ThrowIfNullOrWhiteSpace(runPolicy);
+        if (string.IsNullOrWhiteSpace(actorId))
         {
-            return NhAiSubjectAccess.None;
+            return false;
         }
 
-        // The whole application in a division is for people who may work in that division.
-        if (info.DivisionId is { } divisionId
-            && (services.GetService<INhDivisionAccess>() is not { } divisions
-                || !await divisions.HasAccessAsync(new NhActorRef(NhActorKinds.User, actorId), divisionId, cancellationToken)))
+        if (await PersonAsync(subject, actorId, cancellationToken) is not { } person)
         {
-            return NhAiSubjectAccess.None;
+            return false;
         }
 
-        // The person as a headless run sees them: an account that may no longer sign in has no role.
-        if (services.GetService<INhAiPrincipalFactory>() is not { } principals
-            || await principals.CreateAsync(actorId, info, cancellationToken) is not { } principal)
-        {
-            return NhAiSubjectAccess.None;
-        }
+        return (await authorization.AuthorizeAsync(person.Principal, person.Resource, runPolicy)).Succeeded;
+    }
 
-        // The approve policy makes a participant and approver, who reads as well.
-        var resource = NhAiSubjectAuthorizationResource.From(info, Purpose);
-        if ((await authorization.AuthorizeAsync(principal, resource, ApprovePolicyOf(state, options.CurrentValue))).Succeeded)
-        {
-            return new NhAiSubjectAccess(NhAiSubjectRole.Approver);
-        }
-
-        return (await authorization.AuthorizeAsync(principal, resource, ReadPolicyOf(state, options.CurrentValue))).Succeeded
-            ? new NhAiSubjectAccess(NhAiSubjectRole.Reader)
-            : NhAiSubjectAccess.None;
+    /// <summary>
+    /// The policy a person needs to run the agent by hand for the whole application: its run policy,
+    /// otherwise the administration policy.
+    /// </summary>
+    internal static string RunPolicyOf(
+        NhAssistantAgentRunOptions runOptions,
+        NhAssistantRegistrationState state,
+        NhAssistantOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(runOptions);
+        return runOptions.WorksOn.RunPolicy ?? NhAssistantEndpointOptions.ResolveAdminPolicy(state, options);
     }
 
     /// <summary>
@@ -170,5 +199,70 @@ internal sealed class NhAssistantSystemSubjectResolver(
     internal static string ApprovePolicyOf(NhAssistantRegistrationState state, NhAssistantOptions options)
     {
         return state.SystemApprovePolicy ?? NhAssistantEndpointOptions.ResolveAdminPolicy(state, options);
+    }
+
+    private async ValueTask<NhAiSubjectAccess> ResolveCoreAsync(
+        NhAiSubjectRef subject,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        if (await PersonAsync(subject, actorId, cancellationToken) is not { } person)
+        {
+            return NhAiSubjectAccess.None;
+        }
+
+        // The approve policy makes a participant and approver, who reads as well.
+        if ((await authorization.AuthorizeAsync(person.Principal, person.Resource, ApprovePolicyOf(state, options.CurrentValue))).Succeeded)
+        {
+            return new NhAiSubjectAccess(NhAiSubjectRole.Approver);
+        }
+
+        return (await authorization.AuthorizeAsync(person.Principal, person.Resource, ReadPolicyOf(state, options.CurrentValue))).Succeeded
+            ? new NhAiSubjectAccess(NhAiSubjectRole.Reader)
+            : NhAiSubjectAccess.None;
+    }
+
+    /// <summary>
+    /// The person as the policies of the whole application see them: the principal a headless run
+    /// would get, with the subject as the resource, or <see langword="null"/> when the subject does not
+    /// exist, the person may not work in its division or the account may no longer sign in.
+    /// </summary>
+    private async ValueTask<(ClaimsPrincipal Principal, NhAiSubjectAuthorizationResource Resource)?> PersonAsync(
+        NhAiSubjectRef subject,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        var info = await DescribeAsync(subject, cancellationToken);
+        if (info is null)
+        {
+            return null;
+        }
+
+        // The whole application in a division is for people who may work in that division.
+        if (info.DivisionId is { } divisionId
+            && (services.GetService<INhDivisionAccess>() is not { } divisions
+                || !await divisions.HasAccessAsync(new NhActorRef(NhActorKinds.User, actorId), divisionId, cancellationToken)))
+        {
+            return null;
+        }
+
+        // The person as a headless run sees them: an account that may no longer sign in has no role.
+        if (services.GetService<INhAiPrincipalFactory>() is not { } principals
+            || await principals.CreateAsync(actorId, info, cancellationToken) is not { } principal)
+        {
+            return null;
+        }
+
+        return (principal, NhAiSubjectAuthorizationResource.From(info, Purpose));
+    }
+
+    private static NhAiSubjectInfo Describe(NhDivisionInfo division)
+    {
+        var name = division.Name.Length <= MaxDisplayNameLength ? division.Name : division.Name[..MaxDisplayNameLength];
+        return new NhAiSubjectInfo(NhAiSystemSubjects.ForDivision(division.Id), NhAiSubjectInfo.CreateScopeKey(null, division.Id))
+        {
+            DivisionId = division.Id,
+            DisplayName = name
+        };
     }
 }

@@ -259,6 +259,7 @@
       "assistant-mcp-headless-not-allowed": "Deze MCP-server mag niet in achtergrondruns worden gebruikt.",
       "assistant-mcp-credential-mismatch": "De MCP-aanroep is niet verstuurd, omdat hij is toegestaan voor iemand anders dan de persoon van wie de verbinding het token gebruikt.",
       "assistant-mcp-consent-required": "De persoon voor wie deze achtergrondrun werkt, heeft deze MCP-server niet toegestaan met het eigen account.",
+      "assistant-mcp-initiator-only": "Een run die iemand met de hand startte, gebruikt alleen de eigen verbinding van die persoon met deze MCP-server, en deze run werkt voor iemand anders.",
       "assistant-mcp-delegated-token-unavailable": "Er kon geen kortlevend token worden uitgegeven voor de persoon voor wie deze achtergrondrun werkt.",
       "assistant-mcp-secret-reference-invalid": "De verwijzing wijst geen beschikbaar geheim aan. Controleer het voorvoegsel en de naam.",
       "assistant-mcp-certificate-reference-invalid": "Het clientcertificaat is niet geconfigureerd of heeft geen privésleutel.",
@@ -620,6 +621,7 @@
           "input-label-search": "Account"
         },
         "run-config": "Runconfiguratie",
+        "run-now": "Nu uitvoeren",
         "chat": {
           "hidden": "Niet in de chat"
         },
@@ -1558,6 +1560,24 @@
           "completed": "Beantwoord",
           "failed": "Niet beantwoord"
         }
+      },
+      "object-agents": {
+        "title": "Agents",
+        "description": "De agents die hieraan werken, hun laatste resultaat en wat ze voorstellen.",
+        "loading": "Agents laden…",
+        "empty": "Er werkt hier geen agent aan die jij mag gebruiken.",
+        "latest": "Laatste run",
+        "never": "Hier nog niet uitgevoerd.",
+        "no-result": "Nog geen resultaat.",
+        "result-label": "Resultaat",
+        "shadow": "In schaduw",
+        "proposals": "{{count}} open voorstellen",
+        "proposals-one": "1 open voorstel",
+        "proposals-none": "Geen open voorstellen",
+        "run-now": "Nu uitvoeren",
+        "show-work": "Werk tonen",
+        "hide-work": "Werk verbergen",
+        "failure": "Waarom: {{reason}}"
       }
     },
     "subject-picker": {
@@ -1566,7 +1586,36 @@
       "id-hint": "Dit soort object kies je met de id.",
       "looking-up": "Opzoeken…",
       "found": "Gevonden: {{name}}",
-      "not-found": "Geen object met deze id gevonden, of je mag het niet zien."
+      "not-found": "Geen object met deze id gevonden, of je mag het niet zien.",
+      "whole-application-hint": "De agent werkt één keer, aan de applicatie als geheel.",
+      "division-placeholder": "Zoek een divisie op naam"
+    },
+    "run-now": {
+      "title": "{{agent}} nu uitvoeren",
+      "close": "Sluiten",
+      "whole-application": "De hele applicatie",
+      "target": "Waar moet de agent deze keer aan werken?",
+      "per-division": "In één divisie",
+      "application": "De hele applicatie",
+      "division": "Divisie",
+      "object": "{{type}}",
+      "subject-required": "Kies waar de agent aan werkt.",
+      "no-target": "Deze agent werkt aan niets waarvoor je hem hier kunt uitvoeren.",
+      "no-divisions": "De applicatie noemt geen divisies, dus deze agent kan nu niet worden uitgevoerd.",
+      "on": "Werkt aan",
+      "message": "Instructie voor de agent (optioneel)",
+      "message-hint": "De agent leest die aan het begin van deze run.",
+      "cancel": "Annuleren",
+      "submit": "Nu uitvoeren",
+      "starting": "Starten…",
+      "receipt-subject": "Aan",
+      "open-conversation": "Gesprek openen",
+      "done": "Klaar",
+      "errors": {
+        "assistant-agent-forbidden": "Je mag deze agent hier niet uitvoeren.",
+        "assistant-subject-access-denied": "Met jouw rol hierop kun je de agent niet uitvoeren.",
+        "assistant-agent-does-not-work-on": "De agent werkt hier niet aan. Kies iets waaraan hij werkt."
+      }
     },
     "picker": {
       "toggle": "Toon de keuzes",

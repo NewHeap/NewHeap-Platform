@@ -86,7 +86,8 @@ internal sealed class NhAssistantSubjectWork(
     NhAssistantRunStore runs,
     NhAssistantAgentCatalog agents,
     NhAssistantAgentAccess agentAccess,
-    NhAssistantApproverCheck approvers) : INhAssistantSubjectWork
+    NhAssistantApproverCheck approvers,
+    NhAssistantManualStarts starts) : INhAssistantSubjectWork
 {
     public const int MaxSummarySubjects = 200;
     private const int MaxProposalsPerThread = 50;
@@ -140,7 +141,7 @@ internal sealed class NhAssistantSubjectWork(
         foreach (var id in agentIds.Order(StringComparer.Ordinal))
         {
             var thread = threads.GetValueOrDefault(id);
-            var canStart = await CanStartAsync(id, subject.Type, access, user, administrator, cancellationToken);
+            var canStart = await CanStartAsync(id, subject, access, actorId, user, cancellationToken);
             var shadowThread = shadowThreads.GetValueOrDefault(id);
             agentEntries.Add(new NhAssistantSubjectAgentDto(
                 id,
@@ -219,27 +220,18 @@ internal sealed class NhAssistantSubjectWork(
     }
 
     /// <summary>
-    /// Whether the caller may start the agent on the subject: the agent works on its type, and an
-    /// agent in shadow only by an administrator, since its work goes to shadow threads.
+    /// Whether the caller may start the agent on the subject, by the one rule of manual starts (K9).
     /// </summary>
     private async Task<bool> CanStartAsync(
         string agentId,
-        string subjectType,
+        NhAiSubjectRef subject,
         NhAiSubjectAccess access,
+        string actorId,
         ClaimsPrincipal user,
-        bool administrator,
         CancellationToken cancellationToken)
     {
-        var options = registration.AgentRuns[agentId];
-        if (!access.Has(NhAiSubjectRole.Participant) || !options.Enabled || !options.WorksOn.Covers(subjectType))
-        {
-            return false;
-        }
-
         var agent = await agents.FindAsync(agentId, includeDisabled: false, cancellationToken);
-        return agent is not null
-            && (administrator || !NhAssistantShadowModes.IsAgentShadow(options, agent.ShadowOverride))
-            && await agentAccess.CanUseAsync(user, agent.Definition);
+        return await starts.CanStartAsync(agent, subject, access, actorId, user, cancellationToken);
     }
 
     private async Task<IReadOnlyList<NhAssistantSubjectProposalDto>> OpenProposalsAsync(

@@ -181,9 +181,26 @@ administration policy) also take part and decide its proposals, evaluated for th
 principal factory rebuilds them and against the subject with its division, with access to the division
 for a division subject; configure both with `UseSystemSubject(system => system.ReadPolicy("app.project.view").ApprovePolicy("app.project.manage"))`.
 Name an app-wide read policy when the access policy needs an active division, which the whole
-application app-wide has not. A manual start for the whole application also needs the agent's
-`RunPolicy`. The whole application lists no members, so the approval inbox shows its proposals to
-their initiator only.
+application app-wide has not. The whole application lists no members, so the approval inbox shows its
+proposals to their initiator only. With listed divisions `GET subjects/nh-system/search` finds the
+divisions a person works in by name (`Searchable` in the run catalog), as the subjects of a
+per-division agent.
+
+Run an agent now, by hand, with `POST threads/start` (`agentId`, `subjectType`, `subjectId`, optional
+`message`; the caller is the initiator and the trigger `manual`). One rule decides who may, also for a
+new thread of `POST threads/open` and every `canStart`: the agent works on the subject and, for the
+whole application, on its scope (`409 assistant-agent-does-not-work-on`), the person passes the
+agent's required policy, and on an object the person is a participant; for the whole application
+(`nh-system/global`, or `nh-system/division-{id:N}` for a per-division agent) the agent's `RunPolicy`
+decides, by default the administration policy, evaluated like the roles of the whole application
+(for the rebuilt principal, against the subject with its division, with access to the division), and
+the person reads it. The approve policy of the whole application gives no start. An agent in shadow is
+started by administrators only. `GET subjects/{type}/{id}/agents` (`NhAssistantObjectAgentsDto`) lists
+the agents that work on a subject, an object or the whole application, and that the caller may use:
+per agent `CanStart`, the thread people open, the newest run (`NhAssistantLatestRunDto`: status, time
+and the first 300 characters of its result, until runs keep their full answer the summary they end
+with) and the open proposals; the caller needs a role on the subject. A run started by hand never uses
+another person's personal MCP connection: only the initiator's own, with their consent.
 
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
@@ -673,6 +690,9 @@ profile and instructions that answer questions about the rules' proposals from t
   lists divisions the division access does not know.
 - Leaving the read policy of the whole application at an access policy that needs an active division;
   nobody would read it app-wide.
+- Relying on the approve policy of the whole application to let people run its agents by hand; give
+  the agent a `RunPolicy` (by default the administration policy decides).
+- Showing a run's result from `NhAssistantLatestRunDto.Result` as HTML; it is model output.
 
 ## Verification
 
@@ -818,8 +838,16 @@ rebuilt principal against the subject's division, that a system run's invocation
 subject scope and only the division in a division, that the run catalog lists `nh-system` with
 `IsSystem` and `Divisions`, and that startup lets the platform's own resolver through, refuses an
 application `nh-` type, per division without a division directory, a schedule without subjects for an
-agent that does not work on the application and unregistered system policies.
-SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 and SPM-302 are the executable
+agent that does not work on the application and unregistered system policies. Over HTTP on both
+providers, assert that the run policy decides who runs an agent for the whole application (not the
+approve policy, the administration policy without one), that the agent's statement and scope refuse
+starts with `409`, that a person without access to a division does not see it, that a reader of an
+object may not start, and that `GET subjects/{type}/{id}/agents` lists only agents that work on the
+subject and that the caller may use, with the newest run, the first 300 characters of its result and
+the open, unexpired proposals. Assert that a run started by hand that acts for the accountable account
+leaves a personal MCP server out while a scheduled run and the accountable person's own start use
+that person's connection.
+SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297 and SPM-301 to SPM-303 are the executable
 references.
 
 ## Executable evidence
@@ -979,3 +1007,8 @@ references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+- SPM-303 — Project managers run the project follow-up now for the whole application, and participants run an agent on their project from its page
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
+  - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts)
+  - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html)
