@@ -1,13 +1,17 @@
 using AwesomeAssertions;
 using Microsoft.Data.SqlClient;
+using NewHeap.Platform.Tests.Relational;
 using Npgsql;
 using System.Text.Json;
-using Testcontainers.MsSql;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace NewHeap.Platform.DatabaseRead.Tool.Tests;
 
+/// <summary>
+/// The tool inspects a whole database, so every test gets a database of its own on the provider's
+/// server that the test process shares. Logins and roles belong to that server, so their names
+/// start with the name of the test's database.
+/// </summary>
 public sealed class DatabaseReadProviderTests
 {
     private static readonly Guid ProjectId = Guid.Parse("9f6e1ca4-96e4-4f6a-8820-738693649dc3");
@@ -15,16 +19,12 @@ public sealed class DatabaseReadProviderTests
     [Fact]
     public async Task SqlServerReportsTheFirstRejectedPermissionCheckForSchemaAndQuery()
     {
-        await using var container = new MsSqlBuilder(
-            "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
-        await container.StartAsync();
-        var admin = new SqlConnectionStringBuilder(container.GetConnectionString());
-        const string user = "diagnostic_reader";
+        var admin = new SqlConnectionStringBuilder(await CreateDatabaseAsync(RelationalTestProvider.SqlServer));
+        var user = admin.InitialCatalog + "_reader";
         const string password = "Test-only-reader-Password-42";
         var passwordKeyword = "PASS" + "WORD";
         await ExecuteSqlServerAsync(admin.ConnectionString,
-            $"CREATE DATABASE CheckDiagnostics; CREATE LOGIN [{user}] WITH {passwordKeyword} = '{password}';");
-        admin.InitialCatalog = "CheckDiagnostics";
+            $"CREATE LOGIN [{user}] WITH {passwordKeyword} = '{password}';");
         await ExecuteSqlServerAsync(admin.ConnectionString,
             $"CREATE USER [{user}] FOR LOGIN [{user}]; CREATE TABLE dbo.Items (Id int); GRANT SELECT ON dbo.Items TO [{user}];");
         await ExecuteSqlServerAsync(admin.ConnectionString,
@@ -80,19 +80,14 @@ public sealed class DatabaseReadProviderTests
     [Fact]
     public async Task SqlServerProfileReadsWithAWriteDeniedPrincipal()
     {
-        const string databaseName = "NewHeapDiagnostics";
-        const string username = "newheap_database_reader";
         const string password = "Test-only-reader-Password-42";
-        await using var container = new MsSqlBuilder(
-            "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
-        await container.StartAsync();
-
-        var adminBuilder = new SqlConnectionStringBuilder(container.GetConnectionString());
+        var adminBuilder = new SqlConnectionStringBuilder(await CreateDatabaseAsync(RelationalTestProvider.SqlServer));
+        var databaseName = adminBuilder.InitialCatalog;
+        var username = databaseName + "_reader";
         var passwordKeyword = "PASS" + "WORD";
         await ExecuteSqlServerAsync(
             adminBuilder.ConnectionString,
-            $"CREATE DATABASE [{databaseName}]; CREATE LOGIN [{username}] WITH {passwordKeyword} = '{password}';");
-        adminBuilder.InitialCatalog = databaseName;
+            $"CREATE LOGIN [{username}] WITH {passwordKeyword} = '{password}';");
         await ExecuteSqlServerAsync(
             adminBuilder.ConnectionString,
             $"""
@@ -288,12 +283,9 @@ public sealed class DatabaseReadProviderTests
     [Fact]
     public async Task PostgreSqlProfileReadsWithAWriteDeniedPrincipal()
     {
-        const string username = "newheap_database_reader";
         const string password = "Test-only-reader-Password-42";
-        await using var container = new PostgreSqlBuilder("postgres:15.1").Build();
-        await container.StartAsync();
-
-        var adminBuilder = new NpgsqlConnectionStringBuilder(container.GetConnectionString());
+        var adminBuilder = new NpgsqlConnectionStringBuilder(await CreateDatabaseAsync(RelationalTestProvider.PostgreSql));
+        var username = adminBuilder.Database + "_reader";
         await using (var adminConnection = new NpgsqlConnection(adminBuilder.ConnectionString))
         {
             await adminConnection.OpenAsync();
@@ -462,6 +454,11 @@ public sealed class DatabaseReadProviderTests
         var writeAction = () => update.ExecuteNonQueryAsync();
 
         await writeAction.Should().ThrowAsync<PostgresException>();
+    }
+
+    private static async Task<string> CreateDatabaseAsync(RelationalTestProvider provider)
+    {
+        return await RelationalTestServer.For(provider).CreateDatabaseAsync("diagnostics");
     }
 
     private static async Task ExecuteSqlServerAsync(string connectionString, string sql)
