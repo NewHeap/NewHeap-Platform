@@ -56,6 +56,7 @@ internal static class NhAssistantServiceRegistration
         services.TryAddSingleton<NhAssistantAgentRegistry>();
         services.TryAddSingleton<NhAssistantSeeder>();
         services.TryAddScoped<NhAssistantAdminStore>();
+        services.TryAddScoped<NhAssistantMcpOAuthStore>();
         services.TryAddScoped<NhAssistantAgentCatalog>();
         services.TryAddScoped<NhAssistantShadowModes>();
         // The run configuration defined as data and the snapshot that puts it into effect.

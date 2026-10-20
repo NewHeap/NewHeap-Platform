@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Claims;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -55,17 +57,44 @@ internal sealed class NhAssistantMcpSecretProtector(IDataProtectionProvider prov
 }
 
 /// <summary>
-/// A validated connection target: endpoint and the headers to send.
+/// A validated connection target: the endpoint, the credential headers at planning and the source
+/// that the HTTP client asks again before every request.
 /// </summary>
 internal sealed record NhAssistantMcpConnectionPlan(
     string ServerId,
     Uri Endpoint,
     IReadOnlyDictionary<string, string> Headers,
-    bool IsPerCaller);
+    bool IsPerCaller)
+{
+    /// <summary>
+    /// The credential source of the connection; <see langword="null"/> only for a plan built by hand
+    /// in a test, which then sends <see cref="Headers"/>.
+    /// </summary>
+    public NhAssistantMcpCredentialSource? Credentials { get; init; }
+
+    /// <summary>
+    /// One of <see cref="NhAssistantMcpTransports"/>.
+    /// </summary>
+    public string Transport { get; init; } = NhAssistantMcpTransports.StreamableHttp;
+
+    /// <summary>
+    /// The client certificate for mutual TLS, or <see langword="null"/>.
+    /// </summary>
+    public X509Certificate2? ClientCertificate { get; init; }
+
+    /// <summary>
+    /// For a person's OAuth connection: the person and how the turn uses the connection, under which
+    /// the connection and its tool list are cached for that person only (D12). Null for connections
+    /// that are shared, or never cached because they carry a request's token.
+    /// </summary>
+    public string? PersonalCacheKey { get; init; }
+}
 
 /// <summary>
 /// SSRF rules for MCP servers: https unless loopback in Development, the optional host allow-list,
-/// blocked metadata names and blocked address ranges after DNS resolution.
+/// blocked metadata names and blocked address ranges after DNS resolution. OAuth URLs, which come
+/// from remote documents, always need https (http only to loopback in Development) and never reach
+/// a private network unless their host is in the allow-list.
 /// </summary>
 internal sealed class NhAssistantMcpHostGuard(
     IOptionsMonitor<NhAssistantOptions> options,
@@ -115,6 +144,27 @@ internal sealed class NhAssistantMcpHostGuard(
         return null;
     }
 
+    /// <summary>
+    /// Returns an error code when a request of a connection may not go to <paramref name="target"/>:
+    /// it must stay on the origin of the planned endpoint and pass <see cref="CheckUri"/>, including
+    /// <see cref="NhAssistantMcpOptions.AllowedHosts"/> as they are now.
+    /// </summary>
+    public string? CheckRequest(Uri? target, Uri endpoint)
+    {
+        if (target is null || !target.IsAbsoluteUri)
+        {
+            return NhAssistantAdminErrorCodes.McpHostBlocked;
+        }
+        var sameOrigin = string.Equals(target.Scheme, endpoint.Scheme, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(target.IdnHost, endpoint.IdnHost, StringComparison.OrdinalIgnoreCase)
+            && target.Port == endpoint.Port;
+        if (!sameOrigin)
+        {
+            return NhAssistantAdminErrorCodes.McpHostBlocked;
+        }
+        return CheckUri(target);
+    }
+
     public bool IsBlocked(IPAddress address)
     {
         if (address.IsIPv4MappedToIPv6)
@@ -140,18 +190,81 @@ internal sealed class NhAssistantMcpHostGuard(
 
     /// <summary>
     /// Resolves the host and returns the addresses that may be contacted; empty when all are blocked.
+    /// Private networks are blocked when <see cref="NhAssistantMcpOptions.BlockPrivateNetworks"/> is on
+    /// and the host is not in the allow-list.
     /// </summary>
-    public async Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(string host, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(string host, CancellationToken cancellationToken)
+    {
+        return ResolveAllowedAsync(host, options.CurrentValue.Mcp.BlockPrivateNetworks && !IsExplicitlyAllowed(host), cancellationToken);
+    }
+
+    /// <summary>
+    /// Resolves the host of an OAuth URL: private networks are blocked unless the host is in the
+    /// allow-list.
+    /// </summary>
+    public Task<IReadOnlyList<IPAddress>> ResolveAllowedForOAuthAsync(string host, CancellationToken cancellationToken)
+    {
+        return ResolveAllowedAsync(host, !IsExplicitlyAllowed(host), cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(string host, bool blockPrivateNetworks, CancellationToken cancellationToken)
     {
         var addresses = IPAddress.TryParse(host, out var literal)
             ? [literal]
             : await Dns.GetHostAddressesAsync(host, cancellationToken);
-        if (addresses.Any(IsBlocked))
+        if (addresses.Any(address => IsBlocked(address) || (blockPrivateNetworks && IsPrivate(address))))
         {
             // One blocked answer blocks the host, so DNS answers cannot mix in an internal target.
             return [];
         }
         return addresses;
+    }
+
+    /// <summary>
+    /// Returns an error code when an OAuth URL (metadata, token, registration, revocation or the
+    /// authorization endpoint) is not allowed: <see cref="CheckUri"/> plus https, with http only to
+    /// loopback in Development.
+    /// </summary>
+    public string? CheckOAuthUri(Uri uri)
+    {
+        if (!uri.IsAbsoluteUri)
+        {
+            return NhAssistantAdminErrorCodes.McpHostBlocked;
+        }
+        var host = uri.IdnHost.TrimEnd('.').ToLowerInvariant();
+        var loopbackName = host == "localhost" || (IPAddress.TryParse(host, out var literal) && IPAddress.IsLoopback(literal));
+        if (uri.Scheme != Uri.UriSchemeHttps && !(uri.Scheme == Uri.UriSchemeHttp && loopbackName && AllowsLoopback))
+        {
+            return NhAssistantAdminErrorCodes.McpHostBlocked;
+        }
+        return CheckUri(uri);
+    }
+
+    /// <summary>
+    /// Whether an address is in a private network: 10/8, 172.16/12, 192.168/16, the shared address
+    /// space 100.64/10 or an IPv6 unique local address (fc00::/7).
+    /// </summary>
+    public static bool IsPrivate(IPAddress address)
+    {
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+        var bytes = address.GetAddressBytes();
+        if (address.AddressFamily == AddressFamily.InterNetwork)
+        {
+            return bytes[0] == 10
+                || (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+                || (bytes[0] == 192 && bytes[1] == 168)
+                || (bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127);
+        }
+        return (bytes[0] & 0xFE) == 0xFC;
+    }
+
+    private bool IsExplicitlyAllowed(string host)
+    {
+        var normalized = host.TrimEnd('.').ToLowerInvariant();
+        return options.CurrentValue.Mcp.AllowedHosts.Any(pattern => MatchesHost(pattern, normalized));
     }
 
     public static bool MatchesHost(string pattern, string host)
@@ -166,18 +279,30 @@ internal sealed class NhAssistantMcpHostGuard(
 }
 
 /// <summary>
-/// Builds the connection plan of a server: SSRF checks and authentication headers.
+/// Builds the connection plan of a server: SSRF checks and the credential source of its mode.
 /// </summary>
 internal sealed class NhAssistantMcpConnectionPlanner(
     NhAssistantMcpHostGuard guard,
-    IOptionsMonitor<NhAssistantOptions> options,
-    NhAssistantMcpSecretProtector secrets,
-    IServiceProvider services)
+    NhAssistantMcpClientCertificates certificates,
+    IEnumerable<INhAssistantMcpCredentialProvider> providers)
 {
-    public const string DefaultApiKeyHeader = "X-Api-Key";
+    public const string DefaultApiKeyHeader = NhAssistantMcpStaticCredentialProvider.DefaultApiKeyHeader;
+
+    private readonly INhAssistantMcpCredentialProvider[] _providers = providers.ToArray();
+
+    /// <summary>
+    /// Plans a connection for a person's request: an administrator's test or sync, or a turn.
+    /// </summary>
+    public Task<TaskResult<NhAssistantMcpConnectionPlan>> PlanAsync(
+        AssistantMcpServer server,
+        CancellationToken cancellationToken)
+    {
+        return PlanAsync(server, NhAssistantMcpCredentialSubject.Request, cancellationToken);
+    }
 
     public async Task<TaskResult<NhAssistantMcpConnectionPlan>> PlanAsync(
         AssistantMcpServer server,
+        NhAssistantMcpCredentialSubject subject,
         CancellationToken cancellationToken)
     {
         if (!Uri.TryCreate(server.Url, UriKind.Absolute, out var endpoint))
@@ -201,52 +326,44 @@ internal sealed class NhAssistantMcpConnectionPlanner(
             return Failed(NhAssistantAdminErrorCodes.McpUnreachable);
         }
 
-        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        switch (server.AuthMode)
+        X509Certificate2? certificate = null;
+        if (server.ClientCertificateReference is { } reference)
         {
-            case NhAssistantMcpAuthModes.Bearer:
+            var loaded = certificates.Load(reference);
+            if (!loaded.Success)
             {
-                var secret = secrets.Unprotect(server.ProtectedSecret);
-                if (secret is null)
-                {
-                    return Failed(NhAssistantAdminErrorCodes.McpUnauthorized);
-                }
-                headers["Authorization"] = "Bearer " + secret;
-                break;
+                return Failed(NhAssistantAdminErrorCodes.McpCertificateReferenceInvalid);
             }
-            case NhAssistantMcpAuthModes.ApiKeyHeader:
-            {
-                var secret = secrets.Unprotect(server.ProtectedSecret);
-                if (secret is null)
-                {
-                    return Failed(NhAssistantAdminErrorCodes.McpUnauthorized);
-                }
-                headers[string.IsNullOrWhiteSpace(server.HeaderName) ? DefaultApiKeyHeader : server.HeaderName] = secret;
-                break;
-            }
-            case NhAssistantMcpAuthModes.ForwardUserToken:
-            {
-                var host = endpoint.IdnHost.TrimEnd('.').ToLowerInvariant();
-                if (!options.CurrentValue.Mcp.ForwardUserTokenHosts.Any(allowed =>
-                    string.Equals(allowed.Trim().TrimEnd('.'), host, StringComparison.OrdinalIgnoreCase)))
-                {
-                    return Failed(NhAssistantAdminErrorCodes.McpHostBlocked);
-                }
-                var accessor = services.GetService<INhAiCallerCredentialAccessor>();
-                var token = accessor is null ? null : await accessor.GetBearerTokenAsync(cancellationToken);
-                if (string.IsNullOrWhiteSpace(token))
-                {
-                    return Failed(NhAssistantAdminErrorCodes.McpUnauthorized);
-                }
-                headers["Authorization"] = "Bearer " + token;
-                break;
-            }
+            certificate = loaded.Data;
         }
+
+        // The last registered provider of the mode wins, so a host or test can replace a built-in.
+        var provider = _providers.LastOrDefault(candidate => candidate.Supports(server.AuthMode));
+        if (provider is null)
+        {
+            return Failed(NhAssistantAdminErrorCodes.McpUnauthorized);
+        }
+        var credentials = new NhAssistantMcpCredentialSource(provider, server, subject);
+        var credential = await credentials.GetAsync(cancellationToken);
+        if (!credential.Success)
+        {
+            return Failed(NhAssistantMcpCredentialResults.FirstCode(credential) ?? NhAssistantAdminErrorCodes.McpUnauthorized);
+        }
+        // The connection's first request reuses it instead of obtaining another.
+        credentials.Prime(credential.Data!);
         return TaskResult<NhAssistantMcpConnectionPlan>.Succeeded(new NhAssistantMcpConnectionPlan(
             server.Id,
             endpoint,
-            headers,
-            server.AuthMode == NhAssistantMcpAuthModes.ForwardUserToken));
+            credential.Data!.Headers,
+            !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope))
+        {
+            Credentials = credentials,
+            Transport = server.Transport,
+            ClientCertificate = certificate,
+            PersonalCacheKey = NhAssistantMcpToolSource.IsPersonalOAuth(server) && subject.PersonActorId is { } person
+                ? NhAssistantMcpConnectionCache.PersonKey(person) + ":" + (subject.IsHeadless ? subject.PersonGrantSource.ToString() : "request")
+                : null
+        });
     }
 
     private static TaskResult<NhAssistantMcpConnectionPlan> Failed(string code)
@@ -264,14 +381,59 @@ internal interface INhAssistantMcpClientFactory
 }
 
 /// <summary>
-/// Streamable HTTP client. Every connection re-checks the resolved address, so DNS rebinding
-/// cannot reach a blocked range. SDK logging is disabled because it can include request headers.
+/// HTTP client: Streamable HTTP, or with <see cref="NhAssistantMcpTransports.Auto"/> the SDK's fallback
+/// to the deprecated HTTP+SSE transport. Every connection re-checks the resolved address, so DNS
+/// rebinding cannot reach a blocked range, and every request passes
+/// <see cref="NhAssistantMcpCredentialHandler"/>, which keeps it on the configured origin (also the
+/// SSE <c>endpoint</c> event) and attaches the current credential. A configured client certificate
+/// is presented for mutual TLS. SDK logging is disabled because it can include request headers, and
+/// the client opens no standalone stream for server-initiated messages, which the assistant does not
+/// handle.
 /// </summary>
 internal sealed class NhAssistantHttpMcpClientFactory(
     NhAssistantMcpHostGuard guard,
     IOptionsMonitor<NhAssistantOptions> options) : INhAssistantMcpClientFactory
 {
     public async Task<McpClient> ConnectAsync(NhAssistantMcpConnectionPlan plan, CancellationToken cancellationToken)
+    {
+        var handler = CreateSocketsHandler(plan);
+        var timeout = options.CurrentValue.Mcp.ConnectTimeout;
+        HttpMessageHandler pipeline = handler;
+        IDictionary<string, string>? staticHeaders = null;
+        if (plan.Credentials is { } credentials)
+        {
+            pipeline = new NhAssistantMcpCredentialHandler(credentials, plan.Endpoint, guard) { InnerHandler = handler };
+        }
+        else
+        {
+            staticHeaders = new Dictionary<string, string>(plan.Headers);
+        }
+        var httpClient = new HttpClient(pipeline, disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
+        var transport = new HttpClientTransport(
+            new HttpClientTransportOptions
+            {
+                Endpoint = plan.Endpoint,
+                TransportMode = plan.Transport == NhAssistantMcpTransports.Auto
+                    ? HttpTransportMode.AutoDetect
+                    : HttpTransportMode.StreamableHttp,
+                AdditionalHeaders = staticHeaders,
+                EnableStandaloneGetStream = false,
+                ConnectionTimeout = timeout,
+                Name = "newheap-assistant-" + plan.ServerId
+            },
+            httpClient,
+            NullLoggerFactory.Instance,
+            ownsHttpClient: true);
+        using var connect = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        connect.CancelAfter(timeout);
+        return await McpClient.CreateAsync(transport, new McpClientOptions(), NullLoggerFactory.Instance, connect.Token);
+    }
+
+    /// <summary>
+    /// The socket handler of a connection: no redirects, the address check at connect time and the
+    /// client certificate of the plan.
+    /// </summary>
+    internal SocketsHttpHandler CreateSocketsHandler(NhAssistantMcpConnectionPlan plan)
     {
         var handler = new SocketsHttpHandler
         {
@@ -296,30 +458,18 @@ internal sealed class NhAssistantHttpMcpClientFactory(
                 }
             }
         };
-        var timeout = options.CurrentValue.Mcp.ConnectTimeout;
-        var httpClient = new HttpClient(handler, disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
-        var transport = new HttpClientTransport(
-            new HttpClientTransportOptions
-            {
-                Endpoint = plan.Endpoint,
-                TransportMode = HttpTransportMode.StreamableHttp,
-                AdditionalHeaders = new Dictionary<string, string>(plan.Headers),
-                ConnectionTimeout = timeout,
-                Name = "newheap-assistant-" + plan.ServerId
-            },
-            httpClient,
-            NullLoggerFactory.Instance,
-            ownsHttpClient: true);
-        using var connect = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        connect.CancelAfter(timeout);
-        return await McpClient.CreateAsync(transport, new McpClientOptions(), NullLoggerFactory.Instance, connect.Token);
+        if (plan.ClientCertificate is { } certificate)
+        {
+            handler.SslOptions.ClientCertificates = new X509CertificateCollection { certificate };
+        }
+        return handler;
     }
 }
 
-internal sealed class NhAssistantMcpHostBlockedException : Exception
+internal sealed class NhAssistantMcpHostBlockedException : NhAssistantMcpException
 {
     public NhAssistantMcpHostBlockedException()
-        : base("The MCP server address is blocked.")
+        : base(NhAssistantAdminErrorCodes.McpHostBlocked, "The MCP server address is blocked.")
     {
     }
 }
@@ -341,8 +491,8 @@ internal sealed class NhAssistantMcpLease(McpClient client, IList<McpClientTool>
 
 /// <summary>
 /// Connects to servers and caches connections with shared credentials for
-/// <see cref="NhAssistantMcpOptions.ToolListCacheDuration"/>. Connections that forward the caller's
-/// token are never shared.
+/// <see cref="NhAssistantMcpOptions.ToolListCacheDuration"/>. A person's OAuth connection is cached for
+/// that person only; connections that forward the caller's token are never cached.
 /// </summary>
 internal sealed class NhAssistantMcpConnectionCache(
     INhAssistantMcpClientFactory factory,
@@ -357,8 +507,9 @@ internal sealed class NhAssistantMcpConnectionCache(
         bool bypassCache,
         CancellationToken cancellationToken)
     {
-        var key = server.Id + "@" + server.UpdatedAt.UtcTicks;
-        if (!plan.IsPerCaller && !bypassCache
+        var cacheable = !plan.IsPerCaller || plan.PersonalCacheKey is not null;
+        var key = server.Id + "@" + server.UpdatedAt.UtcTicks + (plan.PersonalCacheKey is { } personal ? "#" + personal : string.Empty);
+        if (cacheable && !bypassCache
             && _entries.TryGetValue(key, out var cached) && cached.ExpiresAt > DateTimeOffset.UtcNow)
         {
             return TaskResult<NhAssistantMcpLease>.Succeeded(new NhAssistantMcpLease(cached.Client, cached.Tools, false));
@@ -369,7 +520,7 @@ internal sealed class NhAssistantMcpConnectionCache(
         {
             client = await factory.ConnectAsync(plan, cancellationToken);
             var tools = await client.ListToolsAsync(cancellationToken: cancellationToken);
-            if (plan.IsPerCaller)
+            if (!cacheable)
             {
                 return TaskResult<NhAssistantMcpLease>.Succeeded(new NhAssistantMcpLease(client, tools, true));
             }
@@ -377,7 +528,13 @@ internal sealed class NhAssistantMcpConnectionCache(
             await _gate.WaitAsync(cancellationToken);
             try
             {
-                foreach (var stale in _entries.Where(entry => entry.Key.StartsWith(server.Id + "@", StringComparison.Ordinal)).ToArray())
+                var now = DateTimeOffset.UtcNow;
+                var owner = plan.PersonalCacheKey is { } ownerKey ? "#" + ownerKey : null;
+                // Older versions of this entry, and expired entries of anyone, are closed.
+                foreach (var stale in _entries
+                    .Where(entry => (entry.Key.StartsWith(server.Id + "@", StringComparison.Ordinal) && OwnerOf(entry.Key) == owner)
+                        || entry.Value.ExpiresAt <= now)
+                    .ToArray())
                 {
                     if (_entries.TryRemove(stale.Key, out var removed))
                     {
@@ -413,6 +570,33 @@ internal sealed class NhAssistantMcpConnectionCache(
         }
     }
 
+    /// <summary>Closes the cached connections of one person to a server, for example after a disconnect.</summary>
+    public async Task InvalidatePersonAsync(string serverId, string personActorId)
+    {
+        var marker = "#" + PersonKey(personActorId) + ":";
+        foreach (var entry in _entries
+            .Where(item => item.Key.StartsWith(serverId + "@", StringComparison.Ordinal) && item.Key.Contains(marker, StringComparison.Ordinal))
+            .ToArray())
+        {
+            if (_entries.TryRemove(entry.Key, out var removed))
+            {
+                await removed.Client.DisposeAsync();
+            }
+        }
+    }
+
+    /// <summary>The part of a cache key that names a person; the actor id never appears in it as is.</summary>
+    public static string PersonKey(string personActorId)
+    {
+        return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(personActorId)))[..32];
+    }
+
+    private static string? OwnerOf(string key)
+    {
+        var index = key.IndexOf('#', StringComparison.Ordinal);
+        return index < 0 ? null : key[index..];
+    }
+
     public async ValueTask DisposeAsync()
     {
         foreach (var entry in _entries.Values)
@@ -427,18 +611,7 @@ internal sealed class NhAssistantMcpConnectionCache(
     /// </summary>
     public static string Classify(Exception exception)
     {
-        for (var current = exception; current is not null; current = current.InnerException)
-        {
-            if (current is NhAssistantMcpHostBlockedException)
-            {
-                return NhAssistantAdminErrorCodes.McpHostBlocked;
-            }
-            if (current is HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden })
-            {
-                return NhAssistantAdminErrorCodes.McpUnauthorized;
-            }
-        }
-        return NhAssistantAdminErrorCodes.McpUnreachable;
+        return NhAssistantMcpFailures.Classify(exception);
     }
 
     private sealed record CacheEntry(McpClient Client, IList<McpClientTool> Tools, DateTimeOffset ExpiresAt);
@@ -447,7 +620,8 @@ internal sealed class NhAssistantMcpConnectionCache(
 /// <summary>
 /// Imports the enabled tools of the MCP servers assigned to an agent through
 /// <see cref="INhAiMcpClientToolImporter"/>, so every call runs through the shared invoker.
-/// Servers the caller may not use, disabled servers and unreachable servers are skipped.
+/// Servers the caller may not use, disabled servers, unreachable servers and, in headless turns,
+/// servers that do not allow headless use are skipped with a stable code.
 /// </summary>
 internal sealed partial class NhAssistantMcpToolSource(
     NhAssistantAdminStore store,
@@ -464,15 +638,33 @@ internal sealed partial class NhAssistantMcpToolSource(
 {
     public const int MaxToolDescriptionLength = 512;
 
-    public async Task<NhAssistantMcpToolSet> GetToolsAsync(NhAssistantAgent agent, CancellationToken cancellationToken)
+    /// <summary>
+    /// How long a successful connection with the shared credential is not recorded again.
+    /// </summary>
+    public static readonly TimeSpan HealthRecordInterval = TimeSpan.FromMinutes(5);
+
+    public async Task<NhAssistantMcpToolSet> GetToolsAsync(NhAssistantMcpToolRequest request, CancellationToken cancellationToken)
     {
         var functions = new List<AIFunction>();
         var leases = new List<NhAssistantMcpLease>();
-        foreach (var serverId in agent.McpServerIds)
+        var skipped = new Dictionary<string, string>(StringComparer.Ordinal);
+        var needed = new List<NhAssistantMcpConnectionNeeded>();
+        var owners = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var serverId in request.Agent.McpServerIds)
         {
             var server = await store.FindMcpServerAsync(serverId, cancellationToken);
-            if (server is null || !server.IsEnabled || !await CanUseAsync(server))
+            if (server is null || !server.IsEnabled)
             {
+                continue;
+            }
+            if (request.IsHeadless && await HeadlessRefusalAsync(server, request, cancellationToken) is { } refusal)
+            {
+                skipped[serverId] = refusal;
+                continue;
+            }
+            if (!await CanUseAsync(server, request, cancellationToken))
+            {
+                skipped[serverId] = NhAssistantAdminErrorCodes.Forbidden;
                 continue;
             }
             var enabled = await store.ListEnabledMcpToolsAsync([serverId], cancellationToken);
@@ -480,20 +672,42 @@ internal sealed partial class NhAssistantMcpToolSource(
             {
                 continue;
             }
-            var plan = await planner.PlanAsync(server, cancellationToken);
+            var plan = await planner.PlanAsync(server, SubjectOf(request), cancellationToken);
             if (!plan.Success)
             {
-                LogSkipped(serverId, FirstCode(plan));
+                var code = FirstCode(plan);
+                await SkipAsync(server, skipped, code, perCaller: !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope));
+                if (PersonalConnectionReason(server, request, code) is { } reason)
+                {
+                    Need(needed, server, reason);
+                }
                 continue;
+            }
+            if (!request.IsHeadless && IsPersonalOAuth(server) && request.PersonActorId is { } requester
+                && await services.GetRequiredService<NhAssistantMcpOAuthStore>().FindConnectionAsync(
+                    server.Id, NhAssistantMcpConnectionOwners.User, requester, string.Empty, cancellationToken) is { RequiredScopes: not null })
+            {
+                // Step-up: the server asked for scopes the person's connection lacks.
+                Need(needed, server, NhAssistantMcpConnectionReasons.InsufficientScope);
             }
             var lease = await cache.ConnectAsync(server, plan.Data, bypassCache: false, cancellationToken);
             if (!lease.Success)
             {
-                LogSkipped(serverId, FirstCode(lease));
+                var code = FirstCode(lease);
+                await SkipAsync(server, skipped, code, plan.Data.IsPerCaller);
+                if (PersonalConnectionReason(server, request, code) is { } reason)
+                {
+                    Need(needed, server, reason);
+                }
                 continue;
             }
+            if (!plan.Data.IsPerCaller)
+            {
+                await RecordHealthAsync(server, null);
+            }
             leases.Add(lease.Data);
-            functions.AddRange(await ImportAsync(server, enabled, lease.Data.Tools, cancellationToken));
+            owners[server.Id] = OwnerOf(server, request);
+            functions.AddRange(await ImportAsync(server, plan.Data, enabled, lease.Data.Tools, cancellationToken));
         }
 
         return new NhAssistantMcpToolSet(functions, async () =>
@@ -502,7 +716,110 @@ internal sealed partial class NhAssistantMcpToolSource(
             {
                 await lease.DisposeAsync();
             }
-        });
+            await services.GetRequiredService<NhAssistantMcpDelegatedTokenLedger>().FlushAsync(CancellationToken.None);
+        })
+        {
+            SkippedServers = skipped,
+            ConnectionsNeeded = needed,
+            ConnectionOwners = owners
+        };
+    }
+
+    /// <summary>Asks the person once per server and turn.</summary>
+    private static void Need(List<NhAssistantMcpConnectionNeeded> needed, AssistantMcpServer server, string reason)
+    {
+        if (!needed.Any(item => item.ServerId == server.Id))
+        {
+            needed.Add(new NhAssistantMcpConnectionNeeded(server.Id, server.DisplayName, reason));
+        }
+    }
+
+    /// <summary>A server each person connects to with OAuth.</summary>
+    public static bool IsPersonalOAuth(AssistantMcpServer server)
+    {
+        return server.AuthMode == NhAssistantMcpAuthModes.OAuth && server.ConnectionScope == NhAssistantMcpConnectionScopes.User;
+    }
+
+    /// <summary>
+    /// Why the person of a request turn has to connect a personal OAuth server that was skipped; null
+    /// when the person cannot change it, for example while an administrator confirms another issuer.
+    /// </summary>
+    private static string? PersonalConnectionReason(AssistantMcpServer server, NhAssistantMcpToolRequest request, string? code)
+    {
+        if (request.IsHeadless || !IsPersonalOAuth(server) || request.PersonActorId is null)
+        {
+            return null;
+        }
+        return code switch
+        {
+            NhAssistantAdminErrorCodes.McpConnectionRequired => NhAssistantMcpConnectionReasons.NotConnected,
+            NhAssistantAdminErrorCodes.McpReauthorizationRequired => NhAssistantMcpConnectionReasons.ReauthorizationRequired,
+            // The server refused the connection's scopes while listing its tools: connecting again
+            // asks for the scopes it named.
+            NhAssistantAdminErrorCodes.McpInsufficientScope => NhAssistantMcpConnectionReasons.InsufficientScope,
+            _ => null
+        };
+    }
+
+    /// <summary>Whose credential the tools of a server carry in this turn, for the audit.</summary>
+    private static string OwnerOf(AssistantMcpServer server, NhAssistantMcpToolRequest request)
+    {
+        if (server.AuthMode == NhAssistantMcpAuthModes.None)
+        {
+            return NhAssistantMcpConnectionOwners.None;
+        }
+        return NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope)
+            ? NhAssistantMcpConnectionOwners.Organization
+            : request.PersonActorId ?? NhAssistantMcpConnectionOwners.None;
+    }
+
+    /// <summary>
+    /// Whether the server's tools may serve a turn without a person's request with the server's
+    /// organization credential, because an administrator allowed it. Such tools accept agent grants.
+    /// </summary>
+    public static bool AllowsHeadlessUse(AssistantMcpServer server)
+    {
+        return server.HeadlessUse == NhAssistantMcpHeadlessUses.Organization
+            && NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope);
+    }
+
+    /// <summary>
+    /// Why the server's tools are not offered in a headless turn, or <see langword="null"/> when they
+    /// are: with the organization credential when an administrator allowed it, or with the person's
+    /// credential when an administrator allowed that and the person the run acts for consented to
+    /// background use of the server as it is configured now.
+    /// </summary>
+    private async Task<string?> HeadlessRefusalAsync(
+        AssistantMcpServer server,
+        NhAssistantMcpToolRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (AllowsHeadlessUse(server))
+        {
+            return null;
+        }
+        if (server.HeadlessUse != NhAssistantMcpHeadlessUses.Personal
+            || !NhAssistantMcpHeadlessUses.FitsAuthMode(server.HeadlessUse, server.AuthMode, server.ConnectionScope)
+            || request.PersonActorId is not { } person)
+        {
+            return NhAssistantAdminErrorCodes.McpHeadlessNotAllowed;
+        }
+        var connection = await store.FindMcpConnectionAsync(
+            server.Id,
+            NhAssistantMcpConnectionOwners.User,
+            person,
+            string.Empty,
+            cancellationToken);
+        return NhAssistantMcpConsent.Allows(connection, server) ? null : NhAssistantAdminErrorCodes.McpConsentRequired;
+    }
+
+    private static NhAssistantMcpCredentialSubject SubjectOf(NhAssistantMcpToolRequest request)
+    {
+        return request.IsHeadless
+            ? new NhAssistantMcpCredentialSubject(true, request.PersonActorId, request.PersonGrantSource, request.Subject?.TenantId)
+            : request.PersonActorId is { } person
+                ? new NhAssistantMcpCredentialSubject(false, person, NhAiGrantSource.None, null)
+                : NhAssistantMcpCredentialSubject.Request;
     }
 
     public static string LocalName(string remoteName)
@@ -528,6 +845,7 @@ internal sealed partial class NhAssistantMcpToolSource(
 
     private async Task<IReadOnlyList<AIFunction>> ImportAsync(
         AssistantMcpServer server,
+        NhAssistantMcpConnectionPlan plan,
         IReadOnlyList<AssistantMcpTool> enabled,
         IList<McpClientTool> remoteTools,
         CancellationToken cancellationToken)
@@ -535,11 +853,18 @@ internal sealed partial class NhAssistantMcpToolSource(
         var policies = new List<NhAiMcpImportedToolPolicy>();
         var remotes = new List<McpClientTool>();
         var localNames = new HashSet<string>(StringComparer.Ordinal);
+        var allowAgentGrant = AllowsHeadlessUse(server);
         foreach (var tool in enabled)
         {
             var remote = remoteTools.FirstOrDefault(item => string.Equals(item.Name, tool.RemoteName, StringComparison.Ordinal));
             if (remote is null)
             {
+                // A list seen with one caller's credential never changes the reviewed catalog.
+                if (plan.IsPerCaller)
+                {
+                    LogToolSkipped(server.Id, NhAssistantMcpToolStatuses.Missing);
+                    continue;
+                }
                 await store.UpdateMcpToolAsync(server.Id, tool.RemoteName, item =>
                 {
                     item.IsEnabled = false;
@@ -549,6 +874,11 @@ internal sealed partial class NhAssistantMcpToolSource(
             }
             if (!string.Equals(SchemaHash(remote), tool.InputSchemaHash, StringComparison.Ordinal))
             {
+                if (plan.IsPerCaller)
+                {
+                    LogToolSkipped(server.Id, NhAssistantAdminErrorCodes.McpSchemaChanged);
+                    continue;
+                }
                 // A changed remote contract disables the tool until an administrator re-activates it.
                 await store.UpdateMcpToolAsync(server.Id, tool.RemoteName, item =>
                 {
@@ -581,7 +911,10 @@ internal sealed partial class NhAssistantMcpToolSource(
                 Idempotency = readOnly ? NhAiIdempotencySupport.None : NhAiIdempotencySupport.Required,
                 DataClassification = NhAiDataClassification.Internal,
                 // Only a host-reviewed server, URL and tool receives the assistant context.
-                InvocationBinderId = contextBindings.Find(server, tool.RemoteName) is null ? null : NhAssistantMcpContextBinder.BinderId
+                InvocationBinderId = contextBindings.Find(server, tool.RemoteName) is null ? null : NhAssistantMcpContextBinder.BinderId,
+                // An organization credential that an administrator allowed in headless turns may serve
+                // an agent through a code grant; a person's credential never does.
+                AllowAgentGrant = allowAgentGrant
             });
             remotes.Add(remote);
         }
@@ -593,14 +926,77 @@ internal sealed partial class NhAssistantMcpToolSource(
         return catalog.CreateFunctions(services);
     }
 
-    private async Task<bool> CanUseAsync(AssistantMcpServer server)
+    /// <summary>
+    /// Whether the turn's person may use the server: the requesting person in a person's turn, the
+    /// person whose rights a headless turn uses otherwise. A headless turn of an agent that acts for
+    /// itself may only use servers without a required policy.
+    /// </summary>
+    private async Task<bool> CanUseAsync(
+        AssistantMcpServer server,
+        NhAssistantMcpToolRequest request,
+        CancellationToken cancellationToken)
     {
         if (server.RequiredPolicy is null)
         {
             return true;
         }
-        var user = httpContextAccessor.HttpContext?.User;
+
+        ClaimsPrincipal? user;
+        if (!request.IsHeadless)
+        {
+            user = httpContextAccessor.HttpContext?.User;
+        }
+        else if (request.PersonActorId is null || request.Subject is null)
+        {
+            return false;
+        }
+        else
+        {
+            var principals = services.GetService<INhAiPrincipalFactory>();
+            user = principals is null
+                ? null
+                : await principals.CreateAsync(request.PersonActorId, request.Subject, cancellationToken);
+        }
         return user is not null && (await authorizationService.AuthorizeAsync(user, server.RequiredPolicy)).Succeeded;
+    }
+
+    private async Task SkipAsync(
+        AssistantMcpServer server,
+        Dictionary<string, string> skipped,
+        string? code,
+        bool perCaller)
+    {
+        var failure = code ?? NhAssistantAdminErrorCodes.McpUnreachable;
+        skipped[server.Id] = failure;
+        LogSkipped(server.Id, failure);
+        if (!perCaller)
+        {
+            await RecordHealthAsync(server, failure);
+        }
+    }
+
+    /// <summary>
+    /// Records the outcome of a connection with the shared credential when it changed, or when a
+    /// success was last recorded more than <see cref="HealthRecordInterval"/> ago. A failure to
+    /// record never fails the turn.
+    /// </summary>
+    private async Task RecordHealthAsync(AssistantMcpServer server, string? code)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (string.Equals(server.LastConnectCode, code, StringComparison.Ordinal)
+            && server.LastConnectAt is { } last
+            && now - last < HealthRecordInterval)
+        {
+            return;
+        }
+        try
+        {
+            await store.RecordMcpConnectAsync(server.Id, now, code, CancellationToken.None);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogHealthNotRecorded(server.Id, exception.GetType().Name);
+        }
     }
 
     private string AccessPolicy()
@@ -611,6 +1007,16 @@ internal sealed partial class NhAssistantMcpToolSource(
     private void LogSkipped(string serverId, string? code)
     {
         logger.LogWarning("Assistant MCP server {ServerId} was skipped for this turn ({Code}).", serverId, code ?? "unclassified");
+    }
+
+    private void LogToolSkipped(string serverId, string code)
+    {
+        logger.LogInformation("A tool of assistant MCP server {ServerId} was skipped for this caller ({Code}).", serverId, code);
+    }
+
+    private void LogHealthNotRecorded(string serverId, string exceptionType)
+    {
+        logger.LogWarning("The connection state of assistant MCP server {ServerId} was not recorded ({ExceptionType}).", serverId, exceptionType);
     }
 
     private static string? FirstCode(TaskResult result)

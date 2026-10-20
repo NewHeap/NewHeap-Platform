@@ -15,6 +15,7 @@ const contractFields: Record<NhAssistantSseEvent['type'], string[]> = {
   'tool.started': ['argumentsPreview', 'displayName', 'invocationId', 'toolId', 'toolVersion'],
   'tool.completed': ['invocationId', 'resultCode', 'resultPreview', 'status'],
   'approval.required': ['approvalId', 'argumentsPreview', 'expiresAt', 'proposalHash', 'proposalId', 'status', 'summary', 'targets', 'toolId', 'type'],
+  'connection.required': ['displayName', 'reason', 'serverId'],
   'turn.completed': ['errorCode', 'status', 'turnId', 'usage'],
   'error': ['code', 'messageKey']
 };

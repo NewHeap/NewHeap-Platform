@@ -47,6 +47,9 @@ internal sealed class NhAssistantTurnState
     /// </summary>
     public NhAssistantMcpToolSet? McpTools { get; set; }
 
+    /// <summary>Whether the servers the person has to connect were shown in this turn.</summary>
+    public bool ConnectionsAnnounced { get; set; }
+
     /// <summary>
     /// The application map entries the acting person may read, loaded once per turn of an agent that
     /// uses the map.
@@ -458,14 +461,15 @@ internal sealed class NhAssistantToolCallInterceptor(
                         exception.GetType().FullName ?? exception.GetType().Name);
                 }
                 var code = descriptor.Id.StartsWith("mcp.", StringComparison.Ordinal)
-                    ? NhAssistantAdminErrorCodes.McpUnreachable
+                    ? NhAssistantMcpFailures.Classify(exception)
                     : NhAiToolFailureCodes.Failed;
                 return new NhAssistantToolExecution(
                     Refusal(code),
                     new NhAssistantToolOutcome(NhAssistantToolOutcomeKind.Failed, code),
                     call)
                 {
-                    Threw = true
+                    // An MCP request stopped before it left the host cannot have changed anything.
+                    Threw = !NhAssistantMcpFailures.StoppedBeforeSending(code)
                 };
             }
         }

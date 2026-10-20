@@ -87,6 +87,10 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
                         when part.ApprovalId is { } approvalId && approvals.TryGetValue(approvalId, out var approval):
                         parts.Add(ToView(approval));
                         break;
+                    case NhAssistantStoredPart.ConnectionRequiredType
+                        when part is { ServerId: { } serverId, DisplayName: { } serverName, Reason: { } reason }:
+                        parts.Add(new NhAssistantConnectionRequiredPartView(serverId, serverName, reason));
+                        break;
                 }
             }
             messageViews.Add(new NhAssistantMessageView(message.Id, message.Role, message.CreatedAt, parts)

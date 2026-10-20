@@ -1,0 +1,74 @@
+@use '../../styles/tokens';
+@use '../../styles/forms';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  @include forms.controls;
+}
+
+.card {
+  border: 1px solid var(--nha-highlight);
+  border-radius: var(--nha-radius-control);
+  padding: 12px;
+  color: var(--nha-text);
+  background: var(--nha-background);
+}
+
+:host([data-state='connected']) .card {
+  border-color: var(--nha-success);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--nha-highlight);
+}
+
+:host([data-state='connected']) .header {
+  color: var(--nha-success);
+}
+
+h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--nha-text);
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.text {
+  margin: 8px 0 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.done,
+.error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.done {
+  color: var(--nha-success);
+}
+
+.error {
+  margin-top: 8px;
+  color: var(--nha-danger);
+}

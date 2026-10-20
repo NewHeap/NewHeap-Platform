@@ -4,8 +4,8 @@ title: "Add a governed assistant with durable conversations and in-chat approval
 area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291"]
-public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout"]
+sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300"]
+public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -131,7 +131,108 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   schema disables a tool again. Enabled tools of the servers assigned to an agent are
   imported per turn with `INhAiMcpClientToolImporter` (`mcp.<server>.<tool>`), so
   approval, idempotency, budget and audit apply unchanged. An unreachable server is
-  skipped for the turn.
+  skipped for the turn. The client attaches the credential to every HTTP request and
+  checks each request against the planned origin and `AllowedHosts`; a `403` with
+  `error="insufficient_scope"` reports `assistant-mcp-insufficient-scope`. A tool list
+  seen with one caller's forwarded token never disables a tool for everyone; only an
+  administrator's sync writes `missing` and `schema-changed`. Test, sync and turns
+  with the shared credential record `lastConnectAt` and `lastConnectCode`.
+- **MCP credentials.** Besides `none`, `bearer`, `api-key` and `forward-user-token`,
+  a server can use `basic` (`userName` plus the write-only secret as password). A
+  secret is stored with Data Protection or named by `secretReference`:
+  `config:<name>` reads `NewHeap:AI:Assistant:Mcp:Secrets:<name>`, another prefix needs
+  an `INhAssistantMcpSecretResolver` registered with `AddMcpSecretResolver<T>(prefix)`
+  (for example a vault). A reference is resolved for every request, so a rotation applies
+  at once; its name has no `:` or `..`, so it never reaches other configuration. The
+  value is read with `NhConfigurationSecrets.Read` (also from the secrets files); a blank
+  value or one with an unresolved `${...}` reference counts as missing. A stored secret
+  and a reference replace each other. `clientCertificateReference` names
+  a certificate under `NewHeap:AI:Assistant:Mcp:ClientCertificates:<name>` (`Path` and
+  `Password` of a PKCS#12 file, or `Thumbprint` in a store) with a private key, which the
+  client presents for mutual TLS. `transport` is `streamable-http`, or `auto` for a
+  server that only offers the deprecated HTTP+SSE transport; the SSE `endpoint` event
+  must stay on the configured origin. Invalid references fail with
+  `assistant-mcp-secret-reference-invalid` and `assistant-mcp-certificate-reference-invalid`.
+- **MCP in background runs.** A server's tools are offered in headless runs (and in
+  the execution of their deferred proposals) only when an administrator sets its
+  `headlessUse` (`NhAssistantMcpHeadlessUses`); every server starts at `never`.
+  `organization` is for `none`, `bearer`, `api-key` and `basic`: the server's own
+  credential serves the run. The call is authorized like any agent call: with the
+  initiator's rights (`Delegated`), the accountable account's rights (`Accountable`)
+  or a code grant (`Grant("mcp.<server>.*")`), which such tools accept. `requiredPolicy`
+  is checked for the person whose rights the run uses; a run that acts for the agent
+  alone does not get servers with a required policy. An approved deferred proposal
+  imports the tool again under the same rules and executes it once; a server that no
+  longer allows headless use fails it with `assistant-mcp-headless-not-allowed`.
+- **Personal servers in background runs.** `personal` is for `forward-user-token`
+  servers of the same trust domain: a run sends a short-lived delegated NewHeap token of
+  the person whose rights it uses (`INhAiMcpDelegatedTokenIssuer`, at most
+  `ForwardedTokenLifetime`, two minutes by default and five at most), minted per request
+  for hosts in `ForwardUserTokenHosts` only, marked with the invocation and bound to the
+  server's origin. It needs that person's consent: `GET mcp-connections` lists the
+  personal servers of agents the caller may use, `PUT mcp-connections/{serverId}`
+  `{ allowBackgroundUse }` records or withdraws it, and a changed URL or authentication
+  needs consent again. Without it the server is skipped with
+  `assistant-mcp-consent-required`; a person who may not sign in, an issuer failure or a
+  JWT bearer scheme of the host that does not restrict delegated tokens gives
+  `assistant-mcp-delegated-token-unavailable`. A call that the gate authorized with any
+  other grant source than that person's is refused with `assistant-mcp-credential-mismatch`
+  before it is sent. Consent (`McpBackgroundUseChanged`) and issuing are audited without
+  the token; issuing once per turn, server, person and outcome as `McpDelegatedTokenIssued`
+  with `TokenCount`. The receiving server calls
+  `AddNewHeapPlatformAIMcpDelegatedTokens(tokens => tokens.Accept(origin, "/mcp"))`; the
+  assistant's own host accepts no such token. The token is signed with the host's
+  symmetric key, so every host that can validate it can also mint tokens; use it only
+  between hosts that already share that key.
+- **MCP servers with OAuth.** `oauth-client-credentials` connects the organization with
+  the host's own client (`oauth.clientId` with a write-only `clientSecret`, a
+  `clientSecretReference` or, for `private_key_jwt`, the `clientCertificateReference`);
+  the first use obtains a token. `oauth` with `connectionScope: organization` needs an
+  administrator to authorize the organization's account once, named by
+  `organizationAccountLabel` because everyone using the server's agents then acts as it.
+  Before saving, `POST admin/mcp-servers/discover` shows what the server's challenge and
+  protected resource metadata (RFC 9728) name; saving with `oauth.confirmAuthorization`
+  pins that issuer and the canonical resource, and a new server or address needs it.
+  Tokens are requested from the pinned issuer only, always with `resource`; PKCE `S256`
+  is required and the `iss` of the redirect is checked (RFC 9207). A server that later
+  names another authorization server suspends its connections (`issuer-changed`) until
+  an administrator confirms again. Configure `NhAssistantMcpOptions.OAuth`:
+  `RedirectUri` is the public `<prefix>/mcp/oauth/callback` (required for `oauth`,
+  otherwise `assistant-mcp-oauth-not-configured`), `ReturnOrigins` the origins of the
+  pages that start an authorization, and optionally `ClientMetadataDocumentUri` for
+  `<prefix>/mcp/oauth/client-metadata.json`; without a client id the host uses that
+  document or registers itself dynamically, once per issuer. The administrator starts
+  with `POST admin/mcp-servers/{id}/connection/authorize` and opens the URL in a popup;
+  the anonymous callback exchanges the code and its page posts a one-time completion
+  code to the opener, which `POST mcp-connections/complete` turns into the connection
+  with the starter's own session and the admin policy. Tokens are protected with Data
+  Protection, renewed once across instances before expiry (a database lease) and after a
+  `401`; `insufficient_scope` asks client credentials for the union of scopes within
+  `oauth.scopes` (`assistant-mcp-scope-not-allowed` otherwise). A refused refresh ends
+  the connection with `assistant-mcp-reauthorization-required`. Disconnecting
+  (`DELETE .../connection`), changing the address, mode, scopes, client or issuer, and
+  deleting the server revoke the tokens (RFC 7009). Discovery, metadata and token
+  endpoints pass the host guard and never reach private networks unless the host is in
+  `AllowedHosts`; `BlockPrivateNetworks` applies that to MCP servers too. Connecting,
+  disconnecting and ending are audited (`McpConnection*`) without tokens.
+- **Personal MCP connections.** `oauth` with `connectionScope: user` lets each person connect
+  their own account: `POST mcp-connections/{serverId}/authorize` (with `allowBackgroundUse` to
+  consent to background use when the server's `headlessUse` is `personal`), completed with the
+  person's own session, and `DELETE mcp-connections/{serverId}` revokes it; a consent stays until
+  the person withdraws it. `GET mcp-connections` reports `connectionStatus`, scopes and
+  `offersBackgroundUse`. A request turn uses the connection of the person who sent the message, also
+  in a shared conversation; without one the turn goes on without the server, the model is told the
+  service is not connected, and the turn streams `connection.required` (`serverId`, `displayName`,
+  `reason`: `NhAssistantMcpConnectionReasons`), which is stored as a `connection-required` part. A
+  server that refuses the connection's scopes records them and asks with `insufficient-scope`;
+  connecting again requests them. A headless run uses the person whose rights it uses only with
+  `personal` headless use and that person's consent, and an approved proposal executes with the
+  connection of the person who asked (Q10) or fails with `assistant-mcp-connection-required`.
+  Connections and tool lists are cached per person only. Administrators test and sync such a
+  server with their own connection (`POST admin/mcp-servers/{id}/connection/authorize`), count the
+  personal connections and revoke them all. Personal connections unused for `ConnectionRetention`
+  are removed and revoked. `ToolInvoked` names whose credential a call carried in
+  `McpConnectionOwner`.
 - Every administration change is a content-free audit event
   (`AdminContextUpdated`, `AdminAgent*`, `AdminMcpServer*`, `AdminMcpToolUpdated`).
 
@@ -317,6 +418,19 @@ or output of the running turn, also not text written before an approval pause.
   administrator only. Mark a remote tool read-only only after reviewing it.
 - Forwarding user tokens to hosts outside `ForwardUserTokenHosts`, or allowing plain
   http, link-local or metadata addresses for MCP servers.
+- Setting `headlessUse` to `organization` for a server whose credential lets an agent
+  do more than the people it works for may; background runs then act with it.
+- Using `personal` for a host outside the trust domain of the signing key, or letting the
+  assistant's own host `Accept` delegated MCP tokens on more than its MCP endpoint.
+- Writing a secret resolver that maps a reference name to arbitrary settings, files or
+  environment variables; a name selects one secret of one source.
+- Using an organization connection for a system that must know who acts, such as a mailbox or a
+  calendar; let each person connect (`connectionScope: user`).
+- Connecting an organization `oauth` server with a personal or administrator account;
+  everyone using the server's agents acts as it. Connect a service account and name it in
+  `organizationAccountLabel`.
+- Confirming an authorization server that the administration did not expect, or adding
+  the host's own pages to `ReturnOrigins` from configuration that users control.
 - Putting permissions, approval rules or scope decisions in the application context or
   the preferences; they explain the domain and shape style only.
 - Listing the application's entities in the application context; use the application map.
@@ -360,7 +474,27 @@ page text never reach audit or logs (SPM-254).
 For MCP, use an official SDK server (in memory or Streamable HTTP): tools are off after
 sync and visible only to the assigned agent after activation, mutations pause for
 approval, schema changes disable tools, blocked hosts are rejected and secrets are
-absent from responses, logs and audit. SPM-245, SPM-246, SPM-247, SPM-250, SPM-251 and
+absent from responses, logs and audit. For background runs, assert on both providers
+that a `never` server is not contacted, an `organization` server is offered and
+called through a code grant or a person's rights, `requiredPolicy` is evaluated for
+that person, an approved deferred MCP proposal executes once, and a server set back to
+`never` fails it with `assistant-mcp-headless-not-allowed` without a call. For OAuth, run `NhAiTestAuthorizationServer` with an `NhAiTestProtectedResource` in
+front of the MCP server and assert on both providers that nothing is pinned without
+confirmation, client credentials request one token for the resource, `insufficient_scope`
+steps up within the allowed scopes, an authorization completes only for its starter with
+the admin policy after the `state`, `iss` and expiry checks, concurrent renewals send one
+refresh request, a refused refresh requires reauthorization, another issuer suspends the
+connection and disconnecting revokes the tokens (SPM-299). For personal connections, assert that
+a person without one gets the `connection.required` event and part and no tools, that each
+person's turn and each colleague in a shared conversation uses their own account, that step-up asks
+to connect again, that a run uses the connection only with consent and that an approved proposal
+fails as not connected after the person disconnected (SPM-300). For a
+`personal` server, assert on both providers that it is skipped without consent, that
+every request then carries a fresh delegated token of the person with the invocation
+marker and the server's origin, that a withdrawn consent or a changed URL stops it, and
+that a refused, unbound or failing issuer sends nothing. For secret references, rotate
+the configured or resolved value between two connections and assert that names with
+`:` or `..` are refused. SPM-245, SPM-246, SPM-247, SPM-250, SPM-251 and
 SPM-252 and SPM-254 are the executable references. SPM-249 is the end-to-end reference: one agent
 over the API bridge and curated tools, an administrator agent with an MCP tool, and a
 viewer who is offered no mutating tools.

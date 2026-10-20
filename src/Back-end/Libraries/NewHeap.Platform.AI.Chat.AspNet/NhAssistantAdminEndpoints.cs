@@ -166,14 +166,14 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("mcp-servers", CreateMcpServerAsync)
             .WithName("NhAssistantAdminCreateMcpServer")
             .WithSummary("Connect an MCP server")
-            .WithDescription("Stores an MCP server; the secret is protected and never returned.")
+            .WithDescription("Stores an MCP server; the secret is protected and never returned. headlessUse starts at never unless the body sets organization.")
             .Produces<NhAssistantMcpServerDto>(StatusCodes.Status201Created)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPut("mcp-servers/{id}", UpdateMcpServerAsync)
             .WithName("NhAssistantAdminUpdateMcpServer")
             .WithSummary("Update an MCP server")
-            .WithDescription("Updates a server. An omitted secret is kept and an empty secret is cleared.")
+            .WithDescription("Updates a server. An omitted secret is kept and an empty secret is cleared; an omitted headlessUse is kept.")
             .Produces<NhAssistantMcpServerDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
@@ -186,7 +186,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("mcp-servers/{id}/test", TestMcpServerAsync)
             .WithName("NhAssistantAdminTestMcpServer")
             .WithSummary("Test an MCP server")
-            .WithDescription("Connects and lists the remote tools without storing them.")
+            .WithDescription("Connects and lists the remote tools without storing them, and records the outcome as the server's connection state.")
             .Produces<NhAssistantMcpServerTestResultDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapPost("mcp-servers/{id}/sync", SyncMcpServerAsync)
@@ -202,6 +202,46 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("List MCP tools")
             .WithDescription("Returns the synchronized tools of a server.")
             .Produces<NhAssistantMcpToolDto[]>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapPost("mcp-servers/discover", DiscoverMcpServerAsync)
+            .WithName("NhAssistantAdminDiscoverMcpServer")
+            .WithSummary("Discover an MCP server's authorization")
+            .WithDescription("Reads the protected resource metadata of an MCP server URL and the metadata of its authorization server: the resource, the issuer, the challenged and supported scopes, the grant types, PKCE and the registration options. Nothing is stored; saving the server with oauth.confirmAuthorization pins the authorization server.")
+            .Produces<NhAssistantMcpDiscoveryDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status502BadGateway);
+        admin.MapGet("mcp-servers/{id}/connection", GetMcpOrganizationConnectionAsync)
+            .WithName("NhAssistantAdminGetMcpConnection")
+            .WithSummary("Get the organization's OAuth connection")
+            .WithDescription("Returns the status of the organization's OAuth connection of the server, its scopes and who connected it, without tokens.")
+            .Produces<NhAssistantMcpOrganizationConnectionDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapPost("mcp-servers/{id}/connection/authorize", AuthorizeMcpOrganizationConnectionAsync)
+            .WithName("NhAssistantAdminAuthorizeMcpConnection")
+            .WithSummary("Connect the organization's account")
+            .WithDescription("Starts the administrator's authorization of the organization connection of an OAuth server: everyone using the server's agents then acts as the connected account. For a server each person connects to, it connects the administrator's own account, which tests and syncs use. Open the returned URL in the administrator's browser; the callback hands a one-time completion code to it, which POST mcp-connections/complete activates.")
+            .Produces<NhAssistantMcpAuthorizationStartDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status502BadGateway);
+        admin.MapDelete("mcp-servers/{id}/connection", DeleteMcpOrganizationConnectionAsync)
+            .WithName("NhAssistantAdminDeleteMcpConnection")
+            .WithSummary("Disconnect the organization's account")
+            .WithDescription("Removes the organization's OAuth connection and revokes its tokens at the authorization server.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapGet("mcp-servers/{id}/connections/summary", GetMcpPersonalConnectionsSummaryAsync)
+            .WithName("NhAssistantAdminGetMcpConnectionsSummary")
+            .WithSummary("Count the personal connections")
+            .WithDescription("Returns the number of personal OAuth connections of the server per status.")
+            .Produces<NhAssistantMcpConnectionsSummaryDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapDelete("mcp-servers/{id}/connections", RevokeMcpPersonalConnectionsAsync)
+            .WithName("NhAssistantAdminRevokeMcpConnections")
+            .WithSummary("Revoke all personal connections")
+            .WithDescription("Removes every person's OAuth connection of the server and revokes the tokens; each person connects again.")
+            .Produces(StatusCodes.Status204NoContent)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapPut("mcp-servers/{id}/tools/{remoteName}", UpdateMcpToolAsync)
             .WithName("NhAssistantAdminUpdateMcpTool")
@@ -606,7 +646,103 @@ internal static class NhAssistantAdminEndpoints
     private static async Task<IResult> GetMcpServersAsync(HttpContext httpContext, NhAssistantMcpAdministration administration)
     {
         var servers = await administration.ListAsync(httpContext.RequestAborted);
-        return Json(servers.Select(item => ToDto(item.Server, item.AgentIds)).ToArray(), Context.NhAssistantMcpServerDtoArray);
+        var connections = (await httpContext.RequestServices.GetRequiredService<Persistence.NhAssistantMcpOAuthStore>()
+                .ListTokenConnectionsAsync(NhAssistantMcpConnectionOwners.Organization, null, httpContext.RequestAborted))
+            .ToDictionary(connection => connection.ServerId, StringComparer.Ordinal);
+        return Json(
+            servers.Select(item => ToDto(item.Server, item.AgentIds, connections.GetValueOrDefault(item.Server.Id))).ToArray(),
+            Context.NhAssistantMcpServerDtoArray);
+    }
+
+    private static async Task<IResult> DiscoverMcpServerAsync(HttpContext httpContext, NhAssistantMcpAdministration administration)
+    {
+        var body = await ReadAsync(httpContext, Context.NhAssistantMcpDiscoverRequest);
+        if (body?.Url is not { } url)
+        {
+            return MissingField("url");
+        }
+        var discovered = await administration.DiscoverAsync(url, httpContext.RequestAborted);
+        if (!discovered.Success)
+        {
+            return Failure(discovered);
+        }
+        var result = discovered.Data!;
+        var server = result.AuthorizationServer;
+        return Json(new NhAssistantMcpDiscoveryDto(
+            result.Resource,
+            server.Issuer,
+            result.AuthorizationServers,
+            result.ChallengedScopes,
+            result.ResourceScopes.Union(server.ScopesSupported, StringComparer.Ordinal).ToArray(),
+            server.GrantTypes,
+            server.SupportsS256,
+            server.ClientIdMetadataDocumentSupported,
+            server.RegistrationEndpoint is not null,
+            server.TokenEndpointAuthMethods), Context.NhAssistantMcpDiscoveryDto);
+    }
+
+    private static async Task<IResult> GetMcpOrganizationConnectionAsync(string id, HttpContext httpContext, NhAssistantMcpAdministration administration)
+    {
+        var found = await administration.GetOrganizationConnectionAsync(id, httpContext.RequestAborted);
+        return found.Success
+            ? Json(ToDto(found.Data.Connection), Context.NhAssistantMcpOrganizationConnectionDto)
+            : Failure(found);
+    }
+
+    private static async Task<IResult> AuthorizeMcpOrganizationConnectionAsync(string id, HttpContext httpContext, NhAssistantMcpAdministration administration)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var body = httpContext.Request.HasJsonContentType()
+            ? await ReadAsync(httpContext, Context.NhAssistantMcpAuthorizeRequest)
+            : new NhAssistantMcpAuthorizeRequest(null, null);
+        if (body is null)
+        {
+            return Validation();
+        }
+        var started = await administration.AuthorizeOrganizationAsync(id, actor, body.ReturnUrl, httpContext.RequestAborted);
+        return started.Success
+            ? Json(new NhAssistantMcpAuthorizationStartDto(started.Data!.FlowId, started.Data.AuthorizationUrl, started.Data.ExpiresAt, started.Data.CallbackOrigin), Context.NhAssistantMcpAuthorizationStartDto)
+            : Failure(started);
+    }
+
+    private static async Task<IResult> DeleteMcpOrganizationConnectionAsync(string id, HttpContext httpContext, NhAssistantMcpAdministration administration)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var removed = await administration.DisconnectOrganizationAsync(id, actor, httpContext.RequestAborted);
+        return removed.Success ? TypedResults.NoContent() : Failure(removed);
+    }
+
+    private static async Task<IResult> GetMcpPersonalConnectionsSummaryAsync(string id, HttpContext httpContext, NhAssistantMcpAdministration administration)
+    {
+        var summary = await administration.SummarizePersonalConnectionsAsync(id, httpContext.RequestAborted);
+        if (!summary.Success)
+        {
+            return Failure(summary);
+        }
+        var counts = summary.Data!;
+        return Json(new NhAssistantMcpConnectionsSummaryDto(
+            counts.GetValueOrDefault(NhAssistantMcpConnectionStatuses.Active),
+            counts.GetValueOrDefault(NhAssistantMcpConnectionStatuses.ReauthorizationRequired),
+            counts.GetValueOrDefault(NhAssistantMcpConnectionStatuses.IssuerChanged)), Context.NhAssistantMcpConnectionsSummaryDto);
+    }
+
+    private static async Task<IResult> RevokeMcpPersonalConnectionsAsync(string id, HttpContext httpContext, NhAssistantMcpAdministration administration)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var revoked = await administration.RevokePersonalConnectionsAsync(id, actor, httpContext.RequestAborted);
+        return revoked.Success ? TypedResults.NoContent() : Failure(revoked);
     }
 
     private static async Task<IResult> CreateMcpServerAsync(HttpContext httpContext, NhAssistantMcpAdministration administration)
@@ -633,7 +769,7 @@ internal static class NhAssistantAdminEndpoints
         }
         return new CreatedJson<NhAssistantMcpServerDto>(
             $"{httpContext.Request.PathBase}{httpContext.Request.Path.Value?.TrimEnd('/')}/{created.Data!.Id}",
-            ToDto(created.Data, []),
+            ToDto(created.Data, [], null),
             Context.NhAssistantMcpServerDto);
     }
 
@@ -661,7 +797,8 @@ internal static class NhAssistantAdminEndpoints
         }
         var assigned = (await administration.ListAsync(httpContext.RequestAborted))
             .FirstOrDefault(item => item.Server.Id == id).AgentIds ?? [];
-        return Json(ToDto(updated.Data!, assigned), Context.NhAssistantMcpServerDto);
+        var connection = (await administration.GetOrganizationConnectionAsync(id, httpContext.RequestAborted)).Data.Connection;
+        return Json(ToDto(updated.Data!, assigned, connection), Context.NhAssistantMcpServerDto);
     }
 
     private static async Task<IResult> DeleteMcpServerAsync(string id, HttpContext httpContext, NhAssistantMcpAdministration administration)
@@ -677,7 +814,7 @@ internal static class NhAssistantAdminEndpoints
 
     private static async Task<IResult> TestMcpServerAsync(string id, HttpContext httpContext, NhAssistantMcpAdministration administration)
     {
-        var result = await administration.TestAsync(id, httpContext.RequestAborted);
+        var result = await administration.TestAsync(id, await ActorAsync(httpContext), httpContext.RequestAborted);
         return result.Success
             ? Json(new NhAssistantMcpServerTestResultDto(result.Data!.Ok, result.Data.Code, result.Data.ToolCount), Context.NhAssistantMcpServerTestResultDto)
             : Failure(result);
@@ -800,7 +937,24 @@ internal static class NhAssistantAdminEndpoints
             string.IsNullOrWhiteSpace(body.HeaderName) ? null : body.HeaderName,
             body.Secret,
             string.IsNullOrWhiteSpace(body.RequiredPolicy) ? null : body.RequiredPolicy,
-            body.IsEnabled!.Value), errors);
+            body.IsEnabled!.Value,
+            body.HeadlessUse)
+        {
+            UserName = body.UserName,
+            SecretReference = body.SecretReference,
+            ClientCertificateReference = body.ClientCertificateReference,
+            Transport = body.Transport,
+            ConnectionScope = body.ConnectionScope,
+            OAuth = body.OAuth is { } oauth
+                ? new NhAssistantMcpOAuthInput(
+                    oauth.ClientId,
+                    oauth.ClientSecret,
+                    oauth.ClientSecretReference,
+                    oauth.Scopes,
+                    oauth.OrganizationAccountLabel,
+                    oauth.ConfirmAuthorization == true)
+                : null
+        }, errors);
     }
 
     private static NhAssistantPreferencesDto ToDto(NhAssistantPreferences preferences)
@@ -878,7 +1032,21 @@ internal static class NhAssistantAdminEndpoints
         };
     }
 
-    private static NhAssistantMcpServerDto ToDto(AssistantMcpServer server, IReadOnlyList<string> agentIds)
+    private static NhAssistantMcpOrganizationConnectionDto ToDto(AssistantMcpConnection? connection)
+    {
+        return connection is null
+            ? new NhAssistantMcpOrganizationConnectionDto("not-connected", null, null, null, null, null, null)
+            : new NhAssistantMcpOrganizationConnectionDto(
+                connection.Status ?? "not-connected",
+                connection.ConnectedAt,
+                connection.ConnectedBy,
+                connection.GrantedScopes,
+                connection.RequiredScopes,
+                connection.AccessTokenExpiresAt,
+                connection.LastFailureCode);
+    }
+
+    private static NhAssistantMcpServerDto ToDto(AssistantMcpServer server, IReadOnlyList<string> agentIds, AssistantMcpConnection? organizationConnection)
     {
         return new NhAssistantMcpServerDto(
             server.Id,
@@ -891,7 +1059,31 @@ internal static class NhAssistantAdminEndpoints
             server.IsEnabled,
             server.LastSyncAt,
             server.LastSyncStatus,
-            agentIds);
+            agentIds)
+        {
+            HeadlessUse = server.HeadlessUse,
+            LastConnectAt = server.LastConnectAt,
+            LastConnectCode = server.LastConnectCode,
+            UserName = server.UserName,
+            SecretReference = server.SecretReference,
+            ClientCertificateReference = server.ClientCertificateReference,
+            Transport = server.Transport,
+            ConnectionScope = server.ConnectionScope,
+            OAuth = NhAssistantMcpAuthModes.IsOAuth(server.AuthMode)
+                ? new NhAssistantMcpOAuthDto(
+                    server.OAuthClientId,
+                    server.ProtectedOAuthClientSecret is not null,
+                    server.OAuthClientSecretReference,
+                    server.OAuthScopes,
+                    server.OrganizationAccountLabel)
+                : null,
+            Authorization = server.AuthorizationServerIssuer is { } issuer && server.ResourceUri is { } resource && server.AuthorizationConfirmedAt is { } confirmedAt
+                ? new NhAssistantMcpAuthorizationDto(issuer, resource, confirmedAt, server.AuthorizationConfirmedBy)
+                : null,
+            OrganizationConnection = NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope) && NhAssistantMcpAuthModes.IsOAuth(server.AuthMode)
+                ? ToDto(organizationConnection)
+                : null
+        };
     }
 
     private static NhAssistantMcpToolDto ToDto(AssistantMcpTool tool)
@@ -974,6 +1166,10 @@ internal static class NhAssistantAdminEndpoints
                 or NhAssistantAdminErrorCodes.McpServerNotFound
                 or NhAssistantAdminErrorCodes.McpToolNotFound => StatusCodes.Status404NotFound,
             NhAssistantAdminErrorCodes.VersionConflict
+                or NhAssistantAdminErrorCodes.McpConnectionRequired
+                or NhAssistantAdminErrorCodes.McpReauthorizationRequired
+                or NhAssistantAdminErrorCodes.McpIssuerChanged
+                or NhAssistantAdminErrorCodes.McpAuthorizationNotConfirmed
                 or NhAssistantErrorCodes.ShadowVariant
                 or NhAssistantErrorCodes.ServiceAccountNotUsed
                 or NhAssistantErrorCodes.AgentNotConfigured
@@ -988,7 +1184,13 @@ internal static class NhAssistantAdminEndpoints
                 or NhAssistantAdminErrorCodes.CodeAgentNotDeletable
                 or NhAssistantAdminErrorCodes.NotCodeAgent => StatusCodes.Status409Conflict,
             NhAssistantAdminErrorCodes.McpUnreachable
-                or NhAssistantAdminErrorCodes.McpUnauthorized => StatusCodes.Status502BadGateway,
+                or NhAssistantAdminErrorCodes.McpUnauthorized
+                or NhAssistantAdminErrorCodes.McpInsufficientScope
+                or NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable
+                or NhAssistantAdminErrorCodes.McpDiscoveryFailed
+                or NhAssistantAdminErrorCodes.McpTokenRequestFailed => StatusCodes.Status502BadGateway,
+            NhAssistantAdminErrorCodes.Forbidden => StatusCodes.Status403Forbidden,
+            NhAssistantAdminErrorCodes.McpTooManyAuthorizations => StatusCodes.Status429TooManyRequests,
             _ => StatusCodes.Status400BadRequest
         };
         return Error(status, code, fieldErrors.Count == 0 ? null : fieldErrors);

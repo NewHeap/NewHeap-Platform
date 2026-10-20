@@ -374,6 +374,8 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         using var created = await admin.PostAsync("/api/assistant/admin/mcp-servers", Json(input));
         using var blocked = await admin.PostAsync("/api/assistant/admin/mcp-servers", Json(input with { id = "metadata", url = "http://169.254.169.254/mcp" }));
         using var updated = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(input with { displayName = "Planning 2", secret = (string?)null }));
+        using var headless = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(new { input.id, input.displayName, input.url, input.authMode, input.headerName, input.requiredPolicy, input.isEnabled, headlessUse = "organization" }));
+        using var invalidHeadless = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(new { input.id, input.displayName, input.url, input.authMode, input.headerName, input.requiredPolicy, input.isEnabled, headlessUse = "always" }));
         var test = await ReadJsonAsync(await admin.PostAsync("/api/assistant/admin/mcp-servers/planning/test", null));
         using var sync = await admin.PostAsync("/api/assistant/admin/mcp-servers/planning/sync", null);
         using var enable = await admin.PutAsync(
@@ -388,8 +390,15 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var server = await ReadJsonAsync(created);
         AssertNames(server, "id", "displayName", "url", "authMode", "headerName", "hasSecret", "requiredPolicy", "isEnabled",
-            "lastSyncAt", "lastSyncStatus", "assignedAgentIds");
+            "lastSyncAt", "lastSyncStatus", "assignedAgentIds", "headlessUse", "lastConnectAt", "lastConnectCode",
+            "userName", "secretReference", "clientCertificateReference", "transport", "connectionScope", "oauth", "authorization",
+            "organizationConnection");
+        Assert.Equal("streamable-http", server.GetProperty("transport").GetString());
         Assert.True(server.GetProperty("hasSecret").GetBoolean());
+        Assert.Equal("never", server.GetProperty("headlessUse").GetString());
+        Assert.Equal("organization", (await ReadJsonAsync(headless)).GetProperty("headlessUse").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, invalidHeadless.StatusCode);
+        Assert.Equal("invalid", (await ReadJsonAsync(invalidHeadless)).GetProperty("errors").GetProperty("headlessUse")[0].GetString());
         Assert.Equal(HttpStatusCode.BadRequest, blocked.StatusCode);
         Assert.Equal("assistant-mcp-host-blocked", (await ReadJsonAsync(blocked)).GetProperty("code").GetString());
         Assert.True((await ReadJsonAsync(updated)).GetProperty("hasSecret").GetBoolean());
@@ -407,6 +416,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Contains(catalog.EnumerateArray(), entry => entry.GetProperty("id").GetString() == "projects.search" && entry.GetProperty("source").GetString() == "local");
         Assert.Contains(catalog.EnumerateArray(), entry => entry.GetProperty("id").GetString() == "mcp.planning.lookup-order" && entry.GetProperty("source").GetString() == "mcp");
         Assert.DoesNotContain(secret, listText);
+        Assert.Contains("\"lastConnectAt\":\"", listText, StringComparison.Ordinal);
         Assert.DoesNotContain(secret, await sync.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
@@ -561,9 +571,126 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Equal("propose", listed.GetProperty("autonomy").GetString());
     }
 
-    private Task<AssistantWebApplication> StartAsync(bool enabled = true, Action<IServiceCollection>? configure = null)
+    [Fact]
+    public async Task Mcp_server_credentials_and_transport_follow_the_contract()
     {
-        return AssistantWebApplication.StartAsync(database, new NhAiScriptedChatClient(), enabled, configure: configure);
+        await using var app = await StartAsync();
+        using var admin = app.CreateClient(admin: true);
+        var input = new
+        {
+            id = "planning",
+            displayName = "Planning",
+            url = McpUrl,
+            authMode = "basic",
+            headerName = (string?)null,
+            secret = "BASIC-PASSWORD-77",
+            requiredPolicy = (string?)null,
+            isEnabled = true,
+            userName = (string?)null,
+            transport = (string?)null
+        };
+
+        using var withoutUser = await admin.PostAsync("/api/assistant/admin/mcp-servers", Json(input));
+        using var created = await admin.PostAsync("/api/assistant/admin/mcp-servers", Json(input with { userName = "planner" }));
+        using var auto = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(input with { userName = "planner", secret = (string?)null, transport = "auto" }));
+        using var unknownResolver = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(new { input.id, input.displayName, input.url, authMode = "bearer", input.isEnabled, secretReference = "vault:planning" }));
+        using var unknownCertificate = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(new { input.id, input.displayName, input.url, input.authMode, input.isEnabled, userName = "planner", clientCertificateReference = "missing" }));
+        var listText = await (await admin.GetAsync("/api/assistant/admin/mcp-servers")).Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, withoutUser.StatusCode);
+        Assert.Equal("required", (await ReadJsonAsync(withoutUser)).GetProperty("errors").GetProperty("userName")[0].GetString());
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var server = await ReadJsonAsync(created);
+        Assert.Equal("planner", server.GetProperty("userName").GetString());
+        Assert.True(server.GetProperty("hasSecret").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, server.GetProperty("secretReference").ValueKind);
+        Assert.Equal(HttpStatusCode.OK, auto.StatusCode);
+        Assert.Equal("auto", (await ReadJsonAsync(auto)).GetProperty("transport").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, unknownResolver.StatusCode);
+        Assert.Equal("assistant-mcp-secret-reference-invalid", (await ReadJsonAsync(unknownResolver)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, unknownCertificate.StatusCode);
+        Assert.Equal("assistant-mcp-certificate-reference-invalid", (await ReadJsonAsync(unknownCertificate)).GetProperty("code").GetString());
+        Assert.DoesNotContain("BASIC-PASSWORD-77", listText);
+    }
+
+    [Fact]
+    public async Task Mcp_connections_list_personal_servers_and_record_each_callers_own_consent()
+    {
+        await using var app = await StartAsync(assistantBuilder: assistant => assistant.ConfigureMcp(mcp => mcp.ForwardUserTokenHosts = ["localhost"]));
+        using var admin = app.CreateClient(admin: true);
+        using var member = app.CreateClient("member-1");
+        using var other = app.CreateClient("member-2");
+        using var anonymous = app.CreateClient(user: null, access: false);
+        var input = new
+        {
+            id = "planning",
+            displayName = "Planning",
+            url = McpUrl,
+            authMode = "forward-user-token",
+            isEnabled = true,
+            headlessUse = "personal"
+        };
+        using var created = await admin.PostAsync("/api/assistant/admin/mcp-servers", Json(input));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        await AssignServerAsync(app, "project-assistant", "planning");
+
+        var before = await ReadJsonAsync(await member.GetAsync("/api/assistant/mcp-connections"));
+        using var missingField = await member.PutAsync("/api/assistant/mcp-connections/planning", Json(new { }));
+        using var allowed = await member.PutAsync("/api/assistant/mcp-connections/planning", Json(new { allowBackgroundUse = true }));
+        using var unknown = await member.PutAsync("/api/assistant/mcp-connections/elsewhere", Json(new { allowBackgroundUse = true }));
+        var forOther = await ReadJsonAsync(await other.GetAsync("/api/assistant/mcp-connections"));
+        using var moved = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(input with { url = McpUrl + "/v2" }));
+        var afterMove = await ReadJsonAsync(await member.GetAsync("/api/assistant/mcp-connections"));
+        using var notSignedIn = await anonymous.GetAsync("/api/assistant/mcp-connections");
+
+        var listed = Assert.Single(before.EnumerateArray());
+        AssertNames(listed, "serverId", "displayName", "host", "allowBackgroundUse", "consentedAt", "agentIds",
+            "connectionStatus", "grantedScopes", "requiredScopes", "connectedAt", "offersBackgroundUse");
+        Assert.Equal("localhost", listed.GetProperty("host").GetString());
+        Assert.False(listed.GetProperty("allowBackgroundUse").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, listed.GetProperty("consentedAt").ValueKind);
+        Assert.Equal("project-assistant", Assert.Single(listed.GetProperty("agentIds").EnumerateArray()).GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, missingField.StatusCode);
+        Assert.Equal("required", (await ReadJsonAsync(missingField)).GetProperty("errors").GetProperty("allowBackgroundUse")[0].GetString());
+        Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+        var consent = await ReadJsonAsync(allowed);
+        Assert.True(consent.GetProperty("allowBackgroundUse").GetBoolean());
+        Assert.Equal(JsonValueKind.String, consent.GetProperty("consentedAt").ValueKind);
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+        Assert.Equal("assistant-mcp-server-not-found", (await ReadJsonAsync(unknown)).GetProperty("code").GetString());
+        Assert.False(Assert.Single(forOther.EnumerateArray()).GetProperty("allowBackgroundUse").GetBoolean());
+        Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+        Assert.False(Assert.Single(afterMove.EnumerateArray()).GetProperty("allowBackgroundUse").GetBoolean());
+        Assert.Equal(HttpStatusCode.Unauthorized, notSignedIn.StatusCode);
+    }
+
+    private static async Task AssignServerAsync(AssistantWebApplication app, string agentId, string serverId)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var agents = scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>();
+        var agent = (await scope.ServiceProvider.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(agentId, includeDisabled: true, CancellationToken.None))!;
+        var assigned = await agents.UpdateAsync(
+            new NhAssistantAgentInput(
+                agent.Id,
+                agent.Definition.DisplayNameKey,
+                agent.Definition.DescriptionKey,
+                agent.Definition.Instructions.Content,
+                agent.Definition.ToolSelectors,
+                [serverId],
+                agent.Definition.RequiredPolicy,
+                agent.Definition.Autonomy),
+            agent.Definition.Version,
+            "admin-1",
+            CancellationToken.None);
+        Assert.True(assigned.Success);
+    }
+
+    private Task<AssistantWebApplication> StartAsync(
+        bool enabled = true,
+        Action<IServiceCollection>? configure = null,
+        Action<NhAssistantBuilder>? assistantBuilder = null)
+    {
+        return AssistantWebApplication.StartAsync(database, new NhAiScriptedChatClient(), enabled, configure: configure, assistantBuilder: assistantBuilder);
     }
 
     private static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response)

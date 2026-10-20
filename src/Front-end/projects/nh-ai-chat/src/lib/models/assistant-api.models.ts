@@ -151,7 +151,25 @@ export interface Message {
  */
 export type MessageAuthorKind = 'person' | 'trigger' | 'rule';
 
-export type MessagePart = TextPart | ToolCallPart | ApprovalPart;
+export type MessagePart = TextPart | ToolCallPart | ApprovalPart | ConnectionRequiredPart;
+
+/**
+ * Why a turn asks the person to connect an MCP server: never connected, the connection ended, or
+ * the server asked for permissions the connection lacks.
+ */
+export type ConnectionRequiredReason = 'not-connected' | 'reauthorization-required' | 'insufficient-scope';
+
+/**
+ * An MCP server, which each person connects to with their own account, that the person who asked had
+ * to connect before the agent could use it. The turn went on without its tools; the card connects
+ * the viewer's own account.
+ */
+export interface ConnectionRequiredPart {
+  type: 'connection-required';
+  serverId: string;
+  displayName: string;
+  reason: ConnectionRequiredReason;
+}
 
 export interface TextPart {
   type: 'text';

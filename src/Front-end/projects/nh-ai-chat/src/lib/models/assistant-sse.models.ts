@@ -1,4 +1,4 @@
-import { ApprovalPart } from './assistant-api.models';
+import { ApprovalPart, ConnectionRequiredReason } from './assistant-api.models';
 
 /*
  * Server-sent events of an assistant turn.
@@ -35,6 +35,13 @@ export interface ToolCompletedEvent {
 
 export type ApprovalRequiredEvent = ApprovalPart;
 
+/** The person who asked has to connect an MCP server before the agent can use it. */
+export interface ConnectionRequiredEvent {
+  serverId: string;
+  displayName: string;
+  reason: ConnectionRequiredReason;
+}
+
 export type TurnCompletionStatus = 'completed' | 'waiting-for-approval' | 'cancelled' | 'failed';
 
 export interface TurnUsage {
@@ -62,6 +69,7 @@ export interface NhAssistantSseEventMap {
   'tool.started': ToolStartedEvent;
   'tool.completed': ToolCompletedEvent;
   'approval.required': ApprovalRequiredEvent;
+  'connection.required': ConnectionRequiredEvent;
   'turn.completed': TurnCompletedEvent;
   'error': AssistantErrorEvent;
 }
@@ -79,6 +87,7 @@ export const NH_ASSISTANT_SSE_EVENT_TYPES: readonly NhAssistantSseEventType[] = 
   'tool.started',
   'tool.completed',
   'approval.required',
+  'connection.required',
   'turn.completed',
   'error'
 ];
@@ -99,7 +108,11 @@ export const NhAssistantClientErrorCodes = {
   streamInterrupted: 'assistant-stream-interrupted',
   server: 'assistant-server',
   /** The open conversation was deleted by its owner, or the user left or was removed. */
-  conversationRemoved: 'assistant-conversation-removed'
+  conversationRemoved: 'assistant-conversation-removed',
+  /** The person closed the authorization window of an MCP connection before it finished. */
+  mcpAuthorizationCancelled: 'assistant-mcp-authorization-cancelled',
+  /** The browser blocked the authorization window of an MCP connection. */
+  mcpPopupBlocked: 'assistant-mcp-popup-blocked'
 } as const;
 
 export type NhAssistantClientErrorCode = typeof NhAssistantClientErrorCodes[keyof typeof NhAssistantClientErrorCodes];

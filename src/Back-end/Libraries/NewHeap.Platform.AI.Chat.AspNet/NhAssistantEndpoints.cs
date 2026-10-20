@@ -124,7 +124,10 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .WithTags("Assistant")
             .AddEndpointFilter(RequireEnabledAsync);
         AgentRuns.NhAssistantWebhookEndpoints.Map(webhooks);
+        // The OAuth callback carries no session either: it is bound to its flow by the state.
+        NhAssistantMcpOAuthEndpoints.Map(webhooks);
         NhAssistantAdminEndpoints.Map(enabled, NhAssistantEndpointOptions.ResolveAdminPolicy(state, options));
+        NhAssistantMcpConnectionEndpoints.Map(enabled);
 
         if (!string.IsNullOrWhiteSpace(options.HubPath))
         {

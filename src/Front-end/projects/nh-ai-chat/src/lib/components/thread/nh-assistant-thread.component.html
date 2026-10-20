@@ -49,6 +49,13 @@
         @case ('tools') {
           <nh-assistant-tool-call-group class="part" [calls]="group.calls" />
         }
+        @case ('connection') {
+          <nh-assistant-connection-required
+            class="part"
+            [part]="group.part"
+            [canRetry]="!streaming()"
+            (retry)="retryAfterConnect(message)" />
+        }
         @case ('approval') {
           <nh-assistant-approval-card
             class="part"

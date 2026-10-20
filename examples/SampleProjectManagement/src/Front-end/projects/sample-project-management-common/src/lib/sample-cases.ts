@@ -3014,7 +3014,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolResult.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolResultTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolResultTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpCallContext.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpCallContextTests.cs"
     ]
   },
   {
@@ -3145,8 +3147,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-228",
     "title": "Governed external MCP tool import",
     "category": "AI tools and generated catalogs",
-    "surface": "INhAiMcpClientToolImporter, explicit per-server allow-list and namespace, local effect and authorization metadata, bounded remote schemas and results, run-scoped INhAiToolCatalog registration, and shared invocation governance, and opt-in per-call request metadata through a reviewed INhAiMcpInvocationBinder (AddNewHeapPlatformAIMcpInvocationBinder, NhAiMcpImportedToolPolicy.InvocationBinderId, NhAiMcpRequestMetadata, NhAiMcpInvocationIdentity)",
-    "outcome": "Only the explicitly allowlisted external lookup is imported under a collision-safe namespace; its remote description grants no authority, an unlisted destructive-looking tool remains absent, and bounded arguments still cross NewHeap authorization, capability, budget, timeout, concurrency, idempotency, result-bound, and audit controls. A run-scoped catalog over the tools a run imported passes Development container validation, is validated in its own startup scope, serves the agent through the shared invoker and stays out of the NewHeap MCP export of the same host. A binder registered for one server and tool adds `_meta` only to a policy that names it, runs after authorization, capability, approval, budget and idempotency checks, counts toward the input limit, binds its id into the tool contract and stops the call with an audited code when it fails. The agent receives the shared `NhAiToolResult` shape with the remote `CallToolResult` as `data`; a remote `isError` result fails with `ai-mcp-remote-tool-error` and keeps the remote result as `data`, while verifiers still receive the typed `CallToolResult`.",
+    "surface": "INhAiMcpClientToolImporter, explicit per-server allow-list and namespace, local effect and authorization metadata, bounded remote schemas and results, run-scoped INhAiToolCatalog registration, and shared invocation governance, and opt-in per-call request metadata through a reviewed INhAiMcpInvocationBinder (AddNewHeapPlatformAIMcpInvocationBinder, NhAiMcpImportedToolPolicy.InvocationBinderId, NhAiMcpRequestMetadata, NhAiMcpInvocationIdentity), NhAiMcpImportedToolPolicy.AllowAgentGrant for organization credentials and NhAiMcpCallContext for credential decisions in the client transport",
+    "outcome": "Only the explicitly allowlisted external lookup is imported under a collision-safe namespace; its remote description grants no authority, an unlisted destructive-looking tool remains absent, and bounded arguments still cross NewHeap authorization, capability, budget, timeout, concurrency, idempotency, result-bound, and audit controls. A run-scoped catalog over the tools a run imported passes Development container validation, is validated in its own startup scope, serves the agent through the shared invoker and stays out of the NewHeap MCP export of the same host. A binder registered for one server and tool adds `_meta` only to a policy that names it, runs after authorization, capability, approval, budget and idempotency checks, counts toward the input limit, binds its id into the tool contract and stops the call with an audited code when it fails. The agent receives the shared `NhAiToolResult` shape with the remote `CallToolResult` as `data`; a remote `isError` result fails with `ai-mcp-remote-tool-error` and keeps the remote result as `data`, while verifiers still receive the typed `CallToolResult`. During the remote call, and only then, `NhAiMcpCallContext.Current` carries the authorized invocation context to the client transport; a policy that allows agent grants publishes an agent-grantable descriptor with its own contract hash.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
@@ -3530,17 +3532,30 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-251",
     "title": "Administrator-connected MCP servers assigned to agents",
     "category": "AI tools and generated catalogs",
-    "surface": "ConfigureMcp (AllowedHosts, ForwardUserTokenHosts, RequireHttps, ToolListCacheDuration, ConnectTimeout), admin/mcp-servers with test, sync and tool activation, auth modes none, bearer, api-key and forward-user-token, INhAiMcpClientToolImporter, INhAiCallerCredentialAccessor, agent mcpServerIds",
-    "outcome": "An administrator connects a Streamable HTTP MCP server with an API key that is protected with ASP.NET Data Protection and never returned, synchronizes its tools, which start disabled as approval-required mutations, activates one tool as read-only and assigns the server to one agent. That agent calls the remote tool through the governed MCP importer and the shared invoker; other agents never see it. A changed remote input schema disables a tool until it is activated again, the user token is forwarded only to allow-listed hosts, link-local, metadata and non-development loopback hosts are blocked after DNS resolution and again at connect time, and an unreachable server is skipped without breaking the turn.",
+    "surface": "ConfigureMcp (AllowedHosts, ForwardUserTokenHosts, RequireHttps, ToolListCacheDuration, ConnectTimeout, ForwardedTokenLifetime), admin/mcp-servers with test, sync and tool activation, auth modes none, bearer, api-key, basic (userName) and forward-user-token, secretReference with config: (NewHeap:AI:Assistant:Mcp:Secrets) and INhAssistantMcpSecretResolver registered with AddMcpSecretResolver, clientCertificateReference (NewHeap:AI:Assistant:Mcp:ClientCertificates), transport (streamable-http, auto), headlessUse with NhAssistantMcpHeadlessUses (never, organization, personal), the caller's consent through GET and PUT mcp-connections, AddNewHeapPlatformAIMcpDelegatedTokens with Accept and INhAiMcpDelegatedTokenIssuer, the audit kinds McpBackgroundUseChanged and McpDelegatedTokenIssued, lastConnectAt and lastConnectCode, the codes assistant-mcp-insufficient-scope, assistant-mcp-headless-not-allowed, assistant-mcp-consent-required, assistant-mcp-delegated-token-unavailable, assistant-mcp-secret-reference-invalid and assistant-mcp-certificate-reference-invalid, INhAiMcpClientToolImporter, INhAiCallerCredentialAccessor, agent mcpServerIds, the server editor in @newheap/platform-ai-chat/admin and nh-assistant-mcp-connections in the preferences",
+    "outcome": "An administrator connects a Streamable HTTP MCP server with an API key that is protected with ASP.NET Data Protection and never returned, synchronizes its tools, which start disabled as approval-required mutations, activates one tool as read-only and assigns the server to one agent. That agent calls the remote tool through the governed MCP importer and the shared invoker; other agents never see it. A changed remote input schema disables a tool until it is activated again, the user token is forwarded only to allow-listed hosts, link-local, metadata and non-development loopback hosts are blocked after DNS resolution and again at connect time, and an unreachable server is skipped without breaking the turn. A server starts at `headlessUse: never`: the status advisor, working in the background for the participant who started it, is not offered its tools until an administrator allows the server's own API key in background runs; the participant's rights then authorize the call. Every request carries the credential and is checked against the planned origin and the allowed hosts, a test records the connection state, a tool list seen with one caller's token never disables a tool for everyone, and an approved deferred MCP proposal executes once while the server still allows background runs. An administrator can name a secret that the application holds instead of storing it: `config:<name>` reads the dedicated configuration section and `secret-file:<name>` a mounted secret file through the sample's resolver; both are read for every connection, so a rotation applies at once, and a reference never reaches other settings or climbs out of a directory. Basic authentication shows the user name and keeps the password write-only. A first-party server that accepts the person's NewHeap token serves the status advisor in a background run only after the participant allowed it in the preferences: every request then carries a short-lived delegated token of the participant, marked with the invocation and bound to the server's origin, which the server accepts below `/mcp` only and the assistant's own host never accepts; issuing and consent are audited without the token.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpHeadlessTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMountedSecretResolver.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleFirstPartyMcpServer.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpDelegatedTokens.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantMcpSecrets.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnectionService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpClientCertificates.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpCredentialTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMcpDelegatedTokenTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-mcp-connections.component.ts"
     ]
   },
   {
@@ -4556,6 +4571,57 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     ]
   },
   {
+    "id": "SPM-299",
+    "title": "An administrator connects OAuth-protected MCP servers for the organization",
+    "category": "AI tools and generated catalogs",
+    "surface": "Auth modes oauth with connectionScope organization and oauth-client-credentials (NhAssistantMcpAuthModes, NhAssistantMcpConnectionScopes); the oauth settings of admin/mcp-servers (clientId, write-only clientSecret, clientSecretReference, scopes, organizationAccountLabel, confirmAuthorization) and the returned authorization and organizationConnection; POST admin/mcp-servers/discover; GET, DELETE admin/mcp-servers/{id}/connection and POST admin/mcp-servers/{id}/connection/authorize; POST mcp-connections/complete; the anonymous mcp/oauth/callback and mcp/oauth/client-metadata.json; NhAssistantMcpOptions.OAuth (NhAssistantMcpOAuthOptions: RedirectUri, ReturnOrigins, ClientMetadataDocumentUri, FlowLifetime, RefreshSkew, RefreshLeaseDuration, ConnectionRetention, MaxPendingFlowsPerActor) and BlockPrivateNetworks; the audit kinds McpConnectionConnected, McpConnectionDisconnected, McpConnectionReauthorizationRequired and AdminMcpServerAuthorizationConfirmed; the McpOAuthConnections migrations for SQL Server and PostgreSQL; NhAiTestAuthorizationServer and NhAiTestProtectedResource; the OAuth part of the server editor and the connection state of the server list in @newheap/platform-ai-chat/admin, NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW with nhAssistantConnectMcp, and mcpAuthorization, mcpDiscovery and organizationConnected of the mock scenario",
+    "outcome": "An administrator reads which authorization server protects a planning server's address, from its challenge and protected resource metadata, and confirms it when saving: the assistant then asks only that issuer for tokens, for the server's own address (`resource`), and suspends the connections when the server later names another one until an administrator confirms again. With client credentials the host's own client obtains a token on first use and reuses it; the planning server sees the sample's client, never a person. With an organization connection the administrator authorizes the organization's account once in a popup: the callback checks the state, the issuer and PKCE, exchanges the code and hands a one-time completion code to the administrator's page, which completes the connection with the administrator's own session; nobody else can complete it. Everyone using the server's agents then acts as that labelled account. Tokens are protected with ASP.NET Data Protection, renewed once across instances before they expire, and revoked at the authorization server when the administrator disconnects, changes the server or deletes it; a refused refresh ends the connection with an audited reauthorization. No secret, code or token reaches a response, a log or an audit event.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpDiscovery.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthClient.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpAuthorizationFlows.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpOAuthEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpOAuthStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestAuthorizationServer.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpOAuthTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-server-editor.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-servers.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-mcp-authorization.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts"
+    ]
+  },
+  {
+    "id": "SPM-300",
+    "title": "Each person connects their own account to an MCP server, from the chat or the preferences",
+    "category": "AI tools and generated catalogs",
+    "surface": "connectionScope user of oauth servers; POST mcp-connections/{serverId}/authorize with allowBackgroundUse and returnUrl, POST mcp-connections/complete, DELETE mcp-connections/{serverId} and the extended GET mcp-connections (connectionStatus, grantedScopes, requiredScopes, connectedAt, offersBackgroundUse); the connection.required event and connection-required message part (NhAssistantMcpConnectionReasons, NhAssistantConnectionRequiredPartDto); personal headless use for OAuth connections with the consent recorded when connecting; NhAssistantAuditEvent.McpConnectionOwner; the administrator's own connection for tests and syncs, GET admin/mcp-servers/{id}/connections/summary and DELETE admin/mcp-servers/{id}/connections; nh-assistant-connection-required (NhAssistantConnectionRequiredComponent), nh-assistant-mcp-connections with Connect and Disconnect, NhAssistantMcpConnectService, NhAssistantConfig.mcpConnectMode and mcpConnectReturnUrl, ConnectionRequiredPart and ConnectionRequiredEvent, and the mock's connectionRequired step and personalConnected",
+    "outcome": "An administrator adds a planning server that each person connects to with their own account and connects their own account to synchronize its tools. When Ann asks the agent before she connected, the answer goes on without the server, tells her why and shows a card that survives a reload; she connects in a popup, completes with her own session and asks again, and the agent calls the server with her account. Bob is asked for his own account and never gets Ann's. Disconnecting in the preferences revokes her tokens at once. A server that asks for more permissions than the connection grants records them and asks the person to connect again with them. In a background run of the status advisor the participant's connection serves the run only when the administrator offers the server in background runs and the participant consented when connecting; the audit names whose connection a call used, and an approved proposal executes with the connection of the person who asked or fails as not connected once they disconnected.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnectionService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpConnectionEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpPersonalConnectionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpHeadlessTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/connection-required/nh-assistant-connection-required.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/connection-required/nh-assistant-connection-required.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-mcp-connections.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-mcp-connect.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts"
+    ]
+  },
+  {
     "id": "SPM-301",
     "title": "The project object type is named in English and Dutch, bound to the Project entity, searched by name and linked to its page",
     "category": "AI tools and generated catalogs",
@@ -4600,8 +4666,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261019221610_AgentWorkOnObjects.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261019221614_AgentWorkOnObjects.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020003103_AgentWorkOnObjects.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020003111_AgentWorkOnObjects.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentWorksOnTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agent-editor.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-works-on.spec.ts",

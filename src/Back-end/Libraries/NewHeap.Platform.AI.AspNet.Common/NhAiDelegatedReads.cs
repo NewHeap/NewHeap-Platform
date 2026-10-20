@@ -395,8 +395,9 @@ internal sealed partial class NhAiDelegatedReadService(
 }
 
 /// <summary>
-/// Restricts delegated read tokens in every JWT bearer scheme of the host, so another scheme that
-/// trusts the same key cannot accept them either. The scheme's events are wrapped in
+/// Restricts delegated read tokens, and delegated MCP tokens (<see cref="NhAiMcpDelegatedTokenDefaults"/>),
+/// in every JWT bearer scheme of the host, so another scheme that trusts the same key cannot accept
+/// them either. The scheme's events are wrapped in
 /// <see cref="NhAiRestrictedJwtBearerEvents"/>, which applies the restriction before any handler of
 /// the host, including an override of <see cref="JwtBearerEvents.TokenValidated"/> in an events
 /// subclass.
@@ -479,6 +480,11 @@ internal sealed class NhAiRestrictedJwtBearerEvents : JwtBearerEvents
         if (!NhAiDelegatedReadRestriction.Allows(context))
         {
             context.Fail("The delegated read credential is not valid for this request.");
+            return Task.CompletedTask;
+        }
+        if (!NhAiMcpDelegatedTokenRestriction.Allows(context))
+        {
+            context.Fail("The delegated MCP token is not valid for this request.");
             return Task.CompletedTask;
         }
         return base.TokenValidated(context);

@@ -131,7 +131,29 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-mcp-unauthorized',
   'assistant-mcp-host-blocked',
   'assistant-mcp-schema-changed',
-  'assistant-mcp-tool-disabled'
+  'assistant-mcp-tool-disabled',
+  'assistant-mcp-insufficient-scope',
+  'assistant-mcp-headless-not-allowed',
+  'assistant-mcp-credential-mismatch',
+  'assistant-mcp-consent-required',
+  'assistant-mcp-delegated-token-unavailable',
+  'assistant-mcp-secret-reference-invalid',
+  'assistant-mcp-certificate-reference-invalid',
+  // MCP OAuth connections
+  'assistant-mcp-connection-required',
+  'assistant-mcp-reauthorization-required',
+  'assistant-mcp-scope-not-allowed',
+  'assistant-mcp-authorization-failed',
+  'assistant-mcp-authorization-expired',
+  'assistant-mcp-authorization-invalid',
+  'assistant-mcp-discovery-failed',
+  'assistant-mcp-pkce-unsupported',
+  'assistant-mcp-client-registration-required',
+  'assistant-mcp-token-request-failed',
+  'assistant-mcp-issuer-changed',
+  'assistant-mcp-authorization-not-confirmed',
+  'assistant-mcp-oauth-not-configured',
+  'assistant-mcp-too-many-authorizations'
 ];
 
 /** Every code the assistant UI can show: server codes and client-side transport codes. */

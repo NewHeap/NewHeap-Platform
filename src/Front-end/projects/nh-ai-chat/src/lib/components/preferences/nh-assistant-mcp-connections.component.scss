@@ -1,0 +1,112 @@
+@use '../../styles/tokens';
+@use '../../styles/forms';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  color: var(--nha-text);
+  @include forms.controls;
+}
+
+:host:empty {
+  display: none;
+}
+
+.connections {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 10px;
+  background: var(--nha-background);
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+
+  input {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--nha-highlight);
+  }
+
+  span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.details {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 4px 12px;
+  margin-left: 24px;
+}
+
+.host {
+  font-family: var(--nha-mono);
+  overflow-wrap: anywhere;
+}
+
+/* A service the person connects with their own account. */
+.account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+
+  .name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.item[data-status] .details {
+  margin-left: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.item > .message {
+  margin-top: 8px;
+}
+
+.agent + .agent::before {
+  content: ', ';
+}
+
+.load-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--nha-text-muted);
+  font-size: 13px;
+}

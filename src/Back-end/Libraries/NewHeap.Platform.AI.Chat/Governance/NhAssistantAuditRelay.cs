@@ -51,12 +51,28 @@ internal sealed class NhAssistantAuditRelay(
             CompletedAt = record.Timestamp,
             ConsultationId = turn.Consultation?.ConsultationId,
             ConsultationDepth = turn.Consultation?.Depth,
-            AskingAgentId = turn.Consultation?.AskingAgentId
+            AskingAgentId = turn.Consultation?.AskingAgentId,
+            McpConnectionOwner = McpConnectionOwnerOf(turn, record.ToolId)
         };
         foreach (var sink in _businessSinks)
         {
             await sink.RecordAsync(turn.WithPromptIdentity(evt), cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Whose credential an <c>mcp.&lt;server&gt;.&lt;tool&gt;</c> call carried; null for other tools.
+    /// </summary>
+    private static string? McpConnectionOwnerOf(NhAssistantTurnScope turn, string toolId)
+    {
+        var parts = toolId.Split('.', 3);
+        if (parts.Length < 3 || parts[0] != "mcp")
+        {
+            return null;
+        }
+        return turn.McpConnectionOwners is { } owners && owners.TryGetValue(parts[1], out var owner)
+            ? owner
+            : NhAssistantMcpConnectionOwners.None;
     }
 }
 

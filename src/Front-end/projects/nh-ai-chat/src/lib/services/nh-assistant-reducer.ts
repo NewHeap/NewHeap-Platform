@@ -96,6 +96,21 @@ export function applyNhAssistantEvent(
       return { ...withApproval, status: 'waiting-for-approval', pendingApproval: approval };
     }
 
+    case 'connection.required': {
+      const data = event.data;
+      // One card per server and answer, also when a live update repeats the event.
+      const current = [...conversation.messages].reverse().find(message => message.role === 'assistant');
+      if (current?.parts.some(part => part.type === 'connection-required' && part.serverId === data.serverId)) {
+        return conversation;
+      }
+      return appendToCurrentAssistantMessage(conversation, {
+        type: 'connection-required',
+        serverId: data.serverId,
+        displayName: data.displayName,
+        reason: data.reason
+      });
+    }
+
     case 'turn.completed': {
       const status = conversationStatusFor(event.data.status);
       return {
@@ -264,6 +279,9 @@ function partKey(part: MessagePart): string {
   }
   if (part.type === 'approval') {
     return part.approvalId;
+  }
+  if (part.type === 'connection-required') {
+    return `connection-${part.serverId}`;
   }
 
   return 'text';

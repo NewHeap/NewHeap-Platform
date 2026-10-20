@@ -101,6 +101,9 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
             NhAssistantApprovalRequiredEvent approval => ("approval.required", Json(
                 NhAssistantDtoMapper.ToDto(approval.Approval),
                 context.NhAssistantMessagePartDto)),
+            NhAssistantConnectionRequiredEvent connection => ("connection.required", Json(
+                new NhAssistantConnectionRequiredDto(connection.ServerId, connection.DisplayName, connection.Reason),
+                context.NhAssistantConnectionRequiredDto)),
             NhAssistantTurnCompletedEvent completed => ("turn.completed", Json(
                 new NhAssistantTurnCompletedDto(
                     completed.TurnId,
@@ -204,6 +207,10 @@ internal static class NhAssistantDtoMapper
         return part switch
         {
             NhAssistantTextPartView text => new NhAssistantTextPartDto(text.Text),
+            NhAssistantConnectionRequiredPartView connection => new NhAssistantConnectionRequiredPartDto(
+                connection.ServerId,
+                connection.DisplayName,
+                connection.Reason),
             NhAssistantToolCallPartView tool => new NhAssistantToolCallPartDto(
                 tool.InvocationId,
                 tool.ToolId,

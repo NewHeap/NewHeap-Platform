@@ -23,6 +23,7 @@ import {
 import { Observable, Subject } from 'rxjs';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
 import { NhAssistantMockSubjects } from './nh-assistant-mock-subjects';
+import { NhAssistantMockAuthorizationWindow } from './nh-assistant-mock-authorization';
 import {
   NhAssistantMockApprovalStep,
   NhAssistantMockPerson,
@@ -163,6 +164,25 @@ export class NhAssistantMockBackend {
     this.admin.setRemoteTools(serverId, tools);
   }
 
+  /**
+   * The window the assistant components open for MCP authorizations; `provideNhAssistantMockApi`
+   * provides it as `NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW`.
+   */
+  readonly authorizationWindow = new NhAssistantMockAuthorizationWindow(flowId => this.admin.authorizeFlow(flowId));
+
+  /** What the mock authorization window answers next: the person approves, denies or closes it. */
+  setMcpAuthorizationOutcome(outcome: 'approve' | 'deny' | 'cancel'): void {
+    this.admin.setMcpAuthorizationOutcome(outcome);
+  }
+
+  /**
+   * Simulates an OAuth connection that ended outside the application: a refused refresh
+   * (`reauthorization-required`) or another authorization server (`issuer-changed`).
+   */
+  setMcpConnectionStatus(serverId: string, status: 'reauthorization-required' | 'issuer-changed'): void {
+    this.admin.setMcpConnectionStatus(serverId, status);
+  }
+
   /** A `fetch` implementation that answers the assistant endpoints below `apiBaseUrl`. */
   readonly fetch = async (input: string, init: RequestInit): Promise<Response> => {
     const method = (init.method ?? 'GET').toUpperCase();
@@ -207,6 +227,9 @@ export class NhAssistantMockBackend {
     }
     if (path === 'preferences') {
       return this.result(this.admin.handlePreferences(method, body));
+    }
+    if (segments[0] === 'mcp-connections') {
+      return this.result(this.admin.handleMcpConnections(method, segments, body));
     }
     if (path === 'notifications') {
       if (method === 'PUT') {
@@ -477,6 +500,17 @@ export class NhAssistantMockBackend {
       } else if ('fail' in step) {
         await complete('failed', step.fail.errorCode);
         return;
+      } else if ('connectionRequired' in step) {
+        const needed = this.admin.connectionNeeded(step.connectionRequired.serverId);
+        if (!needed) {
+          continue;
+        }
+        await emit({ type: 'connection.required', data: { serverId: step.connectionRequired.serverId, ...needed } });
+        for (const piece of step.connectionRequired.text?.match(/\S+\s*|\s+/g) ?? []) {
+          usage.outputTokens++;
+          await emit({ type: 'message.delta', data: { messageId: assistantMessageId, text: piece } });
+        }
+        break;
       }
     }
 

@@ -9,6 +9,25 @@ ratings and diagnostic counts rather than prompt, response, reason or
 diagnostic content. The package contains no test runner and no `[Fact]` or
 `[Theory]` tests.
 
+## OAuth authorization server for MCP connections
+
+`NhAiTestAuthorizationServer` is an OAuth 2.1 authorization server on loopback for tests of MCP
+connections: metadata (RFC 8414 and OpenID Connect), authorization with scripted approval or denial,
+PKCE, the `iss` response parameter, refresh token rotation with reuse detection, client credentials,
+`client_secret_basic`, `client_secret_post` and `private_key_jwt`, dynamic registration, Client ID
+Metadata Documents and revocation. Access tokens are JWTs with the resource as audience.
+`NhAiTestProtectedResource` puts protected resource metadata (RFC 9728) and bearer validation in front
+of a test MCP server, with `401` challenges and `403 insufficient_scope` for missing scopes:
+
+```csharp
+await using var authorization = await NhAiTestAuthorizationServer.StartAsync();
+authorization.RegisterClient("assistant", "client-secret");
+var resource = new NhAiTestProtectedResource(authorization, mcpServerUrl, "/mcp");
+app.Use((context, next) => resource.InvokeAsync(context, () => next(context)));
+```
+
+`TokenRequests`, `Revocations`, `DynamicClients` and `Requests` record what happened without tokens.
+
 ## Scripted chat client
 
 `NhAiScriptedChatClient` plays a fixed script of model responses so agent and

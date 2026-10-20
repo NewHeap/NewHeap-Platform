@@ -1,6 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, Subscriber } from 'rxjs';
-import { AssistantPreferences } from '../models/assistant-admin.models';
+import {
+  AssistantPreferences,
+  McpAuthorizationStart,
+  McpAuthorizeRequest,
+  McpCompleteRequest,
+  McpCompletion,
+  McpConnection,
+  UpdateMcpConnectionRequest
+} from '../models/assistant-admin.models';
 import {
   AgentSummary,
   AssistantStatus,
@@ -144,6 +152,34 @@ export class NhAssistantApiService {
   /** Replaces the caller's own assistant preferences and returns the stored values. */
   updatePreferences(preferences: AssistantPreferences): Observable<AssistantPreferences> {
     return this.transport.json<AssistantPreferences>('PUT', 'preferences', preferences);
+  }
+
+  /** MCP servers that agents may use in background runs with the caller's own account. */
+  getMcpConnections(): Observable<McpConnection[]> {
+    return this.transport.json<McpConnection[]>('GET', 'mcp-connections');
+  }
+
+  /** Allows or withdraws background use of an MCP server with the caller's own account. */
+  updateMcpConnection(serverId: string, request: UpdateMcpConnectionRequest): Observable<McpConnection> {
+    return this.transport.json<McpConnection>('PUT', `mcp-connections/${encodeURIComponent(serverId)}`, request);
+  }
+
+  /**
+   * Starts the caller's authorization of a server each person connects to. Prefer
+   * `NhAssistantMcpConnectService.connect`, which opens and completes it.
+   */
+  authorizeMcpConnection(serverId: string, request: McpAuthorizeRequest = {}): Observable<McpAuthorizationStart> {
+    return this.transport.json<McpAuthorizationStart>('POST', `mcp-connections/${encodeURIComponent(serverId)}/authorize`, request);
+  }
+
+  /** Removes the caller's own connection of a server and revokes its tokens. */
+  disconnectMcpConnection(serverId: string): Observable<void> {
+    return this.transport.json<void>('DELETE', `mcp-connections/${encodeURIComponent(serverId)}`);
+  }
+
+  /** Activates the connection of an authorization the caller started, with the callback's completion code. */
+  completeMcpAuthorization(request: McpCompleteRequest): Observable<McpCompletion> {
+    return this.transport.json<McpCompletion>('POST', 'mcp-connections/complete', request);
   }
 
   private requestStream(path: string, body: unknown): Observable<NhAssistantSseEvent> {

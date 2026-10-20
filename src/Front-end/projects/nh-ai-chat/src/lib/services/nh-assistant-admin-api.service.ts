@@ -26,6 +26,13 @@ import {
   DataTriggerRequest,
   DataTriggerShadowRequest,
   ApplicationContextVersion,
+  McpAuthorizationStart,
+  McpAuthorizeRequest,
+  McpCompleteRequest,
+  McpCompletion,
+  McpConnectionsSummary,
+  McpDiscovery,
+  McpOrganizationConnection,
   McpServer,
   McpServerInput,
   McpServerTestResult,
@@ -183,6 +190,50 @@ export class NhAssistantAdminApiService {
 
   getMcpTools(serverId: string): Observable<McpTool[]> {
     return this.request<McpTool[]>('GET', `admin/mcp-servers/${encodeURIComponent(serverId)}/tools`);
+  }
+
+  /**
+   * Reads the protected resource metadata of a server address and its authorization server without
+   * storing anything. Save the server with `oauth.confirmAuthorization` to pin what was found.
+   */
+  discoverMcpServer(url: string): Observable<McpDiscovery> {
+    return this.request<McpDiscovery>('POST', 'admin/mcp-servers/discover', { url });
+  }
+
+  /** The organization's OAuth connection of a server, without tokens. */
+  getMcpOrganizationConnection(serverId: string): Observable<McpOrganizationConnection> {
+    return this.request<McpOrganizationConnection>('GET', `${mcpServerPath(serverId)}/connection`);
+  }
+
+  /**
+   * Starts the administrator's authorization of the organization connection. Open
+   * `authorizationUrl` in the administrator's browser, then complete with `completeMcpAuthorization`.
+   */
+  authorizeMcpOrganizationConnection(serverId: string, request: McpAuthorizeRequest = {}): Observable<McpAuthorizationStart> {
+    return this.request<McpAuthorizationStart>('POST', `${mcpServerPath(serverId)}/connection/authorize`, request);
+  }
+
+  /** Removes the organization connection and revokes its tokens. */
+  disconnectMcpOrganizationConnection(serverId: string): Observable<void> {
+    return this.request<void>('DELETE', `${mcpServerPath(serverId)}/connection`);
+  }
+
+  /** The personal connections of a server per status. */
+  getMcpConnectionsSummary(serverId: string): Observable<McpConnectionsSummary> {
+    return this.request<McpConnectionsSummary>('GET', `${mcpServerPath(serverId)}/connections/summary`);
+  }
+
+  /** Revokes every person's connection of a server; each person connects again. */
+  revokeMcpConnections(serverId: string): Observable<void> {
+    return this.request<void>('DELETE', `${mcpServerPath(serverId)}/connections`);
+  }
+
+  /**
+   * Activates the connection of an authorization the caller started with the completion code the
+   * callback handed to the browser. An organization connection also needs the admin policy.
+   */
+  completeMcpAuthorization(request: McpCompleteRequest): Observable<McpCompletion> {
+    return this.request<McpCompletion>('POST', 'mcp-connections/complete', request);
   }
 
   updateMcpTool(serverId: string, remoteName: string, request: UpdateMcpToolRequest): Observable<McpTool> {
@@ -347,6 +398,10 @@ export class NhAssistantAdminApiService {
   private request<T>(method: string, path: string, body?: unknown): Observable<T> {
     return this.transport.json<T>(method, path, body, adminStatusCodes);
   }
+}
+
+function mcpServerPath(serverId: string): string {
+  return `admin/mcp-servers/${encodeURIComponent(serverId)}`;
 }
 
 function feedbackPath(agentId: string): string {

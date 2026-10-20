@@ -21,6 +21,40 @@ export interface AssistantPreferences {
   customInstructions: string | null;
 }
 
+/**
+ * An MCP server that agents may use in background runs with the caller's own account once the
+ * caller allows it (`GET mcp-connections`). The consent holds for the server as it is configured
+ * now; a changed address or authentication shows it as not allowed again.
+ */
+export interface McpConnection {
+  serverId: string;
+  displayName: string;
+  /** The server's host name, for example `planning.example.org`. */
+  host: string;
+  allowBackgroundUse: boolean;
+  /** When the caller allowed it; `null` while not allowed. */
+  consentedAt: string | null;
+  /** The agents the caller may use that have the server. */
+  agentIds: string[];
+  /**
+   * For a server each person connects to with OAuth: the caller's connection; `null` for a server
+   * that forwards the caller's sign-in.
+   */
+  connectionStatus: McpConnectionStatus | null;
+  /** The scopes the caller's connection grants. */
+  grantedScopes: string | null;
+  /** Scopes the server asked for that the connection lacks; connecting again adds them. */
+  requiredScopes: string | null;
+  connectedAt: string | null;
+  /** Whether background use is offered for the server at all. */
+  offersBackgroundUse: boolean;
+}
+
+/** Body of `PUT mcp-connections/{serverId}`. */
+export interface UpdateMcpConnectionRequest {
+  allowBackgroundUse: boolean;
+}
+
 export interface ApplicationContext {
   text: string;
   version: number;
@@ -243,7 +277,135 @@ export interface SetAgentStateRequest {
   reason?: string | null;
 }
 
-export type McpAuthMode = 'none' | 'bearer' | 'api-key' | 'forward-user-token';
+/**
+ * `oauth` connects with the authorization code flow: once for the organization or once per person
+ * (`McpConnectionScope`). `oauth-client-credentials` connects the organization with the host's own
+ * client credentials.
+ */
+export type McpAuthMode = 'none' | 'bearer' | 'api-key' | 'basic' | 'forward-user-token' | 'oauth' | 'oauth-client-credentials';
+
+/** For `oauth`: one connection for everyone (`organization`), or each person connects (`user`). */
+export type McpConnectionScope = 'organization' | 'user';
+
+/** The state of an OAuth connection; it never carries tokens. */
+export type McpConnectionStatus = 'not-connected' | 'active' | 'reauthorization-required' | 'issuer-changed';
+
+/**
+ * OAuth settings of a server. Omitted or `null` values keep the stored value, `""` clears it.
+ * `clientSecret` is write-only. `confirmAuthorization` runs discovery again and pins the
+ * authorization server and resource it finds; a new OAuth server and a changed address need it.
+ */
+export interface McpOAuthInput {
+  clientId?: string | null;
+  clientSecret?: string | null;
+  clientSecretReference?: string | null;
+  /** Space-separated scopes the host may request; empty leaves the choice to the authorization server. */
+  scopes?: string | null;
+  /** Which account the organization connects, shown to everyone using it; required for an organization `oauth` server. */
+  organizationAccountLabel?: string | null;
+  confirmAuthorization?: boolean;
+}
+
+/** The OAuth settings of a server as returned: never the client secret. */
+export interface McpOAuthSettings {
+  clientId: string | null;
+  hasClientSecret: boolean;
+  clientSecretReference: string | null;
+  scopes: string | null;
+  organizationAccountLabel: string | null;
+}
+
+/** The authorization server and resource an administrator confirmed. */
+export interface McpAuthorization {
+  issuer: string;
+  resource: string;
+  confirmedAt: string;
+  confirmedBy: string | null;
+}
+
+/** The organization's OAuth connection of a server, without tokens. */
+export interface McpOrganizationConnection {
+  status: McpConnectionStatus;
+  connectedAt: string | null;
+  connectedBy: string | null;
+  grantedScopes: string | null;
+  requiredScopes: string | null;
+  accessTokenExpiresAt: string | null;
+  lastFailureCode: string | null;
+}
+
+/** Body of `POST admin/mcp-servers/discover`. */
+export interface McpDiscoverRequest {
+  url: string;
+}
+
+/** What discovery found for a server address; nothing is stored until the server is saved with `confirmAuthorization`. */
+export interface McpDiscovery {
+  resource: string;
+  issuer: string;
+  authorizationServers: string[];
+  challengedScopes: string[];
+  scopesSupported: string[];
+  grantTypesSupported: string[];
+  pkceSupported: boolean;
+  clientIdMetadataDocumentSupported: boolean;
+  dynamicRegistrationSupported: boolean;
+  tokenEndpointAuthMethods: string[];
+}
+
+/**
+ * Body of an authorize request. `returnUrl` chooses redirect mode: the callback returns there with
+ * the flow and completion code in the fragment; its origin must be allowed by the host.
+ */
+export interface McpAuthorizeRequest {
+  returnUrl?: string | null;
+  /** For a personal connection: the consent to background use, recorded with the connection. */
+  allowBackgroundUse?: boolean | null;
+}
+
+/** The flow and the URL the owner's browser opens; it expires at `expiresAt`. */
+export interface McpAuthorizationStart {
+  flowId: string;
+  authorizationUrl: string;
+  expiresAt: string;
+  /** The origin of the assistant's callback page: the only origin whose message is accepted. */
+  callbackOrigin: string;
+}
+
+/** Body of `POST mcp-connections/complete`. */
+export interface McpCompleteRequest {
+  flowId: string;
+  completionCode: string;
+}
+
+/** The connection a completed authorization activated. */
+export interface McpCompletion {
+  serverId: string;
+  ownerKind: 'organization' | 'user';
+  status: McpConnectionStatus;
+  grantedScopes: string | null;
+}
+
+/** The personal connections of a server per status. */
+export interface McpConnectionsSummary {
+  active: number;
+  reauthorizationRequired: number;
+  issuerChanged: number;
+}
+
+/**
+ * Whether a server's tools are offered in background runs. `organization` is only valid for
+ * `none`, `bearer`, `api-key` and `basic`; the agent then also needs a grant in code
+ * (`mcp.<server>.*`). `personal` is only valid for `forward-user-token`: the run then sends a
+ * short-lived token of the person it acts for, once that person allowed it (`McpConnection`).
+ */
+export type McpHeadlessUse = 'never' | 'organization' | 'personal';
+
+/**
+ * `streamable-http`, or `auto` to fall back to the deprecated HTTP+SSE transport for servers
+ * that do not offer Streamable HTTP yet.
+ */
+export type McpTransport = 'streamable-http' | 'auto';
 
 export interface McpServerInput {
   id: string;
@@ -255,6 +417,23 @@ export interface McpServerInput {
   secret?: string | null;
   requiredPolicy: string | null;
   isEnabled: boolean;
+  /** Omit to keep the stored value; a new server starts at `never`. */
+  headlessUse?: McpHeadlessUse;
+  /** The user name of `basic`; the password is `secret`. Omit to keep the stored value. */
+  userName?: string | null;
+  /**
+   * Where the secret is instead of storing it: `config:<name>` or a prefix the application
+   * registered. Omit to keep, `""` to clear; a new stored secret replaces it and vice versa.
+   */
+  secretReference?: string | null;
+  /** The name of a client certificate the host configured for mutual TLS. Omit to keep, `""` to clear. */
+  clientCertificateReference?: string | null;
+  /** Omit to keep the stored value; a new server starts at `streamable-http`. */
+  transport?: McpTransport;
+  /** For `oauth`; omit to keep the stored value. A new server starts at `organization`. */
+  connectionScope?: McpConnectionScope;
+  /** The OAuth settings of `oauth` and `oauth-client-credentials`; omit to keep them. */
+  oauth?: McpOAuthInput | null;
 }
 
 export interface McpServer {
@@ -269,6 +448,24 @@ export interface McpServer {
   lastSyncAt: string | null;
   lastSyncStatus: 'ok' | 'failed' | null;
   assignedAgentIds: string[];
+  headlessUse: McpHeadlessUse;
+  /** When a test, a sync or a turn with the shared credential last connected. */
+  lastConnectAt: string | null;
+  /** The failure code of that connection; `null` when it succeeded or never ran. */
+  lastConnectCode: string | null;
+  /** The user name of `basic`; the password is never returned. */
+  userName: string | null;
+  /** The secret reference; it names where the secret is, it is not the secret. */
+  secretReference: string | null;
+  clientCertificateReference: string | null;
+  transport: McpTransport;
+  connectionScope: McpConnectionScope;
+  /** The OAuth settings; `null` for other modes. */
+  oauth: McpOAuthSettings | null;
+  /** The confirmed authorization server; `null` until an administrator confirmed it. */
+  authorization: McpAuthorization | null;
+  /** The organization's OAuth connection; `null` for servers without one. */
+  organizationConnection: McpOrganizationConnection | null;
 }
 
 export interface McpServerTestResult {

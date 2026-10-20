@@ -61,6 +61,11 @@ internal sealed class NhAssistantTurnScope
     public Runs.NhAssistantConsultationScope? Consultation { get; init; }
 
     /// <summary>
+    /// Whose credential the tools of each loaded MCP server carry, for the audit of their calls.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? McpConnectionOwners { get; set; }
+
+    /// <summary>
     /// Adds the content-free prompt identity of this turn to an audit event.
     /// </summary>
     public NhAssistantAuditEvent WithPromptIdentity(NhAssistantAuditEvent evt)

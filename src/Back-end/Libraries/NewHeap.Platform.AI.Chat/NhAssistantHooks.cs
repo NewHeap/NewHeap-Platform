@@ -194,7 +194,50 @@ public enum NhAssistantAuditEventKind
     /// the administration. <c>ObjectId</c> is the agent and <c>AgentVersion</c> the settings'
     /// version; <c>ResultCode</c> is <c>created</c>, <c>changed</c> or <c>removed</c>.
     /// </summary>
-    AdminAgentRunSettingsChanged = 52
+    AdminAgentRunSettingsChanged = 52,
+
+    /// <summary>
+    /// Headless requests to a <c>forward-user-token</c> MCP server received delegated tokens for the
+    /// person the run acts for, or were refused them; one event per turn, server, person and outcome.
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> is the server, <see cref="NhAssistantAuditEvent.ActorId"/>
+    /// the person, <see cref="NhAssistantAuditEvent.ResultCode"/> <c>issued</c> or the refusal code and
+    /// <see cref="NhAssistantAuditEvent.TokenCount"/> the number of tokens.
+    /// </summary>
+    McpDelegatedTokenIssued = 53,
+
+    /// <summary>
+    /// A person gave or withdrew consent to background use of an MCP server.
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>allowed</c> or <c>withdrawn</c>.
+    /// </summary>
+    McpBackgroundUseChanged = 54,
+
+    /// <summary>
+    /// A personal or organization OAuth connection became active. <see cref="NhAssistantAuditEvent.ObjectId"/>
+    /// is the server, <see cref="NhAssistantAuditEvent.ActorId"/> the person who connected it and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>organization</c> or <c>user</c>.
+    /// </summary>
+    McpConnectionConnected = 55,
+
+    /// <summary>
+    /// An OAuth connection was removed; <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>person</c>,
+    /// <c>administrator</c>, <c>server-changed</c> or <c>retention</c>.
+    /// </summary>
+    McpConnectionDisconnected = 56,
+
+    /// <summary>
+    /// Renewing an OAuth connection failed permanently; its owner has to connect again.
+    /// </summary>
+    McpConnectionReauthorizationRequired = 57,
+
+    /// <summary>
+    /// An administrator revoked all personal connections of a server.
+    /// </summary>
+    AdminMcpConnectionsRevoked = 58,
+
+    /// <summary>
+    /// An administrator confirmed a server's authorization server and resource after discovery.
+    /// </summary>
+    AdminMcpServerAuthorizationConfirmed = 59
 }
 
 /// <summary>
@@ -339,6 +382,19 @@ public sealed record NhAssistantAuditEvent(
     public long? OutputTokens { get; init; }
 
     public int? ProposalCount { get; init; }
+
+    /// <summary>
+    /// The number of delegated MCP tokens a <see cref="NhAssistantAuditEventKind.McpDelegatedTokenIssued"/>
+    /// event covers: those issued, or refused, for one server and person in a turn.
+    /// </summary>
+    public int? TokenCount { get; init; }
+
+    /// <summary>
+    /// Whose credential a <see cref="NhAssistantAuditEventKind.ToolInvoked"/> call of an MCP tool
+    /// carried: <c>organization</c> for the server's own credential, the person's actor id for a
+    /// personal connection or a forwarded sign-in, or <c>none</c>. Null for other tools.
+    /// </summary>
+    public string? McpConnectionOwner { get; init; }
 }
 
 /// <summary>

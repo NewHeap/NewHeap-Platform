@@ -1,10 +1,11 @@
 import { Pipe, PipeTransform } from '@angular/core';
-import { ApprovalPart, MessagePart, TextPart, ToolCallPart } from '../models/assistant-api.models';
+import { ApprovalPart, ConnectionRequiredPart, MessagePart, TextPart, ToolCallPart } from '../models/assistant-api.models';
 
 /** A message part as the thread renders it: consecutive tool calls form one group. */
 export type NhAssistantPartGroup =
   | { kind: 'text'; key: string; part: TextPart }
   | { kind: 'approval'; key: string; part: ApprovalPart }
+  | { kind: 'connection'; key: string; part: ConnectionRequiredPart }
   | { kind: 'tools'; key: string; calls: ToolCallPart[] };
 
 /**
@@ -29,6 +30,8 @@ export function groupNhAssistantParts(parts: readonly MessagePart[]): NhAssistan
     tools = null;
     if (part.type === 'approval') {
       groups.push({ kind: 'approval', key: `approval:${part.approvalId}`, part });
+    } else if (part.type === 'connection-required') {
+      groups.push({ kind: 'connection', key: `connection:${part.serverId}:${index}`, part });
     } else {
       groups.push({ kind: 'text', key: `text:${index}`, part });
     }

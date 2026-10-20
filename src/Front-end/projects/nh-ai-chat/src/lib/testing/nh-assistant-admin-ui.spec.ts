@@ -907,12 +907,14 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     expect(Object.keys(body)).not.toContain('secret');
   });
 
-  it('replaces or clears the secret explicitly', async () => {
+  it('replaces the secret explicitly and removes it only with a mode that needs none', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
 
     button(element, 'Edit').click();
     await settle(fixture);
+    // A bearer token always needs a secret, so there is nothing to clear.
+    expect(buttons(element, 'Clear')).toEqual([]);
     button(element, 'Replace').click();
     fixture.detectChanges();
     const password = element.querySelector('input[type="password"]') as HTMLInputElement;
@@ -924,25 +926,153 @@ describe('NhAssistantAdminMcpServersComponent', () => {
 
     button(element, 'Edit').click();
     await settle(fixture);
-    button(element, 'Clear').click();
+    choose(element, 'select[id$="-auth"]', 'none');
     fixture.detectChanges();
-    expect(element.textContent).toContain('The secret will be cleared when you save.');
     button(element, 'Save').click();
     await settle(fixture);
 
     const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as { secret?: string }[];
     expect(bodies.map(body => body.secret)).toEqual(['new-secret', '']);
-    expect(element.textContent).toContain('No secret');
+    expect(element.textContent).toContain('No authentication');
+    expect(element.textContent).not.toContain('Secret set');
   });
 
   it('tests the connection and shows the result', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+    expect(element.textContent).toContain('Not connected yet');
 
     button(element, 'Test connection').click();
     await settle(fixture);
 
     expect(element.querySelector('[role="status"]')?.textContent).toContain('The connection works: 2 tools.');
+    expect(element.textContent).toContain('Last connection');
+    expect(element.textContent).not.toContain('Not connected yet');
+  });
+
+  it('offers background runs with the organization credential, or with the person\'s own account for a forwarded token', async () => {
+    await configure();
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+    expect(element.textContent).toContain('Not in background runs');
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    const headless = element.querySelector('select[id$="-headless"]') as HTMLSelectElement;
+    expect(headless.disabled).toBeFalse();
+    expect(headless.value).toBe('never');
+    headless.value = 'organization';
+    headless.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    expect(element.textContent).toContain('Background runs with this credential');
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    const auth = element.querySelector('select[id$="-auth"]') as HTMLSelectElement;
+    auth.value = 'forward-user-token';
+    auth.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const personal = element.querySelector('select[id$="-headless"]') as HTMLSelectElement;
+    // The organization's credential does not exist for a forwarded token.
+    expect(Array.from(personal.options).map(option => option.value)).toEqual(['never', 'personal']);
+    expect(personal.value).toBe('never');
+    expect(element.textContent).toContain('only after that person allowed it in their preferences');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    choose(element, 'select[id$="-headless"]', 'personal');
+    fixture.detectChanges();
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as { headlessUse?: string }[];
+    expect(bodies.map(body => body.headlessUse)).toEqual(['organization', 'never', 'personal']);
+    expect(element.textContent).toContain("Background runs with the person's own account, after consent");
+  });
+
+  it('asks a user name for basic authentication and keeps the password write-only', async () => {
+    await configure();
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    choose(element, 'select[id$="-auth"]', 'basic');
+    fixture.detectChanges();
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.textContent).toContain('Enter a user name without a colon');
+    expect(requestBodies('PUT', 'admin/mcp-servers/files')).toEqual([]);
+
+    type(element, 'input[id$="-user"]', 'planner');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    const [body] = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
+    expect(body['authMode']).toBe('basic');
+    expect(body['userName']).toBe('planner');
+    expect(Object.keys(body)).not.toContain('secret');
+    expect(element.textContent).toContain('User name and password');
+    expect(element.textContent).toContain('Secret set');
+    expect(element.innerHTML).not.toContain(secretValue);
+  });
+
+  it('refers to a secret of the application instead of storing one', async () => {
+    const script = scenario();
+    script.admin!.secretReferences = ['config:files-token'];
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    check(element, 'input[type="radio"][value="reference"]');
+    fixture.detectChanges();
+    expect(element.querySelector('input[type="password"]')).toBeNull();
+    type(element, 'input[id$="-secret-reference"]', 'config:../files');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.textContent).toContain('Enter a reference such as config:planning-token.');
+
+    type(element, 'input[id$="-secret-reference"]', 'vault:files');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('The secret reference names no available secret.');
+
+    type(element, 'input[id$="-secret-reference"]', 'config:files-token');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
+    expect(bodies.map(body => body['secretReference'])).toEqual(['vault:files', 'config:files-token']);
+    expect(bodies.every(body => !('secret' in body))).toBeTrue();
+    expect(element.textContent).toContain('Secret from config:files-token');
+  });
+
+  it('names a client certificate and chooses the HTTP+SSE fallback', async () => {
+    const script = scenario();
+    script.admin!.clientCertificates = ['files-client'];
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    type(element, 'input[id$="-certificate"]', 'unknown-client');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('The client certificate is not configured or has no private key.');
+
+    type(element, 'input[id$="-certificate"]', 'files-client');
+    choose(element, 'select[id$="-transport"]', 'auto');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
+    expect(bodies[bodies.length - 1]).toEqual(jasmine.objectContaining({ clientCertificateReference: 'files-client', transport: 'auto' }));
+    expect(element.textContent).toContain('Client certificate files-client');
+    expect(element.textContent).toContain('HTTP+SSE fallback');
   });
 
   it('syncs tools disabled as changes, shows hints as hints and enables a tool as read-only', async () => {
@@ -993,6 +1123,111 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     expect(card.querySelector('[role="alert"]')?.textContent).toContain("The tool's input changed on the server");
     expect((card.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBeFalse();
     expect(element.querySelector('.card[data-status="missing"]')?.textContent).toContain('The server no longer lists this tool.');
+  });
+
+  it('adds an OAuth server only after the administrator read and confirmed its authorization server', async () => {
+    await configure();
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+
+    button(element, 'New server').click();
+    await settle(fixture);
+    type(element, 'input[id$="-id"]', 'crm');
+    type(element, 'input[id$="-name"]', 'CRM');
+    type(element, 'input[id$="-url"]', 'https://crm.example.com/mcp');
+    choose(element, 'select[id$="-auth"]', 'oauth');
+    fixture.detectChanges();
+    expect(element.textContent).toContain('every user of the server\'s agents acts as the connected account');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.textContent).toContain('Name the account that will be connected.');
+    expect(element.textContent).toContain('Read the authorization and confirm it.');
+    expect(requestBodies('POST', 'admin/mcp-servers')).toEqual([]);
+
+    type(element, 'input[id$="-account-label"]', 'CRM service account');
+    button(element, 'Read authorization').click();
+    await settle(fixture);
+    expect(element.querySelector('.discovery')?.textContent).toContain('https://auth.crm.example.com');
+    expect((element.querySelector('input[id$="-scopes"]') as HTMLInputElement).value).toBe('mcp:read');
+    check(element, '.discovery input[type="checkbox"]');
+    type(element, 'input[id$="-client-id"]', 'assistant-crm');
+    fixture.detectChanges();
+    type(element, 'input[id$="-oauth-secret"]', 'test-crm-client-secret');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    expect(requestBodies('POST', 'admin/mcp-servers')).toEqual([jasmine.objectContaining({
+      authMode: 'oauth',
+      connectionScope: 'organization',
+      oauth: {
+        clientId: 'assistant-crm',
+        clientSecret: 'test-crm-client-secret',
+        scopes: 'mcp:read',
+        organizationAccountLabel: 'CRM service account',
+        confirmAuthorization: true
+      }
+    })]);
+    expect(element.textContent).toContain('Not connected');
+    expect(element.textContent).toContain('Everyone acts as CRM service account');
+    expect(element.innerHTML).not.toContain('test-crm-client-secret');
+  });
+
+  it('connects the administrator\'s own account to a server people connect to and revokes everyone\'s after confirmation', async () => {
+    const script = scenario();
+    script.admin!.mcpServers!.push({
+      id: 'calendar', displayName: 'Calendar', url: 'https://calendar.example.com/mcp', authMode: 'oauth', headerName: null, requiredPolicy: null,
+      isEnabled: true, connectionScope: 'user', oauth: { clientId: 'assistant-calendar', scopes: 'calendar:read' }
+    });
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+    const card = (): HTMLElement => Array.from(element.querySelectorAll<HTMLElement>('.card')).find(item => item.textContent?.includes('Calendar'))!;
+
+    expect(card().textContent).toContain('Each person connects');
+    expect(card().textContent).toContain('Personal connections: 0');
+    expect(buttons(card(), 'Revoke all personal connections').length).toBe(0);
+    button(card(), 'Connect my account').click();
+    await settle(fixture);
+    expect(card().textContent).toContain('Your own account is connected; tests and syncs use it.');
+    expect(card().textContent).toContain('Personal connections: 1');
+
+    button(card(), 'Revoke all personal connections').click();
+    fixture.detectChanges();
+    button(card(), 'Revoke for everyone').click();
+    await settle(fixture);
+    expect(card().textContent).toContain('Every personal connection was revoked.');
+    expect(requestBodies('DELETE', 'admin/mcp-servers/calendar/connections').length).toBe(1);
+  });
+
+  it('connects the organization through the authorization window and disconnects after confirmation', async () => {
+    const script = scenario();
+    script.admin!.mcpServers!.push({
+      id: 'crm', displayName: 'CRM', url: 'https://crm.example.com/mcp', authMode: 'oauth', headerName: null, requiredPolicy: null,
+      isEnabled: true, connectionScope: 'organization',
+      oauth: { clientId: 'assistant-crm', scopes: 'mcp:read', organizationAccountLabel: 'CRM service account' }
+    });
+    await configure(script);
+    const backend = TestBed.inject(NhAssistantMockBackend);
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+    const card = (): HTMLElement => Array.from(element.querySelectorAll<HTMLElement>('.card')).find(item => item.textContent?.includes('CRM'))!;
+
+    backend.setMcpAuthorizationOutcome('deny');
+    button(card(), 'Connect').click();
+    await settle(fixture);
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('The authorization was not given.');
+
+    backend.setMcpAuthorizationOutcome('approve');
+    button(card(), 'Connect').click();
+    await settle(fixture);
+    expect(backend.authorizationWindow.shown.length).toBe(2);
+    expect(card().textContent).toContain('The organization\'s account is connected.');
+    expect(card().textContent).toContain('Connected by current-user');
+    expect(requestBodies('POST', 'mcp-connections/complete').length).toBe(1);
+
+    button(card(), 'Disconnect').click();
+    fixture.detectChanges();
+    button(card(), 'Disconnect and revoke').click();
+    await settle(fixture);
+    expect(card().textContent).toContain('Not connected');
+    expect(card().textContent).toContain('The connection was removed and its tokens revoked.');
   });
 });
 

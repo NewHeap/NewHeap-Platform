@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import {
   AdminAgentInput,
+  McpServerInput,
   NhAssistantAdminApiService,
   NhAssistantApiError,
   NhAssistantApiService,
@@ -166,7 +167,7 @@ describe('provideNhAssistantMockApi administration', () => {
       .toBe('assistant-instructions-too-long');
   });
 
-  it('never returns a secret and keeps, replaces or clears it on update', async () => {
+  it('never returns a secret, keeps or replaces it and requires one for a mode that sends it', async () => {
     const [server] = await firstValueFrom(admin.getMcpServers());
     const { hasSecret, lastSyncAt, lastSyncStatus, assignedAgentIds, ...input } = server;
 
@@ -175,13 +176,18 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(JSON.stringify(server)).not.toContain('top-secret-value');
 
     const kept = await firstValueFrom(admin.updateMcpServer('files', { ...input, displayName: 'Files 2' }));
-    const cleared = await firstValueFrom(admin.updateMcpServer('files', { ...input, secret: '' }));
+    const refusedClear = await failure(firstValueFrom(admin.updateMcpServer('files', { ...input, secret: '' })));
     const replaced = await firstValueFrom(admin.updateMcpServer('files', { ...input, secret: 'new-value' }));
+    const withoutSecret = await failure(firstValueFrom(admin.createMcpServer({ ...input, id: 'keyless', authMode: 'api-key', secret: undefined })));
+    const noneMode = await firstValueFrom(admin.updateMcpServer('files', { ...input, authMode: 'none', secret: undefined }));
 
     expect(kept.hasSecret).toBeTrue();
-    expect(cleared.hasSecret).toBeFalse();
+    expect(refusedClear).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-validation', fieldErrors: { secret: ['required'] } }));
     expect(replaced.hasSecret).toBeTrue();
     expect(JSON.stringify(replaced)).not.toContain('new-value');
+    expect(withoutSecret).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-validation' }));
+    // A mode without a secret drops the stored one.
+    expect(noneMode.hasSecret).toBeFalse();
   });
 
   it('syncs tools disabled as mutations, keeps hints as hints and disables a tool on a schema change', async () => {
@@ -208,14 +214,14 @@ describe('provideNhAssistantMockApi administration', () => {
     await firstValueFrom(admin.createMcpServer({ ...base, id: 'blocked', url: 'https://169.254.169.254/mcp', authMode: 'none' }));
     await firstValueFrom(admin.createMcpServer({ ...base, id: 'down', url: 'https://unreachable.example.com/mcp', authMode: 'none' }));
     await firstValueFrom(admin.createMcpServer({ ...base, id: 'forward', url: 'https://other.example.com/mcp', authMode: 'forward-user-token' }));
-    await firstValueFrom(admin.createMcpServer({ ...base, id: 'keyless', url: 'https://keys.example.com/mcp', authMode: 'api-key' }));
+    await firstValueFrom(admin.createMcpServer({ ...base, id: 'keyless', url: 'https://keys.example.com/mcp', authMode: 'api-key', secret: 'key' }));
     await firstValueFrom(admin.createMcpServer({ ...base, id: 'planning', url: 'https://planning.example.com/mcp', authMode: 'forward-user-token' }));
 
     const results = await Promise.all(['blocked', 'down', 'forward', 'keyless', 'planning'].map(id => firstValueFrom(admin.testMcpServer(id))));
     const syncFailure = await failure(firstValueFrom(admin.syncMcpServer('down')));
 
     expect(results.map(result => result.code)).toEqual([
-      'assistant-mcp-host-blocked', 'assistant-mcp-unreachable', 'assistant-mcp-host-blocked', 'assistant-mcp-unauthorized', null
+      'assistant-mcp-host-blocked', 'assistant-mcp-unreachable', 'assistant-mcp-host-blocked', null, null
     ]);
     const blockedSync = await failure(firstValueFrom(admin.syncMcpServer('blocked')));
 
@@ -223,6 +229,78 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(blockedSync).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-mcp-host-blocked' }));
     expect((await firstValueFrom(admin.getMcpServers())).find(server => server.id === 'down')?.lastSyncStatus).toBe('failed');
     expect((await firstValueFrom(admin.getMcpServers())).find(server => server.id === 'keyless')?.headerName).toBe('X-Api-Key');
+  });
+
+  it('keeps headless use per server and records the connection state like the server', async () => {
+    const base = { displayName: 'Server', headerName: null, requiredPolicy: null, isEnabled: true, authMode: 'none' as const };
+    const created = await firstValueFrom(admin.createMcpServer({ ...base, id: 'docs', url: 'https://docs.example.com/mcp' }));
+    const allowed = await firstValueFrom(admin.updateMcpServer('docs', {
+      ...base, id: 'docs', url: 'https://docs.example.com/mcp', headlessUse: 'organization'
+    }));
+    const kept = await firstValueFrom(admin.updateMcpServer('docs', { ...base, id: 'docs', url: 'https://docs.example.com/mcp' }));
+    const forwarded = await failure(firstValueFrom(admin.updateMcpServer('docs', {
+      ...base, id: 'docs', url: 'https://docs.example.com/mcp', authMode: 'forward-user-token'
+    })));
+    await firstValueFrom(admin.testMcpServer('docs'));
+    const [server] = (await firstValueFrom(admin.getMcpServers())).filter(item => item.id === 'docs');
+
+    expect(created.headlessUse).toBe('never');
+    expect(created.lastConnectAt).toBeNull();
+    expect(allowed.headlessUse).toBe('organization');
+    expect(kept.headlessUse).toBe('organization');
+    expect(forwarded).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-validation' }));
+    expect(server.lastConnectAt).not.toBeNull();
+    expect(server.lastConnectCode).toBeNull();
+  });
+
+  it('validates basic authentication, secret references and client certificates like the server', async () => {
+    const base = { displayName: 'Vault', headerName: null, requiredPolicy: null, isEnabled: true, id: 'vault', url: 'https://vault.example.com/mcp' };
+    const noUser = await failure(firstValueFrom(admin.createMcpServer({ ...base, authMode: 'basic', secret: 'basic-password' })));
+    const basic = await firstValueFrom(admin.createMcpServer({ ...base, authMode: 'basic', userName: 'planner', secret: 'basic-password' }));
+    const referenced = await firstValueFrom(admin.updateMcpServer('vault', { ...base, authMode: 'bearer', secretReference: 'config:vault-token' }));
+    const unknownPrefix = await failure(firstValueFrom(admin.updateMcpServer('vault', { ...base, authMode: 'bearer', secretReference: 'vault:token' })));
+    const climbing = await failure(firstValueFrom(admin.updateMcpServer('vault', { ...base, authMode: 'bearer', secretReference: 'config:a/../b' })));
+    const certificate = await failure(firstValueFrom(admin.updateMcpServer('vault', { ...base, authMode: 'none', clientCertificateReference: 'missing' })));
+    const auto = await firstValueFrom(admin.updateMcpServer('vault', { ...base, authMode: 'none', transport: 'auto' }));
+
+    expect(noUser).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-validation' }));
+    expect(basic.userName).toBe('planner');
+    expect(basic.hasSecret).toBeTrue();
+    expect(basic.transport).toBe('streamable-http');
+    expect(JSON.stringify(basic)).not.toContain('basic-password');
+    expect(referenced.secretReference).toBe('config:vault-token');
+    expect(referenced.hasSecret).toBeFalse();
+    expect(referenced.userName).toBeNull();
+    expect(unknownPrefix.code).toBe('assistant-mcp-secret-reference-invalid');
+    expect(climbing.code).toBe('assistant-validation');
+    expect(certificate.code).toBe('assistant-mcp-certificate-reference-invalid');
+    expect(auto.transport).toBe('auto');
+    expect(auto.secretReference).toBeNull();
+  });
+
+  it('records the caller\'s consent to a personal server until its address or authentication changes', async () => {
+    const planning = {
+      id: 'planning', displayName: 'Planning', url: 'https://planning.example.com/mcp', authMode: 'forward-user-token' as const,
+      headerName: null, requiredPolicy: null, isEnabled: true, headlessUse: 'personal' as const
+    };
+    await firstValueFrom(admin.createMcpServer(planning));
+    const unassigned = await firstValueFrom(api.getMcpConnections());
+    await firstValueFrom(admin.createAgent({ ...newAgent, mcpServerIds: ['planning'] }));
+    const [listed] = await firstValueFrom(api.getMcpConnections());
+    const allowed = await firstValueFrom(api.updateMcpConnection('planning', { allowBackgroundUse: true }));
+    const notPersonal = await failure(firstValueFrom(api.updateMcpConnection('files', { allowBackgroundUse: true })));
+    await firstValueFrom(admin.updateMcpServer('planning', { ...planning, url: 'https://planning.example.com/mcp/v2' }));
+    const [moved] = await firstValueFrom(api.getMcpConnections());
+
+    expect(unassigned).toEqual([]);
+    expect(listed).toEqual({
+      serverId: 'planning', displayName: 'Planning', host: 'planning.example.com', allowBackgroundUse: false, consentedAt: null, agentIds: ['support-agent'],
+      connectionStatus: null, grantedScopes: null, requiredScopes: null, connectedAt: null, offersBackgroundUse: true
+    });
+    expect(allowed.allowBackgroundUse).toBeTrue();
+    expect(allowed.consentedAt).not.toBeNull();
+    expect(notPersonal).toEqual(jasmine.objectContaining({ status: 404, code: 'assistant-mcp-server-not-found' }));
+    expect(moved.allowBackgroundUse).toBeFalse();
   });
 
   it('answers with the specific contract codes for duplicates, missing items and resets', async () => {
@@ -257,5 +335,163 @@ describe('provideNhAssistantMockApi administration', () => {
     await firstValueFrom(admin.deleteMcpServer('files'), { defaultValue: undefined });
 
     expect((await firstValueFrom(admin.getAgents())).find(agent => agent.id === 'support-agent')?.mcpServerIds).toEqual([]);
+  });
+
+  describe('OAuth', () => {
+    const crm: McpServerInput = {
+      id: 'crm',
+      displayName: 'CRM',
+      url: 'https://crm.example.com/mcp',
+      authMode: 'oauth',
+      headerName: null,
+      requiredPolicy: null,
+      isEnabled: true,
+      connectionScope: 'organization',
+      oauth: { clientId: 'assistant', clientSecret: 'test-client-secret-value', scopes: 'mcp:read', organizationAccountLabel: 'CRM service account', confirmAuthorization: true }
+    };
+
+    it('discovers without storing and pins the authorization server only when the administrator confirms it', async () => {
+      const discovered = await firstValueFrom(admin.discoverMcpServer(crm.url));
+      const unconfirmed = await failure(firstValueFrom(admin.createMcpServer({ ...crm, oauth: { ...crm.oauth, confirmAuthorization: false } })));
+      const withoutLabel = await failure(firstValueFrom(admin.createMcpServer({ ...crm, oauth: { ...crm.oauth, organizationAccountLabel: '' } })));
+      const withoutPkce = await failure(firstValueFrom(admin.createMcpServer({ ...crm, url: 'https://no-pkce.example.com/mcp' })));
+      const nothing = await failure(firstValueFrom(admin.discoverMcpServer('https://no-oauth.example.com/mcp')));
+      const created = await firstValueFrom(admin.createMcpServer(crm));
+      const text = JSON.stringify(await firstValueFrom(admin.getMcpServers()));
+
+      expect(discovered.issuer).toBe('https://auth.crm.example.com');
+      expect(discovered.pkceSupported).toBeTrue();
+      expect(unconfirmed.fieldErrors).toEqual({ 'oauth.confirmAuthorization': ['required'] });
+      expect(withoutLabel.fieldErrors).toEqual({ 'oauth.organizationAccountLabel': ['required'] });
+      expect(withoutPkce.code).toBe('assistant-mcp-pkce-unsupported');
+      expect(nothing).toEqual(jasmine.objectContaining({ status: 502, code: 'assistant-mcp-discovery-failed' }));
+      expect(created.authorization?.issuer).toBe('https://auth.crm.example.com');
+      expect(created.oauth).toEqual({ clientId: 'assistant', hasClientSecret: true, clientSecretReference: null, scopes: 'mcp:read', organizationAccountLabel: 'CRM service account' });
+      expect(created.organizationConnection?.status).toBe('not-connected');
+      expect(text).not.toContain('test-client-secret-value');
+    });
+
+    it('connects the organization through the authorization window and completes only for an administrator', async () => {
+      await firstValueFrom(admin.createMcpServer(crm));
+      const untested = await firstValueFrom(admin.testMcpServer('crm'));
+
+      const start = await firstValueFrom(admin.authorizeMcpOrganizationConnection('crm'));
+      const outcome = await firstValueFrom(backend.authorizationWindow.open().authorize(start));
+      backend.setCanAdminister(false);
+      const forbidden = await failure(firstValueFrom(admin.completeMcpAuthorization({ flowId: start.flowId, completionCode: outcome.completionCode! })));
+      backend.setCanAdminister(true);
+      const wrong = await failure(firstValueFrom(admin.completeMcpAuthorization({ flowId: start.flowId, completionCode: 'guessed' })));
+      const completed = await firstValueFrom(admin.completeMcpAuthorization({ flowId: start.flowId, completionCode: outcome.completionCode! }));
+      const again = await failure(firstValueFrom(admin.completeMcpAuthorization({ flowId: start.flowId, completionCode: outcome.completionCode! })));
+      const connection = await firstValueFrom(admin.getMcpOrganizationConnection('crm'));
+      const tested = await firstValueFrom(admin.testMcpServer('crm'));
+
+      expect(untested.code).toBe('assistant-mcp-connection-required');
+      expect(start.authorizationUrl).toContain('https://auth.crm.example.com/authorize?');
+      expect(backend.authorizationWindow.shown).toEqual([start.authorizationUrl]);
+      expect(forbidden).toEqual(jasmine.objectContaining({ status: 403, code: 'assistant-forbidden' }));
+      expect(wrong.code).toBe('assistant-mcp-authorization-invalid');
+      expect(completed).toEqual({ serverId: 'crm', ownerKind: 'organization', status: 'active', grantedScopes: 'mcp:read' });
+      expect(again.code).toBe('assistant-mcp-authorization-expired');
+      expect(connection.status).toBe('active');
+      expect(tested.ok).toBeTrue();
+
+      backend.setMcpConnectionStatus('crm', 'reauthorization-required');
+      expect((await firstValueFrom(admin.testMcpServer('crm'))).code).toBe('assistant-mcp-reauthorization-required');
+      await firstValueFrom(admin.disconnectMcpOrganizationConnection('crm'), { defaultValue: undefined });
+      expect((await firstValueFrom(admin.getMcpOrganizationConnection('crm'))).status).toBe('not-connected');
+    });
+
+    it('reports a denied or closed authorization with its code, and changing the address ends the connection', async () => {
+      await firstValueFrom(admin.createMcpServer({ ...crm }));
+      backend.setMcpAuthorizationOutcome('deny');
+      const denied = await firstValueFrom(backend.authorizationWindow.open().authorize(await firstValueFrom(admin.authorizeMcpOrganizationConnection('crm'))));
+      backend.setMcpAuthorizationOutcome('cancel');
+      const cancelled = await firstValueFrom(backend.authorizationWindow.open().authorize(await firstValueFrom(admin.authorizeMcpOrganizationConnection('crm'))));
+      backend.setMcpAuthorizationOutcome('approve');
+      const start = await firstValueFrom(admin.authorizeMcpOrganizationConnection('crm'));
+      const approved = await firstValueFrom(backend.authorizationWindow.open().authorize(start));
+      await firstValueFrom(admin.completeMcpAuthorization({ flowId: start.flowId, completionCode: approved.completionCode! }));
+      const unconfirmedMove = await failure(firstValueFrom(admin.updateMcpServer('crm', { ...crm, url: 'https://crm.example.com/mcp/v2', oauth: { confirmAuthorization: false } })));
+      const moved = await firstValueFrom(admin.updateMcpServer('crm', { ...crm, url: 'https://crm.example.com/mcp/v2', oauth: { confirmAuthorization: true } }));
+
+      expect(denied.code).toBe('assistant-mcp-authorization-failed');
+      expect(cancelled.code).toBe('assistant-mcp-authorization-cancelled');
+      expect(unconfirmedMove.fieldErrors).toEqual({ 'oauth.confirmAuthorization': ['required'] });
+      expect(moved.organizationConnection?.status).toBe('not-connected');
+      expect(moved.oauth?.hasClientSecret).toBeTrue();
+    });
+
+    it('lets each person connect, disconnect and consent to background use of a server people connect to themselves', async () => {
+      const personal: McpServerInput = {
+        ...crm,
+        id: 'calendar',
+        displayName: 'Calendar',
+        url: 'https://calendar.example.com/mcp',
+        connectionScope: 'user',
+        headlessUse: 'personal',
+        oauth: { clientId: 'assistant', scopes: 'calendar:read', confirmAuthorization: true }
+      };
+      await firstValueFrom(admin.createMcpServer(personal));
+      await firstValueFrom(admin.createAgent({ ...newAgent, mcpServerIds: ['calendar'] }));
+      const [before] = await firstValueFrom(api.getMcpConnections());
+      const untested = await firstValueFrom(admin.testMcpServer('calendar'));
+
+      const start = await firstValueFrom(api.authorizeMcpConnection('calendar', { allowBackgroundUse: true }));
+      const outcome = await firstValueFrom(backend.authorizationWindow.open().authorize(start));
+      const completed = await firstValueFrom(api.completeMcpAuthorization({ flowId: start.flowId, completionCode: outcome.completionCode! }));
+      const [connected] = await firstValueFrom(api.getMcpConnections());
+      const summary = await firstValueFrom(admin.getMcpConnectionsSummary('calendar'));
+      await firstValueFrom(api.disconnectMcpConnection('calendar'), { defaultValue: undefined });
+      const [disconnected] = await firstValueFrom(api.getMcpConnections());
+
+      expect(before).toEqual(jasmine.objectContaining({ connectionStatus: 'not-connected', offersBackgroundUse: true, allowBackgroundUse: false }));
+      expect(untested.code).toBe('assistant-mcp-connection-required');
+      expect(completed.ownerKind).toBe('user');
+      expect(connected).toEqual(jasmine.objectContaining({ connectionStatus: 'active', grantedScopes: 'calendar:read', allowBackgroundUse: true }));
+      expect(summary).toEqual({ active: 1, reauthorizationRequired: 0, issuerChanged: 0 });
+      // The consent to background use stays until the person withdraws it.
+      expect(disconnected).toEqual(jasmine.objectContaining({ connectionStatus: 'not-connected', allowBackgroundUse: true }));
+    });
+
+    it('refuses consent for a server that is not offered in background runs and revokes everyone on request', async () => {
+      await firstValueFrom(admin.createMcpServer({ ...crm, id: 'mail', displayName: 'Mail', url: 'https://mail.example.com/mcp', connectionScope: 'user', oauth: { clientId: 'assistant', confirmAuthorization: true } }));
+      await firstValueFrom(admin.createAgent({ ...newAgent, mcpServerIds: ['mail'] }));
+      const refused = await failure(firstValueFrom(api.updateMcpConnection('mail', { allowBackgroundUse: true })));
+      const start = await firstValueFrom(admin.authorizeMcpOrganizationConnection('mail'));
+      const outcome = await firstValueFrom(backend.authorizationWindow.open().authorize(start));
+      await firstValueFrom(admin.completeMcpAuthorization({ flowId: start.flowId, completionCode: outcome.completionCode! }));
+      const tested = await firstValueFrom(admin.testMcpServer('mail'));
+      await firstValueFrom(admin.revokeMcpConnections('mail'), { defaultValue: undefined });
+      const [revoked] = await firstValueFrom(api.getMcpConnections());
+
+      expect(refused.code).toBe('assistant-mcp-headless-not-allowed');
+      expect(tested.ok).toBeTrue();
+      expect(revoked.connectionStatus).toBe('not-connected');
+    });
+
+    it('connects client credentials on first use and requires a client id and secret', async () => {
+      const input: McpServerInput = {
+        id: 'erp',
+        displayName: 'ERP',
+        url: 'https://erp.example.com/mcp',
+        authMode: 'oauth-client-credentials',
+        headerName: null,
+        requiredPolicy: null,
+        isEnabled: true,
+        oauth: { clientId: 'assistant-erp', clientSecret: 'test-erp-secret', confirmAuthorization: true }
+      };
+      const withoutClient = await failure(firstValueFrom(admin.createMcpServer({ ...input, oauth: { ...input.oauth, clientId: '' } })));
+      const withoutSecret = await failure(firstValueFrom(admin.createMcpServer({ ...input, oauth: { ...input.oauth, clientSecret: null } })));
+      const created = await firstValueFrom(admin.createMcpServer(input));
+      const tested = await firstValueFrom(admin.testMcpServer('erp'));
+      const [listed] = (await firstValueFrom(admin.getMcpServers())).filter(server => server.id === 'erp');
+
+      expect(withoutClient.fieldErrors).toEqual({ 'oauth.clientId': ['required'] });
+      expect(withoutSecret.fieldErrors).toEqual({ 'oauth.clientSecret': ['required'] });
+      expect(created.connectionScope).toBe('organization');
+      expect(tested.ok).toBeTrue();
+      expect(listed.organizationConnection).toEqual(jasmine.objectContaining({ status: 'active', connectedBy: 'client-credentials' }));
+    });
   });
 });

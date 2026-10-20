@@ -33,6 +33,15 @@ internal sealed record NhAssistantToolCompletedEvent(
 internal sealed record NhAssistantApprovalRequiredEvent(
     NhAssistantApprovalView Approval) : NhAssistantTurnEvent;
 
+/// <summary>
+/// The turn's person has to connect an MCP server, which each person connects to with OAuth, before
+/// the agent can use it; the turn continues without its tools.
+/// </summary>
+internal sealed record NhAssistantConnectionRequiredEvent(
+    string ServerId,
+    string DisplayName,
+    string Reason) : NhAssistantTurnEvent;
+
 internal sealed record NhAssistantTurnUsage(
     int InputTokens,
     int OutputTokens,
@@ -144,6 +153,9 @@ internal sealed record NhAssistantMessageView(
 internal abstract record NhAssistantPartView;
 
 internal sealed record NhAssistantTextPartView(string Text) : NhAssistantPartView;
+
+/// <summary>A server the turn's person had to connect before the agent could use it.</summary>
+internal sealed record NhAssistantConnectionRequiredPartView(string ServerId, string DisplayName, string Reason) : NhAssistantPartView;
 
 internal sealed record NhAssistantToolCallPartView(
     Guid InvocationId,

@@ -44,10 +44,46 @@
             <span class="mono muted url">{{ server.url }}</span>
             <div class="meta">
               <span>{{ 'nh-assistant.admin.mcp.auth.' + server.authMode | translate }}</span>
-              @if (server.authMode === 'bearer' || server.authMode === 'api-key') {
-                <span class="badge" [class.success]="server.hasSecret" [class.warning]="!server.hasSecret">
-                  {{ (server.hasSecret ? 'nh-assistant.admin.mcp.secret-set' : 'nh-assistant.admin.mcp.no-secret') | translate }}
+              @if (server.authMode === 'bearer' || server.authMode === 'api-key' || server.authMode === 'basic') {
+                @if (server.secretReference; as reference) {
+                  <span class="badge success">{{ 'nh-assistant.admin.mcp.secret-reference' | translate: { reference: reference } }}</span>
+                } @else {
+                  <span class="badge" [class.success]="server.hasSecret" [class.warning]="!server.hasSecret">
+                    {{ (server.hasSecret ? 'nh-assistant.admin.mcp.secret-set' : 'nh-assistant.admin.mcp.no-secret') | translate }}
+                  </span>
+                }
+              }
+              @if (server.authMode === 'oauth') {
+                <span>{{ 'nh-assistant.admin.mcp.connection-scope.' + server.connectionScope | translate }}</span>
+              }
+              @if (server.organizationConnection; as connection) {
+                <span
+                  class="badge"
+                  [class.success]="connection.status === 'active'"
+                  [class.warning]="connection.status === 'reauthorization-required' || connection.status === 'issuer-changed'">
+                  {{ 'nh-assistant.admin.mcp.connection-status.' + connection.status | translate }}
                 </span>
+                @if (server.oauth?.organizationAccountLabel; as account) {
+                  <span>{{ 'nh-assistant.admin.mcp.organization-account' | translate: { account: account } }}</span>
+                }
+                @if (connection.status === 'active' && connection.connectedAt) {
+                  <span>{{ 'nh-assistant.admin.mcp.connected-by' | translate: { actor: connection.connectedBy ?? '', date: (connection.connectedAt | date: 'medium') } }}</span>
+                }
+                @if (connection.requiredScopes; as scopes) {
+                  <span>{{ 'nh-assistant.admin.mcp.required-scopes' | translate: { scopes: scopes } }}</span>
+                }
+              }
+              @if (connectsPeople(server) && summary(server); as counts) {
+                <span>{{ 'nh-assistant.admin.mcp.personal-connections' | translate: { active: counts.active } }}</span>
+                @if (counts.reauthorizationRequired + counts.issuerChanged > 0) {
+                  <span class="badge warning">{{ 'nh-assistant.admin.mcp.personal-attention' | translate: { count: counts.reauthorizationRequired + counts.issuerChanged } }}</span>
+                }
+              }
+              @if (server.clientCertificateReference; as certificate) {
+                <span class="badge">{{ 'nh-assistant.admin.mcp.client-certificate' | translate: { name: certificate } }}</span>
+              }
+              @if (server.transport === 'auto') {
+                <span class="badge warning">{{ 'nh-assistant.admin.mcp.transport-fallback' | translate }}</span>
               }
               <span>
                 @if (server.lastSyncAt) {
@@ -63,7 +99,27 @@
                   {{ 'nh-assistant.admin.mcp.unassigned' | translate }}
                 }
               </span>
+              <span>{{ 'nh-assistant.admin.mcp.headless.' + (server.headlessUse ?? 'never') | translate }}</span>
+              @if (server.lastConnectAt; as connectedAt) {
+                @if (server.lastConnectCode; as code) {
+                  <span class="badge danger">{{ 'nh-assistant.admin.mcp.connect-failed' | translate: { date: (connectedAt | date: 'medium') } }}</span>
+                  <span>{{ testErrorKeys(code) | nhAssistantTranslate: code }}</span>
+                } @else {
+                  <span>{{ 'nh-assistant.admin.mcp.connected' | translate: { date: (connectedAt | date: 'medium') } }}</span>
+                }
+              } @else {
+                <span>{{ 'nh-assistant.admin.mcp.never-connected' | translate }}</span>
+              }
             </div>
+
+            @if (server.organizationConnection?.status === 'issuer-changed') {
+              <p class="message warning" role="note"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.mcp.issuer-changed' | translate }}</p>
+            }
+            @if (connecting() === server.id) {
+              <p class="muted" role="status">{{ 'nh-assistant.admin.mcp.connecting' | translate }}</p>
+            } @else if (notice()?.serverId === server.id) {
+              <p class="message success" role="status"><nh-assistant-icon name="check" />{{ notice()!.key | translate }}</p>
+            }
 
             @if (testState(server.id); as state) {
               @if (state.running) {
@@ -81,6 +137,30 @@
                 <nh-assistant-icon name="link" />{{ 'nh-assistant.admin.mcp.test' | translate }}
               </button>
               <button class="secondary" type="button" (click)="toolsOf.set(server)"><nh-assistant-icon name="tool" />{{ 'nh-assistant.admin.mcp.tools' | translate }}</button>
+              @if (authorizesOrganization(server)) {
+                <button class="secondary" type="button" [disabled]="connecting() !== null" (click)="connect(server)">
+                  <nh-assistant-icon name="link" />{{ (server.organizationConnection?.status === 'not-connected' ? 'nh-assistant.admin.mcp.connect' : 'nh-assistant.admin.mcp.reconnect') | translate }}
+                </button>
+              }
+              @if (connectsPeople(server)) {
+                <button class="secondary" type="button" [disabled]="connecting() !== null" (click)="connect(server)">
+                  <nh-assistant-icon name="link" />{{ 'nh-assistant.admin.mcp.connect-own' | translate }}
+                </button>
+                @if (confirmingRevokeAll() === server.id) {
+                  <button class="danger" type="button" (click)="revokeAll(server)">{{ 'nh-assistant.admin.mcp.confirm-revoke-all' | translate }}</button>
+                  <button class="secondary" type="button" (click)="confirmingRevokeAll.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                } @else if ((summary(server)?.active ?? 0) + (summary(server)?.reauthorizationRequired ?? 0) + (summary(server)?.issuerChanged ?? 0) > 0) {
+                  <button class="secondary" type="button" (click)="confirmingRevokeAll.set(server.id)">{{ 'nh-assistant.admin.mcp.revoke-all' | translate }}</button>
+                }
+              }
+              @if (server.organizationConnection && server.organizationConnection.status !== 'not-connected') {
+                @if (confirmingDisconnect() === server.id) {
+                  <button class="danger" type="button" (click)="disconnect(server)">{{ 'nh-assistant.admin.mcp.confirm-disconnect' | translate }}</button>
+                  <button class="secondary" type="button" (click)="confirmingDisconnect.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                } @else {
+                  <button class="secondary" type="button" (click)="confirmingDisconnect.set(server.id)">{{ 'nh-assistant.admin.mcp.disconnect' | translate }}</button>
+                }
+              }
               @if (confirmingDelete() === server.id) {
                 <button class="danger" type="button" (click)="remove(server)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
                 <button class="secondary" type="button" (click)="confirmingDelete.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>

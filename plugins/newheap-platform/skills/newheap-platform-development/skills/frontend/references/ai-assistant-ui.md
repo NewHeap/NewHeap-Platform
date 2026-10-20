@@ -73,7 +73,35 @@ Personal preferences need no host code: the panel header opens
 `nh-assistant-preferences`, which stores style, form of address, answer length and
 the user's own instructions through the preferences endpoints. Preferences only
 steer style; the server keeps them below the application context and the agent
-instructions.
+instructions. When an administrator allows an MCP server that forwards the user's token
+in background runs (`headlessUse: 'personal'`), the preferences also show
+`nh-assistant-mcp-connections`: one switch per server of an agent the user may use,
+which allows or withdraws background use with the user's own account at once
+(`GET` and `PUT mcp-connections`). It renders nothing without such servers; a host
+may place it on its own profile page instead.
+
+MCP servers protected with OAuth are added in the administration's server editor: it
+reads the server's authorization (`discoverMcpServer`), shows the authorization server,
+resource and offered scopes, and saves with `oauth.confirmAuthorization` only after the
+administrator ticked the confirmation; an organization connection also needs the
+connected account's label, client credentials a client id and secret. The server list
+shows the organization connection and connects it in a window: `nhAssistantConnectMcp`
+starts the authorization, shows it through `NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW`
+(a popup opened in the click handler, which accepts only the message of that popup for
+the started flow) and completes it with the administrator's own session. The host
+configures `NewHeap:AI:Assistant:Mcp:OAuth:RedirectUri` and lists its page origins in
+`ReturnOrigins`; the mock API provides `NhAssistantMockAuthorizationWindow`, which plays
+the callback as `mcpAuthorization` of the scenario says.
+
+When each person connects their own account (`connectionScope: 'user'`), the thread shows
+`nh-assistant-connection-required` for an answer that went on without the person's connection
+(`connection.required` and the `connection-required` part): it connects the viewer's own account
+and offers to ask again, which the panel sends. `nh-assistant-mcp-connections` lists those servers
+with their status, Connect, Connect again and Disconnect, and the consent switch only where the
+administrator offers background use. `NhAssistantMcpConnectService` runs every connection: in a
+popup by default, or with `mcpConnectMode: 'redirect'` by leaving the page and completing on return
+(`mcpConnectReturnUrl`, an origin in `ReturnOrigins`). The mock's `connectionRequired` step and
+`personalConnected` play it without a server.
 
 Route to `NhAssistantAdminComponent` from `@newheap/platform-ai-chat/admin` with a
 lazy route guarded by the host's admin permission (for example
@@ -378,6 +406,14 @@ the administration route under the same parent to share that scope.
   it.
 - Enabling remote MCP tools by default or deriving their effect from remote
   annotations such as `readOnlyHint`; they are untrusted hints.
+- Offering background runs with the server's own credential (`headlessUse: 'organization'`)
+  for a server that forwards the user's token; it only offers `personal`, which needs the
+  person's consent in `nh-assistant-mcp-connections`.
+- Sending a stored MCP secret and a `secretReference` together; the editor sends one of
+  them, and a new one replaces the other.
+- Opening an MCP authorization with `noopener`, after an `await`, or accepting its
+  completion message from any window but the popup for the started flow; completing it
+  with anything but the starter's own session.
 - Retrying an administration save after `assistant-version-conflict` without
   reloading the latest version.
 - Offering free text for events, subject sets, rules, policies or profiles in a custom run
@@ -429,8 +465,17 @@ event fields. The preference tests save, validate the 1,000-character limit and 
 failures; the administration tests save context versions and report conflicts,
 create, disable, reset and delete agents after confirmation, put an agent and a skill in
 shadow and back and replace and restore a technical account, never render a stored
-secret and send it only on replace or clear, keep synced MCP tools disabled as
-changes, show remote hints as hints and warn after a remote schema change. The run
+secret and send it only on replace or clear, ask a user name for `basic`, send a
+`secretReference` instead of a secret and show the server's reference, certificate and
+fallback transport, offer `personal` only for a forwarded token, keep synced MCP tools
+disabled as changes, show remote hints as hints and warn after a remote schema change. For
+OAuth servers they save only after discovery and confirmation, send the client secret only
+when entered, connect the organization through the mock authorization window, report a
+denied authorization and disconnect after confirmation. For personal connections they show the card
+of an answer without a connection, connect from it and ask again, report a denied authorization on
+the card, connect and disconnect in the preferences, hide the consent switch where background use is
+not offered, and complete a redirect-mode return from its fragment. The
+preference tests also allow and withdraw background use of a personal server. The run
 configuration tests give an administration agent run settings, show refused fields and an
 account that may not sign in, add a skill that starts in shadow and a trigger that is put
 live, keep the run settings while skills or triggers remain, keep skills and triggers in

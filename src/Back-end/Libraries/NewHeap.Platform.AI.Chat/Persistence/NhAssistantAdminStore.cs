@@ -569,6 +569,113 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
         return server;
     }
 
+    /// <summary>
+    /// Records the outcome of a connection without changing the server's version, so cached
+    /// connections stay valid.
+    /// </summary>
+    public async Task RecordMcpConnectAsync(
+        string id,
+        DateTimeOffset connectedAt,
+        string? failureCode,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await context.McpServers
+            .Where(server => server.Id == id)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(server => server.LastConnectAt, connectedAt)
+                    .SetProperty(server => server.LastConnectCode, failureCode),
+                cancellationToken);
+    }
+
+    public async Task<AssistantMcpConnection?> FindMcpConnectionAsync(
+        string serverId,
+        string ownerKind,
+        string ownerActorId,
+        string tenantKey,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.McpConnections
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                connection => connection.ServerId == serverId
+                    && connection.OwnerKind == ownerKind
+                    && connection.OwnerActorId == ownerActorId
+                    && connection.TenantKey == tenantKey,
+                cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<AssistantMcpConnection>> ListMcpConnectionsAsync(
+        string ownerKind,
+        string ownerActorId,
+        string tenantKey,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.McpConnections
+            .AsNoTracking()
+            .Where(connection => connection.OwnerKind == ownerKind
+                && connection.OwnerActorId == ownerActorId
+                && connection.TenantKey == tenantKey)
+            .OrderBy(connection => connection.ServerId)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Records a person's consent to background use of a server, or its withdrawal. Creates the
+    /// connection record when there is none; a concurrent first consent of the same person wins once
+    /// and the other attempt updates the row it created.
+    /// </summary>
+    public async Task<AssistantMcpConnection> SetMcpBackgroundUseAsync(
+        string serverId,
+        string ownerActorId,
+        string tenantKey,
+        bool allow,
+        string consentHash,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            await using var context = contextFactory.CreateDbContext();
+            var connection = await context.McpConnections.SingleOrDefaultAsync(
+                item => item.ServerId == serverId
+                    && item.OwnerKind == NhAssistantMcpConnectionOwners.User
+                    && item.OwnerActorId == ownerActorId
+                    && item.TenantKey == tenantKey,
+                cancellationToken);
+            if (connection is null)
+            {
+                connection = new AssistantMcpConnection
+                {
+                    Id = Guid.NewGuid(),
+                    ServerId = serverId,
+                    OwnerKind = NhAssistantMcpConnectionOwners.User,
+                    OwnerActorId = ownerActorId,
+                    TenantKey = tenantKey,
+                    CreatedAt = now
+                };
+                context.McpConnections.Add(connection);
+            }
+            connection.AllowBackgroundUse = allow;
+            connection.ConsentHash = allow ? consentHash : null;
+            connection.ConsentedAt = allow ? now : null;
+            connection.UpdatedAt = now;
+            connection.Version++;
+            try
+            {
+                await context.SaveChangesAsync(cancellationToken);
+                return connection;
+            }
+            catch (DbUpdateException) when (attempt == 0)
+            {
+                // A concurrent first consent created the row or changed its version: apply on top of it.
+            }
+        }
+    }
+
     public async Task<bool> DeleteMcpServerAsync(string id, CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
