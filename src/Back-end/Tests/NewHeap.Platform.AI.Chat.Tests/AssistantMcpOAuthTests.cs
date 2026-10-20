@@ -1250,19 +1250,14 @@ public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture data
         private RawServer(WebApplication app)
         {
             _app = app;
-            Origin = app.Urls.First().Replace("127.0.0.1", "localhost", StringComparison.Ordinal).TrimEnd('/');
+            Origin = LocalhostTestServer.Origin(app);
         }
 
         public string Origin { get; }
 
         public static async Task<RawServer> StartAsync(Func<HttpContext, Task> handle)
         {
-            var builder = WebApplication.CreateBuilder();
-            builder.WebHost.UseUrls("http://127.0.0.1:0");
-            builder.Logging.ClearProviders();
-            var app = builder.Build();
-            app.Run(context => handle(context));
-            await app.StartAsync();
+            var app = await LocalhostTestServer.StartPlainAsync(server => server.Run(context => handle(context)));
             return new RawServer(app);
         }
 

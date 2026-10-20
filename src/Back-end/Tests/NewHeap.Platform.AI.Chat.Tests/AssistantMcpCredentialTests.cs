@@ -157,7 +157,7 @@ public sealed partial class AssistantMcpCredentialTests(AssistantDatabaseFixture
             // plan presents it, a handler without one is refused. Only the test trusts the server.
             var presented = new ConcurrentQueue<string>();
             await using var mutualTls = await StartMutualTlsAsync(presented);
-            var endpoint = mutualTls.Urls.First().Replace("127.0.0.1", "localhost", StringComparison.Ordinal);
+            var endpoint = mutualTls.Urls.First();
             using (var withCertificate = factory.CreateSocketsHandler(plan))
             {
                 withCertificate.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
@@ -215,7 +215,7 @@ public sealed partial class AssistantMcpCredentialTests(AssistantDatabaseFixture
             return Task.CompletedTask;
         }));
         var otherOrigin = other.Urls.First().TrimEnd('/');
-        await using var redirecting = await StartRawAsync(app => app.MapGet("/planning/sse", async context =>
+        await using var redirecting = await LocalhostTestServer.StartPlainAsync(app => app.MapGet("/planning/sse", async context =>
         {
             context.Response.ContentType = "text/event-stream";
             await context.Response.WriteAsync("event: endpoint\ndata: " + otherOrigin + "/message?sessionId=1\n\n");
@@ -228,7 +228,7 @@ public sealed partial class AssistantMcpCredentialTests(AssistantDatabaseFixture
             {
             }
         }));
-        var redirectingUrl = redirecting.Urls.First().Replace("127.0.0.1", "localhost", StringComparison.Ordinal).TrimEnd('/') + "/planning/sse";
+        var redirectingUrl = LocalhostTestServer.Origin(redirecting) + "/planning/sse";
         Assert.True((await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { Url = redirectingUrl, Transport = NhAssistantMcpTransports.Auto })).Success);
 
         var blocked = await TestAsync(host);
@@ -678,21 +678,23 @@ public sealed partial class AssistantMcpCredentialTests(AssistantDatabaseFixture
         using var created = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddDays(1));
         // Reloaded from PKCS#12 so the platform's TLS stack can use the private key.
         var serverCertificate = X509CertificateLoader.LoadPkcs12(created.Export(X509ContentType.Pfx, "server"), "server");
-        var builder = WebApplication.CreateBuilder();
-        builder.Logging.ClearProviders();
-        builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0, listen => listen.UseHttps(serverCertificate, https =>
+        return await LocalhostTestServer.StartAsync(port =>
         {
-            https.ClientCertificateMode = Microsoft.AspNetCore.Server.Kestrel.Https.ClientCertificateMode.RequireCertificate;
-            https.ClientCertificateValidation = (_, _, _) => true;
-        })));
-        var app = builder.Build();
-        app.MapGet("/", (HttpContext context) =>
-        {
-            presented.Enqueue(context.Connection.ClientCertificate?.Thumbprint ?? string.Empty);
-            return Results.Ok();
+            var builder = WebApplication.CreateBuilder();
+            builder.Logging.ClearProviders();
+            builder.WebHost.ConfigureKestrel(kestrel => kestrel.ListenLocalhost(port, listen => listen.UseHttps(serverCertificate, https =>
+            {
+                https.ClientCertificateMode = Microsoft.AspNetCore.Server.Kestrel.Https.ClientCertificateMode.RequireCertificate;
+                https.ClientCertificateValidation = (_, _, _) => true;
+            })));
+            var app = builder.Build();
+            app.MapGet("/", (HttpContext context) =>
+            {
+                presented.Enqueue(context.Connection.ClientCertificate?.Thumbprint ?? string.Empty);
+                return Results.Ok();
+            });
+            return app;
         });
-        await app.StartAsync();
-        return app;
     }
 
     private static async Task<WebApplication> StartRawAsync(Action<WebApplication> map)

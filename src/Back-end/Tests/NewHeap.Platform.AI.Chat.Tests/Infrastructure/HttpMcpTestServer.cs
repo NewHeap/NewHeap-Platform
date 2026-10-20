@@ -40,39 +40,41 @@ internal sealed class HttpMcpTestServer : IAsyncDisposable
         Func<HttpContext, Func<Task>, Task>? guard = null)
     {
         var requests = new ConcurrentQueue<HttpMcpTestRequest>();
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseUrls("http://127.0.0.1:0");
-        builder.Logging.ClearProviders();
-        builder.Services
-            .AddMcpServer()
-            .WithHttpTransport(options =>
-            {
-                if (legacySse)
+        var app = await LocalhostTestServer.StartAsync(port =>
+        {
+            var builder = WebApplication.CreateBuilder();
+            builder.WebHost.UseUrls($"http://localhost:{port}");
+            builder.Logging.ClearProviders();
+            builder.Services
+                .AddMcpServer()
+                .WithHttpTransport(options =>
                 {
-                    // The HTTP+SSE transport keeps a session per client.
-                    options.Stateless = false;
-                    options.EnableLegacySse = true;
-                }
-            })
-            .WithTools(tools());
-        var app = builder.Build();
-        app.Use(async (context, next) =>
-        {
-            requests.Enqueue(new HttpMcpTestRequest(
-                context.Request.Method,
-                context.Request.Path.Value ?? string.Empty,
-                context.Request.Headers.Authorization.ToString()));
-            await next(context);
+                    if (legacySse)
+                    {
+                        // The HTTP+SSE transport keeps a session per client.
+                        options.Stateless = false;
+                        options.EnableLegacySse = true;
+                    }
+                })
+                .WithTools(tools());
+            var server = builder.Build();
+            server.Use(async (context, next) =>
+            {
+                requests.Enqueue(new HttpMcpTestRequest(
+                    context.Request.Method,
+                    context.Request.Path.Value ?? string.Empty,
+                    context.Request.Headers.Authorization.ToString()));
+                await next(context);
+            });
+            if (guard is not null)
+            {
+                // For example an NhAiTestProtectedResource that requires OAuth tokens.
+                server.Use((context, next) => guard(context, () => next(context)));
+            }
+            server.MapMcp("/planning");
+            return server;
         });
-        if (guard is not null)
-        {
-            // For example an NhAiTestProtectedResource that requires OAuth tokens.
-            app.Use((context, next) => guard(context, () => next(context)));
-        }
-        app.MapMcp("/planning");
-        await app.StartAsync();
-        var origin = app.Urls.First().Replace("127.0.0.1", "localhost", StringComparison.Ordinal).TrimEnd('/');
-        return new HttpMcpTestServer(app, origin, requests);
+        return new HttpMcpTestServer(app, LocalhostTestServer.Origin(app), requests);
     }
 
     public async ValueTask DisposeAsync()

@@ -233,17 +233,15 @@ public sealed class AssistantMcpTests(AssistantDatabaseFixture database) : IClas
     public async Task The_http_client_sends_the_configured_credential_and_maps_unauthorized()
     {
         string? receivedAuthorization = null;
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseUrls("http://127.0.0.1:0");
-        builder.Logging.ClearProviders();
-        await using var remote = builder.Build();
-        remote.MapPost("/mcp", (HttpContext context) =>
+        await using var remote = await LocalhostTestServer.StartPlainAsync(app =>
         {
-            receivedAuthorization = context.Request.Headers.Authorization.ToString();
-            return Results.StatusCode(StatusCodes.Status401Unauthorized);
+            app.MapPost("/mcp", (HttpContext context) =>
+            {
+                receivedAuthorization = context.Request.Headers.Authorization.ToString();
+                return Results.StatusCode(StatusCodes.Status401Unauthorized);
+            });
         });
-        await remote.StartAsync();
-        var url = remote.Urls.First().Replace("127.0.0.1", "localhost", StringComparison.Ordinal) + "/mcp";
+        var url = LocalhostTestServer.Origin(remote) + "/mcp";
         await using var host = await CreateHostAsync(new NhAiScriptedChatClient(), mcpFactory: null, forwardHosts: ["localhost"]);
 
         var result = await WithAdministrationAsync(host, async administration =>
@@ -311,18 +309,16 @@ public sealed class AssistantMcpTests(AssistantDatabaseFixture database) : IClas
     [Fact]
     public async Task Insufficient_scope_gets_its_own_code_and_is_recorded_as_the_connection_state()
     {
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseUrls("http://127.0.0.1:0");
-        builder.Logging.ClearProviders();
-        await using var remote = builder.Build();
-        remote.MapPost("/mcp", (HttpContext context) =>
+        await using var remote = await LocalhostTestServer.StartPlainAsync(app =>
         {
-            context.Response.Headers.WWWAuthenticate =
-                "Bearer error=\"insufficient_scope\", scope=\"planning:write\", resource_metadata=\"https://planning.example.org/.well-known/oauth-protected-resource\"";
-            return Results.StatusCode(StatusCodes.Status403Forbidden);
+            app.MapPost("/mcp", (HttpContext context) =>
+            {
+                context.Response.Headers.WWWAuthenticate =
+                    "Bearer error=\"insufficient_scope\", scope=\"planning:write\", resource_metadata=\"https://planning.example.org/.well-known/oauth-protected-resource\"";
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            });
         });
-        await remote.StartAsync();
-        var url = remote.Urls.First().Replace("127.0.0.1", "localhost", StringComparison.Ordinal) + "/mcp";
+        var url = LocalhostTestServer.Origin(remote) + "/mcp";
         await using var host = await CreateHostAsync(new NhAiScriptedChatClient(), mcpFactory: null);
 
         var result = await WithAdministrationAsync(host, async administration =>
@@ -347,20 +343,18 @@ public sealed class AssistantMcpTests(AssistantDatabaseFixture database) : IClas
     public async Task A_renewable_credential_is_renewed_once_and_each_request_is_repeated_once_after_401()
     {
         var received = new List<string>();
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseUrls("http://127.0.0.1:0");
-        builder.Logging.ClearProviders();
-        await using var remote = builder.Build();
-        remote.MapPost("/mcp", (HttpContext context) =>
+        await using var remote = await LocalhostTestServer.StartPlainAsync(app =>
         {
-            lock (received)
+            app.MapPost("/mcp", (HttpContext context) =>
             {
-                received.Add(context.Request.Headers.Authorization.ToString());
-            }
-            return Results.StatusCode(StatusCodes.Status401Unauthorized);
+                lock (received)
+                {
+                    received.Add(context.Request.Headers.Authorization.ToString());
+                }
+                return Results.StatusCode(StatusCodes.Status401Unauthorized);
+            });
         });
-        await remote.StartAsync();
-        var url = remote.Urls.First().Replace("127.0.0.1", "localhost", StringComparison.Ordinal) + "/mcp";
+        var url = LocalhostTestServer.Origin(remote) + "/mcp";
         var renewing = new RenewingCredentialProvider();
         await using var host = await CreateHostAsync(
             new NhAiScriptedChatClient(),
