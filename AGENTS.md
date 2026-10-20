@@ -366,9 +366,9 @@ For Angular samples:
 ## Verification checklist
 
 Run the smallest relevant library tests plus the sample checks. While developing,
-run `npm run test:affected`: it compares with the merge base of `origin/main`
-(uncommitted changes included), runs only the .NET test projects that depend on a
-changed project, runs PostgreSQL alone unless the change concerns persistence
+run `npm run test:affected`: it looks at the changes that are not committed yet
+(`--branch` covers everything since `origin/main`, `--base <ref>` everything since a
+ref), runs only the .NET test projects that depend on a changed project, runs PostgreSQL alone unless the change concerns persistence
 (migrations, EF models, contexts, stores, repositories, provider projects or provider
 tests), and runs the Angular libraries and sample checks that changed. Use
 `--dry-run` to see the plan, `--files a,b` to plan for files before changing them,

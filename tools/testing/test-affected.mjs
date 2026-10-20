@@ -2,8 +2,9 @@
 // changed project, one database provider unless the change concerns persistence, the Angular
 // libraries that changed and the sample checks when the sample changed.
 //
-//   npm run test:affected                    changes since the merge base with origin/main, uncommitted included
-//   npm run test:affected -- --base <ref>    compare with another ref
+//   npm run test:affected                    uncommitted changes: what you are working on now
+//   npm run test:affected -- --branch        everything since the merge base with origin/main (a whole PR)
+//   npm run test:affected -- --base <ref>    everything since <ref>, uncommitted included
 //   npm run test:affected -- --all-providers run SQL Server and PostgreSQL variants
 //   npm run test:affected -- --all           every test project, provider and library
 //   npm run test:affected -- --dry-run       print the plan only
@@ -41,12 +42,19 @@ function git(...gitArgs) {
   return result.status === 0 ? result.stdout.trim() : null;
 }
 
-function mergeBase() {
+/**
+ * The commit to compare the working tree with. By default `HEAD`, so only what is not committed yet
+ * counts: on a long-lived branch the merge base would make every run the whole branch again.
+ */
+function comparisonBase() {
   const explicit = valueOf('--base');
   if (explicit) {
     return git('merge-base', 'HEAD', explicit) ?? explicit;
   }
-  return git('merge-base', 'HEAD', 'origin/main') ?? git('merge-base', 'HEAD', 'main');
+  if (option('--branch')) {
+    return git('merge-base', 'HEAD', 'origin/main') ?? git('merge-base', 'HEAD', 'main');
+  }
+  return git('rev-parse', 'HEAD');
 }
 
 function changedFiles(base) {
@@ -117,11 +125,12 @@ function run(label, command, commandArgs, cwd) {
 
 const everything = option('--all');
 const explicitFiles = valueOf('--files')?.split(',').map(file => normalizePath(file.trim())).filter(Boolean);
-const base = everything || explicitFiles ? null : mergeBase();
+const base = everything || explicitFiles ? null : comparisonBase();
 if (!everything && !explicitFiles && !base) {
-  console.error('No merge base with origin/main or main; pass --base <ref> or --all.');
+  console.error('No commit to compare with; pass --base <ref>, --files a,b or --all.');
   process.exit(2);
 }
+const branchScope = option('--branch') || valueOf('--base') !== undefined;
 
 const files = everything ? [] : explicitFiles ?? changedFiles(base);
 const { graph, tests } = await projectGraph();
@@ -134,7 +143,11 @@ const sampleChanged = everything || files.some(file => file.startsWith(`${sample
 
 console.log(everything
   ? 'Scope: everything (--all).'
-  : explicitFiles ? `Scope: ${files.length} given files.` : `Scope: ${files.length} changed files since ${base.slice(0, 10)}.`);
+  : explicitFiles
+    ? `Scope: ${files.length} given files.`
+    : branchScope
+      ? `Scope: ${files.length} changed files since ${base.slice(0, 10)}.`
+      : `Scope: ${files.length} uncommitted changed files (--branch covers everything since origin/main).`);
 console.log(`Database providers: ${allProviders ? 'SQL Server and PostgreSQL' : 'PostgreSQL only (no persistence change; --all-providers runs both)'}.`);
 console.log(`.NET test projects: ${testProjects.length === 0 ? 'none' : ''}`);
 testProjects.forEach(project => console.log(`  ${project}`));
