@@ -103,4 +103,21 @@ public interface INhAuthenticationService
             "delegated-token-unsupported",
             "This authentication service does not issue delegated tokens."));
     }
+
+    /// <summary>
+    /// Creates a short-lived delegated token for another service, such as the delegated MCP token of
+    /// an AI agent run, as <see cref="CreateDelegatedTokenAsync(Guid, IEnumerable{Claim}, TimeSpan, CancellationToken)"/>.
+    /// An application that signs asymmetrically sets <c>aud</c> to <paramref name="audience"/>, so only
+    /// that service accepts the token. Implementations without asymmetric signing, and applications
+    /// that sign with the shared HS256 key, create the token of that method, with the issuer as audience.
+    /// </summary>
+    Task<TaskResult<JwtSecurityToken>> CreateDelegatedTokenAsync(
+        Guid userId,
+        IEnumerable<Claim> claims,
+        TimeSpan expiration,
+        string audience,
+        CancellationToken cancellationToken = default)
+    {
+        return CreateDelegatedTokenAsync(userId, claims, expiration, cancellationToken);
+    }
 }

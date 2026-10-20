@@ -7,9 +7,11 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using NewHeap.Platform.AspNet.Common.Extensions;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models;
 using NSubstitute;
@@ -82,13 +84,15 @@ public sealed class NhAiMcpDelegatedTokenTests
     {
         var person = Guid.NewGuid();
         var authentication = Substitute.For<INhAuthenticationService>();
+        // The issuer asks for a token for the server's origin, which a host that signs asymmetrically
+        // sets as aud.
         authentication
-            .CreateDelegatedTokenAsync(Arg.Any<Guid>(), Arg.Any<IEnumerable<Claim>>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .CreateDelegatedTokenAsync(Arg.Any<Guid>(), Arg.Any<IEnumerable<Claim>>(), Arg.Any<TimeSpan>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => call.ArgAt<Guid>(0) == person
                 // Only a person who may sign in gets a token.
                 ? TaskResult<JwtSecurityToken>.Succeeded(new JwtSecurityToken(
                     Issuer,
-                    null,
+                    call.ArgAt<string>(3),
                     call.ArgAt<IEnumerable<Claim>>(1),
                     DateTime.UtcNow,
                     DateTime.UtcNow.Add(call.ArgAt<TimeSpan>(2)),
@@ -117,6 +121,7 @@ public sealed class NhAiMcpDelegatedTokenTests
 
         Assert.True(issued.Success);
         var token = new JwtSecurityTokenHandler().ReadJwtToken(issued.Data!.BearerToken);
+        Assert.Equal([Audience], token.Audiences);
         Assert.Equal("invocation-1", Assert.Single(token.Claims, claim => claim.Type == NhAiMcpDelegatedTokenDefaults.MarkerClaimType).Value);
         Assert.Equal(Audience, Assert.Single(token.Claims, claim => claim.Type == NhAiMcpDelegatedTokenDefaults.AudienceClaimType).Value);
         foreach (var failed in new[] { notAPerson, refused })
@@ -142,6 +147,87 @@ public sealed class NhAiMcpDelegatedTokenTests
             CancellationToken.None));
 
         Assert.Contains("INhAuthenticationService", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_first_party_host_validates_an_asymmetric_delegated_token_with_the_published_key_only()
+    {
+        // The issuing application signs with ES256 and publishes its public key; the receiving host
+        // holds no key that could mint tokens and accepts the token for its own origin as aud.
+        using var signingKey = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        var settings = new Dictionary<string, string?>
+        {
+            [NhJwtSigningKeys.AlgorithmKey] = "ES256",
+            [NhJwtSigningKeys.KeyIdKey] = "2026-10",
+            [NhJwtSigningKeys.PrivateKeyKey] = signingKey.ExportPkcs8PrivateKeyPem()
+        };
+        var issuerBuilder = WebApplication.CreateBuilder();
+        issuerBuilder.WebHost.UseTestServer();
+        issuerBuilder.Logging.ClearProviders();
+        issuerBuilder.Configuration.AddInMemoryCollection(settings);
+        issuerBuilder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.MapInboundClaims = false;
+                // The issuing application validates its own tokens: its issuer as audience.
+                options.TokenValidationParameters = new TokenValidationParameters { ValidIssuer = Issuer, ValidAudience = Issuer, ClockSkew = TimeSpan.Zero };
+                NhJwtSigningKeys.Read(issuerBuilder.Configuration).ApplyTo(options.TokenValidationParameters);
+            });
+        issuerBuilder.Services.AddAuthorization();
+        issuerBuilder.Services.AddNewHeapPlatformAIMcpDelegatedTokens();
+        await using var issuer = issuerBuilder.Build();
+        issuer.UseAuthentication();
+        issuer.UseAuthorization();
+        issuer.MapNewHeapJwks();
+        issuer.MapGet("/mcp", () => Results.Ok()).RequireAuthorization();
+        await issuer.StartAsync();
+
+        var receiverBuilder = WebApplication.CreateBuilder();
+        receiverBuilder.WebHost.UseTestServer();
+        receiverBuilder.Logging.ClearProviders();
+        receiverBuilder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.MapInboundClaims = false;
+                options.BackchannelHttpHandler = issuer.GetTestServer().CreateHandler();
+                options.RequireHttpsMetadata = false;
+                options.UseNewHeapJwks(new Uri("http://localhost" + NhJwtSigningKeys.DefaultJwksPath), Issuer, Issuer, Audience);
+            });
+        receiverBuilder.Services.AddAuthorization();
+        receiverBuilder.Services.AddNewHeapPlatformAIMcpDelegatedTokens(tokens => tokens.Accept(Audience, "/mcp"));
+        await using var receiver = receiverBuilder.Build();
+        receiver.UseAuthentication();
+        receiver.UseAuthorization();
+        receiver.MapGet("/mcp/{**rest}", () => Results.Ok()).RequireAuthorization();
+        receiver.MapGet("/api/orders", () => Results.Ok()).RequireAuthorization();
+        await receiver.StartAsync();
+
+        var credentials = NhJwtSigningKeys.Read(issuer.Services.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>()).SigningCredentials;
+        var delegated = new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(
+            Issuer,
+            Audience,
+            [new Claim("sub", "person-1"), new Claim(NhAiMcpDelegatedTokenDefaults.MarkerClaimType, "invocation-1"), new Claim(NhAiMcpDelegatedTokenDefaults.AudienceClaimType, Audience)],
+            DateTime.UtcNow,
+            DateTime.UtcNow.AddMinutes(2),
+            credentials));
+        using var receiverClient = receiver.GetTestClient();
+        using var issuerClient = issuer.GetTestClient();
+
+        Assert.Equal(HttpStatusCode.OK, await SendAsync(receiverClient, "/mcp", delegated));
+        // Below another path the restriction still refuses it, and the issuing application refuses
+        // it everywhere: its aud is the server, not the issuer.
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(receiverClient, "/api/orders", delegated));
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(issuerClient, "/mcp", delegated));
+        // A token signed with a key the application never published is refused.
+        using var otherKey = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        var forged = new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(
+            Issuer,
+            Audience,
+            [new Claim("sub", "person-1"), new Claim(NhAiMcpDelegatedTokenDefaults.MarkerClaimType, "invocation-1"), new Claim(NhAiMcpDelegatedTokenDefaults.AudienceClaimType, Audience)],
+            DateTime.UtcNow,
+            DateTime.UtcNow.AddMinutes(2),
+            new SigningCredentials(new ECDsaSecurityKey(otherKey) { KeyId = "2026-10" }, SecurityAlgorithms.EcdsaSha256)));
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(receiverClient, "/mcp", forged));
     }
 
     [Theory]

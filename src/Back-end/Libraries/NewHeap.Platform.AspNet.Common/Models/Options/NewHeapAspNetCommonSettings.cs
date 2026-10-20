@@ -65,8 +65,9 @@ public class NewHeapAspNetCommonOptionsBuilder
                     _configuration[$"{NewHeapAspNetCommonOptions.DefaultSettingsPrefix}:Authorization:JWT:Token:Issuer"];
                 options.ValidAudience =
                     _configuration[$"{NewHeapAspNetCommonOptions.DefaultSettingsPrefix}:Authorization:JWT:Token:ValidAudience"];
-                // Refuses a missing, unresolved or too short key, so the platform does not start with it.
-                options.IssuerSigningKey = NhJwtSigningKey.Create(_configuration);
+                // The shared key, or the public keys of asymmetric signing (NhJwtSigningKeys). A missing,
+                // unresolved or invalid key is refused, so the platform does not start with it.
+                NhJwtSigningKeys.Read(_configuration).ApplyTo(options);
             }
         };
     }

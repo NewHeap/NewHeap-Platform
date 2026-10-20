@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "5978954f3785a9b0b3f6713bd9de448f3af06096c2d3338fbd9e736fe0d70717",
-    "declarationCount": 9054,
+    "hash": "a9b7c91e03f56b1d61f1908f8949c8f514608b21bd3ccd51241f76f5adf0c95c",
+    "declarationCount": 9093,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -25066,6 +25066,42 @@
         "declaration": "public static IHostBuilder AddNewHeapAspNetObservability(this IHostBuilder builder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static class NhJwksEndpointRouteBuilderExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public const string ContentType = \"application/jwk-set+json\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static RouteHandlerBuilder MapNewHeapJwks( this IEndpointRouteBuilder endpoints, string pattern = NhJwtSigningKeys.DefaultJwksPath)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static class NhJwksJwtBearerOptionsExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static readonly TimeSpan AutomaticRefreshInterval = TimeSpan.FromHours(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static readonly TimeSpan UnknownKeyRefreshInterval = TimeSpan.FromMinutes(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static JwtBearerOptions UseNewHeapJwks( this JwtBearerOptions options, Uri jwksUri, string issuer, params string[] audiences) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public async Task<OpenIdConnectConfiguration> GetConfigurationAsync( string address, IDocumentRetriever retriever, CancellationToken cancel) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public Task<string> GetDocumentAsync(string address, CancellationToken cancel) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKey.cs",
         "declaration": "public static class NhJwtSigningKey {"
       },
@@ -25084,6 +25120,114 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKey.cs",
         "declaration": "public static SymmetricSecurityKey Create(IConfiguration configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public static class NhJwtSigningAlgorithms {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string HS256 = SecurityAlgorithms.HmacSha256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string RS256 = SecurityAlgorithms.RsaSha256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string ES256 = SecurityAlgorithms.EcdsaSha256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public static partial class NhJwtSigningKeys {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string Section = \"NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Signing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string AlgorithmKey = Section + \":Algorithm\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string KeyIdKey = Section + \":KeyId\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string PrivateKeyKey = Section + \":PrivateKey\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string Pkcs12Key = Section + \":Pkcs12\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string Pkcs12PasswordKey = Section + \":Pkcs12Password\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string PreviousKeysSection = Section + \":PreviousKeys\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string AcceptSharedKeyTokensKey = Section + \":AcceptSharedKeyTokens\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string DefaultJwksPath = \"/.well-known/jwks.json\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const int MinimumRsaKeySize = 2048;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public static bool IsAsymmetric(IConfiguration configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public static NhJwtSigningKeySet Read(IConfiguration configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public sealed class NhJwtSigningKeySet {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public string Algorithm { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public bool IsAsymmetric => Algorithm != NhJwtSigningAlgorithms.HS256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public string? KeyId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public SigningCredentials SigningCredentials { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public IReadOnlyList<SecurityKey> ValidationKeys { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public IReadOnlyList<string> ValidAlgorithms { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public IReadOnlyList<string> PublishedKeyIds => _publicKeys.Select(key => key.KeyId).ToArray();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public void ApplyTo(TokenValidationParameters parameters) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public string ToJwksJson() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/ServiceCollectionExtensions.cs",
@@ -28707,6 +28851,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "protected virtual SigningCredentials GetSigningCredentials() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
         "declaration": "public virtual string GetIssuerDomain() {"
       },
       {
@@ -28747,7 +28895,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
-        "declaration": "public virtual async Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> c, TimeSpan? expiration = null)"
+        "declaration": "public virtual Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> c, TimeSpan? expiration = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "protected virtual async Task<JwtSecurityToken> CreateTokenForAudienceAsync( Guid userId, IEnumerable<Claim> c, TimeSpan? expiration, string audience) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
@@ -28756,6 +28908,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
         "declaration": "public virtual async Task<TaskResult<JwtSecurityToken>> CreateDelegatedTokenAsync( Guid userId, IEnumerable<Claim> claims, TimeSpan expiration, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<JwtSecurityToken>> CreateDelegatedTokenAsync( Guid userId, IEnumerable<Claim> claims, TimeSpan expiration, string audience, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
@@ -40302,6 +40458,19 @@
       "NhSessionRejectionInterceptor",
       "AuthSessionExpirationInformation"
     ],
+    "nh-auth-token-signing": [
+      "NhJwtSigningKeys",
+      "NhJwtSigningKeySet",
+      "NhJwtSigningAlgorithms",
+      "NhJwtSigningKey",
+      "MapNewHeapJwks",
+      "UseNewHeapJwks",
+      "NhJwksEndpointRouteBuilderExtensions",
+      "NhJwksJwtBearerOptionsExtensions",
+      "CreateDelegatedTokenAsync",
+      "GetSigningCredentials",
+      "CreateTokenForAudienceAsync"
+    ],
     "nh-auth-two-factor": [
       "NhTwoFactorBuilder",
       "INhMultiFactorAuthenticationService",
@@ -40620,7 +40789,8 @@
       "UseNewHeapAspnetCommonConfiguration",
       "CreateConfigurationRoot",
       "NhConfigurationSecrets",
-      "NhJwtSigningKey"
+      "NhJwtSigningKey",
+      "NhJwtSigningKeys"
     ],
     "nh-media-storage-contract": [
       "UseFileSystemMediaStorage",

@@ -763,6 +763,37 @@ personal connections and revokes them all after confirmation. `NhAssistantApiSer
 |---|---|
 | `MessagePart` and `NhAssistantSseEventMap` have new members. | Handle `connection-required` and `connection.required` in exhaustive switches. |
 
+## NewHeap.Platform.AspNet.Common and NewHeap.Platform.AI.AspNet.Common: asymmetric token signing
+
+An application can sign its access tokens with `RS256` or `ES256` instead of the shared HS256 key, so
+other hosts validate them without being able to mint any. Configure
+`NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Signing` (`NhJwtSigningKeys`): `Algorithm`,
+`KeyId` and exactly one private key from the secrets file, `PrivateKey` (PEM) or `Pkcs12` (Base64) with
+an optional `Pkcs12Password`, both read with `NhConfigurationSecrets.Read`. `PreviousKeys` (`KeyId`
+and `PublicKey`, a PEM public key or certificate) keep validating the tokens of a rotated key, and
+`AcceptSharedKeyTokens` lets the issuing application accept tokens of its former shared key while it
+moves from HS256. `NhAuthenticationService` signs with the key and sets the `kid`, and the platform's
+validation parameters (`NewHeapAspNetCommonOptions` and `ConfigureNhJwtBearerValidationOptions`)
+accept the current and previous public keys with `ValidAlgorithms` limited to theirs. A configuration
+error stops the application with a message that names the setting, never the key.
+
+`app.MapNewHeapJwks()` publishes the public keys as an anonymous JSON Web Key Set at
+`/.well-known/jwks.json`; mapping it for an HS256 application fails at startup.
+`JwtBearerOptions.UseNewHeapJwks(jwksUri, issuer, audiences)` validates another application's tokens
+with that key set and picks up a rotated key. `INhAuthenticationService.CreateDelegatedTokenAsync`
+gains an overload with `audience`: with asymmetric signing the token's `aud` is that service, so the
+issuing application refuses it; with HS256 it keeps the issuer, as before. The built-in delegated MCP
+token issuer of `AddNewHeapPlatformAIMcpDelegatedTokens` uses it with the MCP server's origin, so a
+first-party MCP server validates delegated tokens with the published keys and its own origin as
+audience. Derived authentication services customize signing with `GetSigningCredentials` and tokens
+for another audience with `CreateTokenForAudienceAsync`.
+
+| Breaking change | Required action |
+|---|---|
+| None for an application without the `Signing` section: it signs and validates HS256 with `Token:Key` as before. | None. To let other hosts validate tokens without the shared key, configure `Signing` with `ES256` or `RS256`, keep the private key in the secrets file, map `MapNewHeapJwks` and let the other hosts use `UseNewHeapJwks`. |
+| `INhAuthenticationService` has a new `CreateDelegatedTokenAsync` overload with `audience`, a default method that creates the token of the existing overload. | None for implementations. A test substitute that stubs the delegated MCP token stubs the overload with `audience`. |
+| With asymmetric signing, delegated MCP tokens carry the MCP server's origin as `aud` instead of the issuer. | Validate them on the first-party server with `UseNewHeapJwks(jwksUri, issuer, issuer, origin)` next to `Accept(origin, "/mcp")`, and remove the shared key from that server. |
+
 ## NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: one status per error code and error handling after the review
 
 Every assistant endpoint (chat, administration, agent runs, subjects, run histories, boards, MCP

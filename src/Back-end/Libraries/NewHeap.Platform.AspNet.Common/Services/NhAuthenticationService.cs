@@ -202,6 +202,28 @@ public class NhAuthenticationService<
     }
 
     /// <summary>
+    /// The credentials new tokens are signed with: the private key of asymmetric signing
+    /// (<see cref="NhJwtSigningKeys"/>), or else the shared key of <see cref="GetTokenKey"/> with HS256,
+    /// as before asymmetric signing existed.
+    /// </summary>
+    /// <exception cref="ConfigurationException">The shared key is blank.</exception>
+    protected virtual SigningCredentials GetSigningCredentials()
+    {
+        if (NhJwtSigningKeys.IsAsymmetric(_configuration))
+        {
+            return NhJwtSigningKeys.Read(_configuration).SigningCredentials;
+        }
+
+        var tokenKey = GetTokenKey();
+        if (string.IsNullOrWhiteSpace(tokenKey))
+        {
+            throw new ConfigurationException("Missing JWT configuration");
+        }
+
+        return new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey)), SecurityAlgorithms.HmacSha256);
+    }
+
+    /// <summary>
     /// Get domain of issuer
     /// </summary>
     /// <returns></returns>
@@ -492,16 +514,36 @@ public class NhAuthenticationService<
         return await CreateToken(userId, claims, expiration);
     }
 
-    public virtual async Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> c, TimeSpan? expiration = null)
+    public virtual Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> c, TimeSpan? expiration = null)
     {
-        if (
-            string.IsNullOrWhiteSpace(GetTokenKey())
-            || string.IsNullOrWhiteSpace(GetIssuer())
-        )
+        var issuer = GetIssuer();
+        if (string.IsNullOrWhiteSpace(issuer))
         {
             throw new ConfigurationException("Missing JWT configuration");
         }
 
+        return CreateTokenForAudienceAsync(userId, c, expiration, issuer);
+    }
+
+    /// <summary>
+    /// Creates a JWT for a user with <paramref name="audience"/> as <c>aud</c>: the issuer for the
+    /// application's own tokens, another service's identifier for a token only that service accepts.
+    /// </summary>
+    /// <exception cref="ConfigurationException">The issuer or the shared key is missing.</exception>
+    protected virtual async Task<JwtSecurityToken> CreateTokenForAudienceAsync(
+        Guid userId,
+        IEnumerable<Claim> c,
+        TimeSpan? expiration,
+        string audience)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(audience);
+        var issuer = GetIssuer();
+        if (string.IsNullOrWhiteSpace(issuer))
+        {
+            throw new ConfigurationException("Missing JWT configuration");
+        }
+
+        var creds = GetSigningCredentials();
         var user = await _userManager.FindByIdAsync(userId.ToString());
         if (user == null)
         {
@@ -509,8 +551,6 @@ public class NhAuthenticationService<
         }
 
         var claims = c.ToList();
-        var tokenKey = GetTokenKey();
-        var issuer = GetIssuer();
 
         expiration ??= TimeSpan.FromDays(1);
 
@@ -528,14 +568,11 @@ public class NhAuthenticationService<
 
         claims.RemoveAll(x => x.Type == securityStampClaimType);
         claims.Add(new Claim(securityStampClaimType, securityStamp));
-        
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var now = DateTime.UtcNow;
 
         var token = new JwtSecurityToken(issuer,
-            issuer,
+            audience,
             claims,
             expires: now.Add(expiration.Value),
             notBefore: now,
@@ -569,6 +606,45 @@ public class NhAuthenticationService<
             user.Id,
             userClaims.Where(claim => !replaced.Contains(claim.Type)).Concat(additional),
             expiration);
+        return TaskResult<JwtSecurityToken>.Succeeded(token);
+    }
+
+    /// <summary>
+    /// Creates a short-lived delegated token for another service, as
+    /// <see cref="CreateDelegatedTokenAsync(Guid, IEnumerable{Claim}, TimeSpan, CancellationToken)"/>.
+    /// When the application signs asymmetrically (<see cref="NhJwtSigningKeys"/>) the token's <c>aud</c>
+    /// is <paramref name="audience"/>: that service validates it with the published public key, and
+    /// this application, which expects its issuer as audience, refuses it. With the shared HS256 key
+    /// the token keeps the issuer as audience, which the hosts sharing that key validate.
+    /// </summary>
+    public virtual async Task<TaskResult<JwtSecurityToken>> CreateDelegatedTokenAsync(
+        Guid userId,
+        IEnumerable<Claim> claims,
+        TimeSpan expiration,
+        string audience,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(claims);
+        ArgumentException.ThrowIfNullOrWhiteSpace(audience);
+        if (GetSigningCredentials().Key is not AsymmetricSecurityKey)
+        {
+            return await CreateDelegatedTokenAsync(userId, claims, expiration, cancellationToken);
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null || !await MaySignInAsync(user))
+        {
+            return TaskResult<JwtSecurityToken>.Failed("User may not sign in");
+        }
+
+        var additional = claims.ToArray();
+        var replaced = additional.Select(claim => claim.Type).ToHashSet(StringComparer.Ordinal);
+        var userClaims = await GetClaimsAsync(user.Id, cancellationToken);
+        var token = await CreateTokenForAudienceAsync(
+            user.Id,
+            userClaims.Where(claim => !replaced.Contains(claim.Type)).Concat(additional),
+            expiration,
+            audience);
         return TaskResult<JwtSecurityToken>.Succeeded(token);
     }
 

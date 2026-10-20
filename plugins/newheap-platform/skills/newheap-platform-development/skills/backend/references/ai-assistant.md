@@ -184,7 +184,7 @@ invalid run filter. Clients map the code, never the status, to a text.
   chat approval of a tool whose server is left out of the turn fails with the server's skip code, as a
   deferred execution does.
 - **Personal servers in background runs.** `personal` is for `forward-user-token`
-  servers of the same trust domain: a run sends a short-lived delegated NewHeap token of
+  first-party servers: a run sends a short-lived delegated NewHeap token of
   the person whose rights it uses (`INhAiMcpDelegatedTokenIssuer`, at most
   `ForwardedTokenLifetime`, two minutes by default and five at most), minted per request
   for hosts in `ForwardUserTokenHosts` only, marked with the invocation and bound to the
@@ -200,9 +200,12 @@ invalid run filter. Clients map the code, never the status, to a text.
   the token; issuing once per turn, server, person and outcome as `McpDelegatedTokenIssued`
   with `TokenCount`. The receiving server calls
   `AddNewHeapPlatformAIMcpDelegatedTokens(tokens => tokens.Accept(origin, "/mcp"))`; the
-  assistant's own host accepts no such token. The token is signed with the host's
-  symmetric key, so every host that can validate it can also mint tokens; use it only
-  between hosts that already share that key.
+  assistant's own host accepts no such token. Sign the host's tokens asymmetrically
+  (`NhJwtSigningKeys` with `ES256` or `RS256`, `nh-auth-token-signing`) and publish the keys with
+  `MapNewHeapJwks`: the delegated token's `aud` is then the server's origin, and the server validates
+  it with `UseNewHeapJwks(jwksUri, issuer, issuer, origin)` without a key that could mint tokens. With
+  the shared HS256 key the token keeps the issuer as `aud` and every host that can validate it can also
+  mint tokens; use that only between hosts that already share the key.
 - **MCP servers with OAuth.** `oauth-client-credentials` connects the organization with
   the host's own client (`oauth.clientId` with a write-only `clientSecret`, a
   `clientSecretReference` or, for `private_key_jwt`, the `clientCertificateReference`);
@@ -452,8 +455,9 @@ or output of the running turn, also not text written before an approval pause.
   http, link-local or metadata addresses for MCP servers.
 - Setting `headlessUse` to `organization` for a server whose credential lets an agent
   do more than the people it works for may; background runs then act with it.
-- Using `personal` for a host outside the trust domain of the signing key, or letting the
-  assistant's own host `Accept` delegated MCP tokens on more than its MCP endpoint.
+- Sharing the HS256 signing key with a first-party MCP server so that it can validate delegated
+  tokens; sign asymmetrically and let it validate with the published keys. Letting the assistant's
+  own host `Accept` delegated MCP tokens on more than its MCP endpoint.
 - Writing a secret resolver that maps a reference name to arbitrary settings, files or
   environment variables; a name selects one secret of one source.
 - Using an organization connection for a system that must know who acts, such as a mailbox or a

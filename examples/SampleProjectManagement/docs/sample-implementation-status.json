@@ -1838,7 +1838,10 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpClientCertificates.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpCredentialTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMcpDelegatedTokenTests.cs",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-mcp-connections.component.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-mcp-connections.component.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhJwtSigningKeysTests.cs"
     ],
     "SPM-252": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",

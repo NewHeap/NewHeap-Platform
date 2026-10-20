@@ -19,6 +19,7 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
 | M1 | Implemented, not yet released: the per-request credential pipeline, `headlessUse` per server (`never`, `organization`), executable deferred MCP proposals, per-caller tool lists that leave the catalog alone, connection health, the `McpConnectionPolicy` migrations, the editor and list, the mock API, the texts and SPM-251. See [implementation notes](#implementation-notes-m1). |
 | M2 | Implemented, not yet released: basic authentication, the three secret sources, client certificates, the transport choice, the per-person background-use consent (moved forward from M4), the headless `forward-user-token` variant with `AddNewHeapPlatformAIMcpDelegatedTokens`, the `McpServerCredentials` migrations, the editor, the preferences, the mock API, the texts and SPM-251. See [implementation notes](#implementation-notes-m2). |
 | M3 | Implemented, not yet released: discovery and pinning, registration (pre-registered, Client ID Metadata Document, dynamic), the organization authorization code flow, `oauth-client-credentials` with a secret or `private_key_jwt`, token storage, single-flight refresh, step-up for client credentials, revocation, the callback and metadata document endpoints, the admin endpoints, the opt-in health check, metrics, retention, `NhAiTestAuthorizationServer`, the `McpOAuthConnections` migrations, the editor and list, the mock API, the texts and SPM-299. See [implementation notes](#implementation-notes-m3). |
+| Follow-ups | Implemented, not yet released, on Lars's request of 2026-10-20: asymmetric signing of NewHeap tokens (F1). See [implementation notes](#implementation-notes-follow-ups). |
 | M4 | Implemented, not yet released: personal OAuth connections (`connectionScope: user`) with the authorize, complete and disconnect endpoints, the `connection.required` event and part with `nh-assistant-connection-required`, connect and disconnect in `nh-assistant-mcp-connections`, redirect mode, `personal` headless use with consent, the approval identity of Q10, per-person caching, step-up prompts, revoke-all, retention, `McpConnectionOwner`, the mock API, the texts and SPM-300. See [implementation notes](#implementation-notes-m4). |
 
 ## Implementation notes (M1)
@@ -206,6 +207,51 @@ from the original recommendation. Phases M1 to M4 follow the [delivery order](#d
   without console errors or horizontal overflow. The management app's initial bundle warning
   budget moved from 1.65MB to 1.7MB.
 
+## Implementation notes (follow-ups)
+
+Lars asked on 2026-10-20 to resolve the [proposed follow-ups](#proposed-follow-ups) now. Each is
+implemented as below; the decisions are I22 onwards in the
+[implementer's decisions](#decisions-by-the-implementer-for-lars-to-review).
+
+### F1: asymmetric signing of NewHeap tokens
+
+- **Configuration.** `NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Signing` (`NhJwtSigningKeys`
+  in `NewHeap.Platform.AspNet.Common`): `Algorithm` (`HS256` by default, `RS256`, `ES256`), `KeyId`,
+  exactly one of `PrivateKey` (PEM) and `Pkcs12` (Base64, with `Pkcs12Password`), all read with
+  `NhConfigurationSecrets.Read`, and `PreviousKeys` (`KeyId`, `PublicKey` as a PEM public key or
+  certificate). Without the section, or with `HS256`, nothing changes: `NhJwtSigningKey` signs and
+  validates as before. A configuration error throws at startup with the setting's name only. Keys are
+  cached per configuration instance and read again when their settings change (a fingerprint of the
+  settings, never kept as text).
+- **Signing and validation.** `NhAuthenticationService.GetSigningCredentials` (protected virtual) signs
+  with the private key and its `kid`; HS256 keeps using the overridable `GetTokenKey`. `CreateToken`
+  delegates to the new protected `CreateTokenForAudienceAsync`. `NhJwtSigningKeySet.ApplyTo` sets the
+  platform's validation parameters: HS256 exactly as before, otherwise the current public key, every
+  validation key and `ValidAlgorithms`. Validation keys are public-only copies, so they cannot sign.
+- **Key set.** `MapNewHeapJwks(pattern = "/.well-known/jwks.json")` is opt-in, anonymous, cached for
+  five minutes, contains `kty`, `use`, `kid`, `alg` and the public parameters only, and fails at
+  startup for an HS256 application. `UseNewHeapJwks(jwksUri, issuer, audiences)` configures a JWT
+  bearer scheme of another host with a `ConfigurationManager` over the key set: issuer, audiences,
+  RS256 and ES256 only, read every hour and at most once a minute for an unknown `kid` (I22).
+- **Delegated tokens.** `INhAuthenticationService` gained the default method
+  `CreateDelegatedTokenAsync(userId, claims, expiration, audience)`; `NhAuthenticationService` sets
+  `aud` to `audience` when it signs asymmetrically and keeps the issuer with HS256 (I23). The built-in
+  issuer of `AddNewHeapPlatformAIMcpDelegatedTokens` passes the server's origin. The marker and
+  `nh-ai-mcp-audience` claims, `Accept(origin, path)` and the issuing host's restriction are unchanged,
+  so a receiving host applies one rule to both kinds of token.
+- **Migration.** `AcceptSharedKeyTokens` lets the issuing application keep validating tokens of its
+  shared key while it moves from HS256 (I24); the shared key is never published.
+- **Sample.** The assistant sample host of the agent run tests (`AssistantAgentRunSampleHost`) signs
+  with ES256 from a key generated in the process and published with `MapNewHeapJwks`;
+  `SampleFirstPartyMcpServer` validates with `UseNewHeapJwks` and holds no key. The SPM-251 test asserts
+  that each delegated token carries the server's origin as `aud` and the host's `kid`. The sample API
+  itself keeps HS256 (I25).
+- **Evidence.** `NhJwtSigningKeysTests` (HS256 unchanged, ES256 from PEM, RS256 from PKCS#12, rotation,
+  a previous key as certificate, the shared key while moving, configuration errors, the key set's
+  shape, another host with rotation), `NhAuthenticationServiceSigningTests` (the `aud` of delegated
+  tokens with both algorithms), `NhAiMcpDelegatedTokenTests.A_first_party_host_validates_an_asymmetric_delegated_token_with_the_published_key_only`
+  and `SPM_251_a_background_run_reaches_a_first_party_server_with_a_delegated_token_once_the_participant_consents`.
+
 ## Problem
 
 ### What exists today
@@ -376,6 +422,10 @@ through M4 without waiting. Where a choice came up, the implementer decided as b
 | I18 | Decided by the implementer on 2026-10-20 with W4 of the [plan for agents working on application objects](ai-agent-work-on-objects-plan.md), for Lars to review: a run a person started by hand (`POST threads/start`, trigger `manual`) uses a personal connection (personal OAuth or the headless `forward-user-token` variant) only of its initiator, with the initiator's consent to background use. When the person whose rights the run uses is someone else, such as the accountable account of an agent with `ActWithAccountableRights`, servers with `personal` headless use are left out with `assistant-mcp-initiator-only`; organization credentials are unaffected, and other triggers keep Q3. | A person must never make someone else's remote account act at a moment of their choosing; the whole application has no members whose connection could serve. Runs from agent requests and queued messages follow the same rule since I21. |
 | I19 | Decided by the implementer on 2026-10-20 with W5 of the [plan for agents working on application objects](ai-agent-work-on-objects-plan.md), for Lars to review: MCP tools never declare a subject (K12), so a run's MCP proposal always waits in the run's own thread and executes there under Q10's identity rules, as before; the platform does not place it at another object even when its arguments name one. A proposal placed at another object is always a generated or hand-built governed tool: it executes through the governed function in the object's scope with the agent's account, and the MCP re-checks at execution (headless use, contract, connection and consent) never apply to it. | The model cannot say which object an MCP call concerns, and the platform checks only what a tool declares; Q10's identity of MCP executions stays untouched. |
 | I20 | Decided by the implementer on 2026-10-20 with W6 of the [plan for agents working on application objects](ai-agent-work-on-objects-plan.md), for Lars to review: a run's result keeps what MCP tools returned only as far as the model's answer repeats it; it is bounded to 20,000 characters, shown to whoever sees the run (K14) and rendered as safe Markdown, never as HTML. The run's detail does not name the connection owner of its MCP calls: `McpConnectionOwner` is recorded on the audit events only, not per stored tool call. | The answer is visible in the run's thread already; storing it bounded next to the run adds no new exposure for object runs. Naming the owner would need a stored column per call; the audit keeps answering whose account a call used. |
+| I22 | Decided by the implementer on 2026-10-20 with F1, for Lars to review: `UseNewHeapJwks` reads the key set every hour and, for a token with an unknown key id, at most once a minute; rotation is done by making a new key current and moving the old public key into `PreviousKeys`, not by announcing the next key first. | A receiving host asks for the key set as soon as a token names the new key, so a rotation reaches it within a minute without a two-step rollout; the one-minute floor keeps forged key ids from hammering the issuer. |
+| I23 | Decided by the implementer on 2026-10-20 with F1, for Lars to review: only an application that signs asymmetrically sets the receiving service as `aud` of a delegated token; with HS256 the issuer stays the audience. `nh-ai-mcp-audience` stays in both. | First-party hosts that share the HS256 key validate the issuer as audience today; changing `aud` for them would be a breaking change without a security gain, because they can mint tokens anyway. |
+| I24 | Decided by the implementer on 2026-10-20 with F1, for Lars to review: `AcceptSharedKeyTokens` (off by default) lets an application that moves to RS256 or ES256 accept tokens of its former shared key on its own host. | Switching would otherwise refuse every access token issued before the switch and sign everyone out at once. The key is never published and receiving hosts never accept it. |
+| I25 | Decided by the implementer on 2026-10-20 with F1, for Lars to review: the sample API keeps HS256; asymmetric signing is shown in the assistant sample host of the agent run tests with a key generated in the process. | `npm run security:public-source` refuses committed PEM private keys, and a development key in source would be copied into real deployments. |
 | I21 | Decided by the implementer on 2026-10-20 in the final cleanup of `feature/assistant-agents-on-objects`, for Lars to review: I18 covers every turn a person asked for. The people who asked for a headless turn are the initiator of a run started by hand (`manual`), through another assistant's request tool (`agent-request`) or by a message typed while a run worked (`queued-message`), and the author of every message among the inputs the run claimed, also a message that joined a run nobody asked for, such as a scheduled run that answers it in a further turn, and a turn that continues after a wait (`NhAssistantRunStore.ListInputAuthorsAsync`). When any of them is not the person whose rights the turn uses, servers with `personal` headless use are left out with `assistant-mcp-initiator-only`; the asking person's own connection serves only when that person is the one whose rights the turn uses (`DelegateFromInitiator`, or the accountable person asking themselves) and consented. Organization credentials are unaffected; event, schedule, hand-off and decision follow-up runs whose inputs no person wrote keep Q3, and deferred proposal executions keep Q10. | Queued messages are mostly answered in a further turn of the run that was working, so a rule on the run's trigger alone would let a person's message steer the accountable person's account; agent requests carry the asking person like a start by hand. A follow-up run after a decision is the agent's own policy at work, not a person's request, and its input is no person's message. |
 
 ## Review fixes
@@ -406,7 +456,6 @@ they are proposed for Lars to plan, with the reason they were not done here.
 
 | Follow-up | What it would do | Why not in this plan |
 | --- | --- | --- |
-| Asymmetric signing of NewHeap tokens | Sign NewHeap tokens with RS256 or ES256 and publish a key set in `NewHeap.Platform.AspNet.Common`, so a first-party host validates delegated tokens without being able to mint them and the audience can be a real `aud` ([remaining risk](#delegated-newheap-tokens-for-first-party-hosts)). | A change of the platform's authentication for every application, with key rotation and a migration of existing hosts; the headless `forward-user-token` variant is limited to hosts in the same trust domain until then. |
 | Cleanup of connections of people the platform no longer resolves (I16) | A maintenance sweep that asks `INhAiPrincipalFactory` for the owners of personal connections and revokes the connections of people it no longer resolves, before `ConnectionRetention` removes them. | D18's first-use check would add a principal lookup to every turn; a sweep needs batching and its own audit, and retention, revoke-all and a refused refresh already end such connections. |
 | A missing personal connection in a headless run, on the run and for the person | Record the skip code (`assistant-mcp-consent-required`, `assistant-mcp-connection-required`, `assistant-mcp-initiator-only`) on the run and notify the person whose connection is missing, as the design first said. | It needs a run column with migrations for both providers and a new notification kind with texts; notifications about runs are planned on the notification module (K16 of the [plan for agents working on application objects](ai-agent-work-on-objects-plan.md)). The code is logged per server and turn today. |
 | A public credential provider contract (D1) | Make `INhAssistantMcpCredentialProvider` and `AddMcpCredentialProvider<T>(mode)` public, so an application adds its own authentication mode, such as a token exchange with its identity provider. | I8 kept the contract internal while personal connections changed it; publishing it is a new public API with its own sample and guidance. |
@@ -648,13 +697,17 @@ instead. Safeguards, all enforced in code:
   `PUT mcp-connections/{serverId}`. The administrator's `personal` setting and `ForwardUserTokenHosts`
   are additional keys: all three must allow it.
 
-**Remaining risk.** NewHeap signs its tokens with a symmetric HMAC key. A host that can validate such a
-token holds the signing key, and with that key it can mint NewHeap tokens for any person and any claim.
-The safeguards above limit what a stolen delegated token is worth (minutes, one invocation, rejected by
-the issuing host); they do not limit what a compromised receiving host can do. The variant is therefore
-only for hosts in the same trust domain that already share the key. The follow-up library suggestion is
-asymmetric signing (RS256 or ES256 with a published key set) in `NewHeap.Platform.AspNet.Common`, after
-which receiving hosts validate without being able to mint and the audience can be a real `aud`.
+**Remaining risk.** By default NewHeap signs its tokens with a symmetric HMAC key. A host that can
+validate such a token holds the signing key, and with that key it can mint NewHeap tokens for any person
+and any claim. The safeguards above limit what a stolen delegated token is worth (minutes, one
+invocation, rejected by the issuing host); they do not limit what a compromised receiving host can do.
+With the shared key the variant is therefore only for hosts in the same trust domain that already share
+it. Since F1 an application can sign with RS256 or ES256 (`NhJwtSigningKeys`) and publish its public
+keys (`MapNewHeapJwks`): a receiving host then validates with `UseNewHeapJwks` and cannot mint tokens,
+and a delegated token's `aud` is the receiving server's origin, so the issuing host and every other
+service refuse it. What remains is what any bearer token carries: a compromised receiving host can use
+the delegated tokens it receives, for their few minutes and its own origin, and the person's rights on
+that server.
 
 ### Transports
 
@@ -904,8 +957,6 @@ horizontal overflow.
 - Built-in token exchange (RFC 8693), on-behalf-of flows and enterprise-managed authorization; a host
   can implement them as a custom credential provider (D1). A built-in follows when NewHeap keeps an
   identity provider token after sign-in.
-- Asymmetric signing of NewHeap tokens; a [proposed follow-up](#proposed-follow-ups) for the reason in
-  [Delegated NewHeap tokens for first-party hosts](#delegated-newheap-tokens-for-first-party-hosts).
 - `private_key_jwt` before certificate references exist, DPoP (RFC 9449) and certificate-bound tokens.
 - Elicitation (form and URL mode), sampling, roots, resources, prompts and `subscriptions/listen` of
   remote servers.

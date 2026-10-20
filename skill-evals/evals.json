@@ -86,6 +86,13 @@
       "expectedOutcome": "Token-specific logout and atomic per-login refresh rotation, with legacy access tokens accepted until the user's first password mutation and all sessions invalidated afterward."
     },
     {
+      "id": "consumer-auth-token-signing",
+      "skill": "newheap-authentication",
+      "prompt": "Let our planning service validate the application's access tokens and the assistant's delegated MCP tokens without giving it the signing key, and rotate that key every year without signing anybody out.",
+      "expectedRules": ["nh-auth-token-signing"],
+      "expectedOutcome": "Signing with ES256 or RS256 through NhJwtSigningKeys with the private key and key id in the secrets file, MapNewHeapJwks on the application, UseNewHeapJwks with the issuer and the service's own origin as audiences on the planning service, rotation by moving the old public key into PreviousKeys until its tokens expired, AcceptSharedKeyTokens only while moving from HS256, and delegated tokens whose aud is the service."
+    },
+    {
       "id": "consumer-auth-two-factor",
       "skill": "newheap-authentication",
       "prompt": "Let users protect their account with an authenticator app and recovery codes, including the PIN sign-in that the application already offers.",
