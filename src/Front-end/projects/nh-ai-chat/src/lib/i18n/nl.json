@@ -849,6 +849,10 @@
         "transport": "Transport",
         "transport-hint": "Kies de terugval alleen voor een server die nog geen Streamable HTTP biedt.",
         "forward-warning": "Het token van de ingelogde gebruiker wordt naar deze server gestuurd. De host van de server moet op de allow-list van de applicatie staan.",
+        "custom-auth": {
+          "organization": "De applicatie levert deze inloggegevens; iedere gebruiker deelt ze. Hier is geen geheim nodig.",
+          "person": "De applicatie levert de eigen inloggegevens van iedere persoon. Hier is geen geheim nodig."
+        },
         "headless-use": "Achtergrondruns",
         "headless-use-hint": "Agents die zonder een persoon werken, mogen de tools gebruiken met de eigen inloggegevens van deze server. De aanroep heeft nog steeds de rechten nodig van de persoon voor wie de agent werkt, of, voor een agent die voor zichzelf werkt, een grant in de applicatiecode (mcp.<server-id>.*).",
         "headless-use-personal": "Achtergrondruns mogen de server gebruiken met een kortlevend token van de persoon voor wie de run werkt, en alleen nadat die persoon dat in de eigen voorkeuren heeft toegestaan.",
@@ -1731,6 +1735,7 @@
         "tool-calls": "{{count}} tool-aanroepen",
         "tokens": "{{count}} tokens",
         "proposals": "{{count}} voorstellen",
+        "mcp-skipped": "{{count}} gekoppelde diensten weggelaten",
         "attempt": "Poging {{attempt}}",
         "cancel": "Annuleren",
         "resume": "Hervatten",
@@ -1798,7 +1803,8 @@
         "proposals": "Voorstellen",
         "no-proposals": "Deze run heeft niets voorgesteld.",
         "hidden-proposals": "Nog {{count}} voorstellen wachten bij objecten die je niet mag zien.",
-        "files": "Bestanden"
+        "files": "Bestanden",
+        "mcp-skipped": "Weggelaten gekoppelde diensten"
       },
       "board": {
         "title": "Agents",

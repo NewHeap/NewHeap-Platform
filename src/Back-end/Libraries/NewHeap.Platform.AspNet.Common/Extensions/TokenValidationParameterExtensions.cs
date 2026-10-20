@@ -15,8 +15,9 @@ public static class TokenValidationParameterExtensions
     {
         cfg.ValidIssuer = configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"];
         cfg.ValidAudience = configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"];
-        // Refuses a missing, unresolved or too short key (NhJwtSigningKey).
-        cfg.IssuerSigningKey = NhJwtSigningKey.Create(configuration);
+        // The shared key, or the public keys of asymmetric signing; refuses a missing, unresolved or
+        // invalid key (NhJwtSigningKey, NhJwtSigningKeys).
+        NhJwtSigningKeys.Read(configuration).ApplyTo(cfg);
         cfg.ValidateLifetime = true;
         cfg.ClockSkew = TimeSpan.Zero;
     }

@@ -26,6 +26,7 @@ using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.AspNet.Live;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Extensions;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.View;
@@ -492,7 +493,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         // assistant forwards it; in a background run nobody's token is present, so the server's
         // headlessUse personal lets the run send a short-lived delegated token of the person it acts
         // for, but only after that person allowed background use of the server.
-        await using var calendar = await SampleFirstPartyMcpServer.StartAsync(AssistantAgentRunSampleHost.JwtIssuer, AssistantAgentRunSampleHost.JwtKey);
+        // The server validates the host's tokens with the public key the host publishes; it holds no
+        // key that could mint one.
+        await using var calendar = await SampleFirstPartyMcpServer.StartAsync(
+            AssistantAgentRunSampleHost.JwtIssuer,
+            new Uri(host.BaseAddress, NhJwtSigningKeys.DefaultJwksPath));
         await using (var scope = host.Services.CreateAsyncScope())
         {
             // A person who may sign in: the identity issues delegated tokens for such people only.
@@ -503,7 +508,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         // The administrator's own token reaches the server when the tools are synchronized.
         administrator.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
             "Bearer",
-            SampleFirstPartyMcpServer.CreateAccessToken(AssistantAgentRunSampleHost.JwtIssuer, AssistantAgentRunSampleHost.JwtKey, Guid.NewGuid().ToString()));
+            SampleFirstPartyMcpServer.CreateAccessToken(
+                AssistantAgentRunSampleHost.JwtIssuer,
+                NhJwtSigningKeys.Read(host.Services.GetRequiredService<IConfiguration>()).SigningCredentials,
+                Guid.NewGuid().ToString()));
         var project = await host.CreateProjectAsync("CALENDAR", ownerId: host.OwnerId);
         await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
         using var participant = host.CreateClient(host.ParticipantId.ToString());
@@ -545,9 +553,21 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var first = await participant.PostAsJsonAsync("/api/assistant/threads/start", start, Json);
             Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
             var conversationId = (await first.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!.ConversationId!.Value;
-            await WaitForRunCountAsync(participant, conversationId, 1);
+            var withoutConsent = Assert.Single(await WaitForRunCountAsync(participant, conversationId, 1));
             Assert.DoesNotContain(model.Requests[0].Options!.Tools!, tool => tool.Name == "mcp_team_calendar_next_milestone");
             Assert.Equal(beforeRuns, calendar.Requests.Count);
+            // The run records the server it left out and why, and the participant finds the reason
+            // in the application's inbox, in the language of the run.
+            var recorded = (await host.GetJsonAsync(participant, $"/api/assistant/runs/{withoutConsent.Id}")).GetProperty("run");
+            var skip = Assert.Single(recorded.GetProperty("mcpConnectionSkips").EnumerateArray());
+            Assert.Equal("team-calendar", skip.GetProperty("serverId").GetString());
+            Assert.Equal("Team calendar", skip.GetProperty("serverDisplayName").GetString());
+            Assert.Equal(NhAssistantAdminErrorCodes.McpConsentRequired, skip.GetProperty("code").GetString());
+            var notice = Assert.Single(host.Inbox.Requests, request => request.UserId == host.ParticipantId
+                && request.Message.Contains("Team calendar", StringComparison.Ordinal));
+            Assert.True(notice.Message.Contains("Allow background use", StringComparison.Ordinal)
+                || notice.Message.Contains("Sta achtergrondgebruik toe", StringComparison.Ordinal));
+            Assert.Equal(NhUserNotificationLevel.Warning, notice.Level);
 
             // The participant allows background use in the assistant's preferences.
             var connections = await host.GetJsonAsync(participant, "/api/assistant/mcp-connections");
@@ -567,13 +587,16 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Contains(model.Requests[1].Options!.Tools!, tool => tool.Name == "mcp_team_calendar_next_milestone");
             Assert.Equal(["CALENDAR"], calendar.Calls);
             // Every request of the run authenticated the participant with a delegated token for this
-            // server's origin, a fresh one per request.
+            // server's origin, a fresh one per request. The host signs asymmetrically, so the token's
+            // aud is the server itself: the host, which expects its issuer as audience, refuses it.
             var delegated = calendar.Requests.Skip(beforeRuns).ToArray();
             Assert.NotEmpty(delegated);
             Assert.All(delegated, request =>
             {
                 Assert.Equal(host.ParticipantId.ToString(), request.PersonId);
                 Assert.Equal(calendar.Origin, request.Audience);
+                Assert.Equal(calendar.Origin, request.TokenAudience);
+                Assert.Equal(AssistantAgentRunSampleHost.JwtSigningKeyId, request.KeyId);
                 Assert.False(string.IsNullOrEmpty(request.Marker));
             });
             var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
@@ -3502,7 +3525,15 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
 public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHost
 {
     public const string JwtIssuer = "sample-project-management";
-    public const string JwtKey = "sample-project-management-signing-key-2026";
+
+    /// <summary>
+    /// SPM-251: the host signs its access tokens with ES256. The private key exists only in this
+    /// process, as the secrets file holds it in a real deployment; other hosts validate the tokens
+    /// with the public key the host publishes (<c>MapNewHeapJwks</c>) and cannot mint any.
+    /// </summary>
+    public const string JwtSigningKeyId = "sample-2026-10";
+
+    private static readonly string JwtSigningPrivateKey = CreateSigningKey();
     private readonly InMemoryStorage _hangfireStorage = new();
 
     public Guid ReaderId { get; } = Guid.NewGuid();
@@ -3518,6 +3549,12 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
     public Guid OperationsAccountId { get; } = Guid.NewGuid();
 
     public FakeReviewRequests Reviews { get; } = new();
+
+    /// <summary>
+    /// SPM-251: the application's inbox, which the assistant's agent notifications reach through
+    /// <c>UseInAppAgentNotifications</c>.
+    /// </summary>
+    public SampleInbox Inbox { get; } = new();
 
     public const string ReviewBoardSecret = "sample-review-board-secret-for-tests-only";
 
@@ -3558,7 +3595,10 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
     protected override void ConfigureSettings(IDictionary<string, string?> settings)
     {
         settings["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = JwtIssuer;
-        settings["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = JwtKey;
+        foreach (var (key, value) in SigningSettings())
+        {
+            settings[key] = value;
+        }
         // As the sample's secrets.json provides it: NewHeap configuration loads that file under "Secrets".
         settings[$"{NhConfigurationSecrets.Prefix}:{SampleIntakeReviewerComposition.ReviewBoardSecretKey}"] = ReviewBoardSecret;
         // SPM-290: the bridge calls this host itself; the handler below sends it to the real port.
@@ -3585,6 +3625,28 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
     protected override void MapEndpoints(WebApplication app)
     {
         app.MapControllers();
+        // SPM-251: the public keys of the host's tokens, for first-party servers that validate them.
+        app.MapNewHeapJwks();
+    }
+
+    /// <summary>
+    /// SPM-251: asymmetric signing as the secrets file configures it: the algorithm and key id in the
+    /// settings, the private key under the secrets prefix.
+    /// </summary>
+    private static Dictionary<string, string?> SigningSettings()
+    {
+        return new Dictionary<string, string?>
+        {
+            [NhJwtSigningKeys.AlgorithmKey] = NhJwtSigningAlgorithms.ES256,
+            [NhJwtSigningKeys.KeyIdKey] = JwtSigningKeyId,
+            [$"{NhConfigurationSecrets.Prefix}:{NhJwtSigningKeys.PrivateKeyKey}"] = JwtSigningPrivateKey
+        };
+    }
+
+    private static string CreateSigningKey()
+    {
+        using var key = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        return key.ExportPkcs8PrivateKeyPem();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -3597,9 +3659,10 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = JwtIssuer,
-                ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:ValidAudience"] = JwtIssuer,
-                ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = JwtKey
+                ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:ValidAudience"] = JwtIssuer
             })
+            // The host validates its own tokens with the public key of the same signing key.
+            .AddInMemoryCollection(SigningSettings())
             .Build();
         var platformOptions = NewHeapAspNetCommonOptions
             .Builder(configuration)
@@ -3686,6 +3749,10 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(() => new SelfHttpHandler(this));
         services.AddNewHeapPlatformAIDelegatedReads();
+        // SPM-251: agent notifications, such as a server a background run left out for want of the
+        // person's consent, also reach the application's inbox.
+        services.AddSingleton<INhUserNotificationSink>(Inbox);
+        services.AddNewHeapAssistant(assistant => assistant.UseInAppAgentNotifications());
     }
 
     private sealed class SelectedControllers(params Type[] controllers) : ControllerFeatureProvider
@@ -4118,5 +4185,21 @@ public sealed class FakeReviewRequests : IProjectReviewRequestService
 
         return Task.FromResult(TaskResult<ProjectAiReviewRequestReceipt>.Succeeded(
             new ProjectAiReviewRequestReceipt(projectId, Guid.NewGuid())));
+    }
+}
+
+/// <summary>
+/// SPM-251: the application's inbox in the tests, which records the in-app notifications it receives.
+/// </summary>
+public sealed class SampleInbox : INhUserNotificationSink
+{
+    public ConcurrentQueue<NhUserNotificationRequest> Requests { get; } = new();
+
+    public Task<TaskResult<NhUserNotificationReceipt>> SendAsync(
+        NhUserNotificationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Requests.Enqueue(request);
+        return Task.FromResult(TaskResult<NhUserNotificationReceipt>.Succeeded(new NhUserNotificationReceipt(Guid.NewGuid())));
     }
 }

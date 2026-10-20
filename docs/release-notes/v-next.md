@@ -763,6 +763,114 @@ personal connections and revokes them all after confirmation. `NhAssistantApiSer
 |---|---|
 | `MessagePart` and `NhAssistantSseEventMap` have new members. | Handle `connection-required` and `connection.required` in exhaustive switches. |
 
+## NewHeap.Platform.AspNet.Common and NewHeap.Platform.AI.AspNet.Common: asymmetric token signing
+
+An application can sign its access tokens with `RS256` or `ES256` instead of the shared HS256 key, so
+other hosts validate them without being able to mint any. Configure
+`NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Signing` (`NhJwtSigningKeys`): `Algorithm`,
+`KeyId` and exactly one private key from the secrets file, `PrivateKey` (PEM) or `Pkcs12` (Base64) with
+an optional `Pkcs12Password`, both read with `NhConfigurationSecrets.Read`. `PreviousKeys` (`KeyId`
+and `PublicKey`, a PEM public key or certificate) keep validating the tokens of a rotated key, and
+`AcceptSharedKeyTokens` lets the issuing application accept tokens of its former shared key while it
+moves from HS256. `NhAuthenticationService` signs with the key and sets the `kid`, and the platform's
+validation parameters (`NewHeapAspNetCommonOptions` and `ConfigureNhJwtBearerValidationOptions`)
+accept the current and previous public keys with `ValidAlgorithms` limited to theirs. A configuration
+error stops the application with a message that names the setting, never the key.
+
+`app.MapNewHeapJwks()` publishes the public keys as an anonymous JSON Web Key Set at
+`/.well-known/jwks.json`; mapping it for an HS256 application fails at startup.
+`JwtBearerOptions.UseNewHeapJwks(jwksUri, issuer, audiences)` validates another application's tokens
+with that key set and picks up a rotated key. `INhAuthenticationService.CreateDelegatedTokenAsync`
+gains an overload with `audience`: with asymmetric signing the token's `aud` is that service, so the
+issuing application refuses it; with HS256 it keeps the issuer, as before. The built-in delegated MCP
+token issuer of `AddNewHeapPlatformAIMcpDelegatedTokens` uses it with the MCP server's origin, so a
+first-party MCP server validates delegated tokens with the published keys and its own origin as
+audience. Derived authentication services customize signing with `GetSigningCredentials` and tokens
+for another audience with `CreateTokenForAudienceAsync`.
+
+| Breaking change | Required action |
+|---|---|
+| None for an application without the `Signing` section: it signs and validates HS256 with `Token:Key` as before. | None. To let other hosts validate tokens without the shared key, configure `Signing` with `ES256` or `RS256`, keep the private key in the secrets file, map `MapNewHeapJwks` and let the other hosts use `UseNewHeapJwks`. |
+| `INhAuthenticationService` has a new `CreateDelegatedTokenAsync` overload with `audience`, a default method that creates the token of the existing overload. | None for implementations. A test substitute that stubs the delegated MCP token stubs the overload with `audience`. |
+| With asymmetric signing, delegated MCP tokens carry the MCP server's origin as `aud` instead of the issuer. | Validate them on the first-party server with `UseNewHeapJwks(jwksUri, issuer, issuer, origin)` next to `Accept(origin, "/mcp")`, and remove the shared key from that server. |
+
+## NewHeap.Platform.AI.Chat.AspNet: connections of people the platform no longer resolves
+
+The MCP maintenance now removes the personal connections of people the platform no longer resolves,
+long before `ConnectionRetention`: it asks `INhAiPrincipalFactory` for every owner of a personal token
+connection, with the whole application as subject, at most 100 people per maintenance run and a pass
+over everyone at most every hour. A person it does not resolve, because the person was removed or may
+no longer sign in, loses the tokens of every personal connection; they are revoked at the
+authorization server and audited as `McpConnectionDisconnected` with `owner-unresolved`. A consent to
+background use stays without tokens, as after retention. A host whose built-in principal factory
+cannot resolve anyone, because the NewHeap user manager is missing, is not swept.
+
+| Breaking change | Required action |
+|---|---|
+| A person who may no longer sign in, also for a while such as during a lock-out, loses their personal MCP connections within about an hour. | None; the person connects again from the chat or the preferences. A host with its own `INhAiPrincipalFactory` makes sure it resolves every person who may use the assistant, also for the whole application as subject. |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: a missing personal connection in a background run
+
+A background run that leaves out a server with `personal` headless use because the person's consent to
+background use or connection is missing (`assistant-mcp-consent-required`,
+`assistant-mcp-connection-required`, `assistant-mcp-reauthorization-required`), or because the run acts
+for someone other than the person who asked (`assistant-mcp-initiator-only`), now records the server and
+the code on the run: `NhAssistantRunHistoryDto.McpConnectionSkips` (`NhAssistantRunMcpSkipDto`) in the
+run history and the run result. The person whose consent or connection is missing is told through the
+agent notifications with the new kind `NhAssistantAgentNotificationKind.McpConnectionMissing`
+(`McpServerId`, `McpServerDisplayName` and `McpConnectionPersonId` on the context; the default policy
+sends it to that person only), at most once per person and server a day, also through
+`UseInAppAgentNotifications`. The migrations `McpRunConnectionSkips` add the column
+`AssistantRun.McpConnectionSkips` and the table `AssistantMcpConnectionNotice`.
+
+| Breaking change | Required action |
+|---|---|
+| The schema has the migration `McpRunConnectionSkips` for SQL Server and PostgreSQL. | Apply the assistant's migrations; with `RunMigrations` off, deploy them before the new version. |
+| `NhAssistantAgentNotificationKind` has the new value `McpConnectionMissing`. | Handle it in custom `INhAssistantAgentNotificationPolicy` and channel implementations that switch over every kind; send it to `McpConnectionPersonId`. |
+
+## @newheap/platform-ai-chat: personal MCP servers a run left out
+
+`AgentRunHistoryItem.mcpConnectionSkips` (`AgentRunMcpSkip`: `serverId`, `serverDisplayName`, `code`)
+names the personal MCP servers a background run left out and why. `nh-assistant-run-result` lists them
+with their reason, and the administration's runs view and the flow view's latest runs show how many were
+left out. The mock API returns `mcpConnectionSkips` of scenario runs (`NhAssistantMockRun.mcpConnectionSkips`).
+
+| Breaking change | Required action |
+|---|---|
+| None; the field is optional and missing on older servers. | None. |
+
+## NewHeap.Platform.AI.Chat.AspNet: authentication modes of the application for MCP servers
+
+An application adds its own authentication mode for MCP servers (D1), for example a token exchange
+with its identity provider: implement the now public `INhAssistantMcpCredentialProvider` and register
+it with `AddMcpCredentialProvider<TProvider>(mode, ownership)` on `NhAssistantBuilder`
+(`NhAssistantMcpCredentialProviders`). `NhAssistantMcpCredentialOwnership` says whose credential the
+mode sends: the organization's, shared and allowed in background runs with `headlessUse:
+organization`, or each person's own, never shared and allowed with `headlessUse: personal` after the
+person's consent. `NhAssistantMcpCredential` (with `Bearer`), `NhAssistantMcpCredentialSubject` and
+`NhAssistantMcpChallenge` are public with it; `NhAssistantMcpCredentialProviders.Failed` and
+`AuthorizePersonalCall` give a provider the built-ins' refusal and call rule. The provider is asked
+before every request, renewed once after `401`, and its headers never reach a log. Administrators
+choose the modes in the server editor; `GET admin/mcp-auth-modes` (`NhAssistantMcpAuthModeDto`) lists
+them, and a server of such a mode takes no secret or OAuth settings.
+
+| Breaking change | Required action |
+|---|---|
+| None; the types were internal and the endpoint is new. | Register an application's own mode with `AddMcpCredentialProvider<T>(mode, ownership)`; its name must not be a built-in mode. |
+
+## @newheap/platform-ai-chat: authentication modes of the application
+
+The MCP server editor lists the authentication modes the application registered in code after the
+built-in modes, named by `nh-assistant.admin.mcp.auth.<mode>` or else by the mode, with a hint whose
+credential they send, and offers the background use that fits them. `McpAuthMode` is now
+`McpBuiltInAuthMode | string`; `McpBuiltInAuthMode`, `McpCustomAuthMode` and
+`NhAssistantAdminApiService.getMcpAuthModes` are new. The mock API serves `GET admin/mcp-auth-modes`
+from the scenario's `admin.mcpAuthModes` and validates servers of those modes as the server does.
+
+| Breaking change | Required action |
+|---|---|
+| `McpAuthMode` admits any string, the application's own modes. | Use `McpBuiltInAuthMode` where only built-in modes fit, and treat other values as the application's own modes in exhaustive switches. |
+
 ## NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: one status per error code and error handling after the review
 
 Every assistant endpoint (chat, administration, agent runs, subjects, run histories, boards, MCP

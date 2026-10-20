@@ -298,6 +298,49 @@ internal sealed class NhAssistantMcpOAuthStore(NhAssistantDbContextFactory conte
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// The people with a personal token connection whose actor id comes after <paramref name="after"/>,
+    /// in the provider's order of actor ids, at most <paramref name="take"/>; a sweep walks them in
+    /// batches.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> ListTokenConnectionOwnersAsync(
+        string after,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.McpConnections
+            .AsNoTracking()
+            .Where(connection => connection.OwnerKind == NhAssistantMcpConnectionOwners.User
+                && connection.Status != null
+                && string.Compare(connection.OwnerActorId, after) > 0)
+            .Select(connection => connection.OwnerActorId)
+            .Distinct()
+            .OrderBy(owner => owner)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Removes the tokens of a personal connection: a row with a consent to background use keeps the
+    /// consent without tokens, as after a disconnect, any other row is deleted. Returns whether this
+    /// call removed them, so a removal that several instances attempt is audited once.
+    /// </summary>
+    public async Task<bool> RemoveTokensAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var connected = context.McpConnections
+            .Where(connection => connection.Id == id
+                && connection.OwnerKind == NhAssistantMcpConnectionOwners.User
+                && connection.Status != null);
+        var now = DateTimeOffset.UtcNow;
+        if (await connected.Where(connection => connection.AllowBackgroundUse).ExecuteUpdateAsync(setters => ClearTokens(setters, now), cancellationToken) == 1)
+        {
+            return true;
+        }
+        return await connected.Where(connection => !connection.AllowBackgroundUse).ExecuteDeleteAsync(cancellationToken) == 1;
+    }
+
     /// <summary>The token connections of a server per status, for the administration.</summary>
     public async Task<IReadOnlyDictionary<string, int>> CountTokenConnectionsAsync(
         string serverId,

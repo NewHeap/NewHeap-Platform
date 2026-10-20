@@ -146,6 +146,9 @@
               @if (run.failureCode; as code) {
                 <span data-run-failure>{{ codeKeys(code) | nhAssistantTranslate: code }}</span>
               }
+              @if (run.mcpConnectionSkips?.length) {
+                <span class="badge warning" data-run-mcp-skips>{{ 'nh-assistant.agent-runs.run.mcp-skipped' | translate: { count: run.mcpConnectionSkips?.length } }}</span>
+              }
             </div>
             <div class="card-actions">
               <button class="secondary" type="button" [attr.data-open-run]="run.id" (click)="open(run)">

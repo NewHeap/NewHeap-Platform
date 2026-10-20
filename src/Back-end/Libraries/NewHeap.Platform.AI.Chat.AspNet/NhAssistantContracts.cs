@@ -480,6 +480,7 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))]
 [JsonSerializable(typeof(NhAssistantMcpServerDto))]
 [JsonSerializable(typeof(NhAssistantMcpServerDto[]))]
+[JsonSerializable(typeof(NhAssistantMcpAuthModeDto[]))]
 [JsonSerializable(typeof(NhAssistantMcpServerInputDto))]
 [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))]
 [JsonSerializable(typeof(NhAssistantMcpToolDto))]
@@ -826,6 +827,12 @@ public sealed record NhAssistantMcpCompletionDto(string ServerId, string OwnerKi
 
 /// <summary>The personal connections of a server per status.</summary>
 public sealed record NhAssistantMcpConnectionsSummaryDto(int Active, int ReauthorizationRequired, int IssuerChanged);
+
+/// <summary>
+/// An authentication mode the application registered in code (<c>AddMcpCredentialProvider</c>):
+/// its name and whose credential it sends, <c>organization</c> or <c>person</c>.
+/// </summary>
+public sealed record NhAssistantMcpAuthModeDto(string Mode, string Ownership);
 
 public sealed record NhAssistantMcpServerDto(
     string Id,

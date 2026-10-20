@@ -762,6 +762,49 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         }
     }
 
+    /// <summary>
+    /// Adds the personal MCP servers a turn left out to the run: one entry per server with its latest
+    /// skip code. The value is written only while it is the one read, so no entry of another turn is
+    /// lost.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The value kept changing; only the run's own operation writes it.</exception>
+    public async Task AddMcpConnectionSkipsAsync(
+        Guid runId,
+        IReadOnlyList<NewHeap.Platform.AI.Chat.Runs.NhAssistantRunMcpSkip> skips,
+        CancellationToken cancellationToken)
+    {
+        if (skips.Count == 0)
+        {
+            return;
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var current = await context.Runs
+                .AsNoTracking()
+                .Where(run => run.Id == runId)
+                .Select(run => new { run.McpConnectionSkips })
+                .SingleOrDefaultAsync(cancellationToken);
+            if (current is null)
+            {
+                return;
+            }
+
+            var previous = current.McpConnectionSkips;
+            var merged = NewHeap.Platform.AI.Chat.Runs.NhAssistantRunMcpSkips.Merge(previous, skips);
+            var updated = await context.Runs
+                .Where(run => run.Id == runId && run.McpConnectionSkips == previous)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(run => run.McpConnectionSkips, merged), cancellationToken);
+            if (updated == 1)
+            {
+                return;
+            }
+        }
+
+        throw new InvalidOperationException($"The MCP skips of run {runId} changed while they were written.");
+    }
+
     public async Task SetRunAttemptAsync(
         Guid runId,
         int attempt,

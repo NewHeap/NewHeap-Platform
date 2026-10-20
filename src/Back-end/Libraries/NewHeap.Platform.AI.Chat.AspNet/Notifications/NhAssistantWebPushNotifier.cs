@@ -338,6 +338,7 @@ internal static class NhAssistantPushKinds
     public const string AgentExecutionUnknown = "agent-execution-unknown";
     public const string AgentRunFailed = "agent-run-failed";
     public const string AgentRequestAnswered = "agent-request-answered";
+    public const string AgentMcpConnectionMissing = "agent-mcp-connection-missing";
 
     public static string ForAgent(NhAssistantAgentNotificationKind kind)
     {
@@ -349,6 +350,7 @@ internal static class NhAssistantPushKinds
             NhAssistantAgentNotificationKind.ExecutionUnknown => AgentExecutionUnknown,
             NhAssistantAgentNotificationKind.RunFailed => AgentRunFailed,
             NhAssistantAgentNotificationKind.RequestAnswered => AgentRequestAnswered,
+            NhAssistantAgentNotificationKind.McpConnectionMissing => AgentMcpConnectionMissing,
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
     }
@@ -419,9 +421,11 @@ internal static class NhAssistantPushTexts
         NhAssistantAgentNotificationKind kind,
         string language,
         string? subjectDisplayName,
-        int proposalCount)
+        int proposalCount,
+        string? mcpServerDisplayName = null,
+        string? code = null)
     {
-        return NhAssistantAgentNotificationTexts.ForAgent(kind, language, subjectDisplayName, proposalCount);
+        return NhAssistantAgentNotificationTexts.ForAgent(kind, language, subjectDisplayName, proposalCount, mcpServerDisplayName, code);
     }
 
     private static bool IsDutch(string language)

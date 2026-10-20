@@ -76,6 +76,7 @@ internal sealed partial class NhAssistantMcpAdministration(
     NhAssistantMcpOAuthStore oauthStore,
     NhAssistantMcpOAuthConnections oauthConnections,
     NhAssistantMcpAuthorizationFlows flows,
+    NhAssistantMcpAuthModeCatalog modes,
     IOptionsMonitor<NhAssistantOptions> options)
 {
     public const string AdministratorReason = "administrator";
@@ -243,7 +244,7 @@ internal sealed partial class NhAssistantMcpAdministration(
             return NotFound<IReadOnlyList<AssistantMcpTool>>();
         }
         var lease = await ConnectAsync(server, actorId, cancellationToken);
-        var sharedCredential = NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope);
+        var sharedCredential = modes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope);
         if (!lease.Success)
         {
             await store.UpdateMcpServerAsync(id, item =>
@@ -366,7 +367,7 @@ internal sealed partial class NhAssistantMcpAdministration(
     /// </summary>
     private async Task RecordConnectAsync(AssistantMcpServer server, string? code)
     {
-        if (!NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope))
+        if (!modes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope))
         {
             return;
         }
@@ -400,7 +401,7 @@ internal sealed partial class NhAssistantMcpAdministration(
             .Require(!string.IsNullOrWhiteSpace(input.Url), "url", NhAssistantFieldErrors.Required)
             .Require(input.Url is not { Length: > 2_048 }, "url", NhAssistantFieldErrors.TooLong)
             .Require(string.IsNullOrWhiteSpace(input.Url) || urlValid, "url", NhAssistantFieldErrors.Invalid)
-            .Require(NhAssistantMcpAuthModes.IsValid(input.AuthMode), "authMode", NhAssistantFieldErrors.Invalid)
+            .Require(modes.IsValid(input.AuthMode), "authMode", NhAssistantFieldErrors.Invalid)
             .Require(
                 input.AuthMode == NhAssistantMcpAuthModes.ApiKeyHeader
                     ? input.HeaderName is null || HeaderPattern().IsMatch(input.HeaderName)
@@ -434,8 +435,8 @@ internal sealed partial class NhAssistantMcpAdministration(
             .Require(NhAssistantMcpHeadlessUses.IsValid(headlessUse), "headlessUse", NhAssistantFieldErrors.Invalid)
             .Require(
                 !NhAssistantMcpHeadlessUses.IsValid(headlessUse)
-                    || !NhAssistantMcpAuthModes.IsValid(input.AuthMode)
-                    || NhAssistantMcpHeadlessUses.FitsAuthMode(headlessUse, input.AuthMode, connectionScope),
+                    || !modes.IsValid(input.AuthMode)
+                    || modes.FitsHeadlessUse(headlessUse, input.AuthMode, connectionScope),
                 "headlessUse",
                 NhAssistantFieldErrors.Invalid);
         if (!errors.IsEmpty)

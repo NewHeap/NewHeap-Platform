@@ -81,10 +81,13 @@
         [attr.aria-describedby]="describedBy(null, 'authMode')"
         [attr.aria-invalid]="serverInvalid('authMode') ? true : null"
         (change)="authMode.set($any(value($event))); touch('authMode')">
-        @for (mode of authModes; track mode) {
-          <option [value]="mode" [selected]="authMode() === mode">{{ 'nh-assistant.admin.mcp.auth.' + mode | translate }}</option>
+        @for (mode of authModes(); track mode) {
+          <option [value]="mode" [selected]="authMode() === mode">{{ ['nh-assistant.admin.mcp.auth.' + mode] | nhAssistantTranslate: mode }}</option>
         }
       </select>
+      @if (customOwnership(); as ownership) {
+        <p class="hint" data-custom-auth-mode>{{ 'nh-assistant.admin.server-editor.custom-auth.' + ownership | translate }}</p>
+      }
       @if (serverInvalid('authMode')) {
         <p class="field-error" [id]="errorId('authMode')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('authMode') | nhAssistantTranslate }}</p>
       }

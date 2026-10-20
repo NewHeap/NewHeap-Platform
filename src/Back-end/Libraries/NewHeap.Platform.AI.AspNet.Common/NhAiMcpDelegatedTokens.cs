@@ -13,8 +13,11 @@ namespace NewHeap.Platform.AI.AspNet;
 
 /// <summary>
 /// Claims and limits of a delegated NewHeap token that an assistant sends to a first-party MCP
-/// server for a person in a headless run. Such a token is signed with the host's own key, so only
-/// hosts that share that key can validate it; it is meant for hosts in the same trust domain.
+/// server for a person in a headless run. With the shared HS256 key only hosts that share that key
+/// can validate the token, so they could also mint one: the variant is then meant for hosts in the
+/// same trust domain. An application that signs asymmetrically (<c>NhJwtSigningKeys</c>) sets the
+/// server's origin as the token's <c>aud</c>, and the server validates it with the published public
+/// key (<c>UseNewHeapJwks</c>) without being able to mint tokens.
 /// </summary>
 public static class NhAiMcpDelegatedTokenDefaults
 {
@@ -26,8 +29,10 @@ public static class NhAiMcpDelegatedTokenDefaults
 
     /// <summary>
     /// The claim that binds the token to one server: the server's origin (<see cref="AudienceOf"/>).
-    /// NewHeap tokens set <c>aud</c> to their issuer, so a second <c>aud</c> value would still let the
-    /// issuing host accept the token; the binding is this dedicated claim instead.
+    /// With the shared HS256 key NewHeap tokens set <c>aud</c> to their issuer, which the hosts sharing
+    /// the key validate, so the binding is this dedicated claim. An application that signs
+    /// asymmetrically also sets <c>aud</c> to the origin; the claim stays, so receiving hosts apply one
+    /// rule to both.
     /// </summary>
     public const string AudienceClaimType = "nh-ai-mcp-audience";
 
@@ -245,7 +250,8 @@ internal static class NhAiMcpDelegatedTokenRestriction
 
 /// <summary>
 /// The built-in issuer for hosts on the NewHeap identity: the token carries the person's own claims
-/// and security stamp, and is issued only while the person may sign in. A person who is no NewHeap
+/// and security stamp, and is issued only while the person may sign in. When the host signs
+/// asymmetrically, the token's <c>aud</c> is the server's origin. A person who is no NewHeap
 /// user or may not sign in gets no token (<see cref="NhAiMcpDelegatedTokenDefaults.UnavailableCode"/>,
 /// followed by the authentication service's own reason); a host without the NewHeap authentication
 /// service, or a lifetime outside (0, <see cref="NhAiMcpDelegatedTokenDefaults.MaxLifetime"/>], is a
@@ -279,7 +285,8 @@ internal sealed class NhAiNewHeapMcpDelegatedTokenIssuer(IServiceProvider servic
             new(NhAiMcpDelegatedTokenDefaults.MarkerClaimType, request.Marker),
             new(NhAiMcpDelegatedTokenDefaults.AudienceClaimType, request.Audience)
         ];
-        var created = await authentication.CreateDelegatedTokenAsync(userId, claims, request.Lifetime, cancellationToken);
+        // An application that signs asymmetrically sets the server's origin as the token's aud.
+        var created = await authentication.CreateDelegatedTokenAsync(userId, claims, request.Lifetime, request.Audience, cancellationToken);
         if (!created.Success)
         {
             // The person may not sign in: the authentication service's reason follows the code.

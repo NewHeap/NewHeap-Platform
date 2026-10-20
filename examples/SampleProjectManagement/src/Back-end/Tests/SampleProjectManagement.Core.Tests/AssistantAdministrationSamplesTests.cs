@@ -158,6 +158,91 @@ public sealed partial class AssistantSamplesTests
     }
 
     [Fact]
+    public async Task SPM_251_the_application_adds_an_authentication_mode_that_exchanges_the_persons_token()
+    {
+        // SPM-251: an authentication mode of the application's own (D1). The sample registers
+        // SampleTokenExchangeCredentialProvider with AddMcpCredentialProvider; administrators choose
+        // it like a built-in mode, and every request to the server carries a token the identity
+        // provider exchanged for the person, never the person's own token.
+        await using var exchange = await SampleTokenExchangeService.StartAsync("spm-251-exchange-client", "spm-251-exchange-secret");
+        await using var reports = await SampleMcpServer.StartAsync(request =>
+            request.Headers.Authorization.ToString().StartsWith("Bearer exchanged:", StringComparison.Ordinal));
+        var configuration = Host.Services.GetRequiredService<IConfiguration>();
+        configuration[SampleTokenExchangeCredentialProvider.EndpointKey] = exchange.TokenEndpoint;
+        configuration[SampleTokenExchangeCredentialProvider.ClientIdKey] = "spm-251-exchange-client";
+        // As the sample's secrets.json provides it.
+        configuration[$"{NewHeap.Platform.Common.NhConfigurationSecrets.Prefix}:{SampleTokenExchangeCredentialProvider.ClientSecretKey}"] = "spm-251-exchange-secret";
+        const string adminToken = "spm-251-admin-newheap-token";
+        const string userToken = "spm-251-user-newheap-token";
+        using var admin = Host.CreateClient("spm-251-exchange-admin", admin: true);
+        admin.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", adminToken);
+        using var user = Host.CreateClient("spm-251-exchange-user");
+        user.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", userToken);
+
+        try
+        {
+            var modes = await Host.GetJsonAsync(admin, "/api/assistant/admin/mcp-auth-modes");
+            var mode = Assert.Single(modes.EnumerateArray());
+            Assert.Equal(SampleTokenExchangeCredentialProvider.Mode, mode.GetProperty("mode").GetString());
+            Assert.Equal("person", mode.GetProperty("ownership").GetString());
+
+            using var created = await admin.PostAsync("/api/assistant/admin/mcp-servers", AssistantSampleHost.Json(new
+            {
+                id = "reports",
+                displayName = "Project reports",
+                url = reports.Url,
+                authMode = SampleTokenExchangeCredentialProvider.Mode,
+                headerName = (string?)null,
+                requiredPolicy = (string?)null,
+                isEnabled = true
+            }), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            // The administrator synchronizes with their own exchanged token.
+            using var synced = await admin.PostAsync("/api/assistant/admin/mcp-servers/reports/sync", null, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, synced.StatusCode);
+            using var enabled = await admin.PutAsync(
+                "/api/assistant/admin/mcp-servers/reports/tools/next_milestone",
+                AssistantSampleHost.Json(new { isEnabled = true, effect = "read-only", descriptionOverride = (string?)null }),
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, enabled.StatusCode);
+            using var agent = await admin.PostAsync("/api/assistant/admin/agents", AssistantSampleHost.Json(new
+            {
+                id = "reports-helper",
+                displayName = "Reports helper",
+                description = "Answers milestone questions from the project reports.",
+                instructions = "Answer milestone questions with the reports tool.",
+                toolSelectors = new[] { "projects.search" },
+                mcpServerIds = new[] { "reports" },
+                requiredPolicy = (string?)null,
+                autonomy = "observe",
+                isEnabled = true
+            }), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Created, agent.StatusCode);
+
+            Host.Model.Use(new NhAiScriptedChatClient()
+                .RespondWithFunctionCall("mcp_reports_next_milestone", new { project = "PRJ-7" })
+                .RespondWithText("PRJ-7 reaches its next milestone on Friday."));
+            var conversation = await CreateConversationAsync(user, "reports-helper");
+            var events = await Host.SendAsync(user, conversation, "When is the next milestone of PRJ-7?");
+
+            Assert.Equal("succeeded", events.Single(evt => evt.Name == "tool.completed").Data.GetProperty("status").GetString());
+            Assert.Equal(["PRJ-7"], reports.Calls);
+            // The server saw only exchanged tokens: the administrator's while syncing, the person's in the chat.
+            Assert.All(reports.Authorizations, authorization => Assert.StartsWith("Bearer exchanged:", authorization, StringComparison.Ordinal));
+            Assert.DoesNotContain(reports.Authorizations, authorization => authorization.Contains(userToken, StringComparison.Ordinal) || authorization.Contains(adminToken, StringComparison.Ordinal));
+            Assert.Contains("Bearer exchanged:" + SampleTokenExchangeService.HashOf(userToken), reports.Authorizations);
+            Assert.Contains(exchange.Exchanges, item => item.SubjectHash == SampleTokenExchangeService.HashOf(adminToken));
+            Assert.All(exchange.Exchanges, item => Assert.Equal(reports.Url, item.Resource));
+        }
+        finally
+        {
+            using var deletedAgent = await admin.DeleteAsync("/api/assistant/admin/agents/reports-helper", TestContext.Current.CancellationToken);
+            using var deletedServer = await admin.DeleteAsync("/api/assistant/admin/mcp-servers/reports", TestContext.Current.CancellationToken);
+            Host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
+    [Fact]
     public async Task SPM_251_mcp_secrets_can_stay_with_the_application_and_basic_authentication_sends_a_user_name()
     {
         // SPM-251: an administrator names a secret that the application holds instead of storing

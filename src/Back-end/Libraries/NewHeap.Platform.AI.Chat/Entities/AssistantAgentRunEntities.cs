@@ -189,6 +189,14 @@ public sealed class AssistantRun
     /// </summary>
     public string? ResultsJson { get; set; }
 
+    /// <summary>
+    /// The personal MCP servers the run's turns left out because a person's consent to background use
+    /// or connection was missing, or because the run acted for someone other than the person who
+    /// asked: a JSON array of the server's id and display name and the skip code, one entry per
+    /// server; <see langword="null"/> when the run left none out.
+    /// </summary>
+    public string? McpConnectionSkips { get; set; }
+
     public bool Shadow { get; set; }
 
     /// <summary>

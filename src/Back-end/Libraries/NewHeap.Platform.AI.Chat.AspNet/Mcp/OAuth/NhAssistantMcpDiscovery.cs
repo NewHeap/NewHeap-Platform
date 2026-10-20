@@ -46,11 +46,13 @@ internal sealed record NhAssistantMcpDiscoveryResult(
     NhAssistantMcpAuthorizationServerMetadata AuthorizationServer);
 
 /// <summary>
-/// A <c>WWW-Authenticate: Bearer</c> challenge (RFC 6750, RFC 9728).
+/// A <c>WWW-Authenticate: Bearer</c> challenge (RFC 6750, RFC 9728) with which an MCP server refused a
+/// request: the status (<c>401</c>, or <c>403</c> with <c>insufficient_scope</c>), the error, the
+/// scopes it asked for and its protected resource metadata.
 /// </summary>
-internal sealed record NhAssistantMcpChallenge(int Status, string? Error, string? Scope, string? ResourceMetadata)
+public sealed record NhAssistantMcpChallenge(int Status, string? Error, string? Scope, string? ResourceMetadata)
 {
-    public static NhAssistantMcpChallenge Parse(int status, HttpHeaderValueCollection<AuthenticationHeaderValue> challenges)
+    internal static NhAssistantMcpChallenge Parse(int status, HttpHeaderValueCollection<AuthenticationHeaderValue> challenges)
     {
         foreach (var challenge in challenges)
         {
@@ -67,6 +69,7 @@ internal sealed record NhAssistantMcpChallenge(int Status, string? Error, string
         return new NhAssistantMcpChallenge(status, null, null, null);
     }
 
+    /// <summary>The scopes of <see cref="Scope"/>.</summary>
     public IReadOnlyList<string> Scopes => NhAssistantMcpScopes.Split(Scope);
 
     private static Dictionary<string, string> ParseParameters(string? parameter)

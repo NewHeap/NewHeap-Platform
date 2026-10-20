@@ -38,6 +38,12 @@ internal sealed class NhAssistantMcpToolSet(
     public IReadOnlyDictionary<string, string> ConnectionOwners { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 
     /// <summary>
+    /// The personal servers a headless turn left out because a person's consent to background use or
+    /// connection is missing, or because the turn acts for someone other than the person who asked.
+    /// </summary>
+    public IReadOnlyList<NhAssistantMcpMissingConnection> MissingConnections { get; init; } = [];
+
+    /// <summary>
     /// The code why the server of an <c>mcp.&lt;server&gt;.&lt;tool&gt;</c> tool id was skipped, or
     /// <see langword="null"/>.
     /// </summary>
@@ -62,6 +68,14 @@ internal sealed class NhAssistantMcpToolSet(
 /// (<see cref="NhAssistantMcpConnectionReasons"/>).
 /// </summary>
 internal sealed record NhAssistantMcpConnectionNeeded(string ServerId, string DisplayName, string Reason);
+
+/// <summary>
+/// A personal server a headless turn left out, with the skip code
+/// (<see cref="NewHeap.Platform.AI.Chat.Runs.NhAssistantRunMcpSkips.IsPersonal"/>) and the person whose consent or connection
+/// would let it serve; <see langword="null"/> when none would, because the turn acts for someone other
+/// than the person who asked.
+/// </summary>
+internal sealed record NhAssistantMcpMissingConnection(string ServerId, string DisplayName, string Code, string? PersonActorId);
 
 /// <summary>
 /// Who a turn's MCP tools are loaded for.

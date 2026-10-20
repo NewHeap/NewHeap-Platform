@@ -34,6 +34,7 @@ import {
   McpConnectionsSummary,
   McpDiscovery,
   McpOrganizationConnection,
+  McpCustomAuthMode,
   McpServer,
   McpServerInput,
   McpServerTestResult,
@@ -177,6 +178,14 @@ export class NhAssistantAdminApiService {
 
   getMcpServers(): Observable<McpServer[]> {
     return this.request<McpServer[]>('GET', 'admin/mcp-servers');
+  }
+
+  /**
+   * The authentication modes the application registered in code (`GET admin/mcp-auth-modes`), which
+   * administrators choose next to the built-in modes.
+   */
+  getMcpAuthModes(): Observable<McpCustomAuthMode[]> {
+    return this.request<McpCustomAuthMode[]>('GET', 'admin/mcp-auth-modes');
   }
 
   createMcpServer(input: McpServerInput): Observable<McpServer> {

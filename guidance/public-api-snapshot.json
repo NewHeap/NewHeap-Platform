@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "3e7d3577c0ec73a16e51016dc597e5324011e5e7d0a25d920ef35399d8f645ea",
-    "declarationCount": 9079,
+    "hash": "4ea4fc1c0c554193a3fb7d3d1352755ae344ef222d6eb566efe4e2cf01acee04",
+    "declarationCount": 9176,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2483,6 +2483,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public IReadOnlyList<NhAssistantRunMcpSkipDto> McpConnectionSkips { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public sealed record NhAssistantRunMcpSkipDto(string ServerId, string ServerDisplayName, string Code);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
         "declaration": "public sealed record NhAssistantRunHistoryListDto( IReadOnlyList<NhAssistantRunHistoryDto> Items, int Total) {"
       },
       {
@@ -3559,7 +3567,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
-        "declaration": "public static bool AllowsHeadlessUse(AssistantMcpServer server) {"
+        "declaration": "public bool AllowsHeadlessUse(AssistantMcpServer server) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
@@ -3574,12 +3582,64 @@
         "declaration": "public static string SchemaHash(McpClientTool tool) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public enum NhAssistantMcpCredentialOwnership {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public static partial class NhAssistantMcpCredentialProviders {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public const int MaxModeLength = 40;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public static NhAssistantBuilder AddMcpCredentialProvider<TProvider>( this NhAssistantBuilder builder, string mode, NhAssistantMcpCredentialOwnership ownership = NhAssistantMcpCredentialOwnership.Organization)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public static TaskResult<NhAssistantMcpCredential> Failed(string code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public static TaskResult AuthorizePersonalCall(NhAssistantMcpCredentialSubject subject, NhAiMcpCallContext call) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public IReadOnlyList<NhAssistantMcpAuthModeRegistration> Registered => [.. _registered.Values.OrderBy(item => item.Mode, StringComparer.Ordinal)];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public NhAssistantMcpAuthModeRegistration? Find(string? mode) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public bool IsValid(string? mode) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public bool IsOrganizationCredential(string? mode, string? connectionScope) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public bool FitsHeadlessUse(string headlessUse, string mode, string? connectionScope) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
+        "declaration": "public INhAssistantMcpCredentialProvider? ProviderFor(string mode, IReadOnlyList<INhAssistantMcpCredentialProvider> providers) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
+        "declaration": "public sealed class NhAssistantMcpCredential(IReadOnlyDictionary<string, string> headers, DateTimeOffset? expiresAt = null)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
         "declaration": "public static NhAssistantMcpCredential None { get; } = new(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
-        "declaration": "public IReadOnlyDictionary<string, string> Headers { get; } = headers;"
+        "declaration": "public IReadOnlyDictionary<string, string> Headers { get; } = headers ?? throw new ArgumentNullException(nameof(headers));"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
@@ -3587,11 +3647,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
+        "declaration": "public static NhAssistantMcpCredential Bearer(string token, DateTimeOffset? expiresAt = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
         "declaration": "public override string ToString() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
+        "declaration": "public sealed record NhAssistantMcpCredentialSubject( bool IsHeadless, string? PersonActorId, NhAiGrantSource PersonGrantSource, string? TenantId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
         "declaration": "public static NhAssistantMcpCredentialSubject Request { get; } = new(false, null, NhAiGrantSource.None, null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
+        "declaration": "public interface INhAssistantMcpCredentialProvider {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
@@ -3750,6 +3822,14 @@
         "declaration": "public static void Authorization(string outcome) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpOwnerSweep.cs",
+        "declaration": "public const string UnresolvedReason = \"owner-unresolved\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpOwnerSweep.cs",
+        "declaration": "public async Task<NhAssistantMcpOwnerSweepBatch> RunBatchAsync(string? after, int take, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpAuthorizationFlows.cs",
         "declaration": "public override string ToString() {"
       },
@@ -3783,7 +3863,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpDiscovery.cs",
-        "declaration": "public static NhAssistantMcpChallenge Parse(int status, HttpHeaderValueCollection<AuthenticationHeaderValue> challenges) {"
+        "declaration": "public sealed record NhAssistantMcpChallenge(int Status, string? Error, string? Scope, string? ResourceMetadata) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpDiscovery.cs",
@@ -3968,6 +4048,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
         "declaration": "public async Task<int> RemoveStaleAsync( Func<string, CancellationToken, Task<AssistantMcpServer?>> findServer, int take, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
+        "declaration": "public async Task<int> RemoveOwnerAsync( string ownerActorId, string reason, Func<string, CancellationToken, Task<AssistantMcpServer?>> findServer, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthCredentialProvider.cs",
@@ -4267,7 +4351,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantClientContextDto))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantMessageDto))] [JsonSerializable(typeof(NhAssistantMarkReadRequest))] [JsonSerializable(typeof(NhAssistantShareLinkDto))] [JsonSerializable(typeof(NhAssistantJoinConversationRequest))] [JsonSerializable(typeof(NhAssistantInviteParticipantRequest))] [JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))] [JsonSerializable(typeof(NhAssistantNotificationSettingsDto))] [JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))] [JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantLiveConversationDto))] [JsonSerializable(typeof(NhAssistantLiveReadDto))] [JsonSerializable(typeof(NhAssistantLiveRemovedDto))] [JsonSerializable(typeof(NhAssistantLiveAgentWorkDto))] [JsonSerializable(typeof(NhAssistantLiveEventDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoverRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoveryDto))] [JsonSerializable(typeof(NhAssistantMcpAuthorizeRequest))] [JsonSerializable(typeof(NhAssistantMcpAuthorizationStartDto))] [JsonSerializable(typeof(NhAssistantMcpCompleteRequest))] [JsonSerializable(typeof(NhAssistantMcpCompletionDto))] [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))] [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
+        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantClientContextDto))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantMessageDto))] [JsonSerializable(typeof(NhAssistantMarkReadRequest))] [JsonSerializable(typeof(NhAssistantShareLinkDto))] [JsonSerializable(typeof(NhAssistantJoinConversationRequest))] [JsonSerializable(typeof(NhAssistantInviteParticipantRequest))] [JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))] [JsonSerializable(typeof(NhAssistantNotificationSettingsDto))] [JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))] [JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantLiveConversationDto))] [JsonSerializable(typeof(NhAssistantLiveReadDto))] [JsonSerializable(typeof(NhAssistantLiveRemovedDto))] [JsonSerializable(typeof(NhAssistantLiveAgentWorkDto))] [JsonSerializable(typeof(NhAssistantLiveEventDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpAuthModeDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoverRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoveryDto))] [JsonSerializable(typeof(NhAssistantMcpAuthorizeRequest))] [JsonSerializable(typeof(NhAssistantMcpAuthorizationStartDto))] [JsonSerializable(typeof(NhAssistantMcpCompleteRequest))] [JsonSerializable(typeof(NhAssistantMcpCompletionDto))] [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))] [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -4436,6 +4520,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantMcpConnectionsSummaryDto(int Active, int ReauthorizationRequired, int IssuerChanged);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantMcpAuthModeDto(string Mode, string Ownership);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -4779,6 +4867,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+        "declaration": "public const string AgentMcpConnectionMissing = \"agent-mcp-connection-missing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
         "declaration": "public static string ForAgent(NhAssistantAgentNotificationKind kind) {"
       },
       {
@@ -4795,7 +4887,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
-        "declaration": "public static (string Title, string Body) ForAgent( NhAssistantAgentNotificationKind kind, string language, string? subjectDisplayName, int proposalCount) {"
+        "declaration": "public static (string Title, string Body) ForAgent( NhAssistantAgentNotificationKind kind, string language, string? subjectDisplayName, int proposalCount, string? mcpServerDisplayName = null, string? code = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20260918101318_Initial.Designer.cs",
@@ -5259,6 +5351,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020180834_AgentRunLocalizedResults.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020195231_McpRunConnectionSkips.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020195231_McpRunConnectionSkips.cs",
+        "declaration": "public partial class McpRunConnectionSkips : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020195231_McpRunConnectionSkips.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261020195231_McpRunConnectionSkips.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -5755,6 +5863,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020180830_AgentRunLocalizedResults.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020195222_McpRunConnectionSkips.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020195222_McpRunConnectionSkips.cs",
+        "declaration": "public partial class McpRunConnectionSkips : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020195222_McpRunConnectionSkips.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020195222_McpRunConnectionSkips.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -6348,6 +6472,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
         "declaration": "public string? FailureCode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
+        "declaration": "public string? McpServerId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
+        "declaration": "public string? McpServerDisplayName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
+        "declaration": "public string? McpConnectionPersonId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
@@ -8238,6 +8374,26 @@
         "declaration": "public string? ShadowReason { get; set; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public sealed class AssistantMcpConnectionNotice {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public string ServerId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public string PersonActorId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public string Code { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public DateTimeOffset NotifiedAt { get; set; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
         "declaration": "public sealed class AssistantThread {"
       },
@@ -8440,6 +8596,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
         "declaration": "public string? ResultsJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public string? McpConnectionSkips { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
@@ -12715,7 +12875,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantAgentNotificationTexts.cs",
-        "declaration": "public static (string Title, string Body) ForAgent( NhAssistantAgentNotificationKind kind, string language, string? subjectDisplayName, int proposalCount) {"
+        "declaration": "public static (string Title, string Body) ForAgent( NhAssistantAgentNotificationKind kind, string language, string? subjectDisplayName, int proposalCount, string? mcpServerDisplayName = null, string? code = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantInAppAgentNotificationChannel.cs",
@@ -13091,6 +13251,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantMcpConnectionNotice> McpConnectionNotices => Set<AssistantMcpConnectionNotice>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
         "declaration": "public DbSet<AssistantUserPreference> UserPreferences => Set<AssistantUserPreference>();"
       },
       {
@@ -13347,6 +13511,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpOAuthStore.cs",
+        "declaration": "public async Task<IReadOnlyList<string>> ListTokenConnectionOwnersAsync( string after, int take, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpOAuthStore.cs",
+        "declaration": "public async Task<bool> RemoveTokensAsync(Guid id, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpOAuthStore.cs",
         "declaration": "public async Task<IReadOnlyDictionary<string, int>> CountTokenConnectionsAsync( string serverId, string ownerKind, CancellationToken cancellationToken) {"
       },
       {
@@ -13408,6 +13580,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMigrationSchema.cs",
         "declaration": "public static void Apply(IEnumerable<MigrationOperation> operations, string schema) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
+        "declaration": "public async Task<bool> TryClaimMcpConnectionNoticeAsync( string serverId, string personActorId, string code, DateTimeOffset now, DateTimeOffset since, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
+        "declaration": "public async Task<int> DeleteMcpConnectionNoticesBeforeAsync(DateTimeOffset before, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
@@ -13692,6 +13872,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task RecordRunUsageAsync( Guid runId, int toolCalls, long inputTokens, long outputTokens, int proposals, CancellationToken cancellationToken, string? kind = null, bool usedRestrictedResults = false, int modelCalls = 0)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task AddMcpConnectionSkipsAsync( Guid runId, IReadOnlyList<NewHeap.Platform.AI.Chat.Runs.NhAssistantRunMcpSkip> skips, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -14351,7 +14535,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
-        "declaration": "public async Task NotifyAsync( NhAssistantAgentNotificationKind kind, AssistantThread thread, Guid? runId, AssistantApproval? approval, string? initiatorActorId, bool shadow, CancellationToken cancellationToken, int proposalCount = 0, string? failureCode = null)"
+        "declaration": "public async Task NotifyAsync( NhAssistantAgentNotificationKind kind, AssistantThread thread, Guid? runId, AssistantApproval? approval, string? initiatorActorId, bool shadow, CancellationToken cancellationToken, int proposalCount = 0, string? failureCode = null, NhAssistantMcpConnectionNotice? mcpConnection = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
@@ -14532,6 +14716,42 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultations.cs",
         "declaration": "public int? ProposalCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public const int MaxEntries = 32;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public const int MaxLength = 16_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static bool IsPersonal(string? code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static bool Notifies(string? code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static IReadOnlyList<NhAssistantRunMcpSkip> Read(string? stored) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static string Merge(string? stored, IEnumerable<NhAssistantRunMcpSkip> skips) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static readonly TimeSpan NoticeInterval = TimeSpan.FromDays(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public static readonly TimeSpan NoticeRetention = TimeSpan.FromDays(7);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
+        "declaration": "public async Task RecordAsync( Guid runId, AssistantThread thread, IReadOnlyList<NhAssistantMcpMissingConnection> missing, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs",
@@ -14859,6 +15079,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
+        "declaration": "public IReadOnlyList<NhAssistantMcpMissingConnection> MissingConnections { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
         "declaration": "public string? SkippedCodeOf(string toolId) {"
       },
       {
@@ -14976,6 +15200,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public IReadOnlyDictionary<string, string>? LocalizedAnswer { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public IReadOnlyList<NhAssistantMcpMissingConnection> MissingMcpConnections { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
@@ -15324,6 +15552,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public NhAssistantMcpToolSet? McpTools { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public IReadOnlyList<NhAssistantMcpMissingConnection> MissingMcpConnections { get; set; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -25166,6 +25398,42 @@
         "declaration": "public static IHostBuilder AddNewHeapAspNetObservability(this IHostBuilder builder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static class NhJwksEndpointRouteBuilderExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public const string ContentType = \"application/jwk-set+json\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static RouteHandlerBuilder MapNewHeapJwks( this IEndpointRouteBuilder endpoints, string pattern = NhJwtSigningKeys.DefaultJwksPath)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static class NhJwksJwtBearerOptionsExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static readonly TimeSpan AutomaticRefreshInterval = TimeSpan.FromHours(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static readonly TimeSpan UnknownKeyRefreshInterval = TimeSpan.FromMinutes(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public static JwtBearerOptions UseNewHeapJwks( this JwtBearerOptions options, Uri jwksUri, string issuer, params string[] audiences) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public async Task<OpenIdConnectConfiguration> GetConfigurationAsync( string address, IDocumentRetriever retriever, CancellationToken cancel) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwksExtensions.cs",
+        "declaration": "public Task<string> GetDocumentAsync(string address, CancellationToken cancel) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKey.cs",
         "declaration": "public static class NhJwtSigningKey {"
       },
@@ -25184,6 +25452,114 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKey.cs",
         "declaration": "public static SymmetricSecurityKey Create(IConfiguration configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public static class NhJwtSigningAlgorithms {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string HS256 = SecurityAlgorithms.HmacSha256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string RS256 = SecurityAlgorithms.RsaSha256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string ES256 = SecurityAlgorithms.EcdsaSha256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public static partial class NhJwtSigningKeys {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string Section = \"NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Signing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string AlgorithmKey = Section + \":Algorithm\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string KeyIdKey = Section + \":KeyId\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string PrivateKeyKey = Section + \":PrivateKey\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string Pkcs12Key = Section + \":Pkcs12\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string Pkcs12PasswordKey = Section + \":Pkcs12Password\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string PreviousKeysSection = Section + \":PreviousKeys\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string AcceptSharedKeyTokensKey = Section + \":AcceptSharedKeyTokens\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const string DefaultJwksPath = \"/.well-known/jwks.json\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public const int MinimumRsaKeySize = 2048;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public static bool IsAsymmetric(IConfiguration configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public static NhJwtSigningKeySet Read(IConfiguration configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public sealed class NhJwtSigningKeySet {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public string Algorithm { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public bool IsAsymmetric => Algorithm != NhJwtSigningAlgorithms.HS256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public string? KeyId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public SigningCredentials SigningCredentials { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public IReadOnlyList<SecurityKey> ValidationKeys { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public IReadOnlyList<string> ValidAlgorithms { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public IReadOnlyList<string> PublishedKeyIds => _publicKeys.Select(key => key.KeyId).ToArray();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public void ApplyTo(TokenValidationParameters parameters) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
+        "declaration": "public string ToJwksJson() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/ServiceCollectionExtensions.cs",
@@ -28807,6 +29183,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "protected virtual SigningCredentials GetSigningCredentials() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
         "declaration": "public virtual string GetIssuerDomain() {"
       },
       {
@@ -28847,7 +29227,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
-        "declaration": "public virtual async Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> c, TimeSpan? expiration = null)"
+        "declaration": "public virtual Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> c, TimeSpan? expiration = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "protected virtual async Task<JwtSecurityToken> CreateTokenForAudienceAsync( Guid userId, IEnumerable<Claim> c, TimeSpan? expiration, string audience) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
@@ -28856,6 +29240,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
         "declaration": "public virtual async Task<TaskResult<JwtSecurityToken>> CreateDelegatedTokenAsync( Guid userId, IEnumerable<Claim> claims, TimeSpan expiration, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<JwtSecurityToken>> CreateDelegatedTokenAsync( Guid userId, IEnumerable<Claim> claims, TimeSpan expiration, string audience, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
@@ -40169,6 +40557,14 @@
     ],
     "nh-ai-assistant": [
       "AddNewHeapAssistant",
+      "INhAssistantMcpCredentialProvider",
+      "AddMcpCredentialProvider",
+      "NhAssistantMcpCredentialProviders",
+      "NhAssistantMcpCredentialOwnership",
+      "NhAssistantMcpCredential",
+      "NhAssistantMcpCredentialSubject",
+      "NhAssistantMcpChallenge",
+      "NhAssistantMcpAuthModeDto",
       "MapNewHeapAssistant",
       "NhAssistantBuilder",
       "NhAssistantAgentDefinition",
@@ -40403,6 +40799,19 @@
       "NhSessionRejectionInterceptor",
       "AuthSessionExpirationInformation"
     ],
+    "nh-auth-token-signing": [
+      "NhJwtSigningKeys",
+      "NhJwtSigningKeySet",
+      "NhJwtSigningAlgorithms",
+      "NhJwtSigningKey",
+      "MapNewHeapJwks",
+      "UseNewHeapJwks",
+      "NhJwksEndpointRouteBuilderExtensions",
+      "NhJwksJwtBearerOptionsExtensions",
+      "CreateDelegatedTokenAsync",
+      "GetSigningCredentials",
+      "CreateTokenForAudienceAsync"
+    ],
     "nh-auth-two-factor": [
       "NhTwoFactorBuilder",
       "INhMultiFactorAuthenticationService",
@@ -40570,6 +40979,9 @@
       "NhToastrContainerComponent"
     ],
     "nh-ai-assistant-ui": [
+      "McpCustomAuthMode",
+      "McpBuiltInAuthMode",
+      "getMcpAuthModes",
       "provideNhAssistant",
       "NhAssistantConfig",
       "NhAssistantToolCallGroupComponent",
@@ -40722,7 +41134,8 @@
       "UseNewHeapAspnetCommonConfiguration",
       "CreateConfigurationRoot",
       "NhConfigurationSecrets",
-      "NhJwtSigningKey"
+      "NhJwtSigningKey",
+      "NhJwtSigningKeys"
     ],
     "nh-media-storage-contract": [
       "UseFileSystemMediaStorage",

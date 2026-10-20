@@ -13,17 +13,29 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 
 /// <summary>
-/// The headers that authenticate requests to an MCP server. It is held only while requests are
-/// built and is never stored, logged or audited.
+/// The headers that authenticate requests to an MCP server, and when they expire. It is held only
+/// while requests are built and is never stored, logged or audited; <see cref="ToString"/> shows no
+/// header value.
 /// </summary>
-internal sealed class NhAssistantMcpCredential(IReadOnlyDictionary<string, string> headers, DateTimeOffset? expiresAt = null)
+public sealed class NhAssistantMcpCredential(IReadOnlyDictionary<string, string> headers, DateTimeOffset? expiresAt = null)
 {
+    /// <summary>No credential: the request is sent without authentication headers.</summary>
     public static NhAssistantMcpCredential None { get; } = new(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
-    public IReadOnlyDictionary<string, string> Headers { get; } = headers;
+    /// <summary>The headers set on every request, replacing headers of the same name.</summary>
+    public IReadOnlyDictionary<string, string> Headers { get; } = headers ?? throw new ArgumentNullException(nameof(headers));
 
     /// <summary>When a short-lived credential expires; <see langword="null"/> for one without expiry.</summary>
     public DateTimeOffset? ExpiresAt { get; } = expiresAt;
+
+    /// <summary>An <c>Authorization: Bearer</c> credential.</summary>
+    public static NhAssistantMcpCredential Bearer(string token, DateTimeOffset? expiresAt = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        return new NhAssistantMcpCredential(
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["Authorization"] = "Bearer " + token },
+            expiresAt);
+    }
 
     public override string ToString()
     {
@@ -32,25 +44,35 @@ internal sealed class NhAssistantMcpCredential(IReadOnlyDictionary<string, strin
 }
 
 /// <summary>
-/// Whose credential a connection carries. In a person's request it is that person's own; in a
-/// headless turn it is the person whose rights the run uses (<see cref="PersonGrantSource"/>), or
-/// the organization's when there is no person.
+/// Whose credential a connection carries. In a person's request (<see cref="IsHeadless"/> false) it
+/// is that person's own (<see cref="PersonActorId"/>, or <see langword="null"/> for an administrator's
+/// test or sync); in a headless turn it is the person whose rights the run uses with
+/// <see cref="PersonGrantSource"/> (<c>Delegated</c> for the initiator, <c>Accountable</c> for the account
+/// the agent answers to), or nobody when the agent acts for itself.
 /// </summary>
-internal sealed record NhAssistantMcpCredentialSubject(
+/// <param name="TenantId">The run's tenant, for providers that bind credentials to a tenant.</param>
+public sealed record NhAssistantMcpCredentialSubject(
     bool IsHeadless,
     string? PersonActorId,
     NhAiGrantSource PersonGrantSource,
     string? TenantId)
 {
+    /// <summary>A person's request without a known person, such as an administrator's test.</summary>
     public static NhAssistantMcpCredentialSubject Request { get; } = new(false, null, NhAiGrantSource.None, null);
 }
 
 /// <summary>
-/// Supplies the credential of one or more authentication modes. The client factory asks for it
-/// before every HTTP request, so a credential can change while a connection is cached.
+/// Supplies the credential of one or more authentication modes of MCP servers (D1). The built-in modes
+/// (<see cref="NhAssistantMcpAuthModes"/>) are providers of their own; an application adds a mode with
+/// <see cref="NhAssistantMcpCredentialProviders.AddMcpCredentialProvider{TProvider}"/>, for example a
+/// token exchange with its identity provider. The client asks for a credential before every HTTP
+/// request, so a credential can change while a connection is cached. Expected refusals are failed
+/// results with a stable code (<see cref="NhAssistantMcpCredentialProviders.Failed"/>); the request is
+/// then not sent. Credentials never reach a log, an audit event or a response.
 /// </summary>
-internal interface INhAssistantMcpCredentialProvider
+public interface INhAssistantMcpCredentialProvider
 {
+    /// <summary>Whether the provider supplies the credential of servers with <paramref name="authMode"/>.</summary>
     bool Supports(string authMode);
 
     /// <summary>
@@ -59,11 +81,19 @@ internal interface INhAssistantMcpCredentialProvider
     /// </summary>
     bool CanRenew { get; }
 
+    /// <summary>
+    /// The credential of the next request to <paramref name="server"/> for <paramref name="subject"/>.
+    /// Inside a governed tool call <see cref="NhAiMcpCallContext.Current"/> names the call.
+    /// </summary>
     ValueTask<TaskResult<NhAssistantMcpCredential>> GetAsync(
         AssistantMcpServer server,
         NhAssistantMcpCredentialSubject subject,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// A new credential after the server refused the last one with <paramref name="challenge"/>; only
+    /// called when <see cref="CanRenew"/> is <see langword="true"/>.
+    /// </summary>
     ValueTask<TaskResult<NhAssistantMcpCredential>> RenewAsync(
         AssistantMcpServer server,
         NhAssistantMcpCredentialSubject subject,
@@ -71,7 +101,9 @@ internal interface INhAssistantMcpCredentialProvider
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Whether a governed call that the invocation gate authorized may carry this credential.
+    /// Whether a governed call that the invocation gate authorized may carry this credential. A
+    /// credential of the organization may usually serve every call; a person's credential only calls
+    /// with that person's rights (<see cref="NhAssistantMcpCredentialProviders.AuthorizePersonalCall"/>).
     /// </summary>
     TaskResult AuthorizeCall(AssistantMcpServer server, NhAssistantMcpCredentialSubject subject, NhAiMcpCallContext call);
 }

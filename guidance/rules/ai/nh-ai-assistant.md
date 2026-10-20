@@ -5,7 +5,7 @@ area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
 sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300"]
-public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout"]
+public-symbols: ["AddNewHeapAssistant", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -182,7 +182,7 @@ invalid run filter. Clients map the code, never the status, to a text.
   chat approval of a tool whose server is left out of the turn fails with the server's skip code, as a
   deferred execution does.
 - **Personal servers in background runs.** `personal` is for `forward-user-token`
-  servers of the same trust domain: a run sends a short-lived delegated NewHeap token of
+  first-party servers: a run sends a short-lived delegated NewHeap token of
   the person whose rights it uses (`INhAiMcpDelegatedTokenIssuer`, at most
   `ForwardedTokenLifetime`, two minutes by default and five at most), minted per request
   for hosts in `ForwardUserTokenHosts` only, marked with the invocation and bound to the
@@ -198,9 +198,31 @@ invalid run filter. Clients map the code, never the status, to a text.
   the token; issuing once per turn, server, person and outcome as `McpDelegatedTokenIssued`
   with `TokenCount`. The receiving server calls
   `AddNewHeapPlatformAIMcpDelegatedTokens(tokens => tokens.Accept(origin, "/mcp"))`; the
-  assistant's own host accepts no such token. The token is signed with the host's
-  symmetric key, so every host that can validate it can also mint tokens; use it only
-  between hosts that already share that key.
+  assistant's own host accepts no such token. Sign the host's tokens asymmetrically
+  (`NhJwtSigningKeys` with `ES256` or `RS256`, `nh-auth-token-signing`) and publish the keys with
+  `MapNewHeapJwks`: the delegated token's `aud` is then the server's origin, and the server validates
+  it with `UseNewHeapJwks(jwksUri, issuer, issuer, origin)` without a key that could mint tokens. With
+  the shared HS256 key the token keeps the issuer as `aud` and every host that can validate it can also
+  mint tokens; use that only between hosts that already share the key.
+  A run that leaves such a server out records the server and the code on the run
+  (`McpConnectionSkips` in the run history and result: consent required, connection or
+  reauthorization required, or `assistant-mcp-initiator-only`), and the person whose consent or
+  connection is missing is told with `NhAssistantAgentNotificationKind.McpConnectionMissing`, at most
+  once per server and day; `UseInAppAgentNotifications` puts it in the application's inbox. Apply the
+  `McpRunConnectionSkips` migrations.
+- **Authentication modes of the application.** An identity flow the built-in modes do not cover,
+  such as a token exchange with the application's identity provider, is a provider in code:
+  implement `INhAssistantMcpCredentialProvider` (`GetAsync` returns the headers of the next request
+  as `NhAssistantMcpCredential`, `RenewAsync` after a `401` when `CanRenew`, `AuthorizeCall` decides
+  which governed calls may carry it) and register it with
+  `AddMcpCredentialProvider<TProvider>(mode, ownership)`. `NhAssistantMcpCredentialOwnership.Organization`
+  shares one credential and allows `headlessUse: organization`; `Person` sends each person's own
+  credential (`NhAssistantMcpCredentialSubject.PersonActorId`), is never shared, allows `headlessUse:
+  personal` with the person's consent and authorizes calls with
+  `NhAssistantMcpCredentialProviders.AuthorizePersonalCall`. Return expected refusals with
+  `NhAssistantMcpCredentialProviders.Failed(code)`; never log a credential. The provider is a
+  singleton that reads its own configuration; a server of the mode takes no secret in the editor, and
+  `GET admin/mcp-auth-modes` lists the registered modes for it.
 - **MCP servers with OAuth.** `oauth-client-credentials` connects the organization with
   the host's own client (`oauth.clientId` with a write-only `clientSecret`, a
   `clientSecretReference` or, for `private_key_jwt`, the `clientCertificateReference`);
@@ -261,7 +283,12 @@ invalid run filter. Clients map the code, never the status, to a text.
   server with their own connection (`POST admin/mcp-servers/{id}/connection/authorize`; `GET` and
   `DELETE .../connection` then read and remove that own connection), count the personal connections
   and revoke them all. Personal connections unused for `ConnectionRetention` lose their tokens, which
-  are revoked; a person's consent to background use stays on the row, as after a disconnect. `ToolInvoked` names whose credential a call carried in
+  are revoked; a person's consent to background use stays on the row, as after a disconnect. The MCP
+  maintenance also asks `INhAiPrincipalFactory` about every owner of a personal connection, with the
+  whole application as subject, in batches of 100 and a pass at most every hour: a person it no longer
+  resolves (removed, or no longer allowed to sign in) loses the tokens the same way, audited as
+  `McpConnectionDisconnected` with `owner-unresolved`. A host with its own principal factory resolves
+  every person who may use the assistant for that subject too. `ToolInvoked` names whose credential a call carried in
   `McpConnectionOwner`.
 - Every administration change is a content-free audit event
   (`AdminContextUpdated`, `AdminAgent*`, `AdminMcpServer*`, `AdminMcpToolUpdated`).
@@ -450,10 +477,13 @@ or output of the running turn, also not text written before an approval pause.
   http, link-local or metadata addresses for MCP servers.
 - Setting `headlessUse` to `organization` for a server whose credential lets an agent
   do more than the people it works for may; background runs then act with it.
-- Using `personal` for a host outside the trust domain of the signing key, or letting the
-  assistant's own host `Accept` delegated MCP tokens on more than its MCP endpoint.
+- Sharing the HS256 signing key with a first-party MCP server so that it can validate delegated
+  tokens; sign asymmetrically and let it validate with the published keys. Letting the assistant's
+  own host `Accept` delegated MCP tokens on more than its MCP endpoint.
 - Writing a secret resolver that maps a reference name to arbitrary settings, files or
   environment variables; a name selects one secret of one source.
+- Forwarding a person's own NewHeap token from an application's credential provider; exchange it
+  for a token of the MCP server instead, and keep the provider's client secret in the secrets file.
 - Using an organization connection for a system that must know who acts, such as a mailbox or a
   calendar; let each person connect (`connectionScope: user`).
 - Connecting an organization `oauth` server with a personal or administrator account;

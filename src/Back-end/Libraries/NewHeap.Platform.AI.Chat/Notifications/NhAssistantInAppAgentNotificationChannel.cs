@@ -65,7 +65,9 @@ internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAge
                 context.Kind,
                 language,
                 context.SubjectDisplayName,
-                context.ProposalCount);
+                context.ProposalCount,
+                context.McpServerDisplayName,
+                context.FailureCode);
             try
             {
                 var result = await sink.SendAsync(
@@ -117,6 +119,7 @@ internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAge
             NhAssistantAgentNotificationKind.RunFailed => NhUserNotificationLevel.Error,
             NhAssistantAgentNotificationKind.ExecutionUnknown => NhUserNotificationLevel.Warning,
             NhAssistantAgentNotificationKind.ProposalEscalated => NhUserNotificationLevel.Warning,
+            NhAssistantAgentNotificationKind.McpConnectionMissing => NhUserNotificationLevel.Warning,
             NhAssistantAgentNotificationKind.RequestAnswered => NhUserNotificationLevel.Success,
             _ => NhUserNotificationLevel.Information
         };

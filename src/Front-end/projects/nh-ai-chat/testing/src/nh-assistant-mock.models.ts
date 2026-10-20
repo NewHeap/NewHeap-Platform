@@ -2,6 +2,8 @@ import {
   AdminAgentInput,
   AgentProposalOrigin,
   AgentProposalStatus,
+  AgentRunMcpSkip,
+  McpCustomAuthMode,
   AgentRunSettingsRequest,
   AgentRunStatus,
   AgentSummary,
@@ -210,6 +212,11 @@ export interface NhAssistantMockAdminScenario {
   tools?: ToolCatalogEntry[];
   agents?: NhAssistantMockAdminAgent[];
   mcpServers?: NhAssistantMockMcpServer[];
+  /**
+   * Authentication modes the application registered in code (`AddMcpCredentialProvider`), which
+   * `GET admin/mcp-auth-modes` lists and servers may use. Default none.
+   */
+  mcpAuthModes?: McpCustomAuthMode[];
   /** Policies the host knows; `requiredPolicy` must be one of them. Default: any value. */
   policies?: string[];
   /** Hosts that may receive the user's token (`forward-user-token`). Default: none. */
@@ -372,6 +379,8 @@ export interface NhAssistantMockRun {
   tokens?: number;
   /** The run worked in the agent's shadow thread. Default `false`. */
   shadow?: boolean;
+  /** The personal MCP servers the run left out, as the server records them. Default none. */
+  mcpConnectionSkips?: AgentRunMcpSkip[];
 }
 
 /**

@@ -216,6 +216,13 @@ internal sealed record NhAssistantAgentTurnResult(
     /// </summary>
     public IReadOnlyDictionary<string, string>? LocalizedAnswer { get; init; }
 
+    /// <summary>
+    /// The personal MCP servers the turn left out for want of a person's consent to background use or
+    /// connection, or because it acted for someone other than the person who asked; the run records
+    /// them and tells the person.
+    /// </summary>
+    public IReadOnlyList<NhAssistantMcpMissingConnection> MissingMcpConnections { get; init; } = [];
+
     public const string Busy = "busy";
 
     public static NhAssistantAgentTurnResult BusyResult { get; } = new(Busy, NhAssistantErrorCodes.ConversationBusy, null, null, 0, 0, 0, 0);
