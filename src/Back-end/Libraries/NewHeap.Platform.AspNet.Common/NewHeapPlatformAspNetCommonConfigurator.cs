@@ -494,7 +494,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         #endregion
 
         // NewHeap Identity answers the platform's actor questions for every module.
-        NhPlatformModuleRegistration.AddIdentityActorDefaults<TUser>(serviceCollection);
+        NhPlatformModuleRegistration.AddIdentityActorDefaults<TUser, TDivision>(serviceCollection);
 
         serviceCollection.AddScoped<TUserManager, TUserManager>();
 

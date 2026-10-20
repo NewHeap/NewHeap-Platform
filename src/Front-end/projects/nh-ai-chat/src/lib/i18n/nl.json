@@ -639,7 +639,7 @@
           "application": "De hele applicatie",
           "application-hint": "Werk dat niet over één object gaat, zoals een wekelijks overzicht.",
           "per-division": "Per divisie",
-          "per-division-hint": "Zijn werk voor de hele applicatie gebeurt apart voor elke divisie.",
+          "per-division-hint": "Zijn werk voor de hele applicatie, zoals zijn schema's, gebeurt apart voor elke divisie.",
           "missing": "Kies minstens één soort object, of de hele applicatie.",
           "run-policy": "Wie hem mag starten voor de hele applicatie",
           "run-policy-default": "Beheerders (standaard)",
@@ -883,7 +883,7 @@
             "unknown-skill": "de vaardigheid bestaat niet meer.",
             "invalid-schedule": "het schema of de tijdzone is niet geldig.",
             "invalid": "een waarde is niet geldig.",
-            "not-worked-on": "de gebeurtenis gaat over een soort object waaraan de agent niet werkt."
+            "not-worked-on": "het gaat over een soort object, of de hele applicatie, waaraan de agent niet werkt."
           }
         },
         "field-errors": {
@@ -897,7 +897,8 @@
           "dash-case": "Gebruik kleine letters, cijfers en streepjes, beginnend met een letter.",
           "taken": "Deze id is al in gebruik.",
           "name-letters": "Gebruik minstens één letter in de naam.",
-          "instructions-for-model": "Zonder vaste regels werkt het model met deze instructies; beschrijf wat het moet doen."
+          "instructions-for-model": "Zonder vaste regels werkt het model met deze instructies; beschrijf wat het moet doen.",
+          "application-not-worked-on": "De agent werkt niet aan de hele applicatie. Kies een verzameling objecten, of laat de agent eerst aan de hele applicatie werken."
         },
         "settings": {
           "title": "Runinstellingen",
@@ -1088,6 +1089,7 @@
           },
           "source-event-hint": "Er gebeurt iets in de applicatie, zoals een project dat wordt aangemaakt.",
           "source-schedule-hint": "Op vaste momenten, voor elk onderwerp in een verzameling.",
+          "source-schedule-application-hint": "Op vaste momenten, voor de hele applicatie of voor elk object in een verzameling.",
           "debounce-hint": "Wacht zo lang op meer gebeurtenissen over hetzelfde onderwerp en behandelt ze in één run.",
           "subject-set-hint": "De projecten of klanten die het schema telkens behandelt.",
           "message-hint": "Wat de agent telkens als opdracht leest.",
@@ -1104,7 +1106,17 @@
             "supersede": "Vervangt de wachtende run door deze gebeurtenis.",
             "ignore": "Slaat deze gebeurtenis of dit moment over."
           },
-          "live-badge": "Live"
+          "live-badge": "Live",
+          "target": {
+            "title": "Waarvoor draait hij telkens?",
+            "application": "De hele applicatie",
+            "application-hint": "Telkens één run, over de applicatie als geheel.",
+            "application-per-division-hint": "Telkens één run voor elke divisie, elk in een eigen thread.",
+            "set": "Elk object in een verzameling",
+            "set-hint": "Telkens één run voor elk object in een verzameling, zoals de actieve projecten.",
+            "every-division": "Elke divisie",
+            "dropped": "Dit schema draaide voor de hele applicatie, waaraan de agent niet meer werkt. Kies een verzameling objecten."
+          }
         },
         "way-of-working": "Werkwijze",
         "check-fields": "Controleer de gemarkeerde velden.",
@@ -1180,6 +1192,8 @@
             "title": "Controleren",
             "event": "Als {{event}} gebeurt",
             "schedule": "Volgens het schema {{cron}} ({{zone}}), voor {{set}}",
+            "schedule-application": "Volgens het schema {{cron}} ({{zone}}), voor de hele applicatie",
+            "schedule-divisions": "Volgens het schema {{cron}} ({{zone}}), voor de hele applicatie in elke divisie",
             "shadow": "De taak en de trigger beginnen in schaduw. Zet ze nu live, of later vanuit de runconfiguratie."
           },
           "no-events": "De applicatie registreert nog geen gebeurtenissen; kies een schema.",

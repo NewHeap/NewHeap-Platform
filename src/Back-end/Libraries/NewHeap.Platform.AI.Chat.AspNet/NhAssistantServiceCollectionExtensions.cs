@@ -94,6 +94,11 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantScheduledTriggerJob>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantScheduleRegistration>());
 
+            // The whole application as a subject, for agents that work on it: app-wide, or per
+            // division when the application lists its divisions.
+            services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAiSubjectAccessResolver, NhAssistantSystemSubjectResolver>());
+            state.AddSubjectType(NhAssistantSystemSubjectType.CreateOptions(typeof(NhAssistantSystemSubjectResolver)));
+
             // Run configuration as data: the administration service, the recurring jobs of data
             // schedules and the background refresh of the snapshot.
             services.TryAddScoped<NhAssistantAgentConfiguration>();
@@ -207,6 +212,15 @@ internal sealed class NhAssistantStartupValidator(
                 $"The assistant admin policy '{adminPolicy}' is not registered. Register it or call UseAdminPolicy.");
         }
 
+        foreach (var (kind, systemPolicy) in new[] { ("read", state.SystemReadPolicy), ("approve", state.SystemApprovePolicy) })
+        {
+            if (systemPolicy is not null && await policyProvider.GetPolicyAsync(systemPolicy) is null)
+            {
+                throw new InvalidOperationException(
+                    $"The {kind} policy '{systemPolicy}' of the whole application (UseSystemSubject) is not registered.");
+            }
+        }
+
         await registry.ValidateAsync(
             profiles,
             async policy => await policyProvider.GetPolicyAsync(policy) is not null,
@@ -292,9 +306,12 @@ internal sealed class NhAssistantStartupValidator(
             }
 
             var subjectTypes = provider.GetRequiredService<NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService>();
-            foreach (var trigger in state.CodeTriggers.Values)
+            // The platform's own whole application serves schedules without subjects; every other
+            // trigger works on the application's objects.
+            var applicationTypes = subjectTypes.SubjectTypes.Count(type => !NhAiSubjectRef.IsReservedType(type));
+            foreach (var trigger in state.CodeTriggers.Values.Where(trigger => !trigger.IsSystemSchedule))
             {
-                if (subjectTypes.SubjectTypes.Count == 0)
+                if (applicationTypes == 0)
                 {
                     throw new InvalidOperationException(
                         $"Trigger '{trigger.Id}' needs a subject access resolver. Register one with AddSubjectType.");
@@ -306,15 +323,25 @@ internal sealed class NhAssistantStartupValidator(
     }
 
     /// <summary>
-    /// What agents in code work on names registered application types and policies, triggers and
-    /// trigger events that name their subject type up front name a registered one, and every policy
-    /// listed for administrators is registered.
+    /// What agents in code work on names registered application types and policies, and works per
+    /// division only when the application lists its divisions; triggers and trigger events that name
+    /// their subject type up front name a registered one, and every policy listed for administrators
+    /// is registered.
     /// </summary>
     private async Task ValidateWorksOnAsync(IServiceProvider provider)
     {
         var subjectTypes = provider.GetRequiredService<NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService>();
+        var divisionsListed = provider.GetRequiredService<NhAssistantWorksOnRule>().DivisionsListed;
         foreach (var (agentId, runOptions) in state.CodeAgentRuns)
         {
+            // Per division needs the divisions the application lists; without them everything runs
+            // app-wide.
+            if (runOptions.WorksOn.PerDivision && !divisionsListed)
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{agentId}' works per division, but the application lists no divisions. Use NewHeap Identity or register a division directory with AddNewHeapDivisionDirectory, or let the agent work app-wide.");
+            }
+
             foreach (var subjectType in runOptions.WorksOn.SubjectTypes.Where(type => !subjectTypes.IsKnownType(type)))
             {
                 throw new InvalidOperationException(

@@ -129,6 +129,62 @@ public sealed partial record NhAiSubjectRef
 }
 
 /// <summary>
+/// The subjects of the platform's <see cref="NhAiSubjectRef.SystemType"/> type, the whole
+/// application: <c>nh-system/global</c> for agents that work app-wide, and
+/// <c>nh-system/division-{id}</c> (the division id in <c>N</c> format) for agents that work per
+/// division. Their threads, memory, artifacts, run timelines, retention and budgets work like those
+/// of any subject.
+/// </summary>
+public static class NhAiSystemSubjects
+{
+    /// <summary>The subject id of the whole application, app-wide.</summary>
+    public const string GlobalId = "global";
+
+    /// <summary>The prefix of the subject id of the whole application in one division.</summary>
+    public const string DivisionIdPrefix = "division-";
+
+    /// <summary>The whole application, app-wide.</summary>
+    public static NhAiSubjectRef Global { get; } = new(NhAiSubjectRef.SystemType, GlobalId);
+
+    /// <summary>The whole application in one division.</summary>
+    public static NhAiSubjectRef ForDivision(Guid divisionId)
+    {
+        return new NhAiSubjectRef(NhAiSubjectRef.SystemType, DivisionIdPrefix + divisionId.ToString("N"));
+    }
+
+    /// <summary>Whether the subject is the whole application, app-wide or in a division.</summary>
+    public static bool IsSystem(NhAiSubjectRef? subject)
+    {
+        return subject is not null && string.Equals(subject.Type, NhAiSubjectRef.SystemType, StringComparison.Ordinal);
+    }
+
+    /// <summary>Whether the subject is the whole application app-wide.</summary>
+    public static bool IsGlobal(NhAiSubjectRef? subject)
+    {
+        return IsSystem(subject) && string.Equals(subject!.Id, GlobalId, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Reads the division of the whole application in one division. Only the canonical id that
+    /// <see cref="ForDivision"/> creates is accepted, so one division has one subject.
+    /// </summary>
+    public static bool TryGetDivision(NhAiSubjectRef? subject, out Guid divisionId)
+    {
+        divisionId = Guid.Empty;
+        if (!IsSystem(subject)
+            || !subject!.Id.StartsWith(DivisionIdPrefix, StringComparison.Ordinal)
+            || !Guid.TryParseExact(subject.Id[DivisionIdPrefix.Length..], "N", out var parsed)
+            || !string.Equals(ForDivision(parsed).Id, subject.Id, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        divisionId = parsed;
+        return true;
+    }
+}
+
+/// <summary>
 /// The role a person has on a subject. Roles are ordered: each role includes the rights of
 /// the roles below it.
 /// </summary>
@@ -927,7 +983,8 @@ public interface INhAiAgentInvocationContextFactory
 }
 
 /// <summary>
-/// The invocation context of an agent's own reads with the subject as its only execution scope.
+/// The invocation context of an agent's own reads with the subject as its only execution scope. A
+/// run for the whole application concerns no object, so it has none.
 /// </summary>
 internal sealed class NhAiAgentInvocationContextFactory : INhAiAgentInvocationContextFactory
 {
@@ -942,7 +999,9 @@ internal sealed class NhAiAgentInvocationContextFactory : INhAiAgentInvocationCo
             TenantId = scope.Subject.TenantId,
             RunId = scope.RunId,
             CorrelationId = scope.CorrelationId ?? scope.RunId,
-            ExecutionScopes = [new NhAiExecutionScopeEntry(scope.Subject.Subject.Type, scope.Subject.Subject.Id, scope.Subject.DisplayName)],
+            ExecutionScopes = NhAiSystemSubjects.IsSystem(scope.Subject.Subject)
+                ? []
+                : [new NhAiExecutionScopeEntry(scope.Subject.Subject.Type, scope.Subject.Subject.Id, scope.Subject.DisplayName)],
             ModelProfileName = scope.ModelProfileName,
             PromptVersion = scope.PromptVersion,
             PromptHash = scope.PromptHash,

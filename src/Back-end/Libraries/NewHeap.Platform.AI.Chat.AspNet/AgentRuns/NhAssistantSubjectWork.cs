@@ -159,7 +159,7 @@ internal sealed class NhAssistantSubjectWork(
         return TaskResult<NhAssistantSubjectWorkDto>.Succeeded(new NhAssistantSubjectWorkDto(
             subject.Type,
             subject.Id,
-            info.DisplayName,
+            NhAssistantAgentRunDtoMapper.DisplayNameOf(subjects, subject.Type, subject.Id, info.DisplayName),
             NhAssistantAgentRunDtoMapper.RoleName(access.Role),
             agentEntries,
             proposals.OrderBy(item => item.Proposal.ExpiresAt).ToArray())

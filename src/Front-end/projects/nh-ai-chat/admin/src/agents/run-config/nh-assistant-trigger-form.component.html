@@ -35,7 +35,7 @@
         <input type="radio" [name]="id + '-source'" value="schedule" [checked]="source() === 'schedule'" (change)="setSource('schedule')" />
         <span>
           <strong>{{ 'nh-assistant.admin.run-config.triggers.source-schedule' | translate }}</strong>
-          <span class="muted">{{ 'nh-assistant.admin.run-config.triggers.source-schedule-hint' | translate }}</span>
+          <span class="muted">{{ (offersApplication() ? 'nh-assistant.admin.run-config.triggers.source-schedule-application-hint' : 'nh-assistant.admin.run-config.triggers.source-schedule-hint') | translate }}</span>
         </span>
       </label>
     </div>
@@ -99,21 +99,56 @@
           }
         </div>
       </div>
-      <div class="field">
-        <label [for]="id + '-trigger-set'">{{ 'nh-assistant.admin.run-config.triggers.subject-set' | translate }}</label>
-        <nh-assistant-picker
-          [inputId]="id + '-trigger-set'"
-          [options]="subjectSets()"
-          [value]="subjectSet()"
-          [placeholder]="'nh-assistant.admin.run-config.choose' | translate"
-          [invalid]="fieldError('subjectSet') !== null"
-          [describedBy]="describedBy(id + '-trigger-set-hint', 'subjectSet', id + '-trigger-set-error')"
-          (valueChange)="subjectSet.set($event); touch('subjectSet')" />
-        <p class="hint" [id]="id + '-trigger-set-hint'">{{ 'nh-assistant.admin.run-config.triggers.subject-set-hint' | translate }}</p>
-        @if (errorKey('subjectSet'); as key) {
-          <p class="field-error" [id]="id + '-trigger-set-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('subjectSet')?.params }}</p>
-        }
-      </div>
+      @if (offersApplication()) {
+        <!-- An agent that works on the whole application chooses what the schedule runs for. -->
+        <div class="field" data-schedule-target>
+          <span class="label" [id]="id + '-trigger-target-label'">{{ 'nh-assistant.admin.run-config.triggers.target.title' | translate }}</span>
+          <div
+            class="choices"
+            role="radiogroup"
+            tabindex="-1"
+            [attr.aria-labelledby]="id + '-trigger-target-label'"
+            [attr.aria-invalid]="target() === 'application' && fieldError('subjectSet') ? true : null"
+            [attr.aria-describedby]="target() === 'application' ? describedBy(null, 'subjectSet', id + '-trigger-target-error') : null">
+            <label class="choice" [class.selected]="target() === 'application'">
+              <input type="radio" [name]="id + '-target'" value="application" [checked]="target() === 'application'" (change)="setTarget('application')" />
+              <span>
+                <strong>{{ 'nh-assistant.admin.run-config.triggers.target.application' | translate }}</strong>
+                <span class="muted" data-target-hint>{{ (perDivision() ? 'nh-assistant.admin.run-config.triggers.target.application-per-division-hint' : 'nh-assistant.admin.run-config.triggers.target.application-hint') | translate }}</span>
+              </span>
+            </label>
+            <label class="choice" [class.selected]="target() === 'set'">
+              <input type="radio" [name]="id + '-target'" value="set" [checked]="target() === 'set'" (change)="setTarget('set')" />
+              <span>
+                <strong>{{ 'nh-assistant.admin.run-config.triggers.target.set' | translate }}</strong>
+                <span class="muted">{{ 'nh-assistant.admin.run-config.triggers.target.set-hint' | translate }}</span>
+              </span>
+            </label>
+          </div>
+          @if (target() === 'application' && errorKey('subjectSet'); as key) {
+            <p class="field-error" [id]="id + '-trigger-target-error'"><nh-assistant-icon name="warning" />{{ key | translate }}</p>
+          }
+        </div>
+      }
+      @if (target() === 'set') {
+        <div class="field">
+          <label [for]="id + '-trigger-set'">{{ 'nh-assistant.admin.run-config.triggers.subject-set' | translate }}</label>
+          <nh-assistant-picker
+            [inputId]="id + '-trigger-set'"
+            [options]="subjectSets()"
+            [value]="subjectSet()"
+            [placeholder]="'nh-assistant.admin.run-config.choose' | translate"
+            [invalid]="fieldError('subjectSet') !== null"
+            [describedBy]="describedBy(id + '-trigger-set-hint', 'subjectSet', id + '-trigger-set-error')"
+            (valueChange)="subjectSet.set($event); touch('subjectSet')" />
+          <p class="hint" [id]="id + '-trigger-set-hint'">
+            {{ (applicationDropped() ? 'nh-assistant.admin.run-config.triggers.target.dropped' : 'nh-assistant.admin.run-config.triggers.subject-set-hint') | translate }}
+          </p>
+          @if (errorKey('subjectSet'); as key) {
+            <p class="field-error" [id]="id + '-trigger-set-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('subjectSet')?.params }}</p>
+          }
+        </div>
+      }
       <div class="field">
         <label [for]="id + '-trigger-message'">{{ 'nh-assistant.admin.run-config.triggers.message' | translate }}</label>
         <textarea rows="2" [id]="id + '-trigger-message'" [value]="message()"

@@ -249,7 +249,15 @@ and the run and view policy for the whole application from the catalog's `agentP
 without any. An agent in code says what it works on in its code; its card shows it read only, and an
 agent that does not say shows "All objects" with the kinds it is known to work on
 (`knownSubjectTypes`). The trigger forms offer an event that names its kind of object
-(`RunBlock.subjectType`) only to an agent that works on it. An
+(`RunBlock.subjectType`) only to an agent that works on it. For a schedule of an agent that works on
+the whole application, the trigger form and the guided setup ask what it runs for each time: "The
+whole application" (the default, sent as `subjectSet: null`; once per division for an agent that
+works per division) or every object in a subject set. The server's `subjectSet` refusal shows at
+that choice, a stored schedule for the whole application of an agent that no longer works on it asks
+for a set, and the trigger list names "The whole application" or "Every division". The run catalog
+lists the platform's own type `nh-system` with `isSystem`; the editor and the agent cards never offer
+or list it as a kind of object, and a subject link shows "The whole application" once instead of the
+type name next to the same name. An
 agent that works on its own continues in its run configuration's guided setup, which asks when it
 starts, what it does, on whose behalf, who approves and its limits, and saves run settings, a skill
 and a trigger in shadow or puts them live at once. Run settings read as questions with the rarely
@@ -381,6 +389,8 @@ the administration route under the same parent to share that scope.
   or `HideFromChat()`.
 - Typing object type ids or policy names in a custom agent screen; offer the run catalog's
   `subjectTypes` by name and its `agentPolicies`, and send what an agent works on as one set of fields.
+- Listing the run catalog's `subjectTypes` as kinds of objects without leaving out `isSystem`, or
+  offering a schedule "for the whole application" to an agent that does not work on it.
 - Blocking new conversations while a turn runs, or rebuilding a second status list
   next to `activity`, `runningCount` and `unreadCount`.
 - Marking conversations as read on arrival instead of when the user sees them.
@@ -480,8 +490,16 @@ The works-on tests show an agent in code with its statement and one that does no
 kinds, create an agent that works on tasks and the whole application with a run policy, refuse a
 choice without kinds of objects before the server is called, edit it back to all objects, offer per
 division only with divisions, offer a typed event only to agents that work on its kind, and check the
-mock API's field errors. In the assistant playground's administration, the project planner shows that
-it works on projects and the project assistant shows all objects with projects as known (SPM-302).
+mock API's field errors. The whole-application tests offer "The whole application" to a schedule
+only for an agent that works on it, send `subjectSet: null`, require a set otherwise, show the
+server's refusal at the choice, name "Every division" for a per-division agent, keep the choice
+within 375px, offer per division with and without divisions, keep `nh-system` out of the kinds, name
+a subject of the whole application once in the proposal cards and the thread view, and check that the
+mock API lists `nh-system`, refuses a schedule without a set for an agent that does not work on the
+application and puts a narrowed one out of effect (`not-worked-on`). In the assistant playground's
+administration, the project planner shows that it works on projects, the project assistant shows all
+objects with projects as known, and per division is offered because the sample lists its divisions
+(SPM-302).
 SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298, SPM-301 and SPM-302 are the
 executable references.
 
@@ -552,7 +570,7 @@ executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
-- SPM-302 — The project follow-up is created as data and works on projects and the whole application; every agent says what it works on
+- SPM-302 — The project follow-up is created as data, works on projects and the whole application and runs every Monday for the whole application; every agent says what it works on
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)

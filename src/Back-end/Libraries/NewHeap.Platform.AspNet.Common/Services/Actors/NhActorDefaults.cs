@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.DAL;
+using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.Common.Identity.Claims;
 
@@ -114,6 +115,79 @@ internal sealed class NhIdentityDivisionAccess : INhDivisionAccess
         }
 
         return await userManager.DivisionAccessAsync(divisionId, claims, cancellationToken: cancellationToken);
+    }
+}
+
+/// <summary>
+/// NewHeap Identity: the divisions of the application's identity division table, by name. The name
+/// is read through the entity model, so any division type with a <c>Name</c> column works on every
+/// relational provider.
+/// </summary>
+internal sealed class NhIdentityDivisionDirectory<TDivision> : INhDivisionDirectory
+    where TDivision : class, IdDbEntity
+{
+    private const string NameProperty = "Name";
+
+    private readonly IRepository<TDivision> _divisions;
+
+    public NhIdentityDivisionDirectory(IRepository<TDivision> divisions)
+    {
+        _divisions = divisions;
+    }
+
+    public async Task<IReadOnlyList<NhDivisionInfo>> ListAsync(
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var take = Math.Clamp(limit, 1, NhDivisionInfo.MaxListLimit);
+        var divisions = await _divisions.GetDbSet<TDivision>()
+            .AsNoTracking()
+            .OrderBy(division => EF.Property<string>(division, NameProperty))
+            .ThenBy(division => division.Id)
+            .Take(take)
+            .Select(division => new
+            {
+                division.Id,
+                Name = EF.Property<string>(division, NameProperty)
+            })
+            .ToListAsync(cancellationToken);
+
+        return divisions
+            .Select(division => new NhDivisionInfo(division.Id, NameOf(division.Id, division.Name)))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, NhDivisionInfo>> GetAsync(
+        IReadOnlyCollection<Guid> divisionIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(divisionIds);
+
+        var ids = divisionIds.Distinct().Take(NhDivisionInfo.MaxListLimit).ToList();
+        if (ids.Count == 0)
+        {
+            return new Dictionary<Guid, NhDivisionInfo>();
+        }
+
+        var divisions = await _divisions.GetDbSet<TDivision>()
+            .AsNoTracking()
+            .Where(division => ids.Contains(division.Id))
+            .Select(division => new
+            {
+                division.Id,
+                Name = EF.Property<string>(division, NameProperty)
+            })
+            .ToListAsync(cancellationToken);
+
+        return divisions.ToDictionary(
+            division => division.Id,
+            division => new NhDivisionInfo(division.Id, NameOf(division.Id, division.Name)));
+    }
+
+    /// <summary>A division without a name is shown by its id.</summary>
+    private static string NameOf(Guid id, string? name)
+    {
+        return string.IsNullOrWhiteSpace(name) ? id.ToString("D") : name.Trim();
     }
 }
 

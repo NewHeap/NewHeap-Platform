@@ -127,7 +127,10 @@ public static class NhAssistantRunConfigurationProblems
     /// <summary>The schedule's cron expression or time zone is invalid.</summary>
     public const string InvalidSchedule = "invalid-schedule";
 
-    /// <summary>The trigger event names a subject type up front that the agent does not work on.</summary>
+    /// <summary>
+    /// The trigger event names a subject type up front that the agent does not work on, or a schedule
+    /// without a subject set runs for the whole application, which the agent does not work on.
+    /// </summary>
     public const string NotWorkedOn = "not-worked-on";
 
     /// <summary>The stored definition is invalid in another way.</summary>
@@ -349,9 +352,15 @@ internal sealed class NhAssistantRunConfigurationValidator(
                     ? NhAssistantRunConfigurationProblems.NotWorkedOn
                     : null;
             case NhAssistantDataTriggerSources.Schedule:
-                if (trigger.SubjectSetName is not { } setName || !registration.SubjectSets.ContainsKey(setName))
+                if (trigger.SubjectSetName is { } setName && !registration.SubjectSets.ContainsKey(setName))
                 {
                     return NhAssistantRunConfigurationProblems.UnknownSubjectSet;
+                }
+                // Without a subject set the schedule runs for the whole application, which only an
+                // agent that works on it may do.
+                if (trigger.SubjectSetName is null && !options.WorksOn.Application)
+                {
+                    return NhAssistantRunConfigurationProblems.NotWorkedOn;
                 }
                 if (string.IsNullOrWhiteSpace(trigger.Message)
                     || trigger.Message.Length > NhAssistantAgentConfigurationLimits.MaxTriggerMessageLength)
@@ -745,7 +754,8 @@ internal sealed class NhAssistantRunConfigurations(
             };
         }
 
-        var subjects = registration.SubjectSets[row.SubjectSetName!];
+        // A schedule without a subject set runs for the whole application.
+        var subjects = row.SubjectSetName is { } setName ? registration.SubjectSets[setName] : null;
         NhAssistantRunConfigurationValidator.TryFindTimeZone(row.TimeZone, out var timeZone);
         var message = row.Message!;
         return new NhAssistantTriggerDefinition
@@ -754,6 +764,7 @@ internal sealed class NhAssistantRunConfigurations(
             Source = NhAssistantTriggerSource.Schedule,
             AgentId = row.AgentId,
             Subject = evt => ((NhAssistantScheduledTick)evt).Subject,
+            SubjectType = subjects is null ? NhAiSubjectRef.SystemType : null,
             Message = _ => message,
             Dedupe = evt => NhAssistantScheduleBuilder.TickKey((NhAssistantScheduledTick)evt),
             Conflict = conflict,
@@ -761,7 +772,7 @@ internal sealed class NhAssistantRunConfigurations(
             SkillId = row.SkillId,
             Cron = string.Join(' ', row.Cron!.Split(' ', StringSplitOptions.RemoveEmptyEntries)),
             TimeZone = timeZone,
-            ScheduledSubjects = subjects.Subjects,
+            ScheduledSubjects = subjects?.Subjects,
             DataVersion = row.Version,
             BlockName = row.SubjectSetName,
             Shadow = row.Shadow

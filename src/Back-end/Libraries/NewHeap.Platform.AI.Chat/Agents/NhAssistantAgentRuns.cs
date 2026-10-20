@@ -922,9 +922,16 @@ internal sealed class NhAssistantTriggerDefinition
     public TimeZoneInfo TimeZone { get; init; } = TimeZoneInfo.Utc;
 
     /// <summary>
-    /// The subjects a schedule tick starts the agent for.
+    /// The subjects a schedule tick starts the agent for; <see langword="null"/> for a schedule that
+    /// runs for the whole application (<see cref="IsSystemSchedule"/>).
     /// </summary>
     public Func<IServiceProvider, CancellationToken, IAsyncEnumerable<NhAiSubjectRef>>? ScheduledSubjects { get; init; }
+
+    /// <summary>
+    /// A schedule without subjects: each tick runs once on <c>nh-system/global</c>, or once per
+    /// listed division for an agent that works per division.
+    /// </summary>
+    public bool IsSystemSchedule => Source == NhAssistantTriggerSource.Schedule && ScheduledSubjects is null;
 
     public int MaxSubjectsPerTick { get; init; } = 100;
 
@@ -1025,7 +1032,10 @@ public sealed class NhAssistantScheduleBuilder
 
     /// <summary>
     /// The subjects of one tick, read in a scope of their own, for example the projects with a
-    /// deadline this week.
+    /// deadline this week. Without subjects the schedule runs for the whole application: once per
+    /// tick on <c>nh-system/global</c>, or once per listed division for an agent that works per
+    /// division, at most <see cref="MaxSubjectsPerTick"/>. Only an agent that works on the
+    /// application (<c>WorksOnApplication</c>) may have such a schedule; startup checks it.
     /// </summary>
     public NhAssistantScheduleBuilder Subjects(Func<IServiceProvider, CancellationToken, IAsyncEnumerable<NhAiSubjectRef>> subjects)
     {
@@ -1106,10 +1116,10 @@ public sealed class NhAssistantScheduleBuilder
 
     internal NhAssistantTriggerDefinition Build(string id)
     {
-        if (_agentId is null || _cron is null || _subjects is null || _message is null)
+        if (_agentId is null || _cron is null || _message is null)
         {
             throw new InvalidOperationException(
-                $"Scheduled trigger '{id}' needs StartAgent, Cron, Subjects and Message.");
+                $"Scheduled trigger '{id}' needs StartAgent, Cron and Message.");
         }
 
         var message = _message;
@@ -1119,6 +1129,9 @@ public sealed class NhAssistantScheduleBuilder
             Source = NhAssistantTriggerSource.Schedule,
             AgentId = _agentId,
             Subject = evt => ((NhAssistantScheduledTick)evt).Subject,
+            // Without subjects the schedule runs for the whole application, which startup checks
+            // against what the agent works on like every trigger that names its type up front.
+            SubjectType = _subjects is null ? NhAiSubjectRef.SystemType : null,
             Message = evt => message((NhAssistantScheduledTick)evt),
             Dedupe = evt => TickKey((NhAssistantScheduledTick)evt),
             Conflict = _conflict,

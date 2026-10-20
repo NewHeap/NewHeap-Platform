@@ -34,6 +34,7 @@ using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AI;
 using SampleProjectManagement.Api.Controllers;
 using NewHeap.Platform.Common;
+using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.AI.AspNet.Mvc;
 using NewHeap.Platform.AI.AspNet;
@@ -815,7 +816,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Equal(
                 [SampleProjectStarterComposition.ProjectManagePolicy, SampleProjectStarterComposition.ProjectViewPolicy],
                 catalog.GetProperty("agentPolicies").EnumerateArray().Select(policy => policy.GetProperty("name").GetString()));
-            Assert.False(catalog.GetProperty("divisions").GetBoolean());
+            // The sample uses NewHeap Identity, whose divisions are listed, so agents may work per division.
+            Assert.True(catalog.GetProperty("divisions").GetBoolean());
             Assert.Equal(ProjectSubjects.Type, catalog.GetProperty("triggerEvents").EnumerateArray()
                 .Single(item => item.GetProperty("name").GetString() == SampleProjectStarterComposition.ProjectCreatedEvent)
                 .GetProperty("subjectType").GetString());
@@ -899,12 +901,103 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
         finally
         {
-            await using var scope = host.Services.CreateAsyncScope();
-            await scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>()
-                .RemoveRunSettingsAsync(followUp, null, host.OwnerId.ToString("D"), cancellationToken: CancellationToken.None);
-            using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{followUp}");
-            Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+            await RemoveFollowUpAsync(administrator);
         }
+    }
+
+    [Fact]
+    public async Task The_project_follow_up_runs_every_monday_for_the_whole_application_in_its_own_thread()
+    {
+        // SPM-302: a schedule without a subject set runs for the whole application.
+        const string followUp = SampleRuntimeAgentSeeder.FollowUpAgentId;
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        // The whole application is read by everyone who reads the projects (UseSystemSubject), as the
+        // principal factory rebuilds them for headless runs.
+        var readerId = await host.CreatePersonAsync(SampleProjectStarterComposition.ProjectViewPolicy);
+        using var reader = host.CreateClient(readerId.ToString());
+        reader.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US");
+        var outsiderId = await host.CreatePersonAsync();
+        using var outsider = host.CreateClient(outsiderId.ToString());
+        try
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedFollowUpAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+                var configured = (await scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>().GetAsync(followUp))!;
+                var schedule = Assert.Single(configured.DataTriggers);
+                Assert.Equal(
+                    (SampleRuntimeAgentSeeder.FollowUpScheduleId, NewHeap.Platform.AI.Chat.Entities.NhAssistantDataTriggerSources.Schedule, "0 7 * * 1", (string?)null, false, true),
+                    (schedule.TriggerId, schedule.Source, schedule.Cron, schedule.SubjectSet, schedule.Shadow, schedule.InEffect));
+            }
+
+            // NewHeap Identity lists the sample's divisions by name, so the agent editor offers to work
+            // per division; the follow-up works app-wide.
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var directory = scope.ServiceProvider.GetRequiredService<INhDivisionDirectory>();
+                var divisions = await directory.ListAsync(NhDivisionInfo.MaxListLimit);
+                Assert.Contains(divisions, division => division.Id == host.DivisionId && division.Name == "Assistant sample division");
+                Assert.Equal("Other division", (await directory.GetAsync([host.OtherDivisionId]))[host.OtherDivisionId].Name);
+            }
+
+            // The run catalog names the whole application next to the projects.
+            var catalog = await administrator.GetFromJsonAsync<JsonElement>("/api/assistant/admin/run-catalog", Json);
+            Assert.True(catalog.GetProperty("divisions").GetBoolean());
+            var system = catalog.GetProperty("subjectTypes").EnumerateArray().Single(type => type.GetProperty("id").GetString() == NhAiSubjectRef.SystemType);
+            Assert.True(system.GetProperty("isSystem").GetBoolean());
+
+            // One tick starts one run, in the follow-up's thread of the whole application.
+            host.Services.GetRequiredService<IRecurringJobManager>()
+                .Trigger("nh-assistant-data-trigger-" + SampleRuntimeAgentSeeder.FollowUpScheduleId);
+            var lookup = $"/api/assistant/threads?agentId={followUp}&subjectType={NhAiSubjectRef.SystemType}&subjectId={NhAiSystemSubjects.GlobalId}";
+            var thread = await WaitForSystemThreadAsync(reader, lookup);
+            Assert.Equal(("The whole application", "The whole application", (string?)null), (thread.SubjectDisplayName, thread.SubjectTypeName, thread.SubjectLink));
+            var run = Assert.Single(await WaitForRunCountAsync(reader, thread.ConversationId, 1));
+            Assert.Equal((SampleRuntimeAgentSeeder.FollowUpScheduleId, (string?)null, host.OperationsAccountId.ToString("D")), (run.TriggerId, run.InitiatorActorId, run.AccountableOwnerId));
+
+            // People who do not read the projects do not see the whole application.
+            using (var hidden = await outsider.GetAsync(lookup))
+            {
+                Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+            }
+        }
+        finally
+        {
+            await RemoveFollowUpAsync(administrator);
+        }
+    }
+
+    /// <summary>
+    /// Removes the project follow-up as an administrator does: its schedule, its run settings and the
+    /// agent.
+    /// </summary>
+    private async Task RemoveFollowUpAsync(HttpClient administrator)
+    {
+        const string followUp = SampleRuntimeAgentSeeder.FollowUpAgentId;
+        await using var scope = host.Services.CreateAsyncScope();
+        var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+        await configuration.RemoveTriggerAsync(followUp, SampleRuntimeAgentSeeder.FollowUpScheduleId, null, host.OwnerId.ToString("D"), cancellationToken: CancellationToken.None);
+        await configuration.RemoveRunSettingsAsync(followUp, null, host.OwnerId.ToString("D"), cancellationToken: CancellationToken.None);
+        using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{followUp}");
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+    }
+
+    private static async Task<NhAssistantThreadDto> WaitForSystemThreadAsync(HttpClient client, string lookup)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var found = await client.GetFromJsonAsync<NhAssistantThreadLookupDto>(lookup, Json);
+            if (found?.Thread is { } thread)
+            {
+                Assert.Equal(("reader", false), (found.Role, found.CanStart));
+                return thread;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        }
+
+        throw new TimeoutException("No thread of the whole application was created.");
     }
 
     [Fact]

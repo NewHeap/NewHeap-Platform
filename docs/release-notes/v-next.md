@@ -225,3 +225,63 @@ including `assistant-agent-does-not-work-on`, are bundled in English and Dutch.
 |---|---|
 | The agent editor has a works-on section with radio buttons, check boxes and two policy selects after the use choice, and agent cards have a works-on line. | Update tests and styles that select the editor's controls or the card's paragraphs by position. |
 | The editor of an agent created in the administration sends what it works on with every save. | Pass the run catalog to `NhAssistantAdminAgentEditorComponent` with `catalog` when you host it yourself, so administrators can choose kinds of objects and policies. |
+
+## NewHeap.Platform.Common, NewHeap.Platform.AspNet.Common, NewHeap.Platform.AI.Common, NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: the whole application as a scope
+
+Agents run for the whole application on the platform's own subject type `nh-system`, which the
+assistant registers itself: `NhAiSystemSubjects.Global` (`nh-system/global`) for an agent that works
+app-wide and `NhAiSystemSubjects.ForDivision(id)` (`nh-system/division-{id:N}`) for one that works per
+division. Threads, memory, artifacts, run timelines, retention and budgets work as for any subject,
+per scope (`global` or `division:{id}`). The run catalog lists the type with `IsSystem` and its name
+"The whole application" in the reader's language; thread, proposal and work DTOs name it so. A
+schedule in code may leave out `Subjects`, and a data schedule its subject set: each tick then starts
+one run on `nh-system/global`, or one per listed division (ordered by name, at most
+`MaxSubjectsPerTick`) for an agent with `PerDivision()`. Only an agent that works on the application
+may have such a schedule. A run for the whole application has no subject execution scope; in a
+division the division is its execution scope.
+
+People who pass the read policy read the whole application (by default the assistant's access
+policy) and people who pass the approve policy (by default the administration policy) take part in
+it and decide its proposals; configure both with
+`UseSystemSubject(system => system.ReadPolicy("…").ApprovePolicy("…"))` (`NhAssistantSystemSubjectBuilder`).
+The policies are evaluated for the person as `INhAiPrincipalFactory` rebuilds them, against the
+subject with its division; a division subject also needs `INhDivisionAccess`. A manual start for the
+whole application also needs the agent's `RunPolicy` when it has one. The whole application lists no
+members, so the approval inbox shows its proposals to their initiator only.
+
+Divisions stay optional. `NewHeap.Platform.Common.Actors` gains `INhDivisionDirectory` and
+`NhDivisionInfo`; NewHeap Identity registers a directory over its divisions, and an application lists
+its own with `AddNewHeapDivisionDirectory<T>()`. Without one the run catalog reports
+`Divisions: false`, data agents cannot work per division and nothing runs per division.
+`NhAssistantAgentWorksOn.Covers(NhAiSubjectRef)` also checks the scope of the whole application:
+an app-wide agent is refused in a division and a per-division agent app-wide with
+`assistant-agent-does-not-work-on`.
+
+| Breaking change | Required action |
+|---|---|
+| The assistant registers its own `INhAiSubjectAccessResolver` for `nh-system`, so the run catalog's `SubjectTypes` and `INhAiSubjectAccessResolver` enumerations include it. | Filter on `IsSystem` (or the `nh-` prefix) where you list the application's own object types; do not remove the platform's resolver. |
+| Startup fails for `PerDivision()` in code when the application lists no divisions, for a schedule without `Subjects` on an agent that does not work on the application, and for an unregistered `UseSystemSubject` policy. | Use NewHeap Identity or `AddNewHeapDivisionDirectory<T>()`, add `WorksOnApplication()` or name the subjects, and register the policy. |
+| Saving a data schedule without a subject set no longer answers `subjectSet: required` for an agent that works on the application; it runs for the whole application. | Send a subject set when the schedule should run per object. |
+| Tool calls of a run on `nh-system` have no subject execution scope, and a per-division run has the division as its execution scope. | Do not require an `nh-system` execution scope in capability grants or context sources. |
+| A manual start (`POST threads/start`, `POST threads/open`) for the whole application also checks the agent's `RunPolicy`. | Give the people who start such agents the run policy as well. |
+
+## @newheap/platform-ai-chat: the whole application as a scope
+
+For a schedule of an agent that works on the whole application, the trigger form and the guided setup
+ask what it runs for each time: "The whole application" (the default; sent as `subjectSet: null`, once
+per division for an agent that works per division) or every object in a subject set. The server's
+`subjectSet` refusal shows at that choice, a stored schedule for the whole application of an agent
+that no longer works on it asks for a set, and the trigger list names "The whole application" or
+"Every division". The editor and the agent cards leave the platform's type `nh-system` (`isSystem`)
+out of the kinds of objects, and the subject link shows "The whole application" once instead of the
+type name next to the same name. The mock API lists `nh-system` in the run catalog's `subjectTypes`
+in English and Dutch, answers its subject work and refuses its search, accepts a schedule without a
+subject set only for an agent that works on the application (`subjectSet: required` otherwise), and
+marks stored triggers that no longer fit what the agent works on as `inEffect: false` with
+`not-worked-on`. New texts are bundled in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| The run catalog's `subjectTypes`, from the server and the mock API, include the platform's `nh-system` type. | Find types by id or leave out `isSystem` where you list the application's own kinds of objects or take `subjectTypes[0]`. |
+| A schedule in the trigger form and the guided setup has a target choice before the subject set, and the set picker shows only for "Every object in a set". | Update tests and styles that select the schedule fields by position or expect the set picker for every schedule. |
+| Subject links no longer repeat a type name that equals the subject's name. | Update tests that expect the type span for such subjects. |

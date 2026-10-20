@@ -93,6 +93,41 @@ public interface INhDivisionAccess
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>One division of the application, as people see it.</summary>
+/// <param name="Id">The division id.</param>
+/// <param name="Name">The name people see.</param>
+public sealed record NhDivisionInfo(Guid Id, string Name)
+{
+    /// <summary>The most divisions one <see cref="INhDivisionDirectory.ListAsync"/> call returns.</summary>
+    public const int MaxListLimit = 1_000;
+}
+
+/// <summary>
+/// Lists the divisions of the application with their names, so modules can offer work per division,
+/// such as an agent that runs once for every division. Divisions are optional: NewHeap Identity lists
+/// its divisions; an application with its own tenancy model registers its own directory with
+/// <see cref="NhActorServiceCollectionExtensions.AddNewHeapDivisionDirectory{TDirectory}"/>. Without
+/// one the application has no listed divisions, and modules offer nothing per division. Who may work
+/// in a division stays the question of <see cref="INhDivisionAccess"/>.
+/// </summary>
+public interface INhDivisionDirectory
+{
+    /// <summary>
+    /// Returns at most <paramref name="limit"/> divisions (1 to <see cref="NhDivisionInfo.MaxListLimit"/>),
+    /// ordered by name and then by id, so repeated calls list them in the same order.
+    /// </summary>
+    Task<IReadOnlyList<NhDivisionInfo>> ListAsync(
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the divisions with these ids that exist. Unknown ids are missing from the result.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, NhDivisionInfo>> GetAsync(
+        IReadOnlyCollection<Guid> divisionIds,
+        CancellationToken cancellationToken = default);
+}
+
 /// <summary>What the platform shows about an actor.</summary>
 /// <param name="Actor">The actor the information describes.</param>
 /// <param name="DisplayName">The name people see.</param>

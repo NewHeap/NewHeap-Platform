@@ -56,6 +56,12 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
   that says nothing works on all object types. `AddAgentPolicy(name, description)` lists the policies
   administrators may choose for agents created in the administration, and
   `Subject("project", e => ...)` lets startup check a trigger's type.
+- **The whole application** — agents that work on the application run on the platform's own
+  subject `nh-system/global` (`NhAiSystemSubjects`), or once per division with `PerDivision()` when
+  the application lists its divisions (`INhDivisionDirectory`; NewHeap Identity lists its own). A
+  schedule without `Subjects`, or a data schedule without a subject set, runs once per tick for the
+  whole application. `UseSystemSubject(system => system.ReadPolicy("...").ApprovePolicy("..."))`
+  decides who reads it and who decides its proposals.
 - **Consultations** — `AllowConsultation(subjectType, ...)` in `ConfigureAgent` lets other
   assistants consult the agent about a subject through the generated tools
   `assistant.consult.{agentId}.{subjectType}` (an answer in the same turn) and, with

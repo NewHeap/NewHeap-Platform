@@ -343,7 +343,12 @@
                   <span class="mono">{{ trigger.event }}</span>
                 } @else {
                   <span class="mono">{{ trigger.cron }} {{ trigger.timeZone ?? 'UTC' }}</span>
-                  <span class="mono">{{ trigger.subjectSet }}</span>
+                  @if (trigger.subjectSet) {
+                    <span class="mono">{{ trigger.subjectSet }}</span>
+                  } @else {
+                    <!-- A schedule without a subject set runs for the whole application, per division for a per-division agent. -->
+                    <span data-trigger-target>{{ (agent().perDivision ? 'nh-assistant.admin.run-config.triggers.target.every-division' : 'nh-assistant.admin.run-config.triggers.target.application') | translate }}</span>
+                  }
                 }
                 <span>{{ (trigger.skillId ? 'nh-assistant.admin.run-config.triggers.skill-value' : 'nh-assistant.admin.run-config.triggers.agent-routes') | translate: { skill: skillName(trigger.skillId) } }}</span>
                 <span>{{ 'nh-assistant.admin.run-config.triggers.conflicts.' + trigger.conflict | translate }}</span>

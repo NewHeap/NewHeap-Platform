@@ -278,10 +278,13 @@ internal sealed class NhAiAgentInvocationGate(
         IReadOnlySet<string> capabilities)
     {
         var scopeValues = new Dictionary<string, string>(StringComparer.Ordinal);
-        var executionScopes = new List<NhAiExecutionScopeEntry>
+        var executionScopes = new List<NhAiExecutionScopeEntry>();
+        // A run for the whole application concerns no object; in a division it works in that
+        // division, as a person with that active division does.
+        if (!NhAiSystemSubjects.IsSystem(scope.Subject.Subject))
         {
-            new(scope.Subject.Subject.Type, scope.Subject.Subject.Id, scope.Subject.DisplayName)
-        };
+            executionScopes.Add(new NhAiExecutionScopeEntry(scope.Subject.Subject.Type, scope.Subject.Subject.Id, scope.Subject.DisplayName));
+        }
         if (state.ActiveDivision is { } activeDivision && scope.Subject.DivisionId is { } divisionId)
         {
             var division = divisionId.ToString();

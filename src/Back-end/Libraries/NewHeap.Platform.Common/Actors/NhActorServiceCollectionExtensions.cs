@@ -29,6 +29,20 @@ public static class NhActorServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Lists the application's own divisions, in place of NewHeap Identity's. Without a directory the
+    /// application has no listed divisions and modules offer nothing per division.
+    /// </summary>
+    public static IServiceCollection AddNewHeapDivisionDirectory<TDirectory>(this IServiceCollection services)
+        where TDirectory : class, INhDivisionDirectory
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.Replace(ServiceDescriptor.Scoped<INhDivisionDirectory, TDirectory>());
+        MarkAsApplication<INhDivisionDirectory>(services);
+        return services;
+    }
+
     public static IServiceCollection AddNewHeapActorDirectory<TDirectory>(this IServiceCollection services)
         where TDirectory : class, INhActorDirectory
     {

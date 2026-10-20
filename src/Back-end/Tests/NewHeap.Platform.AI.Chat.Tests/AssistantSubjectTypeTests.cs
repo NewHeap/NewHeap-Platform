@@ -118,7 +118,12 @@ public sealed class AssistantSubjectTypeTests(AssistantDatabaseFixture database)
             using var scope = host.Services.CreateScope();
             return Task.FromResult(scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>().GetCatalog());
         });
-        Assert.Equal(["project", "ticket"], catalog.SubjectTypes.Select(type => type.Id));
+        // The platform's whole application is listed next to the application's types, named in the
+        // caller's language.
+        Assert.Equal(["nh-system", "project", "ticket"], catalog.SubjectTypes.Select(type => type.Id));
+        Assert.Equal(
+            new NhAssistantSubjectTypeDto("nh-system", "De hele applicatie", null, null, null, null, Searchable: false, IsSystem: true),
+            catalog.SubjectTypes[0]);
         Assert.Equal(
             new NhAssistantSubjectTypeDto(
                 "project",
@@ -129,9 +134,9 @@ public sealed class AssistantSubjectTypeTests(AssistantDatabaseFixture database)
                 "/management/projects/{id}",
                 Searchable: true,
                 IsSystem: false),
-            catalog.SubjectTypes[0]);
+            catalog.SubjectTypes[1]);
         // Without a configuration people see the id, and the type is chosen by id.
-        Assert.Equal(new NhAssistantSubjectTypeDto("ticket", "ticket", null, null, null, null, false, false), catalog.SubjectTypes[1]);
+        Assert.Equal(new NhAssistantSubjectTypeDto("ticket", "ticket", null, null, null, null, false, false), catalog.SubjectTypes[2]);
     }
 
     [Fact]

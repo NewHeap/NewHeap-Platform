@@ -51,8 +51,9 @@ internal sealed class NhAssistantSubjectAccessService(
     }
 
     /// <summary>
-    /// Fails when the subject types do not fit together: a resolver with an invalid or reserved
-    /// type, two resolvers of one type, or a configuration whose resolver is not registered.
+    /// Fails when the subject types do not fit together: a resolver with an invalid or reserved type
+    /// (only the platform's own resolver handles the whole application), two resolvers of one type,
+    /// or a configuration whose resolver is not registered.
     /// </summary>
     public static void Validate(
         IReadOnlyCollection<INhAiSubjectAccessResolver> registered,
@@ -68,7 +69,8 @@ internal sealed class NhAssistantSubjectAccessService(
                 throw new InvalidOperationException(
                     $"The subject access resolver {resolver.GetType().Name} handles '{type}', which is not a dash-case subject type of at most {NhAiSubjectRef.MaxTypeLength} characters.");
             }
-            if (NhAiSubjectRef.IsReservedType(type))
+            if (NhAiSubjectRef.IsReservedType(type)
+                && !(resolver is INhAssistantPlatformSubjectResolver && string.Equals(type, NhAiSubjectRef.SystemType, StringComparison.Ordinal)))
             {
                 throw new InvalidOperationException(
                     $"The subject access resolver {resolver.GetType().Name} handles '{type}'; subject types starting with '{NhAiSubjectRef.ReservedTypePrefix}' are reserved for the platform. Rename the type.");
@@ -103,7 +105,8 @@ internal sealed class NhAssistantSubjectAccessService(
                 entry.Key,
                 entry.Value.GetType(),
                 registration.SubjectTypes.GetValueOrDefault(entry.Value.GetType()),
-                entry.Value is INhAiSubjectSearch),
+                entry.Value is INhAiSubjectSearch,
+                NhAiSubjectRef.IsReservedType(entry.Key)),
             StringComparer.Ordinal);
 
     public async ValueTask<NhAiSubjectInfo?> DescribeAsync(

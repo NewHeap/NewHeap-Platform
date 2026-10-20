@@ -150,7 +150,8 @@ export interface NhAssistantMockAdminScenario {
   forwardUserTokenHosts?: string[];
   /**
    * The building blocks in code that run configuration as data names. Default: none, with
-   * `policies` as the approval policies.
+   * `policies` as the approval policies. `divisions: true` lets agents created in the
+   * administration work per division, as an application that lists its divisions does.
    */
   runCatalog?: Partial<RunCatalog>;
   /** Triggers in code, per agent; they cannot change in the administration. */
@@ -233,8 +234,10 @@ export interface NhAssistantMockScenario {
   admin?: NhAssistantMockAdminScenario;
   collaboration?: NhAssistantMockCollaboration;
   /**
-   * The application's subject types: the run catalog lists them, `GET subjects/{type}/search` finds
-   * their readable subjects and `GET subjects/{type}/{id}/work` names a subject chosen by id.
+   * The application's subject types: the run catalog lists them, next to the platform's `nh-system`
+   * (the whole application, `isSystem`) that the mock always adds as the server does,
+   * `GET subjects/{type}/search` finds their readable subjects and `GET subjects/{type}/{id}/work`
+   * names a subject chosen by id, `nh-system/global` included.
    */
   subjectTypes?: NhAssistantMockSubjectType[];
 }

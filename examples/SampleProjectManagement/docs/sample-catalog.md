@@ -81,8 +81,14 @@ project follow-up as data: it works on projects and on the whole application, pr
 run it for the whole application and everyone who reads projects sees its results there, two
 policies the composition lists with `AddAgentPolicy`. A project participant may start it on a
 project; once an administrator narrows it to the whole application, a start on a project answers
-`assistant-agent-does-not-work-on` and a trigger on created projects no longer fits it. Its weekly
-schedule for the whole application and its proposals at each project follow in later phases.
+`assistant-agent-does-not-work-on` and a trigger on created projects no longer fits it. Its schedule
+every Monday names no subject set, so each tick starts one run for the whole application in the
+follow-up's own thread of `nh-system/global`, which the platform registers as "The whole
+application". The composition lets everyone who reads projects read the whole application with
+`UseSystemSubject(system => system.ReadPolicy("app.project.view"))`, because the assistant's access
+policy needs an active division. NewHeap Identity lists the sample's divisions through
+`INhDivisionDirectory`, so the editor offers to work per division. The skill that counts the open
+projects and its proposals at each project follow in later phases.
 The project assistant can consult the intake reviewer (SPM-278): the reviewer allows
 consultation about projects with `AllowConsultation`, and the project assistant selects
 the generated `assistant.consult.*` and `assistant.request.*` tools, which the sample's

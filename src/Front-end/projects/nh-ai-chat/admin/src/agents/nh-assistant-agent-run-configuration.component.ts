@@ -56,8 +56,9 @@ interface Confirmation {
  * longer fits the code. An agent created here that only chats gets a guided setup that lets it work
  * on its own. Administrators add and change data skills, live at once or as a candidate in shadow that
  * they compare with the live version and promote or discard; they add data triggers on the
- * application's events or on a schedule and put them live. New skills and triggers start in shadow;
- * `changed` tells the agents page to reload the agent's skill states.
+ * application's events or on a schedule and put them live; a schedule without a subject set runs for
+ * the whole application, or for every division of an agent that works per division. New skills and
+ * triggers start in shadow; `changed` tells the agents page to reload the agent's skill states.
  */
 @Component({
   selector: 'nh-assistant-agent-run-configuration',

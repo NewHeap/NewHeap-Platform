@@ -45,24 +45,24 @@ public sealed class NhPlatformModuleRegistrationTests
     {
         var genericFirst = new ServiceCollection();
         NhPlatformModuleRegistration.AddGenericActorDefaults(genericFirst);
-        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser>(genericFirst);
+        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser, NhDivision>(genericFirst);
         Implementation<INhActorDirectory>(genericFirst).Should().Be<NhIdentityActorDirectory<NhUser>>();
         Implementation<INhActorContextAccessor>(genericFirst).Should().Be<NhIdentityActorContextAccessor>();
         Implementation<INhDivisionAccess>(genericFirst).Should().Be<NhIdentityDivisionAccess>();
 
         var identityFirst = new ServiceCollection();
-        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser>(identityFirst);
+        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser, NhDivision>(identityFirst);
         NhPlatformModuleRegistration.AddGenericActorDefaults(identityFirst);
         Implementation<INhActorDirectory>(identityFirst).Should().Be<NhIdentityActorDirectory<NhUser>>();
 
         var applicationFirst = new ServiceCollection();
         applicationFirst.AddNewHeapActorDirectory<ApplicationDirectory>();
-        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser>(applicationFirst);
+        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser, NhDivision>(applicationFirst);
         NhPlatformModuleRegistration.AddGenericActorDefaults(applicationFirst);
         Implementation<INhActorDirectory>(applicationFirst).Should().Be<ApplicationDirectory>();
 
         var applicationLast = new ServiceCollection();
-        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser>(applicationLast);
+        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser, NhDivision>(applicationLast);
         applicationLast.AddNewHeapActorDirectory<ApplicationDirectory>();
         Implementation<INhActorDirectory>(applicationLast).Should().Be<ApplicationDirectory>();
 

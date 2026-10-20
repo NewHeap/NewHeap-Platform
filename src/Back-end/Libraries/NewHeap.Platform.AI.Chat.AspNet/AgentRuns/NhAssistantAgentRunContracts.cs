@@ -761,6 +761,7 @@ internal static class NhAssistantAgentRunDtoMapper
                     DecidedByDisplayName = proposal.DecidedByDisplayName
                         ?? (proposal.DecidedByActorId is { } decidedBy ? names.GetValueOrDefault(decidedBy) : null),
                     StaleByDisplayName = proposal.StaleByActorId is { } staleBy ? names.GetValueOrDefault(staleBy) : null,
+                    SubjectDisplayName = DisplayNameOf(subjects, proposal.SubjectType, proposal.SubjectId, proposal.SubjectDisplayName),
                     SubjectTypeName = typeName,
                     SubjectLink = link
                 };
@@ -784,6 +785,21 @@ internal static class NhAssistantAgentRunDtoMapper
         }
 
         return (type.IsNamed ? type.NameIn(System.Globalization.CultureInfo.CurrentUICulture) : null, type.LinkFor(subjectId));
+    }
+
+    /// <summary>
+    /// The name people see of a subject: the stored one, except for the whole application app-wide,
+    /// which is named in the request's language.
+    /// </summary>
+    public static string? DisplayNameOf(
+        NhAssistantSubjectAccessService subjects,
+        string subjectType,
+        string subjectId,
+        string? storedName)
+    {
+        return subjects.FindType(subjectType) is { } type
+            ? type.DisplayNameOf(subjectId, storedName, System.Globalization.CultureInfo.CurrentUICulture)
+            : storedName;
     }
 
     public static NhAssistantProposalFeedbackDto ToDto(AssistantProposalFeedback feedback)

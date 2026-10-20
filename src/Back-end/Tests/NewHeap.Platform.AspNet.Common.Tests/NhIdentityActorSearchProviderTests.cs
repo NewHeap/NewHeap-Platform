@@ -39,14 +39,14 @@ public sealed class NhIdentityActorSearchProviderTests
     public void NewHeapIdentityRegistersTheSearchUnlessTheApplicationHasItsOwn()
     {
         var identity = new ServiceCollection();
-        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser>(identity);
+        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser, NhDivision>(identity);
         Assert.Equal(
             typeof(NhIdentityActorSearch<NhUser>),
             identity.Single(descriptor => descriptor.ServiceType == typeof(INhActorSearch)).ImplementationType);
 
         var application = new ServiceCollection();
         application.AddNewHeapActorSearch<ApplicationSearch>();
-        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser>(application);
+        NhPlatformModuleRegistration.AddIdentityActorDefaults<NhUser, NhDivision>(application);
         Assert.Equal(
             typeof(ApplicationSearch),
             application.Single(descriptor => descriptor.ServiceType == typeof(INhActorSearch)).ImplementationType);

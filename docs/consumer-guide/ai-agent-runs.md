@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, and say what every agent works on.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, and run agents for the whole application, app-wide or per division.
 
 ## Preferred approach
 
@@ -156,6 +156,34 @@ unknown type in `WorksOn` and for an unregistered run, view or listed policy. Th
 DTO (`NhAssistantAdminAgentDto`) returns the statement, `WorksOnDeclared` for an agent in code that
 said it, and `KnownSubjectTypes`, the types it accepts hand-offs and consultations about, its triggers
 name and its threads concern, as a hint next to "all objects".
+
+Run an agent for the whole application, such as a weekly count of open projects, on the platform's
+own subject type `nh-system`, which the assistant registers itself (the run catalog lists it with
+`IsSystem`, named "The whole application" in the reader's language). `NhAiSystemSubjects.Global`
+(`nh-system/global`) is the whole application for an agent that works app-wide, the default;
+`NhAiSystemSubjects.ForDivision(id)` (`nh-system/division-{id:N}`) is the whole application in one
+division for an agent with `PerDivision()`. Its thread, memory, artifacts, run timeline, retention and
+budgets work as for any subject, per scope key (`global` or `division:{id}`). Divisions are optional:
+per division needs an `INhDivisionDirectory`, which NewHeap Identity registers over its divisions and an
+application registers with `AddNewHeapDivisionDirectory<T>()`; without it the run catalog reports
+`Divisions: false`, data agents cannot work per division and startup refuses `PerDivision()` in code.
+Leave `Subjects` out of a schedule, or the subject set out of a data schedule, to run it for the whole
+application: each tick starts one run on `nh-system/global`, or one per listed division, ordered by
+name and at most `MaxSubjectsPerTick`, for an agent that works per division. Only an agent that works
+on the application may have such a schedule: startup refuses it in code, saving it as data answers
+`subjectSet: required`, and one whose agent no longer works on the application is out of effect with
+`not-worked-on`. The whole application app-wide is never started for a per-division agent, nor a
+division for an app-wide one (`assistant-agent-does-not-work-on`). A run for the whole application
+concerns no object: its tool calls have no subject execution scope, and in a division the division is
+its execution scope, as an active division is for a person. People who pass the read policy (by
+default the assistant's access policy) read it and people who pass the approve policy (by default the
+administration policy) also take part and decide its proposals, evaluated for the person as the
+principal factory rebuilds them and against the subject with its division, with access to the division
+for a division subject; configure both with `UseSystemSubject(system => system.ReadPolicy("app.project.view").ApprovePolicy("app.project.manage"))`.
+Name an app-wide read policy when the access policy needs an active division, which the whole
+application app-wide has not. A manual start for the whole application also needs the agent's
+`RunPolicy`. The whole application lists no members, so the approval inbox shows its proposals to
+their initiator only.
 
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
@@ -638,6 +666,13 @@ profile and instructions that answer questions about the rules' proposals from t
   page whether an agent may work on a type; declare it and let the platform refuse other starts.
 - `Subject(e => new NhAiSubjectRef("project", ...))` on a trigger whose type is fixed; use
   `Subject("project", e => ...)` so startup checks it.
+- A placeholder object such as an "application" subject type, or a subject set that yields one fixed
+  subject, for work on the whole application; leave the subjects out and declare
+  `WorksOnApplication()`.
+- `PerDivision()` in an application that does not list its divisions, or a division directory that
+  lists divisions the division access does not know.
+- Leaving the read policy of the whole application at an access policy that needs an active division;
+  nobody would read it app-wide.
 
 ## Verification
 
@@ -771,6 +806,19 @@ trigger is refused for an agent that does not work on its type and goes out of e
 statement narrows, and that the hints name the types of typed triggers, hand-offs and threads; assert
 that startup refuses typed triggers, hand-offs and consultations on types the agent does not work on,
 unknown types and unregistered policies, and that the endpoints answer `409` and `canStart: false`.
+Tick a schedule without subjects and assert, on both providers, one run in the agent's thread of
+`nh-system/global` and a deduplicated repeat in the same minute, one run per listed division in a
+thread per division (scope `division:{id}`, its division on the background operation) within
+`MaxSubjectsPerTick`, and refused starts of a per-division agent app-wide and of an app-wide agent in a
+division; save a data schedule without a subject set for an agent that works on the application and
+one that does not (`subjectSet: required`), and assert that narrowing the agent leaves it out of
+effect. Assert the roles on the whole application (reader by the read policy, approver by the approve
+policy, none without a principal or division access), that the policies are evaluated for the
+rebuilt principal against the subject's division, that a system run's invocation context has no
+subject scope and only the division in a division, that the run catalog lists `nh-system` with
+`IsSystem` and `Divisions`, and that startup lets the platform's own resolver through, refuses an
+application `nh-` type, per division without a division directory, a schedule without subjects for an
+agent that does not work on the application and unregistered system policies.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 and SPM-302 are the executable
 references.
 
@@ -926,7 +974,7 @@ references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
-- SPM-302 — The project follow-up is created as data and works on projects and the whole application; every agent says what it works on
+- SPM-302 — The project follow-up is created as data, works on projects and the whole application and runs every Monday for the whole application; every agent says what it works on
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)

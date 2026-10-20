@@ -14,11 +14,19 @@ const defaultLimit = 20;
 const maxLimit = 50;
 const placeholder = '{id}';
 
+/** The platform's type of the whole application, which the server registers itself. */
+const systemType = 'nh-system';
+/** The whole application as one subject, for agents that work app-wide. */
+const systemGlobalId = 'global';
+const systemNames: Record<string, string> = { en: 'The whole application', nl: 'De hele applicatie' };
+
 /**
  * The subject types of the mock API, as the application's resolvers describe them on the server:
  * their names per language in the run catalog, the search people use to choose a subject and the
  * name of a subject chosen by id. The scenario is checked like the server checks the registration
- * at startup, and every request is checked like the server checks it.
+ * at startup, and every request is checked like the server checks it. Next to the scenario's types
+ * the catalog lists the platform's `nh-system`, the whole application, as the server does; the mock
+ * lists no divisions, so it names only the app-wide `nh-system/global`.
  */
 export class NhAssistantMockSubjects {
   private readonly types: NhAssistantMockSubjectType[];
@@ -48,9 +56,9 @@ export class NhAssistantMockSubjects {
     this.types = [...types].sort((left, right) => left.id.localeCompare(right.id));
   }
 
-  /** The run catalog's subject types in the request's language. */
+  /** The run catalog's subject types in the request's language, the platform's among them, by id. */
   catalog(language: string | null): AgentSubjectType[] {
-    return this.types.map(type => ({
+    const application: AgentSubjectType[] = this.types.map(type => ({
       id: type.id,
       name: pick(type.names, type.fallbackLanguage ?? 'en', language) ?? type.id,
       pluralName: pick(type.pluralNames, type.fallbackLanguage ?? 'en', language),
@@ -60,6 +68,17 @@ export class NhAssistantMockSubjects {
       searchable: isSearchable(type),
       isSystem: false
     }));
+    const system: AgentSubjectType = {
+      id: systemType,
+      name: systemName(language),
+      pluralName: null,
+      entityType: null,
+      entityTypeFull: null,
+      link: null,
+      searchable: false,
+      isSystem: true
+    };
+    return [...application, system].sort((left, right) => left.id.localeCompare(right.id));
   }
 
   /** `GET subjects/{type}/search` and `GET subjects/{type}/{id}/work`; `null` for other paths. */
@@ -75,14 +94,15 @@ export class NhAssistantMockSubjects {
 
   private search(typeId: string, query: URLSearchParams): MockResult {
     const type = this.types.find(item => item.id === typeId);
-    if (!type) {
+    if (!type && typeId !== systemType) {
       return failure(404, 'assistant-subject-type-unknown');
     }
     const text = (query.get('query') ?? '').trim();
     if (text.length < minQueryLength || text.length > maxQueryLength) {
       return failure(400, 'assistant-validation', { query: ['invalid'] });
     }
-    if (!isSearchable(type)) {
+    // The whole application is not searched; people choose it as such.
+    if (!type || !isSearchable(type)) {
       return failure(404, 'assistant-subject-search-unavailable');
     }
 
@@ -106,6 +126,9 @@ export class NhAssistantMockSubjects {
 
   /** The name of a subject chosen by id; the mock runs no agents, so it has no agent work. */
   private work(typeId: string, subjectId: string, language: string | null): MockResult {
+    if (typeId === systemType) {
+      return this.systemWork(subjectId, language);
+    }
     const type = this.types.find(item => item.id === typeId);
     if (!type) {
       return failure(404, 'assistant-subject-type-unknown');
@@ -127,6 +150,34 @@ export class NhAssistantMockSubjects {
     };
     return { status: 200, body };
   }
+
+  /**
+   * The whole application as the server names it: "The whole application" in the reader's language,
+   * without a link. The mock lists no divisions, so `division-…` subjects are not found.
+   */
+  private systemWork(subjectId: string, language: string | null): MockResult {
+    if (subjectId !== systemGlobalId) {
+      return failure(404, 'assistant-subject-not-found');
+    }
+
+    const name = systemName(language);
+    const body: AgentSubjectWork = {
+      subjectType: systemType,
+      subjectId,
+      subjectDisplayName: name,
+      subjectTypeName: name,
+      subjectLink: null,
+      role: 'reader',
+      agents: [],
+      openProposals: []
+    };
+    return { status: 200, body };
+  }
+}
+
+/** The name of the whole application in the request's language, English otherwise. */
+function systemName(language: string | null): string {
+  return pick(systemNames, 'en', language) ?? systemNames['en'];
 }
 
 function isSearchable(type: NhAssistantMockSubjectType): boolean {

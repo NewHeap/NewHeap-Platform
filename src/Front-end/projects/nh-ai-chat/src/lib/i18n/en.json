@@ -639,7 +639,7 @@
           "application": "The whole application",
           "application-hint": "Work that concerns no single object, such as a weekly overview.",
           "per-division": "Per division",
-          "per-division-hint": "Its work for the whole application happens separately for every division.",
+          "per-division-hint": "Its work for the whole application, such as its schedules, runs separately for every division.",
           "missing": "Choose at least one kind of object, or the whole application.",
           "run-policy": "Who may run it for the whole application",
           "run-policy-default": "Administrators (default)",
@@ -883,7 +883,7 @@
             "unknown-skill": "the skill no longer exists.",
             "invalid-schedule": "the schedule or its time zone is not valid.",
             "invalid": "a value is not valid.",
-            "not-worked-on": "the event concerns a kind of object the agent does not work on."
+            "not-worked-on": "it concerns a kind of object, or the whole application, that the agent does not work on."
           }
         },
         "field-errors": {
@@ -897,7 +897,8 @@
           "dash-case": "Use lowercase letters, digits and dashes, starting with a letter.",
           "taken": "This id is already in use.",
           "name-letters": "Use at least one letter in the name.",
-          "instructions-for-model": "Without fixed rules the model works from these instructions; describe what it should do."
+          "instructions-for-model": "Without fixed rules the model works from these instructions; describe what it should do.",
+          "application-not-worked-on": "The agent does not work on the whole application. Choose a set of objects, or let the agent work on the whole application first."
         },
         "settings": {
           "title": "Run settings",
@@ -1088,6 +1089,7 @@
           },
           "source-event-hint": "Something happens in the application, such as a project being created.",
           "source-schedule-hint": "At fixed times, for every subject in a set.",
+          "source-schedule-application-hint": "At fixed times, for the whole application or for every object in a set.",
           "debounce-hint": "Waits this long for more events about the same subject and handles them in one run.",
           "subject-set-hint": "The projects or customers the schedule handles each time.",
           "message-hint": "What the agent reads as its task each time.",
@@ -1104,7 +1106,17 @@
             "supersede": "Replaces the waiting run with this event.",
             "ignore": "Skips this event or tick."
           },
-          "live-badge": "Live"
+          "live-badge": "Live",
+          "target": {
+            "title": "What does it run for each time?",
+            "application": "The whole application",
+            "application-hint": "One run each time, about the application as a whole.",
+            "application-per-division-hint": "One run each time for every division, each in its own thread.",
+            "set": "Every object in a set",
+            "set-hint": "One run each time for every object in a set, such as the active projects.",
+            "every-division": "Every division",
+            "dropped": "This schedule ran for the whole application, which the agent no longer works on. Choose a set of objects."
+          }
         },
         "way-of-working": "Way of working",
         "check-fields": "Check the marked fields.",
@@ -1180,6 +1192,8 @@
             "title": "Review",
             "event": "When {{event}} happens",
             "schedule": "On the schedule {{cron}} ({{zone}}), for {{set}}",
+            "schedule-application": "On the schedule {{cron}} ({{zone}}), for the whole application",
+            "schedule-divisions": "On the schedule {{cron}} ({{zone}}), for the whole application in every division",
             "shadow": "The task and its trigger start in shadow. Put them live now, or later from the run configuration."
           },
           "no-events": "The application registers no events yet; choose a schedule.",

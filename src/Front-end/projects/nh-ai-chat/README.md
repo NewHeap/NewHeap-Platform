@@ -310,6 +310,11 @@ kinds of objects by name, the whole application, per division when the run catal
 `divisions`, and the run and view policy from the catalog's `agentPolicies`. Agent cards show what
 every agent works on; an agent in code shows its code setting.
 
+The trigger form and the guided setup let a schedule of an agent that works on the whole application
+run for the whole application instead of a set of objects (sent as `subjectSet: null`; once per
+division for an agent that works per division); the trigger list names it, and subject links name the
+whole application (`nh-system`, `isSystem` in the run catalog) once.
+
 With live updates the inbox, the thread view and its tabs reload by themselves when the hub
 reports `AgentWorkChanged` for work they show, debounced, and after every reconnect. The
 update names the thread, its subject (`subjectType`, `subjectId`) and whether a run, a

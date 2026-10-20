@@ -257,6 +257,20 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Configures the whole application as a subject (<see cref="NhAiSubjectRef.SystemType"/>), which
+    /// the platform registers itself. People who pass its read policy (by default the assistant's
+    /// access policy) read its threads; people who pass its approve policy (by default the
+    /// administration policy) also take part in them and decide their proposals. Startup fails when a
+    /// policy is not registered.
+    /// </summary>
+    public NhAssistantBuilder UseSystemSubject(Action<NhAssistantSystemSubjectBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        configure(new NhAssistantSystemSubjectBuilder(_state));
+        return this;
+    }
+
+    /// <summary>
     /// Registers a named approval policy that agents, tools and triggers can reference.
     /// </summary>
     public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure)
@@ -562,6 +576,57 @@ public sealed class NhAssistantBuilder
 }
 
 /// <summary>
+/// Configures the whole application as a subject; see <see cref="NhAssistantBuilder.UseSystemSubject"/>.
+/// </summary>
+public sealed class NhAssistantSystemSubjectBuilder
+{
+    private readonly NhAssistantRegistrationState _state;
+
+    internal NhAssistantSystemSubjectBuilder(NhAssistantRegistrationState state)
+    {
+        _state = state;
+    }
+
+    /// <summary>
+    /// The authorization policy that makes a person a reader of the whole application: who sees its
+    /// threads, runs and proposals. The default is the assistant's access policy. Name an app-wide
+    /// policy here when the access policy needs an active division, because the whole application
+    /// app-wide belongs to no division; in a division it is evaluated for that division. An agent's
+    /// own view policy applies on top.
+    /// </summary>
+    public NhAssistantSystemSubjectBuilder ReadPolicy(string policyName)
+    {
+        _state.SystemReadPolicy = Validate(policyName);
+        return this;
+    }
+
+    /// <summary>
+    /// The authorization policy that makes a person a participant and approver of the whole
+    /// application: who types in its threads and decides their proposals. The default is the
+    /// assistant's administration policy. A participant reads as well; an agent's own run policy
+    /// applies on top.
+    /// </summary>
+    public NhAssistantSystemSubjectBuilder ApprovePolicy(string policyName)
+    {
+        _state.SystemApprovePolicy = Validate(policyName);
+        return this;
+    }
+
+    private static string Validate(string policyName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
+        if (policyName.Length > NhAssistantAgentWorksOn.MaxPolicyLength || policyName.Trim() != policyName)
+        {
+            throw new ArgumentException(
+                $"A policy name has at most {NhAssistantAgentWorksOn.MaxPolicyLength} characters without surrounding whitespace.",
+                nameof(policyName));
+        }
+
+        return policyName;
+    }
+}
+
+/// <summary>
 /// Registration state shared by every <c>AddNewHeapAssistant</c> call in one service collection.
 /// </summary>
 internal sealed class NhAssistantRegistrationState
@@ -589,6 +654,18 @@ internal sealed class NhAssistantRegistrationState
     public string ExecutionRegion { get; set; } = "local";
 
     public string? AdminPolicy { get; set; }
+
+    /// <summary>
+    /// The policy that makes a person a reader of the whole application; <see langword="null"/> uses
+    /// the access policy.
+    /// </summary>
+    public string? SystemReadPolicy { get; set; }
+
+    /// <summary>
+    /// The policy that makes a person a participant and approver of the whole application;
+    /// <see langword="null"/> uses the administration policy.
+    /// </summary>
+    public string? SystemApprovePolicy { get; set; }
 
     public NhAiTextAsset? DefaultApplicationContext { get; set; }
 
@@ -933,6 +1010,11 @@ internal sealed class NhAssistantRegistrationState
                     $"Trigger '{trigger.Id}' runs skill '{skillId}', which agent '{trigger.AgentId}' does not declare.");
             }
             // A trigger that names its subject type up front is checked now; others when they fire.
+            if (trigger.IsSystemSchedule && !_agentRuns[trigger.AgentId].WorksOn.Application)
+            {
+                throw new InvalidOperationException(
+                    $"Scheduled trigger '{trigger.Id}' has no subjects, so it runs for the whole application, which agent '{trigger.AgentId}' does not work on. Add WorksOnApplication or name the subjects with Subjects.");
+            }
             if (trigger.SubjectType is { } subjectType && !_agentRuns[trigger.AgentId].WorksOn.Covers(subjectType))
             {
                 throw new InvalidOperationException(

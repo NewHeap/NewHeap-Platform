@@ -88,6 +88,48 @@ public sealed class NhAssistantSubjectTypeBuilder
 }
 
 /// <summary>
+/// Marks the access resolver of a subject type the platform registers itself, such as the whole
+/// application. Only such a resolver may handle a type in the reserved <c>nh-</c> prefix.
+/// </summary>
+internal interface INhAssistantPlatformSubjectResolver : INhAiSubjectAccessResolver;
+
+/// <summary>
+/// How people see the platform's subject type of the whole application.
+/// </summary>
+internal static class NhAssistantSystemSubjectType
+{
+    public const string FallbackLanguage = "en";
+
+    private static readonly IReadOnlyDictionary<string, string> Names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["en"] = "The whole application",
+        ["nl"] = "De hele applicatie",
+        ["de"] = "Die gesamte Anwendung"
+    };
+
+    /// <summary>
+    /// "The whole application" in <paramref name="culture"/>, English for a language the platform
+    /// does not ship.
+    /// </summary>
+    public static string NameIn(CultureInfo culture)
+    {
+        ArgumentNullException.ThrowIfNull(culture);
+        return NhAssistantSubjectTypeNames.Pick(Names, FallbackLanguage, culture) ?? Names[FallbackLanguage];
+    }
+
+    /// <summary>
+    /// The type's configuration for the registration, named in the languages the platform ships.
+    /// </summary>
+    public static NhAssistantSubjectTypeOptions CreateOptions(Type resolverType)
+    {
+        ArgumentNullException.ThrowIfNull(resolverType);
+        var options = new NhAssistantSubjectTypeOptions(resolverType);
+        new NhAssistantSubjectTypeBuilder(options).Named(new Dictionary<string, string>(Names), FallbackLanguage);
+        return options;
+    }
+}
+
+/// <summary>
 /// The configuration of one subject type in code, registered with its resolver class.
 /// </summary>
 internal sealed class NhAssistantSubjectTypeOptions(Type resolverType)
@@ -231,6 +273,17 @@ internal sealed class NhAssistantSubjectType
     public string? LinkFor(string subjectId)
     {
         return LinkTemplate is null ? null : NhAssistantSubjectLinks.Build(LinkTemplate, subjectId);
+    }
+
+    /// <summary>
+    /// The name people see of one subject: the whole application app-wide carries the type's name in
+    /// <paramref name="culture"/>, every other subject the name its thread stored.
+    /// </summary>
+    public string? DisplayNameOf(string subjectId, string? storedName, CultureInfo culture)
+    {
+        return IsSystem && string.Equals(subjectId, NhAiSystemSubjects.GlobalId, StringComparison.Ordinal)
+            ? NameIn(culture)
+            : storedName;
     }
 }
 

@@ -249,15 +249,21 @@ internal static class NhPlatformModuleRegistration
         services.TryAddScoped<INhRetention, NhRetention>();
     }
 
-    /// <summary>NewHeap Identity's implementations, which replace the generic defaults.</summary>
-    internal static void AddIdentityActorDefaults<TUser>(IServiceCollection services)
+    /// <summary>
+    /// NewHeap Identity's implementations, which replace the generic defaults, and the directory of its
+    /// divisions, which has no generic default: without NewHeap Identity or an application directory
+    /// there are no listed divisions.
+    /// </summary>
+    internal static void AddIdentityActorDefaults<TUser, TDivision>(IServiceCollection services)
         where TUser : IdentityUser<Guid>
+        where TDivision : class, Models.IdDbEntity
     {
         services.AddHttpContextAccessor();
         services.ReplaceActorDefault<INhActorContextAccessor>(typeof(NhIdentityActorContextAccessor));
         services.ReplaceActorDefault<INhDivisionAccess>(typeof(NhIdentityDivisionAccess));
         services.ReplaceActorDefault<INhActorDirectory>(typeof(NhIdentityActorDirectory<TUser>));
         services.ReplaceActorDefault<INhActorSearch>(typeof(NhIdentityActorSearch<TUser>));
+        services.ReplaceActorDefault<INhDivisionDirectory>(typeof(NhIdentityDivisionDirectory<TDivision>));
         services.TryAddScoped<INhUserNotificationSink, NhUserNotificationServiceSink>();
         services.TryAddScoped<INhRetention, NhRetention>();
     }

@@ -9,8 +9,8 @@ application groups them on its own pages. It was written on 2026-10-19 during th
 
 ## Status
 
-Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 and W2 are implemented and not
-released; W3 to W7 are designed and not yet implemented; the flow view (U6 of the run configuration
+Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 to W3 are implemented and not
+released; W4 to W7 are designed and not yet implemented; the flow view (U6 of the run configuration
 UX plan) follows on top of them. The
 [MCP connections plan](ai-assistant-mcp-connections-plan.md) uses SPM-299 and SPM-300; this plan
 uses SPM-301 onwards.
@@ -19,7 +19,7 @@ uses SPM-301 onwards.
 | --- | --- |
 | W1 | Implemented, not released: object types with names, entity binding, search and links. |
 | W2 | Implemented, not released: what an agent works on. |
-| W3 | Designed: the whole application as a scope. |
+| W3 | Implemented, not released: the whole application as a scope. |
 | W4 | Designed: run now. |
 | W5 | Designed: proposals placed at their object. |
 | W6 | Designed: results and history. |
@@ -131,6 +131,23 @@ Choices the plan left open, taken during implementation for Lars to review.
 | W2 | The admin DTO carries the statement as flat fields like the input, with `WorksOnDeclared` (false only for an agent in code that says nothing) and `KnownSubjectTypes`. | The Angular `AdminAgent` extends `AdminAgentInput`; data agents always declared what they work on. | For Lars to review. |
 | W2 | The trigger forms offer an event that names its type only to agents that work on it; the editor refuses "chosen kinds" without any kind or the application before calling the server; cards and check boxes use the plural names. | K5: forms offer only what the agent works on. | For Lars to review. |
 | W2 | SPM-302 is registered as `implemented` for what W2 builds, with a title and outcome scoped to it; W3 to W7 extend its title, surface and outcome. The dev seeder creates the project follow-up as data (projects and the whole application, run and view policies, run settings answering to the operations account); the starter composition lists the agent policies, because the other sample hosts do not register those authorization policies. The refused start is shown by narrowing the follow-up to the whole application, since the sample has one application object type. | The guidance generator accepts only implemented cases in consumer guidance (`partial` is refused there), and the plan's target agent starts in W2 with what it works on. | For Lars to review. |
+| W3 | The `nh-system` resolver lives in `NewHeap.Platform.AI.Chat.AspNet` and `AddNewHeapAssistant` registers it; only a resolver with the platform's internal marker may take a reserved type, so an application's `nh-` resolver is still refused at startup. | It needs `INhAiPrincipalFactory` and ASP.NET authorization; every agent-run host uses the ASP.NET integration (W1). | For Lars to review. |
+| W3 | `UseSystemSubject(system => system.ReadPolicy(...).ApprovePolicy(...))`: readers by the read policy (default the access policy), participants and approvers by the approve policy (default the administration policy). `ReadPolicy` is an addition to the plan. | An access policy that needs an active division, like the sample's, can never be met app-wide, so nobody could read the whole application. | For Lars to review. |
+| W3 | Roles are evaluated for the principal `INhAiPrincipalFactory` rebuilds, against `NhAiSubjectAuthorizationResource` of the subject (no division app-wide, the division otherwise); a division subject also needs `INhDivisionAccess`; the resolver keeps roles 10 seconds per scope (at most 256). | The brief asks for the headless principal, not the request; a division policy must not grant app-wide access; listings ask once per person. | For Lars to review. |
+| W3 | `ListMembersAsync` of `nh-system` returns nothing. | Who passes a policy cannot be listed without the user store; the inbox and notifications therefore show system proposals to their initiator only, and the screens of W4, W6 and W7 show them in place. | For Lars to review. |
+| W3 | Threads of `nh-system/global` store the English name; the thread, proposal, work and conversation-thread DTOs name it in the reader's language. Division threads store the division's name. | A schedule's culture must not decide the stored name; readers see their own language. | For Lars to review. |
+| W3 | Public `NhAiSystemSubjects` in AI.Common: `Global`, `ForDivision(id)`, `IsSystem`, `IsGlobal` and `TryGetDivision`, which accepts only the canonical lowercase `N` id. | One division has one subject and one thread; W4 and applications need the ids. | For Lars to review. |
+| W3 | The one rule also checks the scope: `NhAssistantAgentWorksOn.Covers(NhAiSubjectRef)` lets an app-wide agent work only on `nh-system/global` and a per-division agent only on a division; fires, manual starts and hand-offs use it. | K7: system runs exist app-wide or per division, never both. | For Lars to review. |
+| W3 | A schedule without subjects names `nh-system` as its type up front, so the startup check of typed triggers covers it, with its own message; a data schedule without a subject set for an agent that does not work on the application answers `subjectSet: required`, and one that no longer fits is out of effect with `not-worked-on`. | One check for every trigger; the field the administrator must fill. | For Lars to review. |
+| W3 | A per-division tick takes the first `MaxSubjectsPerTick` divisions by name and logs the limit (it reads one more); it does not rotate. | The same as subject sets; per-division agents with more than 100 divisions raise the limit. | For Lars to review. |
+| W3 | `INhDivisionDirectory` has `ListAsync(limit)` (1 to 1,000, by name then id) and `GetAsync(ids)`, and no generic default: no directory means no listed divisions (`IServiceProviderIsService`). NewHeap Identity's reads `Name` through `EF.Property`, so `AddIdentityActorDefaults<TUser, TDivision>` needs only `IdDbEntity`; a division without a name shows its id. | Divisions are optional (K7); the identity entity types are deeply generic. | For Lars to review. |
+| W3 | A system run's invocation context has no subject execution scope; a per-division run gets the division through the existing active-division mapping (`AddActiveDivisionScope`), and none without it. | The plan: no object, and the division as a person's active division. | For Lars to review. |
+| W3 | A manual start on `nh-system` (`POST threads/start`, `POST threads/open`, `canStart`) also needs the agent's `RunPolicy` when it names one, next to the participant role. | A narrower run policy is never bypassed before W4 replaces the participant role by the run policy (K9). | For Lars to review. |
+| W3 | W3 changes no schema, so it has no migrations. | Scope keys, subject columns, `PerDivision` and nullable subject sets exist. | For Lars to review. |
+| W3 | The sample reads the whole application with `app.project.view` and keeps the administration policy for approvers; the follow-up's Monday schedule (`project-follow-up-weekly`, 07:00 Europe/Amsterdam) is seeded live without a skill, app-wide. Per division is not shown in the sample beyond the directory and `divisions: true`. | The sample's access policy needs an active division; the counting skill and placed proposals belong to W5; per-division adds no value for the follow-up. | For Lars to review. |
+| W3 | The trigger form and the guided setup ask with a radio choice what a schedule runs for ("The whole application" or "Every object in a set"), defaulting to the whole application for an agent that works on it; a server `subjectSet` refusal while the whole application is chosen shows at the choice as `application-not-worked-on`; a stored schedule without a set of an agent that no longer works on the application asks for a set. | Explicit and accessible, the Monday example needs no set, and a bare "Required" would not explain a statement another administrator narrowed. | For Lars to review. |
+| W3 | The subject link hides the type name when it equals the label, so the whole application app-wide reads once and a division reads "The whole application North". | No special case for `nh-system` in the component. | For Lars to review. |
+| W3 | The mock API also marks typed events and schedules that no longer fit what an agent works on as `not-worked-on`, answers `nh-system/global` subject work and refuses its search; it has no division names. | The same rule as the server; the playground has no divisions to describe. | For Lars to review. |
 
 ## Design
 
@@ -239,6 +256,21 @@ division". The agent card shows it; an agent in code shows its code setting read
 agent that does not say shows "All objects" with the hint of known types.
 
 ### W3: the whole application as a scope
+
+**Implementation notes.** Implemented in `NhAssistantSystemSubjectResolver` (AI.Chat.AspNet, registered by
+`AddNewHeapAssistant`, roles through `INhAiPrincipalFactory` and `UseSystemSubject` with `ReadPolicy` and
+`ApprovePolicy`), `NhAiSystemSubjects` (AI.Common), the scope check in `NhAssistantAgentWorksOn.Covers(NhAiSubjectRef)`
+and the rule, schedules without subjects in code (`NhAssistantScheduleBuilder`) and as data (no subject set), whose
+ticks run in `NhAssistantScheduledTriggerJob` on `nh-system/global` or once per listed division, the startup checks
+(platform resolver, per division without a directory, subjectless schedules, system policies), the localized name in
+the DTOs and invocation contexts without a subject scope. `INhDivisionDirectory` and `NhDivisionInfo` in
+`NewHeap.Platform.Common.Actors` with `AddNewHeapDivisionDirectory<T>()` and NewHeap Identity's
+`NhIdentityDivisionDirectory<TDivision>`; `DivisionsListed` and the run catalog's `Divisions` follow it. Angular: the trigger form and the guided setup ask whether a schedule runs for the whole
+application (`subjectSet: null`) or a set, the trigger list names it, the editor and cards leave `nh-system`
+out of the kinds, the subject link names the whole application once, and the mock API lists `nh-system` and
+validates schedules as the server does.
+Sample: the follow-up's Monday schedule without a subject set and the read policy of the whole application (SPM-302).
+No migration.
 
 - The platform registers the resolver of `nh-system`. Its object ids are `global` for app-wide
   agents and `division-{id:N}` for per-division agents; `DescribeAsync` returns the matching scope

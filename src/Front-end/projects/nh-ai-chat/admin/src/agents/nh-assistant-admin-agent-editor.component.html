@@ -119,14 +119,19 @@
 
       @if (divisionsListed()) {
         <label class="check described" data-per-division>
-          <input type="checkbox" [checked]="perDivision()" (change)="perDivision.set(checked($event))" />
+          <input
+            type="checkbox"
+            [checked]="perDivision()"
+            [attr.aria-invalid]="fieldError('perDivision') ? true : null"
+            [attr.aria-describedby]="fieldError('perDivision') ? id + '-per-division-error' : null"
+            (change)="perDivision.set(checked($event))" />
           <span>
             <strong>{{ 'nh-assistant.admin.agent-editor.works-on.per-division' | translate }}</strong>
             <span class="muted">{{ 'nh-assistant.admin.agent-editor.works-on.per-division-hint' | translate }}</span>
           </span>
         </label>
         @if (fieldError('perDivision'); as key) {
-          <p class="hint"><span class="error-text">{{ key | translate }}</span></p>
+          <p class="hint" [id]="id + '-per-division-error'"><span class="error-text">{{ key | translate }}</span></p>
         }
       }
 

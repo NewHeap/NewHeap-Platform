@@ -15,7 +15,7 @@ import {
   SkillComparison
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminScenario } from './nh-assistant-mock.models';
-import { mockWorksOnCovers } from './nh-assistant-mock-works-on';
+import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
 
 /** A mock response: status plus optional JSON body. */
 interface MockResult {
@@ -46,7 +46,10 @@ const maxReason = 500;
  * In-memory run configuration as data of the mock API: run settings of agents created in the
  * administration, skills defined as data with versions and candidates, and data triggers. Saving
  * checks the names against the scenario's run catalog as the server checks them against the code;
- * new skills and triggers start in shadow. The mock runs no agents, so a comparison counts nothing.
+ * new skills and triggers start in shadow. A schedule without a subject set runs for the whole
+ * application and fits only an agent that works on it; a stored trigger that no longer fits what its
+ * agent works on stays, out of effect, with the problem `not-worked-on`. The mock runs no agents, so
+ * a comparison counts nothing.
  */
 export class NhAssistantMockRunConfiguration {
   private readonly settings = new Map<string, AgentRunSettings>();
@@ -162,6 +165,12 @@ export class NhAssistantMockRunConfiguration {
   private configuration(agent: AdminAgent): AgentRunConfiguration {
     const dataSkills = this.liveSkills(agent.id);
     const dataSkillIds = new Set(dataSkills.map(skill => skill.skillId));
+    const dataTriggers = [...this.triggers.values()]
+      .filter(trigger => this.ownerOf(trigger) === agent.id)
+      .map(trigger => {
+        const problem = this.triggerProblem(agent, trigger);
+        return problem ? { ...withoutOwner(trigger), inEffect: false, problem } : withoutOwner(trigger);
+      });
     return {
       agentId: agent.id,
       toolSelectors: [...agent.toolSelectors],
@@ -170,11 +179,26 @@ export class NhAssistantMockRunConfiguration {
         : [],
       dataSkills,
       codeTriggers: this.codeTriggers.filter(trigger => trigger.agentId === agent.id).map(({ agentId, ...trigger }) => trigger),
-      dataTriggers: [...this.triggers.values()].filter(trigger => this.ownerOf(trigger) === agent.id).map(trigger => ({ ...trigger })),
-      problems: [],
+      dataTriggers,
+      problems: dataTriggers
+        .filter(trigger => trigger.problem !== null)
+        .map(trigger => ({ agentId: agent.id, kind: 'trigger' as const, id: trigger.triggerId, code: trigger.problem! })),
       source: agent.source,
       runSettings: agent.source === 'admin' ? this.settings.get(agent.id) ?? null : null
     };
+  }
+
+  /**
+   * Why a stored trigger no longer fits what its agent works on, as the server reads it: an event
+   * that names a type the agent does not work on, or a schedule for the whole application of an
+   * agent that does not work on it.
+   */
+  private triggerProblem(agent: AdminAgent, trigger: DataTrigger): string | null {
+    if (trigger.source === 'event') {
+      const subjectType = this.catalog.triggerEvents.find(item => item.name === trigger.event)?.subjectType;
+      return subjectType && !mockWorksOnCovers(agent, subjectType) ? 'not-worked-on' : null;
+    }
+    return trigger.subjectSet === null && !mockWorksOnCovers(agent, mockSystemSubjectType) ? 'not-worked-on' : null;
   }
 
   private runSettings(method: string, agent: AdminAgent, body: unknown, query: URLSearchParams): MockResult {
@@ -477,7 +501,13 @@ export class NhAssistantMockRunConfiguration {
       if ((text(request.cron) ?? '').split(' ').filter(field => field.length > 0).length < 5) {
         errors['cron'] = [text(request.cron) === null ? 'required' : 'invalid'];
       }
-      this.requireKnown(errors, 'subjectSet', request.subjectSet, this.catalog.subjectSets.map(item => item.name), true);
+      if (text(request.subjectSet) !== null) {
+        this.requireKnown(errors, 'subjectSet', request.subjectSet, this.catalog.subjectSets.map(item => item.name));
+      } else if (!mockWorksOnCovers(agent, mockSystemSubjectType)) {
+        // Without a subject set the schedule runs for the whole application, which only an agent
+        // that works on it may do.
+        errors['subjectSet'] = ['required'];
+      }
       const message = text(request.message);
       if (message === null) {
         errors['message'] = ['required'];

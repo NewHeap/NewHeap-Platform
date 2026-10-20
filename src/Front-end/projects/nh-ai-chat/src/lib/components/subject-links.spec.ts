@@ -167,6 +167,65 @@ describe('subject names and links', () => {
     expect(header.textContent).toContain('PRJ-1 — Pietje');
   });
 
+  it('names the whole application once, and a division of it after the type', () => {
+    setup();
+    const global = showProposal({
+      subjectType: 'nh-system',
+      subjectId: 'global',
+      subjectDisplayName: 'The whole application',
+      subjectTypeName: 'The whole application',
+      subjectLink: null
+    });
+    const globalHeader = (global.nativeElement as HTMLElement).querySelector('.card-header strong')!;
+    expect(globalHeader.querySelector('.nh-assistant-subject-type')).toBeNull();
+    expect(globalHeader.textContent!.replace(/\s+/g, ' ').trim()).toBe('The whole application');
+    expect(cardLink(global)).toBeNull();
+
+    const division = showProposal({
+      subjectType: 'nh-system',
+      subjectId: 'division-7f0c',
+      subjectDisplayName: 'North',
+      subjectTypeName: 'The whole application',
+      subjectLink: null
+    });
+    const divisionHeader = (division.nativeElement as HTMLElement).querySelector('.card-header strong')!;
+    expect(divisionHeader.querySelector('.nh-assistant-subject-type')!.textContent).toBe('The whole application');
+    expect(divisionHeader.textContent!.replace(/\s+/g, ' ').trim()).toBe('The whole application North');
+  });
+
+  it('heads the thread view of the whole application with its name once', () => {
+    setup();
+    const lookup: AgentThreadLookup = {
+      canStart: false,
+      role: 'reader',
+      thread: {
+        conversationId: 'conversation-2',
+        agentId: 'intake',
+        subjectType: 'nh-system',
+        subjectId: 'global',
+        subjectDisplayName: 'The whole application',
+        subjectTypeName: 'The whole application',
+        subjectLink: null,
+        accountability: 'agent',
+        accountableOwnerId: 'agent:intake',
+        role: 'reader',
+        activeRun: null,
+        waitingInputs: 0
+      }
+    };
+    api.getThread.and.returnValue(of(lookup));
+    api.getProposals.and.returnValue(of([]));
+    api.getRuns.and.returnValue(of({ items: [], total: 0 }));
+
+    const fixture = TestBed.createComponent(ThreadHostComponent);
+    fixture.detectChanges();
+
+    const title = (fixture.nativeElement as HTMLElement).querySelector('#nh-assistant-agent-thread-title')!;
+    expect(title.querySelector('.nh-assistant-subject-type')).toBeNull();
+    expect(title.textContent!.replace(/\s+/g, ' ').trim()).toBe('The whole application');
+    expect(title.querySelector('a')).toBeNull();
+  });
+
   it('heads the thread view with the subject type and a link to the subject', () => {
     setup();
     const lookup: AgentThreadLookup = {

@@ -49,14 +49,12 @@ internal static class NhAssistantThreadStanding
                 check.Success ? null : ReasonCode(check)));
         }
 
-        var (typeName, link) = NhAssistantAgentRunDtoMapper.SubjectOf(
-            services.GetRequiredService<NhAssistantSubjectAccessService>(),
-            thread.SubjectType,
-            thread.SubjectId);
+        var subjects = services.GetRequiredService<NhAssistantSubjectAccessService>();
+        var (typeName, link) = NhAssistantAgentRunDtoMapper.SubjectOf(subjects, thread.SubjectType, thread.SubjectId);
         return new NhAssistantConversationThreadDto(
             thread.SubjectType,
             thread.SubjectId,
-            thread.SubjectDisplayName,
+            NhAssistantAgentRunDtoMapper.DisplayNameOf(subjects, thread.SubjectType, thread.SubjectId, thread.SubjectDisplayName),
             NhAssistantAgentRunDtoMapper.RoleName(access.Role),
             decisions)
         {

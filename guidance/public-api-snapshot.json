@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "4921cb9be3840eaad082135afa4420e55dad8832e50fa09e834c0ae068d8c019",
-    "declarationCount": 8263,
+    "hash": "63fe33b87e76b60ebc14a8967b118bca9edcb98a1eefccc5122fb0b08089068b",
+    "declarationCount": 8297,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2315,6 +2315,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public static string? DisplayNameOf( NhAssistantSubjectAccessService subjects, string subjectType, string subjectId, string? storedName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
         "declaration": "public static NhAssistantProposalFeedbackDto ToDto(AssistantProposalFeedback feedback) {"
       },
       {
@@ -2772,6 +2776,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectWork.cs",
         "declaration": "public async Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeAsync( string subjectType, IReadOnlyCollection<string> subjectIds, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public string SubjectType => NhAiSubjectRef.SystemType;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public async ValueTask<NhAiSubjectInfo?> DescribeAsync( NhAiSubjectRef subject, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public async ValueTask<NhAiSubjectAccess> ResolveAsync( NhAiSubjectRef subject, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public async IAsyncEnumerable<NhAiSubjectMember> ListMembersAsync( NhAiSubjectRef subject, [EnumeratorCancellation] CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantThreadStanding.cs",
@@ -5135,6 +5155,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public bool IsSystemSchedule => Source == NhAssistantTriggerSource.Schedule && ScheduledSubjects is null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public int MaxSubjectsPerTick { get; init; } = 100;"
       },
       {
@@ -5531,11 +5555,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
+        "declaration": "public bool Covers(NhAiSubjectRef subject) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
         "declaration": "public bool IsEquivalentTo(NhAssistantAgentWorksOn other) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
-        "declaration": "public bool DivisionsListed => false;"
+        "declaration": "public bool DivisionsListed => services?.IsService(typeof(INhDivisionDirectory)) == true;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
@@ -5548,6 +5576,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
         "declaration": "public string? RefusalOf(string agentId, string subjectType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
+        "declaration": "public bool Allows(string agentId, NhAiSubjectRef subject) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
+        "declaration": "public string? RefusalOf(string agentId, NhAiSubjectRef subject) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
@@ -8211,6 +8247,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseSystemSubject(Action<NhAssistantSystemSubjectBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure) {"
       },
       {
@@ -8287,6 +8327,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public sealed class NhAssistantSystemSubjectBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantSystemSubjectBuilder ReadPolicy(string policyName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantSystemSubjectBuilder ApprovePolicy(string policyName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public string? AccessPolicy { get; set; }"
       },
       {
@@ -8304,6 +8356,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public string? AdminPolicy { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public string? SystemReadPolicy { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public string? SystemApprovePolicy { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -10107,6 +10167,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
+        "declaration": "public const string FallbackLanguage = \"en\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
+        "declaration": "public static string NameIn(CultureInfo culture) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
+        "declaration": "public static NhAssistantSubjectTypeOptions CreateOptions(Type resolverType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
         "declaration": "public Type ResolverType { get; } = resolverType;"
       },
       {
@@ -10192,6 +10264,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
         "declaration": "public string? LinkFor(string subjectId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
+        "declaration": "public string? DisplayNameOf(string subjectId, string? storedName, CultureInfo culture) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
@@ -13004,6 +13080,38 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
         "declaration": "public override string ToString() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public static class NhAiSystemSubjects {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public const string GlobalId = \"global\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public const string DivisionIdPrefix = \"division-\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public static NhAiSubjectRef Global { get; } = new(NhAiSubjectRef.SystemType, GlobalId);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public static NhAiSubjectRef ForDivision(Guid divisionId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public static bool IsSystem(NhAiSubjectRef? subject) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public static bool IsGlobal(NhAiSubjectRef? subject) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public static bool TryGetDivision(NhAiSubjectRef? subject, out Guid divisionId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
@@ -23915,6 +24023,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public NhIdentityDivisionDirectory(IRepository<TDivision> divisions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public async Task<IReadOnlyList<NhDivisionInfo>> ListAsync( int limit, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public async Task<IReadOnlyDictionary<Guid, NhDivisionInfo>> GetAsync( IReadOnlyCollection<Guid> divisionIds, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
         "declaration": "public Task<IReadOnlyDictionary<NhActorRef, NhActorInfo>> GetAsync( IReadOnlyCollection<NhActorRef> actors, CancellationToken cancellationToken = default)"
       },
       {
@@ -28059,6 +28179,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActorServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddNewHeapDivisionDirectory<TDirectory>(this IServiceCollection services) where TDirectory : class, INhDivisionDirectory {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActorServiceCollectionExtensions.cs",
         "declaration": "public static IServiceCollection AddNewHeapActorDirectory<TDirectory>(this IServiceCollection services) where TDirectory : class, INhActorDirectory {"
       },
       {
@@ -28136,6 +28260,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
         "declaration": "public interface INhDivisionAccess {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public sealed record NhDivisionInfo(Guid Id, string Name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public const int MaxListLimit = 1_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public interface INhDivisionDirectory {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
@@ -36798,7 +36934,10 @@
       "NhAiSubjectRef.SystemType",
       "NhAssistantAdminAgentInputDto",
       "NhAssistantAdminAgentDto",
-      "NhAssistantRunBlockDto"
+      "NhAssistantRunBlockDto",
+      "NhAiSystemSubjects",
+      "UseSystemSubject",
+      "NhAssistantSystemSubjectBuilder"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
@@ -37441,7 +37580,9 @@
       "NhRetention",
       "NhActorServiceCollectionExtensions",
       "INhActorSearch",
-      "NhActorSearchRequest"
+      "NhActorSearchRequest",
+      "INhDivisionDirectory",
+      "NhDivisionInfo"
     ],
     "nh-proxy-contract-boundary": [
       "NhProxyRewriteRule",

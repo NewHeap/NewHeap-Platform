@@ -14,6 +14,7 @@ import {
 import { RunConfigForm } from './run-config-form';
 import {
   RunConfigErrors,
+  ScheduleTarget,
   blank,
   checkWhole,
   cronExamples,
@@ -23,8 +24,11 @@ import {
   requireText,
   runConfigLimits,
   subjectSetOptions,
+  systemSubjectType,
   timeZoneOptions,
-  toNumber
+  toNumber,
+  withScheduleTargetError,
+  worksOnCovers
 } from './run-config-shared';
 
 let nextId = 0;
@@ -32,8 +36,10 @@ let nextId = 0;
 const conflicts: TriggerConflict[] = ['coalesce', 'queue', 'supersede', 'ignore'];
 
 /**
- * Adds or changes a trigger defined as data: an event of the application or a schedule over a set of
- * subjects starts a skill of the agent, or lets the agent choose. A new trigger starts in shadow.
+ * Adds or changes a trigger defined as data: an event of the application or a schedule starts a skill
+ * of the agent, or lets the agent choose. A schedule runs for every subject in a set or, for an agent
+ * that works on the whole application, for the whole application: once each time, or once per
+ * division for an agent that works per division. A new trigger starts in shadow.
  */
 @Component({
   selector: 'nh-assistant-trigger-form',
@@ -48,7 +54,10 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
 
   readonly agentId = input.required<string>();
   readonly catalog = input<RunCatalog | null>(null);
-  /** What the agent works on: events about other object types are not offered. */
+  /**
+   * What the agent works on: events about other object types are not offered, and a schedule runs
+   * for the whole application only for an agent that works on it.
+   */
   readonly worksOn = input<WorksOnStatement | null>(null);
   /** The agent's skills, in code and as data, a trigger can start. */
   readonly skills = input<readonly NhAssistantPickerOption[]>([]);
@@ -73,6 +82,8 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
   readonly cron = signal('');
   readonly timeZone = signal('');
   readonly subjectSet = signal('');
+  /** The administrator's choice of what a schedule runs for; see `target`. */
+  readonly scheduleTarget = signal<ScheduleTarget>('application');
   readonly message = signal('');
   readonly skill = signal('');
   readonly conflict = signal<TriggerConflict>('coalesce');
@@ -82,6 +93,17 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
   readonly editing = computed(() => this.trigger() !== null);
   readonly events = computed(() => eventOptions(this.catalog(), this.worksOn()));
   readonly subjectSets = computed(() => subjectSetOptions(this.catalog()));
+  /** A schedule may run for the whole application only for an agent that works on it. */
+  readonly offersApplication = computed(() => worksOnCovers(this.worksOn(), systemSubjectType));
+  /** What the schedule runs for: the whole application while the agent works on it, otherwise a set. */
+  readonly target = computed<ScheduleTarget>(() => this.offersApplication() ? this.scheduleTarget() : 'set');
+  /** The agent's work for the whole application runs once per division. */
+  readonly perDivision = computed(() => this.worksOn()?.perDivision === true);
+  /** A stored schedule for the whole application of an agent that no longer works on it. */
+  readonly applicationDropped = computed(() => {
+    const trigger = this.trigger();
+    return trigger?.source === 'schedule' && !trigger.subjectSet && !this.offersApplication();
+  });
   readonly conflictOptions = computed<NhAssistantPickerOption[]>(() => {
     this.language();
     return conflicts.map(conflict => ({
@@ -99,6 +121,9 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
     this.cron.set(trigger?.cron ?? '');
     this.timeZone.set(trigger?.timeZone ?? '');
     this.subjectSet.set(trigger?.subjectSet ?? '');
+    // A stored schedule without a subject set runs for the whole application; a new one starts there
+    // for an agent that works on it.
+    this.scheduleTarget.set(trigger?.source === 'schedule' && trigger.subjectSet ? 'set' : 'application');
     this.message.set(trigger?.message ?? '');
     this.skill.set(trigger?.skillId ?? '');
     this.conflict.set(trigger?.conflict ?? 'coalesce');
@@ -114,6 +139,11 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
     }
   }
 
+  setTarget(target: ScheduleTarget): void {
+    this.scheduleTarget.set(target);
+    this.touch('subjectSet');
+  }
+
   useExample(cron: string): void {
     this.cron.set(cron);
     this.touch('cron');
@@ -123,6 +153,7 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
     const editing = this.trigger();
     const triggerId = editing?.triggerId ?? this.triggerId().trim();
     const schedule = this.source() === 'schedule';
+    const forSet = schedule && this.target() === 'set';
     const errors: RunConfigErrors = {};
     if (!editing) {
       if (triggerId.length === 0) {
@@ -135,7 +166,7 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
     }
     if (schedule) {
       requireText(errors, 'cron', this.cron());
-      if (this.subjectSet() === '') {
+      if (forSet && this.subjectSet() === '') {
         errors['subjectSet'] = { code: 'required' };
       }
       requireText(errors, 'message', this.message(), this.maxMessage);
@@ -152,7 +183,8 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
       event: schedule ? null : blank(this.event()),
       cron: schedule ? blank(this.cron()) : null,
       timeZone: schedule ? blank(this.timeZone()) : null,
-      subjectSet: schedule ? blank(this.subjectSet()) : null,
+      // Without a subject set the schedule runs for the whole application.
+      subjectSet: forSet ? blank(this.subjectSet()) : null,
       message: schedule ? blank(this.message()) : null,
       conflict: this.conflict(),
       debounceSeconds: schedule ? null : toNumber(this.debounce()),
@@ -163,5 +195,9 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
       trigger,
       added: editing === null
     }));
+  }
+
+  protected override mapServerErrors(errors: RunConfigErrors): RunConfigErrors {
+    return withScheduleTargetError(errors, this.source() === 'schedule' ? this.target() : 'set');
   }
 }

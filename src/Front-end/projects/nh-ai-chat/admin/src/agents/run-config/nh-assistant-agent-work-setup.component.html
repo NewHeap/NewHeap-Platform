@@ -34,7 +34,7 @@
                 <input type="radio" [name]="id + '-source'" value="schedule" [checked]="source() === 'schedule'" (change)="setSource('schedule')" />
                 <span>
                   <strong>{{ 'nh-assistant.admin.run-config.triggers.source-schedule' | translate }}</strong>
-                  <span class="muted">{{ 'nh-assistant.admin.run-config.triggers.source-schedule-hint' | translate }}</span>
+                  <span class="muted">{{ (offersApplication() ? 'nh-assistant.admin.run-config.triggers.source-schedule-application-hint' : 'nh-assistant.admin.run-config.triggers.source-schedule-hint') | translate }}</span>
                 </span>
               </label>
             </div>
@@ -82,18 +82,51 @@
                   }
                 </div>
               </div>
-              <div class="field">
-                <label [for]="id + '-set'">{{ 'nh-assistant.admin.run-config.triggers.subject-set' | translate }}</label>
-                <nh-assistant-picker [inputId]="id + '-set'" [options]="subjectSets()" [value]="subjectSet()"
-                  [placeholder]="'nh-assistant.admin.run-config.choose' | translate"
-                  [invalid]="fieldError('subjectSet') !== null"
-                  [describedBy]="describedBy(id + '-set-hint', 'subjectSet', id + '-set-error')"
-                  (valueChange)="subjectSet.set($event); touch('subjectSet')" />
-                <p class="hint" [id]="id + '-set-hint'">{{ 'nh-assistant.admin.run-config.triggers.subject-set-hint' | translate }}</p>
-                @if (errorKey('subjectSet'); as key) {
-                  <p class="field-error" [id]="id + '-set-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('subjectSet')?.params }}</p>
-                }
-              </div>
+              @if (offersApplication()) {
+                <!-- An agent that works on the whole application chooses what the schedule runs for. -->
+                <div class="field" data-schedule-target>
+                  <span class="label" [id]="id + '-target-label'">{{ 'nh-assistant.admin.run-config.triggers.target.title' | translate }}</span>
+                  <div
+                    class="choices"
+                    role="radiogroup"
+                    tabindex="-1"
+                    [attr.aria-labelledby]="id + '-target-label'"
+                    [attr.aria-invalid]="target() === 'application' && fieldError('subjectSet') ? true : null"
+                    [attr.aria-describedby]="target() === 'application' ? describedBy(null, 'subjectSet', id + '-target-error') : null">
+                    <label class="choice" [class.selected]="target() === 'application'">
+                      <input type="radio" [name]="id + '-target'" value="application" [checked]="target() === 'application'" (change)="setTarget('application')" />
+                      <span>
+                        <strong>{{ 'nh-assistant.admin.run-config.triggers.target.application' | translate }}</strong>
+                        <span class="muted" data-target-hint>{{ (perDivision() ? 'nh-assistant.admin.run-config.triggers.target.application-per-division-hint' : 'nh-assistant.admin.run-config.triggers.target.application-hint') | translate }}</span>
+                      </span>
+                    </label>
+                    <label class="choice" [class.selected]="target() === 'set'">
+                      <input type="radio" [name]="id + '-target'" value="set" [checked]="target() === 'set'" (change)="setTarget('set')" />
+                      <span>
+                        <strong>{{ 'nh-assistant.admin.run-config.triggers.target.set' | translate }}</strong>
+                        <span class="muted">{{ 'nh-assistant.admin.run-config.triggers.target.set-hint' | translate }}</span>
+                      </span>
+                    </label>
+                  </div>
+                  @if (target() === 'application' && errorKey('subjectSet'); as key) {
+                    <p class="field-error" [id]="id + '-target-error'"><nh-assistant-icon name="warning" />{{ key | translate }}</p>
+                  }
+                </div>
+              }
+              @if (target() === 'set') {
+                <div class="field">
+                  <label [for]="id + '-set'">{{ 'nh-assistant.admin.run-config.triggers.subject-set' | translate }}</label>
+                  <nh-assistant-picker [inputId]="id + '-set'" [options]="subjectSets()" [value]="subjectSet()"
+                    [placeholder]="'nh-assistant.admin.run-config.choose' | translate"
+                    [invalid]="fieldError('subjectSet') !== null"
+                    [describedBy]="describedBy(id + '-set-hint', 'subjectSet', id + '-set-error')"
+                    (valueChange)="subjectSet.set($event); touch('subjectSet')" />
+                  <p class="hint" [id]="id + '-set-hint'">{{ 'nh-assistant.admin.run-config.triggers.subject-set-hint' | translate }}</p>
+                  @if (errorKey('subjectSet'); as key) {
+                    <p class="field-error" [id]="id + '-set-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('subjectSet')?.params }}</p>
+                  }
+                </div>
+              }
               <div class="field">
                 <label [for]="id + '-message'">{{ 'nh-assistant.admin.run-config.triggers.message' | translate }}</label>
                 <textarea rows="2" [id]="id + '-message'" [value]="message()"
@@ -281,6 +314,9 @@
                 @if (source() === 'event') {
                   {{ 'nh-assistant.admin.run-config.setup.review.event' | translate: { event: event() } }}
                   @if (eventDescription(); as description) { <span class="muted block">{{ description }}</span> }
+                } @else if (target() === 'application') {
+                  <!-- Without a subject set the schedule runs for the whole application, per division for a per-division agent. -->
+                  <span data-review-target>{{ (perDivision() ? 'nh-assistant.admin.run-config.setup.review.schedule-divisions' : 'nh-assistant.admin.run-config.setup.review.schedule-application') | translate: { cron: cron(), zone: timeZone() || 'UTC' } }}</span>
                 } @else {
                   {{ 'nh-assistant.admin.run-config.setup.review.schedule' | translate: { cron: cron(), zone: timeZone() || 'UTC', set: subjectSet() } }}
                   @if (subjectSetDescription(); as description) { <span class="muted block">{{ description }}</span> }

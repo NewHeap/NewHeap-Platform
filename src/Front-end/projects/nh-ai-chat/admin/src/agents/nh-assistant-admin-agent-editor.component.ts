@@ -130,13 +130,15 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly tooLong = computed(() => this.instructions().length > this.max);
   readonly selectorInvalid = computed(() => this.newSelector().trim().length > 0 && !selectorPattern.test(this.newSelector().trim()));
   /**
-   * The application's own object types, by name; the platform's types are chosen otherwise. A stored
-   * type the application no longer registers stays listed by its id, so it can be unticked.
+   * The application's own object types, by name; the platform's types, such as the whole
+   * application, are chosen otherwise. A stored type the application no longer registers stays
+   * listed by its id, so it can be unticked.
    */
   readonly subjectTypes = computed(() => {
-    const registered = (this.catalog()?.subjectTypes ?? []).filter(type => !type.isSystem);
+    const catalog = this.catalog()?.subjectTypes ?? [];
+    const registered = catalog.filter(type => !type.isSystem);
     const stored = (this.agent()?.worksOnSubjectTypes ?? [])
-      .filter(id => !registered.some(type => type.id === id))
+      .filter(id => !id.startsWith('nh-') && !catalog.some(type => type.id === id))
       .map(id => ({ id, name: id, pluralName: null as string | null }));
     return [...registered, ...stored];
   });

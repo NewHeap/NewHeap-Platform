@@ -1,7 +1,9 @@
+using System.Runtime.CompilerServices;
 using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.Common.Utilities;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
@@ -12,13 +14,16 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// a repeated job in the same minute finds the runs it already started. While the assistant is
 /// disabled or the agent is paused, stopped or disabled in code, the tick is skipped before the
 /// subjects are read. The shadow variants of the agent get every subject of the tick too, unless
-/// they are not active themselves.
+/// they are not active themselves. A schedule without subjects runs for the whole application:
+/// once on <c>nh-system/global</c> for an agent that works app-wide, once per listed division for
+/// one that works per division.
 /// </summary>
 internal sealed class NhAssistantScheduledTriggerJob(
     IServiceProvider services,
     NhAssistantRegistrationState registration,
     NhAssistantRunConfigurations configurations,
     NhAssistantAgentTriggers triggers,
+    NhAssistantWorksOnRule worksOn,
     ILogger<NhAssistantScheduledTriggerJob> logger)
 {
     [AutomaticRetry(Attempts = 0)]
@@ -34,8 +39,7 @@ internal sealed class NhAssistantScheduledTriggerJob(
     {
         await configurations.EnsureCurrentAsync(cancellationToken);
         if (!registration.Triggers.TryGetValue(triggerId, out var trigger)
-            || trigger.Source != NhAssistantTriggerSource.Schedule
-            || trigger.ScheduledSubjects is null)
+            || trigger.Source != NhAssistantTriggerSource.Schedule)
         {
             logger.LogWarning("Scheduled trigger {TriggerId} is not registered; the recurring job does nothing.", triggerId);
             return [];
@@ -77,7 +81,10 @@ internal sealed class NhAssistantScheduledTriggerJob(
         var tick = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, now.Offset).ToUniversalTime();
         var receipts = new List<NhAssistantTriggerReceipt>();
         var subjects = 0;
-        await foreach (var subject in trigger.ScheduledSubjects(services, cancellationToken))
+        var tickSubjects = trigger.ScheduledSubjects is { } subjectsOfTick
+            ? subjectsOfTick(services, cancellationToken)
+            : SystemSubjectsAsync(trigger, cancellationToken);
+        await foreach (var subject in tickSubjects)
         {
             if (subjects >= trigger.MaxSubjectsPerTick)
             {
@@ -101,6 +108,37 @@ internal sealed class NhAssistantScheduledTriggerJob(
         }
 
         return receipts;
+    }
+
+    /// <summary>
+    /// The subjects of a schedule without subjects: the whole application app-wide, or the whole
+    /// application in each listed division, ordered by name, for an agent that works per division.
+    /// One more division than a tick takes is read, so the job reports the limit.
+    /// </summary>
+    private async IAsyncEnumerable<NhAiSubjectRef> SystemSubjectsAsync(
+        NhAssistantTriggerDefinition trigger,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        if (!worksOn.Of(trigger.AgentId).PerDivision)
+        {
+            yield return NhAiSystemSubjects.Global;
+            yield break;
+        }
+
+        if (services.GetService<INhDivisionDirectory>() is not { } directory)
+        {
+            logger.LogWarning(
+                "Scheduled trigger {TriggerId} starts agent {AgentId}, which works per division, but the application lists no divisions; the tick starts nothing.",
+                trigger.Id,
+                trigger.AgentId);
+            yield break;
+        }
+
+        var limit = Math.Min(trigger.MaxSubjectsPerTick + 1, NhDivisionInfo.MaxListLimit);
+        foreach (var division in await directory.ListAsync(limit, cancellationToken))
+        {
+            yield return NhAiSystemSubjects.ForDivision(division.Id);
+        }
     }
 }
 

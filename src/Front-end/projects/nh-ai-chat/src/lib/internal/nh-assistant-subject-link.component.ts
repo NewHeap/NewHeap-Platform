@@ -23,13 +23,15 @@ export interface NhAssistantSubjectTarget {
  * subject (internal). The host's `subjectLinks` builder wins over the server's link; a link within
  * the application navigates through the router, an `https` link leaves it, and anything else shows
  * no link. Ctrl-, Cmd-, Shift- and middle-clicks keep the browser's behavior, such as a new tab.
+ * A name that already says the type, as "The whole application" does for the application as a
+ * whole, is shown once.
  */
 @Component({
   selector: 'nh-assistant-subject-link',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (typeName(); as type) {
+    @if (shownTypeName(); as type) {
       <!-- The space keeps the type and the name apart for screen readers; the flex gap shows it. -->
       <span class="nh-assistant-subject-type">{{ type }}</span>{{ ' ' }}
     }
@@ -55,6 +57,16 @@ export class NhAssistantSubjectLinkComponent {
   readonly typeName = input<string | null | undefined>(null);
   /** The server's link to the subject. */
   readonly link = input<string | null | undefined>(null);
+
+  /** The type's name, unless the subject's name is the type's name itself, as for the whole application. */
+  readonly shownTypeName = computed(() => {
+    const type = this.typeName()?.trim();
+    if (!type) {
+      return null;
+    }
+
+    return type.toLocaleLowerCase() === this.label().trim().toLocaleLowerCase() ? null : type;
+  });
 
   readonly target = computed<NhAssistantSubjectTarget | null>(() => {
     const builder = this.config?.subjectLinks?.[this.subjectType()];

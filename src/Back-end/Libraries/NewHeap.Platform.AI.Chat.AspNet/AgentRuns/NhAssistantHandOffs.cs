@@ -60,7 +60,7 @@ internal sealed class NhAssistantHandOffService(
         }
 
         // The target takes work only on what it works on, as for every start.
-        if (worksOn.RefusalOf(targetAgentId, subject.Type) is { } notWorkedOn)
+        if (worksOn.RefusalOf(targetAgentId, subject) is { } notWorkedOn)
         {
             return await RefuseAsync(request, sourceRunId, notWorkedOn);
         }

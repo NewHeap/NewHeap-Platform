@@ -276,7 +276,7 @@ internal sealed class NhAssistantAgentTriggers(
         NhAssistantTriggerFire fire,
         CancellationToken cancellationToken)
     {
-        if (worksOn.RefusalOf(fire.AgentId, fire.Subject.Type) is { } refusal)
+        if (worksOn.RefusalOf(fire.AgentId, fire.Subject) is { } refusal)
         {
             var receipt = Rejected(fire, null, refusal);
             await AuditFireAsync(fire, receipt, cancellationToken);
@@ -1145,8 +1145,9 @@ internal sealed class NhAssistantAgentTriggers(
         }
 
         // Every start, from events, schedules, webhooks, people, requests, hand-offs and follow-ups,
-        // is on a subject type the agent works on; nothing waits for a type it does not.
-        if (worksOn.RefusalOf(fire.AgentId, fire.Subject.Type) is { } notWorkedOn)
+        // is on a subject type the agent works on, and for the whole application on the scope that
+        // fits it (app-wide or a division); nothing waits for a type it does not.
+        if (worksOn.RefusalOf(fire.AgentId, fire.Subject) is { } notWorkedOn)
         {
             return Rejected(fire, null, notWorkedOn);
         }

@@ -39,6 +39,47 @@ public sealed class NhAiAgentInvocationGateTests
     }
 
     [Fact]
+    public async Task A_run_for_the_whole_application_concerns_no_object_and_works_in_its_division()
+    {
+        await using var provider = CreateProvider(httpContext: null, new PolicyAuthorizationService());
+        await using var scope = provider.CreateAsyncScope();
+        var gate = scope.ServiceProvider.GetRequiredService<INhAiToolInvocationGate>();
+        var contexts = scope.ServiceProvider.GetRequiredService<INhAiAgentInvocationContextFactory>();
+        var appWide = CreateScope(grants: [new NhAiAgentGrant("projects.*")]) with
+        {
+            Subject = new NhAiSubjectInfo(NhAiSystemSubjects.Global, NhAiSubjectInfo.CreateScopeKey(null, null))
+        };
+        var inDivision = appWide with
+        {
+            Subject = new NhAiSubjectInfo(NhAiSystemSubjects.ForDivision(DivisionId), NhAiSubjectInfo.CreateScopeKey(null, DivisionId))
+            {
+                DivisionId = DivisionId
+            }
+        };
+
+        TaskResult<NhAiInvocationContext> global;
+        using (NhAiAgentInvocationScopes.Begin(appWide))
+        {
+            global = await gate.AuthorizeAsync(MutationTool(allowAgentGrant: true));
+        }
+        TaskResult<NhAiInvocationContext> division;
+        using (NhAiAgentInvocationScopes.Begin(inDivision))
+        {
+            division = await gate.AuthorizeAsync(MutationTool(allowAgentGrant: true));
+        }
+
+        // App-wide there is no object and no division; in a division only the division, as for a
+        // person with that active division.
+        Assert.Empty(global.Data.ExecutionScopes);
+        Assert.False(global.Data.Scope.ContainsKey("division-id"));
+        var scopeEntry = Assert.Single(division.Data.ExecutionScopes);
+        Assert.Equal(("division", DivisionId.ToString()), (scopeEntry.Type, scopeEntry.Id));
+        Assert.Equal(DivisionId.ToString(), division.Data.Scope["division-id"]);
+        Assert.Empty(contexts.Create(appWide).ExecutionScopes);
+        Assert.Equal(["division"], contexts.Create(inDivision).ExecutionScopes.Select(entry => entry.Type));
+    }
+
+    [Fact]
     public async Task A_grant_needs_the_tool_to_opt_in_and_agent_exposure()
     {
         await using var provider = CreateProvider(httpContext: null, new PolicyAuthorizationService());

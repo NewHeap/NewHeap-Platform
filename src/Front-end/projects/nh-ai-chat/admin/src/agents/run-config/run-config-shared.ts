@@ -111,16 +111,21 @@ export function ruleOptions(catalog: RunCatalog | null): NhAssistantPickerOption
   return (catalog?.ruleHandlers ?? []).map(block => ({ value: block.name, label: block.name, description: block.description }));
 }
 
-/** What an agent works on, as far as the trigger events it is offered depend on it. */
+/** The platform's object type of the whole application. */
+export const systemSubjectType = 'nh-system';
+
+/** What an agent works on, as far as the trigger events and schedules it is offered depend on it. */
 export interface WorksOnStatement {
   worksOnSubjectTypes?: string[];
   worksOnAllSubjects?: boolean;
   worksOnApplication?: boolean;
+  /** Its work for the whole application, such as a schedule without a subject set, runs once per division. */
+  perDivision?: boolean;
 }
 
 /** Whether an agent works on subjects of the type, as the server's rule decides it. */
 export function worksOnCovers(statement: WorksOnStatement | null | undefined, subjectType: string): boolean {
-  if (subjectType === 'nh-system') {
+  if (subjectType === systemSubjectType) {
     return statement?.worksOnApplication === true;
   }
   if (subjectType.startsWith('nh-')) {
@@ -141,6 +146,22 @@ export function eventOptions(catalog: RunCatalog | null, worksOn?: WorksOnStatem
 
 export function subjectSetOptions(catalog: RunCatalog | null): NhAssistantPickerOption[] {
   return (catalog?.subjectSets ?? []).map(block => ({ value: block.name, label: block.name, description: block.description }));
+}
+
+/**
+ * What a schedule runs for each time: the whole application (once, or once per division for an
+ * agent that works per division), or every object in a subject set.
+ */
+export type ScheduleTarget = 'application' | 'set';
+
+/**
+ * The server refuses a schedule without a subject set with `subjectSet: required` when the agent
+ * does not work on the whole application; a form that chose the whole application says why there.
+ */
+export function withScheduleTargetError(errors: RunConfigErrors, target: ScheduleTarget): RunConfigErrors {
+  return target === 'application' && errors['subjectSet']
+    ? { ...errors, subjectSet: { code: 'application-not-worked-on' } }
+    : errors;
 }
 
 export function profileOptions(catalog: RunCatalog | null): NhAssistantPickerOption[] {

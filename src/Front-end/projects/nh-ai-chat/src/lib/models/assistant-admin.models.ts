@@ -85,7 +85,10 @@ export interface AdminAgentInput {
   worksOnAllSubjects?: boolean;
   /** The agent works on the whole application. */
   worksOnApplication?: boolean;
-  /** The agent works per division; only when the run catalog reports `divisions`. */
+  /**
+   * The agent works per division; only when the run catalog reports `divisions`. Its work for the
+   * whole application, such as a schedule without a subject set, then runs once per listed division.
+   */
   perDivision?: boolean;
   /** Who may run the agent for the whole application, from the run catalog's `agentPolicies`; `null`: the administration policy. */
   runPolicy?: string | null;
@@ -577,7 +580,10 @@ export interface RunCatalog {
   approvalPolicySummaries?: ApprovalPolicySummary[];
   /** Whether `searchAccounts` can find accounts by name; otherwise an account is chosen by its id. */
   accountSearch?: boolean;
-  /** The subject types the application registered, by id; missing on older servers. */
+  /**
+   * The subject types the application registered, by id, with the platform's `nh-system` (the whole
+   * application, `isSystem`); missing on older servers. Choices of object types leave out `isSystem` types.
+   */
   subjectTypes?: AgentSubjectType[];
   /**
    * The policies the application lists for the run and view policy of agents created here, by name;
@@ -604,7 +610,10 @@ export interface AgentSubjectType {
   link: string | null;
   /** Whether `searchSubjects` finds subjects of this type by name; otherwise people give an id. */
   searchable: boolean;
-  /** Whether the type belongs to the platform instead of the application. */
+  /**
+   * Whether the type belongs to the platform instead of the application, such as `nh-system`, the
+   * whole application; it is not offered as a kind of object.
+   */
   isSystem: boolean;
 }
 
@@ -848,6 +857,10 @@ export interface DataTrigger {
   event: string | null;
   cron: string | null;
   timeZone: string | null;
+  /**
+   * The subject set a schedule runs for; `null` for an event, and for a schedule that runs for the
+   * whole application (once per division for an agent that works per division).
+   */
   subjectSet: string | null;
   message: string | null;
   conflict: TriggerConflict;
@@ -873,7 +886,10 @@ export interface DataTriggerRequest {
   cron?: string | null;
   /** For a schedule: an IANA or Windows time zone; UTC by default. */
   timeZone?: string | null;
-  /** For a schedule: a registered subject set. */
+  /**
+   * For a schedule: a registered subject set. Without one the schedule runs for the whole
+   * application, which only an agent that works on it may do (`subjectSet: required` otherwise).
+   */
   subjectSet?: string | null;
   /** For a schedule: what every run receives, at most 2,000 characters. */
   message?: string | null;

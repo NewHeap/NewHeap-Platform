@@ -206,7 +206,7 @@ public sealed class AssistantAgentWorksOnTests(AssistantDatabaseFixture database
         Assert.Equal((TestAuthenticationHandler.ManagerPolicy, "People who manage projects."), (policy.GetProperty("name").GetString(), policy.GetProperty("description").GetString()));
         Assert.False(catalog.GetProperty("divisions").GetBoolean());
         Assert.Equal("project", catalog.GetProperty("triggerEvents")[0].GetProperty("subjectType").GetString());
-        Assert.Equal(["project", "task"], catalog.GetProperty("subjectTypes").EnumerateArray().Select(type => type.GetProperty("id").GetString()));
+        Assert.Equal(["nh-system", "project", "task"], catalog.GetProperty("subjectTypes").EnumerateArray().Select(type => type.GetProperty("id").GetString()));
 
         var input = new Dictionary<string, object?>
         {

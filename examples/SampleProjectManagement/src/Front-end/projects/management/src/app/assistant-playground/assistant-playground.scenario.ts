@@ -162,7 +162,9 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       agentPolicies: [
         { name: 'app.project.manage', description: 'Project managers: people who may change projects.' },
         { name: 'app.project.view', description: 'Everyone who may read the projects.' }
-      ]
+      ],
+      // SPM-302: the API lists the divisions of NewHeap Identity, so an agent may work per division.
+      divisions: true
     },
     // The accounts the API's account search finds; agents that work on their own answer to one.
     accounts: [

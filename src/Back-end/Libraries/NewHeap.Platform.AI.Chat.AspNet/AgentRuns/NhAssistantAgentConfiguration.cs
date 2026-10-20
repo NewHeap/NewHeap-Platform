@@ -180,7 +180,8 @@ public interface INhAssistantAgentConfiguration
 }
 
 /// <param name="TriggerEvents">The events a data trigger can start a skill on.</param>
-/// <param name="SubjectSets">The subjects a data schedule can start a skill for.</param>
+/// <param name="SubjectSets">The subjects a data schedule can start a skill for; a schedule without
+/// one runs for the whole application.</param>
 /// <param name="RuleHandlers">The rule handlers a data skill can work by.</param>
 /// <param name="ApprovalPolicies">The ids of the registered approval policies.</param>
 /// <param name="Profiles">The model profiles with chat, function calling and streaming.</param>
@@ -204,8 +205,9 @@ public sealed record NhAssistantRunCatalogDto(
     public bool AccountSearch { get; init; }
 
     /// <summary>
-    /// The subject types the application registered with <c>AddSubjectType</c>, ordered by id, with
-    /// their names in the request's language.
+    /// The subject types the application registered with <c>AddSubjectType</c> and the platform's
+    /// whole application (<c>nh-system</c>, with <see cref="NhAssistantSubjectTypeDto.IsSystem"/>),
+    /// ordered by id, with their names in the request's language.
     /// </summary>
     public IReadOnlyList<NhAssistantSubjectTypeDto> SubjectTypes { get; init; } = [];
 
@@ -216,8 +218,9 @@ public sealed record NhAssistantRunCatalogDto(
     public IReadOnlyList<NhAssistantRunBlockDto> AgentPolicies { get; init; } = [];
 
     /// <summary>
-    /// Whether the application lists its divisions, so an agent may work per division; without it the
-    /// administration does not offer the choice.
+    /// Whether the application lists its divisions with an <c>INhDivisionDirectory</c>, as NewHeap
+    /// Identity does, so an agent may work per division; without it the administration does not offer
+    /// the choice and everything runs app-wide.
     /// </summary>
     public bool Divisions { get; init; }
 }
@@ -553,7 +556,10 @@ public static class NhAssistantSkillApplyModes
 /// <c>AddTriggerEvent</c>.</param>
 /// <param name="Cron">For a schedule: a five- or six-field cron expression.</param>
 /// <param name="TimeZone">For a schedule: an IANA or Windows time zone id; UTC by default.</param>
-/// <param name="SubjectSet">For a schedule: a subject set registered with <c>AddSubjectSet</c>.</param>
+/// <param name="SubjectSet">For a schedule: a subject set registered with <c>AddSubjectSet</c>. Without
+/// one the schedule runs for the whole application, once per tick, or once per listed division for an
+/// agent that works per division; only an agent that works on the application may have such a
+/// schedule.</param>
 /// <param name="Message">For a schedule: what every run receives, at most 2,000 characters.</param>
 /// <param name="Conflict">What happens while a run on the subject is active: <c>coalesce</c>,
 /// <c>queue</c>, <c>supersede</c> or <c>ignore</c>. Events coalesce and schedules ignore by
@@ -1192,9 +1198,10 @@ internal sealed class NhAssistantAgentConfiguration(
         }
         if (schedule)
         {
+            // Without a subject set a schedule runs for the whole application; the validator checks
+            // that the agent works on it.
             errors
                 .Require(!string.IsNullOrWhiteSpace(request.Cron), "cron", NhAssistantFieldErrors.Required)
-                .Require(!string.IsNullOrWhiteSpace(request.SubjectSet), "subjectSet", NhAssistantFieldErrors.Required)
                 .Require(!string.IsNullOrWhiteSpace(request.Message), "message", NhAssistantFieldErrors.Required)
                 .Require(request.Message is null || request.Message.Trim().Length <= NhAssistantAgentConfigurationLimits.MaxTriggerMessageLength, "message", NhAssistantFieldErrors.TooLong);
         }
@@ -1224,7 +1231,7 @@ internal sealed class NhAssistantAgentConfiguration(
         await configurations.EnsureCurrentAsync(cancellationToken);
         if (validator.ValidateTrigger(row, registration.AgentRuns) is { } problem)
         {
-            return TaskResult<NhAssistantDataTriggerDto>.Failed(TriggerFieldError(problem));
+            return TaskResult<NhAssistantDataTriggerDto>.Failed(TriggerFieldError(problem, schedule));
         }
 
         var existing = await store.ListTriggersAsync(agentId, cancellationToken);
@@ -1408,12 +1415,15 @@ internal sealed class NhAssistantAgentConfiguration(
         };
     }
 
-    private static TaskResult TriggerFieldError(string problem)
+    private static TaskResult TriggerFieldError(string problem, bool schedule)
     {
         return problem switch
         {
             NhAssistantRunConfigurationProblems.UnknownSkill => NhAssistantValidationErrors.Failed("skill", NhAssistantFieldErrors.NotFound),
             NhAssistantRunConfigurationProblems.UnknownEvent => NhAssistantValidationErrors.Failed("event", NhAssistantFieldErrors.NotFound),
+            // A schedule without a subject set runs for the whole application, which the agent does
+            // not work on: it needs a subject set.
+            NhAssistantRunConfigurationProblems.NotWorkedOn when schedule => NhAssistantValidationErrors.Failed("subjectSet", NhAssistantFieldErrors.Required),
             // The event names a subject type the agent does not work on.
             NhAssistantRunConfigurationProblems.NotWorkedOn => NhAssistantValidationErrors.Failed("event", NhAssistantFieldErrors.Invalid),
             NhAssistantRunConfigurationProblems.UnknownSubjectSet => NhAssistantValidationErrors.Failed("subjectSet", NhAssistantFieldErrors.NotFound),

@@ -111,7 +111,8 @@ public sealed class AssistantRegistrationTests
         });
 
         var state = app.Services.GetRequiredService<NhAssistantRegistrationState>();
-        var options = Assert.Single(state.SubjectTypes.Values);
+        // Next to the platform's own whole application, one configuration of the application's type.
+        var options = Assert.Single(state.SubjectTypes.Values, options => options.ResolverType == typeof(SearchableProjectResolver));
         Assert.Equal("/projects/{id}", options.LinkTemplate);
     }
 
@@ -159,8 +160,10 @@ public sealed class AssistantRegistrationTests
         {
             AddAssistant(builder.Services, assistant => assistant
                 .AddSubjectType<TicketResolver>(type => type.Named(new() { ["en"] = "Ticket" }, fallbackLanguage: "en")));
-            // The application removed the resolver afterwards, so the names describe nothing.
-            builder.Services.RemoveAll<INhAiSubjectAccessResolver>();
+            // The application removed its resolver afterwards, so the names describe nothing; the
+            // platform's own resolver of the whole application stays.
+            builder.Services.Remove(builder.Services.Single(descriptor =>
+                descriptor.ServiceType == typeof(INhAiSubjectAccessResolver) && descriptor.ImplementationType == typeof(TicketResolver)));
         }));
 
         Assert.Contains(nameof(TicketResolver), exception.Message);

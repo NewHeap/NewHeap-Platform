@@ -192,13 +192,13 @@ internal static class NhAssistantSubjectEndpoints
             // new live thread from anyone but an administrator.
             if (access.Has(NhAiSubjectRole.Participant)
                 && mayUse
-                && httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().RefusalOf(agentId, subject!.Type) is { } notWorkedOn)
+                && httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().RefusalOf(agentId, subject!) is { } notWorkedOn)
             {
                 return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status409Conflict, notWorkedOn);
             }
             if (!access.Has(NhAiSubjectRole.Participant)
                 || !mayUse
-                || !await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!, subject!.Type))
+                || !await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!, subject!))
             {
                 return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
             }
@@ -216,7 +216,7 @@ internal static class NhAssistantSubjectEndpoints
         var canStart = mayUse
             && runOptions.Enabled
             && access.Has(NhAiSubjectRole.Participant)
-            && await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!, subject!.Type);
+            && await NhAssistantAgentRunEndpoints.MayStartAsync(httpContext, runOptions, agent!, subject!);
         return TypedResults.Json(
             new NhAssistantThreadLookupDto(
                 await NhAssistantAgentRunEndpoints.ToThreadDtoAsync(thread, access.Role, runs, subjects, cancellationToken),

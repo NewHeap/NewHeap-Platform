@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -173,7 +174,7 @@ internal static class NhAssistantAgentRunEndpoints
             && runOptions.Enabled
             && access.Has(NhAiSubjectRole.Participant)
             && await agentAccess.CanUseAsync(httpContext.User, agent.Definition)
-            && await MayStartAsync(httpContext, runOptions, agent, subject!.Type);
+            && await MayStartAsync(httpContext, runOptions, agent, subject!);
         // People open the live thread; a shadow variant has shadow threads only.
         var thread = await runs.FindThreadAsync(info.ScopeKey, agentId!, subject!, cancellationToken, runOptions.ShadowOfAgentId is not null);
         NhAssistantThreadDto? threadDto = null;
@@ -225,11 +226,11 @@ internal static class NhAssistantAgentRunEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
         }
         // An agent starts only on what it works on, by hand as from a trigger.
-        if (httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().RefusalOf(agent.Id, subject!.Type) is { } notWorkedOn)
+        if (httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().RefusalOf(agent.Id, subject!) is { } notWorkedOn)
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status409Conflict, notWorkedOn);
         }
-        if (!await MayStartAsync(httpContext, registration.AgentRuns[request.AgentId!], agent, subject.Type))
+        if (!await MayStartAsync(httpContext, registration.AgentRuns[request.AgentId!], agent, subject!))
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
         }
@@ -239,17 +240,24 @@ internal static class NhAssistantAgentRunEndpoints
     }
 
     /// <summary>
-    /// Whether the caller may start the agent by hand on a subject of <paramref name="subjectType"/>:
-    /// the agent works on the type, and an agent in shadow works in shadow threads, which only
-    /// administrators see, so only they start it.
+    /// Whether the caller may start the agent by hand on <paramref name="subject"/>: the agent works
+    /// on it, an agent in shadow works in shadow threads, which only administrators see, so only they
+    /// start it, and for the whole application the caller passes the agent's run policy when it names
+    /// one, next to the role on the whole application.
     /// </summary>
     internal static async Task<bool> MayStartAsync(
         HttpContext httpContext,
         NhAssistantAgentRunOptions runOptions,
         NhAssistantAgent agent,
-        string subjectType)
+        NhAiSubjectRef subject)
     {
-        if (!httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().Allows(agent.Id, subjectType))
+        if (!httpContext.RequestServices.GetRequiredService<NhAssistantWorksOnRule>().Allows(agent.Id, subject))
+        {
+            return false;
+        }
+        if (NhAiSystemSubjects.IsSystem(subject)
+            && runOptions.WorksOn.RunPolicy is { } runPolicy
+            && !(await httpContext.RequestServices.GetRequiredService<IAuthorizationService>().AuthorizeAsync(httpContext.User, runPolicy)).Succeeded)
         {
             return false;
         }
@@ -862,7 +870,7 @@ internal static class NhAssistantAgentRunEndpoints
             thread.AgentId,
             thread.SubjectType,
             thread.SubjectId,
-            thread.SubjectDisplayName,
+            NhAssistantAgentRunDtoMapper.DisplayNameOf(subjects, thread.SubjectType, thread.SubjectId, thread.SubjectDisplayName),
             thread.Accountability,
             thread.AccountableOwnerId,
             NhAssistantAgentRunDtoMapper.RoleName(role),

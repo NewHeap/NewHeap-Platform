@@ -31,6 +31,12 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
     /// </summary>
     public const string FollowUpAgentId = "project-follow-up";
 
+    /// <summary>
+    /// SPM-302: the follow-up's schedule every Monday, without a subject set, so it runs for the whole
+    /// application.
+    /// </summary>
+    public const string FollowUpScheduleId = "project-follow-up-weekly";
+
     private const string Reason = "Development sample of an agent that works on its own";
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -162,8 +168,9 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
     /// SPM-302: creates the project follow-up unless it exists, as an administrator does: an agent
     /// kept out of the chat that works on projects and on the whole application, that project managers
     /// may run for the whole application and whose results for it everyone who reads projects sees,
-    /// answering to <paramref name="operationsAccountId"/>. Its weekly schedule and the skill that
-    /// counts open projects follow with the whole application as a scope.
+    /// answering to <paramref name="operationsAccountId"/>. Its schedule every Monday names no subject
+    /// set, so each tick starts one run for the whole application, in the agent's thread of
+    /// <c>nh-system/global</c>; the seeder puts it live.
     /// </summary>
     public static async Task<TaskResult> SeedFollowUpAsync(
         IServiceProvider services,
@@ -199,15 +206,42 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
             return created;
         }
 
-        return await configuration.SaveRunSettingsAsync(
-            FollowUpAgentId,
-            new NhAssistantAgentRunSettingsRequest(
-                NhAssistantAccountabilities.ServiceAccount,
-                operationsAccountId.ToString("D"),
-                ApprovalPolicy: SampleIntakeReviewerComposition.ApprovalPolicyId,
-                MaxRunsPerSubjectPerDay: 2,
-                Reason: Reason),
-            actorId,
-            cancellationToken);
+        var steps = new Func<Task<TaskResult>>[]
+        {
+            async () => await configuration.SaveRunSettingsAsync(
+                FollowUpAgentId,
+                new NhAssistantAgentRunSettingsRequest(
+                    NhAssistantAccountabilities.ServiceAccount,
+                    operationsAccountId.ToString("D"),
+                    ApprovalPolicy: SampleIntakeReviewerComposition.ApprovalPolicyId,
+                    MaxRunsPerSubjectPerDay: 2,
+                    Reason: Reason),
+                actorId,
+                cancellationToken),
+            // Without a subject set the schedule runs for the whole application, which the
+            // follow-up works on.
+            async () => await configuration.SaveTriggerAsync(
+                FollowUpAgentId,
+                FollowUpScheduleId,
+                new NhAssistantDataTriggerRequest(
+                    NhAssistantDataTriggerSources.Schedule,
+                    Cron: "0 7 * * 1",
+                    TimeZone: "Europe/Amsterdam",
+                    Message: "It is Monday: count the open projects of the application and propose which ones can be completed.",
+                    Reason: Reason),
+                actorId,
+                cancellationToken),
+            async () => await configuration.SetTriggerShadowAsync(FollowUpAgentId, FollowUpScheduleId, false, actorId, Reason, cancellationToken)
+        };
+        foreach (var step in steps)
+        {
+            var result = await step();
+            if (!result.Success)
+            {
+                return result;
+            }
+        }
+
+        return TaskResult.Succeeded();
     }
 }

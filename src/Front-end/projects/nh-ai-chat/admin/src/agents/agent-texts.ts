@@ -56,6 +56,8 @@ export interface WorksOnSummary {
 /**
  * What an agent works on, with object types named as the run catalog names several of them in the
  * reader's language, and their ids otherwise. An older server that does not say reads as all objects.
+ * The platform's types (`nh-`, such as the whole application's `nh-system`) are not object types of
+ * the application: the agent's threads on the whole application are no hint next to "All objects".
  */
 export function worksOnSummary(
   agent: {
@@ -68,11 +70,13 @@ export function worksOnSummary(
     runPolicy?: string | null;
     viewPolicy?: string | null;
   },
-  subjectTypes: readonly { id: string; name: string; pluralName?: string | null }[] | null | undefined
+  subjectTypes: readonly { id: string; name: string; pluralName?: string | null; isSystem?: boolean }[] | null | undefined
 ): WorksOnSummary {
   const names = new Map((subjectTypes ?? []).map(type => [type.id, type.pluralName ?? type.name]));
+  const system = new Set((subjectTypes ?? []).filter(type => type.isSystem).map(type => type.id));
   const name = (id: string): string => names.get(id) ?? id;
-  const types = agent.worksOnSubjectTypes ?? [];
+  const objectType = (id: string): boolean => !id.startsWith('nh-') && !system.has(id);
+  const types = (agent.worksOnSubjectTypes ?? []).filter(objectType);
   const all = agent.worksOnAllSubjects ?? (types.length === 0 && agent.worksOnApplication !== true);
   return {
     types: all ? [] : types.map(name),
@@ -80,7 +84,7 @@ export function worksOnSummary(
     application: agent.worksOnApplication === true,
     perDivision: agent.perDivision === true,
     undeclared: agent.worksOnDeclared === false,
-    known: (agent.knownSubjectTypes ?? []).map(name),
+    known: (agent.knownSubjectTypes ?? []).filter(objectType).map(name),
     runPolicy: agent.runPolicy ?? null,
     viewPolicy: agent.viewPolicy ?? null
   };

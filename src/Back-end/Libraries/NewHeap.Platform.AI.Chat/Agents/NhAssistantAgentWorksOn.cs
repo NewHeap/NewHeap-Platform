@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
@@ -94,6 +96,28 @@ public sealed record NhAssistantAgentWorksOn
         }
 
         return AllSubjects || SubjectTypes.Contains(subjectType, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Whether the agent works on <paramref name="subject"/>: on its type, and for the whole
+    /// application on the scope that fits how the agent works: <c>nh-system/global</c> app-wide,
+    /// <c>nh-system/division-{id}</c> per division.
+    /// </summary>
+    public bool Covers(NhAiSubjectRef subject)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        if (!Covers(subject.Type))
+        {
+            return false;
+        }
+        if (!NhAiSystemSubjects.IsSystem(subject))
+        {
+            return true;
+        }
+
+        return PerDivision
+            ? NhAiSystemSubjects.TryGetDivision(subject, out _)
+            : NhAiSystemSubjects.IsGlobal(subject);
     }
 
     /// <summary>
@@ -218,13 +242,15 @@ internal sealed record NhAssistantAgentPolicyDefinition(string Name, string Desc
 /// starts, hand-offs, consultations and requests ask it; runs for the whole application and proposals
 /// placed at other objects will too.
 /// </summary>
-internal sealed class NhAssistantWorksOnRule(NhAssistantRegistrationState registration)
+internal sealed class NhAssistantWorksOnRule(
+    NhAssistantRegistrationState registration,
+    IServiceProviderIsService? services = null)
 {
     /// <summary>
-    /// Whether the application lists its divisions, so agents may work per division. The division
-    /// directory arrives with the whole application as a scope; until then no division is listed.
+    /// Whether the application lists its divisions with an <see cref="INhDivisionDirectory"/>, as
+    /// NewHeap Identity does, so agents may work per division. Without one everything runs app-wide.
     /// </summary>
-    public bool DivisionsListed => false;
+    public bool DivisionsListed => services?.IsService(typeof(INhDivisionDirectory)) == true;
 
     /// <summary>
     /// What the agent works on in effect: its run configuration's statement, or
@@ -251,6 +277,24 @@ internal sealed class NhAssistantWorksOnRule(NhAssistantRegistrationState regist
     public string? RefusalOf(string agentId, string subjectType)
     {
         return Allows(agentId, subjectType) ? null : NhAssistantErrorCodes.AgentDoesNotWorkOn;
+    }
+
+    /// <summary>
+    /// Whether the agent works on <paramref name="subject"/>; for the whole application also on its
+    /// scope: app-wide agents on <c>nh-system/global</c>, per-division agents on a division.
+    /// </summary>
+    public bool Allows(string agentId, NhAiSubjectRef subject)
+    {
+        return Of(agentId).Covers(subject);
+    }
+
+    /// <summary>
+    /// <see cref="NhAssistantErrorCodes.AgentDoesNotWorkOn"/> when the agent does not work on
+    /// <paramref name="subject"/>, otherwise <see langword="null"/>.
+    /// </summary>
+    public string? RefusalOf(string agentId, NhAiSubjectRef subject)
+    {
+        return Allows(agentId, subject) ? null : NhAssistantErrorCodes.AgentDoesNotWorkOn;
     }
 
     /// <summary>

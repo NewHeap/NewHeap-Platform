@@ -152,7 +152,18 @@ describe('NhAssistantSubjectPickerComponent', () => {
   it('lists the subject types in the run catalog in the request language, as the server does', async () => {
     const admin = TestBed.inject(NhAssistantAdminApiService);
     const english = await firstValueFrom(admin.getRunCatalog());
+    // The platform's type of the whole application is always listed, by id among the application's.
     expect(english.subjectTypes).toEqual([
+      {
+        id: 'nh-system',
+        name: 'The whole application',
+        pluralName: null,
+        entityType: null,
+        entityTypeFull: null,
+        link: null,
+        searchable: false,
+        isSystem: true
+      },
       {
         id: 'project',
         name: 'Project',
@@ -169,7 +180,9 @@ describe('NhAssistantSubjectPickerComponent', () => {
     const translate = TestBed.inject(TranslateService);
     translate.setTranslation('nl', NH_ASSISTANT_TRANSLATIONS.nl, true);
     await firstValueFrom(translate.use('nl'));
-    expect((await firstValueFrom(admin.getRunCatalog())).subjectTypes![0].pluralName).toBe('Projecten');
+    const dutch = (await firstValueFrom(admin.getRunCatalog())).subjectTypes!;
+    expect(dutch.find(type => type.id === 'project')?.pluralName).toBe('Projecten');
+    expect(dutch.find(type => type.id === 'nh-system')?.name).toBe('De hele applicatie');
   });
 });
 

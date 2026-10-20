@@ -14,6 +14,7 @@ import { NhAssistantAccountPickerComponent } from './nh-assistant-account-picker
 import { RunConfigForm } from './run-config-form';
 import {
   RunConfigErrors,
+  ScheduleTarget,
   blank,
   checkBudget,
   checkWhole,
@@ -28,10 +29,13 @@ import {
   runConfigLimits,
   toolChoices,
   subjectSetOptions,
+  systemSubjectType,
   timeZoneOptions,
   toDashCase,
   toNumber,
-  withBudgetField
+  withBudgetField,
+  withScheduleTargetError,
+  worksOnCovers
 } from './run-config-shared';
 
 let nextId = 0;
@@ -53,7 +57,9 @@ const stepOfField: Record<string, WorkSetupStep> = {
  * Lets an agent created in the administration work on its own in one flow: when it starts, what it
  * does, on whose behalf, who approves its proposals and its limits, and a review. Saving adds the run
  * settings, a skill and a trigger that starts it; the skill and the trigger start in shadow, where
- * nobody is notified and nothing executes, and can be put live at the end.
+ * nobody is notified and nothing executes, and can be put live at the end. A schedule of an agent
+ * that works on the whole application may run for the whole application instead of a set of
+ * subjects, once per division for an agent that works per division.
  */
 @Component({
   selector: 'nh-assistant-agent-work-setup',
@@ -69,7 +75,10 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements
   readonly agentId = input.required<string>();
   readonly agentName = input('');
   readonly catalog = input<RunCatalog | null>(null);
-  /** What the agent works on: events about other object types are not offered. */
+  /**
+   * What the agent works on: events about other object types are not offered, and a schedule runs
+   * for the whole application only for an agent that works on it.
+   */
   readonly worksOn = input<WorksOnStatement | null>(null);
   readonly toolSelectors = input<readonly string[]>([]);
   /** The tool catalog, to show what each of the agent's tool selectors offers. */
@@ -103,6 +112,8 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements
   readonly cron = signal('');
   readonly timeZone = signal('');
   readonly subjectSet = signal('');
+  /** The administrator's choice of what a schedule runs for; see `target`. */
+  readonly scheduleTarget = signal<ScheduleTarget>('application');
   readonly message = signal('');
   // What.
   readonly name = signal('');
@@ -128,6 +139,12 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements
   readonly accountSearch = computed(() => this.catalog()?.accountSearch === true);
   readonly events = computed(() => eventOptions(this.catalog(), this.worksOn()));
   readonly subjectSets = computed(() => subjectSetOptions(this.catalog()));
+  /** A schedule may run for the whole application only for an agent that works on it. */
+  readonly offersApplication = computed(() => worksOnCovers(this.worksOn(), systemSubjectType));
+  /** What the schedule runs for: the whole application while the agent works on it, otherwise a set. */
+  readonly target = computed<ScheduleTarget>(() => this.offersApplication() ? this.scheduleTarget() : 'set');
+  /** The agent's work for the whole application runs once per division. */
+  readonly perDivision = computed(() => this.worksOn()?.perDivision === true);
   readonly rules = computed(() => ruleOptions(this.catalog()));
   readonly policies = computed(() => {
     this.language();
@@ -151,6 +168,11 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements
   setSource(source: 'event' | 'schedule'): void {
     this.source.set(source);
     this.touch('source');
+  }
+
+  setTarget(target: ScheduleTarget): void {
+    this.scheduleTarget.set(target);
+    this.touch('subjectSet');
   }
 
   setAccountability(accountability: AgentAccountability): void {
@@ -207,6 +229,7 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements
     const skillId = this.skillId();
     const triggerId = this.triggerId();
     const schedule = this.source() === 'schedule';
+    const forSet = schedule && this.target() === 'set';
     const settings = defer(() => this.admin.saveRunSettings(agentId, {
       accountability: this.accountability(),
       serviceAccountActorId: this.accountability() === 'service-account' ? blank(this.serviceAccount()) : null,
@@ -233,7 +256,8 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements
       event: schedule ? null : blank(this.event()),
       cron: schedule ? blank(this.cron()) : null,
       timeZone: schedule ? blank(this.timeZone()) : null,
-      subjectSet: schedule ? blank(this.subjectSet()) : null,
+      // Without a subject set the schedule runs for the whole application.
+      subjectSet: forSet ? blank(this.subjectSet()) : null,
       message: schedule ? blank(this.message()) : null,
       conflict: schedule ? 'ignore' : 'coalesce',
       debounceSeconds: schedule ? null : 120,
@@ -256,7 +280,9 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements
   }
 
   protected override mapServerErrors(errors: RunConfigErrors): RunConfigErrors {
-    const mapped = withBudgetField(errors, this.dailyToolCalls());
+    const mapped = withScheduleTargetError(
+      withBudgetField(errors, this.dailyToolCalls()),
+      this.source() === 'schedule' ? this.target() : 'set');
     // The skill id is derived from the name.
     if (mapped['skillId']) {
       const { skillId, ...rest } = mapped;
@@ -282,7 +308,7 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements
           }
         } else {
           requireText(errors, 'cron', this.cron());
-          if (this.subjectSet() === '') {
+          if (this.target() === 'set' && this.subjectSet() === '') {
             errors['subjectSet'] = { code: 'required' };
           }
           requireText(errors, 'message', this.message(), this.maxMessage);

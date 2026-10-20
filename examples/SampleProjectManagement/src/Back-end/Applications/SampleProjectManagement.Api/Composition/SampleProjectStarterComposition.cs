@@ -16,8 +16,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// trigger name: the project-created event and the kickoff rules. The agent itself, whom it answers
 /// to and when it starts are data; it has no grants and acts with the rights of the technical account
 /// it answers to. SPM-302: it also lists the policies an administrator may choose as the run and view
-/// policy of such an agent. Call it after <c>AddSampleIntakeReviewer</c>, which registers the project
-/// subject type.
+/// policy of such an agent, and lets everyone who reads the projects read the whole application: the
+/// assistant's access policy needs an active division, which the whole application app-wide has
+/// not. Call it after <c>AddSampleIntakeReviewer</c>, which registers the project subject type.
 /// </summary>
 public static class SampleProjectStarterComposition
 {
@@ -40,6 +41,9 @@ public static class SampleProjectStarterComposition
             // the policies are registered.
             .AddAgentPolicy(ProjectManagePolicy, "Project managers: people who may change projects.")
             .AddAgentPolicy(ProjectViewPolicy, "Everyone who may read the projects.")
+            // SPM-302: the whole application is read app-wide; administrators decide its proposals,
+            // as the default approve policy (the administration policy) says.
+            .UseSystemSubject(system => system.ReadPolicy(ProjectViewPolicy))
             .AddTriggerEvent<ProjectCreatedEvent>(ProjectCreatedEvent, evt => evt
                 .Description("A project was created.")
                 .Subject(ProjectSubjects.Type, created => ProjectSubjects.IdOf(created.ProjectId))
