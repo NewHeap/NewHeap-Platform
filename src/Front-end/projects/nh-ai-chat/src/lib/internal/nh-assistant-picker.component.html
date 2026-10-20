@@ -11,7 +11,7 @@
       [attr.aria-controls]="listId"
       [attr.aria-activedescendant]="activeId()"
       [attr.aria-invalid]="invalid() ? true : null"
-      [attr.aria-describedby]="describedBy()"
+      [attr.aria-describedby]="fieldDescribedBy()"
       [attr.placeholder]="placeholder()"
       [disabled]="disabled()"
       [value]="inputText()"
@@ -30,6 +30,20 @@
       <nh-assistant-icon name="chevron-down" />
     </button>
   </div>
+  @if (searchError(); as failure) {
+    <!-- A failed search says why and offers to search again; the list never claims nothing was found. -->
+    <p class="field-error search-error" role="alert" data-search-error [id]="searchErrorId">
+      <nh-assistant-icon name="warning" />
+      <span>{{ searchErrorKeys() | nhAssistantTranslate: failure.code }}</span>
+      <button
+        type="button"
+        class="link"
+        data-search-retry
+        [disabled]="disabled()"
+        (mousedown)="$event.preventDefault()"
+        (click)="retrySearch()">{{ 'nh-assistant.picker.search-again' | translate }}</button>
+    </p>
+  }
   @if (open()) {
     <ul class="listbox" role="listbox" [id]="listId">
       @for (option of visible(); track option.value; let index = $index) {

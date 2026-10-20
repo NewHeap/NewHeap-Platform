@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import {
   AgentConsultation,
   NhAssistantAgentRunApiService,
+  ɵnhAssistantCodeKeys as nhAssistantCodeKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
@@ -34,6 +35,7 @@ export class NhAssistantAgentConsultationsComponent {
   readonly loadFailed = signal(false);
   readonly consultations = signal<AgentConsultation[]>([]);
   readonly total = signal(0);
+  readonly codeKeys = nhAssistantCodeKeys;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());

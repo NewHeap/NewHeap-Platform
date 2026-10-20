@@ -1271,6 +1271,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             {
                 Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
             }
+
+            // The run ends before the follow-up is removed, so it counts no projects of a later test.
+            await WaitForRunResultAsync(reader, run.Id);
         }
         finally
         {
@@ -1334,6 +1337,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Equal("participant", onProject!.Role);
             Assert.Contains(onProject.Agents, agent => agent.AgentId == SampleIntakeReviewerComposition.AgentId);
             Assert.True(Assert.Single(onProject.Agents, agent => agent.AgentId == followUp).CanStart);
+
+            // The run ends before the follow-up is removed, so it counts no projects of a later test.
+            await WaitForRunResultAsync(manager, run.Id);
         }
         finally
         {
@@ -1449,6 +1455,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             {
                 Assert.Single(afterRunNow.Items, item => item.AgentId == followUp && item.SubjectId == project.ToString("D"));
             }
+
+            // The run ends before the follow-up is removed, so it counts no projects of a later test.
+            await WaitForRunResultAsync(manager, byHand.Id);
         }
         finally
         {

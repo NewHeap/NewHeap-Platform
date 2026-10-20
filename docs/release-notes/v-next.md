@@ -755,3 +755,71 @@ personal connections and revokes them all after confirmation. `NhAssistantApiSer
 | Breaking change | Required action |
 |---|---|
 | `MessagePart` and `NhAssistantSseEventMap` have new members. | Handle `connection-required` and `connection.required` in exhaustive switches. |
+
+## NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: one status per error code and error handling after the review
+
+Every assistant endpoint (chat, administration, agent runs, subjects, run histories, boards, MCP
+connections and the OAuth callback) now answers a failure with the one HTTP status the assistant gives
+its code, and the error body carries the result's field errors for every code. New codes:
+`assistant-subject-invalid` (`400`, a malformed subject reference), `assistant-webhook-payload-too-large`
+(`413`), `assistant-mcp-connection-not-supported` (`409`), `assistant-mcp-secret-unreadable` (`409`) and
+`assistant-mcp-secret-unavailable` (`503`); `NhAssistantPlacementReasons.NoAccountableOwner`
+(`no-accountable-owner`) is a new reason of a proposal that is not placed. An invalid run history filter
+names its parameters in `errors`. `POST threads/start` and a restart answer `202` for `waiting` (a paused
+agent or skill) and `deferred` and a refusal as its code with its status.
+
+Proposals of the whole application are listed in the inbox, counted in the subject summary and decided
+only by people who pass the agent's view policy; to others they read as unknown. The status of its
+background operations, its notifications and its live updates follow the same rule. The run maintenance
+removes board visits older than `NhAssistantLimits.BoardVisitRetention` (default 180 days) and those of
+groups that are no longer registered.
+
+MCP: an approved proposal whose request never left the host or that the server refused without a
+renewed credential ends `execution-failed`, not `execution-unknown`; a failed renewal after `401` reports
+its own code; a chat approval of a tool whose server is left out reports the server's skip code. Test and
+sync with an administrator's own credential no longer change a server's connection state. A dynamic
+client registration is registered again when its secret expired or the authorization server forgot it.
+Retention keeps a person's consent to background use. The OAuth callback reports failures with
+`messageKey` (and `nh-mcp-message-key` in redirect mode) and never answers a bare `500`. Exceptions of
+secret resolvers, delegated token issuers, revocation, the MCP maintenance and the health check are
+logged with the exception at warning level.
+
+| Breaking change | Required action |
+|---|---|
+| Statuses follow the code everywhere: `assistant-context-unavailable` is `403` on the subject endpoints (was `401`); a refused start by hand or restart answers `assistant-agent-stopped`, `assistant-agent-configured-off`, `assistant-agent-not-configured`, `assistant-skill-stopped` and `assistant-no-accountable-owner` with `409`, `assistant-agent-not-found`, `assistant-subject-not-found` and `assistant-disabled` with `404` and `assistant-trigger-rolled-back` with `503` (all were `400`); `POST conversations` without an agent and a join without a token answer `404`; `assistant-mcp-headless-not-allowed` is `409` and `assistant-mcp-credential-mismatch` `403`. | Map the error `code`, not the status; update clients and tests that expect the old statuses. |
+| `NhAssistantTriggerReasons.RateLimited` is `assistant-trigger-rate-limited` (was `rate-limited`). | Compare with the constant; translate the new code. |
+| A malformed subject reference answers `400 assistant-subject-invalid` instead of `assistant-subject-not-found`; a webhook body over 64 KiB answers `413 assistant-webhook-payload-too-large` instead of `assistant-webhook-payload-invalid`. | Handle the new codes. |
+| `POST threads/open` answers the start's own refusal, for example `403 assistant-agent-forbidden`, instead of always `assistant-subject-access-denied`. | Handle `assistant-agent-forbidden`. |
+| Proposals of the whole application need the agent's view policy (by default its required policy) to be listed and decided; an approver without it gets `404 assistant-approval-not-found`. | Give approvers of the whole application the view policy of the agents whose proposals they decide. |
+| Saving an MCP server whose `secretReference`, `oauth.clientSecretReference` or `clientCertificateReference` names nothing answers `assistant-validation` with the field error `not-found` instead of `assistant-mcp-secret-reference-invalid` or `assistant-mcp-certificate-reference-invalid`. | Read the field error. |
+| A stored secret that no longer decrypts fails with `assistant-mcp-secret-unreadable` (was `assistant-mcp-unauthorized` or `assistant-mcp-token-request-failed`); a secret resolver that throws fails with `503 assistant-mcp-secret-unavailable` (was `assistant-mcp-secret-reference-invalid`). | Enter an unreadable secret again; retry an unavailable one. |
+| OAuth connection endpoints of a server without such a connection answer `409 assistant-mcp-connection-not-supported` (was `assistant-validation` with `authMode` or `serverId`, or `assistant-mcp-connection-required`); `GET` and `DELETE admin/mcp-servers/{id}/connection` of a server each person connects to act on the administrator's own connection. | Call the personal connection endpoints only for `oauth` servers with `connectionScope: user`. |
+| OAuth callback failures: a callback without `state` is `assistant-mcp-authorization-invalid` (was `expired`), a removed server `assistant-mcp-server-not-found` and a changed issuer `assistant-mcp-issuer-changed` (were `expired`), and a failed discovery or client registration keeps its own code. | Handle the codes. |
+| The built-in delegated token issuer throws `InvalidOperationException` without `INhAuthenticationService` and `ArgumentOutOfRangeException` for a lifetime outside (0, 5 minutes]. | Register the NewHeap authentication service or a custom issuer with `UseIssuer`. |
+| A placed proposal whose object has nobody to answer for the agent reads `no-accountable-owner` (was `no-access`). | Handle the reason in rule handlers. |
+
+## @newheap/platform-ai-chat: error handling after the review
+
+Errors stay coded everywhere: downloads (`downloadArtifact`, `downloadRunArtifact` and the
+administration's exports) reject with an `NhAssistantApiError` taken from the error body; a failed run
+catalog, search, lookup, account name lookup or personal connection count shows its coded text with
+Retry instead of an empty or "unknown" state; the MCP server editor and the runs view show the server's
+field errors at their fields, and the editor's fields carry the server's `maxlength`. The run-now dialog,
+the thread view, the subject suggestions and the run timeline show a start's receipt: `waiting` for a
+paused agent as a warning with its reason, `deferred` as information and a refused start with its code.
+A run's `failureCode`, such as `assistant-trigger-rolled-back`, is translated wherever it shows. The
+connection card shows the outcome of a redirect-mode connection, and completing such a return reports
+failures through `returned` instead of swallowing them. `getAccounts` asks in parts of 50 ids. The new
+server codes have English and Dutch texts. The mock API answers every code with the server's status
+from one table, caps account lookups at 50 ids, serves `POST runs/{id}/cancel`, `POST runs/{id}/retry`
+and `POST threads/open`, answers a paused agent with `waiting` and a daily limit
+(`NhAssistantMockRunNow.dailyLimit`) with `409 assistant-trigger-rate-limited`, and keeps proposals of
+the whole application to people who pass the agent's view policy.
+
+| Breaking change | Required action |
+|---|---|
+| `AgentTriggerReceipt.outcome` (`AgentTriggerOutcome`) no longer has `rejected` and has `waiting` and `deferred`; a refused start rejects with an `NhAssistantApiError`. | Handle `waiting` and `deferred` and catch the error for refusals. |
+| Downloads reject with `NhAssistantApiError` instead of `Error` or `TypeError`. | Use `toNhAssistantError` for the text. |
+| `downloadFailed` of the run result and artifacts components, `NhAssistantConnectionRequiredComponent.errorCode`, `NhAssistantAdminAgentsComponent.accountNames` and `NhAssistantAgentRunConfigurationComponent.accountName` are read-only computed signals. | Do not write them. |
+| The translation key `nh-assistant.agent-runs.thread.outcome.rejected` is removed and new keys are added. | Update host overrides of the assistant's texts. |
+| The mock API answers with the server's statuses and field errors (for example `400 assistant-subject-invalid`, `409 assistant-mcp-headless-not-allowed`, `409` for a stopped agent) and `NhAssistantMockRunNow.outcome` no longer accepts `rejected`. | Update host tests that assert the old mock answers. |

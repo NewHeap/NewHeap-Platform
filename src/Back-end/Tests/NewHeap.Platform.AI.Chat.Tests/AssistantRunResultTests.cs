@@ -243,22 +243,38 @@ public sealed class AssistantRunResultTests(AssistantDatabaseFixture database)
         Assert.Equal(2, adminPage.GetProperty("total").GetInt32());
         Assert.Equal(failed, Assert.Single(adminPage.GetProperty("items").EnumerateArray()).GetProperty("id").GetGuid());
 
-        // Invalid filters are refused with one code.
-        foreach (var query in new[]
+        // Invalid filters are refused with one code and the parameter that is wrong.
+        foreach (var (query, field, error) in new[]
         {
-            "?status=finished",
-            $"?subjectId={first}",
-            "?subjectType=Not_A_Type",
-            $"?from={to}&to={from}",
-            "?page=0",
-            "?itemsPerPage=51"
+            ("?status=finished", "status", NhAssistantFieldErrors.Invalid),
+            ($"?subjectId={first}", "subjectType", NhAssistantFieldErrors.Required),
+            ("?subjectType=Not_A_Type", "subjectType", NhAssistantFieldErrors.Invalid),
+            ($"?from={to}&to={from}", "to", NhAssistantFieldErrors.Invalid),
+            ("?page=0", "page", NhAssistantFieldErrors.Invalid),
+            ("?itemsPerPage=51", "itemsPerPage", NhAssistantFieldErrors.Invalid)
         })
         {
             using var refused = await member.GetAsync("/api/assistant/runs" + query);
-            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
-            Assert.Equal(NhAssistantErrorCodes.RunFilterInvalid, (await ReadJsonAsync(refused, HttpStatusCode.BadRequest)).GetProperty("code").GetString());
-            using var adminRefused = await admin.GetAsync($"/api/assistant/admin/agents/{ProjectAgent}/runs" + query);
-            Assert.Equal(HttpStatusCode.BadRequest, adminRefused.StatusCode);
+            var body = await ReadJsonAsync(refused, HttpStatusCode.BadRequest);
+            Assert.Equal(NhAssistantErrorCodes.RunFilterInvalid, body.GetProperty("code").GetString());
+            Assert.Equal(error, Assert.Single(body.GetProperty("errors").GetProperty(field).EnumerateArray()).GetString());
+            // The administration checks the filter before the agent, so an unknown agent reads 400 too.
+            using var adminRefused = await admin.GetAsync("/api/assistant/admin/agents/unknown-agent/runs" + query);
+            Assert.Equal(field, Assert.Single((await ReadJsonAsync(adminRefused, HttpStatusCode.BadRequest)).GetProperty("errors").EnumerateObject()).Name);
+        }
+        using (var unknownAgent = await admin.GetAsync("/api/assistant/admin/agents/unknown-agent/runs"))
+        {
+            Assert.Equal(NhAssistantErrorCodes.AgentNotFound, (await ReadJsonAsync(unknownAgent, HttpStatusCode.NotFound)).GetProperty("code").GetString());
+        }
+
+        // An unknown run and an unknown file of a known run answer their own codes.
+        using (var unknownRun = await member.GetAsync($"/api/assistant/runs/{Guid.NewGuid()}"))
+        {
+            Assert.Equal(NhAssistantErrorCodes.RunNotFound, (await ReadJsonAsync(unknownRun, HttpStatusCode.NotFound)).GetProperty("code").GetString());
+        }
+        using (var unknownFile = await member.GetAsync($"/api/assistant/runs/{oldest}/artifacts/{Guid.NewGuid()}/content"))
+        {
+            Assert.Equal(NhAssistantErrorCodes.ArtifactNotFound, (await ReadJsonAsync(unknownFile, HttpStatusCode.NotFound)).GetProperty("code").GetString());
         }
     }
 

@@ -35,7 +35,7 @@ internal sealed partial class NhAssistantMcpMaintenance(
             }
             catch (Exception exception) when (exception is not OutOfMemoryException)
             {
-                LogMaintenanceFailed(logger, exception.GetType().Name);
+                LogMaintenanceFailed(logger, exception);
             }
         }
     }
@@ -51,6 +51,6 @@ internal sealed partial class NhAssistantMcpMaintenance(
             .RemoveStaleAsync(servers.FindMcpServerAsync, BatchSize, cancellationToken);
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Assistant MCP maintenance failed with {ExceptionType}; it runs again at the next interval.")]
-    private static partial void LogMaintenanceFailed(ILogger logger, string exceptionType);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Assistant MCP maintenance failed; it runs again at the next interval.")]
+    private static partial void LogMaintenanceFailed(ILogger logger, Exception exception);
 }

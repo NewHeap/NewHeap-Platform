@@ -93,9 +93,16 @@ public static class NhAssistantTriggerOutcomes
     public const string Deferred = "deferred";
 }
 
+/// <summary>
+/// Why a trigger did not start a run, as <see cref="NhAssistantTriggerReceipt.ReasonCode"/> names it.
+/// </summary>
 public static class NhAssistantTriggerReasons
 {
-    public const string RateLimited = "rate-limited";
+    /// <summary>
+    /// The agent already ran <c>MaxRunsPerSubjectPerDay</c> times on the subject in the last day; the
+    /// trigger is rejected. A start by hand answers it as an error with this code (<c>409</c>).
+    /// </summary>
+    public const string RateLimited = "assistant-trigger-rate-limited";
     public const string Busy = "busy";
     public const string Deduplicated = "deduplicated";
 

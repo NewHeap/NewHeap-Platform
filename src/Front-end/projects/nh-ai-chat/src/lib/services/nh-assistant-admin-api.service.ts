@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, forkJoin, map, of } from 'rxjs';
 import {
   AdminAgent,
   AdminAgentGroups,
@@ -54,18 +54,19 @@ import {
 } from '../models/assistant-admin.models';
 import { AgentRunFilter, AgentRunHistory } from '../models/assistant-agent-run.models';
 import { NhAssistantClientErrorCodes } from '../models/assistant-sse.models';
-import {
-  NhAssistantApiError,
-  NhAssistantStatusCodes,
-  NhAssistantTransport,
-  nhAssistantCodeForStatus,
-  nhAssistantErrorMessageKey
-} from './nh-assistant-transport';
+import { NhAssistantApiService } from './nh-assistant-api.service';
+import { NhAssistantStatusCodes, NhAssistantTransport } from './nh-assistant-transport';
 
 /** In the admin endpoints a 409 means a stale `expectedVersion` or a forbidden state change. */
 const adminStatusCodes: NhAssistantStatusCodes = {
   409: NhAssistantClientErrorCodes.versionConflict
 };
+
+/** The most account ids one `GET admin/accounts?ids=` reads; `getAccounts` asks for more in parts. */
+const maxAccountIds = 50;
+
+/** The longest account id the server reads; a longer id names no account. */
+const maxAccountIdLength = 256;
 
 /**
  * Client for the assistant administration endpoints (`admin/*`). The server requires the
@@ -76,6 +77,7 @@ const adminStatusCodes: NhAssistantStatusCodes = {
 @Injectable()
 export class NhAssistantAdminApiService {
   private readonly transport = inject(NhAssistantTransport);
+  private readonly api = inject(NhAssistantApiService);
 
   getContext(): Observable<ApplicationContext> {
     return this.request<ApplicationContext>('GET', 'admin/context');
@@ -241,10 +243,11 @@ export class NhAssistantAdminApiService {
 
   /**
    * Activates the connection of an authorization the caller started with the completion code the
-   * callback handed to the browser. An organization connection also needs the admin policy.
+   * callback handed to the browser. An organization connection also needs the admin policy. The same
+   * call as `NhAssistantApiService.completeMcpAuthorization`, with the same failure codes.
    */
   completeMcpAuthorization(request: McpCompleteRequest): Observable<McpCompletion> {
-    return this.request<McpCompletion>('POST', 'mcp-connections/complete', request);
+    return this.api.completeMcpAuthorization(request);
   }
 
   updateMcpTool(serverId: string, remoteName: string, request: UpdateMcpToolRequest): Observable<McpTool> {
@@ -316,9 +319,25 @@ export class NhAssistantAdminApiService {
     return this.request<AssistantAccount[]>('GET', withQuery('admin/accounts', { query, limit }));
   }
 
-  /** The names the application knows for these account ids; unknown ids are left out. */
+  /**
+   * The names the application knows for these account ids; unknown ids are left out. The server reads
+   * at most 50 ids per request, so more ids are asked for in parts of 50 and the answers merged in
+   * the order of the ids. Fails with `NhAssistantApiError` when any part fails.
+   */
   getAccounts(actorIds: readonly string[]): Observable<AssistantAccount[]> {
-    return this.request<AssistantAccount[]>('GET', withQuery('admin/accounts', { ids: actorIds.join(',') }));
+    // An empty id or one longer than the server reads names no account.
+    const ids = [...new Set(actorIds.filter(id => id.trim().length > 0 && id.length <= maxAccountIdLength))];
+    if (ids.length === 0) {
+      return of([]);
+    }
+
+    const parts: Observable<AssistantAccount[]>[] = [];
+    for (let start = 0; start < ids.length; start += maxAccountIds) {
+      const part = ids.slice(start, start + maxAccountIds);
+      parts.push(this.request<AssistantAccount[]>('GET', withQuery('admin/accounts', { ids: part.join(',') })));
+    }
+
+    return forkJoin(parts).pipe(map(answers => answers.flat()));
   }
 
   /**
@@ -340,8 +359,9 @@ export class NhAssistantAdminApiService {
 
   /**
    * Every run of the agent, live and shadow, newest first, for its runs view. Read one run's whole
-   * result with `NhAssistantAgentRunApiService.getRunResult`. Errors with `assistant-agent-not-found`
-   * for an unknown agent and `assistant-run-filter-invalid` for an invalid filter.
+   * result with `NhAssistantAgentRunApiService.getRunResult`. The server checks the filter first:
+   * `assistant-run-filter-invalid` with the refused parts in `fieldErrors`, then
+   * `assistant-agent-not-found` for an unknown agent.
    */
   getAgentRuns(agentId: string, filter: Omit<AgentRunFilter, 'agentId'> = {}): Observable<AgentRunHistory> {
     return this.request<AgentRunHistory>('GET', withQuery(`${agentPath(agentId)}/runs`, filter));
@@ -399,20 +419,8 @@ export class NhAssistantAdminApiService {
     return this.request<DataTrigger>('POST', `${triggerPath(agentId, triggerId)}/shadow`, request);
   }
 
-  private async download(path: string): Promise<Blob> {
-    let response: Response;
-    try {
-      response = await this.transport.fetch('GET', path, 'application/x-ndjson', undefined, new AbortController().signal);
-    } catch {
-      const code = nhAssistantCodeForStatus(0);
-      throw new NhAssistantApiError(0, code, nhAssistantErrorMessageKey(code));
-    }
-
-    if (!response.ok) {
-      const code = await this.transport.failureCode(response, adminStatusCodes);
-      throw new NhAssistantApiError(response.status, code, nhAssistantErrorMessageKey(code));
-    }
-    return response.blob();
+  private download(path: string): Promise<Blob> {
+    return this.transport.download(path, 'application/x-ndjson', adminStatusCodes);
   }
 
   private request<T>(method: string, path: string, body?: unknown): Observable<T> {

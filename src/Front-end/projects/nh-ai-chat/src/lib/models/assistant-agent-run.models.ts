@@ -396,11 +396,30 @@ export interface StartAgentRequest {
   message?: string | null;
 }
 
+/**
+ * What became of a start by hand (`POST threads/start`, `POST runs/{id}/retry` with `restart`):
+ * `started`, `queued`, `coalesced` with a run about to start, `superseded` the current run,
+ * `ignored` or `deduplicated`; `waiting` while the agent or its skill is paused (`reasonCode`
+ * `assistant-agent-paused` or `assistant-skill-paused`), so the run starts when it resumes; and
+ * `deferred` until the application's transaction commits, without a run or thread yet. A refused
+ * start is an HTTP error with its code, never a receipt.
+ */
+export type AgentTriggerOutcome =
+  | 'started'
+  | 'queued'
+  | 'coalesced'
+  | 'superseded'
+  | 'ignored'
+  | 'deduplicated'
+  | 'waiting'
+  | 'deferred';
+
 export interface AgentTriggerReceipt {
   triggerId: string;
-  outcome: 'started' | 'queued' | 'coalesced' | 'superseded' | 'ignored' | 'deduplicated' | 'rejected';
+  outcome: AgentTriggerOutcome;
   runId: string | null;
   conversationId: string | null;
+  /** Why the run did not start yet, such as `assistant-agent-paused` with `waiting`; `null` otherwise. */
   reasonCode: string | null;
 }
 

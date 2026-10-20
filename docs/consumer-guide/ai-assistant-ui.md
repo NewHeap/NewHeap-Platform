@@ -352,7 +352,11 @@ becoming the chat's agent. In the administration, "Run now" on an agent card ask
 this time: "The whole application" when it works on it, a division found by name for an agent that
 works per division, or an object of one of its kinds through the object picker. The server decides
 who may run it (participants of an object; for the whole application the agent's run policy, by
-default the administration policy) and its refusal shows in the dialog.
+default the administration policy) and its refusal shows in the dialog. The receipt
+(`AgentTriggerReceipt.outcome`, `AgentTriggerOutcome`) is `started`, `queued`, `coalesced`,
+`superseded`, `ignored`, `deduplicated`, `waiting` (a paused agent or skill, shown as a warning with
+its `reasonCode`) or `deferred`; a refused start, such as `assistant-trigger-rate-limited` or
+`assistant-agent-stopped`, arrives as an `NhAssistantApiError` with its registered code.
 
 Show what a run did with `nh-assistant-run-result` (`NhAssistantRunResultComponent`, `runId`) from
 `@newheap/platform-ai-chat/agent-runs`: what the run worked on, its status, trigger, start, duration and
@@ -458,6 +462,11 @@ the administration route under the same parent to share that scope.
   DOMPurify allow-list and shows inline HTML as text.
 - Displaying raw server messages. Show the translated `messageKey` of an `error`
   event and fall back to the code.
+- Mapping HTTP statuses to texts or swallowing a failed catalog, search, lookup or download as
+  "nothing found". Every assistant error carries a code with one status and its field errors; turn it
+  into an `NhAssistantError` (`toNhAssistantError`), show it with its key and a generic fallback, at
+  its field when `errors` names one, and offer Retry where it helps. `getAccounts` asks in parts of 50
+  ids, the server's limit.
 - Leaving a completed turn unexplained in a custom layout. Render
   `NhAssistantStore.notice` as a dismissible, non-blocking notice: it carries the
   `errorCode` of a `completed` turn (for example `assistant-tool-call-limit-reached`)
@@ -630,7 +639,14 @@ objects with projects as known, and per division is offered because the sample l
 (SPM-302). The run-now tests open the dialog from an agent card, run the agent for the whole
 application with the whole application chosen and focused, on an object chosen with the picker after
 asking for one, and in a division found by name; they offer only what the agent works on, show the
-server's refusal in the dialog, return focus and open the conversation from the receipt. The object
+server's refusal in the dialog, return focus and open the conversation from the receipt. They also show
+a paused agent's `waiting` receipt as a warning, a `deferred` one as information and a refused start
+with its coded text. The error tests download files with coded errors, keep a failed run catalog,
+search, lookup and account name lookup visible with Retry, show the outcome of a redirect-mode
+connection on its card, show the MCP server editor's and the runs view's field errors at their fields,
+and check that the mock API answers every code with the server's status (one shared table), caps
+account lookups at 50 ids and keeps proposals of the whole application to people who pass the
+agent's view policy. The object
 agents tests list the agents of a project and of the whole application, run one now on the object
 without asking what, show its latest result shortened with an ellipsis and its open proposals, open
 its work on demand, offer no run to a reader, show the empty and failed states and stay within 375px.

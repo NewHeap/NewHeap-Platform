@@ -28,12 +28,13 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapPost("threads/start", StartAgentAsync)
             .WithName("NhAssistantStartAgent")
             .WithSummary("Start an agent on a subject")
-            .WithDescription("Starts a run of the agent with the caller as initiator, by hand. On an object the caller needs at least the participant role and the agent's required policy. On the whole application (subjectType nh-system, subjectId global or division-{id:N}) the agent's run policy decides, by default the administration policy, evaluated for the caller as headless runs see them, and the caller reads it; the approve policy of the whole application gives no start. The agent must work on the subject and, for the whole application, on its scope: app-wide on global, per division on a division (409 assistant-agent-does-not-work-on otherwise).")
+            .WithDescription("Starts a run of the agent with the caller as initiator, by hand. On an object the caller needs at least the participant role and the agent's required policy. On the whole application (subjectType nh-system, subjectId global or division-{id:N}) the agent's run policy decides, by default the administration policy, evaluated for the caller as headless runs see them, and the caller reads it; the approve policy of the whole application gives no start. The agent must work on the subject and, for the whole application, on its scope: app-wide on global, per division on a division (409 assistant-agent-does-not-work-on otherwise). 202 names the outcome: started, queued, coalesced, superseded, ignored, deduplicated, waiting (the agent or skill is paused; reasonCode assistant-agent-paused or assistant-skill-paused) or deferred (until the caller's transaction commits). A refused start answers its code with that code's status, for example 409 assistant-trigger-rate-limited, 409 assistant-agent-stopped or 503 assistant-trigger-rolled-back; a malformed subject answers 400 assistant-subject-invalid.")
             .Produces<NhAssistantTriggerReceiptDto>(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status503ServiceUnavailable);
         group.MapGet("threads/{id:guid}/runs", ListRunsAsync)
             .WithName("NhAssistantListRuns")
             .WithSummary("List the runs of a thread")
@@ -83,15 +84,17 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapPost("runs/{runId:guid}/retry", RetryRunAsync)
             .WithName("NhAssistantRetryRun")
             .WithSummary("Retry an agent run")
-            .WithDescription("Resumes a failed or cancelled run from its last checkpoint, or restarts the agent in the same thread. The caller needs the approver role on the subject.")
+            .WithDescription("Resumes a failed or cancelled run from its last checkpoint, or restarts the agent in the same thread. The caller needs the approver role on the subject. A restart answers like POST threads/start: a refused start with its code and that code's status.")
             .Produces<NhAssistantTriggerReceiptDto>(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status503ServiceUnavailable);
         group.MapGet("approvals/inbox", GetInboxAsync)
             .WithName("NhAssistantGetApprovalInbox")
             .WithSummary("List the proposals the caller may decide")
-            .WithDescription("Returns pending agent proposals across threads that the caller may decide, sorted by expiry and paged: proposals on subjects the caller approves according to the member snapshot, proposals of runs the caller started made in the run's own thread, and proposals of the whole application (nh-system) where the caller's live role is approver. A proposal a run placed at another object waits for that object's approvers only; its placedBy names the run. Each decision is checked live again.")
+            .WithDescription("Returns pending agent proposals across threads that the caller may decide, sorted by expiry and paged: proposals on subjects the caller approves according to the member snapshot, proposals of runs the caller started made in the run's own thread, and proposals of the whole application (nh-system) where the caller's live role is approver or the caller started the run, both only when the caller passes the agent's view policy (by default its required policy). A proposal a run placed at another object waits for that object's approvers only; its placedBy names the run. Each decision is checked live again; a proposal of the whole application the caller may not see answers 404 like an unknown one.")
             .Produces<NhAssistantInboxDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
         group.MapGet("approvals/{approvalId:guid}", GetProposalAsync)
@@ -162,12 +165,12 @@ internal static class NhAssistantAgentRunEndpoints
             : await subjects.ResolveForAgentAsync(subject!, agentId!, caller.Data!.ActorId, cancellationToken);
         if (info is null || access.Role == NhAiSubjectRole.None)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.SubjectNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectNotFound);
         }
 
         if (await NhAssistantEndpointRouteBuilderExtensions.IsHiddenVariantAsync(httpContext, agentId!))
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.AgentNotFound);
         }
 
         var agent = await agents.FindAsync(agentId!, includeDisabled: false, cancellationToken);
@@ -205,7 +208,7 @@ internal static class NhAssistantAgentRunEndpoints
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantStartAgentRequest);
         if (request is null || request.Message is { Length: > 8_000 })
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
         if (!TryReadSubject(request.AgentId, request.SubjectType, request.SubjectId, registration, subjects, out var subject, out var error))
         {
@@ -217,9 +220,10 @@ internal static class NhAssistantAgentRunEndpoints
         var access = await subjects.ResolveForAgentAsync(subject!, request.AgentId!, caller.Data!.ActorId, cancellationToken);
         var agent = await agents.FindAsync(request.AgentId!, includeDisabled: false, cancellationToken);
         // K9: on an object the participant role, on the whole application the agent's run policy.
-        if (await starts.RefusalAsync(agent, subject!, access, caller.Data.ActorId, httpContext.User, cancellationToken) is { } refusal)
+        var allowed = await starts.CheckStartAsync(agent, subject!, access, caller.Data.ActorId, httpContext.User, cancellationToken);
+        if (!allowed.Success)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(refusal.Status, refusal.Code);
+            return NhAssistantHttpErrors.Failure(allowed);
         }
 
         var receipt = await triggers.StartNowAsync(request.AgentId!, subject!, caller.Data.ActorId, request.Message, cancellationToken);
@@ -244,7 +248,7 @@ internal static class NhAssistantAgentRunEndpoints
         var size = itemsPerPage ?? 20;
         if (pageNumber < 1 || size is < 1 or > 100)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
 
         var (items, total) = await runs.ListRunsAsync(id, pageNumber, size, httpContext.RequestAborted);
@@ -278,7 +282,7 @@ internal static class NhAssistantAgentRunEndpoints
         var size = itemsPerPage ?? 20;
         if (pageNumber < 1 || size is < 1 or > 100)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
 
         var (items, total) = await runs.ListConsultationsAsync(id, pageNumber, size, httpContext.RequestAborted);
@@ -410,7 +414,7 @@ internal static class NhAssistantAgentRunEndpoints
         var artifact = await artifacts.FindAsync(id, artifactId, httpContext.RequestAborted);
         if (artifact is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ArtifactNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ArtifactNotFound);
         }
         if (!await MayReadArtifactAsync(
                 NhAssistantRestrictedResults.For(httpContext, access.Access!),
@@ -418,7 +422,7 @@ internal static class NhAssistantAgentRunEndpoints
                 artifact.ToolInvocationId,
                 httpContext.RequestAborted))
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectAccessDenied);
         }
 
         httpContext.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -453,7 +457,7 @@ internal static class NhAssistantAgentRunEndpoints
         var run = await runs.FindRunAsync(runId, httpContext.RequestAborted);
         if (run is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.RunNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.RunNotFound);
         }
         var access = await ResolveThreadAsync(httpContext, run.ConversationId, threads, NhAiSubjectRole.Participant);
         if (access.Error is not null)
@@ -487,12 +491,12 @@ internal static class NhAssistantAgentRunEndpoints
         var mode = request?.Mode ?? "resume";
         if (mode is not ("resume" or "restart"))
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.RunNotRetryable);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.RunNotRetryable);
         }
         var run = await runs.FindRunAsync(runId, httpContext.RequestAborted);
         if (run is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.RunNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.RunNotFound);
         }
         var access = await ResolveThreadAsync(httpContext, run.ConversationId, threads, NhAiSubjectRole.Approver);
         if (access.Error is not null)
@@ -501,7 +505,7 @@ internal static class NhAssistantAgentRunEndpoints
         }
         if (run.Status is not (NhAssistantRunStatuses.Failed or NhAssistantRunStatuses.Cancelled))
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.RunNotRetryable);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.RunNotRetryable);
         }
 
         var cancellationToken = httpContext.RequestAborted;
@@ -519,14 +523,14 @@ internal static class NhAssistantAgentRunEndpoints
 
         if (run.BackgroundOperationId is not { } operationId || !Guid.TryParse(access.ActorId, out var userId))
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.RunNotRetryable);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.RunNotRetryable);
         }
         var retried = await httpContext.RequestServices
             .GetRequiredService<INhBackgroundOperationService>()
             .RetryForUserAsync(operationId, userId, cancellationToken);
         if (!retried.Success)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.RunNotRetryable);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.RunNotRetryable);
         }
 
         await runs.TrySetRunStatusAsync(
@@ -558,20 +562,21 @@ internal static class NhAssistantAgentRunEndpoints
         var size = itemsPerPage ?? 20;
         if (pageNumber < 1 || size is < 1 or > 100 || (subjectType is not null && !NhAiSubjectRef.IsValidType(subjectType)))
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
 
-        // The whole application lists no members: its approvers are evaluated now.
-        var systemApproverOf = subjectType is null || subjectType == NhAiSubjectRef.SystemType
-            ? await systemApprovers.ApproverSubjectsAsync(caller.Data!.ActorId, caller.Data.TenantId, httpContext.RequestAborted)
-            : [];
+        // The whole application lists no members: its approvers, and who passes each agent's view
+        // policy, are evaluated now.
+        var system = subjectType is null || subjectType == NhAiSubjectRef.SystemType
+            ? await systemApprovers.InboxAsync(caller.Data!.ActorId, caller.Data.TenantId, httpContext.RequestAborted)
+            : NhAssistantSystemInbox.None;
         var (items, total) = await runs.ListInboxAsync(
             caller.Data!.ActorId,
             new NhAssistantInboxFilter(subjectType, agentId, divisionId, runId),
             pageNumber,
             size,
             httpContext.RequestAborted,
-            systemApproverOf);
+            system);
         var proposals = await NhAssistantAgentRunDtoMapper.CompleteAsync(
             items.Select(row => NhAssistantAgentRunDtoMapper.ToDto(row.Approval, row.Thread)).ToArray(),
             runs,
@@ -602,7 +607,7 @@ internal static class NhAssistantAgentRunEndpoints
             httpContext.RequestAborted);
         // A proposal the caller may not see answers like one that does not exist.
         return read.Count == 0
-            ? NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ApprovalNotFound)
+            ? NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ApprovalNotFound)
             : TypedResults.Json(read[0], NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSubjectProposalDto);
     }
 
@@ -621,7 +626,7 @@ internal static class NhAssistantAgentRunEndpoints
         var ids = request?.ApprovalIds?.Distinct().ToArray();
         if (ids is null || ids.Length is 0 or > NhAssistantProposalLookupRequest.MaxApprovalIds)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
 
         var read = await reads.ReadAsync(
@@ -653,7 +658,7 @@ internal static class NhAssistantAgentRunEndpoints
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalDecisionRequest);
         if (request is null || request.Decision is not ("approve" or "reject") || request.Reason is { Length: > 500 })
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.ApprovalDecisionInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
         }
 
         var decided = await decisions.DecideAsync(
@@ -683,7 +688,7 @@ internal static class NhAssistantAgentRunEndpoints
             || request.Decision is not ("approve" or "reject")
             || request.Reason is { Length: > 500 })
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.ApprovalDecisionInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
         }
 
         var results = new List<NhAssistantDecisionOutcomeDto>(approvalIds.Count);
@@ -700,7 +705,7 @@ internal static class NhAssistantAgentRunEndpoints
             results.Add(new NhAssistantDecisionOutcomeDto(
                 approvalId,
                 decided.Success,
-                decided.Success ? null : FirstCode(decided),
+                decided.Success ? null : NhAssistantResults.CodeOf(decided, NhAssistantErrorCodes.TurnFailed),
                 decided.Data?.Status));
         }
 
@@ -726,7 +731,7 @@ internal static class NhAssistantAgentRunEndpoints
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantResolveExecutionRequest);
         if (request is null || request.Action is not ("re-execute" or "mark-resolved") || request.Reason is { Length: > 500 })
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.ApprovalDecisionInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
         }
 
         var resolved = await decisions.ResolveExecutionAsync(
@@ -809,11 +814,11 @@ internal static class NhAssistantAgentRunEndpoints
             : await threads.ResolveAccessAsync(conversationId, caller.Data!.ActorId, null, httpContext.RequestAborted);
         if (access is null)
         {
-            return (null, null, NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ConversationNotFound));
+            return (null, null, NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ConversationNotFound));
         }
         if (access.Role < minimum)
         {
-            return (null, null, NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied));
+            return (null, null, NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectAccessDenied));
         }
 
         return (access, caller.Data.ActorId, null);
@@ -862,7 +867,7 @@ internal static class NhAssistantAgentRunEndpoints
         error = null;
         if (string.IsNullOrWhiteSpace(agentId) || !registration.AgentRuns.ContainsKey(agentId))
         {
-            error = NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
+            error = NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.AgentNotFound);
             return false;
         }
         if (!NhAiSubjectRef.IsValidType(subjectType)
@@ -870,12 +875,12 @@ internal static class NhAssistantAgentRunEndpoints
             || subjectId.Length > NhAiSubjectRef.MaxIdLength
             || subjectId.Trim() != subjectId)
         {
-            error = NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.SubjectNotFound);
+            error = NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectInvalid);
             return false;
         }
         if (!subjects.IsKnownType(subjectType!))
         {
-            error = NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.SubjectTypeUnknown);
+            error = NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectTypeUnknown);
             return false;
         }
 
@@ -895,20 +900,7 @@ internal static class NhAssistantAgentRunEndpoints
     {
         if (!result.Success)
         {
-            var code = FirstCode(result);
-            var status = code switch
-            {
-                NhAssistantErrorCodes.ApprovalNotFound => StatusCodes.Status404NotFound,
-                NhAssistantErrorCodes.ApprovalNotPending
-                    or NhAssistantErrorCodes.ProposalHashMismatch
-                    or NhAssistantErrorCodes.ProposalStale
-                    or NhAssistantErrorCodes.ExecutionNotUncertain => StatusCodes.Status409Conflict,
-                NhAssistantErrorCodes.ProposalCheckFailed => StatusCodes.Status503ServiceUnavailable,
-                NhAssistantErrorCodes.ApprovalPolicyDenied
-                    or NhAssistantErrorCodes.FourEyesRequired => StatusCodes.Status403Forbidden,
-                _ => StatusCodes.Status400BadRequest
-            };
-            return NhAssistantEndpointRouteBuilderExtensions.Error(status, code);
+            return NhAssistantHttpErrors.Failure(result);
         }
 
         var approval = result.Data!;
@@ -929,28 +921,22 @@ internal static class NhAssistantAgentRunEndpoints
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalDto);
     }
 
-    private static IResult Receipt(NhAssistantTriggerReceipt receipt)
+    /// <summary>
+    /// The answer to a start by hand: <c>202</c> with the receipt for every outcome that leads to work
+    /// (started, queued, coalesced, superseded, ignored, deduplicated, waiting while the agent or skill
+    /// is paused, or deferred until the transaction commits), and a refusal as the error of its reason
+    /// code with that code's status.
+    /// </summary>
+    internal static IResult Receipt(NhAssistantTriggerReceipt receipt)
     {
-        var dto = new NhAssistantTriggerReceiptDto(receipt.TriggerId, receipt.Outcome, receipt.RunId, receipt.ConversationId, receipt.ReasonCode);
         if (receipt.Outcome == NhAssistantTriggerOutcomes.Rejected)
         {
-            var status = receipt.ReasonCode == NhAssistantTriggerReasons.RateLimited
-                ? StatusCodes.Status409Conflict
-                : StatusCodes.Status400BadRequest;
-            return NhAssistantEndpointRouteBuilderExtensions.Error(status, receipt.ReasonCode ?? NhAssistantErrorCodes.TurnFailed);
+            return NhAssistantHttpErrors.Error(receipt.ReasonCode ?? NhAssistantErrorCodes.TurnFailed);
         }
 
         return TypedResults.Json(
-            dto,
+            new NhAssistantTriggerReceiptDto(receipt.TriggerId, receipt.Outcome, receipt.RunId, receipt.ConversationId, receipt.ReasonCode),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantTriggerReceiptDto,
             statusCode: StatusCodes.Status202Accepted);
-    }
-
-    private static string FirstCode(NewHeap.Platform.Common.Models.TaskResult result)
-    {
-        return result.GetResultItems()
-            .Select(item => item.Name)
-            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
-            ?? NhAssistantErrorCodes.TurnFailed;
     }
 }

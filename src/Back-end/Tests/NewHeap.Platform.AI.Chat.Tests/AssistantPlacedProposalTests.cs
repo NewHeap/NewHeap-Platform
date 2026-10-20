@@ -34,6 +34,7 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
     private const string FollowUp = "project-assistant";
     private const string ApplicationOnly = "application-statistics";
     private const string DivisionAgent = "division-assistant";
+    private const string ResponsibleAgent = "responsible-assistant";
     private const string Admin = "admin-1";
     private const string Approver = "approver-1";
     private const string Member = "member-1";
@@ -400,6 +401,26 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
         return Assert.Single(Script(app).Proposals);
     }
 
+    [Fact]
+    public async Task A_proposal_for_an_object_where_nobody_answers_for_the_agent_is_not_placed_there_with_its_own_reason()
+    {
+        await using var app = await StartAsync(AssistantTestProvider.PostgreSql);
+        var project = AddProject(app);
+        await using var scope = app.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var agent = (await services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(ResponsibleAgent, includeDisabled: false, CancellationToken.None))!;
+        var target = (await services.GetRequiredService<NhAssistantSubjectAccessService>().DescribeAsync(Project(project), CancellationToken.None))!;
+
+        // The agent answers to the object's responsible person, and this project names none.
+        var prepared = await services.GetRequiredService<NhAssistantProposalPlacement>().PrepareThreadAtAsync(agent, target, shadow: false, CancellationToken.None);
+
+        Assert.False(prepared.Success);
+        Assert.Equal(NhAssistantErrorCodes.NoAccountableOwner, NhAssistantResults.CodeOf(prepared));
+        Assert.Equal(NhAssistantPlacementReasons.NoAccountableOwner, NhAssistantProposalPlacement.ReasonOf(prepared));
+        Assert.Equal(NhAssistantPlacementReasons.NoAccess, NhAssistantProposalPlacement.ReasonOf(TaskResult.Failed("other-code", "Another failure.")));
+        Assert.Null(await WithRunsAsync(app, runs => runs.FindThreadAsync(target.ScopeKey, ResponsibleAgent, target.Subject, CancellationToken.None, false)));
+    }
+
     private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider, int maxPlaced = 20)
     {
         return AssistantWebApplication.StartAsync(
@@ -431,6 +452,12 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
                     .BindTo(NhAiApprovalBinding.ToolContract))
                 .AddAgent(AssistantTestData.Agent(ApplicationOnly))
                 .AddAgent(AssistantTestData.Agent(DivisionAgent))
+                .AddAgent(AssistantTestData.Agent(ResponsibleAgent))
+                .ConfigureAgent(ResponsibleAgent, run => run
+                    .WorksOn("project")
+                    .Accountability(NhAiAgentAccountability.SubjectResponsible)
+                    .UseApprovalPolicy(PolicyId)
+                    .UseRuleHandler<TestRules>())
                 .ConfigureAgent(FollowUp, run => run
                     .WorksOn("project")
                     .WorksOnApplication()

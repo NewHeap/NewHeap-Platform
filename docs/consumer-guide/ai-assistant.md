@@ -102,9 +102,15 @@ implementations registered before `AddNewHeapAssistant`.
 Register an admin policy with `UseAdminPolicy` (or `NewHeap:AI:Assistant:AdminPolicy`,
 default `app.assistant.admin`); startup fails when it does not exist, because
 `MapNewHeapAssistant` also maps the `admin/*` endpoints behind the access and admin
-policies. `GET status` reports `canAdminister`. Errors of `preferences` and `admin/*`
-carry `{ code, messageKey, errors? }`: `assistant-validation` (`400`, camelCase field
-keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` codes (`404`).
+policies. `GET status` reports `canAdminister`. Every assistant endpoint (chat, administration,
+agent runs, subjects, run histories, boards, MCP connections and the OAuth callback) answers a failure
+as `{ code, messageKey, errors? }` with the one HTTP status the assistant gives that code, whichever
+endpoint returns it: for example `assistant-validation` (`400`, camelCase field keys in `errors`,
+dotted for nested input such as `oauth.clientSecretReference`), `assistant-forbidden` and
+`assistant-context-unavailable` (`403`), the `*-not-found` codes (`404`), conflicts with the
+current state (`409`), remote MCP and OAuth failures (`502`) and a failing secret store or a run that
+could not be queued (`503`). `errors` carries field errors for any code, such as the parameters of an
+invalid run filter. Clients map the code, never the status, to a text.
 
 - **Agents.** Agents added with `AddAgent` are code agents: they are upserted into
   `AssistantAgent` at startup and stay the default. Administrators override, disable
@@ -138,7 +144,8 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   `error="insufficient_scope"` reports `assistant-mcp-insufficient-scope`. A tool list
   seen with one caller's forwarded token never disables a tool for everyone; only an
   administrator's sync writes `missing` and `schema-changed`. Test, sync and turns
-  with the shared credential record `lastConnectAt` and `lastConnectCode`.
+  with the shared credential record `lastConnectAt` and `lastConnectCode`; a test or sync with an
+  administrator's own credential does not, because it says nothing about the server for everyone else.
 - **MCP credentials.** Besides `none`, `bearer`, `api-key` and `forward-user-token`,
   a server can use `basic` (`userName` plus the write-only secret as password). A
   secret is stored with Data Protection or named by `secretReference`:
@@ -153,8 +160,13 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   `Password` of a PKCS#12 file, or `Thumbprint` in a store) with a private key, which the
   client presents for mutual TLS. `transport` is `streamable-http`, or `auto` for a
   server that only offers the deprecated HTTP+SSE transport; the SSE `endpoint` event
-  must stay on the configured origin. Invalid references fail with
-  `assistant-mcp-secret-reference-invalid` and `assistant-mcp-certificate-reference-invalid`.
+  must stay on the configured origin. Saving a reference that names nothing available fails with the
+  field error `not-found` at `secretReference`, `oauth.clientSecretReference` or
+  `clientCertificateReference`; at runtime such a server is skipped with
+  `assistant-mcp-secret-reference-invalid` or `assistant-mcp-certificate-reference-invalid`. A stored
+  secret or client secret that no longer decrypts, for example after the data protection keys changed,
+  fails with `409 assistant-mcp-secret-unreadable` and a warning: enter it again. A secret resolver that
+  throws fails with `503 assistant-mcp-secret-unavailable` and its exception is logged.
 - **MCP in background runs.** A server's tools are offered in headless runs (and in
   the execution of their deferred proposals) only when an administrator sets its
   `headlessUse` (`NhAssistantMcpHeadlessUses`); every server starts at `never`.
@@ -165,7 +177,12 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   is checked for the person whose rights the run uses; a run that acts for the agent
   alone does not get servers with a required policy. An approved deferred proposal
   imports the tool again under the same rules and executes it once; a server that no
-  longer allows headless use fails it with `assistant-mcp-headless-not-allowed`.
+  longer allows headless use fails it with `assistant-mcp-headless-not-allowed`. A call whose request never
+  left the host (a blocked target, a call the credential may not carry, a credential that could not be
+  obtained) or that the server refused with `401` or `403` without a renewed credential certainly did
+  not run: its approved proposal ends `execution-failed` with that code, never `execution-unknown`. A
+  chat approval of a tool whose server is left out of the turn fails with the server's skip code, as a
+  deferred execution does.
 - **Personal servers in background runs.** `personal` is for `forward-user-token`
   servers of the same trust domain: a run sends a short-lived delegated NewHeap token of
   the person whose rights it uses (`INhAiMcpDelegatedTokenIssuer`, at most
@@ -203,11 +220,18 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   otherwise `assistant-mcp-oauth-not-configured`), `ReturnOrigins` the origins of the
   pages that start an authorization, and optionally `ClientMetadataDocumentUri` for
   `<prefix>/mcp/oauth/client-metadata.json`; without a client id the host uses that
-  document or registers itself dynamically, once per issuer. The administrator starts
+  document or registers itself dynamically, once per issuer, and again when the registration's client
+  secret expired or the authorization server answers `invalid_client` (a connection whose refresh token
+  belonged to that registration then needs a new authorization). The administrator starts
   with `POST admin/mcp-servers/{id}/connection/authorize` and opens the URL in a popup;
   the anonymous callback exchanges the code and its page posts a one-time completion
   code to the opener, which `POST mcp-connections/complete` turns into the connection
-  with the starter's own session and the admin policy. Tokens are protected with Data
+  with the starter's own session and the admin policy. A failure reaches the browser as `code` and
+  `messageKey` in the message to the opener, or as `nh-mcp-error` and `nh-mcp-message-key` in the
+  return URL's fragment in redirect mode, and the callback never answers a bare `500`. Every connection
+  endpoint follows one rule: authorizing needs `oauth`, the organization's connection exists for `oauth`
+  and `oauth-client-credentials`, personal connections only for `oauth` with `connectionScope: user`;
+  anything else answers `409 assistant-mcp-connection-not-supported`. Tokens are protected with Data
   Protection, renewed once across instances before expiry (a database lease) and after a
   `401`; `insufficient_scope` asks client credentials for the union of scopes within
   `oauth.scopes` (`assistant-mcp-scope-not-allowed` otherwise). A refused refresh ends
@@ -234,9 +258,10 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   consent: when it acts for someone else, such as the account the agent answers to, the server is
   left out with `assistant-mcp-initiator-only`; organization credentials are unaffected.
   Connections and tool lists are cached per person only. Administrators test and sync such a
-  server with their own connection (`POST admin/mcp-servers/{id}/connection/authorize`), count the
-  personal connections and revoke them all. Personal connections unused for `ConnectionRetention`
-  are removed and revoked. `ToolInvoked` names whose credential a call carried in
+  server with their own connection (`POST admin/mcp-servers/{id}/connection/authorize`; `GET` and
+  `DELETE .../connection` then read and remove that own connection), count the personal connections
+  and revoke them all. Personal connections unused for `ConnectionRetention` lose their tokens, which
+  are revoked; a person's consent to background use stays on the row, as after a disconnect. `ToolInvoked` names whose credential a call carried in
   `McpConnectionOwner`.
 - Every administration change is a content-free audit event
   (`AdminContextUpdated`, `AdminAgent*`, `AdminMcpServer*`, `AdminMcpToolUpdated`).

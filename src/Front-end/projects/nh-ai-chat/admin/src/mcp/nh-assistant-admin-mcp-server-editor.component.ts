@@ -2,6 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -29,6 +32,53 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { focusFirstInvalid } from '../agents/run-config/run-config-shared';
+
+/**
+ * The longest values the server accepts per field of a server (`POST`/`PUT admin/mcp-servers`); the
+ * editor's fields stop there.
+ */
+const NH_ASSISTANT_MCP_SERVER_LIMITS = {
+  id: 40,
+  displayName: 200,
+  url: 2048,
+  headerName: 128,
+  secret: 2000,
+  secretReference: 233,
+  userName: 256,
+  clientCertificateReference: 100,
+  requiredPolicy: 256,
+  scopes: 1024,
+  clientId: 512,
+  clientSecret: 2000,
+  organizationAccountLabel: 200
+} as const;
+
+/** The fields of a server the server reports errors for, as the editor shows them. */
+const serverFields = [
+  'id',
+  'displayName',
+  'url',
+  'authMode',
+  'headerName',
+  'secret',
+  'secretReference',
+  'userName',
+  'clientCertificateReference',
+  'transport',
+  'connectionScope',
+  'oauth.scopes',
+  'oauth.clientId',
+  'oauth.clientSecret',
+  'oauth.clientSecretReference',
+  'oauth.organizationAccountLabel',
+  'oauth.confirmAuthorization',
+  'requiredPolicy',
+  'headlessUse'
+] as const;
+
+/** A header name the server accepts: 1 to 128 letters, digits and dashes. */
+const headerNamePattern = /^[A-Za-z0-9-]{1,128}$/;
 
 /**
  * What happens to the stored secret on save. `keep` omits `secret`, `replace` sends the
@@ -52,7 +102,9 @@ let nextId = 0;
 /**
  * Creates or edits one MCP server: the authentication with a write-only secret or a reference to
  * one, OAuth with discovery the administrator confirms, an optional client certificate, the
- * transport and the use in background runs.
+ * transport and the use in background runs. Every field stops at the length the server accepts; a
+ * refused save shows each of the server's field errors at its field, for example a secret reference
+ * the application cannot resolve (`not-found`), and moves the focus to the first of them.
  */
 @Component({
   selector: 'nh-assistant-admin-mcp-server-editor',
@@ -64,8 +116,12 @@ let nextId = 0;
 })
 export class NhAssistantAdminMcpServerEditorComponent {
   private readonly admin = inject(NhAssistantAdminApiService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   private subscription?: Subscription;
   private discoverySubscription?: Subscription;
+  /** Fields whose server error the administrator changed since the refused save. */
+  private readonly touched = signal<ReadonlySet<string>>(new Set());
 
   /** The server to edit, or null for a new server. */
   readonly server = input<McpServer | null>(null);
@@ -73,6 +129,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly cancelled = output<void>();
 
   readonly id = `nh-assistant-server-editor-${nextId++}`;
+  readonly limits = NH_ASSISTANT_MCP_SERVER_LIMITS;
   readonly authModes: readonly McpAuthMode[] = ['none', 'bearer', 'api-key', 'basic', 'forward-user-token', 'oauth', 'oauth-client-credentials'];
   readonly transports: readonly McpTransport[] = ['streamable-http', 'auto'];
   readonly secretSources: readonly NhAssistantSecretSource[] = ['stored', 'reference'];
@@ -176,9 +233,28 @@ export class NhAssistantAdminMcpServerEditorComponent {
   });
   readonly oauthInvalid = computed(() => this.isOAuth() && (this.confirmMissing() || this.pkceMissing() || this.scopesInvalid() ||
     this.clientIdMissing() || this.labelMissing() || this.oauthReferenceInvalid()));
-  readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.urlInvalid() &&
+  readonly headerNameInvalid = computed(() => {
+    const header = this.headerName().trim();
+    return this.authMode() === 'api-key' && header.length > 0 && !headerNamePattern.test(header);
+  });
+  readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.urlInvalid() && !this.headerNameInvalid() &&
     !this.userNameInvalid() && !this.secretReferenceInvalid() && !this.certificateInvalid() && !this.oauthInvalid());
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
+  /** The server's first error per field of the refused save, until the administrator changes the field. */
+  readonly serverErrors = computed<Readonly<Record<string, string>>>(() => {
+    const touched = this.touched();
+    const errors: Record<string, string> = {};
+    for (const [field, values] of Object.entries(this.error()?.fieldErrors ?? {})) {
+      if (values.length > 0 && !touched.has(field)) {
+        errors[field] = values[0];
+      }
+    }
+    return errors;
+  });
+  /** Field errors of fields the editor does not show, listed with the form's error. */
+  readonly otherServerErrors = computed(() => Object.entries(this.serverErrors())
+    .filter(([field]) => !(serverFields as readonly string[]).includes(field))
+    .map(([field, value]) => ({ field, keys: this.valueKeys(value) })));
   readonly discoveryErrorKeys = computed(() => nhAssistantErrorKeys(this.discoveryError()));
 
   constructor() {
@@ -195,6 +271,35 @@ export class NhAssistantAdminMcpServerEditorComponent {
 
   value(event: Event): string {
     return (event.target as HTMLInputElement | HTMLSelectElement).value;
+  }
+
+  /** Whether the server refused the field in the last save. */
+  serverInvalid(field: string): boolean {
+    return this.serverErrors()[field] !== undefined;
+  }
+
+  /** The text of the server's error of a field: the text of its value, then the generic text. */
+  serverErrorKeys(field: string): string[] {
+    const value = this.serverErrors()[field];
+    return value ? this.valueKeys(value) : [];
+  }
+
+  /** The id of a field's error, for `aria-describedby`. */
+  errorId(field: string): string {
+    return `${this.id}-${field.replace('.', '-')}-error`;
+  }
+
+  /** The ids a control describes itself with: its hint and, while the server refused it, its error. */
+  describedBy(hintId: string | null, field: string): string | null {
+    const ids = [hintId, this.serverInvalid(field) ? this.errorId(field) : null].filter((id): id is string => id !== null);
+    return ids.length > 0 ? ids.join(' ') : null;
+  }
+
+  /** The administrator changed a field; its server error no longer applies. */
+  touch(field: string): void {
+    if (this.serverErrors()[field] !== undefined) {
+      this.touched.set(new Set([...this.touched(), field]));
+    }
   }
 
   checked(event: Event): boolean {
@@ -324,6 +429,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
 
     this.saving.set(true);
     this.error.set(null);
+    this.touched.set(new Set());
     this.subscription?.unsubscribe();
     this.subscription = request.subscribe({
       next: server => {
@@ -335,8 +441,17 @@ export class NhAssistantAdminMcpServerEditorComponent {
       error: (error: unknown) => {
         this.saving.set(false);
         this.error.set(toNhAssistantError(error));
+        this.focusFirstInvalid();
       }
     });
+  }
+
+  private focusFirstInvalid(): void {
+    afterNextRender(() => focusFirstInvalid(this.host.nativeElement.querySelector('form')), { injector: this.injector });
+  }
+
+  private valueKeys(value: string): string[] {
+    return [`nh-assistant.admin.run-config.field-errors.${value}`, 'nh-assistant.errors.generic'];
   }
 
   private reset(server: McpServer | null): void {
@@ -370,6 +485,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
     this.confirmAuthorization.set(false);
     this.submitted.set(false);
     this.error.set(null);
+    this.touched.set(new Set());
   }
 
   /**

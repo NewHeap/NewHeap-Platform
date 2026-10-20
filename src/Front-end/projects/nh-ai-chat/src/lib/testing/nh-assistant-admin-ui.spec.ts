@@ -418,13 +418,21 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await settle(fixture);
     button(element, 'Confirm account').click();
     await settle(fixture);
-    expect(card().querySelector('[data-agent-error]')?.textContent).toContain('Required.');
+    // A missing account shows at the account field, which describes itself with it.
+    const accountError = card().querySelector('[data-account-error]') as HTMLElement;
+    expect(accountError.textContent).toContain('Required.');
+    const accountField = element.querySelector('input[id$="-account"]') as HTMLInputElement;
+    expect(accountField.getAttribute('aria-invalid')).toBe('true');
+    expect(accountField.getAttribute('aria-describedby')).toContain(accountError.id);
+    expect(card().querySelector('[data-agent-error]')).toBeNull();
     expect(requestBodies('POST', 'admin/agents/projects/service-account')).toEqual([]);
     type(element, 'input[id$="-account"]', 'unknown-1');
     await settle(fixture);
     button(element, 'Confirm account').click();
     await settle(fixture);
-    expect(element.querySelector('[role="alert"]')?.textContent).toContain('No account that may sign in exists with this id.');
+    // The server's refusal of the account shows at the field too, and the form stays open.
+    expect(card().querySelector('[data-account-error]')?.textContent).toContain('No account that may sign in exists with this id.');
+    expect(card().querySelector('[data-account-form]')).not.toBeNull();
 
     (card().querySelector('[data-account-action="set"]') as HTMLButtonElement).click();
     await settle(fixture);
@@ -1039,7 +1047,12 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     type(element, 'input[id$="-secret-reference"]', 'vault:files');
     button(element, 'Save').click();
     await settle(fixture);
-    expect(element.querySelector('[role="alert"]')?.textContent).toContain('The secret reference names no available secret.');
+    // A reference the application cannot resolve shows at its field, which takes the focus.
+    const reference = element.querySelector('input[id$="-secret-reference"]') as HTMLInputElement;
+    expect(reference.getAttribute('aria-invalid')).toBe('true');
+    expect(element.querySelector(`#${reference.getAttribute('aria-describedby')!.split(' ').at(-1)}`)?.textContent)
+      .toContain('The application does not know this name.');
+    expect(document.activeElement).toBe(reference);
 
     type(element, 'input[id$="-secret-reference"]', 'config:files-token');
     button(element, 'Save').click();
@@ -1062,7 +1075,9 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     type(element, 'input[id$="-certificate"]', 'unknown-client');
     button(element, 'Save').click();
     await settle(fixture);
-    expect(element.querySelector('[role="alert"]')?.textContent).toContain('The client certificate is not configured or has no private key.');
+    const certificate = element.querySelector('input[id$="-certificate"]') as HTMLInputElement;
+    expect(certificate.getAttribute('aria-invalid')).toBe('true');
+    expect(certificate.closest('.field')?.querySelector('.field-error')?.textContent).toContain('The application does not know this name.');
 
     type(element, 'input[id$="-certificate"]', 'files-client');
     choose(element, 'select[id$="-transport"]', 'auto');

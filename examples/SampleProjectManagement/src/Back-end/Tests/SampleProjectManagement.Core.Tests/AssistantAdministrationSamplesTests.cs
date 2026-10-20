@@ -225,7 +225,8 @@ public sealed partial class AssistantSamplesTests
             Assert.Equal("invalid", (await AssistantSampleHost.ReadJsonAsync(otherSetting)).GetProperty("errors").GetProperty("secretReference")[0].GetString());
             Assert.Equal(HttpStatusCode.BadRequest, climbing.StatusCode);
             Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
-            Assert.Equal("assistant-mcp-secret-reference-invalid", (await AssistantSampleHost.ReadJsonAsync(missing)).GetProperty("code").GetString());
+            // A reference that names no secret is refused at its field.
+            Assert.Equal("not-found", (await AssistantSampleHost.ReadJsonAsync(missing)).GetProperty("errors").GetProperty("secretReference")[0].GetString());
 
             // Basic authentication: the user name is shown, the password is a write-only secret that
             // replaces the reference.

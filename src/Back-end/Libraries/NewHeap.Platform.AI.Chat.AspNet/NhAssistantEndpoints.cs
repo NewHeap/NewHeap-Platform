@@ -148,7 +148,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .CurrentValue;
         if (!options.Enabled)
         {
-            return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.Disabled);
+            return Error(NhAssistantErrorCodes.Disabled);
         }
         return await next(context);
     }
@@ -203,7 +203,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         var size = itemsPerPage ?? 20;
         if (pageNumber < 1 || size is < 1 or > 100)
         {
-            return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return Error(NhAssistantErrorCodes.MessageInvalid);
         }
         var (items, total) = await store.ListConversationsAsync(
             caller.Data.ActorId,
@@ -232,23 +232,23 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantCreateConversationRequest);
         if (request is null || string.IsNullOrWhiteSpace(request.AgentId))
         {
-            return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.AgentNotFound);
+            return Error(NhAssistantErrorCodes.AgentNotFound);
         }
         var title = request.Title?.Trim();
         if (title is { Length: > 200 })
         {
-            return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.TitleInvalid);
+            return Error(NhAssistantErrorCodes.TitleInvalid);
         }
         var effective = await registry.FindAsync(request.AgentId, includeDisabled: false, httpContext.RequestAborted);
         // An agent kept out of the chat reads as unknown here; its runs and subject threads go on.
         if (effective is null || !effective.OfferedInChat)
         {
-            return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
+            return Error(NhAssistantErrorCodes.AgentNotFound);
         }
         var agent = effective.Definition;
         if (!await access.CanUseAsync(httpContext.User, agent))
         {
-            return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
+            return Error(NhAssistantErrorCodes.AgentForbidden);
         }
 
         var ownerName = NhAssistantParticipantNames.Normalize(
@@ -322,7 +322,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantSendMessageRequest);
         if (request is null)
         {
-            return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return Error(NhAssistantErrorCodes.MessageInvalid);
         }
         var resolved = await ResolveAccessAsync(httpContext, id, caller.Data, NhAssistantAgentCheck.Everyone);
         if (resolved.Error is not null)
@@ -341,7 +341,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             if (threadAccess.Role < NhAiSubjectRole.Participant)
             {
-                return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
+                return Error(NhAssistantErrorCodes.SubjectAccessDenied);
             }
 
             var created = await httpContext.RequestServices.GetRequiredService<NhAssistantAgentTurnFactory>().CreateAsync(
@@ -417,7 +417,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             || request.Decision is not ("approve" or "reject")
             || string.IsNullOrWhiteSpace(request.ExpectedProposalHash))
         {
-            return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.ApprovalDecisionInvalid);
+            return Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
         }
         var resolved = await ResolveAccessAsync(httpContext, id, caller.Data, NhAssistantAgentCheck.Everyone);
         if (resolved.Error is not null)
@@ -433,12 +433,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             var approval = await services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approvalId, httpContext.RequestAborted);
             if (approval is null || approval.ConversationId != id)
             {
-                return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ApprovalNotFound);
+                return Error(NhAssistantErrorCodes.ApprovalNotFound);
             }
             if (approval.RunId is not null)
             {
                 // A run's proposal is decided through approvals/{approvalId}/decisions.
-                return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.ApprovalDecisionInvalid);
+                return Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
             }
             var check = await services.GetRequiredService<NhAssistantApproverCheck>().CheckAsync(
                 approval,
@@ -448,7 +448,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 httpContext.RequestAborted);
             if (!check.Success)
             {
-                return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.ApprovalPolicyDenied);
+                return Error(NhAssistantErrorCodes.ApprovalPolicyDenied);
             }
 
             var created = await services.GetRequiredService<NhAssistantAgentTurnFactory>().CreateAsync(
@@ -500,7 +500,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             if (threadAccess.Role < NhAiSubjectRole.Participant)
             {
-                return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
+                return Error(NhAssistantErrorCodes.SubjectAccessDenied);
             }
 
             // In an agent thread every participant of the subject may stop a turn.
@@ -569,7 +569,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             // the caller as a participant.
             if (await IsHiddenShadowThreadAsync(httpContext, thread))
             {
-                return (null, Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ConversationNotFound));
+                return (null, Error(NhAssistantErrorCodes.ConversationNotFound));
             }
 
             // Access to an agent thread follows the subject; the participant row holds read state.
@@ -579,7 +579,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 .ResolveAccessAsync(conversationId, caller.ActorId, displayName, httpContext.RequestAborted);
             if (threadAccess is null)
             {
-                return (null, Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ConversationNotFound));
+                return (null, Error(NhAssistantErrorCodes.ConversationNotFound));
             }
             httpContext.Items[ThreadAccessItemKey] = threadAccess;
         }
@@ -588,7 +588,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         var access = await store.FindAccessAsync(conversationId, caller.ActorId, caller.TenantId, httpContext.RequestAborted);
         if (access is null)
         {
-            return (null, Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ConversationNotFound));
+            return (null, Error(NhAssistantErrorCodes.ConversationNotFound));
         }
         if (agentCheck == NhAssistantAgentCheck.None
             || (agentCheck == NhAssistantAgentCheck.Participants && access.IsOwner))
@@ -600,12 +600,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         var effective = await registry.FindAsync(access.Conversation.AgentId, includeDisabled: false, httpContext.RequestAborted);
         if (effective is null)
         {
-            return (null, Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound));
+            return (null, Error(NhAssistantErrorCodes.AgentNotFound));
         }
         var agentAccess = services.GetRequiredService<NhAssistantAgentAccess>();
         return await agentAccess.CanUseAsync(httpContext.User, effective.Definition)
             ? (access, null)
-            : (null, Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden));
+            : (null, Error(NhAssistantErrorCodes.AgentForbidden));
     }
 
     private const string ThreadAccessItemKey = "NhAssistant.ThreadAccess";
@@ -681,42 +681,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
     }
 
     /// <summary>
-    /// Maps an expected failure code to its HTTP status and the contract error body.
+    /// The error response of an expected failure: its code with the one status the assistant gives
+    /// it (<see cref="NhAssistantHttpErrors"/>) and its field errors.
     /// </summary>
     internal static IResult FromFailure(TaskResult result)
     {
-        var code = result.GetResultItems()
-            .Select(item => item.Name)
-            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
-            ?? NhAssistantErrorCodes.TurnFailed;
-        var status = code switch
-        {
-            NhAssistantErrorCodes.ConversationNotFound
-                or NhAssistantErrorCodes.ApprovalNotFound
-                or NhAssistantErrorCodes.SubjectNotFound
-                or NhAssistantErrorCodes.RunNotFound
-                or NhAssistantErrorCodes.AgentNotFound
-                or NhAssistantErrorCodes.ShareLinkInvalid
-                or NhAssistantErrorCodes.ParticipantNotFound
-                or NhAssistantErrorCodes.DirectoryUnavailable
-                or NhAssistantErrorCodes.PushUnavailable => StatusCodes.Status404NotFound,
-            NhAssistantErrorCodes.ConversationBusy
-                or NhAssistantErrorCodes.MessageDuplicate
-                or NhAssistantErrorCodes.ApprovalNotPending
-                or NhAssistantErrorCodes.ProposalHashMismatch
-                or NhAssistantErrorCodes.ProposalStale
-                or NhAssistantErrorCodes.ParticipantLimitReached => StatusCodes.Status409Conflict,
-            NhAssistantErrorCodes.ProposalCheckFailed => StatusCodes.Status503ServiceUnavailable,
-            NhAssistantErrorCodes.ApprovalForbidden
-                or NhAssistantErrorCodes.SubjectAccessDenied
-                or NhAssistantErrorCodes.ApprovalPolicyDenied
-                or NhAssistantErrorCodes.FourEyesRequired
-                or NhAssistantErrorCodes.TurnForbidden
-                or NhAssistantErrorCodes.OwnerRequired
-                or NhAssistantErrorCodes.AgentForbidden => StatusCodes.Status403Forbidden,
-            _ => StatusCodes.Status400BadRequest
-        };
-        return Error(status, code);
+        return NhAssistantHttpErrors.Failure(result);
     }
 
     /// <summary>
@@ -733,15 +703,15 @@ public static class NhAssistantEndpointRouteBuilderExtensions
 
     internal static IResult ContextUnavailable()
     {
-        return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.ContextUnavailable);
+        return Error(NhAssistantErrorCodes.ContextUnavailable);
     }
 
-    internal static IResult Error(int statusCode, string code)
+    /// <summary>
+    /// The error response of a code with the one status the assistant gives it.
+    /// </summary>
+    internal static IResult Error(string code)
     {
-        return TypedResults.Json(
-            new NhAssistantErrorDto(code, NhAssistantErrorCodes.MessageKey(code)),
-            NhAssistantJsonSerializerContext.Default.NhAssistantErrorDto,
-            statusCode: statusCode);
+        return NhAssistantHttpErrors.Error(code);
     }
 
     internal static IResult Json<T>(T value, JsonTypeInfo<T> typeInfo)

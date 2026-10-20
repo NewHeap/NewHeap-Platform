@@ -102,28 +102,28 @@ export class NhAssistantMockBoards {
       return { status: 405 };
     }
     if (!this.context.administers()) {
-      return failure(403, 'assistant-forbidden');
+      return failure('assistant-forbidden');
     }
     const request = body as { groups?: unknown } | undefined;
     if (!request || typeof request !== 'object') {
-      return failure(400, 'assistant-validation');
+      return failure('assistant-validation');
     }
     if (!Array.isArray(request.groups)) {
-      return failure(400, 'assistant-validation', { groups: ['required'] });
+      return failure('assistant-validation', { groups: ['required'] });
     }
     const wanted = request.groups as unknown[];
     if (wanted.length > maxGroups) {
-      return failure(400, 'assistant-validation', { groups: ['too-long'] });
+      return failure('assistant-validation', { groups: ['too-long'] });
     }
     if (!wanted.every(groupId => typeof groupId === 'string' && this.groups.some(group => group.id === groupId))) {
-      return failure(400, 'assistant-validation', { groups: ['not-found'] });
+      return failure('assistant-validation', { groups: ['not-found'] });
     }
     const agent = this.context.agents().find(item => item.id === agentId);
     if (!agent) {
-      return failure(404, 'assistant-agent-not-found');
+      return failure('assistant-agent-not-found');
     }
     if (wanted.length > 0 && agent.shadowOf) {
-      return failure(409, 'assistant-shadow-variant');
+      return failure('assistant-shadow-variant');
     }
 
     // Only a choice that differs from code is kept; one that equals code lets code decide again.
@@ -167,15 +167,15 @@ export class NhAssistantMockBoards {
     const groupId = segments[1];
     const divisionId = query.get('divisionId');
     if (divisionId !== null && divisionId !== '' && !guid.test(divisionId)) {
-      return failure(400, 'assistant-board-scope-invalid');
+      return failure('assistant-board-scope-invalid');
     }
     const division = divisionId ? this.division(divisionId, requested) : null;
     if (!this.groups.some(group => group.id === groupId) || division === undefined) {
-      return failure(404, 'assistant-board-not-found');
+      return failure('assistant-board-not-found');
     }
     const agents = this.visibleAgents(groupId, division, requested);
     if (agents.length === 0) {
-      return failure(404, 'assistant-board-not-found');
+      return failure('assistant-board-not-found');
     }
 
     const scopeKey = division ? `division:${guidN(divisionId!)}` : 'global';

@@ -36,7 +36,7 @@
           <span>{{ 'nh-assistant.agent-runs.run.tokens' | translate: { count: consultation.inputTokens + consultation.outputTokens } }}</span>
           <span>{{ 'nh-assistant.agent-runs.run.proposals' | translate: { count: consultation.proposalCount } }}</span>
           @if (consultation.failureCode; as code) {
-            <span><nh-assistant-icon name="warning" />{{ ['nh-assistant.errors.' + code] | nhAssistantTranslate: code }}</span>
+            <span><nh-assistant-icon name="warning" />{{ codeKeys(code) | nhAssistantTranslate: code }}</span>
           }
         </div>
       </li>

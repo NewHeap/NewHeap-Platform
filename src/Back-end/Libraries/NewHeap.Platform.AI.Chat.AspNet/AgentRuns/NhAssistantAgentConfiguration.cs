@@ -685,7 +685,14 @@ internal sealed class NhAssistantAgentConfiguration(
             return TaskResult<NhAssistantAgentConfigurationDto>.Failed(created);
         }
 
-        return TaskResult<NhAssistantAgentConfigurationDto>.Succeeded((await GetAsync(request.Id, cancellationToken))!);
+        // Another administrator may delete the agent right after it was created.
+        var configuration = await GetAsync(request.Id, cancellationToken);
+        if (configuration is null)
+        {
+            return TaskResult<NhAssistantAgentConfigurationDto>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
+        }
+
+        return TaskResult<NhAssistantAgentConfigurationDto>.Succeeded(configuration);
     }
 
     private static NhAssistantApprovalPolicySummaryDto Summarize(NhAiApprovalPolicy policy)

@@ -376,6 +376,27 @@ through M4 without waiting. Where a choice came up, the implementer decided as b
 | I19 | Decided by the implementer on 2026-10-20 with W5 of the [plan for agents working on application objects](ai-agent-work-on-objects-plan.md), for Lars to review: MCP tools never declare a subject (K12), so a run's MCP proposal always waits in the run's own thread and executes there under Q10's identity rules, as before; the platform does not place it at another object even when its arguments name one. A proposal placed at another object is always a generated or hand-built governed tool: it executes through the governed function in the object's scope with the agent's account, and the MCP re-checks at execution (headless use, contract, connection and consent) never apply to it. | The model cannot say which object an MCP call concerns, and the platform checks only what a tool declares; Q10's identity of MCP executions stays untouched. |
 | I20 | Decided by the implementer on 2026-10-20 with W6 of the [plan for agents working on application objects](ai-agent-work-on-objects-plan.md), for Lars to review: a run's result keeps what MCP tools returned only as far as the model's answer repeats it; it is bounded to 20,000 characters, shown to whoever sees the run (K14) and rendered as safe Markdown, never as HTML. The run's detail does not name the connection owner of its MCP calls: `McpConnectionOwner` is recorded on the audit events only, not per stored tool call. | The answer is visible in the run's thread already; storing it bounded next to the run adds no new exposure for object runs. Naming the owner would need a stored column per call; the audit keeps answering whose account a call used. |
 
+## Review fixes
+
+A review of result and error handling after M4 and W7 found the items below; they are fixed on
+`feature/assistant-agents-on-objects`. Codes keep one HTTP status for every assistant endpoint
+(`NhAssistantHttpErrors`, shared with the
+[plan for agents working on application objects](ai-agent-work-on-objects-plan.md#review-fixes)).
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| R1 | A request the credential stopped before it was sent (a blocked target, a call the credential may not carry, a credential that could not be obtained: not connected, reauthorization required, a failed token request, no delegated token, an invalid or unreadable secret) and a request the server refused with `401` or `403` that no renewed credential could repeat are marked `ToolNotRun` on `NhAssistantMcpException`; the interceptor then does not report the call as possibly executed, so an approved proposal ends `execution-failed`, not `execution-unknown`. A failed renewal after `401` reports the renewal's code instead of `assistant-mcp-unauthorized`. | Fencing is for calls whose effect is unknown; these certainly had none. |
+| R2 | One rule for OAuth connection endpoints (`NhAssistantMcpConnectionRules`): authorizing needs `oauth`; the organization's connection exists for `oauth` and `oauth-client-credentials`; personal connections only for `oauth` with `connectionScope: user`, where the administrator's `GET` and `DELETE admin/mcp-servers/{id}/connection` act on the administrator's own connection, as authorize already did. Anything else answers `409 assistant-mcp-connection-not-supported` (it replaces the `authMode`/`serverId` field errors and `assistant-mcp-connection-required` of the start), and revoking all personal connections of another server audits nothing. | The administrator's get and disconnect acted on the organization's row of a server that has none, and three endpoints answered the same situation three ways. |
+| R3 | Test and sync record the outcome as the server's connection health only for organization credentials, the rule turns already follow; a test with the administrator's own personal connection no longer marks the server failing in the health check. | A person's missing connection says nothing about the server. |
+| R4 | A dynamic registration whose client secret expired, or no longer decrypts, is registered again on use; `invalid_client` for a dynamic client removes the registration, and an authorization code connection whose refresh failed so ends as `reauthorization-required`. Registration failures keep their cause: transport (`assistant-mcp-unreachable`, `assistant-mcp-host-blocked`), a refusal (`assistant-mcp-client-registration-required`) or a remote failure (`assistant-mcp-token-request-failed`), each logged. | A registration the authorization server forgot must not fail every token request forever. |
+| R5 | Decided by the reviewer and implemented: chat approvals of an MCP tool whose server is left out of the turn report the skip code (for example `assistant-mcp-connection-required`, Q10) as headless executions do, instead of `assistant-approval-invalid`. | Q10 names the reason for both paths. |
+| R6 | Retention of personal connections removes the tokens and keeps a person's consent to background use on the row, as a disconnect does (I10). | A consent is the person's decision, not the connection's. |
+| R7 | A stored secret or OAuth client secret that no longer decrypts fails with `409 assistant-mcp-secret-unreadable` and a warning; a secret resolver that throws fails with `503 assistant-mcp-secret-unavailable` and logs the exception; on save, a `secretReference`, `oauth.clientSecretReference` or `clientCertificateReference` that names nothing is the field error `not-found`. | The administrator fixes the host, not the remote server, and the editor shows the field. |
+| R8 | The OAuth callback never answers a bare `500`: an exception is logged and the page or the return URL reports `assistant-mcp-authorization-failed`. The message to the opener carries `messageKey` and the return URL's fragment `nh-mcp-message-key` next to the code; the page names expired and refused authorizations in English and Dutch. Callback codes follow one rule (documented on `CallbackAsync`): a malformed callback is `invalid`, an unknown, used or no longer completable flow `expired`, a removed server `assistant-mcp-server-not-found`, a changed issuer `assistant-mcp-issuer-changed`, and a failed step keeps its code. A completion checks the server and issuer before it uses up the flow and records a failure on the flow with its code and metric. | One error contract for every assistant error; a failed completion must not look completed. |
+| R9 | Catch-alls log the exception at `Warning`: the delegated token issuer, the secret resolver, revocation, the MCP maintenance, the health check (which reports no exception text), the health record and the live publisher. This replaces M2's "exception type only" for the issuer and the resolver. | Operators diagnose failures from the log; tokens and secrets are never put into exceptions by the assistant. |
+| R10 | The built-in delegated token issuer throws for a missing `INhAuthenticationService` (`InvalidOperationException`) and a lifetime outside (0, 5 minutes] (`ArgumentOutOfRangeException`); a person who may not sign in fails with the unavailable code followed by the authentication service's reason, and the credential provider logs why no token was minted. | Configuration and programming errors are exceptions; an expected refusal keeps its reason. |
+| R11 | Smaller fixes: an OAuth response over 64 KiB is dropped with a warning and reads as an unusable answer instead of an unreachable endpoint; a renewal that throws or is cancelled releases its lease; a resource metadata document a challenge names that cannot be read is logged; a stored registration that failed keeps its `DbUpdateException` as inner exception; an update that races with a delete answers not found; one shared code reader replaces five `FirstCode` helpers; metric outcomes are constants. | Review findings L1 to L7. |
+
 ## Design
 
 ### Standards and SDK baseline
@@ -742,14 +763,17 @@ gains `headlessUse`, `transport`, `connectionScope`, `hasClientSecret`, `secretR
 `authorization` (issuer, resource, confirmed at) and `health` (`lastConnectAt`, `lastConnectCode`,
 organization connection status).
 
-New codes in `NhAssistantAdminErrorCodes` (HTTP status in brackets): `assistant-mcp-connection-required`
-(409), `assistant-mcp-reauthorization-required` (409), `assistant-mcp-insufficient-scope` (403),
+New codes in `NhAssistantAdminErrorCodes` (HTTP status in brackets, as implemented and kept by the
+[review fixes](#review-fixes)): `assistant-mcp-connection-required`
+(409), `assistant-mcp-reauthorization-required` (409), `assistant-mcp-insufficient-scope` (502, refused by the remote server),
 `assistant-mcp-scope-not-allowed` (400), `assistant-mcp-authorization-failed` (400),
 `assistant-mcp-authorization-expired` (400), `assistant-mcp-authorization-invalid` (400),
 `assistant-mcp-discovery-failed` (502), `assistant-mcp-pkce-unsupported` (400),
 `assistant-mcp-client-registration-required` (400), `assistant-mcp-token-request-failed` (502),
 `assistant-mcp-issuer-changed` (409), `assistant-mcp-secret-reference-invalid` (400) and
-`assistant-mcp-credential-mismatch` (403), `assistant-mcp-delegated-token-unavailable` (403). Each is listed in `nh-assistant-error-codes.ts` with English
+`assistant-mcp-credential-mismatch` (403), `assistant-mcp-delegated-token-unavailable` (502), and after the review
+`assistant-mcp-connection-not-supported` (409), `assistant-mcp-secret-unreadable` (409) and
+`assistant-mcp-secret-unavailable` (503); `assistant-mcp-headless-not-allowed` is 409. Each is listed in `nh-assistant-error-codes.ts` with English
 and Dutch texts in `en.json` and `nl.json`.
 
 ### Administration and user interface

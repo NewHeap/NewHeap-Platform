@@ -7,13 +7,13 @@ import {
   AssistantResponseLength,
   AssistantStyle
 } from '../../models/assistant-admin.models';
+import { nhAssistantErrorKeys, toNhAssistantError } from '../../internal/nh-assistant-errors';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantMcpConnectionsComponent } from './nh-assistant-mcp-connections.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NhAssistantApiService } from '../../services/nh-assistant-api.service';
 import { NhAssistantPushService } from '../../services/nh-assistant-push.service';
 import { NhAssistantError } from '../../services/nh-assistant.store';
-import { NhAssistantApiError, nhAssistantErrorMessageKey } from '../../services/nh-assistant-transport';
 
 /** Maximum length of the user's own instructions. */
 export const NH_ASSISTANT_MAX_CUSTOM_INSTRUCTIONS = 1_000;
@@ -71,10 +71,7 @@ export class NhAssistantPreferencesComponent {
       stored.responseLength !== this.responseLength() || (stored.customInstructions ?? '') !== this.customInstructions();
   });
   readonly canSave = computed(() => !this.loading() && !this.saving() && !this.tooLong() && this.dirty());
-  readonly errorKeys = computed(() => {
-    const error = this.error();
-    return error ? [error.messageKey, nhAssistantErrorMessageKey(error.code), 'nh-assistant.errors.generic'] : [];
-  });
+  readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
@@ -104,9 +101,7 @@ export class NhAssistantPreferencesComponent {
     try {
       await this.push.setEnabled(enabled);
     } catch (error) {
-      this.error.set(error instanceof NhAssistantApiError
-        ? { code: error.code, messageKey: error.messageKey }
-        : { code: 'assistant-server', messageKey: nhAssistantErrorMessageKey('assistant-server') });
+      this.error.set(toNhAssistantError(error));
     }
   }
 
@@ -146,9 +141,7 @@ export class NhAssistantPreferencesComponent {
       },
       error: (error: unknown) => {
         this.saving.set(false);
-        this.error.set(error instanceof NhAssistantApiError
-          ? { code: error.code, messageKey: error.messageKey }
-          : { code: 'assistant-server', messageKey: nhAssistantErrorMessageKey('assistant-server') });
+        this.error.set(toNhAssistantError(error));
       }
     });
   }

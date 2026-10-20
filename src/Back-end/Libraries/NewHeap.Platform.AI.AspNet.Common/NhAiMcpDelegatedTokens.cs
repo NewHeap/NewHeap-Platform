@@ -245,7 +245,11 @@ internal static class NhAiMcpDelegatedTokenRestriction
 
 /// <summary>
 /// The built-in issuer for hosts on the NewHeap identity: the token carries the person's own claims
-/// and security stamp, and is issued only while the person may sign in.
+/// and security stamp, and is issued only while the person may sign in. A person who is no NewHeap
+/// user or may not sign in gets no token (<see cref="NhAiMcpDelegatedTokenDefaults.UnavailableCode"/>,
+/// followed by the authentication service's own reason); a host without the NewHeap authentication
+/// service, or a lifetime outside (0, <see cref="NhAiMcpDelegatedTokenDefaults.MaxLifetime"/>], is a
+/// configuration or programming error and throws.
 /// </summary>
 internal sealed class NhAiNewHeapMcpDelegatedTokenIssuer(IServiceProvider services) : INhAiMcpDelegatedTokenIssuer
 {
@@ -254,12 +258,19 @@ internal sealed class NhAiNewHeapMcpDelegatedTokenIssuer(IServiceProvider servic
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var authentication = services.GetService<INhAuthenticationService>();
-        if (!Guid.TryParse(request.PersonActorId, out var userId)
-            || authentication is null
-            || request.Lifetime <= TimeSpan.Zero
-            || request.Lifetime > NhAiMcpDelegatedTokenDefaults.MaxLifetime)
+        if (request.Lifetime <= TimeSpan.Zero || request.Lifetime > NhAiMcpDelegatedTokenDefaults.MaxLifetime)
         {
+            throw new ArgumentOutOfRangeException(
+                nameof(request),
+                request.Lifetime,
+                "A delegated MCP token lives longer than zero and at most five minutes.");
+        }
+        var authentication = services.GetService<INhAuthenticationService>()
+            ?? throw new InvalidOperationException(
+                "The built-in delegated MCP token issuer needs the NewHeap authentication service (INhAuthenticationService); register it or a custom issuer with UseIssuer.");
+        if (!Guid.TryParse(request.PersonActorId, out var userId))
+        {
+            // Only a NewHeap user has a token of their own.
             return Unavailable();
         }
 
@@ -269,9 +280,19 @@ internal sealed class NhAiNewHeapMcpDelegatedTokenIssuer(IServiceProvider servic
             new(NhAiMcpDelegatedTokenDefaults.AudienceClaimType, request.Audience)
         ];
         var created = await authentication.CreateDelegatedTokenAsync(userId, claims, request.Lifetime, cancellationToken);
-        if (!created.Success || created.Data is null)
+        if (!created.Success)
         {
-            return Unavailable();
+            // The person may not sign in: the authentication service's reason follows the code.
+            var refused = Unavailable();
+            refused.ApplyModelStateErrors(created.GetResultItems()
+                .Where(item => !string.IsNullOrEmpty(item.Name))
+                .GroupBy(item => item.Name, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.SelectMany(item => item.ErrorMessages).ToArray(), StringComparer.Ordinal));
+            return refused;
+        }
+        if (created.Data is null)
+        {
+            throw new InvalidOperationException("The authentication service reported a delegated token without returning it.");
         }
         return TaskResult<NhAiMcpDelegatedToken>.Succeeded(new NhAiMcpDelegatedToken(
             new JwtSecurityTokenHandler().WriteToken(created.Data),

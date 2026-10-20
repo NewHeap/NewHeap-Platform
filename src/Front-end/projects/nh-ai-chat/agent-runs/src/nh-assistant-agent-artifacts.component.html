@@ -1,5 +1,5 @@
-@if (downloadFailed()) {
-  <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ 'nh-assistant.agent-runs.artifacts.download-failed' | translate }}</p>
+@if (downloadError(); as failure) {
+  <p class="message error" role="alert" data-download-error><nh-assistant-icon name="warning" />{{ downloadErrorKeys() | nhAssistantTranslate: failure.code }}</p>
 }
 
 @if (loading()) {

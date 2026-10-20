@@ -3,7 +3,7 @@ import { InjectionToken, inject } from '@angular/core';
 import { Observable, catchError, switchMap, throwError } from 'rxjs';
 import { McpAuthorizationStart, McpCompleteRequest, McpCompletion } from '../models/assistant-admin.models';
 import { NhAssistantClientErrorCodes } from '../models/assistant-sse.models';
-import { NhAssistantApiError, nhAssistantErrorMessageKey } from './nh-assistant-transport';
+import { NhAssistantApiError, nhAssistantErrorMessageKey, nhAssistantIsSafeCode } from './nh-assistant-transport';
 
 /** The `type` of the message the assistant's OAuth callback page posts to its opener. */
 export const NH_ASSISTANT_MCP_AUTHORIZATION_MESSAGE = 'nh-assistant-mcp-authorization';
@@ -42,8 +42,9 @@ export const NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW = new InjectionToken<NhAssist
   { providedIn: 'root', factory: () => new NhAssistantMcpPopupAuthorizationWindow(inject(DOCUMENT)) }
 );
 
-const safeCode = /^[a-z][a-z0-9-]{0,99}$/;
 const safeToken = /^[A-Za-z0-9_-]{16,128}$/;
+/** The code of a callback whose own code cannot be shown. */
+const authorizationFailed = 'assistant-mcp-authorization-failed';
 const flowPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -121,7 +122,11 @@ class PopupHandle implements NhAssistantMcpAuthorizationHandle {
   }
 }
 
-/** The outcome in a callback message for the started flow, or null for any other message. */
+/**
+ * The outcome in a callback message for the started flow, or null for any other message. The message
+ * is `{ type, flowId, completionCode, code, messageKey }`; the text of a failure comes from its code,
+ * so the message key the page sends along is not needed.
+ */
 function readMessage(data: unknown, flowId: string): NhAssistantMcpAuthorizationOutcome | null {
   if (!data || typeof data !== 'object') {
     return null;
@@ -139,13 +144,14 @@ function readMessage(data: unknown, flowId: string): NhAssistantMcpAuthorization
     return { flowId, completionCode };
   }
   const code = message['code'];
-  return { flowId, code: typeof code === 'string' && safeCode.test(code) ? code : 'assistant-mcp-authorization-failed' };
+  return { flowId, code: nhAssistantIsSafeCode(code) ? code : authorizationFailed };
 }
 
 /**
  * Reads the outcome of a redirect-mode authorization from a URL fragment
- * (`#nh-mcp-flow=…&nh-mcp-code=…` or `#nh-mcp-error=…`); null when the fragment has none. Remove
- * the fragment from the address bar after reading it.
+ * (`#nh-mcp-flow=…&nh-mcp-code=…` or `#nh-mcp-error=…&nh-mcp-message-key=…`); null when the fragment
+ * has none. The text of a failure comes from its code. Remove the fragment from the address bar after
+ * reading it.
  */
 export function nhAssistantMcpAuthorizationFromFragment(fragment: string): NhAssistantMcpAuthorizationOutcome | null {
   const values = new URLSearchParams(fragment.startsWith('#') ? fragment.slice(1) : fragment);
@@ -156,7 +162,7 @@ export function nhAssistantMcpAuthorizationFromFragment(fragment: string): NhAss
     return { flowId, completionCode };
   }
   if (error) {
-    return { flowId: flowId && flowPattern.test(flowId) ? flowId : null, code: safeCode.test(error) ? error : 'assistant-mcp-authorization-failed' };
+    return { flowId: flowId && flowPattern.test(flowId) ? flowId : null, code: nhAssistantIsSafeCode(error) ? error : authorizationFailed };
   }
   return null;
 }

@@ -12,7 +12,10 @@ import {
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Observable, Subscription } from 'rxjs';
+import { NhAssistantError } from '../services/nh-assistant.store';
+import { nhAssistantErrorKeys, toNhAssistantError } from './nh-assistant-errors';
 import { NhAssistantIconComponent } from './nh-assistant-icon.component';
+import { NhAssistantTranslatePipe } from './nh-assistant-translate.pipe';
 
 /** One choice of a picker: the stored value, its name and what it means. */
 export interface NhAssistantPickerOption {
@@ -28,12 +31,14 @@ const searchDelayMs = 250;
  * A searchable choice for the administration (internal): a combobox with a listbox popup in the ARIA
  * 1.2 pattern. Typing filters the options on name and description, the arrow keys move, Enter
  * chooses and Escape closes. With `search` it asks the server instead, after `minQueryLength`
- * characters. `noneLabel` adds an explicit empty choice, emitted as `''`.
+ * characters; a failed search says why below the field, with its translated code, and offers to
+ * search again instead of claiming that nothing was found. `noneLabel` adds an explicit empty
+ * choice, emitted as `''`.
  */
 @Component({
   selector: 'nh-assistant-picker',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantIconComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-picker.component.html',
   styleUrl: './nh-assistant-picker.component.scss'
@@ -42,6 +47,8 @@ export class NhAssistantPickerComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private searchTimer?: ReturnType<typeof setTimeout>;
   private searchSubscription?: Subscription;
+  /** The text of the latest search, for searching again after a failure. */
+  private lastQuery = '';
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('field');
 
   /** The id of the text field, for the label's `for`. */
@@ -71,6 +78,13 @@ export class NhAssistantPickerComponent {
   readonly active = signal(-1);
   readonly searching = signal(false);
   readonly results = signal<NhAssistantPickerOption[]>([]);
+  /** Why the latest search failed; `null` after a search that answered. */
+  readonly searchError = signal<NhAssistantError | null>(null);
+  readonly searchErrorKeys = computed(() => nhAssistantErrorKeys(this.searchError()));
+  readonly searchErrorId = `${this.listId}-search-error`;
+  /** The field describes itself with the host's ids and, after a failed search, with its reason. */
+  readonly fieldDescribedBy = computed(() =>
+    [this.describedBy(), this.searchError() ? this.searchErrorId : null].filter(Boolean).join(' ') || null);
   private readonly chosen = signal<NhAssistantPickerOption | null>(null);
 
   readonly selected = computed<NhAssistantPickerOption | null>(() => {
@@ -101,10 +115,13 @@ export class NhAssistantPickerComponent {
         || (option.description ?? '').toLocaleLowerCase().includes(text));
   });
 
-  /** Why the list is empty: still typing, searching, or nothing found. */
+  /** Why the list is empty: still typing, searching, the search failed, or nothing found. */
   readonly emptyKey = computed(() => {
     if (this.searching()) {
       return 'nh-assistant.picker.searching';
+    }
+    if (this.searchError()) {
+      return 'nh-assistant.picker.search-failed';
     }
     if (this.search() && (this.query()?.trim().length ?? 0) < this.minQueryLength()) {
       return 'nh-assistant.picker.type-more';
@@ -204,7 +221,20 @@ export class NhAssistantPickerComponent {
     this.close();
   }
 
+  /** Searches the latest text again after a failed search and shows the list. */
+  retrySearch(): void {
+    if (!this.search() || this.disabled()) {
+      return;
+    }
+    this.query.set(this.lastQuery);
+    this.open.set(true);
+    this.active.set(-1);
+    this.startSearch(this.lastQuery);
+    this.focus();
+  }
+
   choose(option: NhAssistantPickerOption): void {
+    this.searchError.set(null);
     this.chosen.set(option.value === '' ? null : option);
     this.valueChange.emit(option.value);
     this.optionChange.emit(option.value === '' ? null : option);
@@ -220,6 +250,8 @@ export class NhAssistantPickerComponent {
   private startSearch(text: string): void {
     clearTimeout(this.searchTimer);
     this.searchSubscription?.unsubscribe();
+    this.lastQuery = text;
+    this.searchError.set(null);
     const search = this.search();
     const query = text.trim();
     if (!search || query.length < this.minQueryLength()) {
@@ -235,9 +267,10 @@ export class NhAssistantPickerComponent {
           this.searching.set(false);
           this.active.set(results.length > 0 ? 0 : -1);
         },
-        error: () => {
+        error: (error: unknown) => {
           this.results.set([]);
           this.searching.set(false);
+          this.searchError.set(toNhAssistantError(error));
         }
       });
     }, searchDelayMs);

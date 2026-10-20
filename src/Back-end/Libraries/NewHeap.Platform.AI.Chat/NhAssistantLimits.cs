@@ -217,6 +217,13 @@ public sealed class NhAssistantLimits
     /// </summary>
     public TimeSpan RetrievalTimeout { get; set; } = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// How long a board remembers when a person last looked at it, from one day to ten years; by
+    /// default 180 days. The run maintenance removes older visits, and visits of groups the host no
+    /// longer registers; a board then shows everything that waits as new again.
+    /// </summary>
+    public TimeSpan BoardVisitRetention { get; set; } = TimeSpan.FromDays(180);
+
     internal void Validate()
     {
         if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
@@ -253,7 +260,9 @@ public sealed class NhAssistantLimits
             || ApplicationMapTimeout > TimeSpan.FromSeconds(30)
             || MaxRetrievedCharacters is < 500 or > 24_000
             || RetrievalTimeout <= TimeSpan.Zero
-            || RetrievalTimeout > TimeSpan.FromSeconds(30))
+            || RetrievalTimeout > TimeSpan.FromSeconds(30)
+            || BoardVisitRetention < TimeSpan.FromDays(1)
+            || BoardVisitRetention > TimeSpan.FromDays(3_650))
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }

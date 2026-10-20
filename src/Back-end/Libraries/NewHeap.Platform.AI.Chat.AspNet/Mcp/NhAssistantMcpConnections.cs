@@ -347,7 +347,7 @@ internal sealed class NhAssistantMcpConnectionPlanner(
         var credential = await credentials.GetAsync(cancellationToken);
         if (!credential.Success)
         {
-            return Failed(NhAssistantMcpCredentialResults.FirstCode(credential) ?? NhAssistantAdminErrorCodes.McpUnauthorized);
+            return Failed(NhAssistantResults.CodeOf(credential, NhAssistantAdminErrorCodes.McpUnauthorized));
         }
         // The connection's first request reuses it instead of obtaining another.
         credentials.Prime(credential.Data!);
@@ -675,7 +675,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             var plan = await planner.PlanAsync(server, SubjectOf(request), cancellationToken);
             if (!plan.Success)
             {
-                var code = FirstCode(plan);
+                var code = NhAssistantResults.CodeOf(plan);
                 await SkipAsync(server, skipped, code, perCaller: !NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope));
                 if (PersonalConnectionReason(server, request, code) is { } reason)
                 {
@@ -693,7 +693,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             var lease = await cache.ConnectAsync(server, plan.Data, bypassCache: false, cancellationToken);
             if (!lease.Success)
             {
-                var code = FirstCode(lease);
+                var code = NhAssistantResults.CodeOf(lease);
                 await SkipAsync(server, skipped, code, plan.Data.IsPerCaller);
                 if (PersonalConnectionReason(server, request, code) is { } reason)
                 {
@@ -998,9 +998,9 @@ internal sealed partial class NhAssistantMcpToolSource(
         {
             await store.RecordMcpConnectAsync(server.Id, now, code, CancellationToken.None);
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {
-            LogHealthNotRecorded(server.Id, exception.GetType().Name);
+            LogHealthNotRecorded(server.Id, exception);
         }
     }
 
@@ -1019,14 +1019,9 @@ internal sealed partial class NhAssistantMcpToolSource(
         logger.LogInformation("A tool of assistant MCP server {ServerId} was skipped for this caller ({Code}).", serverId, code);
     }
 
-    private void LogHealthNotRecorded(string serverId, string exceptionType)
+    private void LogHealthNotRecorded(string serverId, Exception exception)
     {
-        logger.LogWarning("The connection state of assistant MCP server {ServerId} was not recorded ({ExceptionType}).", serverId, exceptionType);
-    }
-
-    private static string? FirstCode(TaskResult result)
-    {
-        return result.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrEmpty(name));
+        logger.LogWarning(exception, "The connection state of assistant MCP server {ServerId} was not recorded.", serverId);
     }
 
     [GeneratedRegex("[^a-z0-9]+", RegexOptions.CultureInvariant)]

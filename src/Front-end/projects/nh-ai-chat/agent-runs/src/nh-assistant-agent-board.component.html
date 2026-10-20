@@ -62,7 +62,7 @@
                   <time [attr.datetime]="run.at">{{ run.at | date: 'medium' }}</time>
                 </div>
                 @if (run.failureCode; as reason) {
-                  <p class="muted">{{ 'nh-assistant.agent-runs.object-agents.failure' | translate: { reason: (['nh-assistant.errors.' + reason] | nhAssistantTranslate: reason) } }}</p>
+                  <p class="muted">{{ 'nh-assistant.agent-runs.object-agents.failure' | translate: { reason: (codeKeys(reason) | nhAssistantTranslate: reason) } }}</p>
                 }
                 @if (run.result; as result) {
                   <!-- Model output: rendered only through the assistant's safe Markdown rendering. -->

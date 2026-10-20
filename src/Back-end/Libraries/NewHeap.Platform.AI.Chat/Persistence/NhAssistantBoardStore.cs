@@ -146,6 +146,26 @@ internal sealed class NhAssistantBoardStore(NhAssistantDbContextFactory contextF
     }
 
     /// <summary>
+    /// Removes the visits made before <paramref name="before"/> and, when the host registers groups,
+    /// the visits of every group not among <paramref name="registeredGroupIds"/>; returns how many
+    /// were removed. A host that registers no group removes no group's visits, so a host that runs
+    /// the maintenance without the groups of another host does not remove theirs.
+    /// </summary>
+    public async Task<int> RemoveStaleVisitsAsync(
+        DateTimeOffset before,
+        IReadOnlyCollection<string> registeredGroupIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(registeredGroupIds);
+        var groups = registeredGroupIds.ToArray();
+        var anyGroup = groups.Length > 0;
+        await using var context = contextFactory.CreateDbContext();
+        return await context.BoardVisits
+            .Where(item => item.VisitedAt < before || (anyGroup && !groups.Contains(item.GroupId)))
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// When the person last looked at the group's board in the scope; <see langword="null"/> before
     /// the first visit.
     /// </summary>

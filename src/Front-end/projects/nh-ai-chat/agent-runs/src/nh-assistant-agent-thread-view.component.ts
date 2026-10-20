@@ -27,6 +27,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { NhAssistantRunReceiptComponent } from './internal/nh-assistant-run-receipt.component';
 import { NhAssistantAgentArtifactsComponent } from './nh-assistant-agent-artifacts.component';
 import { NhAssistantAgentConsultationsComponent } from './nh-assistant-agent-consultations.component';
 import { NhAssistantAgentMemoryComponent } from './nh-assistant-agent-memory.component';
@@ -54,7 +55,8 @@ export type NhAssistantAgentThreadTab = 'proposals' | 'runs' | 'consultations' |
     NhAssistantRunTimelineComponent,
     NhAssistantAgentMemoryComponent,
     NhAssistantAgentArtifactsComponent,
-    NhAssistantAgentConsultationsComponent
+    NhAssistantAgentConsultationsComponent,
+    NhAssistantRunReceiptComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-thread-view.component.html',

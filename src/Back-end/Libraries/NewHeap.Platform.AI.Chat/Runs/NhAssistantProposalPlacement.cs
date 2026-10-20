@@ -218,6 +218,21 @@ internal sealed class NhAssistantProposalPlacement(
     }
 
     /// <summary>
+    /// Why a proposal is not placed when the agent's thread at the object cannot be prepared or
+    /// created: nobody answers for the agent there
+    /// (<see cref="NhAssistantPlacementReasons.NoAccountableOwner"/>), the one failure of
+    /// <see cref="PrepareThreadAtAsync"/> and <see cref="ThreadAtAsync"/>; any other failure reads as
+    /// <see cref="NhAssistantPlacementReasons.NoAccess"/>.
+    /// </summary>
+    public static string ReasonOf(TaskResult failed)
+    {
+        ArgumentNullException.ThrowIfNull(failed);
+        return NhAssistantResults.CodeOf(failed) == NhAssistantErrorCodes.NoAccountableOwner
+            ? NhAssistantPlacementReasons.NoAccountableOwner
+            : NhAssistantPlacementReasons.NoAccess;
+    }
+
+    /// <summary>
     /// The agent's thread at the object, created when needed; a run in shadow places in the agent's
     /// shadow thread there.
     /// </summary>

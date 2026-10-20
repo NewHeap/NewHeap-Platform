@@ -61,7 +61,7 @@
       @if (run.failureCode; as code) {
         <div>
           <dt>{{ 'nh-assistant.agent-runs.result.failure' | translate }}</dt>
-          <dd>{{ ['nh-assistant.errors.' + code] | nhAssistantTranslate: code }}</dd>
+          <dd data-run-failure>{{ codeKeys(code) | nhAssistantTranslate: code }}</dd>
         </div>
       }
     </dl>
@@ -99,8 +99,8 @@
     @if (current.artifacts.length > 0) {
       <div class="result-section">
         <h5>{{ 'nh-assistant.agent-runs.result.files' | translate }}</h5>
-        @if (downloadFailed()) {
-          <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ 'nh-assistant.agent-runs.artifacts.download-failed' | translate }}</p>
+        @if (downloadError(); as failure) {
+          <p class="message error" role="alert" data-download-error><nh-assistant-icon name="warning" />{{ downloadErrorKeys() | nhAssistantTranslate: failure.code }}</p>
         }
         <ul class="files">
           @for (artifact of current.artifacts; track artifact.id) {

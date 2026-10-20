@@ -13,7 +13,7 @@ import {
   AgentThreadLookup,
   AgentTriggerReceipt
 } from '@newheap/platform-ai-chat';
-import { NhAssistantMockRun, NhAssistantMockScenario } from './nh-assistant-mock.models';
+import { NhAssistantMockRun, NhAssistantMockRunNow, NhAssistantMockScenario } from './nh-assistant-mock.models';
 import { NhAssistantMockResult, mockFailure as failure } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockDescribedSubject, NhAssistantMockSubjects } from './nh-assistant-mock-subjects';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
@@ -38,13 +38,21 @@ interface StoredThread {
   shadow?: boolean;
 }
 
+/** A request's agent and subject, read as the server reads them, or why they cannot be. */
+type SubjectRead =
+  | { failure: NhAssistantMockResult }
+  | { agent: AdminAgent; subject: NhAssistantMockDescribedSubject | null };
+
 const dashCase = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const maxMessage = 8_000;
 const maxSubjectId = 200;
+const maxAgentId = 128;
 const resultPreview = 300;
 const maxResult = 20_000;
 const maxItemsPerPage = 50;
+const dayMs = 24 * 60 * 60 * 1000;
 const activeStatuses = ['queued', 'running', 'waiting-for-approval'];
+const retryableStatuses = ['failed', 'cancelled'];
 const runStatuses: readonly AgentRunStatus[] = ['queued', 'running', 'waiting-for-approval', 'completed', 'failed', 'cancelled'];
 
 /** A run history's filter as the server reads it. */
@@ -63,12 +71,17 @@ interface RunFilter {
  * Agents run by hand in the mock API, which runs no agents itself: `POST threads/start` checks who
  * may run the agent as the server does (on an object the participant role, on the whole application
  * the agent's run policy, by default the administration policy; what the agent works on, with its
- * scope; its required policy; shadow for administrators only), records a run that ends at once as the
- * scenario's `runNow` says, and `GET subjects/{type}/{id}/agents`, `GET threads` and the thread's runs
- * show it. The thread's memory, artifacts and consultations are empty; its proposals are those the
+ * scope; its required policy; shadow for administrators only), then the agent's state: a stopped
+ * agent or one disabled in code is refused with `409`, a paused one answers `202 waiting` with
+ * `assistant-agent-paused`, and `runNow.dailyLimit` refuses more runs a day with `409
+ * assistant-trigger-rate-limited`. Otherwise it records a run that ends at once as the scenario's
+ * `runNow` says, and `GET subjects/{type}/{id}/agents`, `GET threads` and the thread's runs show it.
+ * `POST threads/open` creates the thread without a run for whoever may start the agent;
+ * `POST runs/{id}/cancel` and `POST runs/{id}/retry` cancel, resume or restart a run with the server's
+ * roles. The thread's memory, artifacts and consultations are empty; its proposals are those the
  * scenario lists in it. The scenario's `runs` happened before; `GET runs`, `GET runs/{id}` and the
  * administration's `GET admin/agents/{id}/runs` list them and the runs by hand, with the server's
- * filters, validation and visibility.
+ * filters, field errors and visibility.
  */
 export class NhAssistantMockAgentRuns {
   private readonly threads = new Map<string, StoredThread>();
@@ -89,32 +102,44 @@ export class NhAssistantMockAgentRuns {
     }
   }
 
-  /** `GET runs`, `GET runs/{id}` and `GET runs/{id}/artifacts/{id}/content`; `null` for other paths. */
-  handleRuns(method: string, segments: string[], query: URLSearchParams, language: string | null): NhAssistantMockResult | null {
-    if (segments[0] !== 'runs' || (segments.length !== 1 && segments.length !== 2 && segments.length !== 5)) {
+  /**
+   * `GET runs`, `GET runs/{id}`, `GET runs/{id}/artifacts/{id}/content`, `POST runs/{id}/cancel` and
+   * `POST runs/{id}/retry`; `null` for other paths.
+   */
+  handleRuns(method: string, segments: string[], query: URLSearchParams, body: unknown, language: string | null): NhAssistantMockResult | null {
+    if (segments[0] !== 'runs' || ![1, 2, 3, 5].includes(segments.length)) {
       return null;
+    }
+    if (segments.length === 3) {
+      if (segments[2] !== 'cancel' && segments[2] !== 'retry') {
+        return null;
+      }
+      if (method !== 'POST') {
+        return { status: 405 };
+      }
+      return segments[2] === 'cancel' ? this.cancel(segments[1], language) : this.retry(segments[1], body, language);
     }
     if (method !== 'GET') {
       return segments.length === 1 || segments.length === 2 ? { status: 405 } : null;
     }
     if (segments.length === 1) {
-      const filter = readFilter(query, true);
-      if (!filter) {
-        return failure(400, 'assistant-run-filter-invalid');
+      const read = readFilter(query, true);
+      if ('errors' in read) {
+        return failure('assistant-run-filter-invalid', read.errors);
       }
-      return { status: 200, body: this.history(filter, language, false) };
+      return { status: 200, body: this.history(read.filter, language, false) };
     }
 
     const found = this.findRun(segments[1]);
     if (!found || !(this.context.administers() || this.mayView(found.thread, language))) {
-      return failure(404, 'assistant-run-not-found');
+      return failure('assistant-run-not-found');
     }
     if (segments.length === 5) {
       // The mock's runs save no files.
-      return segments[2] === 'artifacts' && segments[4] === 'content' ? failure(404, 'assistant-artifact-not-found') : null;
+      return segments[2] === 'artifacts' && segments[4] === 'content' ? failure('assistant-artifact-not-found') : null;
     }
 
-    const body: AgentRunResult = {
+    const result: AgentRunResult = {
       run: this.toHistoryItem(found.thread, found.run, language),
       result: this.results.get(found.run.id) ?? null,
       resultTruncated: this.truncated.has(found.run.id),
@@ -124,31 +149,37 @@ export class NhAssistantMockAgentRuns {
       artifacts: [],
       canOpenConversation: this.mayView(found.thread, language)
     };
-    return { status: 200, body };
+    return { status: 200, body: result };
   }
 
-  /** `GET admin/agents/{id}/runs`: every run of the agent, for administrators. */
+  /**
+   * `GET admin/agents/{id}/runs`: every run of the agent, for administrators. The filter is checked
+   * before the agent, as on the server.
+   */
   handleAgentRuns(method: string, agentId: string, query: URLSearchParams, language: string | null): NhAssistantMockResult {
     if (method !== 'GET') {
       return { status: 405 };
     }
     if (!this.context.administers()) {
-      return failure(403, 'assistant-forbidden');
+      return failure('assistant-forbidden');
+    }
+    const read = readFilter(query, false);
+    if ('errors' in read) {
+      return failure('assistant-run-filter-invalid', read.errors);
     }
     if (!this.context.agents().some(agent => agent.id === agentId)) {
-      return failure(404, 'assistant-agent-not-found');
+      return failure('assistant-agent-not-found');
     }
-    const filter = readFilter(query, false);
-    if (!filter) {
-      return failure(400, 'assistant-run-filter-invalid');
-    }
-    return { status: 200, body: this.history({ ...filter, agentId }, language, true) };
+    return { status: 200, body: this.history({ ...read.filter, agentId }, language, true) };
   }
 
-  /** `POST threads/start`, `GET threads` and `GET threads/{id}/…`; `null` for other paths. */
+  /** `POST threads/start`, `POST threads/open`, `GET threads` and `GET threads/{id}/…`; `null` for other paths. */
   handleThreads(method: string, segments: string[], query: URLSearchParams, body: unknown, language: string | null): NhAssistantMockResult | null {
     if (segments.length === 2 && segments[1] === 'start') {
       return method === 'POST' ? this.start(body, language) : { status: 405 };
+    }
+    if (segments.length === 2 && segments[1] === 'open') {
+      return method === 'POST' ? this.open(body, language) : { status: 405 };
     }
     if (segments.length === 1) {
       return method === 'GET' ? this.lookup(query, language) : { status: 405 };
@@ -158,9 +189,9 @@ export class NhAssistantMockAgentRuns {
       if (listed) {
         return { status: 200, body: listed };
       }
-      const thread = [...this.threads.values()].find(item => item.conversationId === segments[1]);
+      const thread = this.threadOf(segments[1]);
       if (!thread) {
-        return failure(404, 'assistant-conversation-not-found');
+        return failure('assistant-conversation-not-found');
       }
       switch (segments[2]) {
         case 'runs':
@@ -190,14 +221,14 @@ export class NhAssistantMockAgentRuns {
 
     const [, type, id] = segments;
     if (!validSubject(type, id)) {
-      return failure(400, 'assistant-subject-not-found');
+      return failure('assistant-subject-invalid');
     }
     const subject = this.subjects.describe(type, id, language, this.context.administers());
     if (subject === undefined) {
-      return failure(404, 'assistant-subject-type-unknown');
+      return failure('assistant-subject-type-unknown');
     }
     if (subject === null) {
-      return failure(404, 'assistant-subject-not-found');
+      return failure('assistant-subject-not-found');
     }
 
     const agents: AgentObjectAgent[] = this.context.agents()
@@ -211,7 +242,7 @@ export class NhAssistantMockAgentRuns {
           descriptionKey: agent.source === 'code'
             ? this.scenario.agents.find(item => item.id === agent.id)?.descriptionKey ?? agent.description
             : agent.description,
-          canStart: this.refusal(agent, subject) === null,
+          canStart: this.canStart(agent, subject),
           conversationId: thread?.conversationId ?? null,
           latestRun: thread ? latestRun(thread, this.results) : null,
           openProposals: thread?.openProposals ?? 0
@@ -241,7 +272,7 @@ export class NhAssistantMockAgentRuns {
       conversationId: thread?.conversationId ?? null,
       latestRun: thread ? latestRun(thread, this.results) : null,
       openProposals: (thread?.openProposals ?? 0) + listed,
-      canStart: this.refusal(agent, subject) === null
+      canStart: this.canStart(agent, subject)
     };
   }
 
@@ -250,8 +281,7 @@ export class NhAssistantMockAgentRuns {
    * its view policy, by default its required policy.
    */
   maySeeResults(agent: AdminAgent): boolean {
-    const policy = agent.viewPolicy ?? agent.requiredPolicy ?? null;
-    return this.isWorking(agent) && (policy === null || this.passes(policy));
+    return this.isWorking(agent) && this.passesViewPolicy(agent);
   }
 
   /** Whether the agent works for people now and the caller may use it. */
@@ -272,39 +302,61 @@ export class NhAssistantMockAgentRuns {
   private start(body: unknown, language: string | null): NhAssistantMockResult {
     const request = body as { agentId?: unknown; subjectType?: unknown; subjectId?: unknown; message?: unknown } | undefined;
     if (!request || (request.message !== undefined && request.message !== null && (typeof request.message !== 'string' || request.message.length > maxMessage))) {
-      return failure(400, 'assistant-message-invalid');
+      return failure('assistant-message-invalid');
     }
-    const agent = typeof request.agentId === 'string' ? this.context.agents().find(item => item.id === request.agentId) : undefined;
-    if (!agent) {
-      return failure(404, 'assistant-agent-not-found');
+    const read = this.readSubject(request.agentId, request.subjectType, request.subjectId, language);
+    if ('failure' in read) {
+      return read.failure;
     }
-    const type = typeof request.subjectType === 'string' ? request.subjectType : '';
-    const id = typeof request.subjectId === 'string' ? request.subjectId : '';
-    if (!validSubject(type, id)) {
-      return failure(400, 'assistant-subject-not-found');
+    // A subject the caller may not read gives no role on it.
+    if (read.subject === null) {
+      return failure('assistant-subject-access-denied');
     }
-    const subject = this.subjects.describe(type, id, language, this.context.administers());
-    if (subject === undefined) {
-      return failure(404, 'assistant-subject-type-unknown');
-    }
-    if (subject === null) {
-      return failure(403, 'assistant-subject-access-denied');
-    }
-    const refusal = this.refusal(agent, subject);
+    const refusal = this.refusal(read.agent, read.subject);
     if (refusal) {
-      return failure(refusal.status, refusal.code);
+      return failure(refusal);
     }
 
-    const runNow = this.scenario.runNow?.[agent.id] ?? {};
-    const outcome = runNow.outcome ?? 'started';
-    if (outcome === 'rejected' || outcome === 'ignored') {
-      const receipt: AgentTriggerReceipt = { triggerId: 'manual', outcome, runId: null, conversationId: null, reasonCode: null };
-      return { status: 202, body: receipt };
+    return this.startNow(read.agent, read.subject);
+  }
+
+  /**
+   * Starts a run by hand after the start checks, as the server's triggers do: the agent's state, the
+   * daily limit, then the run with the scenario's outcome. A paused agent answers `waiting`.
+   */
+  private startNow(agent: AdminAgent, subject: NhAssistantMockDescribedSubject): NhAssistantMockResult {
+    const stateRefusal = refusalOfState(agent);
+    if (stateRefusal) {
+      return failure(stateRefusal);
     }
 
+    const runNow: NhAssistantMockRunNow = this.scenario.runNow?.[agent.id] ?? {};
     const threadKey = key(agent.id, subject);
-    const thread = this.threads.get(threadKey) ?? { conversationId: this.nextId(), agentId: agent.id, subject, runs: [], openProposals: 0 };
+    const existing = this.threads.get(threadKey);
+    if (runNow.dailyLimit !== undefined && existing && this.runsByHandToday(existing) >= runNow.dailyLimit) {
+      return failure('assistant-trigger-rate-limited');
+    }
+
+    const outcome = runNow.outcome ?? 'started';
+    if (outcome === 'ignored' || outcome === 'deferred') {
+      // Nothing started yet: a deferred start names no run or thread until the change is saved.
+      return accepted({ triggerId: 'manual', outcome, runId: null, conversationId: null, reasonCode: null });
+    }
+
+    const thread = existing ?? { conversationId: this.nextId(), agentId: agent.id, subject, runs: [], openProposals: 0 };
     this.threads.set(threadKey, thread);
+    if (agent.runState === 'paused' || outcome === 'waiting') {
+      // The start waits in the agent's thread and runs when the agent, or its skill, resumes.
+      const reasonCode = agent.runState === 'paused' ? 'assistant-agent-paused' : 'assistant-skill-paused';
+      return accepted({ triggerId: 'manual', outcome: 'waiting', runId: null, conversationId: thread.conversationId, reasonCode });
+    }
+
+    const run = this.recordRun(thread, agent, runNow);
+    return accepted({ triggerId: 'manual', outcome, runId: run.id, conversationId: thread.conversationId, reasonCode: null });
+  }
+
+  /** A run by hand that ends at once with the scenario's status, result and proposals. */
+  private recordRun(thread: StoredThread, agent: AdminAgent, runNow: NhAssistantMockRunNow): AgentRun {
     const now = this.now();
     const status = runNow.status ?? 'completed';
     const ended = !activeStatuses.includes(status);
@@ -334,62 +386,210 @@ export class NhAssistantMockAgentRuns {
     thread.runs.push(run);
     this.keep(run.id, runNow.result);
     thread.openProposals += runNow.proposals ?? 0;
-    const receipt: AgentTriggerReceipt = { triggerId: 'manual', outcome, runId: run.id, conversationId: thread.conversationId, reasonCode: null };
-    return { status: 202, body: receipt };
+    return run;
+  }
+
+  /** The runs by hand of a thread in the last day, which the daily limit counts. */
+  private runsByHandToday(thread: StoredThread): number {
+    const now = Date.parse(this.now());
+    return thread.runs.filter(run => run.triggerId === 'manual' && now - Date.parse(run.createdAt) < dayMs).length;
+  }
+
+  /**
+   * `POST threads/open`: the agent's thread about the subject, created without a run when it is
+   * missing. Readers open an existing thread; creating one needs what a start by hand needs, and a
+   * refusal answers `409` for what the agent does not work on and `403` otherwise.
+   */
+  private open(body: unknown, language: string | null): NhAssistantMockResult {
+    const request = body as { agentId?: unknown; subjectType?: unknown; subjectId?: unknown } | undefined;
+    if (!request || typeof request !== 'object') {
+      return failure('assistant-subject-invalid');
+    }
+    const read = this.readSubject(request.agentId, request.subjectType, request.subjectId, language);
+    if ('failure' in read) {
+      return read.failure;
+    }
+    const { agent, subject } = read;
+    if (subject === null || !this.mayReadThreadOf(agent, subject)) {
+      return failure('assistant-subject-not-found');
+    }
+    if (agent.shadowOf && !this.context.administers()) {
+      return failure('assistant-agent-not-found');
+    }
+
+    const threadKey = key(agent.id, subject);
+    let thread = this.threads.get(threadKey);
+    if (!thread) {
+      const refusal = this.refusal(agent, subject);
+      if (refusal) {
+        return failure(refusal === 'assistant-agent-does-not-work-on' ? refusal : 'assistant-subject-access-denied');
+      }
+      thread = { conversationId: this.nextId(), agentId: agent.id, subject, runs: [], openProposals: 0 };
+      this.threads.set(threadKey, thread);
+    }
+
+    const lookup: AgentThreadLookup = { thread: toThread(thread), canStart: this.canStart(agent, subject), role: subject.role };
+    return { status: 200, body: lookup };
   }
 
   private lookup(query: URLSearchParams, language: string | null): NhAssistantMockResult {
-    const agent = this.context.agents().find(item => item.id === query.get('agentId'));
-    if (!agent) {
-      return failure(404, 'assistant-agent-not-found');
+    const read = this.readSubject(query.get('agentId'), query.get('subjectType') ?? '', query.get('subjectId') ?? '', language);
+    if ('failure' in read) {
+      return read.failure;
     }
-    const type = query.get('subjectType') ?? '';
-    const id = query.get('subjectId') ?? '';
-    if (!validSubject(type, id)) {
-      return failure(400, 'assistant-subject-not-found');
+    const { agent, subject } = read;
+    if (subject === null || !this.mayReadThreadOf(agent, subject)) {
+      return failure('assistant-subject-not-found');
     }
-    const subject = this.subjects.describe(type, id, language, this.context.administers());
-    if (subject === undefined) {
-      return failure(404, 'assistant-subject-type-unknown');
-    }
-    if (subject === null) {
-      return failure(404, 'assistant-subject-not-found');
+    if (agent.shadowOf && !this.context.administers()) {
+      return failure('assistant-agent-not-found');
     }
 
     const thread = this.threads.get(key(agent.id, subject));
     const body: AgentThreadLookup = {
       thread: thread ? toThread(thread) : null,
-      canStart: this.refusal(agent, subject) === null,
+      canStart: this.canStart(agent, subject),
       role: subject.role
     };
     return { status: 200, body };
   }
 
   /**
-   * Why the caller may not run the agent on the subject, in the server's order: the role, the agent,
-   * what it works on, then the run policy and shadow.
+   * `POST runs/{id}/cancel`: cancels an open run and withdraws its open proposals; needs the
+   * participant role on the thread. An ended run stays as it is.
    */
-  private refusal(agent: AdminAgent, subject: NhAssistantMockDescribedSubject): { status: number; code: string } | null {
+  private cancel(runId: string, language: string | null): NhAssistantMockResult {
+    const found = this.findRun(runId);
+    if (!found) {
+      return failure('assistant-run-not-found');
+    }
+    const role = this.roleOn(found.thread, language);
+    if (role === null) {
+      return failure('assistant-conversation-not-found');
+    }
+    if (role === 'reader') {
+      return failure('assistant-subject-access-denied');
+    }
+    if (activeStatuses.includes(found.run.status)) {
+      found.run.status = 'cancelled';
+      found.run.endedAt = this.now();
+      found.thread.openProposals = Math.max(0, found.thread.openProposals - found.run.proposalCount);
+    }
+    return { status: 202 };
+  }
+
+  /**
+   * `POST runs/{id}/retry`: resumes a failed or cancelled run (`queued`), or restarts the agent in the
+   * same thread like a start by hand; needs the approver role on the thread. The mock's resumed
+   * attempt ends at once as the scenario's `runNow` says.
+   */
+  private retry(runId: string, body: unknown, language: string | null): NhAssistantMockResult {
+    const mode = (body as { mode?: unknown } | undefined)?.mode ?? 'resume';
+    if (mode !== 'resume' && mode !== 'restart') {
+      return failure('assistant-run-not-retryable');
+    }
+    const found = this.findRun(runId);
+    if (!found) {
+      return failure('assistant-run-not-found');
+    }
+    const role = this.roleOn(found.thread, language);
+    if (role === null) {
+      return failure('assistant-conversation-not-found');
+    }
+    if (role !== 'approver') {
+      return failure('assistant-subject-access-denied');
+    }
+    if (!retryableStatuses.includes(found.run.status)) {
+      return failure('assistant-run-not-retryable');
+    }
+
+    const agent = this.context.agents().find(item => item.id === found.thread.agentId);
+    if (!agent) {
+      return failure('assistant-agent-not-found');
+    }
+    if (mode === 'restart') {
+      return this.startNow(agent, found.thread.subject);
+    }
+
+    const runNow = this.scenario.runNow?.[agent.id] ?? {};
+    const status = runNow.status ?? 'completed';
+    const now = this.now();
+    found.run.status = status;
+    found.run.attempt += 1;
+    found.run.failureClass = status === 'failed' ? 'permanent' : null;
+    found.run.failureCode = status === 'failed' ? 'assistant-turn-failed' : null;
+    found.run.startedAt = now;
+    found.run.endedAt = activeStatuses.includes(status) ? null : now;
+    return accepted({ triggerId: found.run.triggerId, outcome: 'queued', runId: found.run.id, conversationId: found.run.conversationId, reasonCode: null });
+  }
+
+  /**
+   * The request's agent and subject as the server reads them: an unknown agent is not found, a
+   * malformed subject reference invalid and an unknown type unknown. `subject` is `null` for a subject
+   * the caller may not read.
+   */
+  private readSubject(agentId: unknown, subjectType: unknown, subjectId: unknown, language: string | null): SubjectRead {
+    const agent = typeof agentId === 'string' ? this.context.agents().find(item => item.id === agentId) : undefined;
+    if (!agent) {
+      return { failure: failure('assistant-agent-not-found') };
+    }
+    const type = typeof subjectType === 'string' ? subjectType : '';
+    const id = typeof subjectId === 'string' ? subjectId : '';
+    if (!validSubject(type, id)) {
+      return { failure: failure('assistant-subject-invalid') };
+    }
+    const subject = this.subjects.describe(type, id, language, this.context.administers());
+    if (subject === undefined) {
+      return { failure: failure('assistant-subject-type-unknown') };
+    }
+    return { agent, subject };
+  }
+
+  /**
+   * Why the caller may not run the agent on the subject, in the server's order: the role, the agent,
+   * what it works on, then the run policy and shadow. The agent's state is checked when the run
+   * starts.
+   */
+  private refusal(agent: AdminAgent, subject: NhAssistantMockDescribedSubject): string | null {
     const system = subject.subjectType === mockSystemSubjectType;
     if (!system && subject.role === 'reader') {
-      return { status: 403, code: 'assistant-subject-access-denied' };
+      return 'assistant-subject-access-denied';
     }
-    if (!this.isWorking(agent) || !this.mayUse(agent)) {
-      return { status: 403, code: 'assistant-agent-forbidden' };
+    if (!this.mayUse(agent)) {
+      return 'assistant-agent-forbidden';
     }
     if (!worksOn(agent, subject)) {
-      return { status: 409, code: 'assistant-agent-does-not-work-on' };
+      return 'assistant-agent-does-not-work-on';
     }
     if (system && !(agent.runPolicy ? this.passes(agent.runPolicy) : this.context.administers())) {
-      return { status: 403, code: 'assistant-agent-forbidden' };
+      return 'assistant-agent-forbidden';
     }
     if (agent.shadow?.shadow && !this.context.administers()) {
-      return { status: 403, code: 'assistant-agent-forbidden' };
+      return 'assistant-agent-forbidden';
     }
     return null;
   }
 
-  /** A page of the runs the caller may see, or with `everything` every run, newest first. */
+  /** Whether the caller may start the agent now, as `canStart` says: it works and nothing refuses it. */
+  private canStart(agent: AdminAgent, subject: NhAssistantMockDescribedSubject): boolean {
+    return this.isWorking(agent) && this.refusal(agent, subject) === null;
+  }
+
+  /** The caller's live role on a thread, or `null` when the caller may not see it. */
+  private roleOn(thread: StoredThread, language: string | null): 'reader' | 'participant' | 'approver' | null {
+    if (!this.mayView(thread, language)) {
+      return null;
+    }
+    const subject = this.subjects.describe(thread.subject.subjectType, thread.subject.subjectId, language, this.context.administers());
+    return subject?.role ?? null;
+  }
+
+  /** The agent's thread about the whole application is only for people who pass its view policy. */
+  private mayReadThreadOf(agent: AdminAgent, subject: NhAssistantMockDescribedSubject): boolean {
+    return subject.scope === 'object' || this.passesViewPolicy(agent);
+  }
+
+  /** A run history's page of the runs the caller may see, or with `everything` every run, newest first. */
   private history(filter: RunFilter, language: string | null, everything: boolean): AgentRunHistory {
     const matching = [...this.threads.values()]
       .filter(thread => (filter.agentId === null || thread.agentId === filter.agentId)
@@ -427,8 +627,11 @@ export class NhAssistantMockAgentRuns {
       return true;
     }
     const agent = this.context.agents().find(item => item.id === thread.agentId);
-    const policy = agent?.viewPolicy ?? agent?.requiredPolicy ?? null;
-    return agent !== undefined && (policy === null || this.passes(policy));
+    return agent !== undefined && this.passesViewPolicy(agent);
+  }
+
+  private threadOf(conversationId: string): StoredThread | undefined {
+    return [...this.threads.values()].find(item => item.conversationId === conversationId);
   }
 
   private findRun(runId: string): { thread: StoredThread; run: AgentRun } | null {
@@ -507,7 +710,7 @@ export class NhAssistantMockAgentRuns {
       triggerId: seeded.triggerId ?? 'manual',
       status,
       failureClass: status === 'failed' ? 'internal' : null,
-      failureCode: status === 'failed' ? 'assistant-turn-failed' : null,
+      failureCode: status === 'failed' ? seeded.failureCode ?? 'assistant-turn-failed' : null,
       initiatorActorId: null,
       accountableOwnerId: `assistant-agent:${seeded.agentId}`,
       attempt: 1,
@@ -546,6 +749,12 @@ export class NhAssistantMockAgentRuns {
     return agent.requiredPolicy === null || agent.requiredPolicy === undefined || this.passes(agent.requiredPolicy);
   }
 
+  /** The agent's view policy, by default its required policy, for its work on the whole application. */
+  private passesViewPolicy(agent: AdminAgent): boolean {
+    const policy = agent.viewPolicy ?? agent.requiredPolicy ?? null;
+    return policy === null || this.passes(policy);
+  }
+
   private passes(policy: string): boolean {
     return this.scenario.callerPolicies?.includes(policy) ?? true;
   }
@@ -569,6 +778,23 @@ export interface NhAssistantMockBoardWork {
   latestRun: AgentLatestRun | null;
   openProposals: number;
   canStart: boolean;
+}
+
+/** The receipt of a start the server accepted. */
+function accepted(receipt: AgentTriggerReceipt): NhAssistantMockResult {
+  return { status: 202, body: receipt };
+}
+
+/** Why the agent's state refuses a start: stopped, or disabled in the application's code. */
+function refusalOfState(agent: AdminAgent): string | null {
+  switch (agent.runState) {
+    case 'stopped':
+      return 'assistant-agent-stopped';
+    case 'configured-off':
+      return 'assistant-agent-configured-off';
+    default:
+      return null;
+  }
 }
 
 /** One thread per agent and subject, as on the server. */
@@ -631,35 +857,52 @@ function toThread(thread: StoredThread): AgentThread {
 }
 
 /**
- * Reads a run history's filter and page as the server does; `null` when a part is invalid. People's
- * history takes an agent, the administration's runs view names its agent in the path.
+ * Reads a run history's filter and page as the server does: the filter, or the refused parts as field
+ * errors (`page`, `itemsPerPage`, `agentId`, `subjectType`, `subjectId`, `status`, `from`, `to`).
+ * People's history takes an agent; the administration's runs view names its agent in the path.
  */
-function readFilter(query: URLSearchParams, withAgent: boolean): RunFilter | null {
+function readFilter(query: URLSearchParams, withAgent: boolean): { filter: RunFilter } | { errors: Record<string, string[]> } {
+  const errors: Record<string, string[]> = {};
   const page = query.has('page') ? Number(query.get('page')) : 1;
+  if (!Number.isInteger(page) || page < 1) {
+    errors['page'] = ['invalid'];
+  }
   const itemsPerPage = query.has('itemsPerPage') ? Number(query.get('itemsPerPage')) : 20;
-  if (!Number.isInteger(page) || page < 1 || !Number.isInteger(itemsPerPage) || itemsPerPage < 1 || itemsPerPage > maxItemsPerPage) {
-    return null;
+  if (!Number.isInteger(itemsPerPage) || itemsPerPage < 1 || itemsPerPage > maxItemsPerPage) {
+    errors['itemsPerPage'] = ['invalid'];
   }
   const agentId = withAgent ? query.get('agentId') : null;
-  if (agentId !== null && (agentId.trim().length === 0 || agentId.length > 128)) {
-    return null;
+  if (agentId !== null && (agentId.trim().length === 0 || agentId.length > maxAgentId)) {
+    errors['agentId'] = ['invalid'];
   }
   const subjectType = query.get('subjectType');
   if (subjectType !== null && (!dashCase.test(subjectType) || subjectType.length > 100)) {
-    return null;
+    errors['subjectType'] = ['invalid'];
   }
   const subjectId = query.get('subjectId');
-  if (subjectId !== null && (subjectType === null || subjectId.trim().length === 0 || subjectId.length > maxSubjectId || subjectId.trim() !== subjectId)) {
-    return null;
+  if (subjectId !== null) {
+    if (subjectType === null) {
+      errors['subjectType'] = ['required'];
+    }
+    if (subjectId.trim().length === 0 || subjectId.length > maxSubjectId || subjectId.trim() !== subjectId) {
+      errors['subjectId'] = ['invalid'];
+    }
   }
   const status = query.get('status');
   if (status !== null && !runStatuses.includes(status as AgentRunStatus)) {
-    return null;
+    errors['status'] = ['invalid'];
   }
   const from = query.has('from') ? Date.parse(query.get('from')!) : null;
   const to = query.has('to') ? Date.parse(query.get('to')!) : null;
-  if ((from !== null && Number.isNaN(from)) || (to !== null && Number.isNaN(to)) || (from !== null && to !== null && to <= from)) {
-    return null;
+  if (from !== null && Number.isNaN(from)) {
+    errors['from'] = ['invalid'];
   }
-  return { agentId, subjectType, subjectId, status, from, to, page, itemsPerPage };
+  if ((to !== null && Number.isNaN(to)) || (from !== null && to !== null && !Number.isNaN(from) && to <= from)) {
+    errors['to'] = ['invalid'];
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return { errors };
+  }
+  return { filter: { agentId, subjectType, subjectId, status, from, to, page, itemsPerPage } };
 }

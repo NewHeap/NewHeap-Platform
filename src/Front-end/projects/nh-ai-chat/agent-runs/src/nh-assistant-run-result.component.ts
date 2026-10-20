@@ -18,11 +18,15 @@ import {
   AgentRunResult,
   NhAssistantAgentRunApiService,
   NhAssistantApiError,
+  NhAssistantError,
+  ɵnhAssistantCodeKeys as nhAssistantCodeKeys,
+  ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantMarkdownPipe as NhAssistantMarkdownPipe,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
   ɵNhAssistantSubjectLinkComponent as NhAssistantSubjectLinkComponent,
-  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
+  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
+  ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposals.component';
 
@@ -82,7 +86,16 @@ export class NhAssistantRunResultComponent {
   readonly notFound = signal(false);
   readonly detail = signal<AgentRunResult | null>(null);
   readonly downloadingId = signal<string | null>(null);
-  readonly downloadFailed = signal(false);
+  /** Why the latest download failed, as a code and translation key; `null` after one that worked. */
+  readonly downloadError = signal<NhAssistantError | null>(null);
+  /** Whether the latest download failed. */
+  readonly downloadFailed = computed(() => this.downloadError() !== null);
+  /** The text of the download's failure, then the text that a file could not be downloaded. */
+  readonly downloadErrorKeys = computed(() => {
+    const keys = nhAssistantErrorKeys(this.downloadError());
+    return keys.length > 0 ? [...keys.slice(0, -1), 'nh-assistant.agent-runs.artifacts.download-failed'] : [];
+  });
+  readonly codeKeys = nhAssistantCodeKeys;
   readonly duration = computed(() => {
     const run = this.detail()?.run;
     return run ? durationOf(run.startedAt, run.endedAt) : null;
@@ -110,7 +123,7 @@ export class NhAssistantRunResultComponent {
 
   async download(artifact: AgentArtifact): Promise<void> {
     this.downloadingId.set(artifact.id);
-    this.downloadFailed.set(false);
+    this.downloadError.set(null);
     try {
       const blob = await this.api.downloadRunArtifact(this.runId(), artifact.id);
       const url = URL.createObjectURL(blob);
@@ -119,8 +132,8 @@ export class NhAssistantRunResultComponent {
       link.download = `${artifact.name}-v${artifact.version}`;
       link.click();
       URL.revokeObjectURL(url);
-    } catch {
-      this.downloadFailed.set(true);
+    } catch (error) {
+      this.downloadError.set(toNhAssistantError(error));
     } finally {
       this.downloadingId.set(null);
     }

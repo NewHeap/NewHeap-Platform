@@ -22,6 +22,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { Observable, Subject } from 'rxjs';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
+import { mockFailure } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockAgentRuns } from './nh-assistant-mock-agent-runs';
 import { NhAssistantMockBoards } from './nh-assistant-mock-boards';
 import { NhAssistantMockProposals } from './nh-assistant-mock-proposals';
@@ -88,7 +89,8 @@ export class NhAssistantMockBackend {
   private readonly proposals = new NhAssistantMockProposals(
     this.scenario.proposals,
     () => this.currentUser.actorId,
-    () => new Date().toISOString());
+    () => new Date().toISOString(),
+    agentId => this.decidesForApplication(agentId));
   private readonly subjects = new NhAssistantMockSubjects(
     this.scenario.subjectTypes,
     this.scenario.divisions,
@@ -266,7 +268,7 @@ export class NhAssistantMockBackend {
       return this.json(200, { pushEnabled: this.pushEnabled, pushAvailable: false, publicKey: null });
     }
     if (path === 'notifications/push-subscription') {
-      return this.error(404, 'assistant-push-unavailable');
+      return this.error('assistant-push-unavailable');
     }
     if (segments[0] === 'admin' && segments[1] === 'agents' && segments[3] === 'runs' && segments.length === 4) {
       return this.result(this.agentRuns.handleAgentRuns(method, segments[2], query, language));
@@ -298,7 +300,7 @@ export class NhAssistantMockBackend {
         ?? { status: 404 });
     }
     if (segments[0] === 'runs') {
-      return this.result(this.agentRuns.handleRuns(method, segments, query, language) ?? { status: 404 });
+      return this.result(this.agentRuns.handleRuns(method, segments, query, body, language) ?? { status: 404 });
     }
     if (segments[0] === 'threads') {
       return this.result(this.agentRuns.handleThreads(method, segments, query, body, language) ?? { status: 404 });
@@ -356,7 +358,7 @@ export class NhAssistantMockBackend {
       const token = (body as { token?: string } | undefined)?.token;
       return token && this.shareTokens.get(conversation.id) === token
         ? this.json(200, this.view(conversation))
-        : this.error(404, 'assistant-share-link-invalid');
+        : this.error('assistant-share-link-invalid');
     }
     if (method === 'GET' && segments.length === 3 && segments[2] === 'participant-candidates') {
       return this.candidates(conversation, query.get('query') ?? '');
@@ -366,7 +368,7 @@ export class NhAssistantMockBackend {
     }
     if (method === 'DELETE' && segments.length === 4 && segments[2] === 'participants') {
       const removed = this.removeMember(conversation.id, segments[3]);
-      return removed ? this.empty(204) : this.error(404, 'assistant-participant-not-found');
+      return removed ? this.empty(204) : this.error('assistant-participant-not-found');
     }
 
     if (method === 'POST' && segments.length === 3 && segments[2] === 'messages') {
@@ -458,7 +460,7 @@ export class NhAssistantMockBackend {
     }
     const decider = this.activeActors.get(conversation.id);
     if (decider && decider !== this.currentUser.actorId) {
-      return this.error(403, 'assistant-approval-forbidden');
+      return this.error('assistant-approval-forbidden');
     }
     if (request?.expectedProposalHash !== pending.approval.proposalHash) {
       return this.empty(409);
@@ -746,11 +748,11 @@ export class NhAssistantMockBackend {
   private candidates(conversation: Conversation, query: string): Response {
     const directory = this.scenario.collaboration?.directory ?? [];
     if (directory.length === 0) {
-      return this.error(404, 'assistant-directory-unavailable');
+      return this.error('assistant-directory-unavailable');
     }
     const text = query.trim().toLowerCase();
     if (text.length < 2) {
-      return this.error(400, 'assistant-validation');
+      return this.error('assistant-validation');
     }
     const members = new Set((this.members.get(conversation.id) ?? []).map(member => member.actorId));
     return this.json(200, directory
@@ -762,11 +764,11 @@ export class NhAssistantMockBackend {
   private invite(conversation: Conversation, actorId: string | undefined): Response {
     const person = (this.scenario.collaboration?.directory ?? []).find(item => item.actorId === actorId);
     if (!person) {
-      return this.error(404, 'assistant-participant-not-found');
+      return this.error('assistant-participant-not-found');
     }
     const participants = (this.members.get(conversation.id) ?? []).filter(member => member.role === 'participant');
     if (participants.length >= this.maxParticipants()) {
-      return this.error(409, 'assistant-participant-limit-reached');
+      return this.error('assistant-participant-limit-reached');
     }
     this.addMember(conversation.id, person, 'participant');
     return this.empty(204);
@@ -825,8 +827,23 @@ export class NhAssistantMockBackend {
     return this.scenario.collaboration?.maxParticipants ?? 20;
   }
 
-  private error(status: number, code: string): Response {
-    return this.json(status, { code, messageKey: `nh-assistant.errors.${code}` });
+  /** A contract error with the one status the server gives its code. */
+  private error(code: string): Response {
+    return this.result(mockFailure(code));
+  }
+
+  /**
+   * Whether the caller decides the agent's proposals of the whole application: an approver of the whole
+   * application (an administrator in the mock) who passes the agent's view policy, by default its
+   * required policy.
+   */
+  private decidesForApplication(agentId: string): boolean {
+    if (!this.admin.administers) {
+      return false;
+    }
+    const agent = this.admin.allAgents().find(item => item.id === agentId);
+    const policy = agent?.viewPolicy ?? agent?.requiredPolicy ?? null;
+    return policy === null || (this.scenario.callerPolicies?.includes(policy) ?? true);
   }
 
   private nextId(): string {

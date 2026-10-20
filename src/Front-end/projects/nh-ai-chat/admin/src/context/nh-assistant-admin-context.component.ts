@@ -13,6 +13,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 
 /** Maximum length of the application context and of agent instructions. */
 export const NH_ASSISTANT_MAX_INSTRUCTIONS = 20_000;
@@ -26,7 +27,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-admin-context',
   standalone: true,
-  imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
+  imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAccountNamesErrorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-context.component.html',
   styleUrl: '../nh-assistant-admin-shared.scss'
@@ -52,8 +53,8 @@ export class NhAssistantAdminContextComponent {
   readonly canSave = computed(() => !this.saving() && !this.tooLong() && this.dirty() && this.context() !== null);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   readonly history = computed(() => this.versions().filter(version => version.version !== this.context()?.version));
-  /** The names of the people who changed the context, by actor id, once known. */
-  private readonly names = signal<ReadonlyMap<string, string>>(new Map());
+  /** The names of the people who changed the context, once known, and why they are not. */
+  readonly accountNames = new NhAssistantAccountNames();
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
@@ -71,7 +72,7 @@ export class NhAssistantAdminContextComponent {
         this.context.set(context);
         this.versions.set(versions);
         this.text.set(keepDraft ? draft : context.text);
-        this.loadNames(versions.map(version => version.updatedBy));
+        this.accountNames.load(versions.map(version => version.updatedBy));
         this.conflict.set(false);
         this.error.set(null);
         this.loading.set(false);
@@ -85,7 +86,7 @@ export class NhAssistantAdminContextComponent {
 
   /** A person's name, or the id when the application does not know it. */
   nameOf(actorId: string | null | undefined): string {
-    return actorId ? this.names().get(actorId) ?? actorId : '';
+    return this.accountNames.nameOf(actorId);
   }
 
   onInput(event: Event): void {
@@ -111,7 +112,7 @@ export class NhAssistantAdminContextComponent {
           ...versions
         ]);
         this.text.set(updated.text);
-        this.loadNames([updated.updatedBy]);
+        this.accountNames.load([updated.updatedBy]);
         this.saving.set(false);
         this.saved.set(true);
       },
@@ -121,18 +122,6 @@ export class NhAssistantAdminContextComponent {
         this.conflict.set(failure.code === NhAssistantClientErrorCodes.versionConflict);
         this.error.set(this.conflict() ? null : failure);
       }
-    });
-  }
-
-  private loadNames(actorIds: readonly (string | null | undefined)[]): void {
-    const known = this.names();
-    const missing = [...new Set(actorIds.filter((id): id is string => !!id && !known.has(id)))];
-    if (missing.length === 0) {
-      return;
-    }
-    this.admin.getAccounts(missing).subscribe({
-      next: accounts => this.names.set(new Map([...this.names(), ...accounts.map(account => [account.actorId, account.displayName] as const)])),
-      error: () => undefined
     });
   }
 }

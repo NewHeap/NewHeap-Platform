@@ -11,8 +11,10 @@ export class NhAssistantApiError extends Error {
     readonly code: string,
     readonly messageKey: string,
     /**
-     * The field errors of an `assistant-validation` response: camelCase field names with stable
-     * values such as `required`, `invalid`, `too-long` or `not-found`. Empty otherwise.
+     * The field errors of the error body, whatever its code (for example `assistant-validation` or
+     * `assistant-run-filter-invalid`): camelCase field names, dotted for nested settings such as
+     * `oauth.clientId`, with stable values such as `required`, `invalid`, `too-long` or `not-found`.
+     * Empty when the body names none.
      */
     readonly fieldErrors: Readonly<Record<string, readonly string[]>> = {}
   ) {
@@ -57,6 +59,15 @@ const safeCode = /^[a-z0-9][a-z0-9.-]{0,79}$/;
 const safeField = /^[a-zA-Z][a-zA-Z0-9.]{0,63}$/;
 
 /**
+ * Whether a value the server or a callback page sent is a code the library may show: lowercase
+ * letters, digits, dots and dashes, at most 80 characters. Every reader of untrusted codes uses this
+ * one check, so a code never carries free text into a translation key.
+ */
+export function nhAssistantIsSafeCode(value: unknown): value is string {
+  return typeof value === 'string' && safeCode.test(value);
+}
+
+/**
  * Shared transport of the assistant services: `fetch` with the host's token, the current
  * language and stable failure codes. Internal to the library.
  */
@@ -84,6 +95,32 @@ export class NhAssistantTransport {
   }
 
   /**
+   * Downloads a file of the assistant API. Rejects with `NhAssistantApiError`, never with raw text:
+   * the code and field errors of a refused request's error body (whatever its content type), the
+   * endpoint's status mapping without one, `assistant-network` when the request did not reach the
+   * server and `assistant-stream-interrupted` when the file broke off while it was read.
+   */
+  async download(path: string, accept: string, statusCodes: NhAssistantStatusCodes = {}): Promise<Blob> {
+    let response: Response;
+    try {
+      response = await this.fetch('GET', path, accept, undefined, new AbortController().signal);
+    } catch {
+      throw createApiError(0, nhAssistantCodeForStatus(0));
+    }
+
+    if (!response.ok) {
+      const failure = await this.failure(response, statusCodes);
+      throw createApiError(response.status, failure.code, failure.fieldErrors);
+    }
+
+    try {
+      return await response.blob();
+    } catch {
+      throw createApiError(response.status, NhAssistantClientErrorCodes.streamInterrupted);
+    }
+  }
+
+  /**
    * The failure code of a response: a safe `code` field of a JSON error body wins, then the
    * endpoint's status mapping, then the generic mapping. Response text is never used.
    */
@@ -107,14 +144,14 @@ export class NhAssistantTransport {
       const errors = record?.['errors'];
       if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
         for (const [field, values] of Object.entries(errors as Record<string, unknown>)) {
-          const safe = Array.isArray(values) ? values.filter((value): value is string => typeof value === 'string' && safeCode.test(value)) : [];
+          const safe = Array.isArray(values) ? values.filter(nhAssistantIsSafeCode) : [];
           if (safeField.test(field) && safe.length > 0) {
             fieldErrors[field] = safe;
           }
         }
       }
       const code = record?.['code'];
-      if (typeof code === 'string' && safeCode.test(code)) {
+      if (nhAssistantIsSafeCode(code)) {
         return { code, fieldErrors };
       }
     } catch {

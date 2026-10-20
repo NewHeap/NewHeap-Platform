@@ -126,9 +126,19 @@ internal sealed class NhAssistantNoMcpToolSource : INhAssistantMcpToolSource
 /// A failure of an MCP connection or request with a stable code. Its message never contains
 /// remote text, credentials or addresses.
 /// </summary>
-internal class NhAssistantMcpException(string code, string message) : Exception(message)
+internal class NhAssistantMcpException(string code, string message, Exception? innerException = null)
+    : Exception(message, innerException)
 {
     public string Code { get; } = code;
+
+    /// <summary>
+    /// Whether the remote tool certainly did not run: the request never left the host (a blocked
+    /// target, a call the credential may not carry, a credential that could not be obtained), or the
+    /// server refused the request's credential before it handled it and no renewed credential could
+    /// repeat it. An approved proposal whose execution failed so ends <c>execution-failed</c>, not
+    /// <c>execution-unknown</c>.
+    /// </summary>
+    public bool ToolNotRun { get; init; }
 }
 
 /// <summary>
@@ -159,5 +169,28 @@ internal static class NhAssistantMcpFailures
     public static bool StoppedBeforeSending(string code)
     {
         return code is NhAssistantAdminErrorCodes.McpHostBlocked or NhAssistantAdminErrorCodes.McpCredentialMismatch;
+    }
+
+    /// <summary>
+    /// Whether the failure of an MCP call shows that the remote tool certainly did not run: an
+    /// <see cref="NhAssistantMcpException"/> marked <see cref="NhAssistantMcpException.ToolNotRun"/> or
+    /// with a code that stops a request before it is sent, or a request the server refused with
+    /// <c>401</c> or <c>403</c>. Every other failure may have run the tool.
+    /// </summary>
+    public static bool ToolNotRun(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is NhAssistantMcpException failure)
+            {
+                return failure.ToolNotRun || StoppedBeforeSending(failure.Code);
+            }
+            if (current is HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden })
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }

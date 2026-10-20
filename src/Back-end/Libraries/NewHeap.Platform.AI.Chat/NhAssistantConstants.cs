@@ -262,6 +262,12 @@ public static class NhAssistantPlacementReasons
     public const string NoAccess = "no-access";
 
     /// <summary>
+    /// Nobody answers for the agent at the object, for example an agent that answers to the
+    /// subject's responsible person at an object without one, so the proposal cannot wait there.
+    /// </summary>
+    public const string NoAccountableOwner = "no-accountable-owner";
+
+    /// <summary>
     /// The run placed <see cref="NhAssistantLimits.MaxPlacedProposalsPerRun"/> proposals already.
     /// </summary>
     public const string Limit = "limit";
@@ -521,6 +527,13 @@ public static class NhAssistantErrorCodes
     public const string PushSubscriptionInvalid = "assistant-push-subscription-invalid";
 
     public const string SubjectNotFound = "assistant-subject-not-found";
+
+    /// <summary>
+    /// A request names a subject that cannot exist: an invalid subject type, or an id that is blank,
+    /// too long or surrounded by white space. An unknown or unreadable subject is
+    /// <see cref="SubjectNotFound"/>.
+    /// </summary>
+    public const string SubjectInvalid = "assistant-subject-invalid";
     public const string SubjectTypeUnknown = "assistant-subject-type-unknown";
     public const string SubjectAccessDenied = "assistant-subject-access-denied";
     public const string NoAccountableOwner = "assistant-no-accountable-owner";
@@ -723,6 +736,11 @@ public static class NhAssistantErrorCodes
     public const string ArtifactOutsideTurn = "assistant-artifact-outside-turn";
     public const string ArtifactNotFound = "assistant-artifact-not-found";
     public const string WebhookPayloadInvalid = "assistant-webhook-payload-invalid";
+
+    /// <summary>
+    /// The body of a webhook call is larger than the webhook accepts.
+    /// </summary>
+    public const string WebhookPayloadTooLarge = "assistant-webhook-payload-too-large";
     public const string TriggerNotFound = "assistant-trigger-not-found";
 
     /// <summary>
@@ -1219,6 +1237,26 @@ public static class NhAssistantAdminErrorCodes
     /// <summary>The caller has too many unfinished authorizations.</summary>
     public const string McpTooManyAuthorizations = "assistant-mcp-too-many-authorizations";
 
+    /// <summary>
+    /// The server has no OAuth connection of the kind asked for: authorizing needs a server with the
+    /// <c>oauth</c> authorization code flow, the organization's connection exists for <c>oauth</c> and
+    /// <c>oauth-client-credentials</c>, and personal connections only for <c>oauth</c> servers that
+    /// each person connects to.
+    /// </summary>
+    public const string McpConnectionNotSupported = "assistant-mcp-connection-not-supported";
+
+    /// <summary>
+    /// A stored secret of the server can no longer be read, for example after the data protection
+    /// keys changed; an administrator enters it again.
+    /// </summary>
+    public const string McpSecretUnreadable = "assistant-mcp-secret-unreadable";
+
+    /// <summary>
+    /// The application's secret resolver failed while reading a secret reference; it may work again
+    /// later.
+    /// </summary>
+    public const string McpSecretUnavailable = "assistant-mcp-secret-unavailable";
+
     public const string InstructionsTooLong = "assistant-instructions-too-long";
     public const string ContextNotFound = "assistant-context-not-found";
 }
@@ -1236,9 +1274,11 @@ public static class NhAssistantFieldErrors
 }
 
 /// <summary>
-/// Collects field errors (camelCase field names) and turns them into one
-/// <c>assistant-validation</c> failure. Field errors travel as result items named
-/// <c>field:&lt;name&gt;</c> after the code item.
+/// Collects field errors (camelCase field names) and turns them into one failure, by default
+/// <c>assistant-validation</c>. Field errors travel as result items named <c>field:&lt;name&gt;</c>
+/// after the code item, and the endpoints return them in the <c>errors</c> object of the error body.
+/// A field of a nested input object is named with its path in dots, for example
+/// <c>oauth.clientSecretReference</c>, exactly as the client names the field.
 /// </summary>
 internal sealed class NhAssistantValidationErrors
 {
@@ -1268,9 +1308,17 @@ internal sealed class NhAssistantValidationErrors
 
     public NewHeap.Platform.Common.Models.TaskResult ToResult()
     {
-        var result = NewHeap.Platform.Common.Models.TaskResult.Failed(
-            NhAssistantAdminErrorCodes.ValidationFailed,
-            "The input is invalid.");
+        return ToResult(NhAssistantAdminErrorCodes.ValidationFailed, "The input is invalid.");
+    }
+
+    /// <summary>
+    /// The field errors as a failure with its own code, such as
+    /// <see cref="NhAssistantErrorCodes.RunFilterInvalid"/> for the filter of a run history.
+    /// </summary>
+    public NewHeap.Platform.Common.Models.TaskResult ToResult(string code, string message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        var result = NewHeap.Platform.Common.Models.TaskResult.Failed(code, message);
         foreach (var (field, errors) in _errors)
         {
             result.AddError(FieldPrefix + field, errors.ToArray());

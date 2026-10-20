@@ -24,7 +24,7 @@
     }
   </div>
 
-  @if (errorCode(); as code) {
-    <p class="error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: code }}</p>
+  @if (error(); as failure) {
+    <p class="error" role="alert" data-connection-error><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
   }
 </section>

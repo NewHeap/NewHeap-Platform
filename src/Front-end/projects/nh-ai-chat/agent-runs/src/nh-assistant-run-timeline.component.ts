@@ -6,14 +6,17 @@ import {
   AgentRun,
   AgentRunRetryMode,
   AgentSubjectRole,
+  AgentTriggerReceipt,
   NhAssistantAgentRunApiService,
   NhAssistantError,
+  ɵnhAssistantCodeKeys as nhAssistantCodeKeys,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { NhAssistantRunReceiptComponent } from './internal/nh-assistant-run-receipt.component';
 import { NhAssistantRunResultComponent } from './nh-assistant-run-result.component';
 
 let nextId = 0;
@@ -24,13 +27,21 @@ const endedStatuses = new Set(['completed', 'failed', 'cancelled']);
  * The runs of an agent thread, newest first: trigger, status, failure, usage, proposals and the
  * summary the next run starts from, and the agent that handed a run its work. "Show the result"
  * opens a run's whole result, proposals and files in `nh-assistant-run-result`. Participants cancel
- * an open run; approvers resume or restart a failed or cancelled one. With live updates it reloads
- * by itself when a run or proposal of the thread changes.
+ * an open run; approvers resume or restart a failed or cancelled one, and a restart shows what became
+ * of it like a start by hand. A run's failure reads as its translated code. With live updates it
+ * reloads by itself when a run or proposal of the thread changes.
  */
 @Component({
   selector: 'nh-assistant-run-timeline',
   standalone: true,
-  imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantRunResultComponent],
+  imports: [
+    DatePipe,
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantRunResultComponent,
+    NhAssistantRunReceiptComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-run-timeline.component.html',
   styleUrl: './nh-assistant-agent-runs.scss'
@@ -56,6 +67,9 @@ export class NhAssistantRunTimelineComponent {
   readonly busyRunId = signal<string | null>(null);
   readonly error = signal<NhAssistantError | null>(null);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
+  /** What became of the latest restart. */
+  readonly receipt = signal<AgentTriggerReceipt | null>(null);
+  readonly codeKeys = nhAssistantCodeKeys;
   readonly canCancel = computed(() => this.role() === 'participant' || this.role() === 'approver');
   readonly canRetry = computed(() => this.role() === 'approver');
 
@@ -91,20 +105,27 @@ export class NhAssistantRunTimelineComponent {
   }
 
   cancel(run: AgentRun): void {
-    this.act(run, this.api.cancelRun(run.id));
+    this.act(run, this.api.cancelRun(run.id), () => undefined);
   }
 
   retry(run: AgentRun, mode: AgentRunRetryMode): void {
-    this.act(run, this.api.retryRun(run.id, mode));
+    // A restart starts the agent again; its receipt says whether it started or waits.
+    this.act(run, this.api.retryRun(run.id, mode), receipt => {
+      if (mode === 'restart') {
+        this.receipt.set(receipt);
+      }
+    });
   }
 
-  private act(run: AgentRun, request: Observable<unknown>): void {
+  private act<T>(run: AgentRun, request: Observable<T>, done: (result: T) => void): void {
     this.busyRunId.set(run.id);
     this.error.set(null);
+    this.receipt.set(null);
     this.actionSubscription?.unsubscribe();
     this.actionSubscription = request.subscribe({
-      next: () => {
+      next: result => {
         this.busyRunId.set(null);
+        done(result);
         this.changed.emit();
         this.load();
       },

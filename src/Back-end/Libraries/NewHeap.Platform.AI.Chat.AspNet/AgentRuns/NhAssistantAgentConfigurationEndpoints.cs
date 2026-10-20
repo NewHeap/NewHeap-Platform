@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using NewHeap.Platform.Common.Actors;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
@@ -25,7 +24,7 @@ internal static class NhAssistantAgentConfigurationEndpoints
         admin.MapGet("accounts", GetAccountsAsync)
             .WithName("NhAssistantAdminGetAccounts")
             .WithSummary("Find the accounts an agent can answer to")
-            .WithDescription("With query (2 to 100 characters) searches the application's accounts by name or e-mail address through INhActorSearch, at most limit (default 20, at most 50); without a registered search 404 assistant-account-search-unavailable. With ids (comma-separated actor ids, at most 50) returns the names the application knows for them, leaving out unknown ids. Whether an account may answer for an agent is checked when the run settings are saved.")
+            .WithDescription("With query (2 to 100 characters) searches the application's accounts by name or e-mail address through INhActorSearch, at most limit (default 20, at most 50); without a registered search 404 assistant-account-search-unavailable. With ids (comma-separated actor ids, at most 50 distinct ids of at most 256 characters each, otherwise 400 assistant-validation with ids invalid) returns the names the application knows for them, leaving out unknown ids; a client with more ids asks in batches of 50. Whether an account may answer for an agent is checked when the run settings are saved.")
             .Produces<NhAssistantAccountDto[]>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
@@ -127,61 +126,21 @@ internal static class NhAssistantAgentConfigurationEndpoints
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantRunCatalogDto);
     }
 
-    private const int MaxAccountIds = 50;
-    private const int MaxActorIdLength = 256;
-
-    private static async Task<IResult> GetAccountsAsync(string? query, string? ids, int? limit, HttpContext httpContext)
+    private static async Task<IResult> GetAccountsAsync(
+        string? query,
+        string? ids,
+        int? limit,
+        HttpContext httpContext,
+        NhAssistantAccounts accounts)
     {
-        if (!string.IsNullOrWhiteSpace(ids))
-        {
-            var actorIds = ids.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
-            if (actorIds.Length > MaxAccountIds || actorIds.Any(actorId => actorId.Length > MaxActorIdLength))
-            {
-                return NhAssistantAdminEndpoints.Failure(NhAssistantValidationErrors.Failed("ids", NhAssistantFieldErrors.Invalid));
-            }
-
-            var directory = httpContext.RequestServices.GetService<INhActorDirectory>();
-            var references = actorIds.ToDictionary(
-                actorId => Guid.TryParse(actorId, out var userId) ? NhActorRef.ForUser(userId) : new NhActorRef(NhActorKinds.User, actorId),
-                actorId => actorId);
-            var known = directory is null
-                ? new Dictionary<NhActorRef, NhActorInfo>()
-                : await directory.GetAsync(references.Keys.ToArray(), httpContext.RequestAborted);
-            return NhAssistantAdminEndpoints.Json(
-                references
-                    .Where(reference => known.ContainsKey(reference.Key))
-                    .Select(reference => ToAccount(reference.Value, known[reference.Key]))
-                    .ToArray(),
-                NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAccountDtoArray);
-        }
-
-        var text = query?.Trim() ?? string.Empty;
-        if (text.Length is < NhActorSearchRequest.MinQueryLength or > NhActorSearchRequest.MaxQueryLength)
-        {
-            return NhAssistantAdminEndpoints.Failure(NhAssistantValidationErrors.Failed("query", NhAssistantFieldErrors.Invalid));
-        }
-
-        var search = httpContext.RequestServices.GetService<INhActorSearch>();
-        if (search is null)
-        {
-            return NhAssistantAdminEndpoints.Failure(Common.Models.TaskResult.Failed(
-                NhAssistantErrorCodes.AccountSearchUnavailable,
-                "The application offers no account search."));
-        }
-
-        var found = await search.SearchAsync(
-            new NhActorSearchRequest(text, Math.Clamp(limit ?? 20, 1, NhActorSearchRequest.MaxLimit)),
-            httpContext.RequestAborted);
-        return NhAssistantAdminEndpoints.Json(
-            found.Select(info => ToAccount(info.Actor.Id, info)).ToArray(),
-            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAccountDtoArray);
-    }
-
-    private static NhAssistantAccountDto ToAccount(string actorId, NhActorInfo info)
-    {
-        return new NhAssistantAccountDto(actorId, info.DisplayName, info.Email);
+        var found = string.IsNullOrWhiteSpace(ids)
+            ? await accounts.SearchAsync(query, limit, httpContext.RequestAborted)
+            : await accounts.FindAsync(ids, httpContext.RequestAborted);
+        return found.Success
+            ? NhAssistantAdminEndpoints.Json(
+                found.Data!.ToArray(),
+                NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAccountDtoArray)
+            : NhAssistantAdminEndpoints.Failure(found);
     }
 
     private static async Task<IResult> GetAsync(string id, HttpContext httpContext, INhAssistantAgentConfiguration configuration)

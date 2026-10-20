@@ -265,6 +265,8 @@
       "assistant-mcp-delegated-token-unavailable": "No short-lived token could be issued for the person this background run acts for.",
       "assistant-mcp-secret-reference-invalid": "The secret reference names no available secret. Check the prefix and the name.",
       "assistant-mcp-certificate-reference-invalid": "The client certificate is not configured or has no private key.",
+      "assistant-mcp-secret-unreadable": "A stored secret of this server can no longer be read. An administrator enters it again.",
+      "assistant-mcp-secret-unavailable": "The secret of this server could not be read just now. Please try again.",
       "assistant-instructions-too-long": "The text is too long. Shorten it to at most 20,000 characters.",
       "assistant-context-not-found": "The application context was not found. Reload the page.",
       "assistant-mcp-server-not-found": "The MCP server no longer exists. Reload the list.",
@@ -306,7 +308,8 @@
       "assistant-push-unavailable": "Desktop notifications are not available.",
       "assistant-push-subscription-invalid": "This browser could not be registered for notifications.",
       "assistant-conversation-removed": "This conversation is no longer available to you.",
-      "assistant-subject-not-found": "The subject no longer exists.",
+      "assistant-subject-not-found": "This object does not exist, or you may not see it.",
+      "assistant-subject-invalid": "This is not a valid reference to an object. Check the kind of object and its id.",
       "assistant-subject-type-unknown": "This kind of subject is not known to the assistant.",
       "assistant-subject-search-unavailable": "This kind of object cannot be searched; give its id.",
       "assistant-agent-does-not-work-on": "This agent does not work on this kind of object.",
@@ -347,8 +350,11 @@
       "assistant-proposal-superseded": "A newer proposal replaced this one.",
       "assistant-proposal-refused": "This action cannot be proposed by an automatic rule.",
       "assistant-trigger-not-found": "The trigger was not found.",
+      "assistant-trigger-rate-limited": "This agent already ran as often as it may today for this object. Try again later.",
+      "assistant-trigger-rolled-back": "The run could not be queued. Please try again.",
       "assistant-webhook-signature-invalid": "The webhook call has no valid signature.",
       "assistant-webhook-payload-invalid": "The webhook call could not be read.",
+      "assistant-webhook-payload-too-large": "The webhook call is larger than allowed.",
       "assistant-memory-not-configured": "This agent keeps no working memory.",
       "assistant-memory-invalid": "The working memory change does not fit its schema.",
       "assistant-memory-conflict": "The working memory changed at the same time.",
@@ -392,6 +398,7 @@
       "assistant-mcp-authorization-not-confirmed": "An administrator has to confirm the server's authorization server first.",
       "assistant-mcp-oauth-not-configured": "The application has no OAuth redirect address for MCP servers. Ask the developers to configure it.",
       "assistant-mcp-too-many-authorizations": "Too many authorizations are still open. Finish or wait for them, then try again.",
+      "assistant-mcp-connection-not-supported": "This server has no connection of this kind.",
       "assistant-mcp-authorization-cancelled": "The authorization window was closed before it finished.",
       "assistant-mcp-popup-blocked": "The browser blocked the authorization window. Allow pop-ups for this site and try again.",
       "assistant-proposal-placed": "The proposal waits at the object it concerns, for that object's approvers.",
@@ -648,7 +655,8 @@
           "run-policy": "Run for the whole application by: {{policy}}.",
           "view-policy": "Results for the whole application seen by: {{policy}}."
         },
-        "groups": "Groups: {{groups}}"
+        "groups": "Groups: {{groups}}",
+        "catalog-failed": "The building blocks of agent runs could not be read. Until they are, agents cannot be run now here and what an agent works on and its groups stay as they are."
       },
       "agent-editor": {
         "new-title": "New agent",
@@ -714,7 +722,8 @@
           "hint": "Pages of the application show the agents of a group on a board, with their latest results. Your choice wins over the code.",
           "in-code": "In this group in code",
           "shadow-variant": "A shadow variant works for administrators only and joins no group."
-        }
+        },
+        "catalog-unavailable": "The building blocks of agent runs could not be read, so what this agent works on and its groups cannot be changed now. Saving keeps them as they are."
       },
       "effect": {
         "read-only": "Read only",
@@ -798,7 +807,8 @@
         "required-scopes": "The server asked for: {{scopes}}",
         "connect-own": "Connect my account",
         "connect-own-done": "Your own account is connected; tests and syncs use it.",
-        "personal-attention": "{{count}} need to connect again"
+        "personal-attention": "{{count}} need to connect again",
+        "personal-connections-failed": "The personal connections could not be counted."
       },
       "server-editor": {
         "new-title": "New MCP server",
@@ -812,6 +822,7 @@
         "auth-mode": "Authentication",
         "header-name": "Header name",
         "header-name-hint": "Default X-Api-Key.",
+        "header-name-invalid": "Use 1 to 128 letters, digits and dashes.",
         "user-name": "User name",
         "user-name-hint": "Sent with the secret as basic authentication.",
         "user-name-invalid": "Enter a user name without a colon, at most 256 characters.",
@@ -1293,7 +1304,8 @@
           "search-hint": "Choose the account by name or e-mail address. It must be able to sign in.",
           "id-hint": "The application offers no account search; enter the account's id. It must be able to sign in.",
           "known": "Account: {{name}}",
-          "unknown": "The application does not know this account."
+          "unknown": "The application does not know this account.",
+          "lookup-again": "Look up again"
         },
         "policy-summary": {
           "who": "Approved by {{approvers}}.",
@@ -1390,7 +1402,8 @@
         "more": "Show more runs",
         "only-object": "Runs on this object",
         "only-application": "Runs for the whole application"
-      }
+      },
+      "account-names-failed": "The names of accounts could not be read; their ids are shown instead."
     },
     "page-context": {
       "included": "Sent with your message: {{page}}",
@@ -1471,9 +1484,14 @@
           "superseded": "The current run stops and the agent starts again.",
           "ignored": "The agent is busy; nothing was started.",
           "deduplicated": "This was already started.",
-          "rejected": "The agent could not be started."
+          "waiting": "The agent is paused. It starts when it is resumed.",
+          "deferred": "The start is recorded and goes ahead as soon as the change it belongs to is saved."
         },
-        "shadow": "Shadow thread: only administrators see it, and nothing proposed here executes."
+        "shadow": "Shadow thread: only administrators see it, and nothing proposed here executes.",
+        "waiting": {
+          "assistant-agent-paused": "The agent is paused. This run starts when an administrator resumes it.",
+          "assistant-skill-paused": "The agent's skill for this is paused. This run starts when an administrator resumes it."
+        }
       },
       "subject": {
         "title": "Agent suggestions",
@@ -1681,7 +1699,8 @@
       "found": "Found: {{name}}",
       "not-found": "No object with this id was found, or you may not see it.",
       "whole-application-hint": "The agent runs once, for the application as a whole.",
-      "division-placeholder": "Search a division by name"
+      "division-placeholder": "Search a division by name",
+      "look-up-again": "Look up again"
     },
     "run-now": {
       "title": "Run {{agent}} now",
@@ -1714,7 +1733,9 @@
       "toggle": "Show the choices",
       "searching": "Searching…",
       "type-more": "Type at least two characters.",
-      "no-results": "Nothing found."
+      "no-results": "Nothing found.",
+      "search-failed": "The search failed.",
+      "search-again": "Search again"
     },
     "connection": {
       "title": "Connect {{name}}",

@@ -112,6 +112,16 @@
               }
             </div>
 
+            @if (summaryErrors()[server.id]; as failure) {
+              <p class="message warning catalog-error" role="status" data-summary-error>
+                <nh-assistant-icon name="warning" />
+                <span class="grow">
+                  {{ 'nh-assistant.admin.mcp.personal-connections-failed' | translate }}
+                  {{ summaryErrorKeys(server.id) | nhAssistantTranslate: failure.code }}
+                </span>
+                <button class="secondary" type="button" (click)="retrySummary(server)">{{ 'nh-assistant.admin.retry' | translate }}</button>
+              </p>
+            }
             @if (server.organizationConnection?.status === 'issuer-changed') {
               <p class="message warning" role="note"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.mcp.issuer-changed' | translate }}</p>
             }

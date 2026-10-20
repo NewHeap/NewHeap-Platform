@@ -33,6 +33,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 import { codeTextKeys, readableId, skillDescriptionKeys, skillNameKeys } from './agent-texts';
 import { NhAssistantAgentWorkSetupComponent } from './run-config/nh-assistant-agent-work-setup.component';
 import { NhAssistantRunSettingsFormComponent } from './run-config/nh-assistant-run-settings-form.component';
@@ -72,7 +73,8 @@ interface Confirmation {
     NhAssistantAgentWorkSetupComponent,
     NhAssistantRunSettingsFormComponent,
     NhAssistantSkillFormComponent,
-    NhAssistantTriggerFormComponent
+    NhAssistantTriggerFormComponent,
+    NhAssistantAccountNamesErrorComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-run-configuration.component.html',
@@ -86,7 +88,6 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   private loadSubscription?: Subscription;
   private actionSubscription?: Subscription;
   private detailSubscription?: Subscription;
-  private accountSubscription?: Subscription;
 
   readonly agent = input.required<AdminAgent>();
   /** Opens the guided setup at once, for an agent that was just created to work on its own. */
@@ -115,10 +116,16 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   readonly reason = signal('');
   /** The item whose action failed, so its error shows next to it: `settings`, `skill:{id}` or `trigger:{id}`. */
   readonly actionTarget = signal<string | null>(null);
+  /**
+   * The names of the account the agent answers to and of the people who changed skills, once known,
+   * and why they are not.
+   */
+  readonly accountNames = new NhAssistantAccountNames();
   /** The name of the account the agent answers to, once known. */
-  readonly accountName = signal<string | null>(null);
-  /** The names of the people who changed skills, by actor id, once known. */
-  private readonly actorNames = signal<ReadonlyMap<string, string>>(new Map());
+  readonly accountName = computed(() => {
+    const actorId = this.configuration()?.runSettings?.serviceAccountActorId;
+    return actorId ? this.accountNames.names().get(actorId) ?? null : null;
+  });
   /** The agent's name; an agent in code names itself with a translation key. */
   readonly agentName = computed(() => {
     this.language();
@@ -176,7 +183,6 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
       this.loadSubscription?.unsubscribe();
       this.actionSubscription?.unsubscribe();
       this.detailSubscription?.unsubscribe();
-      this.accountSubscription?.unsubscribe();
     });
   }
 
@@ -193,8 +199,10 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
         this.catalog.set(catalog);
         this.configuration.set(configuration);
         this.loading.set(false);
-        this.loadAccountName(configuration.runSettings?.serviceAccountActorId ?? null);
-        this.loadActorNames(configuration.dataSkills.map(skill => skill.changedBy));
+        this.accountNames.load([
+          configuration.runSettings?.serviceAccountActorId,
+          ...configuration.dataSkills.map(skill => skill.changedBy)
+        ]);
         if (openSetup && configuration.source === 'admin' && configuration.runSettings === null) {
           this.open('setup');
         }
@@ -285,7 +293,7 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     this.detailSubscription = this.admin.getDataSkillVersions(this.agent().id, skill.skillId).subscribe({
       next: items => {
         this.versions.set({ skillId: skill.skillId, items, failed: false });
-        this.loadActorNames(items.map(item => item.createdBy));
+        this.accountNames.load(items.map(item => item.createdBy));
       },
       error: () => this.versions.set({ skillId: skill.skillId, items: null, failed: true })
     });
@@ -367,7 +375,7 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
 
   /** A person's name, or the id when the application does not know it. */
   nameOf(actorId: string | null | undefined): string {
-    return actorId ? this.actorNames().get(actorId) ?? actorId : '';
+    return this.accountNames.nameOf(actorId);
   }
 
   /** The first of the keys with a translation, or the fallback. */
@@ -381,35 +389,12 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     return fallback;
   }
 
-  private loadActorNames(actorIds: readonly (string | null | undefined)[]): void {
-    const known = this.actorNames();
-    const missing = [...new Set(actorIds.filter((id): id is string => !!id && !known.has(id)))];
-    if (missing.length === 0) {
-      return;
-    }
-    this.admin.getAccounts(missing).subscribe({
-      next: accounts => this.actorNames.set(new Map([...this.actorNames(), ...accounts.map(account => [account.actorId, account.displayName] as const)])),
-      error: () => undefined
-    });
-  }
-
   private finish(savedKey: string): void {
     this.form.set(null);
     this.saved.set(savedKey);
     this.changed.emit();
     this.load();
     afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('[data-saved]')?.focus(), { injector: this.injector });
-  }
-
-  private loadAccountName(actorId: string | null): void {
-    this.accountSubscription?.unsubscribe();
-    this.accountName.set(null);
-    if (actorId) {
-      this.accountSubscription = this.admin.getAccounts([actorId]).subscribe({
-        next: accounts => this.accountName.set(accounts.find(account => account.actorId === actorId)?.displayName ?? null),
-        error: () => undefined
-      });
-    }
   }
 
   /** Opens one form at a time and moves the focus into it. */

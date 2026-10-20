@@ -26,6 +26,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { NhAssistantRunReceiptComponent } from './nh-assistant-run-receipt.component';
 import { NhAssistantChosenSubject, NhAssistantSubjectPickerComponent } from './nh-assistant-subject-picker.component';
 
 /** The agent the dialog runs: its id, its name as people read it and what it works on. */
@@ -77,9 +78,11 @@ let nextId = 0;
  * works on this time, unless the host gives the subject: the whole application, in a division for an
  * agent that works per division, or an object of one of its types through the subject picker; and an
  * optional instruction. It sends `POST threads/start` with the caller as initiator, shows the
- * server's refusal at the form, and ends with the receipt: what happens now, the subject and the
- * conversation to open. The server decides who may run the agent: on an object the participant
- * role, on the whole application the agent's run policy.
+ * server's refusal at the form with its translated code, and ends with the receipt: what happens
+ * now (a warning while the agent or its skill is paused, information while the start waits for the
+ * application's change to be saved), the subject and the conversation to open. The server decides
+ * who may run the agent: on an object the participant role, on the whole application the agent's
+ * run policy.
  *
  * The host renders it when people ask to run the agent; it opens itself and emits `closed` when it
  * closes, after which the host removes it. Escape closes it, and focus returns to what opened it.
@@ -92,7 +95,8 @@ let nextId = 0;
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
     NhAssistantSubjectLinkComponent,
-    NhAssistantSubjectPickerComponent
+    NhAssistantSubjectPickerComponent,
+    NhAssistantRunReceiptComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-run-now-dialog.component.html',

@@ -1,3 +1,5 @@
+import { mockStatusOf } from './nh-assistant-mock-status';
+
 /** A mock response: status plus optional JSON body. */
 export interface NhAssistantMockResult {
   status: number;
@@ -13,13 +15,19 @@ export const mockMaxInstructions = 20_000;
 /** The longest reason of a state or shadow change. */
 export const mockMaxStateReason = 500;
 
-/** A contract error response: `{ code, messageKey, errors? }`, never free text. */
-export function mockFailure(status: number, code: string, errors?: Record<string, string[]>): NhAssistantMockResult {
-  return { status, body: { code, messageKey: `nh-assistant.errors.${code}`, ...(errors ? { errors } : {}) } };
+/**
+ * A contract error response: `{ code, messageKey, errors? }`, never free text, with the one status the
+ * server's table gives the code (`mockStatusOf`). Field errors may come with any code.
+ */
+export function mockFailure(code: string, errors?: Record<string, string[]>): NhAssistantMockResult {
+  return {
+    status: mockStatusOf(code),
+    body: { code, messageKey: `nh-assistant.errors.${code}`, ...(errors && Object.keys(errors).length > 0 ? { errors } : {}) }
+  };
 }
 
 export function mockValidationFailure(field?: string): NhAssistantMockResult {
-  return mockFailure(400, 'assistant-validation', field ? { [field]: ['invalid'] } : undefined);
+  return mockFailure('assistant-validation', field ? { [field]: ['invalid'] } : undefined);
 }
 
 /** A stable, non-cryptographic fingerprint; the mock only needs change detection. */

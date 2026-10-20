@@ -251,7 +251,9 @@ export interface NhAssistantMockDivision {
 
 /**
  * What a run of an agent started by hand does in the mock, which runs no agents: it ends at once with
- * this status and result, leaving this many open proposals.
+ * this status and result, leaving this many open proposals. The agent's state decides first, as on
+ * the server: a stopped agent or one disabled in code is refused (`409`), and a paused agent answers
+ * `waiting` with `assistant-agent-paused`.
  */
 export interface NhAssistantMockRunNow {
   /** Default `completed`. */
@@ -260,8 +262,16 @@ export interface NhAssistantMockRunNow {
   result?: string | null;
   /** The open proposals the run leaves on its subject. Default 0. */
   proposals?: number;
-  /** The receipt's outcome. Default `started`. */
+  /**
+   * The receipt's outcome. Default `started`. `ignored` and `deferred` record no run; `waiting` records
+   * none either and names `assistant-skill-paused`, as for a paused skill.
+   */
   outcome?: AgentTriggerReceipt['outcome'];
+  /**
+   * The runs by hand the agent may make per object in a day; a start beyond it answers
+   * `409 assistant-trigger-rate-limited`. Default no limit.
+   */
+  dailyLimit?: number;
 }
 
 /**
@@ -282,6 +292,8 @@ export interface NhAssistantMockRun {
   subjectDisplayName?: string;
   /** Default `completed`. */
   status?: AgentRunStatus;
+  /** Why a `failed` run failed, such as `assistant-trigger-rolled-back`. Default `assistant-turn-failed`. */
+  failureCode?: string;
   /** Default `manual`. */
   triggerId?: string;
   /** The run's answer as Markdown, model output; default none. */
@@ -412,7 +424,11 @@ export interface NhAssistantMockProposal {
   status?: AgentProposalStatus;
   rationale?: string | null;
   placedBy?: AgentProposalOrigin | null;
-  /** Whether the signed-in user may decide it. Default `true`. */
+  /**
+   * Whether the signed-in user may decide it. Default `true`. A proposal of the whole application
+   * (`nh-system`) exists only for its approvers who pass the agent's view policy, by default its
+   * required policy: the administrators in the mock; for anybody else it is not found at all.
+   */
   canDecide?: boolean;
   /** Why not, when `canDecide` is `false`. Default `assistant-approval-policy-denied`. */
   reasonCode?: string | null;

@@ -265,6 +265,8 @@
       "assistant-mcp-delegated-token-unavailable": "Er kon geen kortlevend token worden uitgegeven voor de persoon voor wie deze achtergrondrun werkt.",
       "assistant-mcp-secret-reference-invalid": "De verwijzing wijst geen beschikbaar geheim aan. Controleer het voorvoegsel en de naam.",
       "assistant-mcp-certificate-reference-invalid": "Het clientcertificaat is niet geconfigureerd of heeft geen privésleutel.",
+      "assistant-mcp-secret-unreadable": "Een opgeslagen geheim van deze server is niet meer leesbaar. Een beheerder voert het opnieuw in.",
+      "assistant-mcp-secret-unavailable": "Het geheim van deze server kon zojuist niet worden gelezen. Probeer het opnieuw.",
       "assistant-instructions-too-long": "De tekst is te lang. Maak hem korter dan 20.000 tekens.",
       "assistant-context-not-found": "De applicatiecontext is niet gevonden. Laad de pagina opnieuw.",
       "assistant-mcp-server-not-found": "De MCP-server bestaat niet meer. Laad de lijst opnieuw.",
@@ -306,7 +308,8 @@
       "assistant-push-unavailable": "Bureaubladmeldingen zijn niet beschikbaar.",
       "assistant-push-subscription-invalid": "Deze browser kon niet worden aangemeld voor meldingen.",
       "assistant-conversation-removed": "Dit gesprek is niet meer voor je beschikbaar.",
-      "assistant-subject-not-found": "Het onderwerp bestaat niet meer.",
+      "assistant-subject-not-found": "Dit object bestaat niet, of je mag het niet zien.",
+      "assistant-subject-invalid": "Dit is geen geldige verwijzing naar een object. Controleer het soort object en het id.",
       "assistant-subject-type-unknown": "Dit soort onderwerp kent de assistent niet.",
       "assistant-subject-search-unavailable": "Dit soort object is niet te doorzoeken; geef de id.",
       "assistant-agent-does-not-work-on": "Deze agent werkt niet aan dit soort object.",
@@ -347,8 +350,11 @@
       "assistant-proposal-superseded": "Een nieuwer voorstel heeft dit voorstel vervangen.",
       "assistant-proposal-refused": "Deze actie kan niet door een automatische regel worden voorgesteld.",
       "assistant-trigger-not-found": "De trigger is niet gevonden.",
+      "assistant-trigger-rate-limited": "Deze agent heeft vandaag al zo vaak voor dit object gedraaid als mag. Probeer het later opnieuw.",
+      "assistant-trigger-rolled-back": "De run kon niet worden ingepland. Probeer het opnieuw.",
       "assistant-webhook-signature-invalid": "De webhook-aanroep heeft geen geldige handtekening.",
       "assistant-webhook-payload-invalid": "De webhook-aanroep kon niet worden gelezen.",
+      "assistant-webhook-payload-too-large": "De webhook-aanroep is groter dan toegestaan.",
       "assistant-memory-not-configured": "Deze agent houdt geen werkgeheugen bij.",
       "assistant-memory-invalid": "De wijziging van het werkgeheugen past niet bij het schema.",
       "assistant-memory-conflict": "Het werkgeheugen is tegelijk gewijzigd.",
@@ -392,6 +398,7 @@
       "assistant-mcp-authorization-not-confirmed": "Een beheerder moet eerst de autorisatieserver van de server bevestigen.",
       "assistant-mcp-oauth-not-configured": "De applicatie heeft geen OAuth-terugkeeradres voor MCP-servers. Vraag de ontwikkelaars dit in te stellen.",
       "assistant-mcp-too-many-authorizations": "Er staan te veel autorisaties open. Rond ze af of wacht even en probeer het opnieuw.",
+      "assistant-mcp-connection-not-supported": "Deze server heeft geen koppeling van deze soort.",
       "assistant-mcp-authorization-cancelled": "Het autorisatievenster is gesloten voordat het klaar was.",
       "assistant-mcp-popup-blocked": "De browser heeft het autorisatievenster geblokkeerd. Sta pop-ups toe voor deze site en probeer het opnieuw.",
       "assistant-proposal-placed": "Het voorstel wacht bij het object waar het om gaat, op de goedkeurders daarvan.",
@@ -648,7 +655,8 @@
           "run-policy": "Te starten voor de hele applicatie door: {{policy}}.",
           "view-policy": "Resultaten voor de hele applicatie zichtbaar voor: {{policy}}."
         },
-        "groups": "Groepen: {{groups}}"
+        "groups": "Groepen: {{groups}}",
+        "catalog-failed": "De bouwstenen van agentruns konden niet worden gelezen. Tot dat lukt, kunnen agents hier niet nu draaien en blijven waar een agent aan werkt en zijn groepen zoals ze zijn."
       },
       "agent-editor": {
         "new-title": "Nieuwe agent",
@@ -714,7 +722,8 @@
           "hint": "Pagina's van de applicatie tonen de agents van een groep op een bord, met hun laatste resultaten. Jouw keuze gaat boven de code.",
           "in-code": "In deze groep in de code",
           "shadow-variant": "Een schaduwvariant werkt alleen voor beheerders en hoort bij geen groep."
-        }
+        },
+        "catalog-unavailable": "De bouwstenen van agentruns konden niet worden gelezen, dus waar deze agent aan werkt en zijn groepen kun je nu niet wijzigen. Opslaan laat ze zoals ze zijn."
       },
       "effect": {
         "read-only": "Alleen lezen",
@@ -798,7 +807,8 @@
         "required-scopes": "De server vroeg om: {{scopes}}",
         "connect-own": "Mijn account koppelen",
         "connect-own-done": "Je eigen account is gekoppeld; testen en synchroniseren gebruiken het.",
-        "personal-attention": "{{count}} moeten opnieuw koppelen"
+        "personal-attention": "{{count}} moeten opnieuw koppelen",
+        "personal-connections-failed": "De persoonlijke koppelingen konden niet worden geteld."
       },
       "server-editor": {
         "new-title": "Nieuwe MCP-server",
@@ -812,6 +822,7 @@
         "auth-mode": "Authenticatie",
         "header-name": "Headernaam",
         "header-name-hint": "Standaard X-Api-Key.",
+        "header-name-invalid": "Gebruik 1 tot 128 letters, cijfers en streepjes.",
         "user-name": "Gebruikersnaam",
         "user-name-hint": "Wordt met het geheim als basic-authenticatie verstuurd.",
         "user-name-invalid": "Vul een gebruikersnaam in zonder dubbele punt, maximaal 256 tekens.",
@@ -1293,7 +1304,8 @@
           "search-hint": "Kies het account op naam of e-mailadres. Het moet kunnen inloggen.",
           "id-hint": "De applicatie biedt geen accountzoeker; vul de id van het account in. Het moet kunnen inloggen.",
           "known": "Account: {{name}}",
-          "unknown": "De applicatie kent dit account niet."
+          "unknown": "De applicatie kent dit account niet.",
+          "lookup-again": "Opnieuw opzoeken"
         },
         "policy-summary": {
           "who": "Goedgekeurd door {{approvers}}.",
@@ -1390,7 +1402,8 @@
         "more": "Meer runs tonen",
         "only-object": "Runs op dit object",
         "only-application": "Runs voor de hele applicatie"
-      }
+      },
+      "account-names-failed": "De namen van accounts konden niet worden gelezen; hun id's staan er in plaats daarvan."
     },
     "page-context": {
       "included": "Wordt meegestuurd: {{page}}",
@@ -1471,9 +1484,14 @@
           "superseded": "De huidige run stopt en de agent start opnieuw.",
           "ignored": "De agent is bezig; er is niets gestart.",
           "deduplicated": "Dit was al gestart.",
-          "rejected": "De agent kon niet starten."
+          "waiting": "De agent is gepauzeerd. Hij start zodra hij hervat wordt.",
+          "deferred": "De start is vastgelegd en gaat door zodra de wijziging waar hij bij hoort is opgeslagen."
         },
-        "shadow": "Schaduwthread: alleen beheerders zien hem, en niets wat hier wordt voorgesteld, wordt uitgevoerd."
+        "shadow": "Schaduwthread: alleen beheerders zien hem, en niets wat hier wordt voorgesteld, wordt uitgevoerd.",
+        "waiting": {
+          "assistant-agent-paused": "De agent is gepauzeerd. Deze run start zodra een beheerder hem hervat.",
+          "assistant-skill-paused": "De vaardigheid van de agent hiervoor is gepauzeerd. Deze run start zodra een beheerder hem hervat."
+        }
       },
       "subject": {
         "title": "Voorstellen van agents",
@@ -1681,7 +1699,8 @@
       "found": "Gevonden: {{name}}",
       "not-found": "Geen object met deze id gevonden, of je mag het niet zien.",
       "whole-application-hint": "De agent werkt één keer, aan de applicatie als geheel.",
-      "division-placeholder": "Zoek een divisie op naam"
+      "division-placeholder": "Zoek een divisie op naam",
+      "look-up-again": "Opnieuw opzoeken"
     },
     "run-now": {
       "title": "{{agent}} nu uitvoeren",
@@ -1714,7 +1733,9 @@
       "toggle": "Toon de keuzes",
       "searching": "Zoeken…",
       "type-more": "Typ minstens twee tekens.",
-      "no-results": "Niets gevonden."
+      "no-results": "Niets gevonden.",
+      "search-failed": "Het zoeken is mislukt.",
+      "search-again": "Opnieuw zoeken"
     },
     "connection": {
       "title": "{{name}} koppelen",

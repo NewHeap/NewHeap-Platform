@@ -150,7 +150,7 @@ export class NhAssistantMockAdminAgents {
         return invalid;
       }
       if (this.agents.has(input.id)) {
-        return failure(409, 'assistant-agent-exists');
+        return failure('assistant-agent-exists');
       }
 
       const agent = this.toAgent(input, 'admin', 1, false);
@@ -160,12 +160,12 @@ export class NhAssistantMockAdminAgents {
 
     const stored = this.agents.get(id);
     if (!stored) {
-      return failure(404, 'assistant-not-found');
+      return failure('assistant-not-found');
     }
 
     if (length === 4 && action === 'reset' && method === 'POST') {
       if (!stored.codeDefinition) {
-        return failure(409, 'assistant-agent-not-code');
+        return failure('assistant-agent-not-code');
       }
       stored.agent = this.toAgent(stored.codeDefinition, 'code', stored.agent.version + 1, false, stored.agent);
       return { status: 200, body: stored.agent };
@@ -190,7 +190,7 @@ export class NhAssistantMockAdminAgents {
         : changed;
     }
     if (length !== 3) {
-      return failure(404, 'assistant-not-found');
+      return failure('assistant-not-found');
     }
 
     if (method === 'PUT') {
@@ -200,7 +200,7 @@ export class NhAssistantMockAdminAgents {
         return invalid;
       }
       if (input.expectedVersion !== stored.agent.version) {
-        return failure(409, 'assistant-version-conflict');
+        return failure('assistant-version-conflict');
       }
 
       const { expectedVersion, ...definition } = input;
@@ -209,7 +209,7 @@ export class NhAssistantMockAdminAgents {
     }
     if (method === 'DELETE') {
       if (stored.agent.source === 'code') {
-        return failure(409, 'assistant-code-agent-not-deletable');
+        return failure('assistant-code-agent-not-deletable');
       }
       this.agents.delete(id);
       return { status: 204 };
@@ -225,7 +225,7 @@ export class NhAssistantMockAdminAgents {
     const stored = this.agents.get(agentId);
     const skill = stored?.agent.skills?.find(item => item.skillId === skillId);
     if (!stored || !skill) {
-      return failure(404, 'assistant-skill-not-found');
+      return failure('assistant-skill-not-found');
     }
     if (method !== 'POST') {
       return { status: 405 };
@@ -251,7 +251,7 @@ export class NhAssistantMockAdminAgents {
     const stored = this.agents.get(agentId);
     const skill = stored?.agent.skills?.find(item => item.skillId === skillId);
     if (!stored || !skill) {
-      return failure(404, 'assistant-skill-not-found');
+      return failure('assistant-skill-not-found');
     }
     if (method !== 'POST') {
       return { status: 405 };
@@ -262,7 +262,7 @@ export class NhAssistantMockAdminAgents {
     }
     const agentShadow = stored.agent.shadow ?? shadowState(false, false, null, false);
     if (agentShadow.locked) {
-      return failure(409, 'assistant-shadow-variant');
+      return failure('assistant-shadow-variant');
     }
 
     const current = skill.shadow ?? shadowState(agentShadow.shadow, false, null, false);
@@ -290,7 +290,7 @@ export class NhAssistantMockAdminAgents {
    */
   agentFeedback(method: string, agentId: string, child: string | undefined, length: number): NhAssistantMockResult {
     if (!this.agents.has(agentId)) {
-      return failure(404, 'assistant-agent-not-found');
+      return failure('assistant-agent-not-found');
     }
     if (method !== 'GET') {
       return { status: 405 };
@@ -308,7 +308,7 @@ export class NhAssistantMockAdminAgents {
       return { status: 200 };
     }
 
-    return failure(404, 'assistant-not-found');
+    return failure('assistant-not-found');
   }
 
   /**
@@ -317,7 +317,7 @@ export class NhAssistantMockAdminAgents {
    */
   agentEvaluation(method: string, agentId: string, child: string | undefined, length: number, query: URLSearchParams): NhAssistantMockResult {
     if (!this.agents.has(agentId)) {
-      return failure(404, 'assistant-agent-not-found');
+      return failure('assistant-agent-not-found');
     }
     if (method !== 'GET') {
       return { status: 405 };
@@ -325,13 +325,13 @@ export class NhAssistantMockAdminAgents {
 
     const variantId = query.get('variant') ?? '';
     if (this.agents.get(variantId)?.agent.shadowOf !== agentId) {
-      return failure(400, 'assistant-evaluation-not-variant');
+      return failure('assistant-evaluation-not-variant');
     }
     if (length === 5 && child === 'export') {
       return { status: 200 };
     }
     if (length !== 4) {
-      return failure(404, 'assistant-not-found');
+      return failure('assistant-not-found');
     }
 
     const to = query.get('to') ?? this.now();
@@ -365,7 +365,7 @@ export class NhAssistantMockAdminAgents {
   agentReplay(method: string, agentId: string, action: string, body: unknown): NhAssistantMockResult {
     const stored = this.agents.get(agentId);
     if (!stored) {
-      return failure(404, 'assistant-agent-not-found');
+      return failure('assistant-agent-not-found');
     }
     if (action === 'replays') {
       return method === 'GET' ? { status: 200, body: { items: [...(this.replays.get(agentId) ?? [])].reverse() } } : { status: 405 };
@@ -374,13 +374,13 @@ export class NhAssistantMockAdminAgents {
       return { status: 405 };
     }
     if (!stored.agent.shadowOf) {
-      return failure(400, 'assistant-replay-not-shadow');
+      return failure('assistant-replay-not-shadow');
     }
 
     const request = (body ?? {}) as { sourceAgentId?: string | null; from?: string | null; to?: string | null; maxRuns?: number | null };
     const maxRuns = request.maxRuns ?? 100;
     if (maxRuns < 1 || maxRuns > 500) {
-      return failure(400, 'assistant-message-invalid');
+      return failure('assistant-message-invalid');
     }
 
     const now = this.now();
@@ -448,7 +448,7 @@ export class NhAssistantMockAdminAgents {
     }
     const current = stored.agent.shadow ?? shadowState(false, false, null, false);
     if (current.locked) {
-      return failure(409, 'assistant-shadow-variant');
+      return failure('assistant-shadow-variant');
     }
 
     const override = request.mode === 'code' ? null : request.mode === 'shadow';
@@ -470,7 +470,7 @@ export class NhAssistantMockAdminAgents {
   private serviceAccountEndpoint(stored: StoredAgent, body: unknown): NhAssistantMockResult {
     const current = stored.agent.serviceAccount;
     if (!current) {
-      return failure(409, 'assistant-service-account-not-used');
+      return failure('assistant-service-account-not-used');
     }
     const request = body as { actorId?: unknown; reason?: unknown } | undefined;
     if (request === undefined || (request.actorId !== null && request.actorId !== undefined && typeof request.actorId !== 'string')) {
@@ -478,7 +478,7 @@ export class NhAssistantMockAdminAgents {
     }
     const actorId = typeof request.actorId === 'string' && request.actorId.trim().length > 0 ? request.actorId.trim() : null;
     if (actorId !== null && (actorId.length > 256 || actorId.startsWith('unknown'))) {
-      return actorId.length > 256 ? validationFailure() : failure(400, 'assistant-service-account-not-found');
+      return actorId.length > 256 ? validationFailure() : failure('assistant-service-account-not-found');
     }
     const reason = typeof request.reason === 'string' && request.reason.trim().length > 0 ? request.reason.trim() : null;
     if (reason !== null && reason.length > maxStateReason) {
@@ -527,7 +527,7 @@ export class NhAssistantMockAdminAgents {
     }
     if (stored.agent.runState === 'configured-off') {
       return request.state === 'active'
-        ? failure(409, 'assistant-agent-configured-off')
+        ? failure('assistant-agent-configured-off')
         : { status: 200, body: toAgentState(stored.agent) };
     }
     if (stored.agent.runState !== request.state) {
@@ -549,7 +549,7 @@ export class NhAssistantMockAdminAgents {
    */
   private agentFailure(input: AdminAgentInput | undefined, source: 'code' | 'admin'): NhAssistantMockResult | null {
     if (typeof input?.instructions === 'string' && input.instructions.length > maxInstructions) {
-      return failure(400, 'assistant-instructions-too-long');
+      return failure('assistant-instructions-too-long');
     }
     if (!this.validAgent(input)) {
       return validationFailure();
@@ -563,7 +563,7 @@ export class NhAssistantMockAdminAgents {
         this.rules.agentPolicyNames(),
         this.rules.divisionsListed());
       if (Object.keys(errors).length > 0) {
-        return failure(400, 'assistant-validation', errors);
+        return failure('assistant-validation', errors);
       }
     }
     return null;

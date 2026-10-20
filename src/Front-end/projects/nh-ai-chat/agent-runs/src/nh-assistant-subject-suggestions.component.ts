@@ -31,6 +31,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { NhAssistantRunReceiptComponent } from './internal/nh-assistant-run-receipt.component';
 import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposals.component';
 
 let nextSuggestionsId = 0;
@@ -55,7 +56,13 @@ interface NhAssistantStartedAgent {
 @Component({
   selector: 'nh-assistant-subject-suggestions',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAgentProposalsComponent],
+  imports: [
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantAgentProposalsComponent,
+    NhAssistantRunReceiptComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-subject-suggestions.component.html',
   styleUrl: './nh-assistant-agent-runs.scss'

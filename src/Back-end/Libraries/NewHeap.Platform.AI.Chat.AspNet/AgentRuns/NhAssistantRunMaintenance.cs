@@ -14,7 +14,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
 /// Lets the people of a subject see, cancel and retry the agent operations that work on it. An
-/// inline approval run is woken only by the person who just recorded the decision.
+/// operation of an agent's work for the whole application is for people who pass the agent's view
+/// policy as well, as its thread is; one whose agent is not known is left to its owner. An inline
+/// approval run is woken only by the person who just recorded the decision.
 /// </summary>
 internal sealed class NhAssistantBackgroundOperationAccess(
     NhAssistantSubjectAccessService subjects,
@@ -42,7 +44,22 @@ internal sealed class NhAssistantBackgroundOperationAccess(
         }
 
         var subject = new NhAiSubjectRef(operation.DomainObjectType!, operation.DomainObjectId);
-        var access = await subjects.ResolveAsync(subject, actorId, cancellationToken);
+        NhAiSubjectAccess access;
+        if (NhAiSystemSubjects.IsSystem(subject))
+        {
+            var thread = await runs.FindThreadOfOperationAsync(operation.OperationId, cancellationToken);
+            if (thread is null
+                || !string.Equals(thread.SubjectType, subject.Type, StringComparison.Ordinal)
+                || !string.Equals(thread.SubjectId, subject.Id, StringComparison.Ordinal))
+            {
+                return false;
+            }
+            access = await subjects.ResolveForAgentAsync(subject, thread.AgentId, actorId, cancellationToken);
+        }
+        else
+        {
+            access = await subjects.ResolveAsync(subject, actorId, cancellationToken);
+        }
         var required = action switch
         {
             NhBackgroundOperationAccessAction.View => NhAiSubjectRole.Reader,
@@ -56,8 +73,10 @@ internal sealed class NhAssistantBackgroundOperationAccess(
 /// <summary>
 /// Keeps agent proposals and runs moving without a person: expires and escalates proposals,
 /// queues approved executions that have none, marks interrupted non-idempotent executions as
-/// <c>execution-unknown</c> and cancels runs whose trigger transaction rolled back. Every change is
-/// a compare-and-set update, so several instances can run it at the same time.
+/// <c>execution-unknown</c> and cancels runs whose trigger transaction rolled back. Once an hour it
+/// removes board visits older than <see cref="NhAssistantLimits.BoardVisitRetention"/> and those of
+/// groups that are no longer registered. Every change is a compare-and-set update or a conditional
+/// delete, so several instances can run it at the same time.
 /// </summary>
 internal sealed class NhAssistantRunMaintenance(
     IServiceScopeFactory scopeFactory,
@@ -65,6 +84,13 @@ internal sealed class NhAssistantRunMaintenance(
     ILogger<NhAssistantRunMaintenance> logger) : BackgroundService
 {
     private const int BatchSize = 100;
+
+    /// <summary>
+    /// How often board visits are cleaned up; they change once per person, group and visit.
+    /// </summary>
+    internal static readonly TimeSpan BoardVisitCleanupInterval = TimeSpan.FromHours(1);
+
+    private DateTimeOffset _boardVisitsCleanedAt = DateTimeOffset.MinValue;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -115,6 +141,31 @@ internal sealed class NhAssistantRunMaintenance(
             await DetectInterruptedExecutionsAsync(runs, operations, notifier, events, workUpdates, cancellationToken);
             await RecoverOrphanedRunsAsync(runs, operations, services.GetRequiredService<NhAssistantAgentTriggers>(), cancellationToken);
         }
+        var now = DateTimeOffset.UtcNow;
+        if (now - _boardVisitsCleanedAt >= BoardVisitCleanupInterval)
+        {
+            await RemoveStaleBoardVisitsAsync(services.GetRequiredService<NhAssistantBoardStore>(), now, cancellationToken);
+            _boardVisitsCleanedAt = now;
+        }
+    }
+
+    /// <summary>
+    /// Removes board visits older than the retention and those of groups no longer registered.
+    /// </summary>
+    internal async Task<int> RemoveStaleBoardVisitsAsync(
+        NhAssistantBoardStore boards,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var removed = await boards.RemoveStaleVisitsAsync(
+            now - registration.Limits.BoardVisitRetention,
+            registration.AgentGroups.Keys.ToArray(),
+            cancellationToken);
+        if (removed > 0)
+        {
+            logger.LogInformation("Assistant run maintenance removed {Count} board visits.", removed);
+        }
+        return removed;
     }
 
     private static async Task ExpireAsync(

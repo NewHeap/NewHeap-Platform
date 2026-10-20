@@ -14,6 +14,7 @@
       <button class="secondary" type="button" (click)="load(false)">{{ 'nh-assistant.admin.retry' | translate }}</button>
     </div>
   } @else if (context(); as current) {
+    <nh-assistant-account-names-error [names]="accountNames" />
     <form class="stack" (submit)="$event.preventDefault(); save()">
       <div class="meta">
         <span class="badge">{{ 'nh-assistant.admin.context.version' | translate: { version: current.version } }}</span>

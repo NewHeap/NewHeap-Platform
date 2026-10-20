@@ -13,8 +13,9 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
-/// Decides whether a person may decide a proposal of an agent thread: the approval policy's
-/// approvers, four-eyes, the tool's approve policy, and never the agent itself. Every check is live.
+/// Decides whether a person may decide a proposal of an agent thread: the person may see the thread
+/// (for the whole application: passes the agent's view policy), the approval policy's approvers,
+/// four-eyes, the tool's approve policy, and never the agent itself. Every check is live.
 /// </summary>
 internal sealed class NhAssistantApproverCheck(
     NhAssistantSubjectAccessService subjects,
@@ -53,6 +54,12 @@ internal sealed class NhAssistantApproverCheck(
         if (actorId.StartsWith("assistant-agent:", StringComparison.Ordinal))
         {
             return TaskResult.Failed(NhAssistantErrorCodes.ApprovalDecisionInvalid, "An agent never decides its own proposal.");
+        }
+        // A proposal of the whole application is for people who see the agent's work there; to anyone
+        // else it reads as unknown, as GET approvals/{id} answers.
+        if (!await MaySeeAsync(thread, actorId, cancellationToken))
+        {
+            return NotVisible();
         }
         if (policy.FourEyes && string.Equals(actorId, approval.InitiatorActorId, StringComparison.Ordinal))
         {
@@ -97,6 +104,29 @@ internal sealed class NhAssistantApproverCheck(
         }
 
         return TaskResult.Succeeded();
+    }
+
+    /// <summary>
+    /// Whether the person may see the proposals of the thread at all: always for the application's own
+    /// subjects (their roles decide the rest), for the whole application only when the person passes
+    /// the agent's view policy.
+    /// </summary>
+    public async Task<bool> MaySeeAsync(AssistantThread thread, string actorId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(thread);
+        return await subjects.MayReadAgentThreadAsync(
+            new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
+            thread.AgentId,
+            actorId,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The failure for a proposal the person may not see: it reads as an unknown one.
+    /// </summary>
+    public static TaskResult NotVisible()
+    {
+        return TaskResult.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
     }
 
     public NhAiToolDescriptor? FindDescriptor(string toolId)
@@ -155,7 +185,7 @@ internal sealed class NhAssistantProposalDecisions(
     {
         var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
-        if (approval is null || thread is null)
+        if (approval is null || thread is null || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
         }
@@ -301,7 +331,7 @@ internal sealed class NhAssistantProposalDecisions(
     {
         var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
-        if (approval is null || thread is null)
+        if (approval is null || thread is null || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
         }

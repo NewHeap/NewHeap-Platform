@@ -44,6 +44,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-push-subscription-invalid',
   // Agent runs
   'assistant-subject-not-found',
+  'assistant-subject-invalid',
   'assistant-subject-type-unknown',
   'assistant-subject-search-unavailable',
   'assistant-agent-does-not-work-on',
@@ -99,8 +100,11 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-proposal-placed',
   'assistant-proposal-not-placed',
   'assistant-trigger-not-found',
+  'assistant-trigger-rate-limited',
+  'assistant-trigger-rolled-back',
   'assistant-webhook-signature-invalid',
   'assistant-webhook-payload-invalid',
+  'assistant-webhook-payload-too-large',
   'assistant-memory-not-configured',
   'assistant-memory-invalid',
   'assistant-memory-conflict',
@@ -145,6 +149,8 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-mcp-delegated-token-unavailable',
   'assistant-mcp-secret-reference-invalid',
   'assistant-mcp-certificate-reference-invalid',
+  'assistant-mcp-secret-unreadable',
+  'assistant-mcp-secret-unavailable',
   // MCP OAuth connections
   'assistant-mcp-connection-required',
   'assistant-mcp-reauthorization-required',
@@ -159,7 +165,8 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-mcp-issuer-changed',
   'assistant-mcp-authorization-not-confirmed',
   'assistant-mcp-oauth-not-configured',
-  'assistant-mcp-too-many-authorizations'
+  'assistant-mcp-too-many-authorizations',
+  'assistant-mcp-connection-not-supported'
 ];
 
 /** Every code the assistant UI can show: server codes and client-side transport codes. */

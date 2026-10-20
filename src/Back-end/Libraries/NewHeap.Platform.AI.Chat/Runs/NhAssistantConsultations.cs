@@ -122,7 +122,7 @@ internal sealed class NhAssistantConsultationService(
         var prepared = await PrepareAsync(request, askers, depth, cancellationToken);
         if (!prepared.Success)
         {
-            var code = FirstCode(prepared, NhAssistantErrorCodes.ConsultFailed);
+            var code = NhAssistantResults.CodeOf(prepared, NhAssistantErrorCodes.ConsultFailed);
             await events.ConsultationAsync(
                 new NhAssistantConsultationEvent(options.AgentId, request.AskerActorId, askingAgentId, depth, code)
                 {
@@ -403,14 +403,6 @@ internal sealed class NhAssistantConsultationService(
     private static TaskResult<NhAssistantConsultationTarget> Refused(string code, string message)
     {
         return TaskResult<NhAssistantConsultationTarget>.Failed(code, message);
-    }
-
-    private static string FirstCode(TaskResult result, string fallback)
-    {
-        return result.GetResultItems()
-            .Select(item => item.Name)
-            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
-            ?? fallback;
     }
 
     private sealed record NhAssistantConsultationTarget(

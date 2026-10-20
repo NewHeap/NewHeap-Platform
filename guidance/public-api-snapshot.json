@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "6fd69c18ca7ec362d0bba51ad2e9b886a79f488be84fbb56050577e1ba432d03",
-    "declarationCount": 9007,
+    "hash": "e934be1c0494af214f1dc1db620ecc1cb794acc238c89895959deddc45dad2e6",
+    "declarationCount": 9047,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1654,6 +1654,14 @@
         "declaration": "public bool TryGetAction(NhAiToolDescriptor descriptor, out NhAiBridgeActionInfo action) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAccounts.cs",
+        "declaration": "public async Task<TaskResult<IReadOnlyList<NhAssistantAccountDto>>> FindAsync( string ids, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAccounts.cs",
+        "declaration": "public async Task<TaskResult<IReadOnlyList<NhAssistantAccountDto>>> SearchAsync( string? query, int? limit, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs",
         "declaration": "public sealed record NhAssistantAgentGroupDto(string Id, string Name, string? Description);"
       },
@@ -2743,7 +2751,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
-        "declaration": "public const string RateLimited = \"rate-limited\";"
+        "declaration": "public const string RateLimited = \"assistant-trigger-rate-limited\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
@@ -2903,7 +2911,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
-        "declaration": "public async Task<NhAssistantStartRefusal?> RefusalAsync( NhAssistantAgent? agent, NhAiSubjectRef subject, NhAiSubjectAccess access, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<TaskResult> CheckStartAsync( NhAssistantAgent? agent, NhAiSubjectRef subject, NhAiSubjectAccess access, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
@@ -2920,6 +2928,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
         "declaration": "public async Task<TaskResult> CheckAsync( AssistantApproval approval, AssistantThread thread, string actorId, ClaimsPrincipal user, NhAssistantResolvedSubject? resolved, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public async Task<bool> MaySeeAsync(AssistantThread thread, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public static TaskResult NotVisible() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
@@ -2987,11 +3003,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunHistory.cs",
-        "declaration": "public async Task<NhAssistantRunHistoryListDto> ListAsync( NhAssistantRunFilter filter, int page, int itemsPerPage, NhAssistantRunReader reader, CancellationToken cancellationToken) {"
+        "declaration": "public static TaskResult<NhAssistantRunQuery> ReadQuery( string? agentId, string? subjectType, string? subjectId, string? status, DateTimeOffset? from, DateTimeOffset? to, int? page, int? itemsPerPage) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunHistory.cs",
-        "declaration": "public async Task<TaskResult<NhAssistantRunHistoryListDto>> ListForAgentAsync( string agentId, NhAssistantRunFilter filter, int page, int itemsPerPage, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<NhAssistantRunHistoryListDto> ListAsync( NhAssistantRunQuery query, NhAssistantRunReader reader, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunHistory.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantRunHistoryListDto>> ListForAgentAsync( string agentId, NhAssistantRunQuery query, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunHistory.cs",
@@ -2999,7 +3019,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunHistory.cs",
-        "declaration": "public async Task<(AssistantArtifact? Artifact, int Status, string? Code)> FindArtifactAsync( Guid runId, Guid artifactId, NhAssistantRunReader reader, HttpContext httpContext, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<TaskResult<AssistantArtifact>> FindArtifactAsync( Guid runId, Guid artifactId, NhAssistantRunReader reader, HttpContext httpContext, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunHistory.cs",
@@ -3127,11 +3147,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
-        "declaration": "public async Task<IReadOnlyList<string>> ApproverSubjectsAsync( string actorId, string? tenantId, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<NhAssistantSystemInbox> InboxAsync( string actorId, string? tenantId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public async Task<IReadOnlyList<Guid>> VisibleThreadsAsync( IReadOnlyCollection<string> subjectIds, string actorId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
         "declaration": "public async Task<IReadOnlyDictionary<string, NhAiSubjectRole>> RolesAsync( IReadOnlyCollection<string> subjectIds, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public bool TryGetView(string subjectId, string agentId, string actorId, out bool may) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+        "declaration": "public void SetView(string subjectId, string agentId, string actorId, bool may) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
@@ -3255,7 +3287,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
-        "declaration": "public async Task<TaskResult<(AssistantMcpServer Server, AssistantMcpConnection? Connection)>> GetOrganizationConnectionAsync( string id, CancellationToken cancellationToken) {"
+        "declaration": "public Task<AssistantMcpConnection?> FindOrganizationConnectionAsync(string id, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
+        "declaration": "public async Task<TaskResult<(AssistantMcpServer Server, AssistantMcpConnection? Connection)>> GetConnectionAsync( string id, string actorId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
@@ -3288,6 +3324,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpClientCertificates.cs",
         "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnectionRules.cs",
+        "declaration": "public static TaskResult<NhAssistantMcpConnectionOwner> AuthorizedConnection(AssistantMcpServer server, string actorId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnectionRules.cs",
+        "declaration": "public static TaskResult<NhAssistantMcpConnectionOwner> AdministeredConnection(AssistantMcpServer server, string actorId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnectionRules.cs",
+        "declaration": "public static TaskResult PersonalConnections(AssistantMcpServer server) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnectionService.cs",
@@ -3535,6 +3583,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
+        "declaration": "public TaskResult<string> UnprotectStored(string serverId, string? protectedSecret) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
         "declaration": "public async ValueTask<TaskResult<string>> ResolveReferenceAsync(string reference, CancellationToken cancellationToken) {"
       },
       {
@@ -3619,10 +3671,6 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
-        "declaration": "public static string? FirstCode(TaskResult result) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
         "declaration": "protected override async Task<HttpResponseMessage> SendAsync( HttpRequestMessage request, CancellationToken cancellationToken) {"
       },
       {
@@ -3640,6 +3688,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpMetrics.cs",
         "declaration": "public const string Ok = \"ok\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpMetrics.cs",
+        "declaration": "public const string Renewed = \"renewed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpMetrics.cs",
+        "declaration": "public const string Completed = \"completed\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpMetrics.cs",
@@ -3775,6 +3831,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthClient.cs",
+        "declaration": "public string? RegisteredFor { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthClient.cs",
         "declaration": "public override string ToString() {"
       },
       {
@@ -3895,6 +3955,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthHttp.cs",
+        "declaration": "public bool TooLarge { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthHttp.cs",
         "declaration": "public string? String(string name) {"
       },
       {
@@ -3907,7 +3971,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthHttp.cs",
-        "declaration": "public NhAssistantMcpOAuthHttp(NhAssistantMcpHostGuard guard, IOptionsMonitor<NhAssistantOptions> options) {"
+        "declaration": "public NhAssistantMcpOAuthHttp( NhAssistantMcpHostGuard guard, IOptionsMonitor<NhAssistantOptions> options, ILogger<NhAssistantMcpOAuthHttp> logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthHttp.cs",
@@ -4432,6 +4496,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
         "declaration": "public Task ExecuteAsync(HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
+        "declaration": "public static int StatusOf(string code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
+        "declaration": "public static bool IsClassified(string code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
+        "declaration": "public static IResult Failure(TaskResult result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
+        "declaration": "public static IResult Error(string code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
+        "declaration": "public static IResult Error(string code, IReadOnlyDictionary<string, string[]>? fieldErrors) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpConnectionEndpoints.cs",
@@ -9795,6 +9879,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+        "declaration": "public async ValueTask<NhAssistantConversationAudienceEntry> GetEntryAsync(Guid conversationId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
         "declaration": "public void Invalidate(Guid conversationId) {"
       },
       {
@@ -10647,6 +10735,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string NoAccountableOwner = \"no-accountable-owner\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string Limit = \"limit\";"
       },
       {
@@ -10959,6 +11051,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string SubjectInvalid = \"assistant-subject-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string SubjectTypeUnknown = \"assistant-subject-type-unknown\";"
       },
       {
@@ -11168,6 +11264,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string WebhookPayloadInvalid = \"assistant-webhook-payload-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string WebhookPayloadTooLarge = \"assistant-webhook-payload-too-large\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -11679,6 +11779,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string McpConnectionNotSupported = \"assistant-mcp-connection-not-supported\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string McpSecretUnreadable = \"assistant-mcp-secret-unreadable\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string McpSecretUnavailable = \"assistant-mcp-secret-unavailable\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string InstructionsTooLong = \"assistant-instructions-too-long\";"
       },
       {
@@ -11724,6 +11836,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public NewHeap.Platform.Common.Models.TaskResult ToResult() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public NewHeap.Platform.Common.Models.TaskResult ToResult(string code, string message) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -12067,6 +12183,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public TimeSpan BoardVisitRetention { get; set; } = TimeSpan.FromDays(180);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public sealed class NhAssistantDbContextOptions {"
       },
       {
@@ -12272,6 +12392,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantProposalRevalidation.cs",
         "declaration": "public NhAssistantRevalidationBuilder<TEvent> ScopeKey(Func<TEvent, string?> scopeKey) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantResults.cs",
+        "declaration": "public static string? CodeOf(TaskResult result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantResults.cs",
+        "declaration": "public static string CodeOf(TaskResult result, string fallback) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantResults.cs",
+        "declaration": "public static IReadOnlyDictionary<string, string[]> FieldErrorsOf(TaskResult result) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantServiceRegistration.cs",
@@ -12788,6 +12920,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
         "declaration": "public async Task<TaskResult> SetMembershipsAsync( string agentId, IReadOnlyDictionary<string, bool?> choices, string actorId, DateTimeOffset now, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
+        "declaration": "public async Task<int> RemoveStaleVisitsAsync( DateTimeOffset before, IReadOnlyCollection<string> registeredGroupIds, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
@@ -13439,6 +13575,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<AssistantThread?> FindThreadOfOperationAsync(Guid operationId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<AssistantRun?> FindActiveRunAsync(Guid conversationId, CancellationToken cancellationToken) {"
       },
       {
@@ -13623,7 +13763,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task<IReadOnlyList<string>> GetSystemSubjectsWithPendingProposalsAsync( int maximum, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<IReadOnlyList<NhAssistantSystemThread>> GetSystemThreadsWithPendingProposalsAsync( int maximum, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantSystemThread>> GetSystemThreadsAsync( IReadOnlyCollection<string> subjectIds, int maximum, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -13683,11 +13827,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task<IReadOnlyList<NhAssistantSubjectSummaryRow>> SummarizeSubjectsAsync( string actorId, string subjectType, IReadOnlyCollection<string> subjectIds, IReadOnlyCollection<string> hiddenAgentIds, CancellationToken cancellationToken, bool includeShadow = false, IReadOnlyDictionary<string, NhAiSubjectRole>? liveRoles = null)"
+        "declaration": "public async Task<IReadOnlyList<NhAssistantSubjectSummaryRow>> SummarizeSubjectsAsync( string actorId, string subjectType, IReadOnlyCollection<string> subjectIds, IReadOnlyCollection<string> hiddenAgentIds, CancellationToken cancellationToken, bool includeShadow = false, IReadOnlyDictionary<string, NhAiSubjectRole>? liveRoles = null, IReadOnlyCollection<Guid>? visibleConversationIds = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task<(IReadOnlyList<NhAssistantInboxRow> Items, int Total)> ListInboxAsync( string actorId, NhAssistantInboxFilter filter, int page, int itemsPerPage, CancellationToken cancellationToken, IReadOnlyCollection<string>? systemApproverSubjectIds = null)"
+        "declaration": "public async Task<(IReadOnlyList<NhAssistantInboxRow> Items, int Total)> ListInboxAsync( string actorId, NhAssistantInboxFilter filter, int page, int itemsPerPage, CancellationToken cancellationToken, NhAssistantSystemInbox? system = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public static NhAssistantSystemInbox None { get; } = new([], []);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -14411,6 +14559,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
+        "declaration": "public static string ReasonOf(TaskResult failed) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
         "declaration": "public Task<TaskResult<AssistantThread>> ThreadAtAsync( NhAssistantAgent agent, NhAiSubjectInfo target, bool shadow, CancellationToken cancellationToken) {"
       },
       {
@@ -14631,11 +14783,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
+        "declaration": "public bool ToolNotRun { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
         "declaration": "public static string Classify(Exception exception) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
         "declaration": "public static bool StoppedBeforeSending(string code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
+        "declaration": "public static bool ToolNotRun(Exception exception) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",

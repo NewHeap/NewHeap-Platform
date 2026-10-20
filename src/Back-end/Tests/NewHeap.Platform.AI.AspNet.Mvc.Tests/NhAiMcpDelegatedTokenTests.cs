@@ -104,9 +104,10 @@ public sealed class NhAiMcpDelegatedTokenTests
         var issued = await issuer.IssueAsync(
             new NhAiMcpDelegatedTokenRequest(person.ToString(), Audience, "invocation-1", TimeSpan.FromMinutes(2)),
             CancellationToken.None);
-        var tooLong = await issuer.IssueAsync(
+        // A lifetime outside (0, 5 minutes] is a programming error of the caller, not a refusal.
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await issuer.IssueAsync(
             new NhAiMcpDelegatedTokenRequest(person.ToString(), Audience, "invocation-1", TimeSpan.FromMinutes(6)),
-            CancellationToken.None);
+            CancellationToken.None));
         var notAPerson = await issuer.IssueAsync(
             new NhAiMcpDelegatedTokenRequest("technical-account", Audience, "invocation-1", TimeSpan.FromMinutes(2)),
             CancellationToken.None);
@@ -118,11 +119,29 @@ public sealed class NhAiMcpDelegatedTokenTests
         var token = new JwtSecurityTokenHandler().ReadJwtToken(issued.Data!.BearerToken);
         Assert.Equal("invocation-1", Assert.Single(token.Claims, claim => claim.Type == NhAiMcpDelegatedTokenDefaults.MarkerClaimType).Value);
         Assert.Equal(Audience, Assert.Single(token.Claims, claim => claim.Type == NhAiMcpDelegatedTokenDefaults.AudienceClaimType).Value);
-        foreach (var failed in new[] { tooLong, notAPerson, refused })
+        foreach (var failed in new[] { notAPerson, refused })
         {
             Assert.False(failed.Success);
             Assert.Equal(NhAiMcpDelegatedTokenDefaults.UnavailableCode, failed.GetResultItems()[0].Name);
         }
+        // A refusal keeps the authentication service's reason after the code.
+        Assert.Contains(refused.GetResultItems(), item => item.Name == "user-locked-out");
+    }
+
+    [Fact]
+    public async Task The_built_in_issuer_needs_the_newheap_authentication_service()
+    {
+        var services = new ServiceCollection();
+        services.AddNewHeapPlatformAIMcpDelegatedTokens();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var issuer = scope.ServiceProvider.GetRequiredService<INhAiMcpDelegatedTokenIssuer>();
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await issuer.IssueAsync(
+            new NhAiMcpDelegatedTokenRequest(Guid.NewGuid().ToString(), Audience, "invocation-1", TimeSpan.FromMinutes(2)),
+            CancellationToken.None));
+
+        Assert.Contains("INhAuthenticationService", failure.Message, StringComparison.Ordinal);
     }
 
     [Theory]

@@ -1,0 +1,14 @@
+@use '../../../src/lib/styles/tokens';
+@use '../../../src/lib/styles/forms';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  min-width: 0;
+  @include forms.messages;
+}
+
+.message {
+  @include tokens.focus-ring;
+}

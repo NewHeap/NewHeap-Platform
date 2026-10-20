@@ -73,8 +73,10 @@ internal sealed partial class NhAssistantMcpAdministration(
     IAuthorizationPolicyProvider policies,
     IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
     NhAssistantMcpDiscovery discovery,
-    IOptionsMonitor<NhAssistantOptions> options,
-    IServiceProvider services)
+    NhAssistantMcpOAuthStore oauthStore,
+    NhAssistantMcpOAuthConnections oauthConnections,
+    NhAssistantMcpAuthorizationFlows flows,
+    IOptionsMonitor<NhAssistantOptions> options)
 {
     public const string AdministratorReason = "administrator";
     public const string ServerChangedReason = "server-changed";
@@ -151,25 +153,30 @@ internal sealed partial class NhAssistantMcpAdministration(
             Apply(server, input);
             ApplyOAuth(server, input, confirmation.Data, actorId, now);
         }, cancellationToken);
+        if (updated is null)
+        {
+            // Another administrator deleted the server meanwhile.
+            return NotFound<AssistantMcpServer>();
+        }
         await cache.InvalidateAsync(input.Id);
         await AuditAsync(NhAssistantAuditEventKind.AdminMcpServerUpdated, input.Id, actorId, cancellationToken);
         if (confirmation.Data is not null)
         {
             await AuditAsync(NhAssistantAuditEventKind.AdminMcpServerAuthorizationConfirmed, input.Id, actorId, cancellationToken);
         }
-        if (NhAssistantMcpAuthModes.IsOAuth(existing.AuthMode) && OAuthChanged(existing, updated!))
+        if (NhAssistantMcpAuthModes.IsOAuth(existing.AuthMode) && OAuthChanged(existing, updated))
         {
             // D18: tokens of another address, issuer, scope set or client are not used again.
-            await services.GetRequiredService<NhAssistantMcpOAuthConnections>()
+            await oauthConnections
                 .DisconnectAsync(existing, null, null, ServerChangedReason, actorId, cancellationToken);
         }
         else if (confirmation.Data is not null)
         {
             // Confirming the same authorization server again lifts a suspension after a challenge.
-            await services.GetRequiredService<NewHeap.Platform.AI.Chat.Persistence.NhAssistantMcpOAuthStore>()
+            await oauthStore
                 .SetServerConnectionStatusAsync(input.Id, NhAssistantMcpConnectionStatuses.Active, NhAssistantMcpConnectionStatuses.IssuerChanged, now, cancellationToken);
         }
-        return TaskResult<AssistantMcpServer>.Succeeded(updated!);
+        return TaskResult<AssistantMcpServer>.Succeeded(updated);
     }
 
     public async Task<TaskResult> DeleteAsync(string id, string actorId, CancellationToken cancellationToken)
@@ -177,7 +184,7 @@ internal sealed partial class NhAssistantMcpAdministration(
         if (await store.FindMcpServerAsync(id, cancellationToken) is { } existing && NhAssistantMcpAuthModes.IsOAuth(existing.AuthMode))
         {
             // Revoke at the authorization server before the rows go with the server.
-            await services.GetRequiredService<NhAssistantMcpOAuthConnections>()
+            await oauthConnections
                 .DisconnectAsync(existing, null, null, AdministratorReason, actorId, cancellationToken);
         }
         if (!await store.DeleteMcpServerAsync(id, cancellationToken))
@@ -196,7 +203,9 @@ internal sealed partial class NhAssistantMcpAdministration(
 
     /// <summary>
     /// Connects to a server and lists its tools. A server each person connects to is tested with the
-    /// administrator's own connection, <paramref name="actorId"/>.
+    /// administrator's own connection, <paramref name="actorId"/>. Only a server with an organization
+    /// credential records the outcome as its connection health; with a person's credential the
+    /// outcome says nothing about the server for everyone else, as for the turns (D12).
     /// </summary>
     public async Task<TaskResult<NhAssistantMcpTestResult>> TestAsync(string id, string? actorId, CancellationToken cancellationToken)
     {
@@ -208,13 +217,13 @@ internal sealed partial class NhAssistantMcpAdministration(
         var lease = await ConnectAsync(server, actorId, cancellationToken);
         if (!lease.Success)
         {
-            var code = FirstCode(lease);
-            await RecordConnectAsync(server.Id, code ?? NhAssistantAdminErrorCodes.McpUnreachable);
+            var code = NhAssistantResults.CodeOf(lease, NhAssistantAdminErrorCodes.McpUnreachable);
+            await RecordConnectAsync(server, code);
             return TaskResult<NhAssistantMcpTestResult>.Succeeded(new NhAssistantMcpTestResult(false, code, null));
         }
         await using (lease.Data)
         {
-            await RecordConnectAsync(server.Id, null);
+            await RecordConnectAsync(server, null);
             return TaskResult<NhAssistantMcpTestResult>.Succeeded(new NhAssistantMcpTestResult(true, null, lease.Data.Tools.Count));
         }
     }
@@ -234,14 +243,19 @@ internal sealed partial class NhAssistantMcpAdministration(
             return NotFound<IReadOnlyList<AssistantMcpTool>>();
         }
         var lease = await ConnectAsync(server, actorId, cancellationToken);
+        var sharedCredential = NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope);
         if (!lease.Success)
         {
             await store.UpdateMcpServerAsync(id, item =>
             {
                 item.LastSyncAt = DateTimeOffset.UtcNow;
                 item.LastSyncStatus = "failed";
-                item.LastConnectAt = item.LastSyncAt;
-                item.LastConnectCode = FirstCode(lease) ?? NhAssistantAdminErrorCodes.McpUnreachable;
+                // A person's credential that failed says nothing about the server's health.
+                if (sharedCredential)
+                {
+                    item.LastConnectAt = item.LastSyncAt;
+                    item.LastConnectCode = NhAssistantResults.CodeOf(lease, NhAssistantAdminErrorCodes.McpUnreachable);
+                }
             }, cancellationToken);
             return TaskResult<IReadOnlyList<AssistantMcpTool>>.Failed(lease);
         }
@@ -268,8 +282,11 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             item.LastSyncAt = DateTimeOffset.UtcNow;
             item.LastSyncStatus = "ok";
-            item.LastConnectAt = item.LastSyncAt;
-            item.LastConnectCode = null;
+            if (sharedCredential)
+            {
+                item.LastConnectAt = item.LastSyncAt;
+                item.LastConnectCode = null;
+            }
         }, cancellationToken);
         await cache.InvalidateAsync(id);
         await AuditAsync(NhAssistantAuditEventKind.AdminMcpServerSynced, id, actorId, cancellationToken);
@@ -343,9 +360,17 @@ internal sealed partial class NhAssistantMcpAdministration(
         return await cache.ConnectAsync(server, perCall, bypassCache: true, cancellationToken);
     }
 
-    private async Task RecordConnectAsync(string serverId, string? code)
+    /// <summary>
+    /// Records the outcome of a connection as the server's health, only for a server whose
+    /// connections share the organization's credential, the rule the turns follow as well.
+    /// </summary>
+    private async Task RecordConnectAsync(AssistantMcpServer server, string? code)
     {
-        await store.RecordMcpConnectAsync(serverId, DateTimeOffset.UtcNow, code, CancellationToken.None);
+        if (!NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope))
+        {
+            return;
+        }
+        await store.RecordMcpConnectAsync(server.Id, DateTimeOffset.UtcNow, code, CancellationToken.None);
     }
 
     private async Task<TaskResult> ValidateAsync(
@@ -432,18 +457,19 @@ internal sealed partial class NhAssistantMcpAdministration(
             {
                 return NhAssistantValidationErrors.Failed("secret", NhAssistantFieldErrors.Required);
             }
-            if (willHaveReference && !(await secretSource.ResolveReferenceAsync(reference!, cancellationToken)).Success)
+            if (willHaveReference)
             {
-                return TaskResult.Failed(
-                    NhAssistantAdminErrorCodes.McpSecretReferenceInvalid,
-                    "The secret reference names no available secret.");
+                var resolved = await secretSource.ResolveReferenceAsync(reference!, cancellationToken);
+                if (!resolved.Success)
+                {
+                    return ReferenceFailure(resolved, "secretReference");
+                }
             }
         }
         if (certificate is not null && !certificates.Load(certificate).Success)
         {
-            return TaskResult.Failed(
-                NhAssistantAdminErrorCodes.McpCertificateReferenceInvalid,
-                "The client certificate is not configured or has no private key.");
+            // No configured certificate with a private key has that name.
+            return NhAssistantValidationErrors.Failed("clientCertificateReference", NhAssistantFieldErrors.NotFound);
         }
         if (input.AuthMode == NhAssistantMcpAuthModes.OAuth && string.IsNullOrWhiteSpace(options.CurrentValue.Mcp.OAuth.RedirectUri))
         {
@@ -464,12 +490,13 @@ internal sealed partial class NhAssistantMcpAdministration(
         }
         if (NhAssistantMcpAuthModes.IsOAuth(input.AuthMode)
             && oauthReference is not null
-            && oauth?.ClientSecret is not { Length: > 0 }
-            && !(await secretSource.ResolveReferenceAsync(oauthReference, cancellationToken)).Success)
+            && oauth?.ClientSecret is not { Length: > 0 })
         {
-            return TaskResult.Failed(
-                NhAssistantAdminErrorCodes.McpSecretReferenceInvalid,
-                "The secret reference names no available secret.");
+            var resolved = await secretSource.ResolveReferenceAsync(oauthReference, cancellationToken);
+            if (!resolved.Success)
+            {
+                return ReferenceFailure(resolved, "oauth.clientSecretReference");
+            }
         }
         if (input.RequiredPolicy is { } policy && await policies.GetPolicyAsync(policy) is null)
         {
@@ -669,9 +696,39 @@ internal sealed partial class NhAssistantMcpAdministration(
         return await discovery.DiscoverAsync(url.Trim(), null, cancellationToken);
     }
 
-    /// <summary>The organization's OAuth connection of a server, or null when there is none.</summary>
-    public async Task<TaskResult<(AssistantMcpServer Server, AssistantMcpConnection? Connection)>> GetOrganizationConnectionAsync(
+    /// <summary>
+    /// The organization's OAuth connection of a server as the server list shows it, or
+    /// <see langword="null"/> when it has none.
+    /// </summary>
+    public Task<AssistantMcpConnection?> FindOrganizationConnectionAsync(string id, CancellationToken cancellationToken)
+    {
+        return FindConnectionAsync(id, NhAssistantMcpConnectionOwner.Organization, cancellationToken);
+    }
+
+    /// <summary>
+    /// The owner's connection of a server when it holds tokens; a row that only keeps a person's
+    /// consent to background use is no connection.
+    /// </summary>
+    private async Task<AssistantMcpConnection?> FindConnectionAsync(
         string id,
+        NhAssistantMcpConnectionOwner owner,
+        CancellationToken cancellationToken)
+    {
+        var connection = await oauthStore.FindConnectionAsync(id, owner.Kind, owner.ActorId, owner.TenantKey, cancellationToken);
+        return connection?.Status is null ? null : connection;
+    }
+
+    /// <summary>
+    /// The connection the administrator's connection endpoints act on, with the server: the
+    /// organization's connection of an <c>oauth</c> or <c>oauth-client-credentials</c> server, and the
+    /// administrator's own connection of a server each person connects to, as
+    /// <see cref="AuthorizeOrganizationAsync"/> starts it. The connection is <see langword="null"/>
+    /// when there is none yet; a server without OAuth fails with
+    /// <see cref="NhAssistantAdminErrorCodes.McpConnectionNotSupported"/>.
+    /// </summary>
+    public async Task<TaskResult<(AssistantMcpServer Server, AssistantMcpConnection? Connection)>> GetConnectionAsync(
+        string id,
+        string actorId,
         CancellationToken cancellationToken)
     {
         var server = await store.FindMcpServerAsync(id, cancellationToken);
@@ -679,16 +736,20 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             return NotFound<(AssistantMcpServer, AssistantMcpConnection?)>();
         }
-        var connection = await services.GetRequiredService<NewHeap.Platform.AI.Chat.Persistence.NhAssistantMcpOAuthStore>().FindConnectionAsync(
-            id,
-            NhAssistantMcpConnectionOwners.Organization,
-            string.Empty,
-            string.Empty,
-            cancellationToken);
-        return TaskResult<(AssistantMcpServer, AssistantMcpConnection?)>.Succeeded((server, connection?.Status is null ? null : connection));
+        var owner = NhAssistantMcpConnectionRules.AdministeredConnection(server, actorId);
+        if (!owner.Success)
+        {
+            return TaskResult<(AssistantMcpServer, AssistantMcpConnection?)>.Failed(owner);
+        }
+        var connection = await FindConnectionAsync(id, owner.Data!, cancellationToken);
+        return TaskResult<(AssistantMcpServer, AssistantMcpConnection?)>.Succeeded((server, connection));
     }
 
-    /// <summary>Starts the administrator's authorization of the organization connection.</summary>
+    /// <summary>
+    /// Starts the administrator's authorization of the organization connection, or of the
+    /// administrator's own connection to a server each person connects to. A server without the
+    /// OAuth authorization code flow fails with <see cref="NhAssistantAdminErrorCodes.McpConnectionNotSupported"/>.
+    /// </summary>
     public async Task<TaskResult<NhAssistantMcpAuthorizationStart>> AuthorizeOrganizationAsync(
         string id,
         string actorId,
@@ -700,24 +761,26 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             return NotFound<NhAssistantMcpAuthorizationStart>();
         }
-        if (server.AuthMode != NhAssistantMcpAuthModes.OAuth)
+        var owner = NhAssistantMcpConnectionRules.AuthorizedConnection(server, actorId);
+        if (!owner.Success)
         {
-            return TaskResult<NhAssistantMcpAuthorizationStart>.Failed(NhAssistantValidationErrors.Failed("authMode", NhAssistantFieldErrors.Invalid));
+            return TaskResult<NhAssistantMcpAuthorizationStart>.Failed(owner);
         }
         // A server each person connects to: the administrator connects their own account, to test and
         // sync it before any agent offers it.
-        return await services.GetRequiredService<NhAssistantMcpAuthorizationFlows>().StartAsync(
+        return await flows.StartAsync(
             server,
-            server.ConnectionScope == NhAssistantMcpConnectionScopes.User
-                ? NhAssistantMcpConnectionOwner.User(actorId)
-                : NhAssistantMcpConnectionOwner.Organization,
+            owner.Data!,
             actorId,
             allowBackgroundUse: false,
             returnUrl,
             cancellationToken);
     }
 
-    /// <summary>Removes the organization connection and revokes its tokens.</summary>
+    /// <summary>
+    /// Removes the connection <see cref="GetConnectionAsync"/> reads and revokes its tokens: the
+    /// organization's, or the administrator's own of a server each person connects to.
+    /// </summary>
     public async Task<TaskResult> DisconnectOrganizationAsync(string id, string actorId, CancellationToken cancellationToken)
     {
         var server = await store.FindMcpServerAsync(id, cancellationToken);
@@ -725,10 +788,15 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             return TaskResult.Failed(NhAssistantAdminErrorCodes.McpServerNotFound, "The MCP server was not found.");
         }
-        await services.GetRequiredService<NhAssistantMcpOAuthConnections>().DisconnectAsync(
+        var owner = NhAssistantMcpConnectionRules.AdministeredConnection(server, actorId);
+        if (!owner.Success)
+        {
+            return owner;
+        }
+        await oauthConnections.DisconnectAsync(
             server,
-            NhAssistantMcpConnectionOwners.Organization,
-            string.Empty,
+            owner.Data!.Kind,
+            owner.Data.ActorId,
             AdministratorReason,
             actorId,
             cancellationToken);
@@ -736,19 +804,32 @@ internal sealed partial class NhAssistantMcpAdministration(
         return TaskResult.Succeeded();
     }
 
-    /// <summary>The personal connections of a server per status.</summary>
+    /// <summary>
+    /// The personal connections of a server per status. Only a server each person connects to has
+    /// them; another fails with <see cref="NhAssistantAdminErrorCodes.McpConnectionNotSupported"/>.
+    /// </summary>
     public async Task<TaskResult<IReadOnlyDictionary<string, int>>> SummarizePersonalConnectionsAsync(string id, CancellationToken cancellationToken)
     {
-        if (await store.FindMcpServerAsync(id, cancellationToken) is null)
+        var server = await store.FindMcpServerAsync(id, cancellationToken);
+        if (server is null)
         {
             return NotFound<IReadOnlyDictionary<string, int>>();
         }
+        var personal = NhAssistantMcpConnectionRules.PersonalConnections(server);
+        if (!personal.Success)
+        {
+            return TaskResult<IReadOnlyDictionary<string, int>>.Failed(personal);
+        }
         return TaskResult<IReadOnlyDictionary<string, int>>.Succeeded(
-            await services.GetRequiredService<NewHeap.Platform.AI.Chat.Persistence.NhAssistantMcpOAuthStore>()
+            await oauthStore
                 .CountTokenConnectionsAsync(id, NhAssistantMcpConnectionOwners.User, cancellationToken));
     }
 
-    /// <summary>Revokes every personal connection of a server; each person connects again.</summary>
+    /// <summary>
+    /// Revokes every personal connection of a server each person connects to; each person connects
+    /// again. Another server fails with <see cref="NhAssistantAdminErrorCodes.McpConnectionNotSupported"/>
+    /// and nothing is audited.
+    /// </summary>
     public async Task<TaskResult<int>> RevokePersonalConnectionsAsync(string id, string actorId, CancellationToken cancellationToken)
     {
         var server = await store.FindMcpServerAsync(id, cancellationToken);
@@ -756,7 +837,12 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             return NotFound<int>();
         }
-        var revoked = await services.GetRequiredService<NhAssistantMcpOAuthConnections>().DisconnectAsync(
+        var personal = NhAssistantMcpConnectionRules.PersonalConnections(server);
+        if (!personal.Success)
+        {
+            return TaskResult<int>.Failed(personal);
+        }
+        var revoked = await oauthConnections.DisconnectAsync(
             server,
             NhAssistantMcpConnectionOwners.User,
             null,
@@ -765,6 +851,18 @@ internal sealed partial class NhAssistantMcpAdministration(
             cancellationToken);
         await AuditAsync(NhAssistantAuditEventKind.AdminMcpConnectionsRevoked, id, actorId, cancellationToken);
         return TaskResult<int>.Succeeded(revoked);
+    }
+
+    /// <summary>
+    /// Why a secret reference cannot be saved: a reference that names no available secret is the field
+    /// error <c>not-found</c> at <paramref name="field"/>; a secret resolver that failed keeps its code
+    /// (<see cref="NhAssistantAdminErrorCodes.McpSecretUnavailable"/>), because the reference may be right.
+    /// </summary>
+    private static TaskResult ReferenceFailure(TaskResult resolved, string field)
+    {
+        return NhAssistantResults.CodeOf(resolved) == NhAssistantAdminErrorCodes.McpSecretUnavailable
+            ? resolved
+            : NhAssistantValidationErrors.Failed(field, NhAssistantFieldErrors.NotFound);
     }
 
     /// <summary>
@@ -787,11 +885,6 @@ internal sealed partial class NhAssistantMcpAdministration(
     private static TaskResult<T> NotFound<T>()
     {
         return TaskResult<T>.Failed(NhAssistantAdminErrorCodes.McpServerNotFound, "The MCP server was not found.");
-    }
-
-    private static string? FirstCode(TaskResult result)
-    {
-        return result.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrEmpty(name));
     }
 
     private static string Bound(string value, int maximum)

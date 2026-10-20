@@ -32,7 +32,7 @@ import { NhAssistantPreferencesComponent } from '../preferences/nh-assistant-pre
 import { NhAssistantShareComponent } from '../share/nh-assistant-share.component';
 import { NH_ASSISTANT_CONVERSATION_FRAGMENT, NH_ASSISTANT_JOIN_FRAGMENT } from '../../services/nh-assistant-share-link';
 import { NhAssistantApprovalChoice, NhAssistantThreadComponent } from '../thread/nh-assistant-thread.component';
-import { NhAssistantApiError, nhAssistantErrorMessageKey } from '../../services/nh-assistant-transport';
+import { nhAssistantErrorKeys, toNhAssistantError } from '../../internal/nh-assistant-errors';
 
 let nextId = 0;
 
@@ -114,14 +114,8 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   readonly canStop = computed(() => this.store.isOwner() || this.store.activeMember() === null);
   readonly shared = computed(() => this.store.members().some(member => member.role === 'participant'));
   readonly canShare = computed(() => this.conversation() !== null && !!this.store.collaboration());
-  readonly errorKeys = computed(() => {
-    const error = this.notificationError() ?? this.store.error();
-    return error ? [error.messageKey, `nh-assistant.errors.${error.code}`, 'nh-assistant.errors.generic'] : [];
-  });
-  readonly noticeKeys = computed(() => {
-    const notice = this.store.notice();
-    return notice ? [notice.messageKey, `nh-assistant.errors.${notice.code}`, 'nh-assistant.errors.generic'] : [];
-  });
+  readonly errorKeys = computed(() => nhAssistantErrorKeys(this.notificationError() ?? this.store.error()));
+  readonly noticeKeys = computed(() => nhAssistantErrorKeys(this.store.notice()));
 
   constructor() {
     // Opening, creating or leaving a conversation returns from the list to the thread.
@@ -212,9 +206,7 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
     try {
       await this.push.setEnabled(!this.push.settings()?.pushEnabled);
     } catch (error) {
-      this.notificationError.set(error instanceof NhAssistantApiError
-        ? { code: error.code, messageKey: error.messageKey }
-        : { code: 'assistant-server', messageKey: nhAssistantErrorMessageKey('assistant-server') });
+      this.notificationError.set(toNhAssistantError(error));
     }
   }
 

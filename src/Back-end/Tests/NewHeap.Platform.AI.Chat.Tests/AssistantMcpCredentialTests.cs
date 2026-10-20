@@ -98,13 +98,13 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
             Assert.Equal(["secretReference"], Fields(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = reference })));
         }
         Assert.Equal(["secretReference"], Fields(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { Secret = "x", SecretReference = "config:planning-token" })));
-        Assert.Equal(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid, Code(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "env:planning-token" })));
-        Assert.Equal(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid, Code(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "config:missing" })));
+        Assert.Equal(["secretReference"], NotFoundFields(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "env:planning-token" })));
+        Assert.Equal(["secretReference"], NotFoundFields(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "config:missing" })));
         // A secret store that could not resolve a placeholder leaves it as text: that is no secret.
         configuration[NhAssistantMcpSecretReferences.ConfigurationSection + ":unresolved"] = "${planning-vault-token}";
         configuration[NhAssistantMcpSecretReferences.ConfigurationSection + ":blank"] = "   ";
-        Assert.Equal(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid, Code(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "config:unresolved" })));
-        Assert.Equal(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid, Code(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "config:blank" })));
+        Assert.Equal(["secretReference"], NotFoundFields(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "config:unresolved" })));
+        Assert.Equal(["secretReference"], NotFoundFields(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "config:blank" })));
         // NhConfigurationSecrets also finds the value in the secrets files.
         configuration[NhConfigurationSecretsPrefix + ":" + NhAssistantMcpSecretReferences.ConfigurationSection + ":from-secrets-file"] = "secrets-file-token";
         Assert.True((await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "config:from-secrets-file" })).Success);
@@ -116,7 +116,7 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
         var unresolved = await TestAsync(host);
         Assert.False(unresolved.Ok);
         Assert.Equal(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid, unresolved.Code);
-        Assert.Equal(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid, Code(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "vault:missing" })));
+        Assert.Equal(["secretReference"], NotFoundFields(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { SecretReference = "vault:missing" })));
         AssertNoSecretLogged(host, "first-token", "rotated-token", "from-vault", "stored-token", "pass-word", "database-password", "secrets-file-token");
     }
 
@@ -174,8 +174,8 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
             }
             Assert.Equal([certificate.Thumbprint], presented);
 
-            Assert.Equal(NhAssistantAdminErrorCodes.McpCertificateReferenceInvalid, Code(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.None) with { ClientCertificateReference = "public-only" })));
-            Assert.Equal(NhAssistantAdminErrorCodes.McpCertificateReferenceInvalid, Code(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.None) with { ClientCertificateReference = "missing" })));
+            Assert.Equal(["clientCertificateReference"], NotFoundFields(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.None) with { ClientCertificateReference = "public-only" })));
+            Assert.Equal(["clientCertificateReference"], NotFoundFields(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.None) with { ClientCertificateReference = "missing" })));
             Assert.Equal(["clientCertificateReference"], Fields(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.None) with { ClientCertificateReference = "../planning" })));
             Assert.True((await UpdateAsync(host, Server(NhAssistantMcpAuthModes.None) with { ClientCertificateReference = string.Empty })).Success);
             Assert.Null((await FindServerAsync(host)).ClientCertificateReference);
@@ -372,7 +372,13 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
             Assert.Equal(1, refused.TokenCount);
             Assert.Contains(host.Logs.Messages, message => message.Contains("planning was skipped for this turn (" + NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable + ")", StringComparison.Ordinal));
             Assert.Equal(mode == TokenMode.HostAccepts ? 0 : 1, issuer.Requests.Count);
-            AssertNoSecretLogged(host, [.. issuer.Issued, RecordingTokenIssuer.ThrownSecret]);
+            AssertNoSecretLogged(host, [.. issuer.Issued]);
+            if (mode == TokenMode.Throw)
+            {
+                // The failing issuer's exception is in the operational log, at warning level.
+                Assert.Contains(host.Logs.Messages, message => message.Contains("the issuer failed", StringComparison.Ordinal)
+                    && message.Contains(RecordingTokenIssuer.ThrownSecret, StringComparison.Ordinal));
+            }
         }
     }
 
@@ -623,6 +629,16 @@ public sealed class AssistantMcpCredentialTests(AssistantDatabaseFixture databas
             .Select(item => item.Name)
             .Where(name => name.StartsWith(NhAssistantValidationErrors.FieldPrefix, StringComparison.Ordinal))
             .Select(name => name[NhAssistantValidationErrors.FieldPrefix.Length..])
+            .ToArray();
+    }
+
+    /// <summary>The fields a save refused because their reference names nothing available.</summary>
+    private static string[] NotFoundFields(TaskResult result)
+    {
+        Assert.False(result.Success);
+        return NhAssistantResults.FieldErrorsOf(result)
+            .Where(field => field.Value.Contains(NhAssistantFieldErrors.NotFound))
+            .Select(field => field.Key)
             .ToArray();
     }
 

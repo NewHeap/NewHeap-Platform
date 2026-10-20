@@ -9,8 +9,9 @@ import {
   NhAssistantAdminApiService,
   NhAssistantError,
   NhAssistantMcpConnectService,
+  ɵnhAssistantCodeKeys as nhAssistantCodeKeys,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
-  nhAssistantErrorMessageKey,
+  ɵnhAssistantErrorOf as nhAssistantErrorOf,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
@@ -28,7 +29,9 @@ let nextId = 0;
 
 /**
  * MCP server administration: list, connection test, tool sync, the organization's OAuth connection,
- * the server editor and the tool table of one server.
+ * the server editor and the tool table of one server. The personal connections are counted and
+ * revoked only for servers each person connects to with OAuth; a count that could not be read shows
+ * its translated code at the server.
  */
 @Component({
   selector: 'nh-assistant-admin-mcp-servers',
@@ -66,6 +69,8 @@ export class NhAssistantAdminMcpServersComponent {
   readonly confirmingRevokeAll = signal<string | null>(null);
   /** The personal connections per status of each server people connect to themselves. */
   readonly summaries = signal<Record<string, McpConnectionsSummary>>({});
+  /** Why the personal connections of a server could not be counted, per server. */
+  readonly summaryErrors = signal<Record<string, NhAssistantError>>({});
   /** The latest connection result to announce, per server. */
   readonly notice = signal<{ serverId: string; key: string } | null>(null);
   readonly error = signal<NhAssistantError | null>(null);
@@ -87,7 +92,7 @@ export class NhAssistantAdminMcpServersComponent {
             this.notice.set({ serverId: returned.completion.serverId, key: 'nh-assistant.admin.mcp.connect-done' });
             this.refresh();
           } else {
-            this.error.set({ code: returned.code, messageKey: nhAssistantErrorMessageKey(returned.code) });
+            this.error.set(nhAssistantErrorOf(returned.code));
           }
         });
       }
@@ -159,7 +164,12 @@ export class NhAssistantAdminMcpServersComponent {
   }
 
   testErrorKeys(code: string | null): string[] {
-    return code ? [nhAssistantErrorMessageKey(code), 'nh-assistant.errors.generic'] : ['nh-assistant.errors.generic'];
+    return code ? nhAssistantCodeKeys(code) : ['nh-assistant.errors.generic'];
+  }
+
+  /** The text of a server's failed count of personal connections. */
+  summaryErrorKeys(serverId: string): string[] {
+    return nhAssistantErrorKeys(this.summaryErrors()[serverId] ?? null);
   }
 
   /** Whether an administrator connects the organization's account to the server. */
@@ -190,13 +200,24 @@ export class NhAssistantAdminMcpServersComponent {
     }));
   }
 
+  /** Counts the personal connections of the servers each person connects to with OAuth; only those have them. */
   private loadSummaries(servers: readonly McpServer[]): void {
     for (const server of servers.filter(item => this.connectsPeople(item))) {
       this.actions.add(this.admin.getMcpConnectionsSummary(server.id).subscribe({
-        next: summary => this.summaries.update(summaries => ({ ...summaries, [server.id]: summary })),
-        error: () => undefined
+        next: summary => {
+          this.summaries.update(summaries => ({ ...summaries, [server.id]: summary }));
+          this.summaryErrors.update(({ [server.id]: _, ...others }) => others);
+        },
+        error: (error: unknown) => {
+          this.summaryErrors.update(errors => ({ ...errors, [server.id]: toNhAssistantError(error) }));
+        }
       }));
     }
+  }
+
+  /** Counts the personal connections of one server again. */
+  retrySummary(server: McpServer): void {
+    this.loadSummaries([server]);
   }
 
   /**
@@ -208,7 +229,7 @@ export class NhAssistantAdminMcpServersComponent {
     this.error.set(null);
     this.notice.set(null);
     this.connecting.set(server.id);
-    this.actions.add(this.connector.run(request => this.admin.authorizeMcpOrganizationConnection(server.id, request)).subscribe({
+    this.actions.add(this.connector.run(request => this.admin.authorizeMcpOrganizationConnection(server.id, request), server.id).subscribe({
       next: () => {
         this.connecting.set(null);
         this.notice.set({

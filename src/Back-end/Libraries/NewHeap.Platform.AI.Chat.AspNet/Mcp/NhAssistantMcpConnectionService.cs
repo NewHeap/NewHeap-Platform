@@ -44,7 +44,8 @@ internal sealed class NhAssistantMcpConnectionService(
     NhAssistantAdminStore store,
     NhAssistantAgentAccess agentAccess,
     IAuthorizationService authorizationService,
-    IServiceProvider services,
+    NhAssistantMcpOAuthConnections oauthConnections,
+    NhAssistantMcpAuthorizationFlows flows,
     IEnumerable<INhAssistantBusinessAuditSink> auditSinks)
 {
     public const string AllowedResult = "allowed";
@@ -149,11 +150,12 @@ internal sealed class NhAssistantMcpConnectionService(
         {
             return TaskResult<NhAssistantMcpAuthorizationStart>.Failed(NhAssistantAdminErrorCodes.McpServerNotFound, "The MCP server was not found.");
         }
-        if (!listed.IsOAuth)
+        var personal = NhAssistantMcpConnectionRules.PersonalConnections(listed.Server);
+        if (!personal.Success)
         {
-            return TaskResult<NhAssistantMcpAuthorizationStart>.Failed(NhAssistantValidationErrors.Failed("serverId", NhAssistantFieldErrors.Invalid));
+            return TaskResult<NhAssistantMcpAuthorizationStart>.Failed(personal);
         }
-        return await services.GetRequiredService<NhAssistantMcpAuthorizationFlows>().StartAsync(
+        return await flows.StartAsync(
             listed.Server,
             NhAssistantMcpConnectionOwner.User(actorId),
             actorId,
@@ -178,11 +180,12 @@ internal sealed class NhAssistantMcpConnectionService(
         {
             return NotFound();
         }
-        if (!listed.IsOAuth)
+        var personal = NhAssistantMcpConnectionRules.PersonalConnections(listed.Server);
+        if (!personal.Success)
         {
-            return TaskResult<NhAssistantMcpPersonalServer>.Failed(NhAssistantValidationErrors.Failed("serverId", NhAssistantFieldErrors.Invalid));
+            return TaskResult<NhAssistantMcpPersonalServer>.Failed(personal);
         }
-        await services.GetRequiredService<NhAssistantMcpOAuthConnections>().DisconnectAsync(
+        await oauthConnections.DisconnectAsync(
             listed.Server,
             NhAssistantMcpConnectionOwners.User,
             actorId,
@@ -190,7 +193,8 @@ internal sealed class NhAssistantMcpConnectionService(
             actorId,
             cancellationToken);
         // The consent to background use stays until the person withdraws it.
-        return TaskResult<NhAssistantMcpPersonalServer>.Succeeded((await FindAsync(actorId, user, serverId, cancellationToken))!);
+        var after = await FindAsync(actorId, user, serverId, cancellationToken);
+        return after is null ? NotFound() : TaskResult<NhAssistantMcpPersonalServer>.Succeeded(after);
     }
 
     private async Task<NhAssistantMcpPersonalServer?> FindAsync(

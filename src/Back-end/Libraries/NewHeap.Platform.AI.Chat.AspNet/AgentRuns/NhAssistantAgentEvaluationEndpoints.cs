@@ -124,22 +124,13 @@ internal static class NhAssistantAgentEvaluationEndpoints
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantReplayRequest);
         if (request is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
 
         var started = await replays.StartAsync(id, request, caller.Data!.ActorId, httpContext.RequestAborted);
         if (!started.Success)
         {
-            var code = started.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
-                ?? NhAssistantErrorCodes.MessageInvalid;
-            var status = code switch
-            {
-                NhAssistantErrorCodes.AgentNotFound => StatusCodes.Status404NotFound,
-                NhAssistantErrorCodes.ReplayActive => StatusCodes.Status409Conflict,
-                NhAssistantRunStore.OrphanedRunCode => StatusCodes.Status503ServiceUnavailable,
-                _ => StatusCodes.Status400BadRequest
-            };
-            return NhAssistantEndpointRouteBuilderExtensions.Error(status, code);
+            return NhAssistantHttpErrors.Failure(started);
         }
 
         return TypedResults.Json(
@@ -156,7 +147,7 @@ internal static class NhAssistantAgentEvaluationEndpoints
     {
         if (!registration.AgentRuns.ContainsKey(id))
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.AgentNotFound);
         }
 
         var replays = await store.ListReplaysAsync(id, MaxListedReplays, httpContext.RequestAborted);
@@ -180,15 +171,15 @@ internal static class NhAssistantAgentEvaluationEndpoints
         var start = (from ?? end - DefaultPeriod).ToUniversalTime();
         if (string.IsNullOrWhiteSpace(variant) || start >= end || end - start > NhAssistantEvaluationLimits.MaxPeriod)
         {
-            return (null, start, end, NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid));
+            return (null, start, end, NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid));
         }
         if (!evaluation.IsConfigured(id))
         {
-            return (null, start, end, NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound));
+            return (null, start, end, NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.AgentNotFound));
         }
         if (string.Equals(id, variant, StringComparison.Ordinal) || !evaluation.IsVariant(variant))
         {
-            return (null, start, end, NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.EvaluationNotVariant));
+            return (null, start, end, NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.EvaluationNotVariant));
         }
 
         return (variant, start, end, null);

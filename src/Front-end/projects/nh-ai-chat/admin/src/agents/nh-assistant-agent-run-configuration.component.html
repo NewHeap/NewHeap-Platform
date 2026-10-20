@@ -18,6 +18,7 @@
       <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.admin.retry' | translate }}</button>
     </div>
   } @else if (configuration(); as config) {
+    <nh-assistant-account-names-error [names]="accountNames" />
     @if (problems().length > 0) {
       <div class="message warning" role="status" data-problems>
         <nh-assistant-icon name="warning" />

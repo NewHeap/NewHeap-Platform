@@ -369,10 +369,11 @@ describe('nh-assistant-object-agents', () => {
     const empty = await render('ticket', 'T-1');
     expect(empty.element.querySelector('[data-object-agents-empty]')?.textContent?.trim()).toBe('No agent works on this that you may use.');
 
+    // An object that does not exist reads as such; asking again does not help.
     const missing = await render('project', 'p-404');
     const alert = missing.element.querySelector('[role="alert"]') as HTMLElement;
-    expect(alert.textContent).toContain('This could not be loaded.');
-    expect(button(alert, 'Try again')).toBeTruthy();
+    expect(alert.textContent).toContain('This object does not exist, or you may not see it.');
+    expect(Array.from(alert.querySelectorAll('button')).filter(item => item.textContent?.trim() === 'Try again')).toEqual([]);
   });
 });
 

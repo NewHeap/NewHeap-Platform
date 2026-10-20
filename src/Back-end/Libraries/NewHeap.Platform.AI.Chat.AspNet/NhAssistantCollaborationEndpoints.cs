@@ -166,7 +166,7 @@ internal static class NhAssistantCollaborationEndpoints
         var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantJoinConversationRequest);
         if (string.IsNullOrWhiteSpace(request?.Token))
         {
-            return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.ShareLinkInvalid);
+            return Error(NhAssistantErrorCodes.ShareLinkInvalid);
         }
 
         // The agent policy is checked before anything about the conversation is revealed.
@@ -176,11 +176,11 @@ internal static class NhAssistantCollaborationEndpoints
             : await registry.FindAsync(conversation.AgentId, includeDisabled: false, httpContext.RequestAborted);
         if (effective is null)
         {
-            return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ShareLinkInvalid);
+            return Error(NhAssistantErrorCodes.ShareLinkInvalid);
         }
         if (!await agentAccess.CanUseAsync(httpContext.User, effective.Definition))
         {
-            return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
+            return Error(NhAssistantErrorCodes.AgentForbidden);
         }
 
         var displayName = await displayNames.GetDisplayNameAsync(httpContext.User, caller.Data, httpContext.RequestAborted);
@@ -208,7 +208,7 @@ internal static class NhAssistantCollaborationEndpoints
         var directory = httpContext.RequestServices.GetService<INhAssistantParticipantDirectory>();
         if (directory is null)
         {
-            return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.DirectoryUnavailable);
+            return Error(NhAssistantErrorCodes.DirectoryUnavailable);
         }
         var caller = await ResolveCallerAsync(httpContext);
         if (!caller.Success)
@@ -222,12 +222,12 @@ internal static class NhAssistantCollaborationEndpoints
         }
         if (!resolved.Access!.IsOwner)
         {
-            return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.OwnerRequired);
+            return Error(NhAssistantErrorCodes.OwnerRequired);
         }
         var text = query?.Trim();
         if (text is null || text.Length is < 2 or > 100)
         {
-            return Error(StatusCodes.Status400BadRequest, NhAssistantAdminErrorCodes.ValidationFailed);
+            return Error(NhAssistantAdminErrorCodes.ValidationFailed);
         }
 
         var members = (await store.GetParticipantsAsync(id, httpContext.RequestAborted))
@@ -257,7 +257,7 @@ internal static class NhAssistantCollaborationEndpoints
         var directory = httpContext.RequestServices.GetService<INhAssistantParticipantDirectory>();
         if (directory is null)
         {
-            return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.DirectoryUnavailable);
+            return Error(NhAssistantErrorCodes.DirectoryUnavailable);
         }
         var caller = await ResolveCallerAsync(httpContext);
         if (!caller.Success)
@@ -267,7 +267,7 @@ internal static class NhAssistantCollaborationEndpoints
         var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantInviteParticipantRequest);
         if (string.IsNullOrWhiteSpace(request?.ActorId) || request.ActorId.Length > 256)
         {
-            return Error(StatusCodes.Status400BadRequest, NhAssistantAdminErrorCodes.ValidationFailed);
+            return Error(NhAssistantAdminErrorCodes.ValidationFailed);
         }
         var resolved = await ResolveAccessAsync(httpContext, id, caller.Data, NhAssistantAgentCheck.None);
         if (resolved.Error is not null)
@@ -276,7 +276,7 @@ internal static class NhAssistantCollaborationEndpoints
         }
         if (!resolved.Access!.IsOwner)
         {
-            return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.OwnerRequired);
+            return Error(NhAssistantErrorCodes.OwnerRequired);
         }
 
         // The directory decides again who the owner may invite; a client-supplied id is never trusted.
@@ -285,7 +285,7 @@ internal static class NhAssistantCollaborationEndpoints
             httpContext.RequestAborted);
         if (invitee is null || !string.Equals(invitee.ActorId, request.ActorId, StringComparison.Ordinal))
         {
-            return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ParticipantNotFound);
+            return Error(NhAssistantErrorCodes.ParticipantNotFound);
         }
         var ownerName = await displayNames.GetDisplayNameAsync(httpContext.User, caller.Data, httpContext.RequestAborted);
         var invited = await collaboration.InviteAsync(
@@ -338,7 +338,7 @@ internal static class NhAssistantCollaborationEndpoints
         var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantUpdateNotificationSettingsRequest);
         if (request?.PushEnabled is not { } enabled)
         {
-            return Error(StatusCodes.Status400BadRequest, NhAssistantAdminErrorCodes.ValidationFailed);
+            return Error(NhAssistantAdminErrorCodes.ValidationFailed);
         }
         await notifications.SetPushEnabledAsync(caller.Data.ActorId, enabled, httpContext.RequestAborted);
         return Json(Settings(enabled, options.CurrentValue.Push), NhAssistantJsonSerializerContext.Default.NhAssistantNotificationSettingsDto);
@@ -352,7 +352,7 @@ internal static class NhAssistantCollaborationEndpoints
         var push = options.CurrentValue.Push;
         if (!push.IsConfigured)
         {
-            return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.PushUnavailable);
+            return Error(NhAssistantErrorCodes.PushUnavailable);
         }
         var caller = await ResolveCallerAsync(httpContext);
         if (!caller.Success)
@@ -363,7 +363,7 @@ internal static class NhAssistantCollaborationEndpoints
         var subscription = NhAssistantPushSubscriptionValidator.Validate(request, push);
         if (subscription is null)
         {
-            return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.PushSubscriptionInvalid);
+            return Error(NhAssistantErrorCodes.PushSubscriptionInvalid);
         }
         await notifications.UpsertSubscriptionAsync(
             caller.Data.ActorId,
@@ -388,7 +388,7 @@ internal static class NhAssistantCollaborationEndpoints
         var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantRemovePushSubscriptionRequest);
         if (string.IsNullOrWhiteSpace(request?.Endpoint) || request.Endpoint.Length > NhAssistantPushLimits.MaxEndpointLength)
         {
-            return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.PushSubscriptionInvalid);
+            return Error(NhAssistantErrorCodes.PushSubscriptionInvalid);
         }
         await notifications.DeleteSubscriptionAsync(caller.Data.ActorId, request.Endpoint, httpContext.RequestAborted);
         return TypedResults.NoContent();

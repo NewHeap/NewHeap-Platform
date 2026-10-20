@@ -203,11 +203,20 @@ internal sealed class NhAssistantSubjectWork(
             .Where(entry => !IsVisible(entry.Key, administrator))
             .Select(entry => entry.Key)
             .ToArray();
-        // The whole application lists no members: the caller's live roles stand in for the snapshot.
-        var liveRoles = string.Equals(subjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal)
-            ? await systemApprovers.RolesAsync(ids, actorId, cancellationToken)
-            : null;
-        var rows = (await runs.SummarizeSubjectsAsync(actorId, subjectType, ids, hidden, cancellationToken, includeShadow: administrator, liveRoles: liveRoles))
+        // The whole application lists no members: the caller's live roles stand in for the snapshot,
+        // and only the threads of agents whose view policy the caller passes count.
+        var system = string.Equals(subjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal);
+        var liveRoles = system ? await systemApprovers.RolesAsync(ids, actorId, cancellationToken) : null;
+        var visibleThreads = system ? await systemApprovers.VisibleThreadsAsync(ids, actorId, cancellationToken) : null;
+        var rows = (await runs.SummarizeSubjectsAsync(
+                actorId,
+                subjectType,
+                ids,
+                hidden,
+                cancellationToken,
+                includeShadow: administrator,
+                liveRoles: liveRoles,
+                visibleConversationIds: visibleThreads))
             .ToDictionary(row => row.SubjectId, StringComparer.Ordinal);
         var items = subjectIds
             .Select(id => rows.TryGetValue(id, out var row)

@@ -165,7 +165,12 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
         if (challenge.ResourceMetadata is { } metadata && Uri.TryCreate(metadata, UriKind.Absolute, out var metadataUri))
         {
             var named = await discovery.FetchResourceMetadataAsync([metadataUri], server.ResourceUri!, cancellationToken);
-            if (named.Success && !named.Data.AuthorizationServers.Contains(server.AuthorizationServerIssuer!, StringComparer.Ordinal))
+            if (!named.Success)
+            {
+                // The confirmed issuer stays the only one the renewal talks to, so renewing is safe.
+                LogResourceMetadataUnread(logger, server.Id, NhAssistantResults.CodeOf(named, NhAssistantAdminErrorCodes.McpDiscoveryFailed));
+            }
+            else if (!named.Data.AuthorizationServers.Contains(server.AuthorizationServerIssuer!, StringComparer.Ordinal))
             {
                 // The server names another authorization server: suspend until an administrator confirms.
                 await store.SetServerConnectionStatusAsync(server.Id, NhAssistantMcpConnectionStatuses.IssuerChanged, NhAssistantMcpConnectionStatuses.Active, DateTimeOffset.UtcNow, cancellationToken);
@@ -312,7 +317,8 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {
-            LogRevocationFailed(logger, server.Id, exception.GetType().Name);
+            // Revocation is best effort after the local delete; the tokens are gone here either way.
+            LogRevocationFailed(logger, server.Id, exception);
         }
     }
 
@@ -405,73 +411,118 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
                 return await AwaitOtherRenewalAsync(server, current, oauth, cancellationToken);
             }
 
-            var metadata = await discovery.GetAuthorizationServerAsync(server.AuthorizationServerIssuer!, bypassCache: false, cancellationToken);
-            if (!metadata.Success)
+            try
             {
-                await store.ReleaseLeaseAsync(current.Id, gate.InstanceId, NhAssistantAdminErrorCodes.McpTokenRequestFailed, now, cancellationToken);
-                return Failed(NhAssistantAdminErrorCodes.McpTokenRequestFailed);
+                return await RenewUnderLeaseAsync(server, current, scope, now, oauth, cancellationToken);
             }
-            var identity = await client.ResolveClientAsync(server, metadata.Data!, cancellationToken);
-            if (!identity.Success)
+            catch (Exception exception) when (exception is not OutOfMemoryException)
             {
-                var code = FirstCode(identity) ?? NhAssistantAdminErrorCodes.McpTokenRequestFailed;
-                await store.ReleaseLeaseAsync(current.Id, gate.InstanceId, code, now, cancellationToken);
-                return Failed(code);
+                // A renewal that threw or was cancelled must not keep the lease until it runs out:
+                // every other request of the connection would wait for it.
+                await ReleaseAfterFailureAsync(current, exception is OperationCanceledException ? current.LastFailureCode : NhAssistantAdminErrorCodes.McpTokenRequestFailed);
+                throw;
             }
-
-            TaskResult<NhAssistantMcpTokenResponse> response;
-            if (server.AuthMode == NhAssistantMcpAuthModes.OAuthClientCredentials)
-            {
-                response = await client.ClientCredentialsAsync(
-                    identity.Data!,
-                    metadata.Data!,
-                    server.ResourceUri!,
-                    scope ?? current.GrantedScopes ?? server.OAuthScopes,
-                    cancellationToken);
-            }
-            else
-            {
-                var refresh = tokens.UnprotectConnection(server.Id, current.Id, current.ProtectedRefreshToken);
-                if (refresh is null)
-                {
-                    return await EndAsync(server, current, NhAssistantAdminErrorCodes.McpReauthorizationRequired, cancellationToken);
-                }
-                response = await client.RefreshAsync(identity.Data!, metadata.Data!, refresh, current.Resource ?? server.ResourceUri!, cancellationToken);
-            }
-            if (!response.Success)
-            {
-                var code = FirstCode(response) ?? NhAssistantAdminErrorCodes.McpTokenRequestFailed;
-                if (code == NhAssistantAdminErrorCodes.McpReauthorizationRequired && server.AuthMode == NhAssistantMcpAuthModes.OAuth)
-                {
-                    return await EndAsync(server, current, code, cancellationToken);
-                }
-                // Network errors and 5xx keep the connection; only this call fails.
-                await store.ReleaseLeaseAsync(current.Id, gate.InstanceId, code, now, cancellationToken);
-                return Failed(code == NhAssistantAdminErrorCodes.McpReauthorizationRequired ? NhAssistantAdminErrorCodes.McpTokenRequestFailed : code);
-            }
-
-            var token = response.Data!;
-            var stored = await store.StoreRenewedTokensAsync(
-                current.Id,
-                gate.InstanceId,
-                tokens.ProtectConnection(server.Id, current.Id, token.AccessToken),
-                token.ExpiresAt,
-                token.RefreshToken is null ? null : tokens.ProtectConnection(server.Id, current.Id, token.RefreshToken),
-                token.RefreshTokenExpiresAt,
-                token.Scope,
-                DateTimeOffset.UtcNow,
-                cancellationToken);
-            if (!stored)
-            {
-                // The lease ran out and another instance took over; its tokens win.
-                return await AwaitOtherRenewalAsync(server, current, oauth, cancellationToken);
-            }
-            cache.Set(current.Id, token.AccessToken, token.ExpiresAt);
-            return Bearer(token.AccessToken, token.ExpiresAt);
         }
         finally
         {
             semaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// The renewal while this instance holds the connection's lease: every path releases it, by
+    /// storing the renewed tokens, recording the failure or ending the connection.
+    /// </summary>
+    private async Task<TaskResult<NhAssistantMcpCredential>> RenewUnderLeaseAsync(
+        AssistantMcpServer server,
+        AssistantMcpConnection current,
+        string? scope,
+        DateTimeOffset now,
+        NhAssistantMcpOAuthOptions oauth,
+        CancellationToken cancellationToken)
+    {
+        var metadata = await discovery.GetAuthorizationServerAsync(server.AuthorizationServerIssuer!, bypassCache: false, cancellationToken);
+        if (!metadata.Success)
+        {
+            var code = NhAssistantResults.CodeOf(metadata, NhAssistantAdminErrorCodes.McpTokenRequestFailed);
+            await store.ReleaseLeaseAsync(current.Id, gate.InstanceId, code, now, cancellationToken);
+            return Failed(code);
+        }
+        var identity = await client.ResolveClientAsync(server, metadata.Data!, cancellationToken);
+        if (!identity.Success)
+        {
+            var code = NhAssistantResults.CodeOf(identity, NhAssistantAdminErrorCodes.McpTokenRequestFailed);
+            await store.ReleaseLeaseAsync(current.Id, gate.InstanceId, code, now, cancellationToken);
+            return Failed(code);
+        }
+
+        TaskResult<NhAssistantMcpTokenResponse> response;
+        if (server.AuthMode == NhAssistantMcpAuthModes.OAuthClientCredentials)
+        {
+            response = await client.ClientCredentialsAsync(
+                identity.Data!,
+                metadata.Data!,
+                server.ResourceUri!,
+                scope ?? current.GrantedScopes ?? server.OAuthScopes,
+                cancellationToken);
+        }
+        else
+        {
+            var refresh = tokens.UnprotectConnection(server.Id, current.Id, current.ProtectedRefreshToken);
+            if (refresh is null)
+            {
+                return await EndAsync(server, current, NhAssistantAdminErrorCodes.McpReauthorizationRequired, cancellationToken);
+            }
+            response = await client.RefreshAsync(identity.Data!, metadata.Data!, refresh, current.Resource ?? server.ResourceUri!, cancellationToken);
+        }
+        if (!response.Success)
+        {
+            var code = NhAssistantResults.CodeOf(response, NhAssistantAdminErrorCodes.McpTokenRequestFailed);
+            // A refused refresh token, or one of a dynamic client the authorization server no
+            // longer knows, ends the connection: its owner authorizes again.
+            if (server.AuthMode == NhAssistantMcpAuthModes.OAuth
+                && code is NhAssistantAdminErrorCodes.McpReauthorizationRequired or NhAssistantAdminErrorCodes.McpClientRegistrationRequired)
+            {
+                return await EndAsync(server, current, code, cancellationToken);
+            }
+            // Network errors and 5xx keep the connection; only this call fails.
+            await store.ReleaseLeaseAsync(current.Id, gate.InstanceId, code, now, cancellationToken);
+            return Failed(code == NhAssistantAdminErrorCodes.McpReauthorizationRequired ? NhAssistantAdminErrorCodes.McpTokenRequestFailed : code);
+        }
+
+        var token = response.Data!;
+        var stored = await store.StoreRenewedTokensAsync(
+            current.Id,
+            gate.InstanceId,
+            tokens.ProtectConnection(server.Id, current.Id, token.AccessToken),
+            token.ExpiresAt,
+            token.RefreshToken is null ? null : tokens.ProtectConnection(server.Id, current.Id, token.RefreshToken),
+            token.RefreshTokenExpiresAt,
+            token.Scope,
+            DateTimeOffset.UtcNow,
+            cancellationToken);
+        if (!stored)
+        {
+            // The lease ran out and another instance took over; its tokens win.
+            return await AwaitOtherRenewalAsync(server, current, oauth, cancellationToken);
+        }
+        cache.Set(current.Id, token.AccessToken, token.ExpiresAt);
+        return Bearer(token.AccessToken, token.ExpiresAt);
+    }
+
+    /// <summary>
+    /// Releases the lease after a renewal threw; a failing release is logged and leaves the lease to
+    /// run out, so the original failure surfaces.
+    /// </summary>
+    private async Task ReleaseAfterFailureAsync(AssistantMcpConnection connection, string? failureCode)
+    {
+        try
+        {
+            await store.ReleaseLeaseAsync(connection.Id, gate.InstanceId, failureCode, DateTimeOffset.UtcNow, CancellationToken.None);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            LogLeaseNotReleased(logger, connection.ServerId, exception);
         }
     }
 
@@ -585,14 +636,15 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
         return NhAssistantMcpCredentialResults.Failed(code);
     }
 
-    private static string? FirstCode(TaskResult result)
-    {
-        return NhAssistantMcpCredentialResults.FirstCode(result);
-    }
-
     [LoggerMessage(Level = LogLevel.Warning, Message = "MCP server {ServerId} names another authorization server than the confirmed one; its connections are suspended.")]
     private static partial void LogIssuerChanged(ILogger logger, string serverId);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Revoking the tokens of a connection of MCP server {ServerId} failed ({ExceptionType}).")]
-    private static partial void LogRevocationFailed(ILogger logger, string serverId, string exceptionType);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Revoking the tokens of a connection of MCP server {ServerId} failed; the connection was removed.")]
+    private static partial void LogRevocationFailed(ILogger logger, string serverId, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The renewal lease of a connection of MCP server {ServerId} was not released; it runs out by itself.")]
+    private static partial void LogLeaseNotReleased(ILogger logger, string serverId, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The protected resource metadata a challenge of MCP server {ServerId} names could not be read ({Code}); the token is renewed at the confirmed authorization server.")]
+    private static partial void LogResourceMetadataUnread(ILogger logger, string serverId, string code);
 }

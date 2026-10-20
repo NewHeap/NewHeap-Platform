@@ -12,7 +12,7 @@ import {
   viewChild
 } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { Observable, Subscription, catchError, forkJoin, of } from 'rxjs';
+import { Observable, Subscription, catchError, forkJoin, map, of } from 'rxjs';
 import {
   AdminAgent,
   AgentShadowMode,
@@ -26,6 +26,7 @@ import {
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   NhAssistantPanelService,
   NhAssistantStore,
+  nhAssistantErrorMessageKey,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError,
   RunCatalog,
@@ -36,6 +37,7 @@ import {
   ɵNhAssistantRunNowDialogComponent as NhAssistantRunNowDialogComponent,
   type ɵNhAssistantRunNowAgent as NhAssistantRunNowAgent
 } from '@newheap/platform-ai-chat/agent-runs';
+import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 import { codeTextKeys, policyKeys, readableId, skillDescriptionKeys, skillNameKeys, WorksOnSummary, worksOnSummary } from './agent-texts';
 import { NhAssistantAdminAgentEditorComponent } from './nh-assistant-admin-agent-editor.component';
 import { NhAssistantAgentEvaluationComponent } from './nh-assistant-agent-evaluation.component';
@@ -51,6 +53,15 @@ type AgentStateAction = SetAgentStateRequest['state'];
 /** The longest reason the server stores with a state change. */
 const maxStateReason = 500;
 
+/** Refusals of a technical account that concern the account field itself. */
+const accountRefusals = new Set(['assistant-service-account-not-found', 'assistant-service-account-not-used']);
+
+/** The run catalog as `load` reads it: the catalog, or why it could not be read. */
+interface CatalogRead {
+  catalog: RunCatalog | null;
+  error: NhAssistantError | null;
+}
+
 /**
  * Agent administration: code agents (override, reset) and agents created here (edit, delete),
  * and for every agent its run state with pause, stop and resume, its shadow mode and that of each
@@ -62,7 +73,9 @@ const maxStateReason = 500;
  * "Run now" on an agent that runs on its own opens the run-now dialog: the whole application (or a
  * division of it) or an object of one of its types, and an optional instruction; the receipt opens
  * the agent's conversation in the assistant panel. "Runs" opens `nh-assistant-agent-run-history`, the
- * agent's runs with their results.
+ * agent's runs with their results. When the run catalog cannot be read, the page says why with its
+ * code and offers to read it again; until then it offers no "Run now" and the editor leaves what an
+ * agent works on and its groups as they are.
  */
 @Component({
   selector: 'nh-assistant-admin-agents',
@@ -78,7 +91,8 @@ const maxStateReason = 500;
     NhAssistantAgentRunHistoryComponent,
     NhAssistantAgentRunConfigurationComponent,
     NhAssistantAccountPickerComponent,
-    NhAssistantRunNowDialogComponent
+    NhAssistantRunNowDialogComponent,
+    NhAssistantAccountNamesErrorComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-agents.component.html',
@@ -95,6 +109,7 @@ export class NhAssistantAdminAgentsComponent {
   private readonly reasonInput = viewChild<ElementRef<HTMLInputElement>>('reasonInput');
   private subscription?: Subscription;
   private actionSubscription?: Subscription;
+  private catalogSubscription?: Subscription;
 
   readonly id = `nh-assistant-admin-agents-${nextId++}`;
   readonly loading = signal(true);
@@ -104,6 +119,11 @@ export class NhAssistantAdminAgentsComponent {
   readonly servers = signal<McpServer[]>([]);
   /** The run catalog: object types by name, policies and divisions; `null` when it could not be read. */
   readonly catalog = signal<RunCatalog | null>(null);
+  /** Why the run catalog could not be read; `null` once it was. */
+  readonly catalogError = signal<NhAssistantError | null>(null);
+  readonly catalogErrorKeys = computed(() => nhAssistantErrorKeys(this.catalogError()));
+  /** The run catalog is being read again after a failure. */
+  readonly catalogLoading = signal(false);
   /** `undefined`: list; `null`: new agent; an agent: editing that agent. */
   readonly editing = signal<AdminAgent | null | undefined>(undefined);
   /** The agent whose feedback report is shown instead of the list. */
@@ -123,10 +143,23 @@ export class NhAssistantAdminAgentsComponent {
   /** The change of the technical account being entered: a new account, or the one in code. */
   readonly changingAccount = signal<{ agentId: string; mode: 'set' | 'code' } | null>(null);
   readonly accountId = signal('');
+  /** Why the account of the open account form was refused, shown at the account field. */
+  readonly accountError = signal<NhAssistantError | null>(null);
+  /** The text of the account field's error: the refused field value, then the code. */
+  readonly accountErrorKeys = computed(() => {
+    const error = this.accountError();
+    const value = error?.fieldErrors?.['actorId']?.[0];
+    return value ? [`nh-assistant.admin.run-config.field-errors.${value}`, ...nhAssistantErrorKeys(error)] : nhAssistantErrorKeys(error);
+  });
   /** Whether the application offers an account search for the technical account. */
   readonly accountSearch = signal(false);
+  /**
+   * The names of the technical accounts and of the people who changed an agent, once known, and why
+   * they are not.
+   */
+  readonly accountNameLookup = new NhAssistantAccountNames();
   /** The names of the technical accounts in the list, by account id. */
-  readonly accountNames = signal<ReadonlyMap<string, string>>(new Map());
+  readonly accountNames = computed(() => this.accountNameLookup.names());
   /** The agent whose last action failed, so its error shows on its card. */
   readonly errorAgentId = signal<string | null>(null);
   /** The agent the run-now dialog runs; `null` while it is closed. */
@@ -164,6 +197,7 @@ export class NhAssistantAdminAgentsComponent {
     inject(DestroyRef).onDestroy(() => {
       this.subscription?.unsubscribe();
       this.actionSubscription?.unsubscribe();
+      this.catalogSubscription?.unsubscribe();
     });
     this.load();
   }
@@ -172,19 +206,20 @@ export class NhAssistantAdminAgentsComponent {
     this.loading.set(true);
     this.loadFailed.set(false);
     this.subscription?.unsubscribe();
+    this.catalogSubscription?.unsubscribe();
+    this.catalogLoading.set(false);
     this.subscription = forkJoin([
       this.admin.getAgents(),
       this.admin.getTools(),
       this.admin.getMcpServers(),
-      // The account search is a convenience; without the catalog the account is entered by id.
-      this.admin.getRunCatalog().pipe(catchError(() => of(null)))
+      // The agents stay usable without the catalog; the page says why it is missing.
+      this.readCatalog()
     ]).subscribe({
-      next: ([agents, tools, servers, catalog]) => {
+      next: ([agents, tools, servers, read]) => {
         this.agents.set(agents);
         this.tools.set(tools);
         this.servers.set(servers);
-        this.catalog.set(catalog);
-        this.accountSearch.set(catalog?.accountSearch === true);
+        this.applyCatalog(read);
         this.loading.set(false);
         this.loadAccountNames(agents);
       },
@@ -192,6 +227,16 @@ export class NhAssistantAdminAgentsComponent {
         this.loading.set(false);
         this.loadFailed.set(true);
       }
+    });
+  }
+
+  /** Reads the run catalog again after it could not be read. */
+  retryCatalog(): void {
+    this.catalogLoading.set(true);
+    this.catalogSubscription?.unsubscribe();
+    this.catalogSubscription = this.readCatalog().subscribe(read => {
+      this.catalogLoading.set(false);
+      this.applyCatalog(read);
     });
   }
 
@@ -237,11 +282,14 @@ export class NhAssistantAdminAgentsComponent {
   }
 
   /**
-   * Whether the agent can be run now: it runs on its own, so it has a run configuration, and it is
-   * neither stopped nor disabled in code. The server decides the rest when the run starts.
+   * Whether the agent can be run now: it runs on its own, so it has a run configuration, it is
+   * neither stopped nor disabled in code, and the run catalog names what it can run on. The server
+   * decides the rest when the run starts.
    */
   canRunNow(agent: AdminAgent): boolean {
-    return this.hasRunConfiguration(agent) && (agent.runState === 'active' || agent.runState === 'paused');
+    return this.catalog() !== null
+      && this.hasRunConfiguration(agent)
+      && (agent.runState === 'active' || agent.runState === 'paused');
   }
 
   /** Opens the run-now dialog of the agent. */
@@ -350,7 +398,7 @@ export class NhAssistantAdminAgentsComponent {
 
   /** The name of an account or person, or the id when the application does not know it. */
   accountName(actorId: string | null | undefined): string {
-    return actorId ? this.accountNames().get(actorId) ?? actorId : '';
+    return this.accountNameLookup.nameOf(actorId);
   }
 
   onSaved(agent: AdminAgent): void {
@@ -474,28 +522,64 @@ export class NhAssistantAdminAgentsComponent {
     afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('[data-account-form] input')?.focus(), { injector: this.injector });
   }
 
+  /** A changed account clears the error of the one before. */
+  onAccountChange(actorId: string): void {
+    this.accountId.set(actorId);
+    this.accountError.set(null);
+  }
+
   isChangingAccount(agentId: string, mode: 'set' | 'code'): boolean {
     const change = this.changingAccount();
     return change?.agentId === agentId && change.mode === mode;
   }
 
+  /**
+   * Changes the technical account. The form stays open while the server decides, so a missing or
+   * refused account shows at the account field, which takes the focus.
+   */
   applyAccount(agent: AdminAgent): void {
     const change = this.changingAccount();
-    if (change?.agentId !== agent.id) {
+    if (change?.agentId !== agent.id || this.busyAgentId() !== null) {
       return;
     }
 
     const actorId = change.mode === 'set' ? this.accountId().trim() : null;
     if (actorId === '') {
-      this.error.set({ code: 'assistant-validation', messageKey: 'nh-assistant.admin.run-config.field-errors.required' });
-      this.errorAgentId.set(agent.id);
+      this.accountError.set({
+        code: 'assistant-validation',
+        messageKey: nhAssistantErrorMessageKey('assistant-validation'),
+        fieldErrors: { actorId: ['required'] }
+      });
+      this.focusAccount();
       return;
     }
+
     const reason = this.stateReason().trim();
-    this.run(
-      agent.id,
-      this.admin.setServiceAccount(agent.id, { actorId, reason: reason.length > 0 ? reason : null }),
-      state => this.replace(withState(agent, state)));
+    this.busyAgentId.set(agent.id);
+    this.errorAgentId.set(agent.id);
+    this.error.set(null);
+    this.accountError.set(null);
+    this.actionSubscription?.unsubscribe();
+    this.actionSubscription = this.admin.setServiceAccount(agent.id, { actorId, reason: reason.length > 0 ? reason : null }).subscribe({
+      next: state => this.replace(withState(agent, state)),
+      complete: () => {
+        this.busyAgentId.set(null);
+        this.changingAccount.set(null);
+        this.stateReason.set('');
+        this.refreshChat();
+        this.loadAccountNames(this.agents());
+      },
+      error: (error: unknown) => {
+        this.busyAgentId.set(null);
+        const failure = toNhAssistantError(error);
+        if (failure.fieldErrors?.['actorId'] || accountRefusals.has(failure.code)) {
+          this.accountError.set(failure);
+          this.focusAccount();
+        } else {
+          this.error.set(failure);
+        }
+      }
+    });
   }
 
   isChangingState(agentId: string, state: AgentStateAction, skillId?: string): boolean {
@@ -576,25 +660,36 @@ export class NhAssistantAdminAgentsComponent {
 
   /** Looks up the names of the technical accounts and of the people who changed an agent's state. */
   private loadAccountNames(agents: readonly AdminAgent[]): void {
-    const ids = [...new Set(agents.flatMap(agent => [
+    this.accountNameLookup.load(agents.flatMap(agent => [
       agent.serviceAccount?.actorId,
       agent.serviceAccount?.configuredActorId,
       agent.stateChangedBy,
       agent.shadow?.changedBy
-    ]).filter((id): id is string => typeof id === 'string' && id.length > 0))];
-    if (ids.length === 0) {
-      return;
-    }
-    this.admin.getAccounts(ids).subscribe({
-      next: accounts => this.accountNames.set(new Map(accounts.map(account => [account.actorId, account.displayName]))),
-      error: () => undefined
-    });
+    ]));
+  }
+
+  /** The run catalog, or why it could not be read; it never errors. */
+  private readCatalog(): Observable<CatalogRead> {
+    return this.admin.getRunCatalog().pipe(
+      map(catalog => ({ catalog, error: null })),
+      catchError((error: unknown) => of({ catalog: null, error: toNhAssistantError(error) })));
+  }
+
+  private applyCatalog(read: CatalogRead): void {
+    this.catalog.set(read.catalog);
+    this.catalogError.set(read.error);
+    this.accountSearch.set(read.catalog?.accountSearch === true);
+  }
+
+  private focusAccount(): void {
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('[data-account-form] input')?.focus(), { injector: this.injector });
   }
 
   /** Closes the open confirmation and change forms before another opens; one is open at a time. */
   private closeForms(): void {
     this.confirming.set(null);
     this.error.set(null);
+    this.accountError.set(null);
     this.stateReason.set('');
     this.accountId.set('');
     this.changingState.set(null);

@@ -363,12 +363,15 @@ internal sealed class NhAssistantSystemSubjectResolver(
 }
 
 /// <summary>
-/// The whole application's subjects whose proposals a person may decide, evaluated live because the
-/// whole application lists no members: the inbox asks the person's role on each subject of the whole
-/// application with a pending proposal, at most <see cref="MaxSubjects"/> of them, and the subject
-/// summary on each requested one. Roles are kept for ten seconds per person and subject across
-/// requests (<see cref="NhAssistantSystemRoleCache"/>), so a listing that reloads often evaluates the
-/// policies at most once per subject and person in that time; every decision is checked live again.
+/// The whole application's proposals a person may see and decide in listings, evaluated live because
+/// the whole application lists no members: the inbox asks, for each agent thread of the whole
+/// application with a pending proposal (at most <see cref="MaxThreads"/>), the person's role on its
+/// subject and whether the person passes the agent's view policy, and the subject summary does the
+/// same for the threads of the requested subjects. A proposal of the whole application is listed and
+/// decided only by people who pass the agent's view policy, as its thread is read. Roles and view
+/// decisions are kept for ten seconds per person across requests (<see cref="NhAssistantSystemRoleCache"/>),
+/// so a listing that reloads often evaluates the policies at most once in that time; every decision
+/// is checked live again.
 /// </summary>
 internal sealed class NhAssistantSystemApprovers(
     NhAssistantRunStore runs,
@@ -382,30 +385,81 @@ internal sealed class NhAssistantSystemApprovers(
     internal const int MaxSubjects = 100;
 
     /// <summary>
-    /// The subjects of the whole application with a pending proposal on which the person is an
-    /// approver. A person bound to a tenant decides none: the whole application belongs to no tenant,
-    /// as its proposals' threads do not.
+    /// The most agent threads of the whole application one listing evaluates.
     /// </summary>
-    public async Task<IReadOnlyList<string>> ApproverSubjectsAsync(
+    internal const int MaxThreads = 200;
+
+    /// <summary>
+    /// The threads of the whole application whose pending proposals the person's inbox lists: as an
+    /// approver of the subject, or as the initiator of a run, and in both cases only when the person
+    /// passes the agent's view policy. A person bound to a tenant sees none: the whole application
+    /// belongs to no tenant, as its proposals' threads do not.
+    /// </summary>
+    public async Task<NhAssistantSystemInbox> InboxAsync(
         string actorId,
         string? tenantId,
         CancellationToken cancellationToken)
     {
         if (tenantId is not null)
         {
-            return [];
+            return NhAssistantSystemInbox.None;
         }
 
-        var approverOf = new List<string>();
-        foreach (var subjectId in await runs.GetSystemSubjectsWithPendingProposalsAsync(MaxSubjects, cancellationToken))
+        var approver = new List<Guid>();
+        var viewer = new List<Guid>();
+        foreach (var thread in await runs.GetSystemThreadsWithPendingProposalsAsync(MaxThreads, cancellationToken))
         {
-            if (await RoleAsync(subjectId, actorId, cancellationToken) >= NhAiSubjectRole.Approver)
+            if (!await MayViewAsync(thread, actorId, cancellationToken))
             {
-                approverOf.Add(subjectId);
+                continue;
+            }
+
+            viewer.Add(thread.ConversationId);
+            if (await RoleAsync(thread.SubjectId, actorId, cancellationToken) >= NhAiSubjectRole.Approver)
+            {
+                approver.Add(thread.ConversationId);
             }
         }
 
-        return approverOf;
+        return new NhAssistantSystemInbox(approver, viewer);
+    }
+
+    /// <summary>
+    /// The agent threads of the whole application about <paramref name="subjectIds"/> whose agent's
+    /// view policy the person passes, for the subject summary.
+    /// </summary>
+    public async Task<IReadOnlyList<Guid>> VisibleThreadsAsync(
+        IReadOnlyCollection<string> subjectIds,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        var visible = new List<Guid>();
+        var ids = subjectIds.Distinct(StringComparer.Ordinal).Take(MaxSubjects).ToArray();
+        foreach (var thread in await runs.GetSystemThreadsAsync(ids, MaxThreads, cancellationToken))
+        {
+            if (await MayViewAsync(thread, actorId, cancellationToken))
+            {
+                visible.Add(thread.ConversationId);
+            }
+        }
+
+        return visible;
+    }
+
+    private async Task<bool> MayViewAsync(NhAssistantSystemThread thread, string actorId, CancellationToken cancellationToken)
+    {
+        if (cache.TryGetView(thread.SubjectId, thread.AgentId, actorId, out var known))
+        {
+            return known;
+        }
+
+        var may = await subjects.MayReadAgentThreadAsync(
+            new NhAiSubjectRef(NhAiSubjectRef.SystemType, thread.SubjectId),
+            thread.AgentId,
+            actorId,
+            cancellationToken);
+        cache.SetView(thread.SubjectId, thread.AgentId, actorId, may);
+        return may;
     }
 
     /// <summary>
@@ -444,8 +498,9 @@ internal sealed class NhAssistantSystemApprovers(
 }
 
 /// <summary>
-/// The roles people had on subjects of the whole application in listings, for ten seconds, at most
-/// <see cref="MaxEntries"/> at a time. Only listings read it; authorization asks the resolver.
+/// The roles people had on subjects of the whole application in listings, and whether they passed an
+/// agent's view policy there, for ten seconds, at most <see cref="MaxEntries"/> of each at a time.
+/// Only listings read it; authorization asks the resolver.
 /// </summary>
 internal sealed class NhAssistantSystemRoleCache
 {
@@ -453,6 +508,29 @@ internal sealed class NhAssistantSystemRoleCache
     private static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(10);
 
     private readonly ConcurrentDictionary<(string SubjectId, string ActorId), (NhAiSubjectRole Role, long At)> _roles = new();
+    private readonly ConcurrentDictionary<(string SubjectId, string AgentId, string ActorId), (bool May, long At)> _views = new();
+
+    public bool TryGetView(string subjectId, string agentId, string actorId, out bool may)
+    {
+        if (_views.TryGetValue((subjectId, agentId, actorId), out var cached)
+            && Environment.TickCount64 - cached.At < (long)Lifetime.TotalMilliseconds)
+        {
+            may = cached.May;
+            return true;
+        }
+
+        may = false;
+        return false;
+    }
+
+    public void SetView(string subjectId, string agentId, string actorId, bool may)
+    {
+        if (_views.Count >= MaxEntries)
+        {
+            _views.Clear();
+        }
+        _views[(subjectId, agentId, actorId)] = (may, Environment.TickCount64);
+    }
 
     public bool TryGet(string subjectId, string actorId, out NhAiSubjectRole role)
     {

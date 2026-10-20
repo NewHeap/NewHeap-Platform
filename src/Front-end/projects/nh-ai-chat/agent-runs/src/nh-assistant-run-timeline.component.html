@@ -1,6 +1,9 @@
 @if (error(); as failure) {
   <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
 }
+@if (receipt(); as restarted) {
+  <nh-assistant-run-receipt [receipt]="restarted" />
+}
 
 @if (loading() && runs().length === 0) {
   <p class="state" role="status">{{ 'nh-assistant.agent-runs.loading' | translate }}</p>
@@ -58,7 +61,7 @@
             <span>{{ 'nh-assistant.agent-runs.run.attempt' | translate: { attempt: run.attempt } }}</span>
           }
           @if (run.failureCode; as code) {
-            <span>{{ ['nh-assistant.errors.' + code] | nhAssistantTranslate: code }}</span>
+            <span data-run-failure>{{ codeKeys(code) | nhAssistantTranslate: code }}</span>
           }
         </div>
         @if (run.summary) {

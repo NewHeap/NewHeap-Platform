@@ -11,6 +11,12 @@ internal static class NhAssistantMcpMetrics
     /// <summary>The outcome of a request or authorization that succeeded.</summary>
     public const string Ok = "ok";
 
+    /// <summary>The outcome of a request that succeeded after its credential was renewed.</summary>
+    public const string Renewed = "renewed";
+
+    /// <summary>The outcome of an authorization whose connection became active.</summary>
+    public const string Completed = "completed";
+
     private static readonly Meter Meter = new("NewHeap.Platform.AI");
 
     private static readonly Counter<long> Requests = Meter.CreateCounter<long>(

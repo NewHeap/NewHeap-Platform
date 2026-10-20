@@ -17,9 +17,10 @@ internal static class NhAssistantSubjectEndpoints
         group.MapGet("subjects/{type}/{id}/work", GetWorkAsync)
             .WithName("NhAssistantGetSubjectWork")
             .WithSummary("Read the agent work on a subject")
-            .WithDescription("Returns the caller's role on the subject, every agent with a thread on it (and the requested agent) with its thread, active run and whether the caller may start it, and the open proposals of those threads with the caller's live decision right. The caller needs a role on the subject.")
+            .WithDescription("Returns the caller's role on the subject, every agent with a thread on it (and the requested agent) with its thread, active run and whether the caller may start it, and the open proposals of those threads with the caller's live decision right. The caller needs a role on the subject. A malformed subject answers 400 assistant-subject-invalid.")
             .Produces<NhAssistantSubjectWorkDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         group.MapGet("subjects/{type}/{id}/agents", ListAgentsAsync)
             .WithName("NhAssistantListSubjectAgents")
@@ -40,14 +41,15 @@ internal static class NhAssistantSubjectEndpoints
         group.MapPost("subjects/{type}/summary", SummarizeAsync)
             .WithName("NhAssistantSummarizeSubjects")
             .WithSummary("Summarize the agent work on many subjects")
-            .WithDescription("Returns, for at most 200 subjects of one type, the open proposals, the proposals the caller may decide and whether an agent works on it now, in one query. Counts follow the subjects' member snapshot like the approval inbox, and the caller's live role for the whole application (nh-system), which lists no members; subjects the caller does not see count zero.")
+            .WithDescription("Returns, for at most 200 subjects of one type, the open proposals, the proposals the caller may decide and whether an agent works on it now, in one query. Counts follow the subjects' member snapshot like the approval inbox, and the caller's live role for the whole application (nh-system), which lists no members, with only the threads of agents whose view policy the caller passes; subjects the caller does not see count zero.")
             .Produces<NhAssistantSubjectSummaryListDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         group.MapPost("threads/open", OpenThreadAsync)
             .WithName("NhAssistantOpenThread")
             .WithSummary("Open the conversation with an agent about a subject")
-            .WithDescription("Returns the agent's thread about the subject and creates it, without starting a run, when it does not exist yet. Readers may open an existing thread; creating one needs what starting the agent by hand needs: on an object the participant role and the agent's required policy, on the whole application the agent's run policy (by default the administration policy). The agent must work on the subject and, for the whole application, its scope (409 assistant-agent-does-not-work-on otherwise).")
+            .WithDescription("Returns the agent's thread about the subject and creates it, without starting a run, when it does not exist yet. Readers may open an existing thread; creating one needs what starting the agent by hand needs, and a refusal answers the same code: 403 assistant-subject-access-denied without the role, 403 assistant-agent-forbidden when the caller may not use or run the agent, 409 assistant-agent-does-not-work-on when the agent does not work on the subject or its scope, and 409 assistant-no-accountable-owner when nobody answers for the agent there.")
             .Produces<NhAssistantThreadLookupDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
@@ -67,7 +69,7 @@ internal static class NhAssistantSubjectEndpoints
             || id.Length > NhAiSubjectRef.MaxIdLength
             || agentId is { Length: 0 or > 128 })
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.SubjectNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectInvalid);
         }
 
         var result = await work.GetForRequestAsync(httpContext, new NhAiSubjectRef(type, id), agentId);
@@ -89,7 +91,7 @@ internal static class NhAssistantSubjectEndpoints
             || string.IsNullOrWhiteSpace(id)
             || id.Length > NhAiSubjectRef.MaxIdLength)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.SubjectNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectInvalid);
         }
 
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
@@ -130,9 +132,7 @@ internal static class NhAssistantSubjectEndpoints
             httpContext.RequestAborted);
         if (!found.Success)
         {
-            return FirstCode(found) == NhAssistantAdminErrorCodes.ValidationFailed
-                ? NhAssistantAdminEndpoints.Failure(found)
-                : Failure(found);
+            return Failure(found);
         }
 
         var subjectType = subjects.FindType(type)!;
@@ -163,7 +163,7 @@ internal static class NhAssistantSubjectEndpoints
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSubjectSummaryRequest);
         if (request?.SubjectIds is not { Count: > 0 } subjectIds)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
 
         var result = await work.SummarizeForRequestAsync(httpContext, type, subjectIds);
@@ -194,7 +194,7 @@ internal static class NhAssistantSubjectEndpoints
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantOpenThreadRequest);
         if (request is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.SubjectNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectInvalid);
         }
         if (!NhAssistantAgentRunEndpoints.TryReadSubject(request.AgentId, request.SubjectType, request.SubjectId, registration, subjects, out var subject, out var error))
         {
@@ -210,11 +210,11 @@ internal static class NhAssistantSubjectEndpoints
             : await subjects.ResolveForAgentAsync(subject!, agentId, caller.Data!.ActorId, cancellationToken);
         if (info is null || access.Role == NhAiSubjectRole.None)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.SubjectNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectNotFound);
         }
         if (await NhAssistantEndpointRouteBuilderExtensions.IsHiddenVariantAsync(httpContext, agentId))
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.AgentNotFound);
         }
 
         var agent = await agents.FindAsync(agentId, includeDisabled: false, cancellationToken);
@@ -228,17 +228,16 @@ internal static class NhAssistantSubjectEndpoints
             // Whoever may start the agent by hand creates it (K9): an agent gets no new thread about
             // what it does not work on, and an agent in shadow no new live thread from anyone but an
             // administrator.
-            if (await starts.RefusalAsync(agent, subject!, access, caller.Data!.ActorId, httpContext.User, cancellationToken) is { } refusal)
+            var allowed = await starts.CheckStartAsync(agent, subject!, access, caller.Data!.ActorId, httpContext.User, cancellationToken);
+            if (!allowed.Success)
             {
-                return refusal.Status == StatusCodes.Status409Conflict
-                    ? NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status409Conflict, refusal.Code)
-                    : NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
+                return Failure(allowed);
             }
 
             var created = await threads.GetOrCreateAsync(agent!, info, cancellationToken, variant);
             if (!created.Success)
             {
-                return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, FirstCode(created));
+                return Failure(created);
             }
 
             thread = created.Data!;
@@ -256,23 +255,6 @@ internal static class NhAssistantSubjectEndpoints
 
     private static IResult Failure(NewHeap.Platform.Common.Models.TaskResult result)
     {
-        var code = FirstCode(result);
-        var status = code switch
-        {
-            NhAssistantErrorCodes.SubjectNotFound
-                or NhAssistantErrorCodes.SubjectTypeUnknown
-                or NhAssistantErrorCodes.SubjectSearchUnavailable => StatusCodes.Status404NotFound,
-            NhAssistantErrorCodes.ContextUnavailable => StatusCodes.Status401Unauthorized,
-            _ => StatusCodes.Status400BadRequest
-        };
-        return NhAssistantEndpointRouteBuilderExtensions.Error(status, code);
-    }
-
-    private static string FirstCode(NewHeap.Platform.Common.Models.TaskResult result)
-    {
-        return result.GetResultItems()
-            .Select(item => item.Name)
-            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
-            ?? NhAssistantErrorCodes.TurnFailed;
+        return NhAssistantHttpErrors.Failure(result);
     }
 }

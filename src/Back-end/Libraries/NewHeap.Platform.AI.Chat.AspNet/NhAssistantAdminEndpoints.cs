@@ -43,7 +43,7 @@ internal static class NhAssistantAdminEndpoints
             var allowed = await authorization.AuthorizeAsync(httpContext.User, adminPolicy);
             return allowed.Succeeded
                 ? await next(context)
-                : Error(StatusCodes.Status403Forbidden, NhAssistantAdminErrorCodes.Forbidden);
+                : NhAssistantHttpErrors.Error(NhAssistantAdminErrorCodes.Forbidden);
         });
         admin.MapGet("context", GetContextAsync)
             .WithName("NhAssistantAdminGetContext")
@@ -168,17 +168,21 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("mcp-servers", CreateMcpServerAsync)
             .WithName("NhAssistantAdminCreateMcpServer")
             .WithSummary("Connect an MCP server")
-            .WithDescription("Stores an MCP server; the secret is protected and never returned. headlessUse starts at never unless the body sets organization.")
+            .WithDescription("Stores an MCP server; the secret is protected and never returned. headlessUse starts at never unless the body sets organization. Invalid fields answer 400 assistant-validation with errors per field (id, displayName, url, authMode, headerName, secret, secretReference, userName, clientCertificateReference, transport, connectionScope, requiredPolicy, headlessUse and the dotted oauth.scopes, oauth.clientId, oauth.clientSecret, oauth.clientSecretReference, oauth.organizationAccountLabel, oauth.confirmAuthorization); a reference that names no available secret or certificate is not-found at its field. Confirming the authorization runs discovery (502 when it fails); a secret resolver that fails answers 503 assistant-mcp-secret-unavailable.")
             .Produces<NhAssistantMcpServerDto>(StatusCodes.Status201Created)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status502BadGateway)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status503ServiceUnavailable);
         admin.MapPut("mcp-servers/{id}", UpdateMcpServerAsync)
             .WithName("NhAssistantAdminUpdateMcpServer")
             .WithSummary("Update an MCP server")
-            .WithDescription("Updates a server. An omitted secret is kept and an empty secret is cleared; an omitted headlessUse is kept.")
+            .WithDescription("Updates a server. An omitted secret is kept and an empty secret is cleared; an omitted headlessUse is kept. Field errors, discovery and secret failures answer as for creating a server.")
             .Produces<NhAssistantMcpServerDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status502BadGateway)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status503ServiceUnavailable);
         admin.MapDelete("mcp-servers/{id}", DeleteMcpServerAsync)
             .WithName("NhAssistantAdminDeleteMcpServer")
             .WithSummary("Delete an MCP server")
@@ -188,17 +192,20 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("mcp-servers/{id}/test", TestMcpServerAsync)
             .WithName("NhAssistantAdminTestMcpServer")
             .WithSummary("Test an MCP server")
-            .WithDescription("Connects and lists the remote tools without storing them, and records the outcome as the server's connection state.")
+            .WithDescription("Connects and lists the remote tools without storing them. A server with an organization credential records the outcome as its connection state; a server tested with the administrator's own credential does not.")
             .Produces<NhAssistantMcpServerTestResultDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapPost("mcp-servers/{id}/sync", SyncMcpServerAsync)
             .WithName("NhAssistantAdminSyncMcpServer")
             .WithSummary("Synchronize MCP tools")
-            .WithDescription("Stores the remote tools. New tools start disabled; changed schemas disable a tool.")
+            .WithDescription("Stores the remote tools. New tools start disabled; changed schemas disable a tool. A failed connection answers with its code: 409 when a connection or a stored secret needs an administrator, 502 for the remote server, 503 when a secret resolver fails. Only a server with an organization credential records a failure as its connection state.")
             .Produces<NhAssistantMcpToolDto[]>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status502BadGateway);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status502BadGateway)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status503ServiceUnavailable);
         admin.MapGet("mcp-servers/{id}/tools", GetMcpToolsAsync)
             .WithName("NhAssistantAdminGetMcpTools")
             .WithSummary("List MCP tools")
@@ -215,36 +222,46 @@ internal static class NhAssistantAdminEndpoints
         admin.MapGet("mcp-servers/{id}/connection", GetMcpOrganizationConnectionAsync)
             .WithName("NhAssistantAdminGetMcpConnection")
             .WithSummary("Get the organization's OAuth connection")
-            .WithDescription("Returns the status of the organization's OAuth connection of the server, its scopes and who connected it, without tokens.")
+            .WithDescription("Returns the status of the organization's OAuth connection of the server (oauth or oauth-client-credentials), its scopes and who connected it, without tokens. For a server each person connects to it is the administrator's own connection, the one authorize starts. A server without OAuth answers 409 assistant-mcp-connection-not-supported.")
             .Produces<NhAssistantMcpOrganizationConnectionDto>()
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPost("mcp-servers/{id}/connection/authorize", AuthorizeMcpOrganizationConnectionAsync)
             .WithName("NhAssistantAdminAuthorizeMcpConnection")
             .WithSummary("Connect the organization's account")
-            .WithDescription("Starts the administrator's authorization of the organization connection of an OAuth server: everyone using the server's agents then acts as the connected account. For a server each person connects to, it connects the administrator's own account, which tests and syncs use. Open the returned URL in the administrator's browser; the callback hands a one-time completion code to it, which POST mcp-connections/complete activates.")
+            .WithDescription("Starts the administrator's authorization of the organization connection of an OAuth server: everyone using the server's agents then acts as the connected account. For a server each person connects to, it connects the administrator's own account, which tests and syncs use. Open the returned URL in the administrator's browser; the callback hands a one-time completion code to it, which POST mcp-connections/complete activates. A server without the authorization code flow answers 409 assistant-mcp-connection-not-supported; too many unfinished authorizations 429.")
             .Produces<NhAssistantMcpAuthorizationStartDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict)
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status502BadGateway);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status429TooManyRequests)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status502BadGateway)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status503ServiceUnavailable);
         admin.MapDelete("mcp-servers/{id}/connection", DeleteMcpOrganizationConnectionAsync)
             .WithName("NhAssistantAdminDeleteMcpConnection")
             .WithSummary("Disconnect the organization's account")
-            .WithDescription("Removes the organization's OAuth connection and revokes its tokens at the authorization server.")
+            .WithDescription("Removes the organization's OAuth connection and revokes its tokens at the authorization server; for a server each person connects to, the administrator's own connection. A server without OAuth answers 409 assistant-mcp-connection-not-supported.")
             .Produces(StatusCodes.Status204NoContent)
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapGet("mcp-servers/{id}/connections/summary", GetMcpPersonalConnectionsSummaryAsync)
             .WithName("NhAssistantAdminGetMcpConnectionsSummary")
             .WithSummary("Count the personal connections")
-            .WithDescription("Returns the number of personal OAuth connections of the server per status.")
+            .WithDescription("Returns the number of personal OAuth connections of the server per status. Only a server each person connects to has them; another answers 409 assistant-mcp-connection-not-supported.")
             .Produces<NhAssistantMcpConnectionsSummaryDto>()
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapDelete("mcp-servers/{id}/connections", RevokeMcpPersonalConnectionsAsync)
             .WithName("NhAssistantAdminRevokeMcpConnections")
             .WithSummary("Revoke all personal connections")
-            .WithDescription("Removes every person's OAuth connection of the server and revokes the tokens; each person connects again.")
+            .WithDescription("Removes every person's OAuth connection of the server and revokes the tokens; each person connects again. Only a server each person connects to has them; another answers 409 assistant-mcp-connection-not-supported and nothing is audited.")
             .Produces(StatusCodes.Status204NoContent)
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPut("mcp-servers/{id}/tools/{remoteName}", UpdateMcpToolAsync)
             .WithName("NhAssistantAdminUpdateMcpTool")
             .WithSummary("Update an MCP tool")
@@ -295,7 +312,7 @@ internal static class NhAssistantAdminEndpoints
     {
         var context = await personalization.GetApplicationContextAsync(httpContext.RequestAborted);
         return context is null
-            ? Error(StatusCodes.Status404NotFound, NhAssistantAdminErrorCodes.ContextNotFound)
+            ? NhAssistantHttpErrors.Error(NhAssistantAdminErrorCodes.ContextNotFound)
             : Json(ToDto(context), Context.NhAssistantApplicationContextDto);
     }
 
@@ -478,7 +495,7 @@ internal static class NhAssistantAdminEndpoints
         var control = httpContext.RequestServices.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
         var state = await control.GetAsync(id, httpContext.RequestAborted);
         return state is null
-            ? Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound)
+            ? NhAssistantHttpErrors.Error(NhAssistantErrorCodes.AgentNotFound)
             : Json(state, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentState);
     }
 
@@ -687,7 +704,12 @@ internal static class NhAssistantAdminEndpoints
 
     private static async Task<IResult> GetMcpOrganizationConnectionAsync(string id, HttpContext httpContext, NhAssistantMcpAdministration administration)
     {
-        var found = await administration.GetOrganizationConnectionAsync(id, httpContext.RequestAborted);
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var found = await administration.GetConnectionAsync(id, actor, httpContext.RequestAborted);
         return found.Success
             ? Json(ToDto(found.Data.Connection), Context.NhAssistantMcpOrganizationConnectionDto)
             : Failure(found);
@@ -801,7 +823,7 @@ internal static class NhAssistantAdminEndpoints
         }
         var assigned = (await administration.ListAsync(httpContext.RequestAborted))
             .FirstOrDefault(item => item.Server.Id == id).AgentIds ?? [];
-        var connection = (await administration.GetOrganizationConnectionAsync(id, httpContext.RequestAborted)).Data.Connection;
+        var connection = await administration.FindOrganizationConnectionAsync(id, httpContext.RequestAborted);
         return Json(ToDto(updated.Data!, assigned, connection), Context.NhAssistantMcpServerDto);
     }
 
@@ -1145,70 +1167,18 @@ internal static class NhAssistantAdminEndpoints
         }
     }
 
+    /// <summary>
+    /// The error response of an expected failure: its code with the one status the assistant gives
+    /// it (<see cref="NhAssistantHttpErrors"/>) and its field errors.
+    /// </summary>
     internal static IResult Failure(TaskResult result)
     {
-        var items = result.GetResultItems();
-        var code = items
-            .Select(item => item.Name)
-            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)
-                && !name.StartsWith(NhAssistantValidationErrors.FieldPrefix, StringComparison.Ordinal))
-            ?? NhAssistantAdminErrorCodes.ValidationFailed;
-        var fieldErrors = items
-            .Where(item => item.Name.StartsWith(NhAssistantValidationErrors.FieldPrefix, StringComparison.Ordinal))
-            .GroupBy(item => item.Name[NhAssistantValidationErrors.FieldPrefix.Length..], StringComparer.Ordinal)
-            .ToDictionary(
-                group => group.Key,
-                group => group
-                    .SelectMany(item => item.ErrorMessages)
-                    .Select(message => message.ToString())
-                    .Distinct(StringComparer.Ordinal)
-                    .ToArray(),
-                StringComparer.Ordinal);
-        var status = code switch
-        {
-            NhAssistantErrorCodes.AgentNotFound
-                or NhAssistantErrorCodes.SkillNotFound
-                or NhAssistantErrorCodes.TriggerNotFound
-                or NhAssistantErrorCodes.SkillCandidateNotFound
-                or NhAssistantErrorCodes.AccountSearchUnavailable
-                or NhAssistantAdminErrorCodes.NotFound
-                or NhAssistantAdminErrorCodes.ContextNotFound
-                or NhAssistantAdminErrorCodes.McpServerNotFound
-                or NhAssistantAdminErrorCodes.McpToolNotFound => StatusCodes.Status404NotFound,
-            NhAssistantAdminErrorCodes.VersionConflict
-                or NhAssistantAdminErrorCodes.McpConnectionRequired
-                or NhAssistantAdminErrorCodes.McpReauthorizationRequired
-                or NhAssistantAdminErrorCodes.McpIssuerChanged
-                or NhAssistantAdminErrorCodes.McpAuthorizationNotConfirmed
-                or NhAssistantErrorCodes.ShadowVariant
-                or NhAssistantErrorCodes.ServiceAccountNotUsed
-                or NhAssistantErrorCodes.AgentNotConfigured
-                or NhAssistantErrorCodes.SkillInCode
-                or NhAssistantErrorCodes.TriggerInCode
-                or NhAssistantErrorCodes.SkillInUse
-                or NhAssistantErrorCodes.ConfigurationLimit
-                or NhAssistantErrorCodes.RunSettingsInCode
-                or NhAssistantErrorCodes.RunSettingsInUse
-                or NhAssistantAdminErrorCodes.AgentExists
-                or NhAssistantAdminErrorCodes.McpServerExists
-                or NhAssistantAdminErrorCodes.CodeAgentNotDeletable
-                or NhAssistantAdminErrorCodes.NotCodeAgent => StatusCodes.Status409Conflict,
-            NhAssistantAdminErrorCodes.McpUnreachable
-                or NhAssistantAdminErrorCodes.McpUnauthorized
-                or NhAssistantAdminErrorCodes.McpInsufficientScope
-                or NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable
-                or NhAssistantAdminErrorCodes.McpDiscoveryFailed
-                or NhAssistantAdminErrorCodes.McpTokenRequestFailed => StatusCodes.Status502BadGateway,
-            NhAssistantAdminErrorCodes.Forbidden => StatusCodes.Status403Forbidden,
-            NhAssistantAdminErrorCodes.McpTooManyAuthorizations => StatusCodes.Status429TooManyRequests,
-            _ => StatusCodes.Status400BadRequest
-        };
-        return Error(status, code, fieldErrors.Count == 0 ? null : fieldErrors);
+        return NhAssistantHttpErrors.Failure(result);
     }
 
     internal static IResult Validation()
     {
-        return Error(StatusCodes.Status400BadRequest, NhAssistantAdminErrorCodes.ValidationFailed);
+        return NhAssistantHttpErrors.Error(NhAssistantAdminErrorCodes.ValidationFailed);
     }
 
     internal static IResult MissingField(string field)
@@ -1218,15 +1188,7 @@ internal static class NhAssistantAdminEndpoints
 
     internal static IResult ContextUnavailable()
     {
-        return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.ContextUnavailable);
-    }
-
-    private static IResult Error(int statusCode, string code, IReadOnlyDictionary<string, string[]>? errors = null)
-    {
-        return TypedResults.Json(
-            new NhAssistantErrorDto(code, NhAssistantErrorCodes.MessageKey(code), errors),
-            Context.NhAssistantErrorDto,
-            statusCode: statusCode);
+        return NhAssistantHttpErrors.Error(NhAssistantErrorCodes.ContextUnavailable);
     }
 
     internal static IResult Json<T>(T value, JsonTypeInfo<T> typeInfo)

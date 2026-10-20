@@ -87,6 +87,11 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly servers = input<readonly McpServer[]>([]);
   /** The run catalog: the object types by name, the policies to choose and whether divisions are listed. */
   readonly catalog = input<RunCatalog | null>(null);
+  /**
+   * The run catalog could not be read: the editor then leaves out what the agent works on and its
+   * groups, which depend on it, and a save keeps them as they are.
+   */
+  readonly catalogUnavailable = input(false);
   readonly saved = output<AdminAgent>();
   /**
    * A new agent meant to work on its own was created; the host continues with its run
@@ -169,10 +174,13 @@ export class NhAssistantAdminAgentEditorComponent {
     const agent = this.agent();
     return agent ? worksOnSummary(agent, this.catalog()?.subjectTypes).known : [];
   });
+  /** What the agent works on is edited here: an agent created here, while the run catalog is known. */
+  readonly editsWorksOn = computed(() => this.choosesUse() && !this.catalogUnavailable());
   /** Chosen object types without a type, and not the application either: the agent would work on nothing. */
   readonly worksOnMissing = computed(() =>
-    this.choosesUse() && this.worksOnScope() === 'types' && this.worksOnTypes().length === 0 && !this.worksOnApplication());
-  readonly tooManyTypes = computed(() => this.worksOnScope() === 'types' && this.worksOnTypes().length > maxWorksOnTypes);
+    this.editsWorksOn() && this.worksOnScope() === 'types' && this.worksOnTypes().length === 0 && !this.worksOnApplication());
+  readonly tooManyTypes = computed(() =>
+    this.editsWorksOn() && this.worksOnScope() === 'types' && this.worksOnTypes().length > maxWorksOnTypes);
   readonly policyKeys = policyKeys;
   readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.tooLong() && !this.worksOnMissing() && !this.tooManyTypes());
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
@@ -270,14 +278,17 @@ export class NhAssistantAdminAgentEditorComponent {
       mcpServerIds: this.mcpServerIds(),
       requiredPolicy: policy.length > 0 ? policy : null,
       autonomy: this.autonomy(),
-      ...(this.choosesUse() ? { offeredInChat: this.use() !== 'background', ...this.worksOnInput() } : {})
+      ...(this.choosesUse() ? { offeredInChat: this.use() !== 'background' } : {}),
+      // Omitted, what the agent works on stays as it is; a new agent then works on every object type.
+      ...(this.editsWorksOn() ? this.worksOnInput() : {})
     };
     const startsWork = this.agent() === null && this.use() !== 'chat';
 
     // An existing agent's groups are saved before its definition, a new agent's right after it is
     // created; a new agent whose groups failed is completed as an existing one by the next save.
+    // Without the run catalog the groups are not shown, so they stay as they are.
     const existing = this.editing();
-    const groups = [...this.groups()].sort();
+    const groups = this.catalogUnavailable() ? [...(existing?.groups ?? [])].sort() : [...this.groups()].sort();
     const groupsChanged = !sameGroups(groups, existing?.groups ?? []);
     const groupsSaved: Observable<AdminAgentGroups | null> = existing && groupsChanged && !this.isVariant()
       ? this.admin.setAgentGroups(existing.id, groups)

@@ -175,7 +175,7 @@ public sealed partial class AssistantMcpOAuthTests
         Assert.Equal("not-connected", listed.GetProperty("connectionStatus").GetString());
         Assert.False(listed.GetProperty("offersBackgroundUse").GetBoolean());
         using var consent = await member.PutAsync("/api/assistant/mcp-connections/planning", Json(new { allowBackgroundUse = true }));
-        Assert.Equal(HttpStatusCode.BadRequest, consent.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, consent.StatusCode);
         Assert.Equal(NhAssistantAdminErrorCodes.McpHeadlessNotAllowed, (await ReadJsonAsync(consent)).GetProperty("code").GetString());
 
         // A turn without the member's connection streams the card and stores it in the message.
@@ -218,15 +218,20 @@ public sealed partial class AssistantMcpOAuthTests
         await using var host = await CreateHostAsync(provider);
         await AddPersonalServerAsync(host, mcp.Url, authorization);
         await McpOAuthTestFlows.ConnectPersonAsync(host, AssistantTestHost.UserId, "planning");
+        await McpOAuthTestFlows.ConnectPersonAsync(host, "member-2", "planning");
         var stale = DateTimeOffset.UtcNow.AddDays(-91);
         await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
         {
             await context.McpConnections
-                .Where(row => row.OwnerActorId == AssistantTestHost.UserId)
+                .Where(row => row.OwnerActorId == AssistantTestHost.UserId || row.OwnerActorId == "member-2")
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(row => row.LastUsedAt, stale)
                     .SetProperty(row => row.ConnectedAt, stale)
                     .SetProperty(row => row.CreatedAt, stale));
+            // The second person consented to background use of the server.
+            await context.McpConnections
+                .Where(row => row.OwnerActorId == "member-2")
+                .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.AllowBackgroundUse, true));
         }
 
         await new NhAssistantMcpMaintenance(
@@ -236,8 +241,19 @@ public sealed partial class AssistantMcpOAuthTests
             .RunOnceAsync(CancellationToken.None);
 
         Assert.Null(await FindPersonConnectionAsync(host, AssistantTestHost.UserId));
+        // A consent to background use stays without tokens, as after a disconnect.
+        var consented = (await FindPersonConnectionAsync(host, "member-2"))!;
+        Assert.Equal((null, null, true), (consented.Status, consented.ProtectedRefreshToken, consented.AllowBackgroundUse));
         // The administrator's own connection was used just now and stays.
         Assert.NotNull(await FindPersonConnectionAsync(host, "admin-1"));
+
+        // The administrator reads and removes their own connection of a server each person connects to.
+        var own = await AdministerAsync(host, administration => administration.GetConnectionAsync("planning", "admin-1", CancellationToken.None));
+        Assert.Equal(NhAssistantMcpConnectionStatuses.Active, own.Data.Connection!.Status);
+        Assert.Equal("admin-1", own.Data.Connection.OwnerActorId);
+        Assert.True((await AdministerAsync(host, administration => administration.DisconnectOrganizationAsync("planning", "admin-1", CancellationToken.None))).Success);
+        Assert.Null((await FindPersonConnectionAsync(host, "admin-1"))?.Status);
+        Assert.Null((await AdministerAsync(host, administration => administration.GetConnectionAsync("planning", "admin-1", CancellationToken.None))).Data.Connection);
         Assert.NotEmpty(authorization.Revocations);
         Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.McpConnectionDisconnected
             && evt.ActorId == AssistantTestHost.UserId
@@ -294,8 +310,11 @@ public sealed partial class AssistantMcpOAuthTests
             OAuth = new NhAssistantMcpOAuthInput("assistant-web", WebClientSecret, null, scopes, null, ConfirmAuthorization: true)
         };
         Assert.True((await CreateAsync(host, input)).Success);
-        // Without the administrator's own account the server cannot be tested.
+        // Without the administrator's own account the server cannot be tested; that says nothing about
+        // the server for everyone else, so its connection state stays as it was.
         Assert.Equal(NhAssistantAdminErrorCodes.McpConnectionRequired, (await AdministerAsync(host, administration => administration.TestAsync("planning", "admin-1", CancellationToken.None))).Data!.Code);
+        Assert.False((await AdministerAsync(host, administration => administration.SyncAsync("planning", "admin-1", CancellationToken.None))).Success);
+        Assert.Null((await FindServerAsync(host)).LastConnectCode);
         var subject = authorization.Options.Subject;
         authorization.Options.Subject = "remote-admin";
         var start = (await AdministerAsync(host, administration => administration.AuthorizeOrganizationAsync("planning", "admin-1", null, CancellationToken.None))).Data!;

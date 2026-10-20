@@ -20,6 +20,7 @@ import {
   NH_ASSISTANT_SYSTEM_SUBJECT_TYPE,
   NhAssistantAgentRunApiService,
   NhAssistantApiError,
+  ɵnhAssistantCodeKeys as nhAssistantCodeKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantMarkdownPipe as NhAssistantMarkdownPipe,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
@@ -90,6 +91,7 @@ export class NhAssistantAgentBoardComponent {
   readonly openConversation = output<string>();
 
   readonly id = `nh-assistant-agent-board-${nextId++}`;
+  readonly codeKeys = nhAssistantCodeKeys;
   readonly loading = signal(true);
   readonly loadFailed = signal(false);
   /** The board does not exist or the person sees none of its agents. */

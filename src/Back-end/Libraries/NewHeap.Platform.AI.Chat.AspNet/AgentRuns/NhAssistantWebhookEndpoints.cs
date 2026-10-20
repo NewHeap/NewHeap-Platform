@@ -65,25 +65,25 @@ internal static class NhAssistantWebhookEndpoints
             || trigger.WebhookSecret is null
             || trigger.WebhookSubject is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.TriggerNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.TriggerNotFound);
         }
 
         var secret = trigger.WebhookSecret(services);
         if (!IsUsableSecret(secret))
         {
             logger.LogWarning("Webhook trigger {TriggerId} has no usable secret; its calls are refused.", triggerId);
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.TriggerNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.TriggerNotFound);
         }
 
         if (httpContext.Request.ContentLength > MaxBodyBytes)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status413PayloadTooLarge, NhAssistantErrorCodes.WebhookPayloadInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.WebhookPayloadTooLarge);
         }
 
         var body = await ReadBodyAsync(httpContext.Request, httpContext.RequestAborted);
         if (body is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status413PayloadTooLarge, NhAssistantErrorCodes.WebhookPayloadInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.WebhookPayloadTooLarge);
         }
 
         var headers = httpContext.Request.Headers;
@@ -97,7 +97,7 @@ internal static class NhAssistantWebhookEndpoints
                 DateTimeOffset.UtcNow))
         {
             logger.LogInformation("A call of webhook trigger {TriggerId} was refused: missing, stale or wrong signature.", triggerId);
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status401Unauthorized, NhAssistantErrorCodes.WebhookSignatureInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.WebhookSignatureInvalid);
         }
 
         JsonElement root;
@@ -108,7 +108,7 @@ internal static class NhAssistantWebhookEndpoints
         }
         catch (JsonException)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.WebhookPayloadInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.WebhookPayloadInvalid);
         }
 
         // The agent's state and the trigger's When filter decide before the subject is read.
@@ -119,7 +119,7 @@ internal static class NhAssistantWebhookEndpoints
         {
             if (trigger.WebhookSubject(root) is null)
             {
-                return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.SubjectNotFound);
+                return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectInvalid);
             }
 
             receipt = await triggers.FireWebhookAsync(trigger, delivery, httpContext.RequestAborted);

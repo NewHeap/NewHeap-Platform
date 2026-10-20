@@ -30,6 +30,8 @@ public sealed class AssistantRunNowTests(AssistantDatabaseFixture database)
     private const string Statistics = "weekly-statistics";
     private const string DefaultStatistics = "monthly-statistics";
     private const string DivisionStatistics = "division-statistics";
+    private const string LimitedStatistics = "limited-statistics";
+    private const string PausedStatistics = "paused-statistics";
     private const string RunPolicy = "app.statistics.run";
     private const string Admin = "admin-1";
     private const string Runner = "runner-1";
@@ -97,8 +99,9 @@ public sealed class AssistantRunNowTests(AssistantDatabaseFixture database)
         }
         using (var refusedOpen = await reader.PostAsync("/api/assistant/threads/open", Json(new { agentId = DivisionStatistics, subjectType = NhAiSubjectRef.SystemType, subjectId = north })))
         {
+            // The refusal of the start itself: the reader reads the division but may not run the agent.
             Assert.Equal(HttpStatusCode.Forbidden, refusedOpen.StatusCode);
-            Assert.Equal(NhAssistantErrorCodes.SubjectAccessDenied, (await ReadJsonAsync(refusedOpen)).GetProperty("code").GetString());
+            Assert.Equal(NhAssistantErrorCodes.AgentForbidden, (await ReadJsonAsync(refusedOpen)).GetProperty("code").GetString());
         }
 
         // The subject work names the same right as the lookup.
@@ -237,7 +240,35 @@ public sealed class AssistantRunNowTests(AssistantDatabaseFixture database)
         Assert.Equal(["North"], readable.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("displayName").GetString()));
     }
 
-    private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider)
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_start_by_hand_waits_for_a_paused_agent_and_a_refused_start_answers_its_code_with_its_status(AssistantTestProvider provider)
+    {
+        await using var app = await StartAsync(provider, limitedAgents: true);
+        using var admin = app.CreateClient(Admin, admin: true);
+        var global = NhAiSystemSubjects.GlobalId;
+
+        // A paused agent lets the start wait in its thread: 202 with the reason, no run yet.
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            Assert.True((await scope.ServiceProvider.GetRequiredService<INhAssistantAgentControl>().PauseAsync(PausedStatistics, Admin)).Success);
+        }
+        var waiting = await StartAsync(admin, PausedStatistics, NhAiSubjectRef.SystemType, global);
+        Assert.Equal(NhAssistantTriggerOutcomes.Waiting, waiting.GetProperty("outcome").GetString());
+        Assert.Equal(NhAssistantErrorCodes.AgentPaused, waiting.GetProperty("reasonCode").GetString());
+        Assert.Equal(JsonValueKind.Null, waiting.GetProperty("runId").ValueKind);
+
+        // The agent's daily limit for the subject refuses the next start with its public code.
+        Assert.Equal(NhAssistantTriggerOutcomes.Started, (await StartAsync(admin, LimitedStatistics, NhAiSubjectRef.SystemType, global)).GetProperty("outcome").GetString());
+        await AssertRefusedAsync(admin, LimitedStatistics, NhAiSubjectRef.SystemType, global, HttpStatusCode.Conflict, NhAssistantTriggerReasons.RateLimited);
+
+        // A malformed subject is invalid, an unknown agent is not found.
+        await AssertRefusedAsync(admin, LimitedStatistics, NhAiSubjectRef.SystemType, " padded ", HttpStatusCode.BadRequest, NhAssistantErrorCodes.SubjectInvalid);
+        await AssertRefusedAsync(admin, "no-such-agent", NhAiSubjectRef.SystemType, global, HttpStatusCode.NotFound, NhAssistantErrorCodes.AgentNotFound);
+    }
+
+    private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider, bool limitedAgents = false)
     {
         return AssistantWebApplication.StartAsync(
             database,
@@ -256,16 +287,29 @@ public sealed class AssistantRunNowTests(AssistantDatabaseFixture database)
                 // Runs are recorded, not executed: the startup check would require their background operations.
                 services.Remove(services.Single(descriptor => descriptor.ImplementationType == typeof(NhAssistantStartupValidator)));
             },
-            assistantBuilder: assistant => assistant
-                .AddSubjectType<TestSubjectResolver>(type => type.Named(new() { ["en"] = "Project" }, fallbackLanguage: "en"))
-                .AddAgent(AssistantTestData.Agent(Statistics))
-                .AddAgent(AssistantTestData.Agent(DefaultStatistics))
-                .AddAgent(AssistantTestData.Agent(DivisionStatistics))
-                .ConfigureAgent(ProjectAgent, run => run.WorksOn("project"))
-                .ConfigureAgent(ManagerAgent, run => run.WorksOn("project"))
-                .ConfigureAgent(Statistics, run => run.WorksOn("project").WorksOnApplication().RunPolicy(RunPolicy))
-                .ConfigureAgent(DefaultStatistics, run => run.WorksOnApplication())
-                .ConfigureAgent(DivisionStatistics, run => run.WorksOnApplication().PerDivision()),
+            assistantBuilder: assistant =>
+            {
+                assistant
+                    .AddSubjectType<TestSubjectResolver>(type => type.Named(new() { ["en"] = "Project" }, fallbackLanguage: "en"))
+                    .AddAgent(AssistantTestData.Agent(Statistics))
+                    .AddAgent(AssistantTestData.Agent(DefaultStatistics))
+                    .AddAgent(AssistantTestData.Agent(DivisionStatistics))
+                    .ConfigureAgent(ProjectAgent, run => run.WorksOn("project"))
+                    .ConfigureAgent(ManagerAgent, run => run.WorksOn("project"))
+                    .ConfigureAgent(Statistics, run => run.WorksOn("project").WorksOnApplication().RunPolicy(RunPolicy))
+                    .ConfigureAgent(DefaultStatistics, run => run.WorksOnApplication())
+                    .ConfigureAgent(DivisionStatistics, run => run.WorksOnApplication().PerDivision());
+                if (limitedAgents)
+                {
+                    assistant
+                        .AddAgent(AssistantTestData.Agent(LimitedStatistics))
+                        .AddAgent(AssistantTestData.Agent(PausedStatistics))
+                        .ConfigureAgent(LimitedStatistics, run => run
+                            .WorksOnApplication()
+                            .Budget(NhAssistantAgentBudget.PerDay(toolCalls: 100, tokens: 1_000_000), maxRunsPerSubjectPerDay: 1))
+                        .ConfigureAgent(PausedStatistics, run => run.WorksOnApplication());
+                }
+            },
             provider: provider);
     }
 

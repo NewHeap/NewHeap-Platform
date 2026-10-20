@@ -30,6 +30,9 @@
 }
 
 .hint {
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-start;
   margin: 4px 2px 0;
   color: var(--nha-text-muted);
   font-size: 12px;

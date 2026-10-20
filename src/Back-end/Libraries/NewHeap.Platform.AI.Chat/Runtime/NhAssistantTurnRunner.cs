@@ -1662,11 +1662,14 @@ internal sealed partial class NhAssistantTurnRunner(
             ?? await FindMcpFunctionAsync(state, invocation, cancellationToken);
         if (function is null)
         {
+            // An MCP tool left out of this turn reports why (Q10), as a deferred proposal does:
+            // the person is not connected, did not consent, or the server no longer allows it.
+            var code = state.McpTools?.SkippedCodeOf(invocation.ToolId) ?? NhAiToolFailureCodes.ApprovalInvalid;
             invocation.Status = NhAssistantToolCallStatuses.Failed;
-            invocation.ResultCode = NhAiToolFailureCodes.ApprovalInvalid;
+            invocation.ResultCode = code;
             invocation.CompletedAt = DateTimeOffset.UtcNow;
             await store.UpdateToolInvocationAsync(invocation, CancellationToken.None);
-            await FinishWithErrorAsync(state, NhAssistantErrorCodes.ApprovalInvalid, NhAssistantConversationStatuses.Idle);
+            await FinishWithErrorAsync(state, code, NhAssistantConversationStatuses.Idle);
             return null;
         }
 

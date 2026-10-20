@@ -16,6 +16,7 @@ import {
 import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
 import { NhAssistantMockAdminScenario } from './nh-assistant-mock.models';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
+import { mockFailure as failure } from './nh-assistant-mock-admin-shared';
 
 /** A mock response: status plus optional JSON body. */
 interface MockResult {
@@ -109,14 +110,14 @@ export class NhAssistantMockRunConfiguration {
     const agent = this.agents.find(agentId);
     const [area, id, action, child] = segments;
     if (area === 'configuration' && segments.length === 1) {
-      return agent && method === 'GET' ? { status: 200, body: this.configuration(agent) } : failure(404, 'assistant-agent-not-found');
+      return agent && method === 'GET' ? { status: 200, body: this.configuration(agent) } : failure('assistant-agent-not-found');
     }
     if (area === 'run-settings' && segments.length === 1) {
-      return agent ? this.runSettings(method, agent, body, query) : failure(404, 'assistant-agent-not-found');
+      return agent ? this.runSettings(method, agent, body, query) : failure('assistant-agent-not-found');
     }
     if (area === 'skills' && id !== undefined && (segments.length === 2 || action === 'versions' || action === 'candidate')) {
       if (!agent) {
-        return failure(404, 'assistant-agent-not-found');
+        return failure('assistant-agent-not-found');
       }
       if (action === 'versions' && segments.length === 3) {
         return method === 'GET' ? { status: 200, body: this.versions(agent.id, id) } : { status: 405 };
@@ -128,7 +129,7 @@ export class NhAssistantMockRunConfiguration {
     }
     if (area === 'triggers' && id !== undefined && (segments.length === 2 || (segments.length === 3 && action === 'shadow'))) {
       if (!agent) {
-        return failure(404, 'assistant-agent-not-found');
+        return failure('assistant-agent-not-found');
       }
       return action === 'shadow' ? this.triggerShadow(method, agent, id, body) : this.trigger(method, agent, id, body, query);
     }
@@ -176,18 +177,18 @@ export class NhAssistantMockRunConfiguration {
 
   private runSettings(method: string, agent: AdminAgent, body: unknown, query: URLSearchParams): MockResult {
     if (agent.source === 'code') {
-      return failure(409, 'assistant-run-settings-in-code');
+      return failure('assistant-run-settings-in-code');
     }
     const current = this.settings.get(agent.id);
     if (method === 'DELETE') {
       if (!current) {
-        return failure(409, 'assistant-agent-not-configured');
+        return failure('assistant-agent-not-configured');
       }
       if (!versionMatches(query, current.version)) {
-        return failure(409, 'assistant-version-conflict');
+        return failure('assistant-version-conflict');
       }
       if (this.liveSkills(agent.id).length > 0 || [...this.triggers.values()].some(trigger => this.ownerOf(trigger) === agent.id)) {
-        return failure(409, 'assistant-run-settings-in-use');
+        return failure('assistant-run-settings-in-use');
       }
       this.settings.delete(agent.id);
       return { status: 204 };
@@ -224,13 +225,13 @@ export class NhAssistantMockRunConfiguration {
     this.requireKnown(errors, 'triageProfile', request.triageProfile, this.catalog.profiles);
     this.requireKnown(errors, 'ruleHandler', request.ruleHandler, this.catalog.ruleHandlers.map(handler => handler.name));
     if (Object.keys(errors).length > 0) {
-      return failure(400, 'assistant-validation', errors);
+      return failure('assistant-validation', errors);
     }
     if (serviceAccount && this.accounts.rejects(serviceAccount)) {
-      return failure(400, 'assistant-service-account-not-found');
+      return failure('assistant-service-account-not-found');
     }
     if ((request.expectedVersion ?? null) !== (current?.version ?? null)) {
-      return failure(409, 'assistant-version-conflict');
+      return failure('assistant-version-conflict');
     }
 
     const saved: AgentRunSettings = {
@@ -261,22 +262,22 @@ export class NhAssistantMockRunConfiguration {
 
   private skill(method: string, agent: AdminAgent, skillId: string, body: unknown, query: URLSearchParams): MockResult {
     if (agent.source === 'code' && (agent.skills ?? []).some(skill => skill.skillId === skillId) && !this.skills.has(key(agent.id, skillId))) {
-      return failure(409, 'assistant-skill-in-code');
+      return failure('assistant-skill-in-code');
     }
     if (!this.isConfigured(agent)) {
-      return failure(409, 'assistant-agent-not-configured');
+      return failure('assistant-agent-not-configured');
     }
     const versions = this.skills.get(key(agent.id, skillId)) ?? [];
     const live = versions.find(version => version.status === 'live');
     if (method === 'DELETE') {
       if (!live) {
-        return failure(404, 'assistant-skill-not-found');
+        return failure('assistant-skill-not-found');
       }
       if (!versionMatches(query, live.version)) {
-        return failure(409, 'assistant-version-conflict');
+        return failure('assistant-version-conflict');
       }
       if ([...this.triggers.values()].some(trigger => this.ownerOf(trigger) === agent.id && trigger.skillId === skillId)) {
-        return failure(409, 'assistant-skill-in-use');
+        return failure('assistant-skill-in-use');
       }
       for (const version of versions) {
         version.status = version.status === 'candidate' ? 'discarded' : version.status === 'live' ? 'superseded' : version.status;
@@ -318,10 +319,10 @@ export class NhAssistantMockRunConfiguration {
     this.requireKnown(errors, 'ruleHandler', request.ruleHandler, this.catalog.ruleHandlers.map(handler => handler.name));
     this.requireKnown(errors, 'approvalPolicy', request.approvalPolicy, this.catalog.approvalPolicies);
     if (Object.keys(errors).length > 0) {
-      return failure(400, 'assistant-validation', errors);
+      return failure('assistant-validation', errors);
     }
     if ((request.expectedVersion ?? null) !== (live?.version ?? null)) {
-      return failure(409, 'assistant-version-conflict');
+      return failure('assistant-version-conflict');
     }
 
     const candidate = request.apply === 'shadow';
@@ -366,7 +367,7 @@ export class NhAssistantMockRunConfiguration {
     const live = versions.find(version => version.status === 'live');
     if (action === 'comparison' && method === 'GET') {
       if (!candidate || !live) {
-        return failure(404, 'assistant-skill-candidate-not-found');
+        return failure('assistant-skill-candidate-not-found');
       }
       const comparison: SkillComparison = {
         agentId: agent.id,
@@ -386,13 +387,13 @@ export class NhAssistantMockRunConfiguration {
 
     const request = body as { version?: unknown; reason?: unknown } | undefined;
     if (typeof request?.version !== 'number') {
-      return failure(400, 'assistant-validation', { version: ['required'] });
+      return failure('assistant-validation', { version: ['required'] });
     }
     if (!candidate) {
-      return failure(404, 'assistant-skill-candidate-not-found');
+      return failure('assistant-skill-candidate-not-found');
     }
     if (candidate.version !== request.version) {
-      return failure(409, 'assistant-version-conflict');
+      return failure('assistant-version-conflict');
     }
     if (action === 'discard') {
       candidate.status = 'discarded';
@@ -423,21 +424,21 @@ export class NhAssistantMockRunConfiguration {
 
   private trigger(method: string, agent: AdminAgent, triggerId: string, body: unknown, query: URLSearchParams): MockResult {
     if (this.codeTriggers.some(trigger => trigger.triggerId === triggerId)) {
-      return failure(409, 'assistant-trigger-in-code');
+      return failure('assistant-trigger-in-code');
     }
     if (!this.isConfigured(agent)) {
-      return failure(409, 'assistant-agent-not-configured');
+      return failure('assistant-agent-not-configured');
     }
     const existing = this.triggers.get(triggerId);
     if (existing && this.ownerOf(existing) !== agent.id) {
-      return failure(400, 'assistant-validation', { triggerId: ['invalid'] });
+      return failure('assistant-validation', { triggerId: ['invalid'] });
     }
     if (method === 'DELETE') {
       if (!existing) {
-        return failure(404, 'assistant-trigger-not-found');
+        return failure('assistant-trigger-not-found');
       }
       if (!versionMatches(query, existing.version)) {
-        return failure(409, 'assistant-version-conflict');
+        return failure('assistant-version-conflict');
       }
       this.triggers.delete(triggerId);
       return { status: 204 };
@@ -492,10 +493,10 @@ export class NhAssistantMockRunConfiguration {
       errors['skill'] = ['not-found'];
     }
     if (Object.keys(errors).length > 0) {
-      return failure(400, 'assistant-validation', errors);
+      return failure('assistant-validation', errors);
     }
     if ((request.expectedVersion ?? null) !== (existing?.version ?? null)) {
-      return failure(409, 'assistant-version-conflict');
+      return failure('assistant-version-conflict');
     }
 
     const saved: DataTrigger & { agentId?: string } = {
@@ -527,14 +528,14 @@ export class NhAssistantMockRunConfiguration {
     }
     const existing = this.triggers.get(triggerId);
     if (!existing || this.ownerOf(existing) !== agent.id) {
-      return failure(404, 'assistant-trigger-not-found');
+      return failure('assistant-trigger-not-found');
     }
     const request = body as { mode?: unknown; reason?: unknown } | undefined;
     if (request?.mode !== 'shadow' && request?.mode !== 'live') {
-      return failure(400, 'assistant-validation', { mode: [request?.mode === undefined ? 'required' : 'invalid'] });
+      return failure('assistant-validation', { mode: [request?.mode === undefined ? 'required' : 'invalid'] });
     }
     if (typeof request.reason === 'string' && request.reason.length > maxReason) {
-      return failure(400, 'assistant-validation', { reason: ['too-long'] });
+      return failure('assistant-validation', { reason: ['too-long'] });
     }
 
     existing.shadow = request.mode === 'shadow';
@@ -637,8 +638,4 @@ function hashText(text: string): string {
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
   return `fnv1a:${hash.toString(16).padStart(8, '0')}`;
-}
-
-function failure(status: number, code: string, errors?: Record<string, string[]>): MockResult {
-  return { status, body: { code, messageKey: `nh-assistant.errors.${code}`, ...(errors ? { errors } : {}) } };
 }

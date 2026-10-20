@@ -271,9 +271,12 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(referenced.secretReference).toBe('config:vault-token');
     expect(referenced.hasSecret).toBeFalse();
     expect(referenced.userName).toBeNull();
-    expect(unknownPrefix.code).toBe('assistant-mcp-secret-reference-invalid');
+    // A reference the application cannot resolve is a field error, as on the server.
+    expect(unknownPrefix).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-validation' }));
+    expect(unknownPrefix.fieldErrors).toEqual({ secretReference: ['not-found'] });
     expect(climbing.code).toBe('assistant-validation');
-    expect(certificate.code).toBe('assistant-mcp-certificate-reference-invalid');
+    expect(climbing.fieldErrors).toEqual({ secretReference: ['invalid'] });
+    expect(certificate.fieldErrors).toEqual({ clientCertificateReference: ['not-found'] });
     expect(auto.transport).toBe('auto');
     expect(auto.secretReference).toBeNull();
   });
@@ -306,7 +309,9 @@ describe('provideNhAssistantMockApi administration', () => {
   it('answers with the specific contract codes for duplicates, missing items and resets', async () => {
     await firstValueFrom(admin.createAgent(newAgent));
     const [server] = await firstValueFrom(admin.getMcpServers());
-    const { hasSecret, lastSyncAt, lastSyncStatus, assignedAgentIds, ...serverInput } = server;
+    const { hasSecret, lastSyncAt, lastSyncStatus, assignedAgentIds, ...listed } = server;
+    // A valid input for an id that exists; the server checks the fields first.
+    const serverInput = { ...listed, secret: 'another-secret' };
 
     const failures = await Promise.all([
       failure(firstValueFrom(admin.createAgent(newAgent))),

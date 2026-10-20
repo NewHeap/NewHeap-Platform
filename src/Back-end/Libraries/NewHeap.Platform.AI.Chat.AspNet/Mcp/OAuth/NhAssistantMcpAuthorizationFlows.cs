@@ -59,7 +59,7 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
         var oauth = options.CurrentValue.Mcp.OAuth;
         if (server.AuthMode != NhAssistantMcpAuthModes.OAuth)
         {
-            return Failed<NhAssistantMcpAuthorizationStart>(NhAssistantAdminErrorCodes.McpConnectionRequired);
+            return Failed<NhAssistantMcpAuthorizationStart>(NhAssistantAdminErrorCodes.McpConnectionNotSupported);
         }
         if (string.IsNullOrWhiteSpace(oauth.RedirectUri))
         {
@@ -147,7 +147,17 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
 
     /// <summary>
     /// Handles the redirect from the authorization server: finds the flow by its <c>state</c>, checks
-    /// expiry, single use and <c>iss</c>, and exchanges the code.
+    /// expiry, single use and <c>iss</c>, and exchanges the code. The failure codes follow one rule:
+    /// <see cref="NhAssistantAdminErrorCodes.McpAuthorizationInvalid"/> for a callback that does not
+    /// belong to its flow (no <c>state</c>, no <c>code</c>, another <c>iss</c>);
+    /// <see cref="NhAssistantAdminErrorCodes.McpAuthorizationExpired"/> for a flow that is unknown,
+    /// already used, past its lifetime, or that can no longer be completed as started (its verifier no
+    /// longer decrypts, or the host's client changed): the person starts again;
+    /// <see cref="NhAssistantAdminErrorCodes.McpAuthorizationFailed"/> when the authorization server
+    /// ended it with an error or refused the code; <see cref="NhAssistantAdminErrorCodes.McpServerNotFound"/>
+    /// and <see cref="NhAssistantAdminErrorCodes.McpIssuerChanged"/> when the server was removed or its
+    /// authorization server changed since the start; otherwise the code of the failed step, such as
+    /// discovery or the token request.
     /// </summary>
     public async Task<NhAssistantMcpCallbackOutcome> CallbackAsync(
         string? state,
@@ -158,11 +168,13 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
     {
         if (string.IsNullOrEmpty(state))
         {
-            return new NhAssistantMcpCallbackOutcome(null, null, NhAssistantAdminErrorCodes.McpAuthorizationExpired, null);
+            NhAssistantMcpMetrics.Authorization(NhAssistantAdminErrorCodes.McpAuthorizationInvalid);
+            return new NhAssistantMcpCallbackOutcome(null, null, NhAssistantAdminErrorCodes.McpAuthorizationInvalid, null);
         }
         var flow = await store.FindFlowByStateHashAsync(NhAssistantMcpTokenProtector.Hash(state), cancellationToken);
         if (flow is null || flow.Status != NhAssistantMcpOAuthStore.FlowPending)
         {
+            NhAssistantMcpMetrics.Authorization(NhAssistantAdminErrorCodes.McpAuthorizationExpired);
             return new NhAssistantMcpCallbackOutcome(null, null, NhAssistantAdminErrorCodes.McpAuthorizationExpired, null);
         }
         if (flow.ExpiresAt < DateTimeOffset.UtcNow)
@@ -172,7 +184,7 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
         var metadata = await discovery.GetAuthorizationServerAsync(flow.Issuer, bypassCache: false, cancellationToken);
         if (!metadata.Success)
         {
-            return await FailAsync(flow, NhAssistantAdminErrorCodes.McpTokenRequestFailed, cancellationToken);
+            return await FailAsync(flow, NhAssistantResults.CodeOf(metadata, NhAssistantAdminErrorCodes.McpDiscoveryFailed), cancellationToken);
         }
         // RFC 9207: a present iss must name the flow's issuer; an issuer that announces it must send it.
         if ((issuer is not null && !string.Equals(issuer, flow.Issuer, StringComparison.Ordinal))
@@ -190,14 +202,23 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
             return await FailAsync(flow, NhAssistantAdminErrorCodes.McpAuthorizationInvalid, cancellationToken);
         }
         var server = await adminStore.FindMcpServerAsync(flow.ServerId, cancellationToken);
-        if (server is null || !string.Equals(server.AuthorizationServerIssuer, flow.Issuer, StringComparison.Ordinal))
+        if (server is null)
         {
-            return await FailAsync(flow, NhAssistantAdminErrorCodes.McpAuthorizationExpired, cancellationToken);
+            return await FailAsync(flow, NhAssistantAdminErrorCodes.McpServerNotFound, cancellationToken);
+        }
+        if (!string.Equals(server.AuthorizationServerIssuer, flow.Issuer, StringComparison.Ordinal))
+        {
+            return await FailAsync(flow, NhAssistantAdminErrorCodes.McpIssuerChanged, cancellationToken);
         }
         var identity = await client.ResolveClientAsync(server, metadata.Data!, cancellationToken);
-        if (!identity.Success || !string.Equals(identity.Data!.ClientId, flow.ClientId, StringComparison.Ordinal))
+        if (!identity.Success)
         {
-            return await FailAsync(flow, NhAssistantAdminErrorCodes.McpAuthorizationInvalid, cancellationToken);
+            return await FailAsync(flow, NhAssistantResults.CodeOf(identity, NhAssistantAdminErrorCodes.McpTokenRequestFailed), cancellationToken);
+        }
+        if (!string.Equals(identity.Data!.ClientId, flow.ClientId, StringComparison.Ordinal))
+        {
+            // The host registered again since the start; the code belongs to the old client.
+            return await FailAsync(flow, NhAssistantAdminErrorCodes.McpAuthorizationExpired, cancellationToken);
         }
         var verifier = tokens.UnprotectFlow(flow.Id, flow.ProtectedCodeVerifier);
         if (verifier is null)
@@ -207,9 +228,12 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
         var exchanged = await client.ExchangeCodeAsync(identity.Data, metadata.Data!, code, verifier, flow.RedirectUri, flow.Resource, cancellationToken);
         if (!exchanged.Success)
         {
-            var failure = NhAssistantMcpCredentialResults.FirstCode(exchanged) == NhAssistantAdminErrorCodes.McpReauthorizationRequired
-                ? NhAssistantAdminErrorCodes.McpAuthorizationFailed
-                : NhAssistantMcpCredentialResults.FirstCode(exchanged) ?? NhAssistantAdminErrorCodes.McpTokenRequestFailed;
+            // A refused code (invalid_grant) ends the authorization; another failure keeps its code.
+            var failure = NhAssistantResults.CodeOf(exchanged, NhAssistantAdminErrorCodes.McpTokenRequestFailed);
+            if (failure == NhAssistantAdminErrorCodes.McpReauthorizationRequired)
+            {
+                failure = NhAssistantAdminErrorCodes.McpAuthorizationFailed;
+            }
             return await FailAsync(flow, failure, cancellationToken);
         }
 
@@ -225,6 +249,7 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
         }, cancellationToken);
         if (!moved)
         {
+            NhAssistantMcpMetrics.Authorization(NhAssistantAdminErrorCodes.McpAuthorizationExpired);
             return new NhAssistantMcpCallbackOutcome(flow.Id, null, NhAssistantAdminErrorCodes.McpAuthorizationExpired, flow.ReturnUrl);
         }
         return new NhAssistantMcpCallbackOutcome(flow.Id, completionCode, null, flow.ReturnUrl);
@@ -258,27 +283,32 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
         {
             return TaskResult<NhAssistantMcpCompletion>.Failed(NhAssistantAdminErrorCodes.Forbidden, "Completing an organization connection needs the admin policy.");
         }
+        // Every check runs before the flow is used up; a completion that fails ends the flow with its code.
         var server = await adminStore.FindMcpServerAsync(flow.ServerId, cancellationToken);
         if (server is null)
         {
-            return Failed<NhAssistantMcpCompletion>(NhAssistantAdminErrorCodes.McpServerNotFound);
+            return await FailCompletionAsync(flow, NhAssistantAdminErrorCodes.McpServerNotFound, cancellationToken);
+        }
+        if (!string.Equals(server.AuthorizationServerIssuer, flow.Issuer, StringComparison.Ordinal))
+        {
+            return await FailCompletionAsync(flow, NhAssistantAdminErrorCodes.McpIssuerChanged, cancellationToken);
         }
         var response = Deserialize(tokens.UnprotectFlow(flow.Id, flow.ProtectedTokenResponse));
-        string? stored = null;
+        if (response is null)
+        {
+            // The token response no longer decrypts, for example after the keys changed.
+            return await FailCompletionAsync(flow, NhAssistantAdminErrorCodes.McpAuthorizationExpired, cancellationToken);
+        }
         var completed = await store.TryTransitionFlowAsync(flow.Id, NhAssistantMcpOAuthStore.FlowExchanged, row =>
         {
-            stored = row.ProtectedTokenResponse;
             row.Status = NhAssistantMcpOAuthStore.FlowCompleted;
             row.ProtectedTokenResponse = null;
             row.CompletedAt = DateTimeOffset.UtcNow;
         }, cancellationToken);
-        if (!completed || response is null || stored is null)
+        if (!completed)
         {
+            // Another request completed or ended the flow first.
             return Failed<NhAssistantMcpCompletion>(NhAssistantAdminErrorCodes.McpAuthorizationExpired);
-        }
-        if (!string.Equals(server.AuthorizationServerIssuer, flow.Issuer, StringComparison.Ordinal))
-        {
-            return Failed<NhAssistantMcpCompletion>(NhAssistantAdminErrorCodes.McpIssuerChanged);
         }
         var owner = new NhAssistantMcpConnectionOwner(flow.OwnerKind, flow.OwnerActorId, flow.TenantKey);
         var connection = await connections.StoreAuthorizationAsync(
@@ -293,7 +323,7 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
             // Connecting can grant the consent to background use, never withdraw an earlier one.
             flow.OwnerKind == NhAssistantMcpConnectionOwners.User && flow.AllowBackgroundUse ? true : null,
             cancellationToken);
-        NhAssistantMcpMetrics.Authorization("completed");
+        NhAssistantMcpMetrics.Authorization(NhAssistantMcpMetrics.Completed);
         return TaskResult<NhAssistantMcpCompletion>.Succeeded(new NhAssistantMcpCompletion(server, flow.OwnerKind, connection));
     }
 
@@ -348,6 +378,25 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
             scopes.Add("offline_access");
         }
         return NhAssistantMcpScopes.Join(scopes);
+    }
+
+    /// <summary>
+    /// Ends an exchanged flow whose completion failed, with its code and without its token response.
+    /// </summary>
+    private async Task<TaskResult<NhAssistantMcpCompletion>> FailCompletionAsync(
+        AssistantMcpAuthorizationFlow flow,
+        string code,
+        CancellationToken cancellationToken)
+    {
+        await store.TryTransitionFlowAsync(flow.Id, NhAssistantMcpOAuthStore.FlowExchanged, row =>
+        {
+            row.Status = NhAssistantMcpOAuthStore.FlowFailed;
+            row.FailureCode = code;
+            row.ProtectedTokenResponse = null;
+        }, cancellationToken);
+        LogAuthorizationFailed(logger, flow.ServerId, code);
+        NhAssistantMcpMetrics.Authorization(code);
+        return Failed<NhAssistantMcpCompletion>(code);
     }
 
     private async Task<NhAssistantMcpCallbackOutcome> FailAsync(

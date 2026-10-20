@@ -78,6 +78,39 @@ public sealed class AssistantMcpTests(AssistantDatabaseFixture database)
     }
 
     [Fact]
+    public async Task An_approved_call_of_a_server_left_out_of_the_turn_reports_why()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(RescheduleFunction, new { order = "A-100", day = "Friday" })
+            .RespondWithText("Order A-100 moved to Friday.");
+        var servers = new InMemoryMcpServers();
+        servers.Register(ServerUrl, () => servers.PlanningTools());
+        await using var host = await CreateHostAsync(model, servers);
+        await ConnectPlanningServerAsync(host);
+        await UpdateToolAsync(host, "reschedule", enabled: true, NhAssistantMcpToolEffects.Mutation);
+        var conversation = await host.CreateConversationAsync();
+        var approval = (await host.SendAsync(conversation.Id, "Move order A-100 to Friday.")).Single<NhAssistantApprovalRequiredEvent>().Approval;
+
+        // Before the decision the server comes to need a policy the person does not pass.
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            await context.McpServers
+                .Where(server => server.Id == "planning")
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(server => server.RequiredPolicy, "app.project.manage")
+                    .SetProperty(server => server.UpdatedAt, DateTimeOffset.UtcNow));
+        }
+        var resumed = await host.DecideAsync(conversation.Id, approval, approve: true);
+
+        // The skip code of the server, as a deferred execution reports it, not a generic invalid approval.
+        Assert.Equal(NhAssistantAdminErrorCodes.Forbidden, resumed.Single<NhAssistantErrorEvent>().Code);
+        Assert.Empty(servers.Calls);
+        var stored = (await host.Services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approval.ApprovalId, CancellationToken.None))!;
+        var invocation = (await host.Services.GetRequiredService<INhAssistantStore>().FindToolInvocationAsync(stored.ToolInvocationId, CancellationToken.None))!;
+        Assert.Equal((NhAssistantToolCallStatuses.Failed, NhAssistantAdminErrorCodes.Forbidden), (invocation.Status, invocation.ResultCode));
+    }
+
+    [Fact]
     public async Task A_changed_remote_schema_disables_the_tool_until_it_is_activated_again()
     {
         var withPriority = false;

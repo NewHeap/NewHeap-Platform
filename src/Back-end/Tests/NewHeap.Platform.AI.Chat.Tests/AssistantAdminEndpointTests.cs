@@ -607,9 +607,9 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Equal(HttpStatusCode.OK, auto.StatusCode);
         Assert.Equal("auto", (await ReadJsonAsync(auto)).GetProperty("transport").GetString());
         Assert.Equal(HttpStatusCode.BadRequest, unknownResolver.StatusCode);
-        Assert.Equal("assistant-mcp-secret-reference-invalid", (await ReadJsonAsync(unknownResolver)).GetProperty("code").GetString());
+        Assert.Equal("not-found", (await ReadJsonAsync(unknownResolver)).GetProperty("errors").GetProperty("secretReference")[0].GetString());
         Assert.Equal(HttpStatusCode.BadRequest, unknownCertificate.StatusCode);
-        Assert.Equal("assistant-mcp-certificate-reference-invalid", (await ReadJsonAsync(unknownCertificate)).GetProperty("code").GetString());
+        Assert.Equal("not-found", (await ReadJsonAsync(unknownCertificate)).GetProperty("errors").GetProperty("clientCertificateReference")[0].GetString());
         Assert.DoesNotContain("BASIC-PASSWORD-77", listText);
     }
 

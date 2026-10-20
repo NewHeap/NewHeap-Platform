@@ -82,6 +82,11 @@ internal sealed class NhAssistantAgentNotifier(
                 .Where(actorId => !actorId.StartsWith(NhAssistantAgentEvents.AgentActorPrefix, StringComparison.Ordinal))
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
+            if (NhAiSystemSubjects.IsSystem(subject))
+            {
+                // Whatever the policy picks, the whole application's work reaches only people who see it.
+                recipients = await ReadersAsync(subject, thread.AgentId, recipients, cancellationToken);
+            }
             if (recipients.Length == 0)
             {
                 return;
@@ -117,8 +122,9 @@ internal sealed class NhAssistantAgentNotifier(
     /// <summary>
     /// The whole application lists no members, so the people of its thread stand in for them: those
     /// who take part in the thread's conversation and those who decided its proposals, at most
-    /// <see cref="MaxSystemRecipients"/>, each with the role the resolver gives them now. The
-    /// notification policy then picks the approvers among them as for any subject.
+    /// <see cref="MaxSystemRecipients"/>, each with the role the resolver gives them now, and only
+    /// those who pass the agent's view policy. The notification policy then picks the approvers among
+    /// them as for any subject.
     /// </summary>
     private async Task<IReadOnlyList<NhAiSubjectMember>> SystemMembersAsync(
         AssistantThread thread,
@@ -128,7 +134,7 @@ internal sealed class NhAssistantAgentNotifier(
         var members = new List<NhAiSubjectMember>();
         foreach (var actorId in await runs.GetThreadPeopleAsync(thread.ConversationId, MaxSystemRecipients, cancellationToken))
         {
-            var access = await subjects.ResolveAsync(subject, actorId, cancellationToken);
+            var access = await subjects.ResolveForAgentAsync(subject, thread.AgentId, actorId, cancellationToken);
             if (access.Role != NhAiSubjectRole.None)
             {
                 members.Add(new NhAiSubjectMember(actorId, access.Role));
@@ -136,6 +142,27 @@ internal sealed class NhAssistantAgentNotifier(
         }
 
         return members;
+    }
+
+    /// <summary>
+    /// The recipients who may read the agent's thread of the whole application: they pass its view policy.
+    /// </summary>
+    private async Task<string[]> ReadersAsync(
+        NhAiSubjectRef subject,
+        string agentId,
+        IReadOnlyList<string> recipients,
+        CancellationToken cancellationToken)
+    {
+        var readers = new List<string>(recipients.Count);
+        foreach (var actorId in recipients)
+        {
+            if (await subjects.MayReadAgentThreadAsync(subject, agentId, actorId, cancellationToken))
+            {
+                readers.Add(actorId);
+            }
+        }
+
+        return [.. readers];
     }
 
     /// <summary>

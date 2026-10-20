@@ -102,6 +102,12 @@ internal sealed record NhAssistantMcpClientIdentity(
     string? Secret,
     X509Certificate2? SigningCertificate)
 {
+    /// <summary>
+    /// For a dynamic registration: the server it was registered for, so a registration the
+    /// authorization server no longer knows (<c>invalid_client</c>) is removed and registered again.
+    /// </summary>
+    public string? RegisteredFor { get; init; }
+
     public override string ToString()
     {
         return $"NhAssistantMcpClientIdentity {{ Method = {Method}, AuthMethod = {AuthMethod} }}";
@@ -126,7 +132,6 @@ internal sealed partial class NhAssistantMcpOAuthClient(
     NhAssistantMcpOAuthHttp http,
     NhAssistantMcpOAuthStore store,
     NhAssistantMcpTokenProtector tokens,
-    NhAssistantMcpSecretProtector secrets,
     NhAssistantMcpSecretSource secretSource,
     NhAssistantMcpClientCertificates certificates,
     IOptionsMonitor<NhAssistantOptions> options,
@@ -137,8 +142,14 @@ internal sealed partial class NhAssistantMcpOAuthClient(
     public const string Dynamic = "dynamic";
 
     /// <summary>
+    /// A dynamic registration whose client secret expires within this time is registered again.
+    /// </summary>
+    private static readonly TimeSpan RegistrationExpirySkew = TimeSpan.FromMinutes(1);
+
+    /// <summary>
     /// The client identity for a server at its authorization server. Client credentials need a
-    /// pre-registered confidential client.
+    /// pre-registered confidential client. A dynamic registration whose client secret expired, or
+    /// whose secret no longer decrypts, is registered again.
     /// </summary>
     public async Task<TaskResult<NhAssistantMcpClientIdentity>> ResolveClientAsync(
         AssistantMcpServer server,
@@ -160,11 +171,13 @@ internal sealed partial class NhAssistantMcpOAuthClient(
             }
             else if (server.ProtectedOAuthClientSecret is not null)
             {
-                secret = secrets.Unprotect(server.ProtectedOAuthClientSecret);
-                if (secret is null)
+                // A secret the key ring lost is the host's to fix, not the authorization server's.
+                var stored = secretSource.UnprotectStored(server.Id, server.ProtectedOAuthClientSecret);
+                if (!stored.Success)
                 {
-                    return Failed<NhAssistantMcpClientIdentity>(NhAssistantAdminErrorCodes.McpTokenRequestFailed);
+                    return TaskResult<NhAssistantMcpClientIdentity>.Failed(stored);
                 }
+                secret = stored.Data;
             }
             if (secret is not null)
             {
@@ -199,6 +212,16 @@ internal sealed partial class NhAssistantMcpOAuthClient(
 
         var issuerHash = NhAssistantMcpTokenProtector.Hash(metadata.Issuer);
         var registration = await store.FindRegistrationAsync(server.Id, issuerHash, cancellationToken);
+        var registeredSecret = registration is null
+            ? null
+            : tokens.UnprotectRegistration(server.Id, issuerHash, registration.ProtectedClientSecret);
+        if (registration is not null && !IsUsable(registration, registeredSecret))
+        {
+            // An expired client secret, or one the key ring lost, is of no use: register again.
+            LogRegistrationRenewed(logger, server.Id);
+            await store.DeleteRegistrationsAsync(server.Id, cancellationToken);
+            registration = null;
+        }
         if (registration is null)
         {
             if (metadata.RegistrationEndpoint is null || string.IsNullOrWhiteSpace(oauth.RedirectUri))
@@ -211,15 +234,26 @@ internal sealed partial class NhAssistantMcpOAuthClient(
                 return TaskResult<NhAssistantMcpClientIdentity>.Failed(registered);
             }
             registration = registered.Data!;
+            registeredSecret = tokens.UnprotectRegistration(server.Id, issuerHash, registration.ProtectedClientSecret);
         }
-        var registeredSecret = tokens.UnprotectRegistration(server.Id, issuerHash, registration.ProtectedClientSecret);
+        return Succeeded(new NhAssistantMcpClientIdentity(registration.ClientId, Dynamic, registration.TokenEndpointAuthMethod, registeredSecret, null)
+        {
+            RegisteredFor = server.Id
+        });
+    }
+
+    /// <summary>
+    /// Whether a dynamic registration can still authenticate: its client secret, when it has one,
+    /// decrypts and has not expired.
+    /// </summary>
+    private static bool IsUsable(AssistantMcpClientRegistration registration, string? registeredSecret)
+    {
         if (registration.ProtectedClientSecret is not null && registeredSecret is null)
         {
-            // The key left the ring: register again.
-            await store.DeleteRegistrationsAsync(server.Id, cancellationToken);
-            return Failed<NhAssistantMcpClientIdentity>(NhAssistantAdminErrorCodes.McpClientRegistrationRequired);
+            return false;
         }
-        return Succeeded(new NhAssistantMcpClientIdentity(registration.ClientId, Dynamic, registration.TokenEndpointAuthMethod, registeredSecret, null));
+        return registration.ClientSecretExpiresAt is not { } expires
+            || expires > DateTimeOffset.UtcNow + RegistrationExpirySkew;
     }
 
     public Task<TaskResult<NhAssistantMcpTokenResponse>> ExchangeCodeAsync(
@@ -300,7 +334,7 @@ internal sealed partial class NhAssistantMcpOAuthClient(
         var result = await RequestTokenCoreAsync(client, metadata, form, cancellationToken);
         NhAssistantMcpMetrics.TokenRequest(
             grantType,
-            result.Success ? NhAssistantMcpMetrics.Ok : NhAssistantMcpCredentialResults.FirstCode(result) ?? NhAssistantAdminErrorCodes.McpTokenRequestFailed);
+            result.Success ? NhAssistantMcpMetrics.Ok : NhAssistantResults.CodeOf(result, NhAssistantAdminErrorCodes.McpTokenRequestFailed));
         return result;
     }
 
@@ -343,6 +377,14 @@ internal sealed partial class NhAssistantMcpOAuthClient(
             error is "invalid_request" or "invalid_client" or "invalid_grant" or "unauthorized_client" or "unsupported_grant_type" or "invalid_scope"
                 ? error
                 : "other");
+        if (error == "invalid_client" && client.RegisteredFor is { } serverId)
+        {
+            // The authorization server no longer knows the dynamic registration: it is removed, and
+            // the next authorization registers again.
+            LogRegistrationRenewed(logger, serverId);
+            await store.DeleteRegistrationsAsync(serverId, cancellationToken);
+            return Failed<NhAssistantMcpTokenResponse>(NhAssistantAdminErrorCodes.McpClientRegistrationRequired);
+        }
         return error switch
         {
             "invalid_grant" => Failed<NhAssistantMcpTokenResponse>(NhAssistantAdminErrorCodes.McpReauthorizationRequired),
@@ -421,15 +463,29 @@ internal sealed partial class NhAssistantMcpOAuthClient(
             request["client_uri"] = oauth.ClientUri;
         }
         var sent = await http.PostJsonAsync(metadata.RegistrationEndpoint!, request.ToJsonString(), cancellationToken);
-        if (!sent.Success || sent.Data!.Status is not (HttpStatusCode.OK or HttpStatusCode.Created))
+        if (!sent.Success)
         {
-            return Failed<AssistantMcpClientRegistration>(NhAssistantAdminErrorCodes.McpClientRegistrationRequired);
+            // The registration endpoint was not reached: its code, such as unreachable or blocked.
+            var code = NhAssistantResults.CodeOf(sent, NhAssistantAdminErrorCodes.McpUnreachable);
+            LogRegistrationFailed(logger, server.Id, 0, code);
+            return Failed<AssistantMcpClientRegistration>(code);
         }
-        var response = sent.Data;
+        var response = sent.Data!;
+        if (response.Status is not (HttpStatusCode.OK or HttpStatusCode.Created))
+        {
+            // A refusal (4xx) means the server registers no clients for the host: an administrator
+            // enters a client id. Another answer is the remote server's failure.
+            var code = (int)response.Status is >= 400 and < 500
+                ? NhAssistantAdminErrorCodes.McpClientRegistrationRequired
+                : NhAssistantAdminErrorCodes.McpTokenRequestFailed;
+            LogRegistrationFailed(logger, server.Id, (int)response.Status, code);
+            return Failed<AssistantMcpClientRegistration>(code);
+        }
         var clientId = response.String("client_id");
         if (string.IsNullOrEmpty(clientId))
         {
-            return Failed<AssistantMcpClientRegistration>(NhAssistantAdminErrorCodes.McpClientRegistrationRequired);
+            LogRegistrationFailed(logger, server.Id, (int)response.Status, NhAssistantAdminErrorCodes.McpTokenRequestFailed);
+            return Failed<AssistantMcpClientRegistration>(NhAssistantAdminErrorCodes.McpTokenRequestFailed);
         }
         var secret = response.String("client_secret");
         var accessToken = response.String("registration_access_token");
@@ -465,4 +521,10 @@ internal sealed partial class NhAssistantMcpOAuthClient(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Revoking an MCP token did not succeed (status {Status}).")]
     private static partial void LogRevocationFailed(ILogger logger, int status);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The dynamic client registration for MCP server {ServerId} did not succeed (status {Status}, {Code}).")]
+    private static partial void LogRegistrationFailed(ILogger logger, string serverId, int status, string code);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The dynamic client registration for MCP server {ServerId} is no longer usable and is registered again.")]
+    private static partial void LogRegistrationRenewed(ILogger logger, string serverId);
 }

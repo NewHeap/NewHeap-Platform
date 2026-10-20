@@ -133,38 +133,24 @@
     }
   }
 
-  .message {
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0;
-    border: 1px solid transparent;
-    border-radius: var(--nha-radius-control);
-    padding: 8px 12px;
-    font-size: 13px;
-  }
+  @include messages;
 
-  .message.error {
-    border-color: var(--nha-danger);
-    color: var(--nha-text);
-    background: var(--nha-danger-soft);
-  }
+  // A quiet action inside a sentence, such as "Search again" after a failed search.
+  button.link {
+    min-height: 0;
+    border: 0;
+    padding: 0;
+    color: var(--nha-accent, currentColor);
+    background: none;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+    @include tokens.focus-ring;
 
-  .message.warning {
-    border-color: var(--nha-warning);
-    color: var(--nha-text);
-    background: var(--nha-warning-soft);
-  }
-
-  .message.success {
-    border-color: var(--nha-success);
-    color: var(--nha-text);
-    background: var(--nha-success-soft);
-  }
-
-  .message nh-assistant-icon {
-    flex: none;
+    &:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+    }
   }
 
   .primary,
@@ -251,5 +237,50 @@
 
   .visually-hidden {
     @include tokens.visually-hidden;
+  }
+}
+
+// Status messages: an error, a warning that needs attention, a success and neutral information.
+// `controls` includes them; a component without form controls may include them alone.
+@mixin messages {
+  .message {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    border: 1px solid transparent;
+    border-radius: var(--nha-radius-control);
+    padding: 8px 12px;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+
+  .message.error {
+    border-color: var(--nha-danger);
+    color: var(--nha-text);
+    background: var(--nha-danger-soft);
+  }
+
+  .message.warning {
+    border-color: var(--nha-warning);
+    color: var(--nha-text);
+    background: var(--nha-warning-soft);
+  }
+
+  .message.success {
+    border-color: var(--nha-success);
+    color: var(--nha-text);
+    background: var(--nha-success-soft);
+  }
+
+  .message.info {
+    border-color: var(--nha-border);
+    color: var(--nha-text);
+    background: var(--nha-surface);
+  }
+
+  .message nh-assistant-icon {
+    flex: none;
   }
 }

@@ -13,9 +13,7 @@
     <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
   }
   @if (started(); as start) {
-    <p class="message success" role="status">
-      <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.thread.outcome.' + start.receipt.outcome | translate }}
-    </p>
+    <nh-assistant-run-receipt [receipt]="start.receipt" />
   }
 
   @if (loading() && !loaded()) {

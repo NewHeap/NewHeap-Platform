@@ -186,7 +186,8 @@ caller's live role on its subjects that have pending proposals (at most 100, the
 seconds) and lists their proposals for its approvers, and `POST subjects/nh-system/summary` counts with
 the caller's live role; a caller bound to a tenant decides none of them. Notifications about its
 proposals reach the approvers among the people of its thread: those who take part in its conversation
-and those who decided its proposals, at most 50, each with the role the resolver gives them now. With
+and those who decided its proposals, at most 50, each with the role the resolver gives them now and
+only when they pass the agent's view policy. With
 listed divisions `GET subjects/nh-system/search` finds the
 divisions a person works in by name (`Searchable` in the run catalog), as the subjects of a
 per-division agent.
@@ -200,7 +201,17 @@ agent's required policy, and on an object the person is a participant; for the w
 decides, by default the administration policy, evaluated like the roles of the whole application
 (for the rebuilt principal, against the subject with its division, with access to the division), and
 the person reads it. The approve policy of the whole application gives no start. An agent in shadow is
-started by administrators only. `GET subjects/{type}/{id}/agents` (`NhAssistantObjectAgentsDto`) lists
+started by administrators only. `202` names the outcome: `started`, `queued`, `coalesced`,
+`superseded`, `ignored`, `deduplicated`, `waiting` (a paused agent or skill; `reasonCode`
+`assistant-agent-paused` or `assistant-skill-paused`, the run starts on the resume) or `deferred`
+(inside the caller's transaction). A refused start answers its code with the one status the assistant
+gives that code, as every assistant endpoint does: `403 assistant-subject-access-denied` or
+`assistant-agent-forbidden`, `409` for `assistant-agent-does-not-work-on`, `assistant-agent-stopped`,
+`assistant-agent-configured-off`, `assistant-no-accountable-owner` and
+`assistant-trigger-rate-limited` (the agent's runs per subject and day, `NhAssistantTriggerReasons.RateLimited`),
+`404` for an unknown agent or subject, `503 assistant-trigger-rolled-back` when the run could not be
+queued, and `400 assistant-subject-invalid` for a malformed subject reference. `POST threads/open`
+answers the same refusal when it would create the thread. `GET subjects/{type}/{id}/agents` (`NhAssistantObjectAgentsDto`) lists
 the agents that work on a subject, an object or the whole application, and that the caller may use:
 per agent `CanStart`, the thread people open, the newest run (`NhAssistantLatestRunDto`: status, time
 and the first 300 characters of its result, for a run without a stored answer the summary it ended
@@ -234,7 +245,8 @@ object's scope with the agent's account, from its own copy of the call, through 
 (never through the MCP re-checks, which concern only `mcp.` tools); the run's own thread keeps the call
 as `not-executed` with `assistant-proposal-placed`. A refused placement does not fail the run: the call
 ends `not-executed` with `assistant-proposal-not-placed` and a `reason` the model reads
-(`NhAssistantPlacementReasons`: `does-not-work-on`, `not-found`, `no-access`, `limit`), a rule handler
+(`NhAssistantPlacementReasons`: `does-not-work-on`, `not-found`, `no-access`, `limit`, and
+`no-accountable-owner` when nobody answers for the agent at the object), a rule handler
 reads `NhAssistantRuleProposal.PlacementReason`, and the audit records `AgentProposalNotPlaced`; a
 placed one answers with the object, `NhAssistantRuleProposal.PlacedAt` names it, and the audit records
 `ApprovalRequested` and `AgentProposalPlaced` about the object. Proposal DTOs name the run with
@@ -255,7 +267,9 @@ may see (`NhAssistantRunHistoryListDto` of `NhAssistantRunHistoryDto`: agent and
 trigger, status, kind, skill, usage, times and the first 300 characters of the result), newest first,
 with the filters `agentId`, `subjectType` (`nh-system` for the whole application), `subjectId`,
 `status`, `from` and `to` (creation, from inclusive, to exclusive) and `page` and `itemsPerPage` (at most
-50); an invalid filter answers `400 assistant-run-filter-invalid`. A run on an object is visible to
+50); an invalid filter answers `400 assistant-run-filter-invalid` with a field error per invalid
+parameter in `errors` (`page`, `itemsPerPage`, `agentId`, `subjectType`, `subjectId`, `status`,
+`to`), checked before the agent of the runs view. A run on an object is visible to
 whoever may read the object, or was invited to the agent's thread there, as the thread; a run for the
 whole application to whoever passes the agent's `ViewPolicy`, by default its required policy, evaluated
 like the roles of the whole application (for the rebuilt principal, against the subject with its
@@ -275,9 +289,11 @@ An agent's thread of the whole application is never readable more widely than it
 its conversation, its proposals and its files needs the read role of the whole application (the read
 policy of `UseSystemSubject`) and the agent's view policy, by default its required policy, evaluated as
 for its results; an invitation does not open it to anyone else. A start by hand on the whole application
-needs the view policy as well, so the thread it leads to can be opened. Deciding its proposals keeps the
-approve policy and the approval policy's rules: an approver who does not pass the view policy still
-finds and decides them in the inbox.
+needs the view policy as well, so the thread it leads to can be opened. Its proposals are listed in the
+inbox, counted in the subject summary and decided only by people who pass the view policy as well (and
+the approve policy and the approval policy's rules); to anyone else such a proposal reads as unknown
+(`404 assistant-approval-not-found`). The status of the background operations of its runs and proposal
+executions, its notifications and the live updates of its thread follow the same rule.
 
 Group agents on boards (K15, K16). Register a group in code with `AddAgentGroup("project-management",
 group => group.Named(new() { ["en"] = "Project management", ["nl"] = "Projectbeheer" }, fallbackLanguage:
@@ -304,7 +320,9 @@ boards/{group}/visit` records the visit in `AssistantBoardVisit` (person, group,
 nothing else); a board the caller may not open answers `404 assistant-board-not-found`, a malformed
 division id `400 assistant-board-scope-invalid`. One board reads the group's choices, the agents, the
 threads of at most two subjects, their latest runs, their open proposals and the visit, each in one
-query. The migration `AgentBoards` adds both tables.
+query. The run maintenance removes visits older than `NhAssistantLimits.BoardVisitRetention` (default
+180 days) and visits of groups the host no longer registers, once an hour; a host that registers no
+group removes none. The migration `AgentBoards` adds both tables.
 
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
@@ -991,7 +1009,12 @@ same on SQL Server and PostgreSQL. Assert that the migrations leave no pending m
 providers assert that an agent's thread of the whole application, its conversation, proposals, runs and
 files answer `404` to a reader of the whole application who does not pass the agent's view policy, also
 after an invitation, that such a person neither finds the agent in the subject's work nor starts it,
-and that an approver still decides its proposals from the inbox. For groups, assert the startup checks
+that an approver without the view policy neither finds its proposals in the inbox or the summary nor
+decides them (`404`) while one with it does, and that operation status, notifications and live updates
+reach only people who pass it. Assert that a start by hand answers `waiting` for a paused agent and
+`409 assistant-trigger-rate-limited` over its daily limit, that an invalid run filter names its
+parameter in `errors`, and that board visit retention removes old visits and visits of unregistered
+groups. For groups, assert the startup checks
 (unknown group, names and descriptions, a group registered twice), that `PUT admin/agents/{id}/groups`
 stores only choices that differ from code and that they win over `InGroup`, that `GET boards` and `GET
 boards/{group}` show the agents by their view or required policy, that `IsNew` follows the visit per

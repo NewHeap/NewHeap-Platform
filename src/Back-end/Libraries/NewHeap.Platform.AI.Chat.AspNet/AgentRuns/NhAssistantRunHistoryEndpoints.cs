@@ -12,17 +12,7 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// </summary>
 internal static class NhAssistantRunHistoryEndpoints
 {
-    private const string FilterDescription = " Filters: agentId, subjectType (nh-system for the whole application), subjectId (with subjectType), status (queued, running, waiting-for-approval, completed, failed or cancelled), from and to (when the run was created, from inclusive, to exclusive), page (from 1) and itemsPerPage (1 to 50, default 20); an invalid filter answers 400 assistant-run-filter-invalid.";
-
-    private static readonly string[] Statuses =
-    [
-        NhAssistantRunStatuses.Queued,
-        NhAssistantRunStatuses.Running,
-        NhAssistantRunStatuses.WaitingForApproval,
-        NhAssistantRunStatuses.Completed,
-        NhAssistantRunStatuses.Failed,
-        NhAssistantRunStatuses.Cancelled
-    ];
+    private const string FilterDescription = " Filters: agentId, subjectType (nh-system for the whole application), subjectId (with subjectType), status (queued, running, waiting-for-approval, completed, failed or cancelled), from and to (when the run was created, from inclusive, to exclusive), page (from 1) and itemsPerPage (1 to 50, default 20); an invalid filter answers 400 assistant-run-filter-invalid with the invalid parameters in errors (page, itemsPerPage, agentId, subjectType, subjectId, status or to).";
 
     public static void Map(RouteGroupBuilder group)
     {
@@ -81,12 +71,13 @@ internal static class NhAssistantRunHistoryEndpoints
         {
             return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
         }
-        if (!TryRead(agentId, subjectType, subjectId, status, from, to, page, itemsPerPage, out var filter, out var pageNumber, out var size))
+        var query = NhAssistantRunHistory.ReadQuery(agentId, subjectType, subjectId, status, from, to, page, itemsPerPage);
+        if (!query.Success)
         {
-            return Invalid();
+            return NhAssistantHttpErrors.Failure(query);
         }
 
-        var list = await history.ListAsync(filter!, pageNumber, size, reader, httpContext.RequestAborted);
+        var list = await history.ListAsync(query.Data!, reader, httpContext.RequestAborted);
         return TypedResults.Json(list, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantRunHistoryListDto);
     }
 
@@ -104,7 +95,7 @@ internal static class NhAssistantRunHistoryEndpoints
         var read = await history.ReadAsync(runId, reader, httpContext, httpContext.RequestAborted);
         return read.Success
             ? TypedResults.Json(read.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantRunResultDto)
-            : NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.RunNotFound);
+            : NhAssistantHttpErrors.Failure(read);
     }
 
     private static async Task<IResult> GetArtifactContentAsync(
@@ -119,12 +110,13 @@ internal static class NhAssistantRunHistoryEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
         }
 
-        var (artifact, status, code) = await history.FindArtifactAsync(runId, artifactId, reader, httpContext, httpContext.RequestAborted);
-        if (artifact is null)
+        var found = await history.FindArtifactAsync(runId, artifactId, reader, httpContext, httpContext.RequestAborted);
+        if (!found.Success)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(status, code!);
+            return NhAssistantHttpErrors.Failure(found);
         }
 
+        var artifact = found.Data!;
         httpContext.Response.Headers["X-Content-Type-Options"] = "nosniff";
         return TypedResults.File(
             artifact.Content,
@@ -144,67 +136,17 @@ internal static class NhAssistantRunHistoryEndpoints
         int? page,
         int? itemsPerPage)
     {
-        if (!TryRead(null, subjectType, subjectId, status, from, to, page, itemsPerPage, out var filter, out var pageNumber, out var size))
+        // The filter is checked before the agent, so an invalid filter answers 400 for any agent.
+        var query = NhAssistantRunHistory.ReadQuery(null, subjectType, subjectId, status, from, to, page, itemsPerPage);
+        if (!query.Success)
         {
-            return Invalid();
+            return NhAssistantHttpErrors.Failure(query);
         }
 
-        var list = await history.ListForAgentAsync(id, filter!, pageNumber, size, httpContext.RequestAborted);
+        var list = await history.ListForAgentAsync(id, query.Data!, httpContext.RequestAborted);
         return list.Success
             ? TypedResults.Json(list.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantRunHistoryListDto)
-            : NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
-    }
-
-    /// <summary>
-    /// Reads the filter and the page; <see langword="false"/> when a part is invalid.
-    /// </summary>
-    internal static bool TryRead(
-        string? agentId,
-        string? subjectType,
-        string? subjectId,
-        string? status,
-        DateTimeOffset? from,
-        DateTimeOffset? to,
-        int? page,
-        int? itemsPerPage,
-        out NhAssistantRunFilter? filter,
-        out int pageNumber,
-        out int size)
-    {
-        filter = null;
-        pageNumber = page ?? 1;
-        size = itemsPerPage ?? 20;
-        if (pageNumber < 1 || size < 1 || size > NhAssistantRunHistory.MaxItemsPerPage)
-        {
-            return false;
-        }
-        if (agentId is not null && (string.IsNullOrWhiteSpace(agentId) || agentId.Length > 128))
-        {
-            return false;
-        }
-        if (subjectType is not null && !NhAiSubjectRef.IsValidType(subjectType))
-        {
-            return false;
-        }
-        if (subjectId is not null
-            && (subjectType is null
-                || string.IsNullOrWhiteSpace(subjectId)
-                || subjectId.Length > NhAiSubjectRef.MaxIdLength
-                || subjectId.Trim() != subjectId))
-        {
-            return false;
-        }
-        if (status is not null && !Statuses.Contains(status, StringComparer.Ordinal))
-        {
-            return false;
-        }
-        if (from is { } start && to is { } end && end <= start)
-        {
-            return false;
-        }
-
-        filter = new NhAssistantRunFilter(agentId, subjectType, subjectId, status, from?.ToUniversalTime(), to?.ToUniversalTime());
-        return true;
+            : NhAssistantHttpErrors.Failure(list);
     }
 
     private static async Task<NhAssistantRunReader?> ReaderAsync(HttpContext httpContext)
@@ -220,10 +162,5 @@ internal static class NhAssistantRunHistoryEndpoints
             caller.Data.TenantId,
             httpContext.User,
             await NhAssistantEndpointRouteBuilderExtensions.IsAdministratorAsync(httpContext));
-    }
-
-    private static IResult Invalid()
-    {
-        return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.RunFilterInvalid);
     }
 }

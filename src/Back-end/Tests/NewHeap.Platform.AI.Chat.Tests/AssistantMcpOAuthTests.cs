@@ -672,6 +672,9 @@ public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture data
         var replayedPage = await replayed.Content.ReadAsStringAsync();
         Assert.Contains("\"completionCode\":null", replayedPage, StringComparison.Ordinal);
         Assert.Contains("\"code\":\"" + NhAssistantAdminErrorCodes.McpAuthorizationExpired + "\"", replayedPage, StringComparison.Ordinal);
+        // The failure carries its localization key, as every assistant error does, and the page says why.
+        Assert.Contains("\"messageKey\":\"nh-assistant.errors." + NhAssistantAdminErrorCodes.McpAuthorizationExpired + "\"", replayedPage, StringComparison.Ordinal);
+        Assert.Contains("expired or was already used", replayedPage, StringComparison.Ordinal);
 
         // The host's client metadata document.
         var metadata = await ReadJsonAsync(await anonymous.GetAsync("/api/assistant/mcp/oauth/client-metadata.json"));
@@ -679,11 +682,20 @@ public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture data
         Assert.Equal(RedirectUri, metadata.GetProperty("redirect_uris")[0].GetString());
         Assert.Equal("none", metadata.GetProperty("token_endpoint_auth_method").GetString());
 
-        // Personal connections are counted and revoked in bulk; disconnecting the organization revokes its tokens.
-        var summary = await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/mcp-servers/planning/connections/summary"));
-        AssertNames(summary, "active", "reauthorizationRequired", "issuerChanged");
-        using var revokeAll = await admin.DeleteAsync("/api/assistant/admin/mcp-servers/planning/connections");
-        Assert.Equal(HttpStatusCode.NoContent, revokeAll.StatusCode);
+        // An organization server has no personal connections to count or revoke; disconnecting the
+        // organization revokes its tokens.
+        foreach (var personal in new[]
+        {
+            await admin.GetAsync("/api/assistant/admin/mcp-servers/planning/connections/summary"),
+            await admin.DeleteAsync("/api/assistant/admin/mcp-servers/planning/connections")
+        })
+        {
+            using (personal)
+            {
+                Assert.Equal(HttpStatusCode.Conflict, personal.StatusCode);
+                Assert.Equal(NhAssistantAdminErrorCodes.McpConnectionNotSupported, (await ReadJsonAsync(personal)).GetProperty("code").GetString());
+            }
+        }
         using var disconnected = await admin.DeleteAsync("/api/assistant/admin/mcp-servers/planning/connection");
         Assert.Equal(HttpStatusCode.NoContent, disconnected.StatusCode);
         Assert.Contains("refresh_token", authorization.Revocations);
@@ -693,6 +705,152 @@ public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture data
         Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
         using var notAdmin = await member.GetAsync("/api/assistant/admin/mcp-servers/planning/connection");
         Assert.Equal(HttpStatusCode.Forbidden, notAdmin.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_dynamic_registration_that_expired_or_that_the_authorization_server_forgot_is_registered_again(
+        AssistantTestProvider provider)
+    {
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync();
+        await using var mcp = await ProtectedMcpServer.StartAsync(authorization);
+        await using var host = await CreateHostAsync(provider);
+        Assert.True((await CreateAsync(host, Organization(mcp.Url) with
+        {
+            OAuth = new NhAssistantMcpOAuthInput(null, null, null, "mcp:read", "Planning service account", ConfirmAuthorization: true)
+        })).Success);
+        await ConnectOrganizationAsync(host);
+        var first = Assert.Single(authorization.DynamicClients);
+
+        // A client secret that expired is of no use: the next authorization registers again.
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            var expired = DateTimeOffset.UtcNow.AddMinutes(-1);
+            await context.McpClientRegistrations
+                .Where(row => row.ServerId == "planning")
+                .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.ClientSecretExpiresAt, expired));
+        }
+        var start = (await AdministerAsync(host, administration => administration.AuthorizeOrganizationAsync("planning", "admin-1", null, CancellationToken.None))).Data!;
+        Assert.Equal(2, authorization.DynamicClients.Count);
+        var second = (await FindRegistrationAsync(host)).ClientId;
+        Assert.NotEqual(first, second);
+        Assert.Equal(second, QueryHelpers.ParseQuery(new Uri(start.AuthorizationUrl).Query)["client_id"].ToString());
+
+        // A registration the authorization server no longer knows ends the connection whose refresh
+        // token belonged to it, and the next authorization registers again.
+        var connection = (await FindOrganizationConnectionAsync(host))!;
+        await ExpireAccessTokenAsync(host, connection.Id);
+        authorization.Options.FailTokenRequestsWith = "invalid_client";
+        Assert.Equal(NhAssistantAdminErrorCodes.McpReauthorizationRequired, Code(await GetCredentialAsync(host)));
+        authorization.Options.FailTokenRequestsWith = null;
+        var ended = (await FindOrganizationConnectionAsync(host))!;
+        Assert.Equal(NhAssistantMcpConnectionStatuses.ReauthorizationRequired, ended.Status);
+        Assert.Equal(NhAssistantAdminErrorCodes.McpClientRegistrationRequired, ended.LastFailureCode);
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            Assert.False(await context.McpClientRegistrations.AnyAsync(row => row.ServerId == "planning"));
+        }
+        await ConnectOrganizationAsync(host);
+        Assert.Equal(3, authorization.DynamicClients.Count);
+        Assert.True((await TestAsync(host)).Ok);
+    }
+
+    [Fact]
+    public async Task A_completion_checks_the_server_before_it_uses_up_the_flow_and_callbacks_answer_one_code_per_cause()
+    {
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync();
+        authorization.RegisterClient("assistant-web", WebClientSecret, RedirectUri);
+        await using var mcp = await ProtectedMcpServer.StartAsync(authorization);
+        await using var host = await CreateHostAsync(AssistantTestProvider.PostgreSql);
+        Assert.True((await CreateAsync(host, Organization(mcp.Url))).Success);
+        var start = (await AdministerAsync(host, administration => administration.AuthorizeOrganizationAsync("planning", "admin-1", null, CancellationToken.None))).Data!;
+        var outcome = await CallbackAsync(host, await AuthorizeAsync(start.AuthorizationUrl));
+        Assert.Null(outcome.FailureCode);
+
+        // The server names another authorization server before the completion: the flow ends failed
+        // with that code and its token response is gone; it was not completed.
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            await context.McpServers
+                .Where(row => row.Id == "planning")
+                .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.AuthorizationServerIssuer, "https://other-issuer.example"));
+        }
+        Assert.Equal(NhAssistantAdminErrorCodes.McpIssuerChanged, Code(await CompleteAsync(host, start.FlowId, outcome.CompletionCode!, "admin-1")));
+        var flow = await FindFlowAsync(host, start.FlowId);
+        Assert.Equal((NhAssistantMcpOAuthStore.FlowFailed, NhAssistantAdminErrorCodes.McpIssuerChanged), (flow.Status, flow.FailureCode));
+        Assert.Null(flow.ProtectedTokenResponse);
+        Assert.Null(await FindOrganizationConnectionAsync(host));
+
+        // A callback without a state does not belong to any flow.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var flows = scope.ServiceProvider.GetRequiredService<NhAssistantMcpAuthorizationFlows>();
+            Assert.Equal(NhAssistantAdminErrorCodes.McpAuthorizationInvalid, (await flows.CallbackAsync(null, "code", null, null, CancellationToken.None)).FailureCode);
+            Assert.Equal(NhAssistantAdminErrorCodes.McpAuthorizationExpired, (await flows.CallbackAsync("unknown-state", "code", null, null, CancellationToken.None)).FailureCode);
+        }
+    }
+
+    [Fact]
+    public async Task A_stored_client_secret_that_no_longer_decrypts_is_the_hosts_problem_and_a_cancelled_renewal_releases_its_lease()
+    {
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync();
+        authorization.RegisterClient("assistant-cc", ClientSecret);
+        await using var mcp = await ProtectedMcpServer.StartAsync(authorization);
+        await using var host = await CreateHostAsync(AssistantTestProvider.PostgreSql);
+        Assert.True((await CreateAsync(host, ClientCredentials(mcp.Url))).Success);
+        Assert.True((await TestAsync(host)).Ok);
+        var connection = (await FindOrganizationConnectionAsync(host))!;
+
+        // A renewal that is cancelled while it waits for the token endpoint leaves no lease behind.
+        await ExpireAccessTokenAsync(host, connection.Id);
+        authorization.Options.TokenResponseDelay = TimeSpan.FromSeconds(3);
+        var server = await FindServerAsync(host);
+        using (var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(300)))
+        {
+            await using var scope = host.Services.CreateAsyncScope();
+            var connections = scope.ServiceProvider.GetRequiredService<NhAssistantMcpOAuthConnections>();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                connections.GetCredentialAsync(server, NhAssistantMcpConnectionOwner.Organization, cancellation.Token));
+        }
+        authorization.Options.TokenResponseDelay = TimeSpan.Zero;
+        Assert.Null((await FindOrganizationConnectionAsync(host))!.RefreshLeaseOwner);
+        Assert.True((await GetCredentialAsync(host)).Success);
+
+        // The client secret no longer decrypts, as after the data protection keys changed.
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            await context.McpServers
+                .Where(row => row.Id == "planning")
+                .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.ProtectedOAuthClientSecret, "protected-with-a-lost-key"));
+        }
+        await ExpireAccessTokenAsync(host, connection.Id);
+        var unreadable = await TestAsync(host);
+        Assert.False(unreadable.Ok);
+        Assert.Equal(NhAssistantAdminErrorCodes.McpSecretUnreadable, unreadable.Code);
+        Assert.Contains(host.Logs.Messages, message => message.Contains("can no longer be decrypted", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Servers_without_oauth_have_no_connections_to_authorize_read_disconnect_or_revoke()
+    {
+        await using var host = await CreateHostAsync(AssistantTestProvider.PostgreSql);
+        Assert.True((await CreateAsync(host, new NhAssistantMcpServerInput(
+            "planning",
+            "Planning",
+            "https://planning.example/mcp",
+            NhAssistantMcpAuthModes.Bearer,
+            null,
+            "bearer-secret",
+            null,
+            true))).Success);
+
+        Assert.Equal(NhAssistantAdminErrorCodes.McpConnectionNotSupported, Code(await AdministerAsync(host, administration => administration.AuthorizeOrganizationAsync("planning", "admin-1", null, CancellationToken.None))));
+        Assert.Equal(NhAssistantAdminErrorCodes.McpConnectionNotSupported, Code(await AdministerAsync(host, administration => administration.GetConnectionAsync("planning", "admin-1", CancellationToken.None))));
+        Assert.Equal(NhAssistantAdminErrorCodes.McpConnectionNotSupported, Code(await AdministerAsync(host, administration => administration.DisconnectOrganizationAsync("planning", "admin-1", CancellationToken.None))));
+        Assert.Equal(NhAssistantAdminErrorCodes.McpConnectionNotSupported, Code(await AdministerAsync(host, administration => administration.SummarizePersonalConnectionsAsync("planning", CancellationToken.None))));
+        Assert.Equal(NhAssistantAdminErrorCodes.McpConnectionNotSupported, Code(await AdministerAsync(host, administration => administration.RevokePersonalConnectionsAsync("planning", "admin-1", CancellationToken.None))));
+        Assert.DoesNotContain(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminMcpConnectionsRevoked);
     }
 
     [Fact]

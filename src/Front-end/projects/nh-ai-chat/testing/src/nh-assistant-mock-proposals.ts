@@ -20,6 +20,8 @@ const maxReason = 500;
 const maxItemsPerPage = 100;
 const maxBulkDecisions = 50;
 const lifetimeMs = 3 * 24 * 60 * 60 * 1000;
+/** The platform's subject type of the whole application. */
+const systemType = 'nh-system';
 
 /**
  * The proposals the scenario lists, which the mock's agents left, for example one a run for the whole
@@ -27,7 +29,10 @@ const lifetimeMs = 3 * 24 * 60 * 60 * 1000;
  * does in the approval inbox (`GET approvals/inbox`, pending proposals the caller may decide), one by id
  * (`GET approvals/{id}`), several by id (`POST approvals/lookup`), in their thread
  * (`GET threads/{id}/proposals`) and on their subject's work, and decides them one by one or together
- * with the server's validation. An approved proposal executes at once.
+ * with the server's validation and statuses. An approved proposal executes at once. A proposal of the
+ * whole application (`nh-system`) exists only for the approvers of the whole application who pass the
+ * agent's view policy (`mayDecideApplication`): for anybody else the inbox leaves it out, reading it
+ * answers `404` and deciding it `404 assistant-approval-not-found`.
  */
 export class NhAssistantMockProposals {
   private readonly proposals = new Map<string, StoredProposal>();
@@ -35,7 +40,8 @@ export class NhAssistantMockProposals {
   constructor(
     scenario: readonly NhAssistantMockProposal[] = [],
     private readonly actorId: () => string,
-    private readonly now: () => string
+    private readonly now: () => string,
+    private readonly mayDecideApplication: (agentId: string) => boolean = () => true
   ) {
     const created = new Date(now()).getTime();
     for (const item of scenario) {
@@ -106,7 +112,7 @@ export class NhAssistantMockProposals {
 
   /** The proposals waiting in a thread, newest first; `null` when the scenario lists none there. */
   ofThread(conversationId: string): AgentProposal[] | null {
-    const items = [...this.proposals.values()]
+    const items = this.visible()
       .filter(item => item.proposal.conversationId === conversationId)
       .map(item => item.proposal)
       .reverse();
@@ -115,9 +121,24 @@ export class NhAssistantMockProposals {
 
   /** The pending proposals on a subject with the caller's right to decide each, earliest expiry first. */
   openOfSubject(subjectType: string, subjectId: string): AgentSubjectWorkProposal[] {
-    return [...this.proposals.values()]
+    return this.visible()
       .filter(item => item.proposal.subjectType === subjectType && item.proposal.subjectId === subjectId && item.proposal.status === 'pending')
       .map(item => this.withRight(item));
+  }
+
+  /** The proposals the caller may see: those of the whole application only for its approvers. */
+  private visible(): StoredProposal[] {
+    return [...this.proposals.values()].filter(item => this.isVisible(item));
+  }
+
+  private isVisible(item: StoredProposal): boolean {
+    return item.proposal.subjectType !== systemType || this.mayDecideApplication(item.proposal.agentId);
+  }
+
+  /** A proposal by id that the caller may see. */
+  private find(approvalId: string): StoredProposal | undefined {
+    const stored = this.proposals.get(approvalId);
+    return stored && this.isVisible(stored) ? stored : undefined;
   }
 
   private inbox(query: URLSearchParams): NhAssistantMockResult {
@@ -127,12 +148,12 @@ export class NhAssistantMockProposals {
     if (!Number.isInteger(page) || page < 1
       || !Number.isInteger(itemsPerPage) || itemsPerPage < 1 || itemsPerPage > maxItemsPerPage
       || (subjectType !== null && !dashCase.test(subjectType))) {
-      return failure(400, 'assistant-message-invalid');
+      return failure('assistant-message-invalid');
     }
 
     const agentId = query.get('agentId');
     const runId = query.get('runId');
-    const items = [...this.proposals.values()]
+    const items = this.visible()
       .filter(item => item.proposal.status === 'pending' && item.canDecide)
       .map(item => item.proposal)
       .filter(proposal => (subjectType === null || proposal.subjectType === subjectType)
@@ -147,23 +168,23 @@ export class NhAssistantMockProposals {
   }
 
   private read(approvalId: string): NhAssistantMockResult {
-    const stored = this.proposals.get(approvalId);
-    return stored ? { status: 200, body: this.withRight(stored) } : failure(404, 'assistant-approval-not-found');
+    const stored = this.find(approvalId);
+    return stored ? { status: 200, body: this.withRight(stored) } : failure('assistant-approval-not-found');
   }
 
   private lookup(body: unknown): NhAssistantMockResult {
     const ids = (body as { approvalIds?: unknown } | undefined)?.approvalIds;
     if (!Array.isArray(ids) || ids.length === 0 || ids.some(id => typeof id !== 'string')) {
-      return failure(400, 'assistant-message-invalid');
+      return failure('assistant-message-invalid');
     }
     const distinct = [...new Set(ids as string[])];
     if (distinct.length > NH_ASSISTANT_MAX_PROPOSAL_LOOKUP) {
-      return failure(400, 'assistant-message-invalid');
+      return failure('assistant-message-invalid');
     }
 
     const response: AgentProposalLookup = {
       items: distinct
-        .map(id => this.proposals.get(id))
+        .map(id => this.find(id))
         .filter((item): item is StoredProposal => item !== undefined)
         .map(item => this.withRight(item))
     };
@@ -173,13 +194,13 @@ export class NhAssistantMockProposals {
   private decideOne(approvalId: string, body: unknown): NhAssistantMockResult {
     const request = body as { decision?: unknown; expectedProposalHash?: unknown; reason?: unknown } | undefined;
     if (!validDecision(request)) {
-      return failure(400, 'assistant-approval-decision-invalid');
+      return failure('assistant-approval-decision-invalid');
     }
 
     const outcome = this.decide(approvalId, request!.decision === 'approve', request!.expectedProposalHash);
     return outcome.code === null
       ? { status: 200, body: this.proposals.get(approvalId)!.proposal }
-      : failure(statusOf(outcome.code), outcome.code);
+      : failure(outcome.code);
   }
 
   private decideMany(body: unknown): NhAssistantMockResult {
@@ -190,7 +211,7 @@ export class NhAssistantMockProposals {
       || ids.length === 0
       || ids.length > maxBulkDecisions
       || ids.some(id => typeof id !== 'string')) {
-      return failure(400, 'assistant-approval-decision-invalid');
+      return failure('assistant-approval-decision-invalid');
     }
 
     const results: AgentDecisionOutcome[] = [...new Set(ids as string[])].map(id => {
@@ -207,7 +228,7 @@ export class NhAssistantMockProposals {
 
   /** Decides one proposal as the server does; an approved proposal executes at once. */
   private decide(approvalId: string, approve: boolean, expectedHash: unknown): { code: string | null } {
-    const stored = this.proposals.get(approvalId);
+    const stored = this.find(approvalId);
     if (!stored) {
       return { code: 'assistant-approval-not-found' };
     }
@@ -246,20 +267,4 @@ function validDecision(request: { decision?: unknown; reason?: unknown } | undef
   return !!request
     && (request.decision === 'approve' || request.decision === 'reject')
     && (request.reason === undefined || request.reason === null || (typeof request.reason === 'string' && request.reason.length <= maxReason));
-}
-
-/** The HTTP status the server answers a refused decision with. */
-function statusOf(code: string): number {
-  switch (code) {
-    case 'assistant-approval-not-found':
-      return 404;
-    case 'assistant-approval-not-pending':
-    case 'assistant-proposal-hash-mismatch':
-      return 409;
-    case 'assistant-approval-policy-denied':
-    case 'assistant-four-eyes-required':
-      return 403;
-    default:
-      return 400;
-  }
 }

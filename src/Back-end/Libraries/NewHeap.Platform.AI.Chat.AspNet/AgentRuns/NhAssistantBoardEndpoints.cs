@@ -129,20 +129,12 @@ internal static class NhAssistantBoardEndpoints
     }
 
     /// <summary>
-    /// A board the caller may not open answers 404 and a malformed scope 400; any other failure maps
-    /// as the assistant maps its failures.
+    /// A board the caller may not open answers 404 and a malformed scope 400, as every failure maps
+    /// with the assistant's one status per code.
     /// </summary>
     private static IResult Refusal(NewHeap.Platform.Common.Models.TaskResult result)
     {
-        var code = result.GetResultItems()
-            .Select(item => item.Name)
-            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
-        return code switch
-        {
-            NhAssistantErrorCodes.BoardNotFound => NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, code),
-            NhAssistantErrorCodes.BoardScopeInvalid => NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, code),
-            _ => NhAssistantEndpointRouteBuilderExtensions.FromFailure(result)
-        };
+        return NhAssistantHttpErrors.Failure(result);
     }
 
     private static async Task<NhAssistantRunReader?> ReaderAsync(HttpContext httpContext)

@@ -57,6 +57,8 @@ export { NhAssistantSubjectLinkComponent as ɵNhAssistantSubjectLinkComponent } 
 export { NhAssistantMarkdownPipe as ɵNhAssistantMarkdownPipe } from './lib/internal/nh-assistant-markdown.pipe';
 export {
   NH_ASSISTANT_DASH_CASE as ɵNH_ASSISTANT_DASH_CASE,
+  nhAssistantCodeKeys as ɵnhAssistantCodeKeys,
   nhAssistantErrorKeys as ɵnhAssistantErrorKeys,
+  nhAssistantErrorOf as ɵnhAssistantErrorOf,
   toNhAssistantError as ɵtoNhAssistantError
 } from './lib/internal/nh-assistant-errors';

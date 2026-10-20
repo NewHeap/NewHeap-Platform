@@ -1,5 +1,6 @@
 import { AgentSubjectSearch, AgentSubjectType, AgentSubjectWork, AgentSubjectWorkProposal } from '@newheap/platform-ai-chat';
 import { NhAssistantMockDivision, NhAssistantMockSubjectType } from './nh-assistant-mock.models';
+import { mockFailure as failure } from './nh-assistant-mock-admin-shared';
 
 /** A mock response: status plus optional JSON body. */
 interface MockResult {
@@ -161,18 +162,18 @@ export class NhAssistantMockSubjects {
   private search(typeId: string, query: URLSearchParams): MockResult {
     const type = this.types.find(item => item.id === typeId);
     if (!type && typeId !== systemType) {
-      return failure(404, 'assistant-subject-type-unknown');
+      return failure('assistant-subject-type-unknown');
     }
     const text = (query.get('query') ?? '').trim();
     if (text.length < minQueryLength || text.length > maxQueryLength) {
-      return failure(400, 'assistant-validation', { query: ['invalid'] });
+      return failure('assistant-validation', { query: ['invalid'] });
     }
     // The whole application is not searched, but its divisions are, when the application lists them.
     if (!type) {
-      return this.divisions.length > 0 ? this.searchDivisions(text, query) : failure(404, 'assistant-subject-search-unavailable');
+      return this.divisions.length > 0 ? this.searchDivisions(text, query) : failure('assistant-subject-search-unavailable');
     }
     if (!isSearchable(type)) {
-      return failure(404, 'assistant-subject-search-unavailable');
+      return failure('assistant-subject-search-unavailable');
     }
 
     const limit = Math.min(Math.max(Number(query.get('limit') ?? defaultLimit) || defaultLimit, 1), maxLimit);
@@ -214,19 +215,23 @@ export class NhAssistantMockSubjects {
 
   /**
    * The name of a subject chosen by id and the proposals the scenario lists on it; the mock runs no
-   * agents, so it has no other agent work.
+   * agents, so it has no other agent work. A malformed reference is invalid, an unknown or unreadable
+   * subject not found.
    */
   private work(typeId: string, subjectId: string, language: string | null): MockResult {
+    if (!dashCase.test(typeId) || typeId.length > 100 || subjectId.trim().length === 0 || subjectId.length > 200 || subjectId.trim() !== subjectId) {
+      return failure('assistant-subject-invalid');
+    }
     if (typeId === systemType) {
       return this.systemWork(subjectId, language);
     }
     const type = this.types.find(item => item.id === typeId);
     if (!type) {
-      return failure(404, 'assistant-subject-type-unknown');
+      return failure('assistant-subject-type-unknown');
     }
     const subject = (type.subjects ?? []).find(item => item.id === subjectId && item.readable !== false);
     if (!subject) {
-      return failure(404, 'assistant-subject-not-found');
+      return failure('assistant-subject-not-found');
     }
 
     const body: AgentSubjectWork = {
@@ -250,7 +255,7 @@ export class NhAssistantMockSubjects {
   private systemWork(subjectId: string, language: string | null): MockResult {
     const division = subjectId === systemGlobalId ? null : this.division(subjectId);
     if (subjectId !== systemGlobalId && !division) {
-      return failure(404, 'assistant-subject-not-found');
+      return failure('assistant-subject-not-found');
     }
 
     const name = systemName(language);
@@ -341,8 +346,4 @@ function isValidLinkTemplate(template: string): boolean {
   }
   const pathStart = template.indexOf('/', 'https://'.length);
   return pathStart > 0 && template.indexOf(placeholder) > pathStart;
-}
-
-function failure(status: number, code: string, errors?: Record<string, string[]>): MockResult {
-  return { status, body: { code, messageKey: `nh-assistant.errors.${code}`, ...(errors ? { errors } : {}) } };
 }

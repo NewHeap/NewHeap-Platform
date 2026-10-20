@@ -14,6 +14,11 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 internal sealed record NhAssistantRunReader(string ActorId, string? TenantId, ClaimsPrincipal User, bool Administrator);
 
 /// <summary>
+/// A page of a run history: the filter, the page from 1 and the runs per page.
+/// </summary>
+internal sealed record NhAssistantRunQuery(NhAssistantRunFilter Filter, int Page, int ItemsPerPage);
+
+/// <summary>
 /// The results and history of agent runs (K13, K14). People see the runs they may see: runs on an
 /// object whoever may read the object (its resolver's reader role, or an invitation to the agent's
 /// thread there, as the thread itself), runs for the whole application whoever passes the agent's view
@@ -59,18 +64,74 @@ internal sealed class NhAssistantRunHistory(
     /// </summary>
     private const int MaxArtifacts = 50;
 
+    private static readonly string[] Statuses =
+    [
+        NhAssistantRunStatuses.Queued,
+        NhAssistantRunStatuses.Running,
+        NhAssistantRunStatuses.WaitingForApproval,
+        NhAssistantRunStatuses.Completed,
+        NhAssistantRunStatuses.Failed,
+        NhAssistantRunStatuses.Cancelled
+    ];
+
+    /// <summary>
+    /// Reads the filter and the page of a run history. An invalid part fails with
+    /// <see cref="NhAssistantErrorCodes.RunFilterInvalid"/> and a field error per parameter:
+    /// <c>page</c>, <c>itemsPerPage</c>, <c>agentId</c>, <c>subjectType</c> (also <c>required</c> for a
+    /// subject id without its type), <c>subjectId</c>, <c>status</c>, and <c>to</c> for a period that
+    /// ends before it starts.
+    /// </summary>
+    public static TaskResult<NhAssistantRunQuery> ReadQuery(
+        string? agentId,
+        string? subjectType,
+        string? subjectId,
+        string? status,
+        DateTimeOffset? from,
+        DateTimeOffset? to,
+        int? page,
+        int? itemsPerPage)
+    {
+        var pageNumber = page ?? 1;
+        var size = itemsPerPage ?? 20;
+        var errors = new NhAssistantValidationErrors()
+            .Require(pageNumber >= 1, "page", NhAssistantFieldErrors.Invalid)
+            .Require(size is >= 1 and <= MaxItemsPerPage, "itemsPerPage", NhAssistantFieldErrors.Invalid)
+            .Require(agentId is null || (!string.IsNullOrWhiteSpace(agentId) && agentId.Length <= 128), "agentId", NhAssistantFieldErrors.Invalid)
+            .Require(subjectType is null || NhAiSubjectRef.IsValidType(subjectType), "subjectType", NhAssistantFieldErrors.Invalid)
+            .Require(subjectId is null || subjectType is not null, "subjectType", NhAssistantFieldErrors.Required)
+            .Require(
+                subjectId is null
+                    || (!string.IsNullOrWhiteSpace(subjectId)
+                        && subjectId.Length <= NhAiSubjectRef.MaxIdLength
+                        && subjectId.Trim() == subjectId),
+                "subjectId",
+                NhAssistantFieldErrors.Invalid)
+            .Require(status is null || Statuses.Contains(status, StringComparer.Ordinal), "status", NhAssistantFieldErrors.Invalid)
+            .Require(from is not { } start || to is not { } end || end > start, "to", NhAssistantFieldErrors.Invalid);
+        if (!errors.IsEmpty)
+        {
+            return TaskResult<NhAssistantRunQuery>.Failed(errors.ToResult(
+                NhAssistantErrorCodes.RunFilterInvalid,
+                "The filter of the run history is invalid."));
+        }
+
+        return TaskResult<NhAssistantRunQuery>.Succeeded(new NhAssistantRunQuery(
+            new NhAssistantRunFilter(agentId, subjectType, subjectId, status, from?.ToUniversalTime(), to?.ToUniversalTime()),
+            pageNumber,
+            size));
+    }
+
     /// <summary>
     /// A page of the runs the reader may see that match the filter, newest first.
     /// </summary>
     public async Task<NhAssistantRunHistoryListDto> ListAsync(
-        NhAssistantRunFilter filter,
-        int page,
-        int itemsPerPage,
+        NhAssistantRunQuery query,
         NhAssistantRunReader reader,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(reader);
+        var (filter, page, itemsPerPage) = query;
         var candidates = await runs.FindThreadsWithRunsAsync(
             filter,
             reader.TenantId,
@@ -101,13 +162,12 @@ internal sealed class NhAssistantRunHistory(
     /// </summary>
     public async Task<TaskResult<NhAssistantRunHistoryListDto>> ListForAgentAsync(
         string agentId,
-        NhAssistantRunFilter filter,
-        int page,
-        int itemsPerPage,
+        NhAssistantRunQuery query,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(query);
+        var (filter, page, itemsPerPage) = query;
         if (!_registration.AgentRuns.ContainsKey(agentId)
             && await _agents.FindAsync(agentId, includeDisabled: true, cancellationToken) is null)
         {
@@ -174,10 +234,12 @@ internal sealed class NhAssistantRunHistory(
 
     /// <summary>
     /// One file a run saved, when the reader may see the run and read the file: the agent's own grant
-    /// shields a file from people who could not have read it themselves. <see langword="null"/> with
-    /// the status and code to answer otherwise.
+    /// shields a file from people who could not have read it themselves. Fails with
+    /// <see cref="NhAssistantErrorCodes.RunNotFound"/> for a run the reader may not see,
+    /// <see cref="NhAssistantErrorCodes.ArtifactNotFound"/> for a file the run did not save and
+    /// <see cref="NhAssistantErrorCodes.SubjectAccessDenied"/> for a shielded file.
     /// </summary>
-    public async Task<(AssistantArtifact? Artifact, int Status, string? Code)> FindArtifactAsync(
+    public async Task<TaskResult<AssistantArtifact>> FindArtifactAsync(
         Guid runId,
         Guid artifactId,
         NhAssistantRunReader reader,
@@ -190,13 +252,13 @@ internal sealed class NhAssistantRunHistory(
         var row = await FindVisibleAsync(runId, visibility, cancellationToken);
         if (row is null)
         {
-            return (null, StatusCodes.Status404NotFound, NhAssistantErrorCodes.RunNotFound);
+            return TaskResult<AssistantArtifact>.Failed(NhAssistantErrorCodes.RunNotFound, "The run was not found.");
         }
 
         var artifact = await artifacts.FindAsync(row.Thread.ConversationId, artifactId, cancellationToken);
         if (artifact is null || artifact.RunId != runId)
         {
-            return (null, StatusCodes.Status404NotFound, NhAssistantErrorCodes.ArtifactNotFound);
+            return TaskResult<AssistantArtifact>.Failed(NhAssistantErrorCodes.ArtifactNotFound, "The file was not found.");
         }
 
         var subject = new NhAiSubjectRef(row.Thread.SubjectType, row.Thread.SubjectId);
@@ -208,10 +270,10 @@ internal sealed class NhAssistantRunHistory(
                 artifact.ToolInvocationId,
                 cancellationToken))
         {
-            return (null, StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
+            return TaskResult<AssistantArtifact>.Failed(NhAssistantErrorCodes.SubjectAccessDenied, "The caller may not read this file.");
         }
 
-        return (artifact, StatusCodes.Status200OK, null);
+        return TaskResult<AssistantArtifact>.Succeeded(artifact);
     }
 
     /// <summary>

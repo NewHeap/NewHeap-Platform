@@ -420,7 +420,7 @@ internal sealed class NhAssistantToolCallInterceptor(
                 if (!thread.Success)
                 {
                     // Nobody answers for the agent at the object, so it cannot wait there.
-                    return await NotPlacedAsync(descriptor, row, NhAssistantPlacementReasons.NoAccess, target.Subject, cancellationToken);
+                    return await NotPlacedAsync(descriptor, row, NhAssistantProposalPlacement.ReasonOf(thread), target.Subject, cancellationToken);
                 }
 
                 placed = new NhAssistantPlacedThread(thread.Data!, target);
@@ -582,7 +582,8 @@ internal sealed class NhAssistantToolCallInterceptor(
                         NhAssistantExecutionScope.CurrentTurn?.TurnId,
                         exception.GetType().FullName ?? exception.GetType().Name);
                 }
-                var code = descriptor.Id.StartsWith("mcp.", StringComparison.Ordinal)
+                var mcp = descriptor.Id.StartsWith("mcp.", StringComparison.Ordinal);
+                var code = mcp
                     ? NhAssistantMcpFailures.Classify(exception)
                     : NhAiToolFailureCodes.Failed;
                 return new NhAssistantToolExecution(
@@ -590,8 +591,9 @@ internal sealed class NhAssistantToolCallInterceptor(
                     new NhAssistantToolOutcome(NhAssistantToolOutcomeKind.Failed, code),
                     call)
                 {
-                    // An MCP request stopped before it left the host cannot have changed anything.
-                    Threw = !NhAssistantMcpFailures.StoppedBeforeSending(code)
+                    // An MCP request that never left the host, or whose credential the server refused,
+                    // cannot have changed anything.
+                    Threw = !(mcp && NhAssistantMcpFailures.ToolNotRun(exception))
                 };
             }
         }
@@ -928,7 +930,7 @@ internal sealed class NhAssistantToolCallInterceptor(
                 return new NhAssistantRecordedProposal(Guid.Empty, Guid.Empty, mode, shadow)
                 {
                     Outcome = NhAssistantProposeOutcome.Refused,
-                    NotPlacedReason = NhAssistantPlacementReasons.NoAccess
+                    NotPlacedReason = NhAssistantProposalPlacement.ReasonOf(stored)
                 };
             }
 
@@ -1318,6 +1320,7 @@ internal sealed class NhAssistantToolCallInterceptor(
                 {
                     NhAssistantPlacementReasons.DoesNotWorkOn => "Nothing was proposed: this agent does not work on that object or not in its scope. Do not retry it.",
                     NhAssistantPlacementReasons.NoAccess => "Nothing was proposed: the account this agent answers to may not read that object. Do not retry it.",
+                    NhAssistantPlacementReasons.NoAccountableOwner => "Nothing was proposed: nobody answers for this agent at that object, so its proposal cannot wait there. Do not retry it; mention it in your answer.",
                     NhAssistantPlacementReasons.Limit => "Nothing was proposed: this run placed as many proposals at other objects as it may. Do not propose more; mention the rest in your answer.",
                     _ => "Nothing was proposed: that object was not found. Check the id; do not retry the same call."
                 }

@@ -1,12 +1,16 @@
 import { DatePipe, DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, input, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import {
   AgentArtifact,
   NhAssistantAgentRunApiService,
+  NhAssistantError,
+  ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
-  ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork
+  ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
+  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
+  ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 
 /**
@@ -17,7 +21,7 @@ import {
 @Component({
   selector: 'nh-assistant-agent-artifacts',
   standalone: true,
-  imports: [DatePipe, TranslatePipe, NhAssistantIconComponent],
+  imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-artifacts.component.html',
   styleUrl: './nh-assistant-agent-runs.scss'
@@ -31,7 +35,15 @@ export class NhAssistantAgentArtifactsComponent {
 
   readonly loading = signal(true);
   readonly loadFailed = signal(false);
-  readonly downloadFailed = signal(false);
+  /** Why the latest download failed, as a code and translation key; `null` after one that worked. */
+  readonly downloadError = signal<NhAssistantError | null>(null);
+  /** Whether the latest download failed. */
+  readonly downloadFailed = computed(() => this.downloadError() !== null);
+  /** The text of the download's failure, then the text that a file could not be downloaded. */
+  readonly downloadErrorKeys = computed(() => {
+    const keys = nhAssistantErrorKeys(this.downloadError());
+    return keys.length > 0 ? [...keys.slice(0, -1), 'nh-assistant.agent-runs.artifacts.download-failed'] : [];
+  });
   readonly artifacts = signal<AgentArtifact[]>([]);
   readonly downloadingId = signal<string | null>(null);
 
@@ -53,7 +65,7 @@ export class NhAssistantAgentArtifactsComponent {
 
   async download(artifact: AgentArtifact): Promise<void> {
     this.downloadingId.set(artifact.id);
-    this.downloadFailed.set(false);
+    this.downloadError.set(null);
     try {
       const blob = await this.api.downloadArtifact(this.conversationId(), artifact.id);
       const url = URL.createObjectURL(blob);
@@ -62,8 +74,8 @@ export class NhAssistantAgentArtifactsComponent {
       link.download = `${artifact.name}-v${artifact.version}`;
       link.click();
       URL.revokeObjectURL(url);
-    } catch {
-      this.downloadFailed.set(true);
+    } catch (error) {
+      this.downloadError.set(toNhAssistantError(error));
     } finally {
       this.downloadingId.set(null);
     }

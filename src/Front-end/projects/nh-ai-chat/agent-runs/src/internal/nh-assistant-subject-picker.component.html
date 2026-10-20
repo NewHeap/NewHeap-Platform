@@ -34,8 +34,13 @@
   <p class="hint" aria-live="polite" [id]="hintId" [class.error]="lookupError()">
     @if (lookingUp()) {
       {{ 'nh-assistant.subject-picker.looking-up' | translate }}
-    } @else if (lookupError(); as code) {
-      {{ (code === 'assistant-subject-not-found' ? 'nh-assistant.subject-picker.not-found' : 'nh-assistant.errors.' + code) | translate }}
+    } @else if (lookupError(); as failure) {
+      <span data-lookup-error>{{ lookupErrorKeys() | nhAssistantTranslate: failure.code }}</span>
+      @if (lookupRetryable()) {
+        <button type="button" class="link" data-lookup-retry [disabled]="disabled()" (click)="lookUpAgain()">
+          {{ 'nh-assistant.subject-picker.look-up-again' | translate }}
+        </button>
+      }
     } @else if (found(); as subject) {
       {{ 'nh-assistant.subject-picker.found' | translate: { name: subject.displayName ?? subject.id } }}
     } @else {

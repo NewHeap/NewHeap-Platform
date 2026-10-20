@@ -84,7 +84,7 @@ internal static class NhAssistantProposalFeedbackEndpoints
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalFeedbackRequest);
         if (request is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.FeedbackInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.FeedbackInvalid);
         }
 
         var given = await feedback.GiveAsync(
@@ -96,15 +96,7 @@ internal static class NhAssistantProposalFeedbackEndpoints
             httpContext.RequestAborted);
         if (!given.Success)
         {
-            var code = FirstCode(given);
-            var status = code switch
-            {
-                NhAssistantErrorCodes.ApprovalNotFound => StatusCodes.Status404NotFound,
-                NhAssistantErrorCodes.SubjectAccessDenied => StatusCodes.Status403Forbidden,
-                NhAssistantErrorCodes.FeedbackNotAccepted => StatusCodes.Status409Conflict,
-                _ => StatusCodes.Status400BadRequest
-            };
-            return NhAssistantEndpointRouteBuilderExtensions.Error(status, code);
+            return NhAssistantHttpErrors.Failure(given);
         }
 
         return TypedResults.Json(
@@ -126,7 +118,7 @@ internal static class NhAssistantProposalFeedbackEndpoints
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantBulkProposalFeedbackRequest);
         if (request?.ApprovalIds is not { Count: > 0 and <= MaxBulkFeedback } approvalIds)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.FeedbackInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.FeedbackInvalid);
         }
 
         var results = new List<NhAssistantFeedbackOutcomeDto>(approvalIds.Count);
@@ -139,7 +131,7 @@ internal static class NhAssistantProposalFeedbackEndpoints
                 request.Text,
                 bulk: true,
                 httpContext.RequestAborted);
-            results.Add(new NhAssistantFeedbackOutcomeDto(approvalId, given.Success, given.Success ? null : FirstCode(given)));
+            results.Add(new NhAssistantFeedbackOutcomeDto(approvalId, given.Success, given.Success ? null : NhAssistantResults.CodeOf(given, NhAssistantErrorCodes.TurnFailed)));
         }
 
         return TypedResults.Json(
@@ -161,11 +153,11 @@ internal static class NhAssistantProposalFeedbackEndpoints
         var filter = ReadFilter(from, to, scopeKey, toolId, category: null, agentVersion);
         if (filter is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
         if (await agents.FindAsync(id, includeDisabled: true, httpContext.RequestAborted) is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.AgentNotFound);
         }
 
         var aggregates = await store.GetAggregatesAsync(id, filter, httpContext.RequestAborted);
@@ -194,11 +186,11 @@ internal static class NhAssistantProposalFeedbackEndpoints
         var size = itemsPerPage ?? 20;
         if (filter is null || pageNumber < 1 || size is < 1 or > 100)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
         if (await agents.FindAsync(id, includeDisabled: true, httpContext.RequestAborted) is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.AgentNotFound);
         }
 
         var (items, total) = await store.ListAsync(id, filter, pageNumber, size, httpContext.RequestAborted);
@@ -235,7 +227,7 @@ internal static class NhAssistantProposalFeedbackEndpoints
         var maximum = limit ?? DefaultExportLimit;
         if (filter is null || maximum is < 1 or > MaxExportLimit)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
         if (!caller.Success)
@@ -244,7 +236,7 @@ internal static class NhAssistantProposalFeedbackEndpoints
         }
         if (await agents.FindAsync(id, includeDisabled: true, httpContext.RequestAborted) is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.AgentNotFound);
         }
 
         await events.FeedbackExportedAsync(id, caller.Data!.ActorId, httpContext.RequestAborted);
@@ -374,13 +366,5 @@ internal static class NhAssistantProposalFeedbackEndpoints
         }
 
         return rows;
-    }
-
-    private static string FirstCode(NewHeap.Platform.Common.Models.TaskResult result)
-    {
-        return result.GetResultItems()
-            .Select(item => item.Name)
-            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
-            ?? NhAssistantErrorCodes.TurnFailed;
     }
 }

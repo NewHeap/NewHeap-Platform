@@ -2,6 +2,10 @@ import { AssistantAccount } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminScenario } from './nh-assistant-mock.models';
 import { NhAssistantMockResult, mockFailure as failure } from './nh-assistant-mock-admin-shared';
 
+/** The most distinct account ids one `GET admin/accounts?ids=` reads, and the longest id. */
+const maxAccountIds = 50;
+const maxAccountIdLength = 256;
+
 /**
  * The accounts of the mock administration: the scenario's `accounts`, searched by name or e-mail
  * address for technical accounts. Without accounts the search is unavailable unless the run
@@ -26,7 +30,8 @@ export class NhAssistantMockAccounts {
 
   /**
    * `GET admin/accounts`: with `query` the scenario's accounts whose name or e-mail address contains
-   * it, with `ids` the known accounts among them; without accounts the search is unavailable.
+   * it, with `ids` (at most 50 distinct ids of at most 256 characters, as on the server) the known
+   * accounts among them; without accounts the search is unavailable.
    */
   search(method: string, query: URLSearchParams): NhAssistantMockResult {
     if (method !== 'GET') {
@@ -35,14 +40,17 @@ export class NhAssistantMockAccounts {
     const ids = query.get('ids');
     if (ids) {
       const wanted = new Set(ids.split(',').map(id => id.trim()).filter(id => id.length > 0));
+      if (wanted.size > maxAccountIds || [...wanted].some(id => id.length > maxAccountIdLength)) {
+        return failure('assistant-validation', { ids: ['invalid'] });
+      }
       return { status: 200, body: this.accounts.filter(account => wanted.has(account.actorId)) };
     }
     const text = (query.get('query') ?? '').trim().toLocaleLowerCase();
     if (text.length < 2 || text.length > 100) {
-      return failure(400, 'assistant-validation', { query: ['invalid'] });
+      return failure('assistant-validation', { query: ['invalid'] });
     }
     if (!this.searchable) {
-      return failure(404, 'assistant-account-search-unavailable');
+      return failure('assistant-account-search-unavailable');
     }
     const limit = Math.min(Math.max(Number(query.get('limit') ?? 20) || 20, 1), 50);
     return {

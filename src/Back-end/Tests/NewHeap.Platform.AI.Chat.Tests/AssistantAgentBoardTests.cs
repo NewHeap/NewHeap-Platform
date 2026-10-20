@@ -6,11 +6,16 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Live;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.Common.Actors;
@@ -40,6 +45,12 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
     private const string Manager = "manager-1";
     private const string Reader = "reader-1";
     private const string Viewer = "viewer-1";
+
+    /// <summary>A person with an account id, as background operations name their actors: the reader's rights.</summary>
+    private static readonly Guid ReaderUser = Guid.Parse("8d5c6f7e-1a2b-4c3d-9e8f-0a1b2c3d4e5f");
+
+    /// <summary>A person with an account id who passes the view policy, as the viewer.</summary>
+    private static readonly Guid ViewerUser = Guid.Parse("3f2e1d0c-9b8a-4765-8432-10fedcba9876");
 
     [Fact]
     public void Groups_are_named_in_code_and_agents_join_registered_groups_only()
@@ -337,7 +348,8 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
         Assert.True((await ReadJsonAsync(await viewer.GetAsync($"/api/assistant/runs/{runId}"))).GetProperty("canOpenConversation").GetBoolean());
 
         // An approver of the whole application without the view policy neither reads the thread nor
-        // starts the agent there, whose thread it could not open, but still decides its proposals.
+        // starts the agent there, whose thread it could not open, nor finds or decides its proposals:
+        // they read as unknown (the review's decision on W7's open item).
         using var admin = app.CreateClient(Admin, admin: true);
         Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync(lookup)).StatusCode);
         using (var start = await admin.PostAsJsonAsync("/api/assistant/threads/start", new { agentId = FollowUp, subjectType = "nh-system", subjectId = "global" }))
@@ -346,15 +358,154 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
             Assert.Equal(NhAssistantErrorCodes.SubjectAccessDenied, (await ReadJsonAsync(start, HttpStatusCode.Forbidden)).GetProperty("code").GetString());
         }
         var inbox = await ReadJsonAsync(await admin.GetAsync("/api/assistant/approvals/inbox"));
-        Assert.Equal(approvalId, Assert.Single(inbox.GetProperty("items").EnumerateArray()).GetProperty("approvalId").GetGuid());
-        using (var decided = await admin.PostAsJsonAsync($"/api/assistant/approvals/{approvalId}/decisions", new { decision = "reject", reason = "Not now." }))
+        Assert.Empty(inbox.GetProperty("items").EnumerateArray());
+        Assert.Equal((0, 0), await SystemSummaryAsync(admin));
+        using (var refused = await admin.PostAsJsonAsync($"/api/assistant/approvals/{approvalId}/decisions", new { decision = "reject", reason = "Not now." }))
+        {
+            Assert.Equal(NhAssistantErrorCodes.ApprovalNotFound, (await ReadJsonAsync(refused, HttpStatusCode.NotFound)).GetProperty("code").GetString());
+        }
+        using (var bulk = await admin.PostAsJsonAsync("/api/assistant/approvals/decisions", new { approvalIds = new[] { approvalId }, decision = "reject" }))
+        {
+            var outcome = Assert.Single((await ReadJsonAsync(bulk)).GetProperty("results").EnumerateArray());
+            Assert.Equal(NhAssistantErrorCodes.ApprovalNotFound, outcome.GetProperty("code").GetString());
+        }
+
+        // An approver who passes the view policy finds and decides it, and starts the agent there.
+        using var manager = app.CreateClient(Manager, admin: true);
+        Assert.True((await ReadJsonAsync(await manager.GetAsync(lookup))).GetProperty("canStart").GetBoolean());
+        Assert.Equal((1, 1), await SystemSummaryAsync(manager));
+        var managerInbox = await ReadJsonAsync(await manager.GetAsync("/api/assistant/approvals/inbox"));
+        Assert.Equal(approvalId, Assert.Single(managerInbox.GetProperty("items").EnumerateArray()).GetProperty("approvalId").GetGuid());
+        using (var decided = await manager.PostAsJsonAsync($"/api/assistant/approvals/{approvalId}/decisions", new { decision = "reject", reason = "Not now." }))
         {
             Assert.Equal(NhAssistantApprovalStatuses.Rejected, (await ReadJsonAsync(decided)).GetProperty("status").GetString());
         }
+    }
 
-        // Someone who passes the run policy and the view policy starts it.
-        using var manager = app.CreateClient(Manager, admin: true);
-        Assert.True((await ReadJsonAsync(await manager.GetAsync(lookup))).GetProperty("canStart").GetBoolean());
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Operations_notifications_and_live_updates_of_the_whole_application_reach_only_people_who_see_the_agent(AssistantTestProvider provider)
+    {
+        await using var app = await StartAsync(provider);
+        var thread = await ThreadAtAsync(app, FollowUp, NhAiSystemSubjects.Global);
+        var operationId = Guid.NewGuid();
+        var runId = await SeedRunAsync(app, FollowUp, NhAiSystemSubjects.Global, DateTimeOffset.UtcNow.AddMinutes(-5), "Proposed completing PRJ-1.", operationId);
+        await AddProposalAsync(app, thread.ConversationId, runId, DateTimeOffset.UtcNow.AddMinutes(-4));
+        foreach (var person in new[] { Admin, Manager, Reader, Viewer })
+        {
+            await AddParticipantAsync(app, thread.ConversationId, person);
+        }
+
+        // The status of the run's background operation: only for people who see the agent's work.
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var access = scope.ServiceProvider.GetServices<INhBackgroundOperationAccess>().OfType<NhAssistantBackgroundOperationAccess>().Single();
+            var operation = new NhBackgroundOperationAccessTarget(
+                operationId,
+                NhAssistantAgentRunOperationTypes.Run,
+                NhBackgroundOperationOwnerKind.Agent,
+                null,
+                "assistant-agent:" + FollowUp,
+                null,
+                NhAiSubjectRef.SystemType,
+                NhAiSystemSubjects.Global.Id);
+            Assert.True(await access.IsAllowedAsync(operation, NhBackgroundOperationActor.ForUser(ViewerUser), NhBackgroundOperationAccessAction.View));
+            Assert.False(await access.IsAllowedAsync(operation, NhBackgroundOperationActor.ForUser(ReaderUser), NhBackgroundOperationAccessAction.View));
+            // An operation of the whole application whose agent is unknown stays with its owner.
+            Assert.False(await access.IsAllowedAsync(
+                operation with { OperationId = Guid.NewGuid() },
+                NhBackgroundOperationActor.ForUser(ViewerUser),
+                NhBackgroundOperationAccessAction.View));
+        }
+
+        // Notifications reach the approvers among the thread's people who pass the view policy.
+        var notifications = app.Services.GetRequiredService<RecordedNotifications>();
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<NhAssistantAgentNotifier>().NotifyAsync(
+                NhAssistantAgentNotificationKind.RunEndedWithProposals,
+                thread,
+                runId,
+                null,
+                Admin,
+                shadow: false,
+                CancellationToken.None,
+                proposalCount: 1);
+        }
+        Assert.Equal([Manager], Assert.Single(notifications.Delivered));
+
+        // Live updates of its thread reach only the people of the thread who see the agent.
+        var live = app.Services.GetRequiredService<RecordedLiveUpdates>();
+        live.Clear();
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<NhAssistantAgentWorkUpdates>().PublishAsync(
+                thread.ConversationId,
+                NhAssistantAgentWorkReasons.Proposal,
+                runId: runId,
+                cancellationToken: CancellationToken.None);
+        }
+        Assert.Equal([Manager, Viewer], Assert.Single(live.Sent).ActorIds.Order(StringComparer.Ordinal).ToArray());
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_run_maintenance_removes_old_board_visits_and_those_of_groups_that_are_gone(AssistantTestProvider provider)
+    {
+        await using var app = await StartAsync(provider);
+        var now = DateTimeOffset.UtcNow;
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var boards = scope.ServiceProvider.GetRequiredService<NhAssistantBoardStore>();
+            await boards.RecordVisitAsync(Reader, Group, "global", now.AddDays(-10), CancellationToken.None);
+            await boards.RecordVisitAsync(Viewer, Group, "global", now.AddDays(-181), CancellationToken.None);
+            await boards.RecordVisitAsync(Reader, "retired-group", "global", now.AddDays(-1), CancellationToken.None);
+        }
+        var maintenance = app.Services.GetServices<IHostedService>().OfType<NhAssistantRunMaintenance>().Single();
+
+        int removed;
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            removed = await maintenance.RemoveStaleBoardVisitsAsync(
+                scope.ServiceProvider.GetRequiredService<NhAssistantBoardStore>(),
+                now,
+                CancellationToken.None);
+        }
+
+        Assert.Equal(2, removed);
+        Assert.Equal(1, await VisitCountAsync(app, Reader));
+        Assert.Equal(0, await VisitCountAsync(app, Viewer));
+        Assert.Equal(TimeSpan.FromDays(180), app.Services.GetRequiredService<NhAssistantRegistrationState>().Limits.BoardVisitRetention);
+    }
+
+    /// <summary>
+    /// The open proposals and those the caller may decide of the whole application app-wide.
+    /// </summary>
+    private static async Task<(int Open, int ToDecide)> SystemSummaryAsync(HttpClient client)
+    {
+        var summary = await ReadJsonAsync(await client.PostAsJsonAsync(
+            "/api/assistant/subjects/nh-system/summary",
+            new { subjectIds = new[] { NhAiSystemSubjects.Global.Id } }));
+        var item = Assert.Single(summary.GetProperty("items").EnumerateArray());
+        return (item.GetProperty("openProposals").GetInt32(), item.GetProperty("proposalsToDecide").GetInt32());
+    }
+
+    private static async Task AddParticipantAsync(AssistantWebApplication app, Guid conversationId, string actorId)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<INhAssistantStore>().TryAddParticipantAsync(
+            new AssistantConversationParticipant
+            {
+                ConversationId = conversationId,
+                ActorId = actorId,
+                DisplayName = actorId,
+                JoinedVia = "invitation",
+                JoinedAt = DateTimeOffset.UtcNow
+            },
+            int.MaxValue,
+            CancellationToken.None);
     }
 
     private static void Named(NhAssistantAgentGroupBuilder group)
@@ -384,6 +535,9 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
             configure: services =>
             {
                 services.AddSingleton<BoardProjects>();
+                services.AddSingleton<RecordedNotifications>();
+                services.AddSingleton<RecordedLiveUpdates>();
+                services.Replace(ServiceDescriptor.Singleton<INhAssistantLiveUpdateTransport>(provider => provider.GetRequiredService<RecordedLiveUpdates>()));
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, BoardPrincipals>());
                 services.AddNewHeapDivisionDirectory<TestDivisionDirectory>();
                 services.AddNewHeapDivisionAccess<TestDivisionAccess>();
@@ -392,6 +546,7 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
                 services.Remove(services.Single(descriptor => descriptor.ImplementationType == typeof(NhAssistantStartupValidator)));
             },
             assistantBuilder: assistant => assistant
+                .AddAgentNotificationChannel<RecordingChannel>()
                 .AddSubjectType<BoardProjectResolver>(type => type
                     .Named(new() { ["en"] = "Project", ["nl"] = "Project" }, fallbackLanguage: "en")
                     .NamedPlural(new() { ["en"] = "Projects", ["nl"] = "Projecten" }))
@@ -433,7 +588,8 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
         string agentId,
         NhAiSubjectRef subject,
         DateTimeOffset createdAt,
-        string result)
+        string result,
+        Guid? operationId = null)
     {
         var thread = await ThreadAtAsync(app, agentId, subject);
         var run = new AssistantRun
@@ -449,6 +605,7 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
             CreatedAt = createdAt,
             StartedAt = createdAt,
             EndedAt = createdAt.AddSeconds(30),
+            BackgroundOperationId = operationId,
             ConcurrencyStamp = Guid.NewGuid()
         };
         await using var scope = app.Services.CreateAsyncScope();
@@ -575,6 +732,31 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
     /// </summary>
     private sealed class BoardProjects;
 
+    /// <summary>The recipients of every agent notification.</summary>
+    private sealed class RecordedNotifications
+    {
+        private readonly System.Collections.Concurrent.ConcurrentQueue<string[]> _delivered = new();
+
+        public IReadOnlyList<string[]> Delivered => _delivered.ToArray();
+
+        public void Add(IReadOnlyList<string> recipients)
+        {
+            _delivered.Enqueue([.. recipients.Order(StringComparer.Ordinal)]);
+        }
+    }
+
+    private sealed class RecordingChannel(RecordedNotifications notifications) : INhAssistantAgentNotificationChannel
+    {
+        public Task DeliverAsync(
+            NhAssistantAgentNotificationContext context,
+            IReadOnlyList<string> recipientActorIds,
+            CancellationToken cancellationToken = default)
+        {
+            notifications.Add(recipientActorIds);
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class BoardProjectResolver : INhAiSubjectAccessResolver
     {
         public string SubjectType => "project";
@@ -613,6 +795,8 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database)
                 Manager => new[] { "assistant", "assistant-admin", ViewPolicy },
                 Viewer => new[] { "assistant", ViewPolicy },
                 Reader => new[] { "assistant" },
+                _ when actorId == ViewerUser.ToString() => new[] { "assistant", ViewPolicy },
+                _ when actorId == ReaderUser.ToString() => new[] { "assistant" },
                 _ => null
             };
             return ValueTask.FromResult(permissions is null

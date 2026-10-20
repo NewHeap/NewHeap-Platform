@@ -18,9 +18,13 @@ import {
   AgentObjectAgents,
   LiveAgentWorkChanged,
   NhAssistantAgentRunApiService,
+  NhAssistantError,
+  ɵnhAssistantCodeKeys as nhAssistantCodeKeys,
+  ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
-  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
+  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
+  ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import {
   NhAssistantRunNowAgent,
@@ -33,13 +37,20 @@ import { NhAssistantRunResultComponent } from './nh-assistant-run-result.compone
 let nextId = 0;
 
 /**
+ * Failures of the object itself: asking again does not help, the page names an object that does not
+ * exist, that the person may not see, or that is no valid reference.
+ */
+const objectFailures = new Set(['assistant-subject-not-found', 'assistant-subject-invalid', 'assistant-subject-type-unknown']);
+
+/**
  * The agents that work on one object, for the object's page, for example on a project: per agent its
  * latest run with the beginning of its result, the whole result on demand in `nh-assistant-run-result`,
  * its open proposals, "Run now" for people who may run it (the participants of the object; for the
  * whole application, `nh-system`, the agent's run policy), and on demand its work on the object in
  * `nh-assistant-agent-thread-view`. The server lists only the agents that work on the object and that
- * the person may use, and checks every start again. With live updates the list reloads by itself when
- * an agent's work on the object changes.
+ * the person may use, and checks every start again. A failed load reads as its translated code, such as
+ * an object that does not exist or that the person may not see, with "Try again" where asking again
+ * can help. With live updates the list reloads by itself when an agent's work on the object changes.
  */
 @Component({
   selector: 'nh-assistant-object-agents',
@@ -72,6 +83,15 @@ export class NhAssistantObjectAgentsComponent {
   readonly id = `nh-assistant-object-agents-${nextId++}`;
   readonly loading = signal(true);
   readonly loadFailed = signal(false);
+  /** Why the agents could not be read; `null` after a load that worked. */
+  readonly loadError = signal<NhAssistantError | null>(null);
+  readonly loadErrorKeys = computed(() => nhAssistantErrorKeys(this.loadError()));
+  /** Loading again can help after a failure of the connection or the server, not of the object. */
+  readonly loadRetryable = computed(() => {
+    const error = this.loadError();
+    return error === null || !objectFailures.has(error.code);
+  });
+  readonly codeKeys = nhAssistantCodeKeys;
   readonly listing = signal<AgentObjectAgents | null>(null);
   readonly agents = computed(() => this.listing()?.agents ?? []);
   /** The agent whose work on the object is shown; one at a time. */
@@ -164,6 +184,7 @@ export class NhAssistantObjectAgentsComponent {
     if (!quiet) {
       this.loading.set(true);
       this.loadFailed.set(false);
+      this.loadError.set(null);
     }
 
     this.subscription?.unsubscribe();
@@ -172,14 +193,16 @@ export class NhAssistantObjectAgentsComponent {
         this.listing.set(listing);
         this.loading.set(false);
         this.loadFailed.set(false);
+        this.loadError.set(null);
       },
-      error: () => {
+      error: (error: unknown) => {
         if (quiet && this.listing() !== null) {
           return;
         }
         this.listing.set(null);
         this.loading.set(false);
         this.loadFailed.set(true);
+        this.loadError.set(toNhAssistantError(error));
       }
     });
   }

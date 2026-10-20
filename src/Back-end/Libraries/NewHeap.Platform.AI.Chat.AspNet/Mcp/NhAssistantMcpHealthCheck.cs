@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.AspNet.Mcp;
 using NewHeap.Platform.AI.Chat.Persistence;
 
@@ -25,13 +26,17 @@ public static class NhAssistantMcpHealthCheckExtensions
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         return builder.Add(new HealthCheckRegistration(
             name,
-            provider => new NhAssistantMcpHealthCheck(provider.GetRequiredService<IServiceScopeFactory>()),
+            provider => new NhAssistantMcpHealthCheck(
+                provider.GetRequiredService<IServiceScopeFactory>(),
+                provider.GetRequiredService<ILogger<NhAssistantMcpHealthCheck>>()),
             failureStatus,
             tags));
     }
 }
 
-internal sealed class NhAssistantMcpHealthCheck(IServiceScopeFactory scopeFactory) : IHealthCheck
+internal sealed partial class NhAssistantMcpHealthCheck(
+    IServiceScopeFactory scopeFactory,
+    ILogger<NhAssistantMcpHealthCheck> logger) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
@@ -59,10 +64,14 @@ internal sealed class NhAssistantMcpHealthCheck(IServiceScopeFactory scopeFactor
                 ? new HealthCheckResult(context.Registration.FailureStatus, "MCP servers or connections need attention.", data: data)
                 : HealthCheckResult.Healthy("MCP servers connect.", data);
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {
-            // The exception type only: a message could name an address.
-            return new HealthCheckResult(context.Registration.FailureStatus, "The MCP state could not be read: " + exception.GetType().Name);
+            // The log holds the exception; the health response names nothing a message could carry.
+            LogCheckFailed(logger, exception);
+            return new HealthCheckResult(context.Registration.FailureStatus, "The MCP state could not be read.");
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The assistant MCP health check could not read the state of the MCP servers.")]
+    private static partial void LogCheckFailed(ILogger logger, Exception exception);
 }

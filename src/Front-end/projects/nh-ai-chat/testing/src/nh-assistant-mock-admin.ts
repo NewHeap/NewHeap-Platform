@@ -171,7 +171,7 @@ export class NhAssistantMockAdmin {
 
   handleAdmin(method: string, segments: string[], body: unknown, query = new URLSearchParams()): NhAssistantMockResult {
     if (!this.canAdminister) {
-      return failure(403, 'assistant-forbidden');
+      return failure('assistant-forbidden');
     }
 
     const [, area, id, action, child] = segments;
@@ -179,11 +179,11 @@ export class NhAssistantMockAdmin {
       case 'context':
         return this.context(method, id, body);
       case 'tools':
-        return method === 'GET' && segments.length === 2 ? { status: 200, body: this.toolCatalog() } : failure(404, 'assistant-not-found');
+        return method === 'GET' && segments.length === 2 ? { status: 200, body: this.toolCatalog() } : failure('assistant-not-found');
       case 'run-catalog':
-        return segments.length === 2 ? this.runConfiguration.runCatalog(method) : failure(404, 'assistant-not-found');
+        return segments.length === 2 ? this.runConfiguration.runCatalog(method) : failure('assistant-not-found');
       case 'accounts':
-        return segments.length === 2 ? this.accounts.search(method, query) : failure(404, 'assistant-not-found');
+        return segments.length === 2 ? this.accounts.search(method, query) : failure('assistant-not-found');
       case 'agents':
         if (id !== undefined && action === 'feedback') {
           return this.agents.agentFeedback(method, id, child, segments.length);
@@ -210,7 +210,7 @@ export class NhAssistantMockAdmin {
       case 'mcp-servers':
         return this.mcp.serversEndpoint(method, id, action, child, body, segments.length);
       default:
-        return failure(404, 'assistant-not-found');
+        return failure('assistant-not-found');
     }
   }
 
@@ -220,7 +220,7 @@ export class NhAssistantMockAdmin {
       return { status: 200, body: [...this.contextVersions].reverse().map(({ text, ...version }) => version) };
     }
     if (sub !== undefined) {
-      return failure(404, 'assistant-not-found');
+      return failure('assistant-not-found');
     }
     if (method === 'GET') {
       return { status: 200, body: toContext(current) };
@@ -234,10 +234,10 @@ export class NhAssistantMockAdmin {
       return validationFailure();
     }
     if (input.text.length > maxInstructions) {
-      return failure(400, 'assistant-instructions-too-long');
+      return failure('assistant-instructions-too-long');
     }
     if (input.expectedVersion !== current.version) {
-      return failure(409, 'assistant-version-conflict');
+      return failure('assistant-version-conflict');
     }
 
     const next = { version: current.version + 1, hash: hashText(input.text), updatedAt: this.now(), updatedBy: 'current-user', text: input.text };

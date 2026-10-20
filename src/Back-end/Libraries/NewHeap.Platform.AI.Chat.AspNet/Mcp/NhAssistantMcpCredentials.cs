@@ -132,7 +132,10 @@ internal sealed class NhAssistantMcpCredentialSource(
 /// <summary>
 /// The secret of a server: the stored one, protected with Data Protection, or the value of its
 /// reference (<see cref="NhAssistantMcpSecretReferences"/>), resolved for every request so that a
-/// rotation applies at once. Values never reach a log.
+/// rotation applies at once. A stored secret that no longer decrypts fails with
+/// <see cref="NhAssistantAdminErrorCodes.McpSecretUnreadable"/>, a reference that names nothing with
+/// <see cref="NhAssistantAdminErrorCodes.McpSecretReferenceInvalid"/>, and a resolver that throws with
+/// <see cref="NhAssistantAdminErrorCodes.McpSecretUnavailable"/>. Values never reach a log.
 /// </summary>
 internal sealed partial class NhAssistantMcpSecretSource(
     NhAssistantMcpSecretProtector protector,
@@ -148,10 +151,29 @@ internal sealed partial class NhAssistantMcpSecretSource(
         {
             return await ResolveReferenceAsync(reference, cancellationToken);
         }
-        var secret = protector.Unprotect(server.ProtectedSecret);
-        return secret is null
-            ? Failed(NhAssistantAdminErrorCodes.McpUnauthorized)
-            : TaskResult<string>.Succeeded(secret);
+        return UnprotectStored(server.Id, server.ProtectedSecret);
+    }
+
+    /// <summary>
+    /// A secret the server stores protected: its secret, or the client secret of its pre-registered
+    /// OAuth client. A value the key ring no longer decrypts is logged as a warning and fails with
+    /// <see cref="NhAssistantAdminErrorCodes.McpSecretUnreadable"/>: an administrator enters it again;
+    /// the remote server is not to blame. A server without a stored value fails with
+    /// <see cref="NhAssistantAdminErrorCodes.McpUnauthorized"/>.
+    /// </summary>
+    public TaskResult<string> UnprotectStored(string serverId, string? protectedSecret)
+    {
+        if (string.IsNullOrEmpty(protectedSecret))
+        {
+            return Failed(NhAssistantAdminErrorCodes.McpUnauthorized);
+        }
+        var secret = protector.Unprotect(protectedSecret);
+        if (secret is null)
+        {
+            LogSecretUnreadable(logger, serverId);
+            return Failed(NhAssistantAdminErrorCodes.McpSecretUnreadable);
+        }
+        return TaskResult<string>.Succeeded(secret);
     }
 
     public async ValueTask<TaskResult<string>> ResolveReferenceAsync(string reference, CancellationToken cancellationToken)
@@ -177,19 +199,24 @@ internal sealed partial class NhAssistantMcpSecretSource(
         {
             return Failed(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid);
         }
+        var resolver = (INhAssistantMcpSecretResolver)services.GetRequiredService(registration.ResolverType);
+        TaskResult<string> resolved;
         try
         {
-            var resolver = (INhAssistantMcpSecretResolver)services.GetRequiredService(registration.ResolverType);
-            var resolved = await resolver.ResolveAsync(name, cancellationToken);
-            return resolved.Success && !string.IsNullOrEmpty(resolved.Data)
-                ? TaskResult<string>.Succeeded(resolved.Data)
-                : Failed(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid);
+            resolved = await resolver.ResolveAsync(name, cancellationToken);
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {
-            LogResolverFailed(logger, prefix, exception.GetType().Name);
+            // The secret store failed, not the reference: the next request may succeed.
+            LogResolverFailed(logger, prefix, exception);
+            return Failed(NhAssistantAdminErrorCodes.McpSecretUnavailable);
+        }
+        if (!resolved.Success || string.IsNullOrEmpty(resolved.Data))
+        {
+            LogReferenceNotResolved(logger, prefix, NhAssistantResults.CodeOf(resolved) ?? "empty");
             return Failed(NhAssistantAdminErrorCodes.McpSecretReferenceInvalid);
         }
+        return TaskResult<string>.Succeeded(resolved.Data);
     }
 
     private static TaskResult<string> Failed(string code)
@@ -197,8 +224,14 @@ internal sealed partial class NhAssistantMcpSecretSource(
         return TaskResult<string>.Failed(code, "The MCP secret is not available.");
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP secret resolver for prefix {Prefix} failed ({ExceptionType}).")]
-    private static partial void LogResolverFailed(ILogger logger, string prefix, string exceptionType);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP secret resolver for prefix {Prefix} failed.")]
+    private static partial void LogResolverFailed(ILogger logger, string prefix, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The MCP secret resolver for prefix {Prefix} has no value for a reference ({Code}).")]
+    private static partial void LogReferenceNotResolved(ILogger logger, string prefix, string code);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A stored secret of MCP server {ServerId} can no longer be decrypted, for example after the data protection keys changed; an administrator enters it again.")]
+    private static partial void LogSecretUnreadable(ILogger logger, string serverId);
 }
 
 /// <summary>
@@ -229,7 +262,7 @@ internal sealed class NhAssistantMcpStaticCredentialProvider(NhAssistantMcpSecre
         var secret = await secrets.ResolveAsync(server, cancellationToken);
         if (!secret.Success)
         {
-            return NhAssistantMcpCredentialResults.Failed(NhAssistantMcpCredentialResults.FirstCode(secret) ?? NhAssistantAdminErrorCodes.McpUnauthorized);
+            return NhAssistantMcpCredentialResults.Failed(NhAssistantResults.CodeOf(secret, NhAssistantAdminErrorCodes.McpUnauthorized));
         }
 
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -350,6 +383,7 @@ internal sealed partial class NhAssistantMcpForwardedTokenCredentialProvider(
         }
         if (subject.PersonActorId is not { } person)
         {
+            LogNoPerson(logger, server.Id);
             return await RefuseAsync(server, subject, call, cancellationToken);
         }
         if (!await services.IsDelegatedTokenRestrictionEnforcedAsync())
@@ -360,6 +394,7 @@ internal sealed partial class NhAssistantMcpForwardedTokenCredentialProvider(
         var issuer = services.GetService<INhAiMcpDelegatedTokenIssuer>();
         if (issuer is null)
         {
+            LogIssuerMissing(logger, server.Id);
             return await RefuseAsync(server, subject, call, cancellationToken);
         }
 
@@ -377,12 +412,18 @@ internal sealed partial class NhAssistantMcpForwardedTokenCredentialProvider(
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {
-            // Issuers read identity data; their messages may carry it. Log the type only.
-            LogIssuerFailed(logger, server.Id, exception.GetType().Name);
+            // A failing or misconfigured issuer leaves this server out; operators find why in the log.
+            LogIssuerFailed(logger, server.Id, exception);
             return await RefuseAsync(server, subject, call, cancellationToken);
         }
-        if (!issued.Success || issued.Data is null || !IsBound(issued.Data.BearerToken, audience, marker, lifetime))
+        if (!issued.Success)
         {
+            LogTokenRefused(logger, server.Id, string.Join(",", issued.GetResultItems().Select(item => item.Name).Where(name => name.Length > 0)));
+            return await RefuseAsync(server, subject, call, cancellationToken);
+        }
+        if (issued.Data is null || !IsBound(issued.Data.BearerToken, audience, marker, lifetime))
+        {
+            LogTokenUnbound(logger, server.Id);
             return await RefuseAsync(server, subject, call, cancellationToken);
         }
         Ledger.Record(server, subject, IssuedResult);
@@ -458,8 +499,20 @@ internal sealed partial class NhAssistantMcpForwardedTokenCredentialProvider(
     [LoggerMessage(Level = LogLevel.Warning, Message = "No delegated token is minted for MCP server {ServerId}: the forwarded token lifetime is not longer than zero and at most 5 minutes.")]
     private static partial void LogLifetimeInvalid(ILogger logger, string serverId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "No delegated token is minted for MCP server {ServerId}: the issuer failed ({ExceptionType}).")]
-    private static partial void LogIssuerFailed(ILogger logger, string serverId, string exceptionType);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No delegated token is minted for MCP server {ServerId}: the issuer failed.")]
+    private static partial void LogIssuerFailed(ILogger logger, string serverId, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No delegated token is minted for MCP server {ServerId}: no INhAiMcpDelegatedTokenIssuer is registered; call AddNewHeapPlatformAIMcpDelegatedTokens.")]
+    private static partial void LogIssuerMissing(ILogger logger, string serverId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "No delegated token is minted for MCP server {ServerId}: the turn acts for no person.")]
+    private static partial void LogNoPerson(ILogger logger, string serverId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "No delegated token is minted for MCP server {ServerId}: the issuer refused ({Codes}).")]
+    private static partial void LogTokenRefused(ILogger logger, string serverId, string codes);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No delegated token is sent to MCP server {ServerId}: the issuer returned a token without exactly the requested marker, audience and lifetime.")]
+    private static partial void LogTokenUnbound(ILogger logger, string serverId);
 }
 
 /// <summary>
@@ -549,10 +602,6 @@ internal static class NhAssistantMcpCredentialResults
         return TaskResult<NhAssistantMcpCredential>.Failed(code, "The MCP server cannot be contacted with this configuration.");
     }
 
-    public static string? FirstCode(TaskResult result)
-    {
-        return result.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrEmpty(name));
-    }
 }
 
 /// <summary>
@@ -567,8 +616,6 @@ internal sealed class NhAssistantMcpCredentialHandler(
     Uri endpoint,
     NhAssistantMcpHostGuard guard) : DelegatingHandler
 {
-    private const string Renewed = "renewed";
-
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
@@ -576,9 +623,7 @@ internal sealed class NhAssistantMcpCredentialHandler(
         try
         {
             var (response, renewed) = await SendCoreAsync(request, cancellationToken);
-            NhAssistantMcpMetrics.Request(response.IsSuccessStatusCode
-                ? renewed ? Renewed : NhAssistantMcpMetrics.Ok
-                : "http-" + ((int)response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            NhAssistantMcpMetrics.Request(OutcomeOf(response, renewed));
             return response;
         }
         catch (NhAssistantMcpException exception)
@@ -588,29 +633,46 @@ internal sealed class NhAssistantMcpCredentialHandler(
         }
     }
 
+    /// <summary>The metric outcome of a response: ok, renewed, or http- and its status.</summary>
+    private static string OutcomeOf(HttpResponseMessage response, bool renewed)
+    {
+        if (!response.IsSuccessStatusCode)
+        {
+            return "http-" + ((int)response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+        return renewed ? NhAssistantMcpMetrics.Renewed : NhAssistantMcpMetrics.Ok;
+    }
+
     private async Task<(HttpResponseMessage Response, bool Renewed)> SendCoreAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
         if (guard.CheckRequest(request.RequestUri, endpoint) is { } blocked)
         {
-            throw new NhAssistantMcpException(blocked, "The MCP request target is not allowed.");
+            throw new NhAssistantMcpException(blocked, "The MCP request target is not allowed.") { ToolNotRun = true };
         }
         if (NhAiMcpCallContext.Current is { } call
             && string.Equals(call.ServerId, credentials.ServerId, StringComparison.Ordinal)
             && credentials.AuthorizeCall(call) is { Success: false } refused)
         {
             throw new NhAssistantMcpException(
-                NhAssistantMcpCredentialResults.FirstCode(refused) ?? NhAssistantAdminErrorCodes.McpCredentialMismatch,
-                "The MCP call may not carry this credential.");
+                NhAssistantResults.CodeOf(refused, NhAssistantAdminErrorCodes.McpCredentialMismatch),
+                "The MCP call may not carry this credential.")
+            {
+                ToolNotRun = true
+            };
         }
 
+        // A credential that cannot be obtained stops the request before it is sent.
         var credential = await credentials.GetAsync(cancellationToken);
         if (!credential.Success)
         {
             throw new NhAssistantMcpException(
-                NhAssistantMcpCredentialResults.FirstCode(credential) ?? NhAssistantAdminErrorCodes.McpUnauthorized,
-                "The MCP credential is not available.");
+                NhAssistantResults.CodeOf(credential, NhAssistantAdminErrorCodes.McpUnauthorized),
+                "The MCP credential is not available.")
+            {
+                ToolNotRun = true
+            };
         }
         Apply(request, credential.Data!);
 
@@ -639,19 +701,17 @@ internal sealed class NhAssistantMcpCredentialHandler(
         var renewed = await credentials.RenewAsync(challenge, cancellationToken);
         if (!renewed.Success)
         {
-            var code = NhAssistantMcpCredentialResults.FirstCode(renewed);
-            if (challenge.Status == 403 || code is NhAssistantAdminErrorCodes.McpReauthorizationRequired
-                or NhAssistantAdminErrorCodes.McpIssuerChanged
-                or NhAssistantAdminErrorCodes.McpConnectionRequired
-                or NhAssistantAdminErrorCodes.McpTokenRequestFailed
-                or NhAssistantAdminErrorCodes.McpScopeNotAllowed)
+            // The server refused the request's credential, so the tool did not run; the renewal's code
+            // says why no new credential could repeat it.
+            response.Dispose();
+            throw new NhAssistantMcpException(
+                NhAssistantResults.CodeOf(
+                    renewed,
+                    challenge.Status == 403 ? NhAssistantAdminErrorCodes.McpInsufficientScope : NhAssistantAdminErrorCodes.McpUnauthorized),
+                "The MCP credential could not be renewed.")
             {
-                response.Dispose();
-                throw new NhAssistantMcpException(
-                    code ?? NhAssistantAdminErrorCodes.McpInsufficientScope,
-                    "The MCP credential could not be renewed.");
-            }
-            return (response, false);
+                ToolNotRun = true
+            };
         }
         response.Dispose();
         using var repeat = await CloneAsync(request, cancellationToken);
@@ -675,7 +735,10 @@ internal sealed class NhAssistantMcpCredentialHandler(
             response.Dispose();
             throw new NhAssistantMcpException(
                 NhAssistantAdminErrorCodes.McpInsufficientScope,
-                "The MCP credential lacks a permission the request needs.");
+                "The MCP credential lacks a permission the request needs.")
+            {
+                ToolNotRun = true
+            };
         }
         return response;
     }

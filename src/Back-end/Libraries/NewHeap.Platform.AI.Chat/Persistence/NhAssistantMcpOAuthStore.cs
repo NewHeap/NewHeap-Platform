@@ -278,26 +278,7 @@ internal sealed class NhAssistantMcpOAuthStore(NhAssistantDbContextFactory conte
             var now = DateTimeOffset.UtcNow;
             await context.McpConnections
                 .Where(connection => keep.Contains(connection.Id))
-                .ExecuteUpdateAsync(
-                    setters => setters
-                        .SetProperty(connection => connection.Status, (string?)null)
-                        .SetProperty(connection => connection.Issuer, (string?)null)
-                        .SetProperty(connection => connection.ClientId, (string?)null)
-                        .SetProperty(connection => connection.Resource, (string?)null)
-                        .SetProperty(connection => connection.GrantedScopes, (string?)null)
-                        .SetProperty(connection => connection.RequiredScopes, (string?)null)
-                        .SetProperty(connection => connection.ProtectedAccessToken, (string?)null)
-                        .SetProperty(connection => connection.ProtectedRefreshToken, (string?)null)
-                        .SetProperty(connection => connection.AccessTokenExpiresAt, (DateTimeOffset?)null)
-                        .SetProperty(connection => connection.RefreshTokenExpiresAt, (DateTimeOffset?)null)
-                        .SetProperty(connection => connection.ConnectedBy, (string?)null)
-                        .SetProperty(connection => connection.ConnectedAt, (DateTimeOffset?)null)
-                        .SetProperty(connection => connection.LastFailureCode, (string?)null)
-                        .SetProperty(connection => connection.RefreshLeaseUntil, (DateTimeOffset?)null)
-                        .SetProperty(connection => connection.RefreshLeaseOwner, (string?)null)
-                        .SetProperty(connection => connection.UpdatedAt, now)
-                        .SetProperty(connection => connection.Version, connection => connection.Version + 1),
-                    cancellationToken);
+                .ExecuteUpdateAsync(setters => ClearTokens(setters, now), cancellationToken);
         }
         return connections;
     }
@@ -364,8 +345,11 @@ internal sealed class NhAssistantMcpOAuthStore(NhAssistantDbContextFactory conte
     }
 
     /// <summary>
-    /// Removes a personal token connection when it is still unused since <paramref name="before"/>;
-    /// returns the removed row, or null when it was used or removed meanwhile.
+    /// Removes the tokens of a personal connection when it is still unused since
+    /// <paramref name="before"/>; returns the row as it was, for revocation, or null when it was used
+    /// or removed meanwhile. As for a disconnect (<see cref="DeleteTokenConnectionsAsync"/>), a
+    /// person's consent to background use stays on the row without tokens; a row without consent is
+    /// deleted.
     /// </summary>
     public async Task<AssistantMcpConnection?> DeleteIfStaleAsync(Guid id, DateTimeOffset before, CancellationToken cancellationToken)
     {
@@ -380,10 +364,46 @@ internal sealed class NhAssistantMcpOAuthStore(NhAssistantDbContextFactory conte
         {
             return null;
         }
-        var deleted = await context.McpConnections
-            .Where(row => row.Id == id && (row.LastUsedAt ?? row.ConnectedAt ?? row.CreatedAt) < before)
-            .ExecuteDeleteAsync(cancellationToken);
-        return deleted == 1 ? connection : null;
+
+        var stale = context.McpConnections
+            .Where(row => row.Id == id && row.Status != null && (row.LastUsedAt ?? row.ConnectedAt ?? row.CreatedAt) < before);
+        int changed;
+        if (connection.AllowBackgroundUse)
+        {
+            var now = DateTimeOffset.UtcNow;
+            changed = await stale.ExecuteUpdateAsync(setters => ClearTokens(setters, now), cancellationToken);
+        }
+        else
+        {
+            changed = await stale.ExecuteDeleteAsync(cancellationToken);
+        }
+        return changed == 1 ? connection : null;
+    }
+
+    /// <summary>
+    /// Clears every token and connection field of a row, keeping the person's consent to background
+    /// use.
+    /// </summary>
+    private static void ClearTokens(Microsoft.EntityFrameworkCore.Query.UpdateSettersBuilder<AssistantMcpConnection> setters, DateTimeOffset now)
+    {
+        setters
+            .SetProperty(connection => connection.Status, (string?)null)
+            .SetProperty(connection => connection.Issuer, (string?)null)
+            .SetProperty(connection => connection.ClientId, (string?)null)
+            .SetProperty(connection => connection.Resource, (string?)null)
+            .SetProperty(connection => connection.GrantedScopes, (string?)null)
+            .SetProperty(connection => connection.RequiredScopes, (string?)null)
+            .SetProperty(connection => connection.ProtectedAccessToken, (string?)null)
+            .SetProperty(connection => connection.ProtectedRefreshToken, (string?)null)
+            .SetProperty(connection => connection.AccessTokenExpiresAt, (DateTimeOffset?)null)
+            .SetProperty(connection => connection.RefreshTokenExpiresAt, (DateTimeOffset?)null)
+            .SetProperty(connection => connection.ConnectedBy, (string?)null)
+            .SetProperty(connection => connection.ConnectedAt, (DateTimeOffset?)null)
+            .SetProperty(connection => connection.LastFailureCode, (string?)null)
+            .SetProperty(connection => connection.RefreshLeaseUntil, (DateTimeOffset?)null)
+            .SetProperty(connection => connection.RefreshLeaseOwner, (string?)null)
+            .SetProperty(connection => connection.UpdatedAt, now)
+            .SetProperty(connection => connection.Version, connection => connection.Version + 1);
     }
 
     public async Task<bool> DeleteConnectionAsync(Guid id, CancellationToken cancellationToken)
@@ -480,9 +500,11 @@ internal sealed class NhAssistantMcpOAuthStore(NhAssistantDbContextFactory conte
             await context.SaveChangesAsync(cancellationToken);
             return registration;
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException exception)
         {
-            return await FindRegistrationAsync(registration.ServerId, registration.IssuerHash, cancellationToken) ?? throw new InvalidOperationException("The client registration could not be stored.");
+            // A concurrent registration of the same issuer wins; without one the write itself failed.
+            return await FindRegistrationAsync(registration.ServerId, registration.IssuerHash, cancellationToken)
+                ?? throw new InvalidOperationException("The client registration could not be stored.", exception);
         }
     }
 

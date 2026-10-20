@@ -60,8 +60,12 @@ export class NhAssistantAgentRunApiService {
   /**
    * Runs the agent now on the subject with the caller as initiator. On an object it needs the
    * participant role; on the whole application (`nh-system`) the agent's run policy, by default the
-   * administration policy. Errors with `assistant-agent-does-not-work-on` (409) when the agent does
-   * not work on the subject or its scope.
+   * administration policy. The receipt says what became of the start (`AgentTriggerOutcome`), for
+   * example `waiting` while the agent is paused. A refusal errors with `NhAssistantApiError`:
+   * `assistant-agent-does-not-work-on`, `assistant-agent-stopped`, `assistant-trigger-rate-limited`
+   * and the other conflicts (409), `assistant-subject-access-denied` or `assistant-agent-forbidden`
+   * (403), `assistant-agent-not-found` or `assistant-subject-not-found` (404),
+   * `assistant-subject-invalid` (400) and `assistant-trigger-rolled-back` (503).
    */
   startAgent(request: StartAgentRequest): Observable<AgentTriggerReceipt> {
     return this.transport.json<AgentTriggerReceipt>('POST', 'threads/start', request);
@@ -162,21 +166,20 @@ export class NhAssistantAgentRunApiService {
     return this.transport.json<AgentArtifact[]>('GET', `threads/${encodeURIComponent(conversationId)}/artifacts`);
   }
 
-  /** Downloads one artifact version with the host's credentials. */
+  /**
+   * Downloads one artifact version with the host's credentials. Rejects with `NhAssistantApiError`,
+   * for example `assistant-artifact-not-found` or `assistant-network`.
+   */
   downloadArtifact(conversationId: string, artifactId: string): Promise<Blob> {
     const path = `threads/${encodeURIComponent(conversationId)}/artifacts/${encodeURIComponent(artifactId)}/content`;
-    return this.transport.fetch('GET', path, '*/*', undefined, new AbortController().signal).then(response => {
-      if (!response.ok) {
-        throw new Error(`Artifact download failed with status ${response.status}.`);
-      }
-      return response.blob();
-    });
+    return this.transport.download(path, '*/*');
   }
 
   /**
    * The agent runs the caller may see, newest first: runs on objects the caller reads and runs for
    * the whole application whose agent's view policy the caller passes. Errors with
-   * `assistant-run-filter-invalid` for an invalid filter.
+   * `assistant-run-filter-invalid` for an invalid filter, with the refused parts in `fieldErrors`
+   * (`page`, `itemsPerPage`, `agentId`, `subjectType`, `subjectId`, `status`, `to`).
    */
   getRunHistory(filter: AgentRunFilter = {}): Observable<AgentRunHistory> {
     return this.transport.json<AgentRunHistory>('GET', withQuery('runs', filter));
@@ -214,15 +217,13 @@ export class NhAssistantAgentRunApiService {
     return this.transport.json<AgentRunResult>('GET', `runs/${encodeURIComponent(runId)}`);
   }
 
-  /** Downloads one file a run saved, with the host's credentials. */
+  /**
+   * Downloads one file a run saved, with the host's credentials. Rejects with `NhAssistantApiError`,
+   * for example `assistant-artifact-not-found`, `assistant-run-not-found` or `assistant-network`.
+   */
   downloadRunArtifact(runId: string, artifactId: string): Promise<Blob> {
     const path = `runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifactId)}/content`;
-    return this.transport.fetch('GET', path, '*/*', undefined, new AbortController().signal).then(response => {
-      if (!response.ok) {
-        throw new Error(`Artifact download failed with status ${response.status}.`);
-      }
-      return response.blob();
-    });
+    return this.transport.download(path, '*/*');
   }
 
   /** Cancels a run at its next safe point and withdraws its open proposals; needs the participant role. */
@@ -230,7 +231,10 @@ export class NhAssistantAgentRunApiService {
     return this.transport.json<void>('POST', `runs/${encodeURIComponent(runId)}/cancel`);
   }
 
-  /** Resumes or restarts a failed or cancelled run; needs the approver role. */
+  /**
+   * Resumes or restarts a failed or cancelled run; needs the approver role. A restart starts the agent
+   * again like `startAgent`, with the same outcomes and refusals; a resume answers `queued`.
+   */
   retryRun(runId: string, mode: AgentRunRetryMode): Observable<AgentTriggerReceipt> {
     return this.transport.json<AgentTriggerReceipt>('POST', `runs/${encodeURIComponent(runId)}/retry`, { mode });
   }

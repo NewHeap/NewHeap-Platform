@@ -235,7 +235,7 @@ internal sealed class NhAssistantMcpDiscovery(NhAssistantMcpOAuthHttp http)
             var response = await http.GetAsync(candidate, cancellationToken);
             if (!response.Success)
             {
-                blocked ??= FirstCode(response) == NhAssistantAdminErrorCodes.McpHostBlocked ? NhAssistantAdminErrorCodes.McpHostBlocked : null;
+                blocked ??= BlockedCode(response);
                 continue;
             }
             if (response.Data!.Status != HttpStatusCode.OK || response.Data.Body is not { ValueKind: JsonValueKind.Object } body)
@@ -292,7 +292,7 @@ internal sealed class NhAssistantMcpDiscovery(NhAssistantMcpOAuthHttp http)
             var response = await http.GetAsync(new Uri(candidate), cancellationToken);
             if (!response.Success)
             {
-                blocked ??= FirstCode(response) == NhAssistantAdminErrorCodes.McpHostBlocked ? NhAssistantAdminErrorCodes.McpHostBlocked : null;
+                blocked ??= BlockedCode(response);
                 continue;
             }
             if (response.Data!.Status != HttpStatusCode.OK || response.Data.Body is not { ValueKind: JsonValueKind.Object } body)
@@ -367,9 +367,15 @@ internal sealed class NhAssistantMcpDiscovery(NhAssistantMcpOAuthHttp http)
         return body.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
     }
 
-    private static string? FirstCode(TaskResult result)
+    /// <summary>
+    /// The host guard's code when a candidate URL was blocked, so discovery reports it instead of a
+    /// general failure; null for another failure.
+    /// </summary>
+    private static string? BlockedCode(TaskResult result)
     {
-        return result.GetResultItems().Select(item => item.Name).FirstOrDefault(item => !string.IsNullOrEmpty(item));
+        return NhAssistantResults.CodeOf(result) == NhAssistantAdminErrorCodes.McpHostBlocked
+            ? NhAssistantAdminErrorCodes.McpHostBlocked
+            : null;
     }
 
     private static TaskResult<T> Failed<T>(string code)

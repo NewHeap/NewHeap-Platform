@@ -14,16 +14,20 @@
         type="text"
         class="mono"
         [id]="id + '-id'"
+        [maxLength]="limits.id"
         [value]="serverId()"
         [disabled]="!isNew()"
-        [attr.aria-describedby]="id + '-id-hint'"
-        [attr.aria-invalid]="submitted() && idInvalid() ? true : null"
-        (input)="serverId.set(value($event))" />
+        [attr.aria-describedby]="describedBy(id + '-id-hint', 'id')"
+        [attr.aria-invalid]="(submitted() && idInvalid()) || serverInvalid('id') ? true : null"
+        (input)="serverId.set(value($event)); touch('id')" />
       <p class="hint" [id]="id + '-id-hint'">
         <span [class.error-text]="submitted() && idInvalid()">
           {{ (submitted() && idInvalid() ? 'nh-assistant.admin.invalid-id' : 'nh-assistant.admin.server-editor.id-hint') | translate }}
         </span>
       </p>
+      @if (serverInvalid('id')) {
+        <p class="field-error" [id]="errorId('id')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('id') | nhAssistantTranslate }}</p>
+      }
     </div>
 
     <div class="field">
@@ -31,15 +35,19 @@
       <input
         type="text"
         [id]="id + '-name'"
+        [maxLength]="limits.displayName"
         [value]="displayName()"
-        [attr.aria-invalid]="submitted() && nameMissing() ? true : null"
-        [attr.aria-describedby]="id + '-name-hint'"
-        (input)="displayName.set(value($event))" />
+        [attr.aria-invalid]="(submitted() && nameMissing()) || serverInvalid('displayName') ? true : null"
+        [attr.aria-describedby]="describedBy(id + '-name-hint', 'displayName')"
+        (input)="displayName.set(value($event)); touch('displayName')" />
       <p class="hint" [id]="id + '-name-hint'">
         @if (submitted() && nameMissing()) {
           <span class="error-text">{{ 'nh-assistant.admin.required' | translate }}</span>
         }
       </p>
+      @if (serverInvalid('displayName')) {
+        <p class="field-error" [id]="errorId('displayName')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('displayName') | nhAssistantTranslate }}</p>
+      }
     </div>
   </div>
 
@@ -50,25 +58,36 @@
       class="mono"
       inputmode="url"
       [id]="id + '-url'"
+      [maxLength]="limits.url"
       [value]="url()"
-      [attr.aria-describedby]="id + '-url-hint'"
-      [attr.aria-invalid]="submitted() && urlInvalid() ? true : null"
-      (input)="onUrlInput($event)" />
+      [attr.aria-describedby]="describedBy(id + '-url-hint', 'url')"
+      [attr.aria-invalid]="(submitted() && urlInvalid()) || serverInvalid('url') ? true : null"
+      (input)="onUrlInput($event); touch('url')" />
     <p class="hint" [id]="id + '-url-hint'">
       <span [class.error-text]="submitted() && urlInvalid()">
         {{ (submitted() && urlInvalid() ? 'nh-assistant.admin.server-editor.url-invalid' : 'nh-assistant.admin.server-editor.url-hint') | translate }}
       </span>
     </p>
+    @if (serverInvalid('url')) {
+      <p class="field-error" [id]="errorId('url')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('url') | nhAssistantTranslate }}</p>
+    }
   </div>
 
   <div class="grid">
     <div class="field">
       <label [for]="id + '-auth'">{{ 'nh-assistant.admin.server-editor.auth-mode' | translate }}</label>
-      <select [id]="id + '-auth'" (change)="authMode.set($any(value($event)))">
+      <select
+        [id]="id + '-auth'"
+        [attr.aria-describedby]="describedBy(null, 'authMode')"
+        [attr.aria-invalid]="serverInvalid('authMode') ? true : null"
+        (change)="authMode.set($any(value($event))); touch('authMode')">
         @for (mode of authModes; track mode) {
           <option [value]="mode" [selected]="authMode() === mode">{{ 'nh-assistant.admin.mcp.auth.' + mode | translate }}</option>
         }
       </select>
+      @if (serverInvalid('authMode')) {
+        <p class="field-error" [id]="errorId('authMode')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('authMode') | nhAssistantTranslate }}</p>
+      }
     </div>
 
     @if (authMode() === 'api-key') {
@@ -79,10 +98,19 @@
           class="mono"
           placeholder="X-Api-Key"
           [id]="id + '-header'"
+          [maxLength]="limits.headerName"
           [value]="headerName()"
-          [attr.aria-describedby]="id + '-header-hint'"
-          (input)="headerName.set(value($event))" />
-        <p class="hint" [id]="id + '-header-hint'">{{ 'nh-assistant.admin.server-editor.header-name-hint' | translate }}</p>
+          [attr.aria-describedby]="describedBy(id + '-header-hint', 'headerName')"
+          [attr.aria-invalid]="(submitted() && headerNameInvalid()) || serverInvalid('headerName') ? true : null"
+          (input)="headerName.set(value($event)); touch('headerName')" />
+        <p class="hint" [id]="id + '-header-hint'">
+          <span [class.error-text]="submitted() && headerNameInvalid()">
+            {{ (submitted() && headerNameInvalid() ? 'nh-assistant.admin.server-editor.header-name-invalid' : 'nh-assistant.admin.server-editor.header-name-hint') | translate }}
+          </span>
+        </p>
+        @if (serverInvalid('headerName')) {
+          <p class="field-error" [id]="errorId('headerName')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('headerName') | nhAssistantTranslate }}</p>
+        }
       </div>
     }
 
@@ -94,15 +122,19 @@
           autocomplete="off"
           spellcheck="false"
           [id]="id + '-user'"
+          [maxLength]="limits.userName"
           [value]="userName()"
-          [attr.aria-describedby]="id + '-user-hint'"
-          [attr.aria-invalid]="submitted() && userNameInvalid() ? true : null"
-          (input)="userName.set(value($event))" />
+          [attr.aria-describedby]="describedBy(id + '-user-hint', 'userName')"
+          [attr.aria-invalid]="(submitted() && userNameInvalid()) || serverInvalid('userName') ? true : null"
+          (input)="userName.set(value($event)); touch('userName')" />
         <p class="hint" [id]="id + '-user-hint'">
           <span [class.error-text]="submitted() && userNameInvalid()">
             {{ (submitted() && userNameInvalid() ? 'nh-assistant.admin.server-editor.user-name-invalid' : 'nh-assistant.admin.server-editor.user-name-hint') | translate }}
           </span>
         </p>
+        @if (serverInvalid('userName')) {
+          <p class="field-error" [id]="errorId('userName')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('userName') | nhAssistantTranslate }}</p>
+        }
       </div>
     }
   </div>
@@ -116,7 +148,11 @@
       <legend>OAuth</legend>
 
       @if (authMode() === 'oauth') {
-        <div class="inline" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.server-editor.connection-scope' | translate" [attr.aria-describedby]="id + '-scope-hint'">
+        <div
+          class="inline"
+          role="radiogroup"
+          [attr.aria-label]="'nh-assistant.admin.server-editor.connection-scope' | translate"
+          [attr.aria-describedby]="describedBy(id + '-scope-hint', 'connectionScope')">
           @for (scope of connectionScopes; track scope) {
             <label class="check">
               <input
@@ -124,12 +160,16 @@
                 [name]="id + '-connection-scope'"
                 [value]="scope"
                 [checked]="connectionScope() === scope"
-                (change)="connectionScope.set(scope)" />
+                [attr.aria-invalid]="serverInvalid('connectionScope') ? true : null"
+                (change)="connectionScope.set(scope); touch('connectionScope')" />
               <span>{{ 'nh-assistant.admin.mcp.connection-scope.' + scope | translate }}</span>
             </label>
           }
         </div>
         <p class="hint" [id]="id + '-scope-hint'">{{ 'nh-assistant.admin.server-editor.connection-scope-hint' | translate }}</p>
+        @if (serverInvalid('connectionScope')) {
+          <p class="field-error" [id]="errorId('connectionScope')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('connectionScope') | nhAssistantTranslate }}</p>
+        }
       }
 
       @if (isOrganizationOAuth()) {
@@ -138,15 +178,19 @@
         <input
           type="text"
           [id]="id + '-account-label'"
+          [maxLength]="limits.organizationAccountLabel"
           [value]="organizationAccountLabel()"
-          [attr.aria-describedby]="id + '-account-label-hint'"
-          [attr.aria-invalid]="submitted() && labelMissing() ? true : null"
-          (input)="organizationAccountLabel.set(value($event))" />
+          [attr.aria-describedby]="describedBy(id + '-account-label-hint', 'oauth.organizationAccountLabel')"
+          [attr.aria-invalid]="(submitted() && labelMissing()) || serverInvalid('oauth.organizationAccountLabel') ? true : null"
+          (input)="organizationAccountLabel.set(value($event)); touch('oauth.organizationAccountLabel')" />
         <p class="hint" [id]="id + '-account-label-hint'">
           <span [class.error-text]="submitted() && labelMissing()">
             {{ (submitted() && labelMissing() ? 'nh-assistant.admin.server-editor.organization-account-label-required' : 'nh-assistant.admin.server-editor.organization-account-label-hint') | translate }}
           </span>
         </p>
+        @if (serverInvalid('oauth.organizationAccountLabel')) {
+          <p class="field-error" [id]="errorId('oauth.organizationAccountLabel')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('oauth.organizationAccountLabel') | nhAssistantTranslate }}</p>
+        }
       }
 
       <div class="meta">
@@ -182,7 +226,12 @@
             <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.server-editor.pkce-missing' | translate }}</p>
           } @else {
             <label class="check">
-              <input type="checkbox" [checked]="confirmAuthorization()" [attr.aria-describedby]="id + '-confirm-hint'" (change)="confirmAuthorization.set(checked($event))" />
+              <input
+                type="checkbox"
+                [checked]="confirmAuthorization()"
+                [attr.aria-describedby]="describedBy(id + '-confirm-hint', 'oauth.confirmAuthorization')"
+                [attr.aria-invalid]="serverInvalid('oauth.confirmAuthorization') ? true : null"
+                (change)="confirmAuthorization.set(checked($event)); touch('oauth.confirmAuthorization')" />
               <span>{{ 'nh-assistant.admin.server-editor.confirm-authorization' | translate }}</span>
             </label>
             <p class="hint" [id]="id + '-confirm-hint'">{{ 'nh-assistant.admin.server-editor.confirm-authorization-hint' | translate }}</p>
@@ -191,6 +240,8 @@
       }
       @if (submitted() && confirmMissing()) {
         <p class="hint"><span class="error-text">{{ 'nh-assistant.admin.server-editor.confirm-required' | translate }}</span></p>
+      } @else if (serverInvalid('oauth.confirmAuthorization')) {
+        <p class="field-error" [id]="errorId('oauth.confirmAuthorization')"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.server-editor.confirm-required' | translate }}</p>
       }
 
       <label [for]="id + '-scopes'">{{ 'nh-assistant.admin.server-editor.scopes' | translate }}</label>
@@ -199,15 +250,19 @@
         class="mono"
         spellcheck="false"
         [id]="id + '-scopes'"
+        [maxLength]="limits.scopes"
         [value]="oauthScopes()"
-        [attr.aria-describedby]="id + '-scopes-hint'"
-        [attr.aria-invalid]="submitted() && scopesInvalid() ? true : null"
-        (input)="oauthScopes.set(value($event))" />
+        [attr.aria-describedby]="describedBy(id + '-scopes-hint', 'oauth.scopes')"
+        [attr.aria-invalid]="(submitted() && scopesInvalid()) || serverInvalid('oauth.scopes') ? true : null"
+        (input)="oauthScopes.set(value($event)); touch('oauth.scopes')" />
       <p class="hint" [id]="id + '-scopes-hint'">
         <span [class.error-text]="submitted() && scopesInvalid()">
           {{ (submitted() && scopesInvalid() ? 'nh-assistant.admin.server-editor.scopes-invalid' : 'nh-assistant.admin.server-editor.scopes-hint') | translate }}
         </span>
       </p>
+      @if (serverInvalid('oauth.scopes')) {
+        <p class="field-error" [id]="errorId('oauth.scopes')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('oauth.scopes') | nhAssistantTranslate }}</p>
+      }
 
       <label [for]="id + '-client-id'">{{ 'nh-assistant.admin.server-editor.client-id' | translate }}</label>
       <input
@@ -215,15 +270,19 @@
         class="mono"
         spellcheck="false"
         [id]="id + '-client-id'"
+        [maxLength]="limits.clientId"
         [value]="oauthClientId()"
-        [attr.aria-describedby]="id + '-client-id-hint'"
-        [attr.aria-invalid]="submitted() && clientIdMissing() ? true : null"
-        (input)="oauthClientId.set(value($event))" />
+        [attr.aria-describedby]="describedBy(id + '-client-id-hint', 'oauth.clientId')"
+        [attr.aria-invalid]="(submitted() && clientIdMissing()) || serverInvalid('oauth.clientId') ? true : null"
+        (input)="oauthClientId.set(value($event)); touch('oauth.clientId')" />
       <p class="hint" [id]="id + '-client-id-hint'">
         <span [class.error-text]="submitted() && clientIdMissing()">
           {{ (submitted() && clientIdMissing() ? 'nh-assistant.admin.server-editor.client-id-required' : 'nh-assistant.admin.server-editor.client-id-hint') | translate }}
         </span>
       </p>
+      @if (serverInvalid('oauth.clientId')) {
+        <p class="field-error" [id]="errorId('oauth.clientId')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('oauth.clientId') | nhAssistantTranslate }}</p>
+      }
 
       @if (oauthClientId().trim().length > 0) {
         <div class="inline" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.server-editor.client-secret' | translate">
@@ -247,11 +306,16 @@
             spellcheck="false"
             placeholder="config:planning-client-secret"
             [id]="id + '-oauth-reference'"
+            [maxLength]="limits.secretReference"
             [value]="oauthSecretReference()"
-            [attr.aria-invalid]="submitted() && oauthReferenceInvalid() ? true : null"
-            (input)="oauthSecretReference.set(value($event))" />
+            [attr.aria-describedby]="describedBy(null, 'oauth.clientSecretReference')"
+            [attr.aria-invalid]="(submitted() && oauthReferenceInvalid()) || serverInvalid('oauth.clientSecretReference') ? true : null"
+            (input)="oauthSecretReference.set(value($event)); touch('oauth.clientSecretReference')" />
           @if (submitted() && oauthReferenceInvalid()) {
             <p class="hint"><span class="error-text">{{ 'nh-assistant.admin.server-editor.secret-reference-invalid' | translate }}</span></p>
+          }
+          @if (serverInvalid('oauth.clientSecretReference')) {
+            <p class="field-error" [id]="errorId('oauth.clientSecretReference')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('oauth.clientSecretReference') | nhAssistantTranslate }}</p>
           }
         } @else {
           @if (hasOAuthSecret() && oauthSecretAction() === 'keep') {
@@ -268,12 +332,17 @@
               autocomplete="new-password"
               spellcheck="false"
               [id]="id + '-oauth-secret'"
-              [attr.aria-describedby]="id + '-oauth-secret-hint'"
+              [maxLength]="limits.clientSecret"
+              [attr.aria-describedby]="describedBy(id + '-oauth-secret-hint', 'oauth.clientSecret')"
+              [attr.aria-invalid]="serverInvalid('oauth.clientSecret') ? true : null"
               [value]="oauthSecret()"
-              (input)="onOAuthSecretInput($event)" />
+              (input)="onOAuthSecretInput($event); touch('oauth.clientSecret')" />
           }
           <p class="hint" [id]="id + '-oauth-secret-hint'">{{ 'nh-assistant.admin.server-editor.client-secret-hint' | translate }}</p>
         }
+      }
+      @if (serverInvalid('oauth.clientSecret')) {
+        <p class="field-error" [id]="errorId('oauth.clientSecret')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('oauth.clientSecret') | nhAssistantTranslate }}</p>
       }
     </fieldset>
   }
@@ -302,15 +371,19 @@
           spellcheck="false"
           placeholder="config:planning-token"
           [id]="id + '-secret-reference'"
+          [maxLength]="limits.secretReference"
           [value]="secretReference()"
-          [attr.aria-describedby]="id + '-secret-reference-hint'"
-          [attr.aria-invalid]="submitted() && secretReferenceInvalid() ? true : null"
-          (input)="secretReference.set(value($event))" />
+          [attr.aria-describedby]="describedBy(id + '-secret-reference-hint', 'secretReference')"
+          [attr.aria-invalid]="(submitted() && secretReferenceInvalid()) || serverInvalid('secretReference') ? true : null"
+          (input)="secretReference.set(value($event)); touch('secretReference')" />
         <p class="hint" [id]="id + '-secret-reference-hint'">
           <span [class.error-text]="submitted() && secretReferenceInvalid()">
             {{ (submitted() && secretReferenceInvalid() ? 'nh-assistant.admin.server-editor.secret-reference-invalid' : 'nh-assistant.admin.server-editor.secret-reference-hint') | translate }}
           </span>
         </p>
+        @if (serverInvalid('secretReference')) {
+          <p class="field-error" [id]="errorId('secretReference')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('secretReference') | nhAssistantTranslate }}</p>
+        }
       } @else if (hasSecret()) {
         <div class="meta secret-state">
           @switch (secretAction()) {
@@ -340,13 +413,18 @@
           autocomplete="new-password"
           spellcheck="false"
           [id]="id + '-secret'"
+          [maxLength]="limits.secret"
           [attr.placeholder]="'nh-assistant.admin.server-editor.secret-new' | translate"
-          [attr.aria-describedby]="id + '-secret-hint'"
+          [attr.aria-describedby]="describedBy(id + '-secret-hint', 'secret')"
+          [attr.aria-invalid]="serverInvalid('secret') ? true : null"
           [value]="secret()"
-          (input)="onSecretInput($event)" />
+          (input)="onSecretInput($event); touch('secret')" />
       }
       @if (!usesReference()) {
         <p class="hint" [id]="id + '-secret-hint'">{{ 'nh-assistant.admin.server-editor.secret-hint' | translate }}</p>
+      }
+      @if (serverInvalid('secret')) {
+        <p class="field-error" [id]="errorId('secret')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('secret') | nhAssistantTranslate }}</p>
       }
     </fieldset>
   }
@@ -359,25 +437,36 @@
         class="mono"
         spellcheck="false"
         [id]="id + '-certificate'"
+        [maxLength]="limits.clientCertificateReference"
         [value]="clientCertificateReference()"
-        [attr.aria-describedby]="id + '-certificate-hint'"
-        [attr.aria-invalid]="submitted() && certificateInvalid() ? true : null"
-        (input)="clientCertificateReference.set(value($event))" />
+        [attr.aria-describedby]="describedBy(id + '-certificate-hint', 'clientCertificateReference')"
+        [attr.aria-invalid]="(submitted() && certificateInvalid()) || serverInvalid('clientCertificateReference') ? true : null"
+        (input)="clientCertificateReference.set(value($event)); touch('clientCertificateReference')" />
       <p class="hint" [id]="id + '-certificate-hint'">
         <span [class.error-text]="submitted() && certificateInvalid()">
           {{ (submitted() && certificateInvalid() ? 'nh-assistant.admin.server-editor.client-certificate-invalid' : 'nh-assistant.admin.server-editor.client-certificate-hint') | translate }}
         </span>
       </p>
+      @if (serverInvalid('clientCertificateReference')) {
+        <p class="field-error" [id]="errorId('clientCertificateReference')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('clientCertificateReference') | nhAssistantTranslate }}</p>
+      }
     </div>
 
     <div class="field">
       <label [for]="id + '-transport'">{{ 'nh-assistant.admin.server-editor.transport' | translate }}</label>
-      <select [id]="id + '-transport'" [attr.aria-describedby]="id + '-transport-hint'" (change)="transport.set($any(value($event)))">
+      <select
+        [id]="id + '-transport'"
+        [attr.aria-describedby]="describedBy(id + '-transport-hint', 'transport')"
+        [attr.aria-invalid]="serverInvalid('transport') ? true : null"
+        (change)="transport.set($any(value($event))); touch('transport')">
         @for (option of transports; track option) {
           <option [value]="option" [selected]="transport() === option">{{ 'nh-assistant.admin.mcp.transport.' + option | translate }}</option>
         }
       </select>
       <p class="hint" [id]="id + '-transport-hint'">{{ 'nh-assistant.admin.server-editor.transport-hint' | translate }}</p>
+      @if (serverInvalid('transport')) {
+        <p class="field-error" [id]="errorId('transport')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('transport') | nhAssistantTranslate }}</p>
+      }
     </div>
   </div>
 
@@ -387,18 +476,24 @@
       type="text"
       class="mono"
       [id]="id + '-policy'"
+      [maxLength]="limits.requiredPolicy"
       [value]="requiredPolicy()"
-      [attr.aria-describedby]="id + '-policy-hint'"
-      (input)="requiredPolicy.set(value($event))" />
+      [attr.aria-describedby]="describedBy(id + '-policy-hint', 'requiredPolicy')"
+      [attr.aria-invalid]="serverInvalid('requiredPolicy') ? true : null"
+      (input)="requiredPolicy.set(value($event)); touch('requiredPolicy')" />
     <p class="hint" [id]="id + '-policy-hint'">{{ 'nh-assistant.admin.server-editor.required-policy-hint' | translate }}</p>
+    @if (serverInvalid('requiredPolicy')) {
+      <p class="field-error" [id]="errorId('requiredPolicy')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('requiredPolicy') | nhAssistantTranslate }}</p>
+    }
   </div>
 
   <div class="field">
     <label [for]="id + '-headless'">{{ 'nh-assistant.admin.server-editor.headless-use' | translate }}</label>
     <select
       [id]="id + '-headless'"
-      [attr.aria-describedby]="id + '-headless-hint'"
-      (change)="headlessUse.set($any(value($event)))">
+      [attr.aria-describedby]="describedBy(id + '-headless-hint', 'headlessUse')"
+      [attr.aria-invalid]="serverInvalid('headlessUse') ? true : null"
+      (change)="headlessUse.set($any(value($event))); touch('headlessUse')">
       @for (use of headlessUses(); track use) {
         <option [value]="use" [selected]="effectiveHeadlessUse() === use">{{ 'nh-assistant.admin.mcp.headless.' + use | translate }}</option>
       }
@@ -406,6 +501,9 @@
     <p class="hint" [id]="id + '-headless-hint'">
       {{ (personalCredential() ? 'nh-assistant.admin.server-editor.headless-use-personal' : 'nh-assistant.admin.server-editor.headless-use-hint') | translate }}
     </p>
+    @if (serverInvalid('headlessUse')) {
+      <p class="field-error" [id]="errorId('headlessUse')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('headlessUse') | nhAssistantTranslate }}</p>
+    }
   </div>
 
   <label class="check">
@@ -414,7 +512,19 @@
   </label>
 
   @if (error(); as failure) {
-    <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+    <div class="form-error" role="alert" data-server-error>
+      <nh-assistant-icon name="warning" />
+      <div>
+        <span>{{ errorKeys() | nhAssistantTranslate: failure.code }}</span>
+        @if (otherServerErrors().length > 0) {
+          <ul>
+            @for (other of otherServerErrors(); track other.field) {
+              <li><code class="mono">{{ other.field }}</code>: {{ other.keys | nhAssistantTranslate }}</li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
   }
 
   <div class="actions">

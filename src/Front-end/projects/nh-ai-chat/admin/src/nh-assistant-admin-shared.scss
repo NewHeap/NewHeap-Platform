@@ -94,6 +94,11 @@ textarea.large {
   min-height: 260px;
 }
 
+// A notice with its own action, such as the run catalog that could not be read, wraps on a narrow page.
+.catalog-error {
+  flex-wrap: wrap;
+}
+
 .grow {
   flex: 1;
   min-width: 0;

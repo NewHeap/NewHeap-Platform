@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.Common.Models;
@@ -10,10 +11,15 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 
 /// <summary>
-/// The answer of an OAuth endpoint: the status and, when the body was JSON, its root.
+/// The answer of an OAuth endpoint: the status and, when the body was JSON within the size limit, its
+/// root. A body over the limit is not read (<see cref="TooLarge"/>), so the answer is unusable like
+/// one without the expected fields.
 /// </summary>
 internal sealed record NhAssistantMcpOAuthResponse(HttpStatusCode Status, JsonElement? Body, HttpResponseHeaders Headers)
 {
+    /// <summary>The body exceeded <see cref="NhAssistantMcpOAuthHttp.MaxResponseBytes"/> and was dropped.</summary>
+    public bool TooLarge { get; init; }
+
     public string? String(string name)
     {
         return Body is { ValueKind: JsonValueKind.Object } body
@@ -37,22 +43,28 @@ internal sealed record NhAssistantMcpOAuthResponse(HttpStatusCode Status, JsonEl
 /// <summary>
 /// HTTP for OAuth URLs that remote documents name (D9): every URL passes the host guard with https
 /// required, private networks blocked unless allowed and the resolved addresses checked again when
-/// the socket connects; no redirects, the connect timeout and at most 64 KiB per response. Bodies,
+/// the socket connects; no redirects, the connect timeout and at most 64 KiB per response. A larger
+/// body is dropped with a warning: the endpoint answered, so it is not reported unreachable. Bodies,
 /// tokens and secrets never reach a log.
 /// </summary>
-internal sealed class NhAssistantMcpOAuthHttp : IDisposable
+internal sealed partial class NhAssistantMcpOAuthHttp : IDisposable
 {
     public const int MaxResponseBytes = 64 * 1024;
 
     private readonly NhAssistantMcpHostGuard _guard;
     private readonly IOptionsMonitor<NhAssistantOptions> _options;
+    private readonly ILogger<NhAssistantMcpOAuthHttp> _logger;
     private readonly HttpClient _client;
     private readonly HttpClient _mcpClient;
 
-    public NhAssistantMcpOAuthHttp(NhAssistantMcpHostGuard guard, IOptionsMonitor<NhAssistantOptions> options)
+    public NhAssistantMcpOAuthHttp(
+        NhAssistantMcpHostGuard guard,
+        IOptionsMonitor<NhAssistantOptions> options,
+        ILogger<NhAssistantMcpOAuthHttp> logger)
     {
         _guard = guard;
         _options = options;
+        _logger = logger;
         _client = CreateClient(guard.ResolveAllowedForOAuthAsync);
         // The MCP endpoint itself follows the MCP endpoint rules, which allow intranet servers.
         _mcpClient = CreateClient(guard.ResolveAllowedAsync);
@@ -176,6 +188,12 @@ internal sealed class NhAssistantMcpOAuthHttp : IDisposable
             using var request = create();
             using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             var body = await ReadBoundedAsync(response.Content, timeout.Token);
+            if (body is null)
+            {
+                LogResponseTooLarge(_logger, request.RequestUri?.Host ?? string.Empty, (int)response.StatusCode);
+                return TaskResult<NhAssistantMcpOAuthResponse>.Succeeded(
+                    new NhAssistantMcpOAuthResponse(response.StatusCode, null, response.Headers) { TooLarge = true });
+            }
             JsonElement? json = null;
             if (body.Length > 0)
             {
@@ -201,7 +219,10 @@ internal sealed class NhAssistantMcpOAuthHttp : IDisposable
         }
     }
 
-    private static async Task<byte[]> ReadBoundedAsync(HttpContent content, CancellationToken cancellationToken)
+    /// <summary>
+    /// Reads the body up to <see cref="MaxResponseBytes"/>; <see langword="null"/> when it is larger.
+    /// </summary>
+    private static async Task<byte[]?> ReadBoundedAsync(HttpContent content, CancellationToken cancellationToken)
     {
         await using var stream = await content.ReadAsStreamAsync(cancellationToken);
         using var buffer = new MemoryStream();
@@ -211,10 +232,13 @@ internal sealed class NhAssistantMcpOAuthHttp : IDisposable
         {
             if (buffer.Length + read > MaxResponseBytes)
             {
-                throw new HttpRequestException("The response is too large.");
+                return null;
             }
             buffer.Write(chunk, 0, read);
         }
         return buffer.ToArray();
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "An OAuth endpoint at {Host} answered {Status} with a body over 64 KiB; the body was dropped.")]
+    private static partial void LogResponseTooLarge(ILogger logger, string host, int status);
 }

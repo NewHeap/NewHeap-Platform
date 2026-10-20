@@ -3,12 +3,12 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, injec
 import { TranslatePipe } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { McpConnection } from '../../models/assistant-admin.models';
+import { nhAssistantErrorKeys, nhAssistantErrorOf, toNhAssistantError } from '../../internal/nh-assistant-errors';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NhAssistantApiService } from '../../services/nh-assistant-api.service';
 import { NhAssistantMcpConnectService } from '../../services/nh-assistant-mcp-connect.service';
 import { NhAssistantError, NhAssistantStore } from '../../services/nh-assistant.store';
-import { NhAssistantApiError, nhAssistantErrorMessageKey } from '../../services/nh-assistant-transport';
 
 let nextId = 0;
 
@@ -42,10 +42,7 @@ export class NhAssistantMcpConnectionsComponent {
   /** The latest change to announce, per server. */
   readonly notice = signal<{ serverId: string; key: string } | null>(null);
   readonly error = signal<NhAssistantError | null>(null);
-  readonly errorKeys = computed(() => {
-    const error = this.error();
-    return error ? [error.messageKey, nhAssistantErrorMessageKey(error.code), 'nh-assistant.errors.generic'] : [];
-  });
+  readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   /** Whether any listed server is one the caller connects with OAuth. */
   readonly connectsAccounts = computed(() => this.connections().some(connection => connection.connectionStatus !== null));
 
@@ -65,7 +62,7 @@ export class NhAssistantMcpConnectionsComponent {
             this.notice.set({ serverId: returned.completion.serverId, key: 'nh-assistant.preferences.mcp.connect-done' });
             this.load();
           } else {
-            this.error.set({ code: returned.code, messageKey: nhAssistantErrorMessageKey(returned.code) });
+            this.error.set(nhAssistantErrorOf(returned.code));
           }
         });
       }
@@ -103,7 +100,7 @@ export class NhAssistantMcpConnectionsComponent {
         this.connections.update(items => [...items]);
         (event.target as HTMLInputElement).checked = connection.allowBackgroundUse;
         this.busy.set(null);
-        this.setError(error);
+        this.error.set(toNhAssistantError(error));
       }
     });
   }
@@ -122,7 +119,7 @@ export class NhAssistantMcpConnectionsComponent {
       },
       error: (error: unknown) => {
         this.busy.set(null);
-        this.setError(error);
+        this.error.set(toNhAssistantError(error));
       }
     });
   }
@@ -141,14 +138,8 @@ export class NhAssistantMcpConnectionsComponent {
       },
       error: (error: unknown) => {
         this.busy.set(null);
-        this.setError(error);
+        this.error.set(toNhAssistantError(error));
       }
     });
-  }
-
-  private setError(error: unknown): void {
-    this.error.set(error instanceof NhAssistantApiError
-      ? { code: error.code, messageKey: error.messageKey }
-      : { code: 'assistant-server', messageKey: nhAssistantErrorMessageKey('assistant-server') });
   }
 }

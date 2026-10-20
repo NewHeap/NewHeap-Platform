@@ -10,21 +10,7 @@
     @if (receipt(); as started) {
       <!-- The receipt: what happens now, on what, and the conversation the run works in. -->
       <div class="stack" data-receipt>
-        @if (started.receipt.outcome === 'rejected') {
-          <p class="message warning" role="status" tabindex="-1" data-receipt-focus>
-            <nh-assistant-icon name="warning" />
-            <span>
-              {{ 'nh-assistant.agent-runs.thread.outcome.rejected' | translate }}
-              @if (started.receipt.reasonCode; as reason) {
-                {{ ['nh-assistant.errors.' + reason] | nhAssistantTranslate }}
-              }
-            </span>
-          </p>
-        } @else {
-          <p class="message success" role="status" tabindex="-1" data-receipt-focus>
-            <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.thread.outcome.' + started.receipt.outcome | translate }}
-          </p>
-        }
+        <nh-assistant-run-receipt [receipt]="started.receipt" [focusable]="true" />
         <p class="muted" data-receipt-subject>
           <span>{{ 'nh-assistant.run-now.receipt-subject' | translate }}</span>{{ ' ' }}
           <nh-assistant-subject-link

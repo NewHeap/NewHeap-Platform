@@ -4,6 +4,7 @@
     [tools]="tools()"
     [servers]="servers()"
     [catalog]="catalog()"
+    [catalogUnavailable]="catalogError() !== null"
     (saved)="onSaved($event)"
     (workRequested)="onWorkRequested($event)"
     (cancelled)="editing.set(undefined)" />
@@ -65,6 +66,22 @@
       @if (errorAgentId() === null) {
         <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
       }
+    }
+    @if (!loading() && !loadFailed()) {
+      @if (catalogError(); as failure) {
+        <!-- Without the run catalog nothing that depends on it is offered: run now, what agents work on, groups. -->
+        <div class="message warning catalog-error" role="alert" data-catalog-error>
+          <nh-assistant-icon name="warning" />
+          <span class="grow">
+            {{ 'nh-assistant.admin.agents.catalog-failed' | translate }}
+            {{ catalogErrorKeys() | nhAssistantTranslate: failure.code }}
+          </span>
+          <button class="secondary" type="button" data-catalog-retry [disabled]="catalogLoading()" (click)="retryCatalog()">
+            <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.retry' | translate }}
+          </button>
+        </div>
+      }
+      <nh-assistant-account-names-error [names]="accountNameLookup" />
     }
 
     @if (loading()) {
@@ -431,8 +448,14 @@
                         [inputId]="id + '-' + agent.id + '-account'"
                         [value]="accountId()"
                         [searchable]="accountSearch()"
-                        [invalid]="errorAgentId() === agent.id && error() !== null"
-                        (valueChange)="accountId.set($event)" />
+                        [invalid]="accountError() !== null"
+                        [describedBy]="accountError() ? id + '-' + agent.id + '-account-error' : null"
+                        (valueChange)="onAccountChange($event)" />
+                      @if (accountError(); as failure) {
+                        <p class="field-error" data-account-error [id]="id + '-' + agent.id + '-account-error'">
+                          <nh-assistant-icon name="warning" />{{ accountErrorKeys() | nhAssistantTranslate: failure.code }}
+                        </p>
+                      }
                     </div>
                   }
                   <div class="field">

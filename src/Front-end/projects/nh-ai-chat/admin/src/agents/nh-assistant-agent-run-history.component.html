@@ -19,13 +19,20 @@
     <form class="filters" [attr.aria-label]="'nh-assistant.admin.runs.filters' | translate" (submit)="$event.preventDefault(); apply()">
       <div class="field">
         <label [for]="id + '-type'">{{ 'nh-assistant.admin.runs.subject-type' | translate }}</label>
-        <select [id]="id + '-type'" (change)="update('subjectType', $event)">
+        <select
+          [id]="id + '-type'"
+          [attr.aria-invalid]="fieldErrors()['subjectType'] ? true : null"
+          [attr.aria-describedby]="describedBy(null, 'subjectType')"
+          (change)="update('subjectType', $event)">
           <option value="" [selected]="form().subjectType === ''">{{ 'nh-assistant.admin.runs.any-subject' | translate }}</option>
           <option [value]="systemType" [selected]="form().subjectType === systemType">{{ 'nh-assistant.admin.runs.whole-application' | translate }}</option>
           @for (type of objectTypes(); track type.id) {
             <option [value]="type.id" [selected]="form().subjectType === type.id">{{ type.pluralName ?? type.name }}</option>
           }
         </select>
+        @if (fieldErrors()['subjectType']) {
+          <p class="field-error" [id]="id + '-subjectType-error'"><nh-assistant-icon name="warning" />{{ fieldErrorKeys('subjectType') | nhAssistantTranslate }}</p>
+        }
       </div>
       @if (objectChoosable()) {
         <div class="field">
@@ -35,20 +42,31 @@
             autocomplete="off"
             maxlength="200"
             [id]="id + '-object'"
-            [attr.aria-describedby]="id + '-object-hint'"
+            [attr.aria-describedby]="describedBy(id + '-object-hint', 'subjectId')"
+            [attr.aria-invalid]="fieldErrors()['subjectId'] ? true : null"
             [value]="form().subjectId"
             (input)="update('subjectId', $event)" />
           <p class="hint" [id]="id + '-object-hint'"><span>{{ 'nh-assistant.admin.runs.subject-id-hint' | translate }}</span></p>
+          @if (fieldErrors()['subjectId']) {
+            <p class="field-error" [id]="id + '-subjectId-error'"><nh-assistant-icon name="warning" />{{ fieldErrorKeys('subjectId') | nhAssistantTranslate }}</p>
+          }
         </div>
       }
       <div class="field">
         <label [for]="id + '-status'">{{ 'nh-assistant.admin.runs.status' | translate }}</label>
-        <select [id]="id + '-status'" (change)="update('status', $event)">
+        <select
+          [id]="id + '-status'"
+          [attr.aria-invalid]="fieldErrors()['status'] ? true : null"
+          [attr.aria-describedby]="describedBy(null, 'status')"
+          (change)="update('status', $event)">
           <option value="" [selected]="form().status === ''">{{ 'nh-assistant.admin.runs.any-status' | translate }}</option>
           @for (status of statuses; track status) {
             <option [value]="status" [selected]="form().status === status">{{ 'nh-assistant.agent-runs.run.status.' + status | translate }}</option>
           }
         </select>
+        @if (fieldErrors()['status']) {
+          <p class="field-error" [id]="id + '-status-error'"><nh-assistant-icon name="warning" />{{ fieldErrorKeys('status') | nhAssistantTranslate }}</p>
+        }
       </div>
       <div class="field">
         <label [for]="id + '-from'">{{ 'nh-assistant.admin.runs.from' | translate }}</label>
@@ -60,11 +78,13 @@
           type="date"
           [id]="id + '-to'"
           [value]="form().to"
-          [attr.aria-invalid]="periodInvalid()"
-          [attr.aria-describedby]="periodInvalid() ? id + '-to-error' : null"
+          [attr.aria-invalid]="periodInvalid() || fieldErrors()['to'] ? true : null"
+          [attr.aria-describedby]="periodInvalid() || fieldErrors()['to'] ? id + '-to-error' : null"
           (change)="update('to', $event)" />
         @if (periodInvalid()) {
           <p class="field-error" role="alert" [id]="id + '-to-error'"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.runs.period-invalid' | translate }}</p>
+        } @else if (fieldErrors()['to']) {
+          <p class="field-error" [id]="id + '-to-error'"><nh-assistant-icon name="warning" />{{ fieldErrorKeys('to') | nhAssistantTranslate }}</p>
         }
       </div>
       <div class="filter-actions">
@@ -124,7 +144,7 @@
                 <span data-run-duration>{{ took.key | translate: { count: took.value } }}</span>
               }
               @if (run.failureCode; as code) {
-                <span>{{ ['nh-assistant.errors.' + code] | nhAssistantTranslate: code }}</span>
+                <span data-run-failure>{{ codeKeys(code) | nhAssistantTranslate: code }}</span>
               }
             </div>
             <div class="card-actions">

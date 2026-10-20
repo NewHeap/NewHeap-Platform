@@ -14,9 +14,15 @@
   @if (loading() && !listing()) {
     <p class="state" role="status">{{ 'nh-assistant.agent-runs.object-agents.loading' | translate }}</p>
   } @else if (loadFailed()) {
-    <div class="state" role="alert">
-      <p>{{ 'nh-assistant.agent-runs.load-failed' | translate }}</p>
-      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.agent-runs.retry' | translate }}</button>
+    <div class="state" role="alert" data-object-agents-error>
+      @if (loadError(); as failure) {
+        <p>{{ loadErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+      } @else {
+        <p>{{ 'nh-assistant.agent-runs.load-failed' | translate }}</p>
+      }
+      @if (loadRetryable()) {
+        <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.agent-runs.retry' | translate }}</button>
+      }
     </div>
   } @else if (agents().length === 0) {
     <p class="state" data-object-agents-empty>{{ 'nh-assistant.agent-runs.object-agents.empty' | translate }}</p>
@@ -50,7 +56,7 @@
                 }
               </div>
               @if (run.failureCode; as reason) {
-                <p class="muted">{{ 'nh-assistant.agent-runs.object-agents.failure' | translate: { reason: (['nh-assistant.errors.' + reason] | nhAssistantTranslate: reason) } }}</p>
+                <p class="muted">{{ 'nh-assistant.agent-runs.object-agents.failure' | translate: { reason: (codeKeys(reason) | nhAssistantTranslate: reason) } }}</p>
               }
               @if (run.result; as result) {
                 <p class="summary result" data-latest-result>

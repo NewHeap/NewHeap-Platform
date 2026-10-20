@@ -24,6 +24,7 @@ import {
   NH_ASSISTANT_SYSTEM_SUBJECT_TYPE,
   NhAssistantAdminApiService,
   NhAssistantError,
+  ɵnhAssistantCodeKeys as nhAssistantCodeKeys,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantSubjectLinkComponent as NhAssistantSubjectLinkComponent,
@@ -51,13 +52,17 @@ interface RunHistoryForm {
 
 const emptyForm: RunHistoryForm = { subjectType: '', subjectId: '', status: '', from: '', to: '' };
 
+/** The filter fields the form shows; the server's errors of others stay with the form's error. */
+const formFields = ['subjectType', 'subjectId', 'status', 'to'] as const;
+
 /**
  * The runs view of one agent for administrators (`GET admin/agents/{id}/runs`): every run of the
  * agent, shadow runs marked, newest first, filtered by the kind of object, one object, the whole
  * application, the status and the period. Per run its time, trigger, object, the beginning of its
  * result, its proposals, usage and duration; "Show the result" opens the run's whole result, its
  * proposals and its files in `nh-assistant-run-result`. The administration's agent cards open it with
- * "Runs".
+ * "Runs". A filter the server refuses (`assistant-run-filter-invalid`) shows each refused part at its
+ * field, and a run's failure reads as its translated code.
  */
 @Component({
   selector: 'nh-assistant-agent-run-history',
@@ -104,6 +109,18 @@ export class NhAssistantAgentRunHistoryComponent {
   readonly loadingMore = signal(false);
   readonly error = signal<NhAssistantError | null>(null);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
+  /** The refused filter fields the form shows, with the server's first value per field. */
+  readonly fieldErrors = computed<Partial<Record<string, string>>>(() => {
+    const errors: Partial<Record<string, string>> = {};
+    for (const field of formFields) {
+      const value = this.error()?.fieldErrors?.[field]?.[0];
+      if (value) {
+        errors[field] = value;
+      }
+    }
+    return errors;
+  });
+  readonly codeKeys = nhAssistantCodeKeys;
   readonly items = signal<AgentRunHistoryItem[]>([]);
   readonly total = signal(0);
   readonly page = signal(1);
@@ -123,6 +140,22 @@ export class NhAssistantAgentRunHistoryComponent {
         this.fetch(1);
       });
     });
+  }
+
+  /** The text of the server's error of a filter field; a refused end of the period reads as such. */
+  fieldErrorKeys(field: string): string[] {
+    const value = this.fieldErrors()[field];
+    if (!value) {
+      return [];
+    }
+    const own = field === 'to' ? ['nh-assistant.admin.runs.period-invalid'] : [];
+    return [...own, `nh-assistant.admin.run-config.field-errors.${value}`, 'nh-assistant.errors.generic'];
+  }
+
+  /** The ids a filter field describes itself with: its hint and its error while there is one. */
+  describedBy(hintId: string | null, field: string): string | null {
+    const ids = [hintId, this.fieldErrors()[field] ? `${this.id}-${field}-error` : null].filter((id): id is string => id !== null);
+    return ids.length > 0 ? ids.join(' ') : null;
   }
 
   update(field: keyof RunHistoryForm, event: Event): void {
@@ -209,6 +242,14 @@ export class NhAssistantAgentRunHistoryComponent {
       : { key: 'nh-assistant.agent-runs.result.duration-minutes', value: Math.round(seconds / 60) };
   }
 
+  /** Moves the focus to the first filter field the server refused. */
+  private focusRefusedField(): void {
+    if (Object.keys(this.fieldErrors()).length === 0) {
+      return;
+    }
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('.filters [aria-invalid="true"]')?.focus(), { injector: this.injector });
+  }
+
   private fetch(page: number): void {
     const first = page === 1;
     this.loading.set(first);
@@ -231,6 +272,7 @@ export class NhAssistantAgentRunHistoryComponent {
         this.loading.set(false);
         this.loadingMore.set(false);
         this.error.set(toNhAssistantError(failure));
+        this.focusRefusedField();
       }
     });
   }

@@ -276,7 +276,7 @@ internal sealed class NhAssistantAgentRunOperation(
             cancellationToken);
         if (!created.Success)
         {
-            await FailAsync(run, null, NhAssistantRunFailureClasses.Validation, FirstCode(created));
+            await FailAsync(run, null, NhAssistantRunFailureClasses.Validation, NhAssistantResults.CodeOf(created, NhAssistantErrorCodes.TurnFailed));
             return TaskResult.Failed(created);
         }
 
@@ -796,13 +796,6 @@ internal sealed class NhAssistantAgentRunOperation(
         };
     }
 
-    private static string FirstCode(TaskResult result)
-    {
-        return result.GetResultItems()
-            .Select(item => item.Name)
-            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
-            ?? NhAssistantErrorCodes.TurnFailed;
-    }
 }
 
 /// <summary>
