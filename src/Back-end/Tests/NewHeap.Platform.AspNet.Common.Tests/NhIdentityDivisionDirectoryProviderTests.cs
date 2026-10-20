@@ -2,12 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
-using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services.Actors;
-using NewHeap.Platform.AspNet.Common.SqlServer;
 using NewHeap.Platform.Common.Actors;
-using Testcontainers.MsSql;
-using Testcontainers.PostgreSql;
+using NewHeap.Platform.Tests.Relational;
 using Xunit;
 
 namespace NewHeap.Platform.AspNet.Common.Tests;
@@ -24,20 +21,13 @@ public sealed class NhIdentityDivisionDirectoryProviderTests
     private static readonly Guid Central = Guid.Parse("c3000000-0000-0000-0000-0000000000c3");
     private static readonly Guid Unnamed = Guid.Parse("d4000000-0000-0000-0000-0000000000d4");
 
-    [Fact]
-    public async Task DivisionsAreListedByNameAndFoundByIdOnBothRelationalProviders()
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task DivisionsAreListedByNameAndFoundByIdOnEachRelationalProvider(RelationalTestProvider provider)
     {
-        await using (var sqlServer = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build())
-        {
-            await sqlServer.StartAsync();
-            await VerifyAsync(options => options.UseNewHeapSqlServer(sqlServer.GetConnectionString()));
-        }
-
-        await using (var postgreSql = new PostgreSqlBuilder("postgres:15.1").Build())
-        {
-            await postgreSql.StartAsync();
-            await VerifyAsync(options => options.UseNewHeapPostgreSql(postgreSql.GetConnectionString()));
-        }
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+        await VerifyAsync(database.UseNewHeapProvider);
     }
 
     [Fact]

@@ -16,11 +16,10 @@ using NewHeap.Platform.Common.Attributes;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using NewHeap.Platform.Mapping;
+using NewHeap.Platform.Tests.Relational;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
-using Testcontainers.MsSql;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace NewHeap.Platform.AspNet.Common.Tests;
@@ -147,12 +146,12 @@ public sealed class FieldSelectionTests
     }
 
     [Theory]
-    [InlineData("sql-server")]
-    [InlineData("postgresql")]
-    public async Task SelectionTranslatesWithoutLoadingOtherColumns(string provider)
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task SelectionTranslatesWithoutLoadingOtherColumns(RelationalTestProvider provider)
     {
         var options = new DbContextOptionsBuilder<Database>();
-        if (provider == "sql-server")
+        if (provider == RelationalTestProvider.SqlServer)
         {
             options.UseSqlServer("Server=localhost;Database=TranslationOnly;Integrated Security=true");
         }
@@ -179,23 +178,20 @@ public sealed class FieldSelectionTests
     }
 
     [Theory]
-    [InlineData("sql-server")]
-    [InlineData("postgresql")]
-    public async Task ProjectionExecutesOnRelationalProviderWithoutSelectingSecret(string provider)
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task ProjectionExecutesOnRelationalProviderWithoutSelectingSecret(RelationalTestProvider provider)
     {
-        await using var sql = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
-        await using var postgres = new PostgreSqlBuilder("postgres:15.1").Build();
+        var database = await ProviderTestDatabase.CreateAsync(provider);
         var capture = new Capture();
         var options = new DbContextOptionsBuilder<Database>().AddInterceptors(capture);
-        if (provider == "sql-server")
+        if (provider == RelationalTestProvider.SqlServer)
         {
-            await sql.StartAsync();
-            options.UseSqlServer(sql.GetConnectionString());
+            options.UseSqlServer(database.ConnectionString);
         }
         else
         {
-            await postgres.StartAsync();
-            options.UseNpgsql(postgres.GetConnectionString());
+            options.UseNpgsql(database.ConnectionString);
         }
         await using var db = new Database(options.Options);
         await db.Database.EnsureCreatedAsync();

@@ -10,13 +10,10 @@ using NewHeap.Platform.AspNet.Common.Controllers;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
-using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
-using NewHeap.Platform.AspNet.Common.SqlServer;
 using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.Common.Models;
-using Testcontainers.MsSql;
-using Testcontainers.PostgreSql;
+using NewHeap.Platform.Tests.Relational;
 using Xunit;
 
 namespace NewHeap.Platform.AspNet.Common.Tests;
@@ -30,20 +27,13 @@ public sealed class NhPlatformModuleProviderTests
     private const string OperationType = "portal-report";
     private const string NotificationSchema = "portal_notify";
 
-    [Fact]
-    public async Task ModulesRunInAPlainContextOnBothRelationalProviders()
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task ModulesRunInAPlainContextOnEachRelationalProvider(RelationalTestProvider provider)
     {
-        await using (var sqlServer = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build())
-        {
-            await sqlServer.StartAsync();
-            await VerifyProviderAsync(options => options.UseNewHeapSqlServer(sqlServer.GetConnectionString()), "sql-server");
-        }
-
-        await using (var postgreSql = new PostgreSqlBuilder("postgres:15.1").Build())
-        {
-            await postgreSql.StartAsync();
-            await VerifyProviderAsync(options => options.UseNewHeapPostgreSql(postgreSql.GetConnectionString()), "postgresql");
-        }
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+        await VerifyProviderAsync(database.UseNewHeapProvider, database.Label);
     }
 
     private static async Task VerifyProviderAsync(Action<DbContextOptionsBuilder> configureProvider, string providerName)

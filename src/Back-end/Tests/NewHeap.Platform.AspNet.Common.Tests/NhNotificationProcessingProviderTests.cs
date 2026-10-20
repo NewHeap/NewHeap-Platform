@@ -1,5 +1,3 @@
-using NewHeap.Platform.AspNet.Common.SqlServer;
-using NewHeap.Platform.AspNet.Common.PostgreSql;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -10,39 +8,21 @@ using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.Common.Models;
+using NewHeap.Platform.Tests.Relational;
 using Newtonsoft.Json;
-using Testcontainers.MsSql;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace NewHeap.Platform.AspNet.Common.Tests;
 
 public sealed class NhNotificationProcessingProviderTests
 {
-    [Fact]
-    public async Task ProcessingQueriesAndTransactionLocksWorkOnBothRelationalProviders()
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task ProcessingQueriesAndTransactionLocksWorkOnEachRelationalProvider(RelationalTestProvider provider)
     {
-        await VerifySqlServerAsync();
-        await VerifyPostgreSqlAsync();
-    }
-
-    private static async Task VerifySqlServerAsync()
-    {
-        await using var container = new MsSqlBuilder(
-            "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
-        await container.StartAsync();
-        await VerifyProviderAsync(
-            options => options.UseNewHeapSqlServer(container.GetConnectionString()),
-            "sql-server");
-    }
-
-    private static async Task VerifyPostgreSqlAsync()
-    {
-        await using var container = new PostgreSqlBuilder("postgres:15.1").Build();
-        await container.StartAsync();
-        await VerifyProviderAsync(
-            options => options.UseNewHeapPostgreSql(container.GetConnectionString()),
-            "postgresql");
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+        await VerifyProviderAsync(database.UseNewHeapProvider, database.Label);
     }
 
     private static async Task VerifyProviderAsync(

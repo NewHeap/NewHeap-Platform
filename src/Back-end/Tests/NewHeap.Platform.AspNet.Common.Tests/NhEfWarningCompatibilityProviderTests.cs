@@ -1,5 +1,3 @@
-using NewHeap.Platform.AspNet.Common.SqlServer;
-using NewHeap.Platform.AspNet.Common.PostgreSql;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -14,34 +12,22 @@ using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.Common.Services;
 using NewHeap.Platform.Common.Translations;
 using NewHeap.Platform.Mapping;
+using NewHeap.Platform.Tests.Relational;
 using NSubstitute;
-using Testcontainers.MsSql;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace NewHeap.Platform.AspNet.Common.Tests;
 
 public sealed class NhEfWarningCompatibilityProviderTests
 {
-    [Fact]
-    public async Task NotificationOverviewAndBackgroundStartupAcceptStrictEfWarningsOnBothRelationalProviders()
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task NotificationOverviewAndBackgroundStartupAcceptStrictEfWarningsOnEachRelationalProvider(
+        RelationalTestProvider provider)
     {
-        await using (var sqlServer = new MsSqlBuilder(
-            "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build())
-        {
-            await sqlServer.StartAsync();
-            await VerifyProviderAsync(
-                options => options.UseNewHeapSqlServer(sqlServer.GetConnectionString()),
-                "sql-server");
-        }
-
-        await using (var postgreSql = new PostgreSqlBuilder("postgres:15.1").Build())
-        {
-            await postgreSql.StartAsync();
-            await VerifyProviderAsync(
-                options => options.UseNewHeapPostgreSql(postgreSql.GetConnectionString()),
-                "postgresql");
-        }
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+        await VerifyProviderAsync(database.UseNewHeapProvider, database.Label);
     }
 
     private static async Task VerifyProviderAsync(

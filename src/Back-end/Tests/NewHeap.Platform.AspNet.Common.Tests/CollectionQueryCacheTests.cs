@@ -6,9 +6,8 @@ using NewHeap.Platform.Common.Attributes;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using NewHeap.Platform.Mapping;
+using NewHeap.Platform.Tests.Relational;
 using NSubstitute;
-using Testcontainers.MsSql;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace NewHeap.Platform.AspNet.Common.Tests;
@@ -16,36 +15,26 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 public sealed class CollectionQueryCacheTests
 {
     [Theory]
-    [InlineData("sql-server", false)]
-    [InlineData("postgresql", false)]
-    [InlineData("sql-server", true)]
-    [InlineData("postgresql", true)]
-    public async Task RepeatedFiltersReuseCompilationWhenValuesChange(string provider, bool execute)
+    [InlineData(RelationalTestProvider.SqlServer, false)]
+    [InlineData(RelationalTestProvider.PostgreSql, false)]
+    [InlineData(RelationalTestProvider.SqlServer, true)]
+    [InlineData(RelationalTestProvider.PostgreSql, true)]
+    public async Task RepeatedFiltersReuseCompilationWhenValuesChange(RelationalTestProvider provider, bool execute)
     {
-        await using var sql = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
-        await using var postgres = new PostgreSqlBuilder("postgres:15.1").Build();
+        // Only the executing cases need a server; the others translate without a connection.
+        var database = execute ? await ProviderTestDatabase.CreateAsync(provider) : null;
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var compilations = 0;
         var options = new DbContextOptionsBuilder<Database>()
             .UseMemoryCache(cache)
             .LogTo(_ => compilations++, [CoreEventId.QueryCompilationStarting]);
-        if (provider == "sql-server")
+        if (provider == RelationalTestProvider.SqlServer)
         {
-            if (execute)
-            {
-                await sql.StartAsync();
-            }
-
-            options.UseSqlServer(execute ? sql.GetConnectionString() : "Server=localhost;Database=TranslationOnly;Integrated Security=true");
+            options.UseSqlServer(database?.ConnectionString ?? "Server=localhost;Database=TranslationOnly;Integrated Security=true");
         }
         else
         {
-            if (execute)
-            {
-                await postgres.StartAsync();
-            }
-
-            options.UseNpgsql(execute ? postgres.GetConnectionString() : "Host=localhost;Database=translation_only");
+            options.UseNpgsql(database?.ConnectionString ?? "Host=localhost;Database=translation_only");
         }
 
         await using var db = new Database(options.Options);

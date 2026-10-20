@@ -4,17 +4,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
-using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
-using NewHeap.Platform.AspNet.Common.SqlServer;
 using NewHeap.Platform.AspNet.Common.Utilities;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Utilities;
 using NewHeap.Platform.Mapping;
+using NewHeap.Platform.Tests.Relational;
 using NSubstitute;
-using Testcontainers.MsSql;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace NewHeap.Platform.AspNet.Common.Tests;
@@ -29,20 +26,13 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
     private const string SubjectType = "project";
     private const string SubjectId = "alpha";
 
-    [Fact]
-    public async Task AgentOwnedOperationsFollowAccessPoliciesOnBothRelationalProviders()
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task AgentOwnedOperationsFollowAccessPoliciesOnEachRelationalProvider(RelationalTestProvider provider)
     {
-        await using (var sqlServer = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build())
-        {
-            await sqlServer.StartAsync();
-            await VerifyProviderAsync(options => options.UseNewHeapSqlServer(sqlServer.GetConnectionString()));
-        }
-
-        await using (var postgreSql = new PostgreSqlBuilder("postgres:15.1").Build())
-        {
-            await postgreSql.StartAsync();
-            await VerifyProviderAsync(options => options.UseNewHeapPostgreSql(postgreSql.GetConnectionString()));
-        }
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+        await VerifyProviderAsync(database.UseNewHeapProvider);
     }
 
     private static async Task VerifyProviderAsync(Action<DbContextOptionsBuilder> configureProvider)
