@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -17,7 +16,7 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.AspNet.Common.SqlServer;
-using Npgsql;
+using NewHeap.Platform.Tests.Relational;
 using Xunit;
 
 namespace NewHeap.Platform.AI.Chat.Tests;
@@ -32,6 +31,14 @@ public sealed class AssistantTriggerTransactionTests(AssistantDatabaseFixture da
 {
     private const string AgentId = "project-assistant";
     private const string TriggerId = "order-changed";
+
+    /// <summary>
+    /// The application's databases with its orders and the platform's background operations, one
+    /// pool per provider. A test leases a database of its own, other than the assistant's, which
+    /// the pool emptied before.
+    /// </summary>
+    private static readonly RelationalTestPool SqlServerApplications = CreateApplicationPool(AssistantTestProvider.SqlServer);
+    private static readonly RelationalTestPool PostgreSqlApplications = CreateApplicationPool(AssistantTestProvider.PostgreSql);
 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -158,26 +165,36 @@ public sealed class AssistantTriggerTransactionTests(AssistantDatabaseFixture da
     {
         // The application's database differs from the assistant's: deferring needs neither a shared
         // database nor a shared connection.
-        var application = await ApplicationDatabaseAsync(provider);
-        var host = await AssistantTestHost.CreateAsync(
+        var pool = provider == AssistantTestProvider.SqlServer ? SqlServerApplications : PostgreSqlApplications;
+        var application = await pool.LeaseAsync();
+        try
+        {
+            var host = await CreateHostAsync(provider, application);
+
+            // The host's services own the lease from here on: disposing the host returns the
+            // application's database to its pool.
+            host.Services.GetRequiredService<RelationalTestLease>();
+            return host;
+        }
+        catch
+        {
+            await application.DisposeAsync();
+            throw;
+        }
+    }
+
+    private Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, RelationalTestLease application)
+    {
+        return AssistantTestHost.CreateAsync(
             database,
             provider,
             new NhAiScriptedChatClient(),
             configure: services =>
             {
+                services.AddSingleton(_ => application);
                 services.AddSingleton(new TestSubjects());
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, TestPrincipalFactory>());
-                services.AddDbContext<OrderDbContext>(options =>
-                {
-                    if (provider == AssistantTestProvider.SqlServer)
-                    {
-                        options.UseNewHeapSqlServer(application);
-                    }
-                    else
-                    {
-                        options.UseNewHeapPostgreSql(application);
-                    }
-                });
+                services.AddDbContext<OrderDbContext>(options => UseApplicationDatabase(options, provider, application.ConnectionString));
                 services.AddSingleton<INhBackgroundOperationScheduler, NoOpScheduler>();
                 services.AddNewHeapBackgroundOperations<OrderDbContext>(operations =>
                 {
@@ -198,18 +215,33 @@ public sealed class AssistantTriggerTransactionTests(AssistantDatabaseFixture da
                     .Message(evt => "Order " + evt.Change)
                     .Dedupe(evt => evt.Key)
                     .OnBusy(NhAssistantTriggerConflict.Coalesce, TimeSpan.Zero)));
-        await using var scope = host.Services.CreateAsyncScope();
-        await scope.ServiceProvider.GetRequiredService<OrderDbContext>().Database.EnsureCreatedAsync();
-        return host;
     }
 
-    private async Task<string> ApplicationDatabaseAsync(AssistantTestProvider provider)
+    private static RelationalTestPool CreateApplicationPool(AssistantTestProvider provider)
     {
-        var name = "orders_" + Guid.NewGuid().ToString("N")[..12];
-        var connectionString = await database.ConnectionStringAsync(provider);
-        return provider == AssistantTestProvider.SqlServer
-            ? new SqlConnectionStringBuilder(connectionString) { InitialCatalog = name }.ConnectionString
-            : new NpgsqlConnectionStringBuilder(connectionString) { Database = name }.ConnectionString;
+        return new RelationalTestPool(
+            AssistantDatabaseFixture.ToRelational(provider),
+            "orders",
+            RelationalTestPoolLayout.DatabasePerSlot,
+            async slot =>
+            {
+                var options = new DbContextOptionsBuilder<OrderDbContext>();
+                UseApplicationDatabase(options, provider, slot.ConnectionString);
+                await using var context = new OrderDbContext(options.Options);
+                await context.Database.EnsureCreatedAsync();
+            });
+    }
+
+    private static void UseApplicationDatabase(DbContextOptionsBuilder options, AssistantTestProvider provider, string connectionString)
+    {
+        if (provider == AssistantTestProvider.SqlServer)
+        {
+            options.UseNewHeapSqlServer(connectionString);
+        }
+        else
+        {
+            options.UseNewHeapPostgreSql(connectionString);
+        }
     }
 
     private static Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync(AssistantTestHost host, OrderChanged evt, bool commit)
