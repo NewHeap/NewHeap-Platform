@@ -8,6 +8,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -393,6 +394,44 @@ public sealed class NhProxyApiTests
         {
             directory.Delete(true);
         }
+    }
+
+    [Fact]
+    public async Task Routing_and_the_application_wide_endpoints_share_the_api_endpoints_built_once()
+    {
+        var directory = Directory.CreateTempSubdirectory("newheap-api-endpoints-");
+        try
+        {
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+            builder.Services.AddNewHeapProxy(options =>
+            {
+                options.Administrator.UserName = "api-admin";
+                options.Administrator.Password = "test-password";
+            }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            await using var app = builder.Build();
+            app.MapProxyEndpoints().UseNewHeapProxy();
+            await app.StartAsync();
+
+            // The application-wide endpoints include the API branch's endpoints for link generation and
+            // API descriptions; the branch's routing middleware reads a composite of its own.
+            var applicationWide = (CompositeEndpointDataSource)app.Services.GetRequiredService<EndpointDataSource>();
+            using var routing = new CompositeEndpointDataSource(applicationWide.DataSources);
+
+            Assert.Same(FindEndpoint(applicationWide, "/status"), FindEndpoint(routing, "/status"));
+            Assert.Same(FindEndpoint(applicationWide, "/rewrites"), FindEndpoint(routing, "/rewrites"));
+            await app.StopAsync();
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    private static Endpoint FindEndpoint(EndpointDataSource source, string path)
+    {
+        return source.Endpoints.OfType<RouteEndpoint>().First(endpoint =>
+            endpoint.RoutePattern.RawText == NhProxyOptions.ApiPath + path);
     }
 
     private static AuthenticationHeaderValue Basic(string credentials) => new("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials)));

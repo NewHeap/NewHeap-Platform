@@ -672,7 +672,10 @@
     "SPM-061": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationConfigurationBuilder.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
     ],
     "SPM-062": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -1352,7 +1355,9 @@
     "SPM-187": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs",
-      "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts"
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhEndpointsBuiltOnce.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaEndpointRouteTests.cs"
     ],
     "SPM-188": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectMediaEventHandler.cs",
@@ -1677,7 +1682,9 @@
       "src/Back-end/Applications/SampleProjectManagement.Proxy/Properties/launchSettings.json",
       "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyApiSamplesTests.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyHostAuthenticationSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyHostAuthenticationSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Proxy.Sqlite.Tests/NhProxyApiTests.cs"
     ],
     "SPM-239": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyRewriteSamplesTests.cs",
@@ -1812,7 +1819,7 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetStartupChecks.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeStartupValidationTests.cs"
     ],
     "SPM-250": [

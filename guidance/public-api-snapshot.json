@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "f414fd68b4fce17db3faf0157daebdc103ec15d1d6b60d5941091e7ead68df36",
-    "declarationCount": 9203,
+    "hash": "852c86d5f1947f458b4e53f7f3665cf79e9b7125b2bb0d59c8bd01560c0a8154",
+    "declarationCount": 9221,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4632,42 +4632,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantUpdateMcpToolRequest( bool? IsEnabled, string? Effect, string? DescriptionOverride);"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
-        "declaration": "public NhAssistantEndpointDataSource(EndpointDataSource group) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
-        "declaration": "public override IReadOnlyList<Endpoint> Endpoints {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
-        "declaration": "public override IChangeToken GetChangeToken() {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
-        "declaration": "public override IReadOnlyList<Endpoint> GetGroupedEndpoints(RouteGroupContext context) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
-        "declaration": "public void Dispose() {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
-        "declaration": "public ICollection<EndpointDataSource> DataSources => _dataSources;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
-        "declaration": "public IServiceProvider ServiceProvider => endpoints.ServiceProvider;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
-        "declaration": "public IApplicationBuilder CreateApplicationBuilder() {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
-        "declaration": "public void AddTo(IEndpointRouteBuilder target) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
@@ -30286,6 +30250,42 @@
         "declaration": "public async Task CreateValueProviderAsync(ValueProviderFactoryContext context) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
+        "declaration": "public ICollection<EndpointDataSource> DataSources => _dataSources;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
+        "declaration": "public IServiceProvider ServiceProvider => endpoints.ServiceProvider;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
+        "declaration": "public IApplicationBuilder CreateApplicationBuilder() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
+        "declaration": "public void AddTo(IEndpointRouteBuilder target) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
+        "declaration": "public NhBuiltOnceEndpointDataSource(EndpointDataSource source) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
+        "declaration": "public override IReadOnlyList<Endpoint> Endpoints {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
+        "declaration": "public override IChangeToken GetChangeToken() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
+        "declaration": "public override IReadOnlyList<Endpoint> GetGroupedEndpoints(RouteGroupContext context) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxyInitializationService.cs",
         "declaration": "public async Task StartingAsync(CancellationToken cancellationToken) {"
       },
@@ -30400,6 +30400,42 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteOptions.cs",
         "declaration": "public TimeSpan BusyTimeout { get; set; } = TimeSpan.FromSeconds(5);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
+        "declaration": "public ICollection<EndpointDataSource> DataSources => _dataSources;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
+        "declaration": "public IServiceProvider ServiceProvider => endpoints.ServiceProvider;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
+        "declaration": "public IApplicationBuilder CreateApplicationBuilder() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
+        "declaration": "public void AddTo(IEndpointRouteBuilder target) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
+        "declaration": "public NhBuiltOnceEndpointDataSource(EndpointDataSource source) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
+        "declaration": "public override IReadOnlyList<Endpoint> Endpoints {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
+        "declaration": "public override IChangeToken GetChangeToken() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
+        "declaration": "public override IReadOnlyList<Endpoint> GetGroupedEndpoints(RouteGroupContext context) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
+        "declaration": "public void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.Rewrites.cs",
@@ -36624,6 +36660,42 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/Models/UpdateTagsRequest.cs",
         "declaration": "public string[] Tags { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhEndpointsBuiltOnce.cs",
+        "declaration": "public ICollection<EndpointDataSource> DataSources => _dataSources;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhEndpointsBuiltOnce.cs",
+        "declaration": "public IServiceProvider ServiceProvider => endpoints.ServiceProvider;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhEndpointsBuiltOnce.cs",
+        "declaration": "public IApplicationBuilder CreateApplicationBuilder() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhEndpointsBuiltOnce.cs",
+        "declaration": "public void AddTo(IEndpointRouteBuilder target) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhEndpointsBuiltOnce.cs",
+        "declaration": "public NhBuiltOnceEndpointDataSource(EndpointDataSource source) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhEndpointsBuiltOnce.cs",
+        "declaration": "public override IReadOnlyList<Endpoint> Endpoints {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhEndpointsBuiltOnce.cs",
+        "declaration": "public override IChangeToken GetChangeToken() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhEndpointsBuiltOnce.cs",
+        "declaration": "public override IReadOnlyList<Endpoint> GetGroupedEndpoints(RouteGroupContext context) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhEndpointsBuiltOnce.cs",
+        "declaration": "public void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhMediaHttpConstants.cs",

@@ -13,6 +13,31 @@ pays for a second build (about 180 ms for the 110 endpoints in a Debug test host
 |---|---|
 | Routing, the authorization policy cache, link generation and API descriptions share the assistant endpoints built on the first read; conventions added to the group that `MapNewHeapAssistant` returns after the host started no longer apply. | None. Configure that group before the host starts. |
 
+## NewHeap.Platform.AspNet.Common: authentication endpoints built once at host start
+
+The endpoints that `UseNhAuthentication` maps are now built once, like the assistant's, and
+routing, the authorization policy cache, link generation and API descriptions share them. Before,
+every host start built them a second time on the first request.
+
+| Breaking change | Required action |
+|---|---|
+| Conventions added to the authentication endpoints after the host started no longer apply. | None. Add route metadata in `IConfigurableAuthenticationEndpoint.Configure`. |
+
+## NewHeap.Platform.Media.Http: media endpoints built once at host start
+
+`MapNhMediaEndpoints` now builds the media endpoints once and gives routing, the authorization
+policy cache, link generation and API descriptions the same endpoints, instead of building them
+again on the first request.
+
+| Breaking change | Required action |
+|---|---|
+| Conventions added to the group that `MapNhMediaEndpoints` returns after the host started no longer apply. | None. Configure the group before the host starts. |
+
+## NewHeap.Platform.AspNet.Proxy: management API endpoints built once at host start
+
+`MapProxyEndpoints` now builds the endpoints of `/newheap-proxy/api` once; the branch's routing and
+the application-wide endpoints share them instead of each building their own.
+
 ## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.AspNet.Common and NewHeap.Platform.AI.AspNet.Mvc: tool catalogs validated after the endpoints are registered
 
 Fix. The startup validation of the tool catalogs (the platform's catalog checks, the API bridge
