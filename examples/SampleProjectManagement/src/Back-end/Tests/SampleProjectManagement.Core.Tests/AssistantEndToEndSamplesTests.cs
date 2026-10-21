@@ -3,12 +3,14 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.AspNet.Mvc;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.AspNet.Common.OpenApiSchemaTransformers;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Controllers;
 using SampleProjectManagement.Core.Models.AI;
@@ -21,7 +23,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// <summary>
 /// Executable evidence for SPM-249: the sample assistant works end to end over the API bridge
 /// tools and the curated <c>projects.*</c> tools, with in-chat approval, an administrator-managed
-/// agent with an MCP server, per-user tool discovery and content-free audit and logs. The
+/// agent with an MCP server, per-user tool discovery, content-free audit and logs, and an OpenAPI
+/// document that lists the assistant's minimal API endpoints. The
 /// composition matches Program.cs (<c>AddSampleAiBridge</c> before <c>AddSampleAssistant</c>);
 /// the bridge's self-HTTP hop is answered by a recording handler, because the project
 /// controllers need the full sample database (their HTTP behavior is covered by SPM-242 to SPM-244).
@@ -275,6 +278,23 @@ public sealed class AssistantEndToEndSamplesTests(AssistantEndToEndHost host) : 
         }
     }
 
+    [Fact]
+    public async Task SPM_249_the_openapi_document_lists_the_assistant_endpoints_next_to_the_bridged_controllers()
+    {
+        using var client = host.CreateAnonymousClient();
+
+        using var document = JsonDocument.Parse(
+            await client.GetStringAsync("/openapi/v1.json", TestContext.Current.CancellationToken));
+
+        // The bridge read ApiExplorer at start-up for its tools, after the minimal API endpoints
+        // were registered, so the document still lists them next to the controller actions.
+        Assert.NotEmpty(host.Services.GetRequiredService<NhAiMvcBridgeToolCatalog>().Descriptors);
+        var paths = document.RootElement.GetProperty("paths").EnumerateObject().Select(path => path.Name).ToArray();
+        Assert.Contains("/api/assistant/status", paths);
+        Assert.Contains("/api/assistant/conversations", paths);
+        Assert.Contains("/projects", paths);
+    }
+
     /// <summary>
     /// Pairs every <c>tool.started</c> (tool id) with its <c>tool.completed</c> (status) by invocation id.
     /// </summary>
@@ -293,8 +313,9 @@ public sealed class AssistantEndToEndSamplesTests(AssistantEndToEndHost host) : 
 }
 
 /// <summary>
-/// The assistant sample host with the API bridge composed as in Program.cs, permission-based
-/// policies, a recording handler for the bridge's self-HTTP hop and capturing audit and log sinks.
+/// The assistant sample host with the API bridge and the OpenAPI document composed as in Program.cs,
+/// permission-based policies, a recording handler for the bridge's self-HTTP hop and capturing audit
+/// and log sinks.
 /// </summary>
 public sealed class AssistantEndToEndHost(SamplePostgreSqlServer postgreSql) : AssistantSampleHost(postgreSql)
 {
@@ -353,6 +374,16 @@ public sealed class AssistantEndToEndHost(SamplePostgreSqlServer postgreSql) : A
         services.AddSampleAiBridge();
         services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(() => new RecordingBridgeHandler(_bridgeRequests));
+        services.AddOpenApi("v1", options =>
+        {
+            options.AddSchemaTransformer<OneOfSchemaTransformer>();
+            options.AddOperationTransformer<SampleProjectManagement.Api.Models.ProjectCollectionOpenApiTransformer>();
+        });
+    }
+
+    protected override void MapEndpoints(WebApplication app)
+    {
+        app.MapOpenApi();
     }
 
     public sealed record BridgeRequest(HttpMethod Method, string Path, string? Authorization, bool HasInvocationHeader);

@@ -3565,15 +3565,19 @@
       "id": "SPM-249",
       "categoryId": "18",
       "title": "End-to-end assistant over bridge and curated tools",
-      "surface": "`AddSampleAiBridge` before `AddSampleAssistant`, agent `sample-project-assistant` with tool selectors `projects.*` and `sample-api.*`, `POST conversations/{id}/messages` (SSE), `POST conversations/{id}/approvals/{approvalId}/decide`, `POST admin/mcp-servers`, `POST admin/mcp-servers/{id}/sync`, `PUT admin/mcp-servers/{id}/tools/{remoteName}`, `POST admin/agents`",
-      "outcome": "One assistant conversation combines the API bridge and the curated tools: a division editor's turn calls the bridge tool `sample-api.project.get` (forwarded to the API as the signed-in user with the invocation header) and the curated `projects.search`, both reported as `tool.completed`; a status change pauses with `approval.required`, runs `projects.change-status` after approval and passes its verifier. An administrator connects an MCP server, activates its read-only tool and creates an agent that uses a bridge tool and the MCP tool in one turn. A viewer is offered only read tools (no bridge create/update, no `projects.change-status`), so a mutation attempt produces no approval card and changes nothing. Arguments, results, messages and secrets never reach the business audit sink, the platform audit sink or the logs.",
+      "surface": "`AddSampleAiBridge` before `AddSampleAssistant`, agent `sample-project-assistant` with tool selectors `projects.*` and `sample-api.*`, `POST conversations/{id}/messages` (SSE), `POST conversations/{id}/approvals/{approvalId}/decide`, `POST admin/mcp-servers`, `POST admin/mcp-servers/{id}/sync`, `PUT admin/mcp-servers/{id}/tools/{remoteName}`, `POST admin/agents`, `AddOpenApi(\"v1\")` with `MapOpenApi` next to the bridge and `MapSampleAssistant`",
+      "outcome": "One assistant conversation combines the API bridge and the curated tools: a division editor's turn calls the bridge tool `sample-api.project.get` (forwarded to the API as the signed-in user with the invocation header) and the curated `projects.search`, both reported as `tool.completed`; a status change pauses with `approval.required`, runs `projects.change-status` after approval and passes its verifier. An administrator connects an MCP server, activates its read-only tool and creates an agent that uses a bridge tool and the MCP tool in one turn. A viewer is offered only read tools (no bridge create/update, no `projects.change-status`), so a mutation attempt produces no approval card and changes nothing. Arguments, results, messages and secrets never reach the business audit sink, the platform audit sink or the logs. The bridge checks its catalog only after the application's endpoints are registered, so the API's OpenAPI document lists the assistant's minimal API endpoints, such as `/api/assistant/conversations`, next to the controller actions the bridge publishes.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
-        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs"
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetStartupChecks.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeStartupValidationTests.cs"
       ]
     },
     {
