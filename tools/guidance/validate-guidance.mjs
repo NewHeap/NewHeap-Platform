@@ -130,7 +130,7 @@ async function searchableSource(directory) {
   const result = spawnSync('rg', ['--no-heading', '--color', 'never', '--glob', '*.cs', '--glob', '*.ts', '.', directory], {
     cwd: repositoryRoot,
     encoding: 'utf8',
-    maxBuffer: 20 * 1024 * 1024
+    maxBuffer: 128 * 1024 * 1024
   });
   let source;
   if (result.error?.code === 'ENOENT') {
