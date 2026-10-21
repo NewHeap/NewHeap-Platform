@@ -7,9 +7,10 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 namespace NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 
 /// <summary>
-/// The <c>nh-background-operations</c> readiness check. It is degraded while work is stuck: an
-/// attempt, running or being cancelled, whose heartbeat is older than <c>StaleAttemptTimeout</c>, or
-/// work that is overdue by the reconciler's definition of a stalled dispatch. Heartbeats and
+/// The <c>nh-background-operations</c> readiness check. It is degraded while work is stuck until
+/// reconciliation recovers it: an attempt, running or being cancelled, whose heartbeat is older than
+/// <c>StaleAttemptTimeout</c> (<see cref="NhBackgroundOperationStaleAttempts"/>, the reconciler's
+/// definition), or work that is overdue by the reconciler's definition of a stalled dispatch. Heartbeats and
 /// modification times are on the system clock, due times on the application's clock (a registered
 /// <see cref="TimeProvider"/>, otherwise the system clock). Work that waits for a due time
 /// (<c>NotBefore</c>, a retry backoff, a signal wait's expiry or a fan-out recheck) is overdue only
@@ -57,11 +58,9 @@ internal sealed class NhBackgroundOperationHealthCheck : IHealthCheck
             var query = repository.GetAll()
                 .AsNoTracking()
                 .Where(x => x.ProcessorKey == _options.ProcessorKey);
+            // Running or being cancelled: reconciliation recovers both at its next round.
             var staleAttempts = await query
-                .Where(x =>
-                    (x.Status == NhBackgroundOperationStatus.Running
-                     || (x.Status == NhBackgroundOperationStatus.CancelRequested && x.CurrentAttemptId != null))
-                    && (x.HeartbeatAt == null || x.HeartbeatAt <= staleBefore))
+                .Where(NhBackgroundOperationStaleAttempts.Where(staleBefore))
                 .Take(MaxCounted)
                 .CountAsync(cancellationToken);
             var overdueDispatches = await query

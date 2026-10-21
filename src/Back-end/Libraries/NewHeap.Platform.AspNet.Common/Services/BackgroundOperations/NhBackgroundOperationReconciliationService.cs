@@ -12,6 +12,8 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
     private const string DispatchRecoveredMessageKey = "background-operation.dispatch-recovered";
     private const string DispatchStalledMessageKey = "background-operation.dispatch-stalled";
     private const string OperatorRecoveryRequiredMessageKey = "background-operation.operator-recovery-required";
+    private const string StaleAttemptRecoveredMessageKey = "background-operation.stale-attempt-recovered";
+    private const string CancelledMessageKey = "background-operation.cancelled";
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly NhBackgroundOperationsOptions _options;
@@ -84,14 +86,17 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
         // application's clock and nothing touched it for that long on the system clock, so a jump of
         // the application's clock never takes work that just became due for a stalled dispatch.
         // Without a due time an operation is due at once, as the dispatcher treats it. The readiness
-        // check (NhBackgroundOperationHealthCheck) counts overdue work by the same definition.
+        // check (NhBackgroundOperationHealthCheck) counts overdue work and stale attempts by the same
+        // definitions; stale attempts, running or being cancelled, by NhBackgroundOperationStaleAttempts.
         var now = DateTimeOffset.UtcNow;
         var staleBefore = now - _options.StaleAttemptTimeout;
         var due = _dueClock.GetUtcNow();
         var dueStaleBefore = due - _options.StaleAttemptTimeout;
-        var candidateOperationIds = await repository.GetAll()
+        var staleAttempt = NhBackgroundOperationStaleAttempts.Where(staleBefore);
+        var processorOperations = repository.GetAll()
             .AsNoTracking()
-            .Where(x => x.ProcessorKey == _options.ProcessorKey)
+            .Where(x => x.ProcessorKey == _options.ProcessorKey);
+        var dueWork = processorOperations
             .Where(x =>
                 (x.Status == NhBackgroundOperationStatus.RetryScheduled
                     && (x.NextDispatchAt == null || x.NextDispatchAt <= due))
@@ -99,14 +104,23 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                 || (x.Status == NhBackgroundOperationStatus.Queued && x.LastModifiedDateTime <= staleBefore)
                 || (x.Status == NhBackgroundOperationStatus.PendingDispatch
                     && (x.NextDispatchAt == null || x.NextDispatchAt <= dueStaleBefore)
-                    && x.LastModifiedDateTime <= staleBefore)
-                || (x.Status == NhBackgroundOperationStatus.Running && (x.HeartbeatAt == null || x.HeartbeatAt <= staleBefore)))
+                    && x.LastModifiedDateTime <= staleBefore))
+            .Select(x => new { x.Id, x.LastModifiedDateTime });
+        var staleAttempts = processorOperations
+            .Where(staleAttempt)
+            .Select(x => new { x.Id, x.LastModifiedDateTime });
+        // The two sets never overlap: a cancellation without an attempt is due work, one with an
+        // attempt counts only once that attempt is stale.
+        var candidateOperationIds = await dueWork
+            .Concat(staleAttempts)
             .OrderBy(x => x.LastModifiedDateTime)
             .Take(_options.ReconciliationBatchSize)
             .Select(x => x.Id)
             .ToListAsync(cancellationToken);
+        var hasStaleAttempt = staleAttempt.Compile();
 
         var operations = new List<NhBackgroundOperation>();
+        var cancelledOperationIds = new List<Guid>();
         var waitingInBacklog = 0;
         var orphanedSchedulerJobIds = new List<string>();
         var servedQueues = new Dictionary<string, bool?>(StringComparer.Ordinal);
@@ -123,9 +137,11 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
 
             var operation = await repository.GetAll()
                 .SingleOrDefaultAsync(x => x.Id == operationId, cancellationToken);
+            // The row as it is now, under the operation's lock: a worker may have changed it since
+            // the candidates were read.
             if (operation is null
                 || operation.ProcessorKey != _options.ProcessorKey
-                || !RequiresReconciliation(operation, staleBefore, due, dueStaleBefore))
+                || !RequiresReconciliation(operation, staleBefore, due, dueStaleBefore, hasStaleAttempt))
             {
                 continue;
             }
@@ -154,7 +170,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                 NhBackgroundOperationService.AppendEvent(operation,
                     NhBackgroundOperationEventType.StateChanged,
                     NhBackgroundOperationMessageSeverity.Warning,
-                    "background-operation.cancelled",
+                    CancelledMessageKey,
                     null,
                     true);
                 await NhBackgroundOperationEventRetention.TrimAsync(
@@ -197,15 +213,19 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                 operations.Add(operation);
                 continue;
             }
-            if (operation.Status != NhBackgroundOperationStatus.Running)
+            if (operation.Status is not (NhBackgroundOperationStatus.Running or NhBackgroundOperationStatus.CancelRequested))
             {
                 continue;
             }
 
-            if (operation.CurrentAttemptId.HasValue)
+            // The attempt is stale: its worker stopped. It is abandoned and fenced off, so every
+            // late write of that worker fails on its claim: no current attempt and a new dispatch
+            // generation.
+            var staleAttemptId = operation.CurrentAttemptId;
+            if (staleAttemptId.HasValue)
             {
                 var attempt = await repository.GetDbSet<NhBackgroundOperationAttempt>()
-                    .SingleOrDefaultAsync(x => x.Id == operation.CurrentAttemptId.Value, cancellationToken);
+                    .SingleOrDefaultAsync(x => x.Id == staleAttemptId.Value, cancellationToken);
                 if (attempt is not null)
                 {
                     attempt.Status = NhBackgroundOperationAttemptStatus.Abandoned;
@@ -218,6 +238,21 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             operation.CurrentAttemptId = null;
             operation.SchedulerJobId = null;
             operation.DispatchGeneration++;
+            if (operation.Status == NhBackgroundOperationStatus.CancelRequested)
+            {
+                if (await CompleteStaleCancellationAsync(repository, transaction, operation, staleAttemptId, now, cancellationToken))
+                {
+                    cancelledOperationIds.Add(operation.Id);
+                }
+                await NhBackgroundOperationEventRetention.TrimAsync(
+                    repository,
+                    operation,
+                    _options,
+                    cancellationToken);
+                operations.Add(operation);
+                continue;
+            }
+
             var descriptor = _registry.GetForOperationType(operation.OperationType);
             if (descriptor.Idempotency == NhBackgroundOperationIdempotency.NonIdempotent)
             {
@@ -239,7 +274,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                 NhBackgroundOperationMessageSeverity.Warning,
                 operation.Status == NhBackgroundOperationStatus.Failed
                     ? "background-operation.operator-recovery-required"
-                    : "background-operation.stale-attempt-recovered",
+                    : StaleAttemptRecoveredMessageKey,
                 null,
                 true);
             await NhBackgroundOperationEventRetention.TrimAsync(
@@ -314,6 +349,19 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             catch (Exception exception)
             {
                 _logger.LogWarning(exception, "Failed to reconcile notification for operation {OperationId}.", operationId);
+            }
+        }
+        // A cancellation finished for a stopped worker reaches the fan-out parent, as the worker's
+        // own end of an attempt does.
+        foreach (var operationId in cancelledOperationIds)
+        {
+            try
+            {
+                await _fanOutCoordinator.OperationChangedAsync(operationId, cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Failed to aggregate the fan-out parent of reconciled operation {OperationId}.", operationId);
             }
         }
         var reconciledFanOuts = await _fanOutCoordinator.ReconcileWaitingAsync(cancellationToken);
@@ -540,11 +588,123 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
         }
     }
 
+    /// <summary>
+    /// Finishes the cancellation of an operation whose attempt went stale while it was being
+    /// cancelled: its worker stopped before it saw the request. The operation ends as the worker
+    /// would have ended it: cancelled, with the root step cancelled and the cancellation milestone
+    /// that notification policies and live updates follow, after an operator-only note that a stale
+    /// attempt was recovered. The leases the stale attempt held are released. A fan-out parent waits
+    /// without an attempt until its children, which the request cancelled as well, have ended; the
+    /// fan-out coordinator then ends it, as it ends every cancelled parent. Returns whether the
+    /// operation ended now.
+    /// </summary>
+    private async Task<bool> CompleteStaleCancellationAsync(
+        IRepository<NhBackgroundOperation> repository,
+        INhDbTransactionScope transaction,
+        NhBackgroundOperation operation,
+        Guid? staleAttemptId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        await ReleaseLeasesAsync(repository, transaction, operation.Id, staleAttemptId, now, cancellationToken);
+        NhBackgroundOperationService.Touch(operation, now);
+        NhBackgroundOperationService.AppendEvent(operation,
+            NhBackgroundOperationEventType.Message,
+            NhBackgroundOperationMessageSeverity.Warning,
+            StaleAttemptRecoveredMessageKey,
+            null,
+            false,
+            staleAttemptId);
+        operation.Events[^1].IsOperatorOnly = true;
+        if (await repository.GetAll().AnyAsync(x => x.ParentOperationId == operation.Id, cancellationToken))
+        {
+            return false;
+        }
+
+        operation.Status = NhBackgroundOperationStatus.Cancelled;
+        operation.CompletedAt = now;
+        operation.NextDispatchAt = null;
+        operation.FailureCode = "cancelled";
+        operation.FailureMessageKey = CancelledMessageKey;
+        var root = await repository.GetDbSet<NhBackgroundOperationStep>()
+            .SingleOrDefaultAsync(x => x.OperationId == operation.Id && x.ParentStepId == null && x.StepKey == "root", cancellationToken);
+        if (root is not null)
+        {
+            root.Status = NhBackgroundOperationStepStatus.Cancelled;
+            root.CompletedAt = now;
+            root.LastModifiedDateTime = now;
+            root.Version++;
+        }
+        NhBackgroundOperationService.AppendEvent(operation,
+            NhBackgroundOperationEventType.StateChanged,
+            NhBackgroundOperationMessageSeverity.Warning,
+            CancelledMessageKey,
+            null,
+            true,
+            staleAttemptId);
+        _logger.LogWarning(
+            "Background operation {OperationId} was cancelled after its attempt {AttemptId} stopped sending heartbeats while it was being cancelled.",
+            operation.Id,
+            staleAttemptId);
+        return true;
+    }
+
+    /// <summary>
+    /// Releases the leases a stale attempt still holds, each under its lease lock, so other work can
+    /// take them before they expire. A lease that another worker holds now, or whose lock is busy,
+    /// stays as it is; it expires by itself.
+    /// </summary>
+    private async Task ReleaseLeasesAsync(
+        IRepository<NhBackgroundOperation> repository,
+        INhDbTransactionScope transaction,
+        Guid operationId,
+        Guid? attemptId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (attemptId is not { } staleAttemptId)
+        {
+            return;
+        }
+
+        var leases = repository.GetDbSet<NhBackgroundOperationLease>();
+        var resourceKeys = await leases
+            .AsNoTracking()
+            .Where(x => x.OperationId == operationId && x.AttemptId == staleAttemptId)
+            .Select(x => x.ResourceKey)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        foreach (var resourceKey in resourceKeys)
+        {
+            if (!await repository.TryAcquireTransactionLockAsync(
+                    transaction,
+                    $"NhBackgroundOperation:Lease:{resourceKey}",
+                    _options.TransactionLockTimeoutMilliseconds,
+                    cancellationToken))
+            {
+                continue;
+            }
+
+            var held = await leases
+                .Where(x => x.ResourceKey == resourceKey && x.OperationId == operationId && x.AttemptId == staleAttemptId)
+                .ToListAsync(cancellationToken);
+            foreach (var lease in held)
+            {
+                lease.OperationId = null;
+                lease.AttemptId = null;
+                lease.HeartbeatAt = now;
+                lease.ExpiresAt = now;
+                lease.Version++;
+            }
+        }
+    }
+
     private static bool RequiresReconciliation(
         NhBackgroundOperation operation,
         DateTimeOffset staleBefore,
         DateTimeOffset due,
-        DateTimeOffset dueStaleBefore)
+        DateTimeOffset dueStaleBefore,
+        Func<NhBackgroundOperation, bool> hasStaleAttempt)
     {
         return (operation.Status == NhBackgroundOperationStatus.RetryScheduled
                 && (operation.NextDispatchAt is null || operation.NextDispatchAt <= due))
@@ -555,7 +715,6 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             || (operation.Status == NhBackgroundOperationStatus.PendingDispatch
                 && (operation.NextDispatchAt is null || operation.NextDispatchAt <= dueStaleBefore)
                 && operation.LastModifiedDateTime <= staleBefore)
-            || (operation.Status == NhBackgroundOperationStatus.Running
-                && (operation.HeartbeatAt is null || operation.HeartbeatAt <= staleBefore));
+            || hasStaleAttempt(operation);
     }
 }

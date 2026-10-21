@@ -1,5 +1,25 @@
 # v-next
 
+## NewHeap.Platform.AspNet.Common: reconciliation finishes a cancellation whose worker stopped
+
+Fix. An operation that was being cancelled while an attempt held it (`CancelRequested` with a
+current attempt) stayed `CancelRequested` for good when that attempt's worker stopped: only the
+worker finishes such a cancellation, and reconciliation recovered stale `Running` attempts only.
+The readiness check reported it as a stale attempt that an operator had to resolve. Reconciliation
+now recovers it by the same definition the check counts by: once the attempt's heartbeat is older
+than `StaleAttemptTimeout` on the system clock, it takes the operation's transaction lock, reads it
+again, abandons the attempt (`stale-heartbeat`) and fences it off with a new dispatch generation,
+releases the leases the attempt held and ends the operation `Cancelled` (failure code `cancelled`,
+root step cancelled) with the `background-operation.cancelled` milestone, its notification
+projection and live update, after an operator-only `background-operation.stale-attempt-recovered`
+event. A cancelled child reaches its fan-out parent as from the worker; a cancelled parent with
+children waits without an attempt until they ended and is then cancelled by the fan-out
+coordinator, as before. A cancellation whose worker still sends heartbeats is left to that worker.
+
+| Breaking change | Required action |
+|---|---|
+| A `CancelRequested` operation whose attempt's heartbeat is older than `StaleAttemptTimeout` now ends `Cancelled` through reconciliation; late writes of the stopped attempt fail on fencing, and its leases are free at once. | None. Drop operator procedures that finished such cancellations by hand. |
+
 ## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: runs whose background operation ended without them
 
 Fix. A run that waited inline for a decision stayed `waiting-for-approval` for good, and kept its
