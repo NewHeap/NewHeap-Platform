@@ -22,5 +22,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Mcp" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Common" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Mvc" />
   </ItemGroup>
 </Project>

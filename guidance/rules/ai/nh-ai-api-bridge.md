@@ -63,6 +63,15 @@ attestation hash matches the manifest. Only then may it enter the MCP export pat
 of `WithNewHeapPlatformAITools`, next to generated catalogs; call
 `EnableMcpExposure()` to publish the tools through MCP.
 
+A web host runs these startup checks, and the platform's tool catalog validation,
+once its application pipeline is configured: after the endpoints are registered
+and before the server starts. Reading the bridge catalog builds ApiExplorer's
+descriptions, which ApiExplorer keeps for the life of the process; read earlier,
+for example from your own hosted service, they would miss every minimal API
+endpoint in ApiExplorer and OpenAPI. A host without a server runs the checks
+while its hosted services start. An invalid catalog fails the host's start in
+both.
+
 Bridge functions share the governed-function argument handling: flat arguments
 without the `input` envelope run once with the same self-HTTP request, an
 envelope mixed with other properties returns `ai-tool-input-invalid` before any

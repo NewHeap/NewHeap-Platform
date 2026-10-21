@@ -94,6 +94,18 @@ public sealed class BridgeApiFactory : WebApplicationFactory<BridgeApiFactory>
 
     private void ConfigureApiServices(IServiceCollection services)
     {
+        AddTestApi(services, _configureBridge, _configureServices);
+    }
+
+    /// <summary>
+    /// Registers the test API's services with the bridge, for hosts that this factory does not
+    /// build itself.
+    /// </summary>
+    public static void AddTestApi(
+        IServiceCollection services,
+        Action<NhAiMvcBridgeBuilder> configureBridge,
+        Action<IServiceCollection>? configureServices = null)
+    {
         services.AddControllers().AddApplicationPart(typeof(BridgeApiFactory).Assembly);
         services.AddAuthentication(TestTokenHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, TestTokenHandler>(TestTokenHandler.SchemeName, _ => { });
@@ -108,13 +120,13 @@ public sealed class BridgeApiFactory : WebApplicationFactory<BridgeApiFactory>
             .UseIdempotencyManager<TestIdempotencyManager>(ServiceLifetime.Singleton));
         services.AddSingleton<NhAiCapturedAuditSink>();
         services.AddSingleton<INhAiAuditSink>(provider => provider.GetRequiredService<NhAiCapturedAuditSink>());
-        services.AddNewHeapPlatformAIMvcBridge(_configureBridge);
+        services.AddNewHeapPlatformAIMvcBridge(configureBridge);
         services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(provider =>
                 ((TestServer)provider.GetRequiredService<IServer>()).CreateHandler());
         services.AddMcpServer(options => options.ScopeRequests = false)
             .WithNewHeapPlatformAITools();
-        _configureServices?.Invoke(services);
+        configureServices?.Invoke(services);
     }
 
     /// <summary>

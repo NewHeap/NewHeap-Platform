@@ -20,6 +20,7 @@ public static class NhAiAspNetMcpBuilderExtensions
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IHostedService,
             NhAiMcpAuthorityStartupValidator>());
+        NhAiAspNetStartupChecks.Register(builder.Services);
         builder.WithListToolsHandler(NhAiMcpRequestHandlers.ListToolsAsync);
         builder.WithCallToolHandler(NhAiMcpRequestHandlers.CallToolAsync);
         return builder;
@@ -122,9 +123,10 @@ internal static class NhAiMcpRequestHandlers
 internal sealed record NhAiMcpError(string Code, string Message);
 
 internal sealed class NhAiMcpAuthorityStartupValidator(
-    IServiceScopeFactory serviceScopeFactory) : IHostedService
+    IServiceProvider hostServices,
+    IServiceScopeFactory serviceScopeFactory) : NhAiStartupCheck(hostServices)
 {
-    public async Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task ValidateAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -181,11 +183,6 @@ internal sealed class NhAiMcpAuthorityStartupValidator(
                     $"MCP tool name '{tool.ProtocolTool.Name}' conflicts with a NewHeap AI export name. Give the external tool a distinct name.");
             }
         }
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        return Task.CompletedTask;
     }
 
     private static bool IsNewHeapGovernedTool(McpServerTool tool)

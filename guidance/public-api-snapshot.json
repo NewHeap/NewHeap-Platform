@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "4092e96aeea59a60f2bb9972d9d2468f2af8a2591d77fdf618415824d1c4fded",
-    "declarationCount": 9191,
+    "hash": "f414fd68b4fce17db3faf0157daebdc103ec15d1d6b60d5941091e7ead68df36",
+    "declarationCount": 9203,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -287,11 +287,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
-        "declaration": "public async Task StartAsync(CancellationToken cancellationToken) {"
+        "declaration": "protected override async Task ValidateAsync(CancellationToken cancellationToken) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
-        "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetStartupChecks.cs",
+        "declaration": "public static void Register(IServiceCollection services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetStartupChecks.cs",
+        "declaration": "public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationIngestionAdapter.cs",
@@ -1615,11 +1619,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeServiceCollectionExtensions.cs",
-        "declaration": "public Task StartAsync(CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeServiceCollectionExtensions.cs",
-        "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+        "declaration": "protected override Task ValidateAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeToolCatalog.cs",
@@ -4632,6 +4632,42 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantUpdateMcpToolRequest( bool? IsEnabled, string? Effect, string? DescriptionOverride);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+        "declaration": "public NhAssistantEndpointDataSource(EndpointDataSource group) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+        "declaration": "public override IReadOnlyList<Endpoint> Endpoints {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+        "declaration": "public override IChangeToken GetChangeToken() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+        "declaration": "public override IReadOnlyList<Endpoint> GetGroupedEndpoints(RouteGroupContext context) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+        "declaration": "public ICollection<EndpointDataSource> DataSources => _dataSources;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+        "declaration": "public IServiceProvider ServiceProvider => endpoints.ServiceProvider;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+        "declaration": "public IApplicationBuilder CreateApplicationBuilder() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+        "declaration": "public void AddTo(IEndpointRouteBuilder target) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
@@ -17647,11 +17683,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
-        "declaration": "public async Task StartAsync(CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
-        "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+        "declaration": "protected override async Task ValidateAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
@@ -18256,6 +18288,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
         "declaration": "public void AddStartupRequirement( string profileName, NhAiModelCapability requiredCapabilities) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiStartupCheck.cs",
+        "declaration": "public Task StartAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiStartupCheck.cs",
+        "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiStartupCheck.cs",
+        "declaration": "protected abstract Task ValidateAsync(CancellationToken cancellationToken);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiStartupCheck.cs",
+        "declaration": "public bool AppliesTo(IServiceProvider services) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",

@@ -14,7 +14,8 @@ public static class NhAiMvcBridgeServiceCollectionExtensions
     /// Publishes authorized MVC controller actions as governed NewHeap AI tools that execute as
     /// the calling user through the application's own HTTP pipeline. Registers the attested
     /// <see cref="NhAiMvcBridgeToolCatalog"/>, the <see cref="NhAiMvcBridgeDiscoveryPolicy"/>,
-    /// the self-HTTP <see cref="INhAiMvcBridgeExecutor"/> and a startup validator. Requires
+    /// the self-HTTP <see cref="INhAiMvcBridgeExecutor"/> and a startup validator, which a web host
+    /// runs once its application pipeline is configured, before the server starts. Requires
     /// <c>AddNewHeapPlatformAIAspNet</c> and MVC ApiExplorer (<c>AddControllers</c> or
     /// <c>AddEndpointsApiExplorer</c>).
     /// </summary>
@@ -64,22 +65,25 @@ public static class NhAiMvcBridgeServiceCollectionExtensions
                 UseCookies = false
             });
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAiMvcBridgeStartupValidator>());
+        NhAiAspNetStartupChecks.Register(services);
         return services;
     }
 }
 
 /// <summary>
 /// Builds the bridge catalog at startup and validates its attestation, so misconfiguration
-/// fails before the first request.
+/// fails before the first request. A web host builds it after its endpoints are registered, so
+/// that reading ApiExplorer leaves the minimal API descriptions in place.
 /// </summary>
 internal sealed partial class NhAiMvcBridgeStartupValidator(
+    IServiceProvider hostServices,
     NhAiMvcBridgeToolCatalog catalog,
     NhAiMvcBridgeOptions options,
     IServiceScopeFactory serviceScopeFactory,
     IEnumerable<NhAiBridgeResourcePresentationOptions> resourcePresentationOptions,
-    ILogger<NhAiMvcBridgeStartupValidator> logger) : IHostedService
+    ILogger<NhAiMvcBridgeStartupValidator> logger) : NhAiStartupCheck(hostServices)
 {
-    public Task StartAsync(CancellationToken cancellationToken)
+    protected override Task ValidateAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var scope = serviceScopeFactory.CreateScope();
@@ -113,11 +117,6 @@ internal sealed partial class NhAiMvcBridgeStartupValidator(
         {
             LogRelationsDerived(logger, gateway.ToolSetId, gateway.DerivedRelations);
         }
-        return Task.CompletedTask;
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
         return Task.CompletedTask;
     }
 

@@ -79,6 +79,7 @@ public static class NhAiAspNetServiceCollectionExtensions
             services.TryAddScoped<
                 INhAiBackgroundOperationIngestionAdapter,
                 NhAiBackgroundOperationIngestionAdapter>();
+            NhAiAspNetStartupChecks.Register(services);
         }
 
         configure(new NhAiAspNetBuilder(services, state));

@@ -1,6 +1,5 @@
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI;
@@ -198,16 +197,18 @@ internal sealed class NhAiModelProfileResolver(
 }
 
 /// <summary>
-/// Validates profiles and tool catalogs once while the host starts. Catalogs are resolved in a
-/// validation scope of their own, so a catalog may be registered as a singleton or, when its
-/// descriptors depend on the current run, as a scoped service.
+/// Validates profiles and tool catalogs once while the host starts (see <see cref="NhAiStartupCheck"/>
+/// for when). Catalogs are resolved in a validation scope of their own, so a catalog may be
+/// registered as a singleton or, when its descriptors depend on the current run, as a scoped
+/// service.
 /// </summary>
 internal sealed class NhAiStartupValidator(
+    IServiceProvider hostServices,
     IServiceScopeFactory serviceScopeFactory,
     INhAiModelProfileRegistry registry,
-    NhAiRegistrationState registrationState) : IHostedService
+    NhAiRegistrationState registrationState) : NhAiStartupCheck(hostServices)
 {
-    public async Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task ValidateAsync(CancellationToken cancellationToken)
     {
         foreach (var requirement in registrationState.StartupRequirements)
         {
@@ -261,11 +262,6 @@ internal sealed class NhAiStartupValidator(
         }
 
         ValidateToolRuntime(scope.ServiceProvider);
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        return Task.CompletedTask;
     }
 
     private void ValidateFallbackCycle(
