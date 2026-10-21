@@ -1893,7 +1893,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 }
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -1946,7 +1946,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return thread;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException("No thread of the whole application was created.");
@@ -2829,7 +2829,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             {
                 return;
             }
-            await Task.Delay(TimeSpan.FromMilliseconds(200));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
         throw new TimeoutException($"No completed run started by {initiator}.");
     }
@@ -3298,7 +3298,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return runs;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3330,7 +3330,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return found;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3384,7 +3384,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return thread.ConversationId;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException($"No thread of agent {agentId} was created for project {projectId}.");
@@ -3406,7 +3406,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return replay;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(500));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException($"Replay {replayId} is still {replay?.Status ?? "missing"} after {replay?.RunsReplayed ?? 0} runs.");
@@ -3427,7 +3427,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return found;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3450,7 +3450,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return found;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3473,7 +3473,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 }
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3548,7 +3548,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return thread.ConversationId;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException($"No shadow thread of agent {agentId} was created for project {projectId}.");
@@ -3604,7 +3604,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 }
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3658,6 +3658,12 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
     public SampleInbox Inbox { get; } = new();
 
     public const string ReviewBoardSecret = "sample-review-board-secret-for-tests-only";
+
+    /// <summary>
+    /// How often the tests' wait helpers ask again for work that the host's background operations
+    /// do. The host dispatches them every 50 ms, so the evidence waits little for them.
+    /// </summary>
+    public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(50);
 
     public override async ValueTask InitializeAsync()
     {
@@ -3794,11 +3800,11 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
                 {
                     server.ServerName = "sample-agent-runs-" + Guid.NewGuid().ToString("N");
                     server.WorkerCount = 2;
-                    server.SchedulePollingInterval = TimeSpan.FromMilliseconds(100);
+                    server.SchedulePollingInterval = TimeSpan.FromMilliseconds(25);
                 })
             .WithBackgroundOperations(operations =>
             {
-                operations.Options.DispatchInterval = TimeSpan.FromMilliseconds(200);
+                operations.Options.DispatchInterval = TimeSpan.FromMilliseconds(50);
                 operations.Options.LiveUpdatesEnabled = false;
                 operations.Options.UserNotificationProjectionEnabled = false;
                 operations.Options.CleanupEnabled = false;
@@ -3942,7 +3948,7 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
                 return;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(200));
+            await Task.Delay(PollInterval);
         }
 
         throw new TimeoutException($"Operation {operationId} stayed {current} instead of {status}.");

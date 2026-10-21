@@ -894,6 +894,9 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
                 {
                     services.AddSingleton(_ => application);
                     services.AddSingleton<TimeProvider>(clock);
+                    // A transiently failing model call is retried at once instead of after two seconds;
+                    // the tests count attempts, not the wait.
+                    services.AddSingleton(new NhAssistantTiming { TransientProviderRetryDelay = TimeSpan.Zero });
                     services.AddSingleton(new TestSubjects());
                     services.AddSingleton<RecordingChannel>();
                     services.AddSingleton<RecordedLiveUpdates>();
