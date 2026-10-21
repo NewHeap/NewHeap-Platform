@@ -515,14 +515,16 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
-    /// Runs that have not ended and have a background operation, oldest first, created after
-    /// <paramref name="createdAfter"/>: one page of the maintenance job's check of runs against their
-    /// operations. The job continues each round after the page it checked last, so every run is
-    /// checked in turn however many runs wait; it reads the page through the
-    /// <c>(Status, CreatedAt)</c> index.
+    /// Runs that have not ended and have a background operation, in the order of
+    /// <c>(CreatedAt, Id)</c>, after the run <paramref name="after"/>: one page of the maintenance
+    /// job's check of runs against their operations. The job continues each round after the last run
+    /// of the page it checked, so every run is checked in turn however many runs wait, also when
+    /// several were created at the same time at a page boundary. The page is read through the
+    /// <c>(Status, CreatedAt)</c> index: the condition keeps a range on <c>CreatedAt</c>, and the id
+    /// only decides between runs created at the cursor's time.
     /// </summary>
     public async Task<IReadOnlyList<AssistantRun>> GetActiveRunsWithOperationAsync(
-        DateTimeOffset? createdAfter,
+        (DateTimeOffset CreatedAt, Guid Id)? after,
         int maximum,
         CancellationToken cancellationToken)
     {
@@ -530,9 +532,11 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         var query = context.Runs
             .AsNoTracking()
             .Where(run => ActiveRunStatuses.Contains(run.Status) && run.BackgroundOperationId != null);
-        if (createdAfter is { } after)
+        if (after is { } cursor)
         {
-            query = query.Where(run => run.CreatedAt > after);
+            var createdAt = cursor.CreatedAt;
+            var id = cursor.Id;
+            query = query.Where(run => run.CreatedAt >= createdAt && (run.CreatedAt > createdAt || run.Id > id));
         }
 
         return await query
@@ -567,6 +571,22 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                     .SetProperty(conversation => conversation.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
         return affected == 1;
+    }
+
+    /// <summary>
+    /// Whether the thread still waits in turn <paramref name="turnId"/> for an inline decision. It no
+    /// longer does once the run that waited in it ended without resuming it and released the turn.
+    /// </summary>
+    public async Task<bool> WaitsInTurnAsync(Guid conversationId, Guid turnId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Conversations
+            .AsNoTracking()
+            .AnyAsync(
+                conversation => conversation.Id == conversationId
+                    && conversation.Status == NhAssistantConversationStatuses.WaitingForApproval
+                    && conversation.ActiveTurnId == turnId,
+                cancellationToken);
     }
 
     /// <summary>

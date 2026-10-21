@@ -100,10 +100,11 @@ internal sealed class NhAssistantRunMaintenance(
     private DateTimeOffset _boardVisitsCleanedAt = DateTimeOffset.MinValue;
 
     /// <summary>
-    /// Where the check of runs against their background operations continues: the creation time of
-    /// the last run the previous round checked, or <see langword="null"/> to start at the oldest run.
+    /// Where the check of runs against their background operations continues: the creation time and
+    /// id of the last run the previous round checked, or <see langword="null"/> to start at the
+    /// oldest run.
     /// </summary>
-    private DateTimeOffset? _operationCheckAfter;
+    private (DateTimeOffset CreatedAt, Guid Id)? _operationCheckAfter;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -435,11 +436,15 @@ internal sealed class NhAssistantRunMaintenance(
     /// <c>dispatch-stalled</c> or it failed for good in another way, and a queued or running run whose
     /// operation failed, timed out or succeeded before its handler ended it. The handler never runs
     /// again, so such a run, and the thread it waits in, would otherwise wait for good. Each round
-    /// checks one page of runs that have not ended, after the page it checked last, against their
+    /// checks one page of runs that have not ended, after the last run it checked, against their
     /// operations by id; an operation that waits, is due or runs is left alone. An operation counts
     /// once it has been terminal for <paramref name="settled"/> on the system clock, its liveness
-    /// clock. The run ends through <see cref="NhAssistantRunEnding.EndAfterOperationEndedAsync"/>,
-    /// whose compare-and-set ends it once; a later round no longer finds it.
+    /// clock. A running or waiting run whose operation is gone, removed by the cleanup of ended
+    /// operations, counts once its last recorded change, its start (or its creation when it never
+    /// started), is as long ago. A queued run without its operation is left to
+    /// <see cref="RecoverOrphanedRunsAsync"/>, which queues it again. The run ends through
+    /// <see cref="NhAssistantRunEnding.EndAfterOperationEndedAsync"/>, whose compare-and-set ends it
+    /// once; a later round no longer finds it.
     /// </summary>
     private async Task EndRunsOfEndedOperationsAsync(
         NhAssistantRunStore runs,
@@ -450,7 +455,7 @@ internal sealed class NhAssistantRunMaintenance(
     {
         var page = await runs.GetActiveRunsWithOperationAsync(_operationCheckAfter, BatchSize, cancellationToken);
         // A page that is not full reached the newest run: the next round starts at the oldest again.
-        _operationCheckAfter = page.Count < BatchSize ? null : page[^1].CreatedAt;
+        _operationCheckAfter = page.Count < BatchSize ? null : (page[^1].CreatedAt, page[^1].Id);
         if (page.Count == 0)
         {
             return;
@@ -460,13 +465,9 @@ internal sealed class NhAssistantRunMaintenance(
             .Select(run => run.BackgroundOperationId!.Value)
             .Distinct()
             .ToArray();
-        var ended = await operations.GetAll()
+        var found = await operations.GetAll()
             .AsNoTracking()
-            .Where(operation => operationIds.Contains(operation.Id)
-                && (operation.Status == NhBackgroundOperationStatus.Succeeded
-                    || operation.Status == NhBackgroundOperationStatus.Failed
-                    || operation.Status == NhBackgroundOperationStatus.Cancelled
-                    || operation.Status == NhBackgroundOperationStatus.TimedOut))
+            .Where(operation => operationIds.Contains(operation.Id))
             .Select(operation => new
             {
                 operation.Id,
@@ -475,21 +476,33 @@ internal sealed class NhAssistantRunMaintenance(
                 EndedAt = operation.CompletedAt ?? operation.LastModifiedDateTime
             })
             .ToDictionaryAsync(operation => operation.Id, cancellationToken);
-        if (ended.Count == 0)
-        {
-            return;
-        }
 
         var settledBefore = DateTimeOffset.UtcNow - settled;
         foreach (var run in page)
         {
-            if (!ended.TryGetValue(run.BackgroundOperationId!.Value, out var operation)
-                || operation.EndedAt > settledBefore)
+            if (found.TryGetValue(run.BackgroundOperationId!.Value, out var operation))
+            {
+                if (operation.Status is not (NhBackgroundOperationStatus.Succeeded
+                        or NhBackgroundOperationStatus.Failed
+                        or NhBackgroundOperationStatus.Cancelled
+                        or NhBackgroundOperationStatus.TimedOut)
+                    || operation.EndedAt > settledBefore)
+                {
+                    continue;
+                }
+
+                await ending.EndAfterOperationEndedAsync(run, operation.Status, operation.FailureCode, cancellationToken);
+                continue;
+            }
+
+            // The cleanup removes only operations that ended, so a run that started has outlived its
+            // operation; how it ended is no longer known.
+            if (run.Status == NhAssistantRunStatuses.Queued || (run.StartedAt ?? run.CreatedAt) > settledBefore)
             {
                 continue;
             }
 
-            await ending.EndAfterOperationEndedAsync(run, operation.Status, operation.FailureCode, cancellationToken);
+            await ending.EndAfterOperationEndedAsync(run, null, null, cancellationToken);
         }
     }
 

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +35,7 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
     private const string AgentId = "project-assistant";
     private const string ChangeStatusFunction = "projects_change_status_v1";
     private const string Member = "member-1";
+    private const string Approver = "approver-1";
     private const string InlinePolicy = "project-inline";
 
     private static readonly TimeSpan Lifetime = TimeSpan.FromHours(4);
@@ -238,9 +240,224 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
     }
 
     /// <summary>
-    /// The job reads open runs with an operation a bounded page at a time, oldest first, and
-    /// continues after the last run of the previous page, so it comes round to every open run
-    /// however many wait; ended runs and runs without an operation are not read.
+    /// A run whose agent uses every slot, or whose thread a person's turn holds, gives way without
+    /// spending a retry: the attempt is abandoned and the operation is due again after a delay on the
+    /// application's clock, which doubles up to five minutes. After more such attempts than the run
+    /// and its operation may retry, the run completes once the slots and the thread are free.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_run_that_finds_its_agent_full_or_its_thread_busy_tries_again_later_without_spending_retries(AssistantTestProvider provider)
+    {
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 5, 6, 7, 8, 0, TimeSpan.Zero));
+        var model = new NhAiScriptedChatClient().RespondWithText("The project needs nothing else today.");
+        await using var host = await CreateHostAsync(provider, clock, model);
+        var runs = host.Services.GetRequiredService<NhAssistantRunStore>();
+
+        // Runs of the agent on four other projects use its four slots.
+        var others = new List<Guid>();
+        for (var index = 0; index < 4; index++)
+        {
+            var other = (await StartAsync(host, Guid.NewGuid())).RunId!.Value;
+            Assert.True(await runs.TrySetRunStatusAsync(other, [NhAssistantRunStatuses.Queued], NhAssistantRunStatuses.Running, CancellationToken.None));
+            others.Add(other);
+        }
+
+        var started = await StartAsync(host, Guid.NewGuid());
+        var runId = started.RunId!.Value;
+        var conversationId = started.ConversationId!.Value;
+        var operationId = (await FindRunAsync(host, runId)).BackgroundOperationId!.Value;
+        var delays = new List<TimeSpan>();
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            delays.Add(await GiveWayAsync(host, clock, operationId));
+        }
+
+        // The slots are free again, but a person's turn holds the run's thread.
+        foreach (var other in others)
+        {
+            await runs.TrySetRunStatusAsync(other, [NhAssistantRunStatuses.Running], NhAssistantRunStatuses.Cancelled, CancellationToken.None);
+        }
+        var store = host.Services.GetRequiredService<INhAssistantStore>();
+        var personsTurn = Guid.NewGuid();
+        Assert.True(await store.TryBeginTurnAsync(
+            conversationId,
+            Member,
+            [NhAssistantConversationStatuses.Idle, NhAssistantConversationStatuses.Failed],
+            personsTurn,
+            DateTimeOffset.MinValue,
+            CancellationToken.None));
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            delays.Add(await GiveWayAsync(host, clock, operationId));
+        }
+
+        // 30 seconds for a full agent and 15 for a busy thread, doubled for every earlier attempt
+        // that gave way, at most five minutes.
+        Assert.Equal(
+            new[] { 30, 60, 60, 120, 240, 300 }.Select(seconds => TimeSpan.FromSeconds(seconds)).ToArray(),
+            delays.ToArray());
+
+        // Six attempts gave way, more than the run's three retries and its operation's three; the
+        // next attempt after the person's turn ended runs the turn, and the run completes.
+        Assert.True(await store.TryEndTurnAsync(conversationId, personsTurn, NhAssistantConversationStatuses.Idle, CancellationToken.None));
+        var operation = await ExecuteNextAttemptAsync(host, operationId);
+        var run = await FindRunAsync(host, runId);
+        Assert.True(
+            operation.Status == NhBackgroundOperationStatus.Succeeded && run.Status == NhAssistantRunStatuses.Completed,
+            $"Run {runId} should complete, but is {run.Status} ({run.FailureCode}); its operation is {operation.Status} ({operation.FailureCode}).");
+        await using var scope = host.Services.CreateAsyncScope();
+        var attempts = await scope.ServiceProvider.GetRequiredService<OrderDbContext>().Set<NhBackgroundOperationAttempt>()
+            .AsNoTracking()
+            .Where(item => item.OperationId == operationId)
+            .Select(item => item.Status)
+            .ToListAsync();
+        Assert.Equal(6, attempts.Count(status => status == NhBackgroundOperationAttemptStatus.Abandoned));
+        Assert.DoesNotContain(NhBackgroundOperationAttemptStatus.Failed, attempts);
+    }
+
+    /// <summary>
+    /// An approver approves the inline proposal after the run's operation was cancelled, so the run
+    /// never resumes to execute it. When the job ends the run, the approved proposal is withdrawn,
+    /// once and with the run's failure code, and nothing executes.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_inline_proposal_approved_after_its_runs_operation_ended_is_withdrawn_without_executing(AssistantTestProvider provider)
+    {
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 5, 6, 7, 8, 0, TimeSpan.Zero));
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Closed" } }, "call-close");
+        await using var host = await CreateHostAsync(provider, clock, model);
+        var waiting = await StartWaitingRunAsync(host, projectId);
+        await EndOperationAsync(host, waiting.OperationId, OperationEnd.OperatorCancelled);
+
+        var decided = await DecideAsync(host, waiting.ApprovalId);
+        Assert.True(decided.Success, string.Join("; ", decided.AllErrorMessages.Select(error => error.ToString())));
+        Assert.Equal(NhAssistantApprovalStatuses.Approved, (await FindApprovalAsync(host, waiting.ApprovalId)).Status);
+
+        await BackdateOperationEndAsync(host, waiting.OperationId, Settled + TimeSpan.FromMinutes(1));
+        host.Services.GetRequiredService<RecordedLiveUpdates>().Clear();
+        await RunMaintenanceAsync(host);
+
+        var run = await FindRunAsync(host, waiting.RunId);
+        Assert.True(
+            run.Status == NhAssistantRunStatuses.Cancelled && run.FailureCode == NhAssistantErrorCodes.RunOperationCancelled,
+            $"Run {waiting.RunId} ended {run.Status}/{run.FailureCode}.");
+        var approval = await FindApprovalAsync(host, waiting.ApprovalId);
+        Assert.Equal(NhAssistantApprovalStatuses.Withdrawn, approval.Status);
+        Assert.Equal(NhAssistantErrorCodes.RunOperationCancelled, approval.ExecutionResultCode);
+        Assert.Equal(Approver, approval.DecidedByActorId);
+        Assert.Contains("(" + NhAssistantApprovalStatuses.Withdrawn + ")", run.Summary);
+        Assert.Empty(host.Tools.StatusChanges);
+        Assert.Equal(NhAssistantConversationStatuses.Idle, (await host.ReloadAsync(waiting.ConversationId, "assistant-agent:" + AgentId)).Status);
+        Assert.Single(
+            host.Services.GetRequiredService<RecordedLiveUpdates>().Sent.Select(sent => sent.Event).OfType<NhAssistantLiveAgentWorkChanged>(),
+            update => update.Reason == NhAssistantAgentWorkReasons.Proposal && update.ApprovalId == waiting.ApprovalId);
+
+        await RunMaintenanceAsync(host);
+        Assert.Equal(approval.ConcurrencyStamp, (await FindApprovalAsync(host, waiting.ApprovalId)).ConcurrencyStamp);
+    }
+
+    /// <summary>
+    /// A run that the job ended while it waited inline is resumed (<c>retry</c> with <c>resume</c>):
+    /// its operation runs again, drops the wait the run gave up instead of waiting for a proposal
+    /// nobody can decide any more, and starts a new turn in the thread, which completes.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_resumed_run_that_ended_while_it_waited_inline_starts_a_new_turn_instead_of_waiting_again(AssistantTestProvider provider)
+    {
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 5, 6, 7, 8, 0, TimeSpan.Zero));
+        var projectId = Guid.NewGuid();
+        var model = new SwitchingChatClient(new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Closed" } }, "call-close"));
+        await using var host = await CreateHostAsync(provider, clock, model);
+        var waiting = await StartWaitingRunAsync(host, projectId);
+        await EndOperationAsync(host, waiting.OperationId, OperationEnd.OperatorCancelled);
+        await BackdateOperationEndAsync(host, waiting.OperationId, Settled + TimeSpan.FromMinutes(1));
+        await RunMaintenanceAsync(host);
+        Assert.Equal(NhAssistantRunStatuses.Cancelled, (await FindRunAsync(host, waiting.RunId)).Status);
+
+        // Resume as POST runs/{id}/retry does: retry the run's operation and queue the run again.
+        model.Current = new NhAiScriptedChatClient().RespondWithText("The project needs nothing else today.");
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var retried = await scope.ServiceProvider.GetRequiredService<INhBackgroundOperationAdministrationService>()
+                .RetryAsync(waiting.OperationId, Guid.NewGuid(), null, CancellationToken.None);
+            Assert.True(retried.Success, string.Join("; ", retried.AllErrorMessages.Select(error => error.ToString())));
+        }
+        Assert.True(await host.Services.GetRequiredService<NhAssistantRunStore>().TrySetRunStatusAsync(
+            waiting.RunId,
+            [NhAssistantRunStatuses.Failed, NhAssistantRunStatuses.Cancelled],
+            NhAssistantRunStatuses.Queued,
+            CancellationToken.None));
+
+        var operation = await ExecuteNextAttemptAsync(host, waiting.OperationId);
+        var run = await FindRunAsync(host, waiting.RunId);
+        Assert.True(
+            operation.Status == NhBackgroundOperationStatus.Succeeded && run.Status == NhAssistantRunStatuses.Completed,
+            $"The resumed run {waiting.RunId} should complete, but is {run.Status} ({run.FailureCode}); its operation is {operation.Status} ({operation.FailureCode}).");
+        Assert.Equal(NhAssistantApprovalStatuses.Withdrawn, (await FindApprovalAsync(host, waiting.ApprovalId)).Status);
+        Assert.Empty(host.Tools.StatusChanges);
+        Assert.Equal(NhAssistantConversationStatuses.Idle, (await host.ReloadAsync(waiting.ConversationId, "assistant-agent:" + AgentId)).Status);
+    }
+
+    /// <summary>
+    /// A run that waits inline whose operation is gone, removed by the cleanup of ended operations,
+    /// is left alone while it started recently, and ended once it started longer ago than the stale
+    /// timeout of real time: failed with <c>assistant-run-operation-ended</c>, its proposal withdrawn
+    /// and its thread free.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_run_whose_operation_was_removed_ends_once_it_started_longer_ago_than_the_stale_timeout(AssistantTestProvider provider)
+    {
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 5, 6, 7, 8, 0, TimeSpan.Zero));
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Closed" } }, "call-close");
+        await using var host = await CreateHostAsync(provider, clock, model);
+        var waiting = await StartWaitingRunAsync(host, projectId);
+        await UpdateOperationAsync(host, waiting.OperationId, operations => operations.ExecuteDeleteAsync());
+
+        await RunMaintenanceAsync(host);
+        Assert.Equal(NhAssistantRunStatuses.WaitingForApproval, (await FindRunAsync(host, waiting.RunId)).Status);
+        Assert.Equal(NhAssistantApprovalStatuses.Pending, (await FindApprovalAsync(host, waiting.ApprovalId)).Status);
+
+        await BackdateRunAsync(host, waiting.RunId, Settled + TimeSpan.FromMinutes(1));
+        host.Services.GetRequiredService<RecordedLiveUpdates>().Clear();
+        await RunMaintenanceAsync(host);
+
+        var expected = new ExpectedEnd(
+            NhBackgroundOperationStatus.Failed,
+            NhAssistantRunStatuses.Failed,
+            NhAssistantRunFailureClasses.Internal,
+            NhAssistantErrorCodes.RunOperationEnded,
+            1);
+        var run = await FindRunAsync(host, waiting.RunId);
+        Assert.True(
+            run.Status == expected.Status && run.FailureClass == expected.FailureClass && run.FailureCode == expected.Code,
+            $"Run {waiting.RunId} ended {run.Status}/{run.FailureClass}/{run.FailureCode}.");
+        Assert.Equal(NhAssistantApprovalStatuses.Withdrawn, (await FindApprovalAsync(host, waiting.ApprovalId)).Status);
+        Assert.Equal(NhAssistantConversationStatuses.Idle, (await host.ReloadAsync(waiting.ConversationId, "assistant-agent:" + AgentId)).Status);
+        AssertEndedOnce(host, waiting, expected);
+
+        await RunMaintenanceAsync(host);
+        Assert.Equal(run.ConcurrencyStamp, (await FindRunAsync(host, waiting.RunId)).ConcurrencyStamp);
+        AssertEndedOnce(host, waiting, expected);
+    }
+
+    /// <summary>
+    /// The job reads open runs with an operation a bounded page at a time, in the order of their
+    /// creation time and id, and continues after the last run of the previous page, so it comes round
+    /// to every open run however many wait, also when runs created at the same time straddle a page
+    /// boundary; ended runs and runs without an operation are not read.
     /// </summary>
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -253,29 +470,31 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
         var store = host.Services.GetRequiredService<NhAssistantRunStore>();
         var start = DateTimeOffset.UtcNow.AddHours(-1);
         var open = new List<Guid>();
-        string[] statuses =
+        // The first five runs were created at the same moment, the last three a minute apart.
+        (string Status, int Minute)[] runs =
         [
-            NhAssistantRunStatuses.Queued,
-            NhAssistantRunStatuses.Running,
-            NhAssistantRunStatuses.WaitingForApproval,
-            NhAssistantRunStatuses.Completed,
-            NhAssistantRunStatuses.WaitingForApproval,
-            NhAssistantRunStatuses.Failed,
-            NhAssistantRunStatuses.Running
+            (NhAssistantRunStatuses.Queued, 0),
+            (NhAssistantRunStatuses.Running, 0),
+            (NhAssistantRunStatuses.Completed, 0),
+            (NhAssistantRunStatuses.WaitingForApproval, 0),
+            (NhAssistantRunStatuses.Running, 0),
+            (NhAssistantRunStatuses.WaitingForApproval, 1),
+            (NhAssistantRunStatuses.Failed, 2),
+            (NhAssistantRunStatuses.Running, 3)
         ];
-        for (var index = 0; index < statuses.Length; index++)
+        for (var index = 0; index < runs.Length; index++)
         {
             var run = new Entities.AssistantRun
             {
                 Id = Guid.NewGuid(),
                 ConversationId = conversation.Id,
-                // The fifth run has no operation yet.
-                BackgroundOperationId = index == 4 ? null : Guid.NewGuid(),
+                // The sixth run has no operation yet.
+                BackgroundOperationId = index == 5 ? null : Guid.NewGuid(),
                 TriggerId = NhAssistantTriggerIds.Manual,
                 AccountableOwnerId = Member,
-                Status = statuses[index],
+                Status = runs[index].Status,
                 AgentVersion = 1,
-                CreatedAt = start.AddMinutes(index),
+                CreatedAt = start.AddMinutes(runs[index].Minute),
                 ConcurrencyStamp = Guid.NewGuid()
             };
             await store.AddRunAsync(run, CancellationToken.None);
@@ -285,14 +504,25 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
             }
         }
 
-        var first = await store.GetActiveRunsWithOperationAsync(null, 2, CancellationToken.None);
-        var second = await store.GetActiveRunsWithOperationAsync(first[^1].CreatedAt, 2, CancellationToken.None);
-        var third = await store.GetActiveRunsWithOperationAsync(second[^1].CreatedAt, 2, CancellationToken.None);
+        var pages = new List<IReadOnlyList<Entities.AssistantRun>>();
+        (DateTimeOffset CreatedAt, Guid Id)? after = null;
+        for (var round = 0; round < 4; round++)
+        {
+            var page = await store.GetActiveRunsWithOperationAsync(after, 2, CancellationToken.None);
+            pages.Add(page);
+            if (page.Count == 0)
+            {
+                break;
+            }
+            after = (page[^1].CreatedAt, page[^1].Id);
+        }
 
-        Assert.Equal(2, first.Count);
-        Assert.Equal(2, second.Count);
-        Assert.Empty(third);
-        Assert.Equal(open, first.Concat(second).Select(run => run.Id).ToArray());
+        // Five open runs with an operation, four of them created at the same moment: pages of two,
+        // two and one, then an empty page, each run once and in order of creation time.
+        Assert.Equal(new[] { 2, 2, 1, 0 }, pages.Select(page => page.Count).ToArray());
+        var read = pages.SelectMany(page => page).ToArray();
+        Assert.Equal(open.Order().ToArray(), read.Select(run => run.Id).Order().ToArray());
+        Assert.Equal(read.Select(run => run.CreatedAt).Order().ToArray(), read.Select(run => run.CreatedAt).ToArray());
     }
 
     private sealed record ExpectedEnd(
@@ -430,15 +660,60 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
     }
 
     /// <summary>
-    /// Hands the operation to a worker as the dispatcher does and runs that worker's attempt.
+    /// Hands the operation to a worker as the dispatcher does once it is due and runs that worker's
+    /// attempt.
     /// </summary>
     private static async Task<NhBackgroundOperation> ExecuteNextAttemptAsync(AssistantTestHost host, Guid operationId)
     {
         await UpdateOperationAsync(host, operationId, operations => operations
-            .Where(operation => operation.Status == NhBackgroundOperationStatus.PendingDispatch)
+            .Where(operation => operation.Status == NhBackgroundOperationStatus.PendingDispatch
+                || operation.Status == NhBackgroundOperationStatus.RetryScheduled)
             .ExecuteUpdateAsync(setters => setters.SetProperty(operation => operation.Status, NhBackgroundOperationStatus.Queued)));
         await RunWorkerAsync(host, operationId);
         return await FindOperationAsync(host, operationId);
+    }
+
+    /// <summary>
+    /// Runs the operation's next attempt, which gives way without spending a retry, and returns how
+    /// long after the application's current time it is due again.
+    /// </summary>
+    private static async Task<TimeSpan> GiveWayAsync(AssistantTestHost host, AssistantTestClock clock, Guid operationId)
+    {
+        var operation = await ExecuteNextAttemptAsync(host, operationId);
+        Assert.True(
+            operation.Status == NhBackgroundOperationStatus.RetryScheduled && operation.FailureCode == "concurrency-busy",
+            $"Operation {operationId} should give way, but is {operation.Status} ({operation.FailureCode}).");
+        return operation.NextDispatchAt!.Value - clock.GetUtcNow();
+    }
+
+    /// <summary>
+    /// An approver of the project approves the proposal.
+    /// </summary>
+    private static async Task<NewHeap.Platform.Common.Models.TaskResult<Entities.AssistantApproval>> DecideAsync(AssistantTestHost host, Guid approvalId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<NhAssistantProposalDecisions>().DecideAsync(
+            approvalId,
+            Approver,
+            new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, Approver)], "test")),
+            approve: true,
+            expectedProposalHash: null,
+            reason: null,
+            CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Moves the run's creation and start back on the system clock.
+    /// </summary>
+    private static async Task BackdateRunAsync(AssistantTestHost host, Guid runId, TimeSpan by)
+    {
+        var before = DateTimeOffset.UtcNow - by;
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        await context.Runs
+            .Where(run => run.Id == runId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(run => run.CreatedAt, before)
+                .SetProperty(run => run.StartedAt, before));
     }
 
     private static async Task RunWorkerAsync(AssistantTestHost host, Guid operationId)

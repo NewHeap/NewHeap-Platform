@@ -67,13 +67,18 @@ the operation: a cancelled operation cancels it with `assistant-run-operation-ca
 end fails it with `assistant-run-operation-ended` (class `internal`), with its summary,
 `AgentRunEnded`, work update, hand-off follow-ups and, when it failed, `RunFailed`. Its pending
 inline proposals close first, `expired` when their lifetime passed on the application's clock
-and `withdrawn` otherwise, and the thread's turn that waited for them is released, so the
-agent's next run starts; deferred proposals stay open. The job checks a bounded page of open
-runs per round, continuing after the last one, and leaves a run whose operation still waits,
-is due or runs alone. A run that a person or the kill switch cancels while it waits inline ends at
-once and releases that turn as well. Cancel a run with `POST runs/{id}/cancel` rather than its operation, and
-restart a run that ended this way (`retry` with `mode: "restart"`): resuming retries its old
-operation, which goes back into the wait the run already gave up.
+and `withdrawn` otherwise; an inline proposal a person approved after the operation ended, which
+so never executed, is `withdrawn` with the run's failure code and executes nothing. The thread's
+turn that waited for them is released, so the agent's next run starts; deferred proposals keep
+their own lifecycle. A running or waiting run whose operation is gone, because the cleanup of
+ended operations removed it, fails with `assistant-run-operation-ended` once the run started (or
+was created) at least that timeout ago. The job checks a bounded page of open runs per round, in the order
+of their creation time and id, continuing after the last one, and leaves a run whose operation
+still waits, is due or runs alone. A run that a person or the kill switch cancels while it waits
+inline ends at once and releases that turn as well. Cancel a run with `POST runs/{id}/cancel`
+rather than its operation. Resuming a run that ended this way (`retry` with `mode: "resume"`)
+retries its operation, which drops the wait the run gave up and starts a new turn in the thread;
+`mode: "restart"` starts a new run instead.
 
 `GET conversations/{id}` of a thread says who decides, so a chat client does not apply
 the chat rule that only a turn's author decides: it returns `kind: "thread"` and
@@ -395,8 +400,11 @@ at once. Maintenance queues a run again whose operation never committed. Choose
 coalesce, queue, supersede or ignore. Bound agents with `Budget`, `Retry`,
 `Enabled`, and `Shadow()` on the agent or a skill to start it in shadow for evaluation on real
 events: its work goes to the agent's shadow thread of the subject, which administrators alone see,
-where nobody is notified and nothing proposed executes. Call `AddAssistantAgentRuns()` inside
-`WithBackgroundOperations`.
+where nobody is notified and nothing proposed executes. `Retry` counts attempts that failed only:
+a run whose thread a person's turn holds, or whose agent already has `maxConcurrentRuns` runs
+going, gives way without spending a retry and tries again 15 or 30 seconds later on the
+application's clock, twice as long after every attempt that gave way, at most five minutes. Call
+`AddAssistantAgentRuns()` inside `WithBackgroundOperations`.
 
 Other sources start agents too. `AddScheduledTrigger` runs a Hangfire recurring job on
 a cron schedule and fires the trigger for each subject its `Subjects` query returns,
@@ -818,8 +826,7 @@ profile and instructions that answer questions about the rules' proposals from t
   transaction; it reads `deferred` until the commit.
 - Treating `execution-unknown` as failed and executing a non-idempotent tool
   again automatically.
-- Cancelling an agent run's background operation to stop the run instead of `POST runs/{id}/cancel`,
-  or resuming a run that ended because its operation ended without it; restart it instead.
+- Cancelling an agent run's background operation to stop the run instead of `POST runs/{id}/cancel`.
 - Accepting unsigned webhook calls, sharing one secret between triggers, or passing
   free text from a webhook body to the agent as instructions.
 - Picking notification recipients from the run's background-operation owner instead

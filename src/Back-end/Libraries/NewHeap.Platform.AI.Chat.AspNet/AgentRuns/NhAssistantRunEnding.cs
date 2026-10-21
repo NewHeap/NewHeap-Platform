@@ -147,23 +147,25 @@ internal sealed class NhAssistantRunEnding(
     /// <summary>
     /// Ends a run whose background operation ended without ending the run, such as a run that waited
     /// inline for a decision while an operator cancelled its operation, reconciliation failed it as
-    /// <c>dispatch-stalled</c> or it failed for good in another way. The run's handler never runs
-    /// again, so the maintenance job ends the run through <see cref="EndAsync"/>, once and as the
-    /// operation's end says (<see cref="OutcomeOf"/>). The run's pending inline proposals can no
-    /// longer be decided: they close first, expired when their lifetime passed on the application's
-    /// clock and withdrawn otherwise, so the run's summary names them so. The thread's turn that
-    /// waited for them is released afterwards, so the agent's next run can start. Returns whether
-    /// this call ended the run.
+    /// <c>dispatch-stalled</c> or it failed for good in another way, or whose operation is gone
+    /// (<paramref name="operationStatus"/> <see langword="null"/>), removed by the cleanup of ended
+    /// operations. The run's handler never runs again, so the maintenance job ends the run through
+    /// <see cref="EndAsync"/>, once and as the operation's end says (<see cref="OutcomeOf"/>). The
+    /// run's inline proposals can no longer be decided or executed: pending ones close first, expired
+    /// when their lifetime passed on the application's clock and withdrawn otherwise, and approved
+    /// ones that never executed are withdrawn without executing, so the run's summary names them so.
+    /// The thread's turn that waited for them is released afterwards, so the agent's next run can
+    /// start. Returns whether this call ended the run.
     /// </summary>
     public async Task<bool> EndAfterOperationEndedAsync(
         AssistantRun run,
-        NhBackgroundOperationStatus operationStatus,
+        NhBackgroundOperationStatus? operationStatus,
         string? operationFailureCode,
         CancellationToken cancellationToken)
     {
         var outcome = OutcomeOf(operationStatus, operationFailureCode);
         var thread = await runs.FindThreadByConversationAsync(run.ConversationId, cancellationToken);
-        await CloseInlineProposalsAsync(run, cancellationToken);
+        await CloseInlineProposalsAsync(run, outcome.Code, cancellationToken);
 
         var ended = outcome.Status == NhAssistantRunStatuses.Failed
             ? await FailAsync(run, thread, outcome.FailureClass, outcome.Code, run.TurnId)
@@ -182,7 +184,7 @@ internal sealed class NhAssistantRunEnding(
                 outcome.Status,
                 outcome.Code,
                 run.BackgroundOperationId,
-                operationStatus);
+                operationStatus?.ToString() ?? "and was removed");
         }
 
         return ended;
@@ -192,11 +194,12 @@ internal sealed class NhAssistantRunEnding(
     /// How a run ends whose background operation ended without it: a cancelled operation cancels the
     /// run (<c>assistant-run-operation-cancelled</c>), an operation that failed as
     /// <c>dispatch-stalled</c> fails it (<c>assistant-run-operation-stalled</c>), and every other end,
-    /// failed, timed out or even succeeded, fails it (<c>assistant-run-operation-ended</c>). Each
-    /// failure is <see cref="NhAssistantRunFailureClasses.Internal"/>: the platform, not the agent,
-    /// stopped the run.
+    /// failed, timed out, even succeeded, or unknown because the operation was removed
+    /// (<see langword="null"/>), fails it (<c>assistant-run-operation-ended</c>). Each failure is
+    /// <see cref="NhAssistantRunFailureClasses.Internal"/>: the platform, not the agent, stopped the
+    /// run.
     /// </summary>
-    internal static NhAssistantRunOutcome OutcomeOf(NhBackgroundOperationStatus operationStatus, string? operationFailureCode)
+    internal static NhAssistantRunOutcome OutcomeOf(NhBackgroundOperationStatus? operationStatus, string? operationFailureCode)
     {
         if (operationStatus == NhBackgroundOperationStatus.Cancelled)
         {
@@ -222,25 +225,31 @@ internal sealed class NhAssistantRunEnding(
     }
 
     /// <summary>
-    /// Closes the run's pending inline proposals, each once, and tells the people on the subject.
-    /// Deferred proposals do not wait for the run and stay open.
+    /// Closes the run's open inline proposals, each once, and tells the people on the subject. A
+    /// pending one expires or is withdrawn; one that a person approved after the operation ended, and
+    /// that so never executed, is withdrawn with the run's failure code <paramref name="code"/> as
+    /// its result and executes nothing. Deferred proposals do not wait for the run and keep their own
+    /// lifecycle.
     /// </summary>
-    private async Task CloseInlineProposalsAsync(AssistantRun run, CancellationToken cancellationToken)
+    private async Task CloseInlineProposalsAsync(AssistantRun run, string code, CancellationToken cancellationToken)
     {
         var now = _applicationClock.GetUtcNow();
-        var pending = (await runs.GetRunApprovalsAsync(run.Id, cancellationToken))
-            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending
-                && approval.Mode == NhAssistantApprovalModes.Inline);
-        foreach (var approval in pending)
+        var open = (await runs.GetRunApprovalsAsync(run.Id, cancellationToken))
+            .Where(approval => approval.Mode == NhAssistantApprovalModes.Inline
+                && approval.Status is NhAssistantApprovalStatuses.Pending or NhAssistantApprovalStatuses.Approved);
+        foreach (var approval in open)
         {
-            var status = approval.ExpiresAt <= now
+            var approved = approval.Status == NhAssistantApprovalStatuses.Approved;
+            var status = !approved && approval.ExpiresAt <= now
                 ? NhAssistantApprovalStatuses.Expired
                 : NhAssistantApprovalStatuses.Withdrawn;
             var closed = await runs.TryTransitionApprovalAsync(
                 approval.Id,
-                [NhAssistantApprovalStatuses.Pending],
+                [approval.Status],
                 status,
-                NhAssistantApprovalTransition.None,
+                approved
+                    ? new NhAssistantApprovalTransition { ExecutionResultCode = code }
+                    : NhAssistantApprovalTransition.None,
                 cancellationToken);
             if (closed)
             {

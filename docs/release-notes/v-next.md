@@ -39,9 +39,34 @@ the kill switch or subject retention cancels while it waits inline (`POST runs/{
 
 | Breaking change | Required action |
 |---|---|
-| A run that has not ended while its background operation ended now ends through the maintenance job: `cancelled` (class `cancelled`, `assistant-run-operation-cancelled`) for a cancelled operation, otherwise `failed` (class `internal`) with `assistant-run-operation-stalled` for `dispatch-stalled` or `assistant-run-operation-ended`. | Show the new codes where you show run failures with your own texts. Restart such a run instead of resuming it. |
+| A run that has not ended while its background operation ended now ends through the maintenance job: `cancelled` (class `cancelled`, `assistant-run-operation-cancelled`) for a cancelled operation, otherwise `failed` (class `internal`) with `assistant-run-operation-stalled` for `dispatch-stalled` or `assistant-run-operation-ended`. | Show the new codes where you show run failures with your own texts. |
 | Cancelling a run that waits inline returns its thread to `idle`, so the agent's next run starts. | None. |
 | `NhAssistantErrorCodes.RunOperationCancelled`, `RunOperationStalled` and `RunOperationEnded` are new. | None. |
+
+## NewHeap.Platform.AI.Chat.AspNet: busy runs keep their retries, and ended runs close cleanly
+
+Fix. A run whose thread a person's turn held, or whose agent already had `maxConcurrentRuns` runs
+going, spent one of its operation's retries each time it tried, so after three tries its operation
+failed and the maintenance job ended the run with `assistant-run-operation-ended`. Such a run now
+gives way as the background operations do for a busy resource: the attempt is abandoned without
+spending a retry and the operation is due again after 15 seconds (busy thread) or 30 seconds (full
+agent) on the application's clock, twice as long after every attempt that gave way, at most five
+minutes. `Retry` counts only attempts that failed, so attempts that waited for an inline decision
+no longer count either. When the maintenance job ends a run whose operation ended, an inline
+proposal that a person approved after the operation ended, and that never executed, is now
+`withdrawn` with the run's failure code as its result, once and with its `AgentWorkChanged` update;
+it used to stay `approved`. Resuming such a run (`POST runs/{id}/retry` with `mode: "resume"`) no
+longer goes back into the wait the run gave up: the run drops it and starts a new turn in the
+thread. A running or waiting run whose operation the cleanup of ended operations removed now fails
+with `assistant-run-operation-ended` once the run started (or was created) at least the stale
+timeout ago on the system clock; it stayed open. The job pages open runs by creation time and id, so runs created at the same moment at a page
+boundary are checked in the same pass.
+
+| Breaking change | Required action |
+|---|---|
+| A run that finds its thread busy or its agent full is retried until it can start, its operation `RetryScheduled` with failure code `concurrency-busy`, instead of failing after three tries. | None. Look for `concurrency-busy` instead of `conversation-busy` or `assistant-agent-concurrency` on the operation. |
+| An inline proposal approved after its run's operation ended is `withdrawn` (result code the run's failure code) when the maintenance job ends the run. | None. |
+| Resuming a run that the maintenance job ended while it waited inline starts a new turn instead of waiting for the old proposal. | None. |
 
 ## @newheap/platform-ai-chat: runs whose background operation ended without them
 

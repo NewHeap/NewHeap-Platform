@@ -227,10 +227,26 @@ internal sealed class NhAssistantAgentRunOperation(
     IOptions<RequestLocalizationOptions> localization,
     IOptionsMonitor<NhAssistantOptions> assistantOptions,
     ILogger<NhAssistantAgentRunOperation> logger,
-    TimeProvider? timeProvider = null) : INhBackgroundOperationHandler<NhAssistantAgentRunRequest>
+    TimeProvider? timeProvider = null,
+    NhBackgroundOperationPersistence? attempts = null) : INhBackgroundOperationHandler<NhAssistantAgentRunRequest>
 {
     internal const string WaitCheckpointKey = "agent-run-wait";
     private const int MaxTurnsPerRun = 5;
+
+    /// <summary>
+    /// How long a run waits before it tries again when a person's turn holds its thread.
+    /// </summary>
+    internal static readonly TimeSpan BusyDelay = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// How long a run waits before it tries again when other runs of its agent use every slot.
+    /// </summary>
+    internal static readonly TimeSpan ConcurrencyDelay = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// The longest a run waits before it tries again for a busy thread or a full agent.
+    /// </summary>
+    internal static readonly TimeSpan MaxYieldDelay = TimeSpan.FromMinutes(5);
 
     private static readonly string[] StartableStatuses =
     [
@@ -319,7 +335,10 @@ internal sealed class NhAssistantAgentRunOperation(
             await ending.EndAsync(run, thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Policy, refusal);
             return TaskResult.Succeeded();
         }
-        if (context.AttemptNumber > agentTurn.Options.RetryCount + 1)
+        // Only attempts that failed spend the run's retries: not the attempts that gave way to a busy
+        // thread or a full agent, nor those that waited for an inline decision.
+        var failedAttempts = await CountFailedAttemptsAsync(context, cancellationToken);
+        if (failedAttempts > agentTurn.Options.RetryCount)
         {
             await ending.FailAsync(run, thread, NhAssistantRunFailureClasses.Transient, NhAssistantErrorCodes.TurnFailed);
             return TaskResult.Failed(NhAssistantErrorCodes.TurnFailed, "assistant.run-retries-exhausted");
@@ -328,11 +347,8 @@ internal sealed class NhAssistantAgentRunOperation(
         var agentId = agentTurn.Thread.AgentId;
         if (await runs.CountRunningRunsAsync(agentId, run.Id, cancellationToken) >= agentTurn.Options.MaxConcurrentRuns)
         {
-            // Other runs of the agent use every slot; try again shortly without spending a retry.
-            return NhBackgroundOperationRetryResult.Retry(
-                "assistant-agent-concurrency",
-                "assistant.agent-concurrency",
-                TimeSpan.FromSeconds(30));
+            // Other runs of the agent use every slot; try again later without spending a retry.
+            throw Yield(run, "assistant-agent-concurrency", ConcurrencyDelay, context, failedAttempts);
         }
 
         if (agentTurn.Options.DailyBudget is { } budget)
@@ -396,7 +412,44 @@ internal sealed class NhAssistantAgentRunOperation(
         }
 
         // Only a resumed turn ends with an expired proposal, and it takes no further turns.
-        return await CompleteAsync(run, agentTurn, result, resumed?.ApprovalId, context, cancellationToken);
+        return await CompleteAsync(run, agentTurn, result, resumed?.ApprovalId, context, failedAttempts, cancellationToken);
+    }
+
+    /// <summary>
+    /// The attempts of the run's operation that failed before this one, as the background operations
+    /// count them for their own retries. Attempts that gave way to contention or suspended for a
+    /// decision did not fail. Without the platform's persistence, for example under a test context,
+    /// every earlier attempt counts.
+    /// </summary>
+    private async Task<int> CountFailedAttemptsAsync(INhBackgroundOperationContext context, CancellationToken cancellationToken)
+    {
+        return attempts is null
+            ? context.AttemptNumber - 1
+            : await attempts.GetFailedAttemptCountAsync(context.OperationId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gives this attempt up without spending a retry, as the background operations do when a
+    /// resource they need is busy: the attempt is abandoned and the operation is due again after a
+    /// delay on the application's clock. The delay starts at <paramref name="delay"/> and doubles with
+    /// every earlier attempt that did not fail, up to <see cref="MaxYieldDelay"/>, so a run that keeps
+    /// finding its thread busy or its agent full tries less often.
+    /// </summary>
+    private Exception Yield(
+        AssistantRun run,
+        string reason,
+        TimeSpan delay,
+        INhBackgroundOperationContext context,
+        int failedAttempts)
+    {
+        var earlier = Math.Clamp(context.AttemptNumber - 1 - failedAttempts, 0, 16);
+        var retryAfter = TimeSpan.FromTicks(Math.Min(MaxYieldDelay.Ticks, delay.Ticks * (1L << earlier)));
+        logger.LogInformation(
+            "Agent run {RunId} gives way ({Reason}) and tries again in {Delay}.",
+            run.Id,
+            reason,
+            retryAfter);
+        return new NhBackgroundOperationContentionSignal(retryAfter);
     }
 
     /// <summary>
@@ -468,7 +521,11 @@ internal sealed class NhAssistantAgentRunOperation(
     /// Re-entry after a suspension: continues the turn that waited for an inline approval, or
     /// returns <see langword="null"/> when the run has no waiting turn. When the wait expired, the
     /// proposal expires here unless the maintenance job expired it first; either way the people on
-    /// the subject hear about it once.
+    /// the subject hear about it once. A wait the run already gave up is dropped instead: its
+    /// proposal is no longer pending and the thread no longer waits in its turn, because the run
+    /// ended without resuming it (the maintenance job ended it after its operation ended, or a person
+    /// cancelled it) and was resumed afterwards. The run then starts a new turn in the thread, as after
+    /// any turn that ended.
     /// </summary>
     private async Task<NhAssistantResumedTurn?> ContinueWaitingTurnAsync(
         NhAssistantAgentTurnContext agentTurn,
@@ -478,6 +535,18 @@ internal sealed class NhAssistantAgentRunOperation(
         var waiting = await context.Checkpoints.GetAsync<NhAssistantRunWait>(WaitCheckpointKey, cancellationToken);
         if (waiting?.Value is not { } wait)
         {
+            return null;
+        }
+
+        var waited = await store.FindApprovalAsync(wait.ApprovalId, cancellationToken);
+        if (waited?.Status != NhAssistantApprovalStatuses.Pending
+            && (waited is null || !await runs.WaitsInTurnAsync(agentTurn.Thread.ConversationId, waited.TurnId, cancellationToken)))
+        {
+            logger.LogInformation(
+                "Agent run {RunId} drops its wait for proposal {ApprovalId}, which it gave up when it ended, and starts a new turn.",
+                agentTurn.RunId,
+                wait.ApprovalId);
+            await context.Checkpoints.SetAsync<NhAssistantRunWait?>(WaitCheckpointKey, null, cancellationToken: cancellationToken);
             return null;
         }
 
@@ -541,22 +610,21 @@ internal sealed class NhAssistantAgentRunOperation(
 
     /// <param name="waitedApprovalId">The inline proposal a resumed turn waited for; <see langword="null"/>
     /// when the run did not resume a waiting turn.</param>
+    /// <param name="failedAttempts">The attempts of the run's operation that failed before this one.</param>
     private async Task<TaskResult> CompleteAsync(
         AssistantRun run,
         NhAssistantAgentTurnContext agentTurn,
         NhAssistantAgentTurnResult result,
         Guid? waitedApprovalId,
         INhBackgroundOperationContext context,
+        int failedAttempts,
         CancellationToken cancellationToken)
     {
         switch (result.Outcome)
         {
             case NhAssistantAgentTurnResult.Busy:
-                // A person's turn owns the thread; try again shortly without spending a retry.
-                return NhBackgroundOperationRetryResult.Retry(
-                    NhAssistantErrorCodes.ConversationBusy,
-                    "assistant.thread-busy",
-                    TimeSpan.FromSeconds(15));
+                // A person's turn owns the thread; try again later without spending a retry.
+                throw Yield(run, NhAssistantErrorCodes.ConversationBusy, BusyDelay, context, failedAttempts);
 
             case NhAssistantTurnStatuses.WaitingForApproval when result.PendingApprovalId is { } approvalId:
                 var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
@@ -624,8 +692,9 @@ internal sealed class NhAssistantAgentRunOperation(
                 }
 
                 var failureClass = Classify(result.ErrorCode);
+                var failure = failedAttempts + 1;
                 if (failureClass == NhAssistantRunFailureClasses.Transient
-                    && context.AttemptNumber <= agentTurn.Options.RetryCount)
+                    && failure <= agentTurn.Options.RetryCount)
                 {
                     logger.LogInformation(
                         "Agent run {RunId} attempt {Attempt} failed transiently ({ErrorCode}); it is retried.",
@@ -635,7 +704,7 @@ internal sealed class NhAssistantAgentRunOperation(
                     return NhBackgroundOperationRetryResult.Retry(
                         result.ErrorCode ?? NhAssistantErrorCodes.TurnFailed,
                         "assistant.run-transient-failure",
-                        TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, context.AttemptNumber) * 5)));
+                        TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, failure) * 5)));
                 }
 
                 await ending.FailAsync(run, agentTurn.Thread, failureClass, result.ErrorCode ?? NhAssistantErrorCodes.TurnFailed, result.TurnId);
