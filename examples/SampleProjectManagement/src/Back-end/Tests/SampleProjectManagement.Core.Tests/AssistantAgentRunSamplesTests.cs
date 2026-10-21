@@ -1874,7 +1874,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     /// <summary>
-    /// Reads a run with its result until it ended.
+    /// Reads a run with its result until it ended: its status is terminal and its summary, which
+    /// the run writes right after its status, is there (see <see cref="HasEnded"/>).
     /// </summary>
     private static async Task<NhAssistantRunResultDto> WaitForRunResultAsync(HttpClient client, Guid runId)
     {
@@ -1886,7 +1887,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             if (response.IsSuccessStatusCode)
             {
                 read = await response.Content.ReadFromJsonAsync<NhAssistantRunResultDto>(Json);
-                if (read is not null && NhAssistantRunStatuses.IsTerminal(read.Run.Status))
+                if (read is not null && NhAssistantRunStatuses.IsTerminal(read.Run.Status) && read.Summary is not null)
                 {
                     return read;
                 }
@@ -1895,7 +1896,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             await Task.Delay(TimeSpan.FromMilliseconds(250));
         }
 
-        throw new TimeoutException($"The run did not end; last status {read?.Run.Status ?? "unknown"}.");
+        throw new TimeoutException(
+            $"Run {runId} did not end within 90 seconds; last read {read?.Run.Status ?? "nothing"}"
+            + (read?.Run.FailureCode is { } code ? $" ({code})" : string.Empty)
+            + (read is not null && read.Summary is null ? " without summary." : "."));
     }
 
     /// <summary>
@@ -2876,7 +2880,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             ((messages, options) => RoutingChatClient.Mentions(messages, options, "## Skill: task-follow-up")
                 && RoutingChatClient.Mentions(messages, options, projectText), late)));
         // The shadow variant's copy of the skill would take the same task; it stays out of this case.
-        Assert.True((await ChangeSkillAsync(variant, skill, stop: true)).Success);
+        var stopped = await ChangeSkillAsync(variant, skill, stop: true);
+        Assert.True(stopped.Success, $"The variant's skill {skill} did not stop: {string.Join("; ", stopped.AllErrorMessages.Select(error => error.ToString()))}.");
         try
         {
             // A task completed after the deadline starts the follow-up skill; its rules hand the case
@@ -2885,11 +2890,18 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var conversationId = await WaitForThreadAsync(colleague, project, planner);
             var proposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending);
             Assert.Equal(ProjectAiTools.ChangeStatusToolId, proposal.ToolId);
-            var handedOver = Assert.Single(await RunsAsync(colleague, conversationId), run => run.Id == proposal.RunId);
-            Assert.Equal(skill, handedOver.Skill);
-            Assert.Equal(NhAssistantSkillChoosers.Trigger, handedOver.SkillChosenBy);
-            Assert.Equal(NhAssistantRunKinds.RuleThenModel, handedOver.Kind);
+            Assert.NotNull(proposal.RunId);
+            // The deferred proposal shows while its run still works: the model answers after it, and
+            // the run records how it worked once its turn ended. So the run is read when it ended.
+            var handedOver = await WaitForEndedRunAsync(colleague, conversationId, proposal.RunId.Value);
+            Assert.True(
+                handedOver.Status == NhAssistantRunStatuses.Completed
+                    && handedOver.Skill == skill
+                    && handedOver.SkillChosenBy == NhAssistantSkillChoosers.Trigger
+                    && handedOver.Kind == NhAssistantRunKinds.RuleThenModel,
+                $"Expected the handed-over run completed in skill {skill}, chosen by {NhAssistantSkillChoosers.Trigger}, of kind {NhAssistantRunKinds.RuleThenModel}; found {Describe(handedOver)}.");
             // The model worked in the skill: its instructions, only its status tool, the rules' reason.
+            Assert.True(late.Requests.Count == 2, $"The skill's model should have answered the handed-over run twice; it was asked {late.Requests.Count} times.");
             var request = late.Requests[0];
             Assert.Contains("The rules handed you a task that was completed after the project's deadline.", request.Options!.Instructions);
             var tools = request.Options.Tools!.Select(tool => tool.Name).ToArray();
@@ -2901,15 +2913,22 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             // and its rules take the decision as the answer, without a model. The follow-up waits
             // thirty seconds for further decisions; the host's clock moves past them instead.
             var decision = await DecideAsync(colleague, proposal, "approve");
-            Assert.True(decision.IsSuccessStatusCode);
+            Assert.True(
+                decision.IsSuccessStatusCode,
+                $"Approving proposal {proposal.ApprovalId} answered {(int)decision.StatusCode}: {await decision.Content.ReadAsStringAsync()}");
             var debounced = await WaitForEnqueuedRunWithTriggerAsync(colleague, conversationId, NhAssistantTriggerIds.ProposalExecuted);
             await host.AdvanceToDueTimeAsync(debounced.BackgroundOperationId!.Value);
             var followUp = await WaitForRunWithTriggerAsync(colleague, conversationId, NhAssistantTriggerIds.ProposalExecuted);
-            Assert.Equal(NhAssistantRunStatuses.Completed, followUp.Status);
-            Assert.Equal(skill, followUp.Skill);
-            Assert.Equal(NhAssistantSkillChoosers.FollowUp, followUp.SkillChosenBy);
-            Assert.Equal(NhAssistantRunKinds.Rule, followUp.Kind);
-            Assert.Equal(2, late.Requests.Count);
+            Assert.True(
+                followUp.Status == NhAssistantRunStatuses.Completed
+                    && followUp.Skill == skill
+                    && followUp.SkillChosenBy == NhAssistantSkillChoosers.FollowUp
+                    && followUp.Kind == NhAssistantRunKinds.Rule,
+                $"Expected the follow-up run completed in skill {skill}, chosen by {NhAssistantSkillChoosers.FollowUp}, of kind {NhAssistantRunKinds.Rule}; found {Describe(followUp)}.");
+            // The follow-up's rules took the decision as the answer without the model.
+            Assert.True(
+                late.Requests.Count == 2,
+                $"The skill's model should not answer the follow-up run; it was asked {late.Requests.Count} times. Runs of the thread: {string.Join("; ", (await RunsAsync(colleague, conversationId)).Select(Describe))}.");
         }
         finally
         {
@@ -3295,6 +3314,40 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         return NhAssistantRunStatuses.IsTerminal(run.Status) && run.Summary is not null;
     }
 
+    /// <summary>
+    /// Waits until the run has ended (see <see cref="HasEnded"/>), so what it recorded when its turn
+    /// ended, such as its kind and usage, is final.
+    /// </summary>
+    private static async Task<NhAssistantRunDto> WaitForEndedRunAsync(HttpClient client, Guid conversationId, Guid runId)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        NhAssistantRunDto[] runs = [];
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            runs = await RunsAsync(client, conversationId);
+            if (runs.FirstOrDefault(run => run.Id == runId) is { } found && HasEnded(found))
+            {
+                return found;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        }
+
+        throw new TimeoutException(
+            $"Run {runId} did not end within 90 seconds. Runs of the thread: {string.Join("; ", runs.Select(Describe))}.");
+    }
+
+    /// <summary>
+    /// A run as a failure message names it: id, trigger, status and failure, skill and kind.
+    /// </summary>
+    private static string Describe(NhAssistantRunDto run)
+    {
+        return $"run {run.Id} of trigger {run.TriggerId}: {run.Status}"
+            + (run.FailureCode is null ? string.Empty : $" ({run.FailureClass}/{run.FailureCode})")
+            + $", skill {run.Skill ?? "none"} chosen by {run.SkillChosenBy ?? "nobody"}, kind {run.Kind}"
+            + (run.Summary is null ? ", no summary yet" : string.Empty);
+    }
+
     private static Task<HttpResponseMessage> PostWebhookAsync(HttpClient client, byte[] body, string deliveryId, string secret)
     {
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -3378,7 +3431,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
 
         throw new TimeoutException(
-            $"The thread has no ended run of trigger {triggerId}: {string.Join(", ", runs.Select(run => run.TriggerId + " " + run.Status))}.");
+            $"The thread has no ended run of trigger {triggerId} within 90 seconds. Runs of the thread: {string.Join("; ", runs.Select(Describe))}.");
     }
 
     /// <summary>
@@ -3401,7 +3454,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
 
         throw new TimeoutException(
-            $"The thread has no enqueued run of trigger {triggerId}: {string.Join(", ", runs.Select(run => run.TriggerId + " " + run.Status))}.");
+            $"The thread has no enqueued run of trigger {triggerId} within 90 seconds. Runs of the thread: {string.Join("; ", runs.Select(Describe))}.");
     }
 
     private static async Task<NhAssistantRunDto> WaitForRunAsync(HttpClient client, Guid conversationId, string status)
@@ -3555,7 +3608,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
 
         throw new TimeoutException(
-            $"No proposal reached '{status}'; seen: {string.Join(", ", proposals.Select(item => item.Status))}.");
+            $"No proposal reached '{status}' within 90 seconds; seen: {string.Join(", ", proposals.Select(item => $"{item.ApprovalId} {item.ToolId} {item.Status} of run {item.RunId}"))}.");
     }
 }
 
