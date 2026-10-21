@@ -1,13 +1,1 @@
 # v-next
-
-## @newheap/platform-common: modals without sideways scrolling
-
-`nh-modal` sizes the modal by its holder instead of the viewport: the holder's single grid column is
-its content box, which excludes its scrollbar, and the modal's maximum width is 95% of it, all of it at
-920px and narrower, and all of the narrowed holder at 768px and narrower, instead of `95vw`, `100vw`
-and `calc(100vw - 30px)`. A modal taller than the page, such as a large edit form, scrolls vertically
-without scrolling sideways by the scrollbar's width.
-
-| Breaking change | Required action |
-|---|---|
-| The maximum width of `.nh-modal` is a percentage of `.nh-modal-holder` (95%, or 100% at 920px and narrower) instead of `95vw` or `100vw`, so a modal can be up to a scrollbar's width narrower. | Remove host styles that compensated for the sideways scroll; set an own `max-width` on `.nh-modal` only when content must use the viewport's width. |
