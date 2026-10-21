@@ -1,4 +1,13 @@
 <Project>
+  <!--
+    Test processes start many hosts in parallel; server GC (with background GC kept on) shortens
+    their runs. IsTestProject is set in the project files, so this lives in the targets, not the props.
+    Libraries and applications keep the runtime default.
+  -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(IsPackable)' != 'false'">
     <_ProjectPackageReadme Condition="Exists('$(MSBuildProjectDirectory)\README.md')">README.md</_ProjectPackageReadme>
     <_ProjectPackageReadme Condition="'$(_ProjectPackageReadme)' == '' and Exists('$(MSBuildProjectDirectory)\readme.md')">readme.md</_ProjectPackageReadme>
