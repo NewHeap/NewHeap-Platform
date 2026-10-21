@@ -55,6 +55,26 @@ expired the proposal first, so the outcome does not depend on which of the two c
 and the run ends, and is audited, once. The job applies `FailRun` itself only to the run of a
 deferred proposal, which no longer waits for it.
 
+A run whose background operation ended without it is ended by the maintenance job. That
+happens when an operator cancels the operation in the background-operation administration or a
+`Supersede` trigger cancels it, when reconciliation fails it as `dispatch-stalled`, or when a
+worker fails it for good before the run's handler ended the run (a payload schema mismatch, a
+redacted payload, a timeout or retries that ran out), for example while the run waits inline
+for a decision. Once the operation has been terminal for the background operations'
+`StaleAttemptTimeout` on the system clock, the job ends the run once, through the same end as
+the operation: a cancelled operation cancels it with `assistant-run-operation-cancelled` (class
+`cancelled`), `dispatch-stalled` fails it with `assistant-run-operation-stalled` and every other
+end fails it with `assistant-run-operation-ended` (class `internal`), with its summary,
+`AgentRunEnded`, work update, hand-off follow-ups and, when it failed, `RunFailed`. Its pending
+inline proposals close first, `expired` when their lifetime passed on the application's clock
+and `withdrawn` otherwise, and the thread's turn that waited for them is released, so the
+agent's next run starts; deferred proposals stay open. The job checks a bounded page of open
+runs per round, continuing after the last one, and leaves a run whose operation still waits,
+is due or runs alone. A run that a person or the kill switch cancels while it waits inline ends at
+once and releases that turn as well. Cancel a run with `POST runs/{id}/cancel` rather than its operation, and
+restart a run that ended this way (`retry` with `mode: "restart"`): resuming retries its old
+operation, which goes back into the wait the run already gave up.
+
 `GET conversations/{id}` of a thread says who decides, so a chat client does not apply
 the chat rule that only a turn's author decides: it returns `kind: "thread"` and
 `thread` (`NhAssistantConversationThreadDto`) with the subject, the caller's live role
@@ -798,6 +818,8 @@ profile and instructions that answer questions about the rules' proposals from t
   transaction; it reads `deferred` until the commit.
 - Treating `execution-unknown` as failed and executing a non-idempotent tool
   again automatically.
+- Cancelling an agent run's background operation to stop the run instead of `POST runs/{id}/cancel`,
+  or resuming a run that ended because its operation ended without it; restart it instead.
 - Accepting unsigned webhook calls, sharing one secret between triggers, or passing
   free text from a webhook body to the agent as instructions.
 - Picking notification recipients from the run's background-operation owner instead
@@ -917,7 +939,13 @@ in each supported culture; close a deferred proposal by rejection and by expiry 
 that its tool call reads `rejected` and `not-executed`; let an inline proposal expire under
 `FailRun` and under `Withdraw`, once with the run's operation waking first and once with the
 maintenance job first, and assert the run's status by the policy, one `AgentRunEnded` event
-and one live update of the proposal in both orders, on both providers; decide a proposal and assert that
+and one live update of the proposal in both orders, on both providers; let a run wait inline, then
+cancel its operation as an operator, fail it as `dispatch-stalled` and fail it on its payload schema,
+and assert that the maintenance job leaves it alone until the operation has been terminal for
+`StaleAttemptTimeout` of real time, then ends it once with its code and class, withdraws its
+proposal, frees its thread for the next run that completes, and that further rounds change
+nothing, while a run whose operation still waits stays waiting; cancel a waiting run as a
+participant and assert that its thread is idle and the next run completes, on both providers; decide a proposal and assert that
 `AgentWorkChanged` reaches the subject's members. Start an agent by hand on a subject without a
 member snapshot, as a person no member list names, let the run propose nothing and assert that
 `AgentWorkChanged` reaches that person and the subject's members when the run runs and when it

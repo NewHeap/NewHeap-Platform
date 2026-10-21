@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "56931881189a5d36aaf73b24eb0af6d3907b71b4783694b9a5f6ea04707f3cb0",
-    "declarationCount": 9179,
+    "hash": "3ac53aeb508e47e5f815ce19d1d7c2b45dae2a1c60987dc45ba515766e44c6d4",
+    "declarationCount": 9188,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3032,6 +3032,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunConfigurationRefresh.cs",
         "declaration": "protected override async Task ExecuteAsync(CancellationToken stoppingToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunEnding.cs",
+        "declaration": "public async Task<bool> EndAsync( AssistantRun run, AssistantThread? thread, string status, string? failureClass, string? failureCode, Guid? turnId = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunEnding.cs",
+        "declaration": "public async Task<bool> FailAsync(AssistantRun run, AssistantThread? thread, string failureClass, string code, Guid? turnId = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunEnding.cs",
+        "declaration": "public async Task NotifyWaitingProposalsAsync(AssistantRun run, AssistantThread thread) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunEnding.cs",
+        "declaration": "public async Task<bool> EndAfterOperationEndedAsync( AssistantRun run, NhBackgroundOperationStatus operationStatus, string? operationFailureCode, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunHistory.cs",
@@ -11427,6 +11443,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string RunOperationCancelled = \"assistant-run-operation-cancelled\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string RunOperationStalled = \"assistant-run-operation-stalled\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string RunOperationEnded = \"assistant-run-operation-ended\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string RunFilterInvalid = \"assistant-run-filter-invalid\";"
       },
       {
@@ -13824,6 +13852,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<IReadOnlyList<AssistantRun>> GetStaleQueuedRunsAsync( DateTimeOffset createdBefore, int maximum, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantRun>> GetActiveRunsWithOperationAsync( DateTimeOffset? createdAfter, int maximum, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<bool> TryReleaseWaitingTurnAsync( Guid conversationId, Guid turnId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",

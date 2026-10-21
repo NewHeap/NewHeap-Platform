@@ -10,11 +10,13 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
 /// Cancels one run: open proposals are withdrawn, a queued or waiting run ends at once and a
-/// running run ends at its next safe point through its background operation.
+/// running run ends at its next safe point through its background operation. The thread's turn a
+/// cancelled run waited in is released.
 /// </summary>
 internal sealed class NhAssistantRunCancellation(
     NhAssistantRunStore runs,
     NhAssistantAgentWorkUpdates workUpdates,
+    NhAssistantLivePublisher live,
     IServiceProvider services)
 {
     private INhBackgroundOperationService Operations => services.GetRequiredService<INhBackgroundOperationService>();
@@ -52,12 +54,22 @@ internal sealed class NhAssistantRunCancellation(
         if (run.Status == NhAssistantRunStatuses.Queued || run.Status == NhAssistantRunStatuses.WaitingForApproval)
         {
             // Nothing is executing; the run ends now. A running run ends at its next safe point.
-            await runs.TrySetRunStatusAsync(
+            var cancelled = await runs.TrySetRunStatusAsync(
                 run.Id,
                 [NhAssistantRunStatuses.Queued, NhAssistantRunStatuses.WaitingForApproval],
                 NhAssistantRunStatuses.Cancelled,
                 cancellationToken,
                 NhAssistantRunFailureClasses.Cancelled);
+
+            // A run that waited inline never resumes its turn, so the thread no longer waits for it
+            // and the agent's next run can start.
+            if (cancelled
+                && run.Status == NhAssistantRunStatuses.WaitingForApproval
+                && run.TurnId is { } turnId
+                && await runs.TryReleaseWaitingTurnAsync(run.ConversationId, turnId, cancellationToken))
+            {
+                await live.PublishChangedAsync(run.ConversationId, CancellationToken.None);
+            }
         }
 
         await workUpdates.PublishAsync(run.ConversationId, NhAssistantAgentWorkReasons.Run, runId: run.Id, cancellationToken: cancellationToken);

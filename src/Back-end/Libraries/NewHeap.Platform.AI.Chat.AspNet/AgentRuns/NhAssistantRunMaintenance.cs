@@ -73,12 +73,14 @@ internal sealed class NhAssistantBackgroundOperationAccess(
 /// <summary>
 /// Keeps agent proposals and runs moving without a person: expires and escalates proposals,
 /// queues approved executions that have none, marks interrupted non-idempotent executions as
-/// <c>execution-unknown</c> and cancels runs whose trigger transaction rolled back. Once an hour it
-/// removes board visits older than <see cref="NhAssistantLimits.BoardVisitRetention"/> and those of
-/// groups that are no longer registered. Every change is a compare-and-set update or a conditional
-/// delete, so several instances can run it at the same time. A proposal's expiry, escalation,
-/// reminders and decision follow the application's clock (a registered <see cref="TimeProvider"/>,
-/// otherwise the system clock); runs and board visits keep the system clock.
+/// <c>execution-unknown</c>, cancels runs whose trigger transaction rolled back and ends runs whose
+/// background operation ended without them, such as a run that waited inline for a decision when an
+/// operator cancelled its operation. Once an hour it removes board visits older than
+/// <see cref="NhAssistantLimits.BoardVisitRetention"/> and those of groups that are no longer
+/// registered. Every change is a compare-and-set update or a conditional delete, so several
+/// instances can run it at the same time. A proposal's expiry, escalation, reminders and decision
+/// follow the application's clock (a registered <see cref="TimeProvider"/>, otherwise the system
+/// clock); runs, background-operation liveness and board visits keep the system clock.
 /// </summary>
 internal sealed class NhAssistantRunMaintenance(
     IServiceScopeFactory scopeFactory,
@@ -96,6 +98,12 @@ internal sealed class NhAssistantRunMaintenance(
     internal static readonly TimeSpan BoardVisitCleanupInterval = TimeSpan.FromHours(1);
 
     private DateTimeOffset _boardVisitsCleanedAt = DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// Where the check of runs against their background operations continues: the creation time of
+    /// the last run the previous round checked, or <see langword="null"/> to start at the oldest run.
+    /// </summary>
+    private DateTimeOffset? _operationCheckAfter;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -148,6 +156,10 @@ internal sealed class NhAssistantRunMaintenance(
         {
             await DetectInterruptedExecutionsAsync(runs, operations, notifier, events, workUpdates, cancellationToken);
             await RecoverOrphanedRunsAsync(runs, operations, services.GetRequiredService<NhAssistantAgentTriggers>(), cancellationToken);
+            // An operation counts as ended once it has been terminal for as long as the background
+            // operations take an attempt to be stale: liveness, on the system clock.
+            var settled = services.GetService<NhBackgroundOperationsOptions>()?.StaleAttemptTimeout ?? TimeSpan.FromMinutes(2);
+            await EndRunsOfEndedOperationsAsync(runs, operations, services.GetRequiredService<NhAssistantRunEnding>(), settled, cancellationToken);
         }
         var now = DateTimeOffset.UtcNow;
         if (now - _boardVisitsCleanedAt >= BoardVisitCleanupInterval)
@@ -414,6 +426,70 @@ internal sealed class NhAssistantRunMaintenance(
                     shadow: false,
                     cancellationToken);
             }
+        }
+    }
+
+    /// <summary>
+    /// Ends the runs whose background operation ended without ending them: a run that waited inline
+    /// for a decision when an operator cancelled its operation, reconciliation failed it as
+    /// <c>dispatch-stalled</c> or it failed for good in another way, and a queued or running run whose
+    /// operation failed, timed out or succeeded before its handler ended it. The handler never runs
+    /// again, so such a run, and the thread it waits in, would otherwise wait for good. Each round
+    /// checks one page of runs that have not ended, after the page it checked last, against their
+    /// operations by id; an operation that waits, is due or runs is left alone. An operation counts
+    /// once it has been terminal for <paramref name="settled"/> on the system clock, its liveness
+    /// clock. The run ends through <see cref="NhAssistantRunEnding.EndAfterOperationEndedAsync"/>,
+    /// whose compare-and-set ends it once; a later round no longer finds it.
+    /// </summary>
+    private async Task EndRunsOfEndedOperationsAsync(
+        NhAssistantRunStore runs,
+        IRepository<NhBackgroundOperation> operations,
+        NhAssistantRunEnding ending,
+        TimeSpan settled,
+        CancellationToken cancellationToken)
+    {
+        var page = await runs.GetActiveRunsWithOperationAsync(_operationCheckAfter, BatchSize, cancellationToken);
+        // A page that is not full reached the newest run: the next round starts at the oldest again.
+        _operationCheckAfter = page.Count < BatchSize ? null : page[^1].CreatedAt;
+        if (page.Count == 0)
+        {
+            return;
+        }
+
+        var operationIds = page
+            .Select(run => run.BackgroundOperationId!.Value)
+            .Distinct()
+            .ToArray();
+        var ended = await operations.GetAll()
+            .AsNoTracking()
+            .Where(operation => operationIds.Contains(operation.Id)
+                && (operation.Status == NhBackgroundOperationStatus.Succeeded
+                    || operation.Status == NhBackgroundOperationStatus.Failed
+                    || operation.Status == NhBackgroundOperationStatus.Cancelled
+                    || operation.Status == NhBackgroundOperationStatus.TimedOut))
+            .Select(operation => new
+            {
+                operation.Id,
+                operation.Status,
+                operation.FailureCode,
+                EndedAt = operation.CompletedAt ?? operation.LastModifiedDateTime
+            })
+            .ToDictionaryAsync(operation => operation.Id, cancellationToken);
+        if (ended.Count == 0)
+        {
+            return;
+        }
+
+        var settledBefore = DateTimeOffset.UtcNow - settled;
+        foreach (var run in page)
+        {
+            if (!ended.TryGetValue(run.BackgroundOperationId!.Value, out var operation)
+                || operation.EndedAt > settledBefore)
+            {
+                continue;
+            }
+
+            await ending.EndAfterOperationEndedAsync(run, operation.Status, operation.FailureCode, cancellationToken);
         }
     }
 

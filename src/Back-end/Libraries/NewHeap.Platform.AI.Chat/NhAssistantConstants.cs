@@ -668,6 +668,26 @@ public static class NhAssistantErrorCodes
     public const string RunNotRetryable = "assistant-run-not-retryable";
 
     /// <summary>
+    /// The run's background operation was cancelled before the run ended, for example by an operator
+    /// in the background-operation administration or by a superseding trigger. The maintenance job
+    /// ends such a run as cancelled.
+    /// </summary>
+    public const string RunOperationCancelled = "assistant-run-operation-cancelled";
+
+    /// <summary>
+    /// No worker started the run's background operation, which failed as <c>dispatch-stalled</c>
+    /// before the run ended. The maintenance job fails such a run.
+    /// </summary>
+    public const string RunOperationStalled = "assistant-run-operation-stalled";
+
+    /// <summary>
+    /// The run's background operation ended without ending the run in any other way, for example a
+    /// payload schema mismatch, a redacted payload, a timeout or retries that ran out. The maintenance
+    /// job fails such a run.
+    /// </summary>
+    public const string RunOperationEnded = "assistant-run-operation-ended";
+
+    /// <summary>
     /// A run history was asked with an invalid filter: an unknown status, an invalid subject type, a
     /// subject id without its type, a period that ends before it starts, or a page out of range.
     /// </summary>

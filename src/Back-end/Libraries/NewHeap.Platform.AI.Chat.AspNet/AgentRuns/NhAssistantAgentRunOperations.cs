@@ -216,9 +216,8 @@ internal sealed class NhAssistantAgentRunOperation(
     INhAiBackgroundOperationRunAdapter runAdapter,
     INhAssistantStore store,
     NhAssistantAgentCatalog agents,
-    NhAssistantAgentEvents events,
     NhAssistantAgentNotifier notifier,
-    NhAssistantRunSummaries summaries,
+    NhAssistantRunEnding ending,
     NhAssistantRunResultWriter results,
     NhAssistantAgentWorkUpdates workUpdates,
     NhAssistantHandOffService handOffs,
@@ -284,7 +283,7 @@ internal sealed class NhAssistantAgentRunOperation(
             cancellationToken);
         if (!created.Success)
         {
-            await FailAsync(run, null, NhAssistantRunFailureClasses.Validation, NhAssistantResults.CodeOf(created, NhAssistantErrorCodes.TurnFailed));
+            await ending.FailAsync(run, null, NhAssistantRunFailureClasses.Validation, NhAssistantResults.CodeOf(created, NhAssistantErrorCodes.TurnFailed));
             return TaskResult.Failed(created);
         }
 
@@ -306,7 +305,7 @@ internal sealed class NhAssistantAgentRunOperation(
             else if (!(agentTurn.Options.Skills.TryGetValue(candidateSkill, out var current) && current.DataVersion == run.SkillVersion))
             {
                 await runs.ClaimQueuedInputsAsync(run.ConversationId, run.Id, cancellationToken, candidateSkill, candidate: true);
-                await EndAsync(run, agentTurn.Thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Policy, NhAssistantErrorCodes.SkillVersionGone);
+                await ending.EndAsync(run, agentTurn.Thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Policy, NhAssistantErrorCodes.SkillVersionGone);
                 return TaskResult.Succeeded();
             }
         }
@@ -317,12 +316,12 @@ internal sealed class NhAssistantAgentRunOperation(
             // A stopped agent starts no run and leaves the thread as it was. A run that had not
             // started when its agent was paused ends without claiming its inputs, which wait for
             // the resume.
-            await EndAsync(run, thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Policy, refusal);
+            await ending.EndAsync(run, thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Policy, refusal);
             return TaskResult.Succeeded();
         }
         if (context.AttemptNumber > agentTurn.Options.RetryCount + 1)
         {
-            await FailAsync(run, thread, NhAssistantRunFailureClasses.Transient, NhAssistantErrorCodes.TurnFailed);
+            await ending.FailAsync(run, thread, NhAssistantRunFailureClasses.Transient, NhAssistantErrorCodes.TurnFailed);
             return TaskResult.Failed(NhAssistantErrorCodes.TurnFailed, "assistant.run-retries-exhausted");
         }
 
@@ -342,7 +341,7 @@ internal sealed class NhAssistantAgentRunOperation(
             var usage = await runs.GetAgentUsageSinceAsync(agentId, agentTurn.Thread.ScopeKey, dayStart, cancellationToken);
             if (usage.ToolCalls >= budget.ToolCalls || usage.Tokens >= budget.Tokens)
             {
-                await FailAsync(run, thread, NhAssistantRunFailureClasses.Budget, NhAssistantErrorCodes.BudgetExhausted);
+                await ending.FailAsync(run, thread, NhAssistantRunFailureClasses.Budget, NhAssistantErrorCodes.BudgetExhausted);
                 return TaskResult.Failed(NhAssistantErrorCodes.BudgetExhausted, "assistant.agent-budget-exhausted");
             }
         }
@@ -357,7 +356,7 @@ internal sealed class NhAssistantAgentRunOperation(
             var usage = await runs.GetSkillUsageSinceAsync(agentId, skillId, agentTurn.Thread.ScopeKey, dayStart, cancellationToken);
             if (usage.ToolCalls >= skillBudget.ToolCalls || usage.Tokens >= skillBudget.Tokens)
             {
-                await FailAsync(run, thread, NhAssistantRunFailureClasses.Budget, NhAssistantErrorCodes.BudgetExhausted);
+                await ending.FailAsync(run, thread, NhAssistantRunFailureClasses.Budget, NhAssistantErrorCodes.BudgetExhausted);
                 return TaskResult.Failed(NhAssistantErrorCodes.BudgetExhausted, "assistant.skill-budget-exhausted");
             }
         }
@@ -602,13 +601,13 @@ internal sealed class NhAssistantAgentRunOperation(
                 return TaskResult.Succeeded();
 
             case NhAssistantTurnStatuses.Completed:
-                await EndAsync(run, agentTurn.Thread, NhAssistantRunStatuses.Completed, null, null, result.TurnId);
-                await NotifyWaitingProposalsAsync(run, agentTurn.Thread);
+                await ending.EndAsync(run, agentTurn.Thread, NhAssistantRunStatuses.Completed, null, null, result.TurnId);
+                await ending.NotifyWaitingProposalsAsync(run, agentTurn.Thread);
                 return TaskResult.Succeeded();
 
             case NhAssistantTurnStatuses.Cancelled:
                 // A run routed to a paused or stopped skill ends cancelled with that code.
-                await EndAsync(run, agentTurn.Thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Cancelled, result.ErrorCode);
+                await ending.EndAsync(run, agentTurn.Thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Cancelled, result.ErrorCode);
                 if (result.ErrorCode == NhAssistantErrorCodes.MovedToShadow)
                 {
                     // Routed to a skill in shadow: a run in the shadow thread takes the events, in
@@ -639,7 +638,7 @@ internal sealed class NhAssistantAgentRunOperation(
                         TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, context.AttemptNumber) * 5)));
                 }
 
-                await FailAsync(run, agentTurn.Thread, failureClass, result.ErrorCode ?? NhAssistantErrorCodes.TurnFailed, result.TurnId);
+                await ending.FailAsync(run, agentTurn.Thread, failureClass, result.ErrorCode ?? NhAssistantErrorCodes.TurnFailed, result.TurnId);
                 return TaskResult.Failed(result.ErrorCode ?? NhAssistantErrorCodes.TurnFailed, "assistant.run-failed");
         }
     }
@@ -683,11 +682,11 @@ internal sealed class NhAssistantAgentRunOperation(
             : null;
         if (FailsRunOnExpiry(approval))
         {
-            await FailAsync(run, thread, NhAssistantRunFailureClasses.Policy, NhAssistantErrorCodes.ApprovalExpired, result.TurnId);
+            await ending.FailAsync(run, thread, NhAssistantRunFailureClasses.Policy, NhAssistantErrorCodes.ApprovalExpired, result.TurnId);
             return TaskResult.Failed(NhAssistantErrorCodes.ApprovalExpired, "assistant.run-approval-expired");
         }
 
-        await EndAsync(run, thread, NhAssistantRunStatuses.Completed, null, NhAssistantErrorCodes.ApprovalExpired);
+        await ending.EndAsync(run, thread, NhAssistantRunStatuses.Completed, null, NhAssistantErrorCodes.ApprovalExpired);
         return TaskResult.Succeeded();
     }
 
@@ -698,140 +697,6 @@ internal sealed class NhAssistantAgentRunOperation(
     {
         return approval?.PolicyJson is { } policyJson
             && NhAssistantApprovalPolicySnapshot.Deserialize(policyJson).OnExpiry == NhAiApprovalExpiryAction.FailRun;
-    }
-
-    private async Task FailAsync(AssistantRun run, AssistantThread? thread, string failureClass, string code, Guid? turnId = null)
-    {
-        var failed = await EndAsync(run, thread, NhAssistantRunStatuses.Failed, failureClass, code, turnId);
-        if (failed && thread is not null)
-        {
-            await notifier.NotifyAsync(
-                NhAssistantAgentNotificationKind.RunFailed,
-                thread,
-                run.Id,
-                null,
-                run.InitiatorActorId,
-                run.Shadow,
-                CancellationToken.None,
-                failureCode: code);
-            await NotifyPlacedProposalsAsync(run);
-        }
-    }
-
-    /// <summary>
-    /// Ends the run once and records the end; a run that already ended stays as it was.
-    /// </summary>
-    private async Task<bool> EndAsync(
-        AssistantRun run,
-        AssistantThread? thread,
-        string status,
-        string? failureClass,
-        string? failureCode,
-        Guid? turnId = null)
-    {
-        var ended = await runs.TrySetRunStatusAsync(
-            run.Id,
-            StartableStatuses,
-            status,
-            CancellationToken.None,
-            failureClass,
-            failureCode);
-        if (ended && thread is not null)
-        {
-            // The skill may have changed while the run worked.
-            run = await runs.FindRunAsync(run.Id, CancellationToken.None) ?? run;
-            // The next runs of the thread start from this summary instead of the full history.
-            await summaries.WriteAsync(run, failureCode is null ? status : status + " (" + failureCode + ")", turnId, CancellationToken.None);
-            await events.RunEndedAsync(thread, run, status, failureCode, CancellationToken.None);
-            await workUpdates.PublishAsync(run.ConversationId, NhAssistantAgentWorkReasons.Run, runId: run.Id, cancellationToken: CancellationToken.None);
-            await NotifyHandOffSourcesAsync(run, thread);
-            if (status == NhAssistantRunStatuses.Completed
-                && string.Equals(run.TriggerId, NhAssistantTriggerIds.AgentRequest, StringComparison.Ordinal))
-            {
-                // The person who asked through another assistant learns that the answer is there.
-                await notifier.NotifyAsync(
-                    NhAssistantAgentNotificationKind.RequestAnswered,
-                    thread,
-                    run.Id,
-                    null,
-                    run.InitiatorActorId,
-                    run.Shadow,
-                    CancellationToken.None);
-            }
-        }
-
-        return ended;
-    }
-
-    /// <summary>
-    /// Tells the agents that handed this run work how it ended. A failed follow-up never changes
-    /// how the run ended.
-    /// </summary>
-    private async Task NotifyHandOffSourcesAsync(AssistantRun run, AssistantThread thread)
-    {
-        try
-        {
-            await handOffs.NotifySourcesAsync(run.Id, thread, CancellationToken.None);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
-        {
-            logger.LogWarning(
-                "The hand-off follow-ups of run {RunId} were not sent ({ExceptionType}).",
-                run.Id,
-                exception.GetType().Name);
-        }
-    }
-
-    private async Task NotifyWaitingProposalsAsync(AssistantRun run, AssistantThread thread)
-    {
-        var waiting = (await runs.GetRunApprovalsAsync(run.Id, CancellationToken.None))
-            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending)
-            .ToArray();
-        var own = waiting.Where(approval => approval.ConversationId == run.ConversationId).ToArray();
-        if (own.Length > 0)
-        {
-            await notifier.NotifyAsync(
-                NhAssistantAgentNotificationKind.RunEndedWithProposals,
-                thread,
-                run.Id,
-                own[0],
-                run.InitiatorActorId,
-                run.Shadow,
-                CancellationToken.None,
-                proposalCount: own.Length);
-        }
-
-        await NotifyPlacedProposalsAsync(run, waiting);
-    }
-
-    /// <summary>
-    /// Proposals a run placed at other objects reach those objects' approvers, once per object, also
-    /// when the run failed afterwards; the run's initiator is told only about its own thread.
-    /// </summary>
-    private async Task NotifyPlacedProposalsAsync(AssistantRun run, IReadOnlyList<AssistantApproval>? waiting = null)
-    {
-        waiting ??= (await runs.GetRunApprovalsAsync(run.Id, CancellationToken.None))
-            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending)
-            .ToArray();
-        foreach (var placed in waiting
-            .Where(approval => approval.PlacedFromConversationId is not null && approval.ConversationId != run.ConversationId)
-            .GroupBy(approval => approval.ConversationId))
-        {
-            if (await runs.FindThreadByConversationAsync(placed.Key, CancellationToken.None) is not { } target)
-            {
-                continue;
-            }
-
-            await notifier.NotifyAsync(
-                NhAssistantAgentNotificationKind.RunEndedWithProposals,
-                target,
-                run.Id,
-                placed.First(),
-                null,
-                run.Shadow,
-                CancellationToken.None,
-                proposalCount: placed.Count());
-        }
     }
 
     private async Task RecordUsageAsync(Guid runId, NhAssistantAgentTurnResult result, CancellationToken cancellationToken)

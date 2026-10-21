@@ -1,5 +1,39 @@
 # v-next
 
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: runs whose background operation ended without them
+
+Fix. A run that waited inline for a decision stayed `waiting-for-approval` for good, and kept its
+thread waiting so that the agent's next runs stayed busy, when its background operation ended
+without the run's handler: an operator cancelled it in the background-operation administration or
+a `Supersede` trigger cancelled it, reconciliation failed it as `dispatch-stalled`, or a worker
+failed it before the handler ran, for example on a payload schema mismatch or a redacted payload.
+A queued or running run whose operation failed, timed out or succeeded without ending it stayed
+open in the same way. The maintenance job now checks open runs against their operations, a
+bounded page per round, and ends a run once its operation has been terminal for the background
+operations' `StaleAttemptTimeout` on the system clock. It ends the run through the same end as the
+run's operation, once: summary, `AgentRunEnded`, work update, hand-off follow-ups and, for a failed
+run, `RunFailed`. Its pending inline proposals are closed first, `expired` when their lifetime
+passed and `withdrawn` otherwise, and the thread's waiting turn is released. A run that a person,
+the kill switch or subject retention cancels while it waits inline (`POST runs/{id}/cancel`,
+`StopAsync`) now releases that turn as well; the thread used to keep waiting for it.
+
+| Breaking change | Required action |
+|---|---|
+| A run that has not ended while its background operation ended now ends through the maintenance job: `cancelled` (class `cancelled`, `assistant-run-operation-cancelled`) for a cancelled operation, otherwise `failed` (class `internal`) with `assistant-run-operation-stalled` for `dispatch-stalled` or `assistant-run-operation-ended`. | Show the new codes where you show run failures with your own texts. Restart such a run instead of resuming it. |
+| Cancelling a run that waits inline returns its thread to `idle`, so the agent's next run starts. | None. |
+| `NhAssistantErrorCodes.RunOperationCancelled`, `RunOperationStalled` and `RunOperationEnded` are new. | None. |
+
+## @newheap/platform-ai-chat: runs whose background operation ended without them
+
+The bundled English and Dutch texts and `NH_ASSISTANT_SERVER_ERROR_CODES` include the failure codes
+of a run that the maintenance job ended because its background operation ended without it:
+`assistant-run-operation-cancelled`, `assistant-run-operation-stalled` and
+`assistant-run-operation-ended`.
+
+| Breaking change | Required action |
+|---|---|
+| Three new error codes with texts under `nh-assistant.errors`. | Add the three keys to translations a host provides itself (`translations: 'host'`). |
+
 ## NewHeap.Platform.AI.Chat.AspNet: an expired inline proposal ends its run by its policy
 
 Fix. When an inline proposal expired before anyone decided, the run that waited for it ended

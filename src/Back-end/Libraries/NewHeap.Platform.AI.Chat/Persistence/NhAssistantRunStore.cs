@@ -515,6 +515,61 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// Runs that have not ended and have a background operation, oldest first, created after
+    /// <paramref name="createdAfter"/>: one page of the maintenance job's check of runs against their
+    /// operations. The job continues each round after the page it checked last, so every run is
+    /// checked in turn however many runs wait; it reads the page through the
+    /// <c>(Status, CreatedAt)</c> index.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantRun>> GetActiveRunsWithOperationAsync(
+        DateTimeOffset? createdAfter,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var query = context.Runs
+            .AsNoTracking()
+            .Where(run => ActiveRunStatuses.Contains(run.Status) && run.BackgroundOperationId != null);
+        if (createdAfter is { } after)
+        {
+            query = query.Where(run => run.CreatedAt > after);
+        }
+
+        return await query
+            .OrderBy(run => run.CreatedAt)
+            .ThenBy(run => run.Id)
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Releases a thread whose turn <paramref name="turnId"/> waits for an inline approval that will
+    /// never be decided, because the run that waited in it ended without resuming it. A thread that
+    /// another turn holds, or that no longer waits, stays as it is.
+    /// </summary>
+    public async Task<bool> TryReleaseWaitingTurnAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        var affected = await context.Conversations
+            .Where(conversation => conversation.Id == conversationId
+                && conversation.Status == NhAssistantConversationStatuses.WaitingForApproval
+                && conversation.ActiveTurnId == turnId)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(conversation => conversation.Status, NhAssistantConversationStatuses.Idle)
+                    .SetProperty(conversation => conversation.ActiveTurnId, (Guid?)null)
+                    .SetProperty(conversation => conversation.ActiveActorId, (string?)null)
+                    .SetProperty(conversation => conversation.UpdatedAt, now)
+                    .SetProperty(conversation => conversation.ConcurrencyStamp, Guid.NewGuid()),
+                cancellationToken);
+        return affected == 1;
+    }
+
+    /// <summary>
     /// Approved deferred proposals without an execution operation that were decided before
     /// <paramref name="decidedBefore"/>, of run threads and consultations alike, oldest decision
     /// first. Proposals of stopped agents and of <paramref name="heldAgentIds"/> stay out of the
