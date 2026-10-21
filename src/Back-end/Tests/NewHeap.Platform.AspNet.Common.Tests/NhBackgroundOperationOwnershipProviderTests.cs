@@ -48,53 +48,9 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
     {
         var database = await ProviderTestDatabase.CreateAsync(provider);
         var clock = new TestClock(new DateTimeOffset(2001, 2, 3, 4, 5, 0, TimeSpan.Zero));
-        var options = new NhBackgroundOperationsOptions
-        {
-            UserNotificationProjectionEnabled = false,
-            LiveUpdatesEnabled = false,
-            HeartbeatInterval = TimeSpan.FromMilliseconds(100),
-            DefaultLeaseDuration = TimeSpan.FromSeconds(2),
-            TransactionLockTimeoutMilliseconds = 250
-        };
-        var registryBuilder = new NhBackgroundOperationBuilder(new ServiceCollection(), options);
-        registryBuilder.Add<OwnershipSignalRequest, OwnershipSignalHandler>("ownership-signal");
-        registryBuilder.Add<OwnershipSimpleRequest, OwnershipSimpleHandler>("ownership-simple");
-        var registry = registryBuilder.Build();
-
-        // Dependency injection builds every component, as in an application, and passes them the
-        // registered clock.
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddDbContext<OwnershipDbContext>(database.UseNewHeapProvider);
-        services.AddScoped<IRepository<NhBackgroundOperation>>(serviceProvider =>
-            new Repository<NhBackgroundOperation>(serviceProvider.GetRequiredService<OwnershipDbContext>(), serviceProvider));
-        services.AddScoped<IRepository<NhBackgroundOperationLease>>(serviceProvider =>
-            new Repository<NhBackgroundOperationLease>(serviceProvider.GetRequiredService<OwnershipDbContext>(), serviceProvider));
-        services.AddScoped<IRepository<NhBackgroundOperationAttempt>>(serviceProvider =>
-            new Repository<NhBackgroundOperationAttempt>(serviceProvider.GetRequiredService<OwnershipDbContext>(), serviceProvider));
-        services.AddScoped<OwnershipSignalHandler>();
-        services.AddScoped<OwnershipSimpleHandler>();
-        services.AddSingleton(options);
-        services.AddSingleton(registry);
-        services.AddSingleton<INhHangfireQueueNameResolver, NhHangfireQueueNameResolver>();
-        services.AddSingleton<INhBackgroundOperationScheduler, NoOpScheduler>();
-        services.AddSingleton<INhBackgroundOperationLiveUpdatePublisher, RecordingLiveUpdates>();
-        services.AddSingleton<INhBackgroundOperationNotificationProjector, NoOpNotificationProjector>();
-        services.AddSingleton<IMapper>(new Mapper(new MapperConfiguration(configuration =>
-            configuration.AddProfile<AutomapperProfileConfiguration>())));
-        services.AddSingleton(Substitute.For<INhBackgroundOperationOwnerDirectory>());
-        services.AddSingleton<NhBackgroundOperationServedQueues>();
-        services.AddSingleton<NhBackgroundOperationFanOutCoordinator>();
-        services.AddSingleton<NhBackgroundOperationPersistence>();
-        services.AddSingleton<NhBackgroundOperationDispatchService>();
-        services.AddSingleton<NhBackgroundOperationReconciliationService>();
-        services.AddScoped<NhBackgroundOperationService>();
-        services.AddSingleton<TimeProvider>(clock);
-        await using var serviceProvider = services.BuildServiceProvider();
-        await using (var seedScope = serviceProvider.CreateAsyncScope())
-        {
-            await seedScope.ServiceProvider.GetRequiredService<OwnershipDbContext>().Database.EnsureCreatedAsync();
-        }
+        var options = CreateClockedOptions();
+        var registry = CreateClockedRegistry(options);
+        await using var serviceProvider = await CreateClockedServicesAsync(database, clock, options, registry);
 
         var start = clock.GetUtcNow();
         Guid immediateId;
@@ -134,6 +90,153 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
         (await ReadOperationAsync(serviceProvider, debouncedId)).Status.Should().Be(NhBackgroundOperationStatus.Queued);
 
         await VerifySignalWaitExpiresOnTheApplicationClockAsync(serviceProvider, registry, options, clock);
+    }
+
+    /// <summary>
+    /// A jump of the application's clock makes an operation due without making its dispatch look
+    /// stalled: reconciliation takes a dispatch for stalled only when it has been due for the stale
+    /// timeout on the application's clock and nothing touched it for that long on the system clock.
+    /// A dispatch that is really left alone past the timeout is still recovered, and the next round
+    /// waits for the timeout of real time again, however far the application's clock moves.
+    /// </summary>
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task AClockJumpDoesNotMakeADueDispatchLookStalledOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+        var clock = new TestClock(new DateTimeOffset(2001, 2, 3, 4, 5, 0, TimeSpan.Zero));
+        var options = CreateClockedOptions();
+        var registry = CreateClockedRegistry(options);
+        await using var serviceProvider = await CreateClockedServicesAsync(database, clock, options, registry);
+        var reconciler = serviceProvider.GetRequiredService<NhBackgroundOperationReconciliationService>();
+
+        Guid operationId;
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var enqueued = await scope.ServiceProvider.GetRequiredService<NhBackgroundOperationService>().EnqueueAsync(
+                new OwnershipSimpleRequest("debounced"),
+                new NhBackgroundOperationEnqueueOptions { OwnerAgentKey = AgentKey, NotBefore = clock.GetUtcNow().AddSeconds(30) });
+            enqueued.Success.Should().BeTrue();
+            operationId = enqueued.Data!.Id;
+        }
+
+        // The clock jumps fifteen minutes, as a test that lets a proposal expire does, so the
+        // operation has been due far longer than the stale timeout on the application's clock, but
+        // it was enqueued a moment ago. Before a dispatcher reaches it, no round of reconciliation
+        // takes it for a stalled dispatch, however often the clock jumps; it would fail after
+        // MaxDispatchRecoveries rounds otherwise.
+        for (var jump = 0; jump <= options.MaxDispatchRecoveries; jump++)
+        {
+            clock.Advance(TimeSpan.FromMinutes(15));
+            (await reconciler.ReconcileAsync(CancellationToken.None)).Should().Be(0);
+        }
+        var due = await ReadOperationWithEventsAsync(serviceProvider, operationId);
+        due.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+        due.Events.Should().NotContain(operationEvent => operationEvent.MessageKey == "background-operation.dispatch-stalled");
+
+        // Left alone past the stale timeout of real time, it is a stalled dispatch: one round records
+        // the operator diagnosis and dispatches it again. That round touched it, so a further jump
+        // of the application's clock starts no second round.
+        await BackdateLastModifiedAsync(serviceProvider, operationId, options.StaleAttemptTimeout + TimeSpan.FromMinutes(1));
+        (await reconciler.ReconcileAsync(CancellationToken.None)).Should().Be(1);
+        clock.Advance(TimeSpan.FromMinutes(15));
+        (await reconciler.ReconcileAsync(CancellationToken.None)).Should().Be(0);
+        var recovered = await ReadOperationWithEventsAsync(serviceProvider, operationId);
+        recovered.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+        recovered.NextDispatchAt.Should().Be(clock.GetUtcNow() - TimeSpan.FromMinutes(15));
+        recovered.Events.Count(operationEvent => operationEvent.MessageKey == "background-operation.dispatch-stalled").Should().Be(1);
+        recovered.Events.Should().Contain(operationEvent => operationEvent.MessageKey == "background-operation.dispatch-recovered");
+    }
+
+    private static NhBackgroundOperationsOptions CreateClockedOptions()
+    {
+        return new NhBackgroundOperationsOptions
+        {
+            UserNotificationProjectionEnabled = false,
+            LiveUpdatesEnabled = false,
+            HeartbeatInterval = TimeSpan.FromMilliseconds(100),
+            DefaultLeaseDuration = TimeSpan.FromSeconds(2),
+            TransactionLockTimeoutMilliseconds = 250
+        };
+    }
+
+    private static NhBackgroundOperationRegistry CreateClockedRegistry(NhBackgroundOperationsOptions options)
+    {
+        var registryBuilder = new NhBackgroundOperationBuilder(new ServiceCollection(), options);
+        registryBuilder.Add<OwnershipSignalRequest, OwnershipSignalHandler>("ownership-signal");
+        registryBuilder.Add<OwnershipSimpleRequest, OwnershipSimpleHandler>("ownership-simple");
+        return registryBuilder.Build();
+    }
+
+    /// <summary>
+    /// Builds every background-operation component with dependency injection, as in an
+    /// application, so each receives the registered clock, and creates the database.
+    /// </summary>
+    private static async Task<ServiceProvider> CreateClockedServicesAsync(
+        ProviderTestDatabase database,
+        TestClock clock,
+        NhBackgroundOperationsOptions options,
+        NhBackgroundOperationRegistry registry)
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDbContext<OwnershipDbContext>(database.UseNewHeapProvider);
+        services.AddScoped<IRepository<NhBackgroundOperation>>(serviceProvider =>
+            new Repository<NhBackgroundOperation>(serviceProvider.GetRequiredService<OwnershipDbContext>(), serviceProvider));
+        services.AddScoped<IRepository<NhBackgroundOperationLease>>(serviceProvider =>
+            new Repository<NhBackgroundOperationLease>(serviceProvider.GetRequiredService<OwnershipDbContext>(), serviceProvider));
+        services.AddScoped<IRepository<NhBackgroundOperationAttempt>>(serviceProvider =>
+            new Repository<NhBackgroundOperationAttempt>(serviceProvider.GetRequiredService<OwnershipDbContext>(), serviceProvider));
+        services.AddScoped<OwnershipSignalHandler>();
+        services.AddScoped<OwnershipSimpleHandler>();
+        services.AddSingleton(options);
+        services.AddSingleton(registry);
+        services.AddSingleton<INhHangfireQueueNameResolver, NhHangfireQueueNameResolver>();
+        services.AddSingleton<INhBackgroundOperationScheduler, NoOpScheduler>();
+        services.AddSingleton<INhBackgroundOperationLiveUpdatePublisher, RecordingLiveUpdates>();
+        services.AddSingleton<INhBackgroundOperationNotificationProjector, NoOpNotificationProjector>();
+        services.AddSingleton<IMapper>(new Mapper(new MapperConfiguration(configuration =>
+            configuration.AddProfile<AutomapperProfileConfiguration>())));
+        services.AddSingleton(Substitute.For<INhBackgroundOperationOwnerDirectory>());
+        services.AddSingleton<NhBackgroundOperationServedQueues>();
+        services.AddSingleton<NhBackgroundOperationFanOutCoordinator>();
+        services.AddSingleton<NhBackgroundOperationPersistence>();
+        services.AddSingleton<NhBackgroundOperationDispatchService>();
+        services.AddSingleton<NhBackgroundOperationReconciliationService>();
+        services.AddScoped<NhBackgroundOperationService>();
+        services.AddSingleton<TimeProvider>(clock);
+        var serviceProvider = services.BuildServiceProvider();
+        await using (var seedScope = serviceProvider.CreateAsyncScope())
+        {
+            await seedScope.ServiceProvider.GetRequiredService<OwnershipDbContext>().Database.EnsureCreatedAsync();
+        }
+
+        return serviceProvider;
+    }
+
+    private static async Task<NhBackgroundOperation> ReadOperationWithEventsAsync(IServiceProvider serviceProvider, Guid operationId)
+    {
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
+        return await context.BackgroundOperations
+            .AsNoTracking()
+            .Include(x => x.Events)
+            .SingleAsync(x => x.Id == operationId);
+    }
+
+    /// <summary>
+    /// Makes the operation look untouched for <paramref name="age"/> of real time, as a dispatch
+    /// that nobody picked up does.
+    /// </summary>
+    private static async Task BackdateLastModifiedAsync(IServiceProvider serviceProvider, Guid operationId, TimeSpan age)
+    {
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
+        var lastModified = DateTimeOffset.UtcNow - age;
+        await context.BackgroundOperations
+            .Where(x => x.Id == operationId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.LastModifiedDateTime, lastModified));
     }
 
     /// <summary>

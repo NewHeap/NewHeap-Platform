@@ -80,6 +80,9 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
 
         // Heartbeats and modification times are on the system clock, due times on the application's
         // clock: advancing a test clock makes waiting work due without making a running attempt stale.
+        // A dispatch counts as stalled only when it has been due for the stale timeout on the
+        // application's clock and nothing touched it for that long on the system clock, so a jump of
+        // the application's clock never takes work that just became due for a stalled dispatch.
         var now = DateTimeOffset.UtcNow;
         var staleBefore = now - _options.StaleAttemptTimeout;
         var due = _dueClock.GetUtcNow();
@@ -91,7 +94,9 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                 (x.Status == NhBackgroundOperationStatus.RetryScheduled && x.NextDispatchAt <= due)
                 || (x.Status == NhBackgroundOperationStatus.CancelRequested && x.CurrentAttemptId == null)
                 || (x.Status == NhBackgroundOperationStatus.Queued && x.LastModifiedDateTime <= staleBefore)
-                || (x.Status == NhBackgroundOperationStatus.PendingDispatch && x.NextDispatchAt <= dueStaleBefore)
+                || (x.Status == NhBackgroundOperationStatus.PendingDispatch
+                    && x.NextDispatchAt <= dueStaleBefore
+                    && x.LastModifiedDateTime <= staleBefore)
                 || (x.Status == NhBackgroundOperationStatus.Running && (x.HeartbeatAt == null || x.HeartbeatAt <= staleBefore)))
             .OrderBy(x => x.LastModifiedDateTime)
             .Take(_options.ReconciliationBatchSize)
@@ -317,7 +322,9 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
     /// Handles an operation that no worker started within <c>StaleAttemptTimeout</c>: its
     /// Hangfire job was not picked up, or no dispatcher claimed it. Each round records an
     /// operator-only diagnosis; after <c>MaxDispatchRecoveries</c> consecutive rounds the
-    /// operation fails and asks for operator recovery instead of cycling forever.
+    /// operation fails and asks for operator recovery instead of cycling forever. A round touches
+    /// the operation, so the next round waits at least <c>StaleAttemptTimeout</c> of real time,
+    /// however far the application's clock moves in between.
     /// </summary>
     private async Task RecoverStalledDispatchAsync(
         IRepository<NhBackgroundOperation> repository,
@@ -543,7 +550,8 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             || (operation.Status == NhBackgroundOperationStatus.Queued
                 && operation.LastModifiedDateTime <= staleBefore)
             || (operation.Status == NhBackgroundOperationStatus.PendingDispatch
-                && operation.NextDispatchAt <= dueStaleBefore)
+                && operation.NextDispatchAt <= dueStaleBefore
+                && operation.LastModifiedDateTime <= staleBefore)
             || (operation.Status == NhBackgroundOperationStatus.Running
                 && (operation.HeartbeatAt is null || operation.HeartbeatAt <= staleBefore));
     }

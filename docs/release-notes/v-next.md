@@ -20,6 +20,9 @@ When a background operation becomes due now follows the application's clock: a r
 including the 30-second debounce of proposal follow-up runs. Leases, heartbeats, stale-attempt
 recovery and audit timestamps keep the system clock. A test can therefore register a clock and move
 it past a debounce or retry instead of waiting, without taking work away from a running attempt.
+Reconciliation takes an unclaimed `PendingDispatch` operation for a stalled dispatch only when it has
+been due for `StaleAttemptTimeout` on the application's clock and unchanged for as long on the system
+clock, so a forward jump of the application's clock never fails work that just became due.
 `NhBackgroundOperationService` gained a constructor that takes the `TimeProvider`; dependency
 injection uses it when one is registered.
 
@@ -27,6 +30,7 @@ injection uses it when one is registered.
 |---|---|
 | With a registered `TimeProvider` that is not the system clock, operations become due, retry and expire by that clock; a test clock that stands still holds debounced, retried and expiring work back. | Take `NotBefore` and signal-wait expiry from the same `TimeProvider`, and move a test clock forward where work should become due. |
 | `NhBackgroundOperationService` has a fourth public constructor, with a `TimeProvider`. | None; the existing constructors keep the system clock. |
+| A pending dispatch counts as stalled only after `StaleAttemptTimeout` without a change on the system clock as well; with the system clock this changes nothing, because an operation is changed when it becomes pending. | None; a test that moves its clock forward no longer causes dispatch recoveries or `dispatch-stalled` failures. |
 
 ## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: finding actors by name
 
