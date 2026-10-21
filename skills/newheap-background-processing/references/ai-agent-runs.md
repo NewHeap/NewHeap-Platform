@@ -364,6 +364,10 @@ where nobody is notified and nothing proposed executes. Call `AddAssistantAgentR
 Other sources start agents too. `AddScheduledTrigger` runs a Hangfire recurring job on
 a cron schedule and fires the trigger for each subject its `Subjects` query returns,
 at most `MaxSubjectsPerTick`; a repeated job in the same minute starts nothing twice.
+Hangfire fires the cron on real time, but the minute a tick belongs to comes from the
+application's clock (a registered `TimeProvider`, otherwise the system clock): a test moves
+its clock to the next minute to tick again instead of waiting, and with a clock that stands
+still every later tick counts as the same minute and starts nothing.
 `AddWebhookTrigger` exposes `POST {prefix}/triggers/{id}` to an external system without
 a user: the caller signs `{timestamp}.{deliveryId}.{body}` with HMAC-SHA256 and a shared
 secret of at least 32 characters read for every call, calls more than five minutes off

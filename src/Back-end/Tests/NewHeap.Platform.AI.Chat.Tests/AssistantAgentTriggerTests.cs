@@ -76,6 +76,48 @@ public sealed class AssistantAgentTriggerTests(AssistantDatabaseFixture database
         Assert.Equal(2, host.Services.GetRequiredService<RecordingOperations>().Enqueued.Count);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_schedule_tick_takes_its_minute_from_the_applications_clock(AssistantTestProvider provider)
+    {
+        // Years away from the system clock, so a tick minute taken from the system clock shows.
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 5, 5, 7, 0, 10, TimeSpan.Zero));
+        await using var host = await CreateHostAsync(provider, clock: clock);
+        var operations = host.Services.GetRequiredService<RecordingOperations>();
+
+        // Hangfire's entry point reads the minute of the tick from the application's clock.
+        await TickAsync(host);
+        var first = await ScheduledRunsAsync(host);
+        Assert.Equal(2, first.Count);
+        Assert.All(first, run => Assert.Equal("tick:203105050700", run.TriggerEventKey));
+        Assert.Equal(2, operations.Enqueued.Count);
+        foreach (var run in first)
+        {
+            // Ended runs keep the tick from being skipped as busy: only its minute deduplicates it.
+            Assert.True(await host.Services.GetRequiredService<NhAssistantRunStore>().TrySetRunStatusAsync(
+                run.Id,
+                [NhAssistantRunStatuses.Queued],
+                NhAssistantRunStatuses.Completed,
+                CancellationToken.None));
+        }
+
+        // Later in the same minute of the application's clock the tick finds the runs it started.
+        clock.Advance(TimeSpan.FromSeconds(45));
+        await TickAsync(host);
+        Assert.Equal(2, (await ScheduledRunsAsync(host)).Count);
+        Assert.Equal(2, operations.Enqueued.Count);
+
+        // The application's clock reaches the next minute, while the system clock may still be in
+        // the minute of the first tick: that is a new tick.
+        clock.Advance(TimeSpan.FromSeconds(5));
+        await TickAsync(host);
+        var all = await ScheduledRunsAsync(host);
+        Assert.Equal(4, all.Count);
+        Assert.Equal(2, all.Count(run => run.TriggerEventKey == "tick:203105050701"));
+        Assert.Equal(4, operations.Enqueued.Count);
+    }
+
     [Fact]
     public void A_webhook_signature_covers_the_timestamp_the_delivery_and_the_body()
     {
@@ -219,7 +261,10 @@ public sealed class AssistantAgentTriggerTests(AssistantDatabaseFixture database
         Assert.Null(stored.NextReminderAt);
     }
 
-    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, NhAiScriptedChatClient? model = null)
+    private async Task<AssistantTestHost> CreateHostAsync(
+        AssistantTestProvider provider,
+        NhAiScriptedChatClient? model = null,
+        TimeProvider? clock = null)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -227,6 +272,10 @@ public sealed class AssistantAgentTriggerTests(AssistantDatabaseFixture database
             model ?? new NhAiScriptedChatClient(),
             configure: services =>
             {
+                if (clock is not null)
+                {
+                    services.AddSingleton(clock);
+                }
                 services.AddSingleton(new TestSubjects());
                 services.AddSingleton<RecordingOperations>();
                 services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
@@ -272,6 +321,24 @@ public sealed class AssistantAgentTriggerTests(AssistantDatabaseFixture database
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>().PublishAsync(evt);
+    }
+
+    /// <summary>
+    /// Runs the weekly schedule's recurring job as Hangfire does.
+    /// </summary>
+    private static async Task TickAsync(AssistantTestHost host)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<NhAssistantScheduledTriggerJob>().RunAsync(WeeklyTrigger);
+    }
+
+    private static async Task<IReadOnlyList<AssistantRun>> ScheduledRunsAsync(AssistantTestHost host)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        return await context.Runs
+            .AsNoTracking()
+            .Where(run => run.TriggerId == WeeklyTrigger)
+            .ToListAsync();
     }
 
     private static async Task<int> CountQueuedInputsAsync(AssistantTestHost host, Guid conversationId)

@@ -1356,7 +1356,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             // One tick starts one run, in the follow-up's thread of the whole application. The thread
             // outlives the agent, so runs of other tests on the shared host may be there before.
             var lookup = $"/api/assistant/threads?agentId={followUp}&subjectType={NhAiSubjectRef.SystemType}&subjectId={NhAiSystemSubjects.GlobalId}";
-            var before = await CountSystemRunsAsync(reader, lookup, waitForNextTick: true);
+            var before = await CountSystemRunsAsync(reader, lookup);
+            // A schedule ticks once per minute of the application's clock, so the host's clock moves
+            // to its next minute instead of waiting for it after an earlier test's tick.
+            host.AdvanceToNextMinute();
             host.Services.GetRequiredService<IRecurringJobManager>()
                 .Trigger("nh-assistant-data-trigger-" + SampleRuntimeAgentSeeder.FollowUpScheduleId);
             var thread = await WaitForSystemThreadAsync(reader, lookup);
@@ -1496,7 +1499,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             // One tick of the weekly schedule counts the open projects by the skill's rules and
             // places one proposal at each finished project.
             var lookup = $"/api/assistant/threads?agentId={followUp}&subjectType={NhAiSubjectRef.SystemType}&subjectId={NhAiSystemSubjects.GlobalId}";
-            var before = await CountSystemRunsAsync(reader, lookup, waitForNextTick: true);
+            var before = await CountSystemRunsAsync(reader, lookup);
+            // A schedule ticks once per minute of the application's clock, so the host's clock moves
+            // to its next minute instead of waiting for it after an earlier test's tick.
+            host.AdvanceToNextMinute();
             host.Services.GetRequiredService<IRecurringJobManager>()
                 .Trigger("nh-assistant-data-trigger-" + SampleRuntimeAgentSeeder.FollowUpScheduleId);
             var thread = await WaitForSystemThreadAsync(reader, lookup);
@@ -1893,11 +1899,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     /// <summary>
-    /// The runs of the follow-up's thread of the whole application so far. With
-    /// <paramref name="waitForNextTick"/> it waits until the minute of the latest run passed: a
-    /// schedule ticks once per minute, so a second tick in the same minute starts nothing.
+    /// The runs of the follow-up's thread of the whole application so far.
     /// </summary>
-    private static async Task<int> CountSystemRunsAsync(HttpClient client, string lookup, bool waitForNextTick = false)
+    private static async Task<int> CountSystemRunsAsync(HttpClient client, string lookup)
     {
         using var response = await client.GetAsync(lookup);
         if (response.StatusCode != HttpStatusCode.OK
@@ -1907,16 +1911,6 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
 
         var runs = (await client.GetFromJsonAsync<NhAssistantRunListDto>($"/api/assistant/threads/{thread.ConversationId}/runs", Json))!;
-        if (waitForNextTick && runs.Items.Count > 0)
-        {
-            var latest = runs.Items.Max(run => run.CreatedAt).UtcDateTime;
-            var nextMinute = new DateTime(latest.Year, latest.Month, latest.Day, latest.Hour, latest.Minute, 0, DateTimeKind.Utc).AddMinutes(1);
-            while (DateTime.UtcNow < nextMinute)
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(500));
-            }
-        }
-
         return runs.Total;
     }
 
@@ -3820,6 +3814,19 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
         {
             Clock.Advance(remaining.Value);
         }
+    }
+
+    /// <summary>
+    /// Moves the host's clock to the start of its next minute. A schedule ticks once per minute of
+    /// the application's clock, so the next tick counts as a minute of its own without waiting for
+    /// the wall clock to reach it.
+    /// </summary>
+    public void AdvanceToNextMinute()
+    {
+        Assert.Same(Clock, Services.GetRequiredService<TimeProvider>());
+        var now = Clock.GetUtcNow();
+        var nextMinute = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, TimeSpan.Zero).AddMinutes(1);
+        Clock.Advance(nextMinute - now);
     }
 
     public async Task WaitForOperationAsync(Guid operationId, NhBackgroundOperationStatus status)

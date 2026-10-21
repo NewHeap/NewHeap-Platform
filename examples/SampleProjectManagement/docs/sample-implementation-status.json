@@ -2575,6 +2575,8 @@
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-works-on.ts",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSchedules.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleTestClock.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentTriggerTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSystemSubjectTests.cs",

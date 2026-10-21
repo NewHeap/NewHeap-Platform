@@ -1,5 +1,16 @@
 # v-next
 
+## NewHeap.Platform.AI.Chat.AspNet: schedule ticks on the application's clock
+
+The minute a scheduled trigger's tick belongs to now comes from the application's clock: a
+registered `TimeProvider`, otherwise the system clock as before. Hangfire still fires the cron on
+real time; only the deduplication of a tick follows the application's clock, so a test moves its
+clock to the next minute to tick again instead of waiting for the wall clock.
+
+| Breaking change | Required action |
+|---|---|
+| With a registered `TimeProvider` that is not the system clock, a tick is deduplicated by that clock's minute; a clock that stands still counts every later tick as the same minute and starts nothing. | Move a test clock to the next minute before a tick that must start runs again. |
+
 ## NewHeap.Platform.AspNet.Common and NewHeap.Platform.AI.Chat.AspNet: due times on the application's clock
 
 When a background operation becomes due now follows the application's clock: a registered

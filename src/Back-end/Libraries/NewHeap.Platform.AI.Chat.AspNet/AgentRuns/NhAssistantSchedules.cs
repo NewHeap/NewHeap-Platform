@@ -26,10 +26,17 @@ internal sealed class NhAssistantScheduledTriggerJob(
     NhAssistantWorksOnRule worksOn,
     ILogger<NhAssistantScheduledTriggerJob> logger)
 {
+    /// <summary>
+    /// The entry point of the recurring job. Hangfire fires the cron on real time; the minute the
+    /// tick belongs to comes from the application's clock (a registered <see cref="TimeProvider"/>,
+    /// otherwise the system clock), so a test that moves its clock to the next minute ticks again,
+    /// and a clock that stands still counts every later tick as the same minute.
+    /// </summary>
     [AutomaticRetry(Attempts = 0)]
     public async Task RunAsync(string triggerId)
     {
-        await RunAsync(triggerId, DateTimeOffset.UtcNow, CancellationToken.None);
+        var applicationClock = services.GetService<TimeProvider>() ?? TimeProvider.System;
+        await RunAsync(triggerId, applicationClock.GetUtcNow(), CancellationToken.None);
     }
 
     internal async Task<IReadOnlyList<NhAssistantTriggerReceipt>> RunAsync(
@@ -78,6 +85,8 @@ internal sealed class NhAssistantScheduledTriggerJob(
             }
         }
 
+        // The tick is the minute of the application's clock: a repeated job in that minute
+        // deduplicates against the runs it already started.
         var tick = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, now.Offset).ToUniversalTime();
         var receipts = new List<NhAssistantTriggerReceipt>();
         var subjects = 0;
