@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -179,6 +180,9 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
     }
 
     public TestServer Server => _app.GetTestServer();
+
+    /// <summary>The endpoint data sources that the host's routing middleware reads.</summary>
+    public IReadOnlyList<EndpointDataSource> EndpointDataSources => ((IEndpointRouteBuilder)_app).DataSources.ToArray();
 
     public HttpClient CreateClient(string? user = "user-1", bool access = true, bool admin = false, string? name = null)
     {

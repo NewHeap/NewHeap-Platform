@@ -1,6 +1,8 @@
 using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.AspNet;
@@ -74,6 +76,22 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/assistant/status")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await withoutAccess.GetAsync("/api/assistant/status")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await withoutAccess.GetAsync("/api/assistant/conversations")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Routing_and_the_application_wide_endpoints_share_the_endpoints_built_once()
+    {
+        await using var app = await AssistantWebApplication.StartAsync(database, new NhAiScriptedChatClient());
+
+        // The authorization middleware's policy cache read the application-wide endpoints while the
+        // pipeline was built; the routing middleware reads a composite of its own on the first request.
+        var applicationWide = app.Services.GetRequiredService<EndpointDataSource>();
+        using var routing = new CompositeEndpointDataSource(app.EndpointDataSources);
+
+        Assert.Same(FindEndpoint(applicationWide, "NhAssistantGetStatus"), FindEndpoint(routing, "NhAssistantGetStatus"));
+        Assert.Same(
+            FindEndpoint(applicationWide, "NhAssistantFireWebhookTrigger"),
+            FindEndpoint(routing, "NhAssistantFireWebhookTrigger"));
     }
 
     [Fact]
@@ -334,6 +352,12 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
     {
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return document.RootElement.Clone();
+    }
+
+    private static Endpoint FindEndpoint(EndpointDataSource source, string name)
+    {
+        return source.Endpoints.Single(endpoint =>
+            endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == name);
     }
 
     private static void AssertNames(JsonElement element, params string[] expected)

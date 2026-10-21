@@ -40,7 +40,9 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         var options = endpoints.ServiceProvider.GetRequiredService<IOptions<NhAssistantOptions>>().Value;
         var accessPolicy = NhAssistantEndpointOptions.ResolveAccessPolicy(state, options);
 
-        var group = endpoints.MapGroup(prefix)
+        // The groups join the application's endpoints at the end, each built once for every reader.
+        var groups = new NhAssistantEndpointGroups(endpoints);
+        var group = groups.MapGroup(prefix)
             .RequireAuthorization(accessPolicy)
             .WithTags("Assistant")
             .AddEndpointFilter(NhAssistantRequestCulture.MatchLanguageAsync);
@@ -122,7 +124,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         AgentRuns.NhAssistantBoardEndpoints.Map(enabled);
 
         // Webhook triggers carry no user: they are authenticated by their signature.
-        var webhooks = endpoints.MapGroup(prefix)
+        var webhooks = groups.MapGroup(prefix)
             .WithTags("Assistant")
             .AddEndpointFilter(RequireEnabledAsync);
         AgentRuns.NhAssistantWebhookEndpoints.Map(webhooks);
@@ -130,6 +132,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         NhAssistantMcpOAuthEndpoints.Map(webhooks);
         NhAssistantAdminEndpoints.Map(enabled, NhAssistantEndpointOptions.ResolveAdminPolicy(state, options));
         NhAssistantMcpConnectionEndpoints.Map(enabled);
+        groups.AddTo(endpoints);
 
         if (!string.IsNullOrWhiteSpace(options.HubPath))
         {
