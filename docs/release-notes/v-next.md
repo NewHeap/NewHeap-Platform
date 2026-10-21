@@ -1,5 +1,24 @@
 # v-next
 
+## NewHeap.Platform.AI.Chat.AspNet: an expired inline proposal ends its run by its policy
+
+Fix. When an inline proposal expired before anyone decided, the run that waited for it ended
+`completed` with `assistant-approval-expired` whenever its background operation woke before the
+maintenance job expired the proposal, although the approval policy said
+`OnExpiry(NhAiApprovalExpiryAction.FailRun)`. When the job came first, it set the run to `failed`
+without an `AgentRunEnded` event, a summary or a notification, and the run's operation then left
+the waiting turn alone, so the thread stayed `waiting-for-approval` and blocked its next runs. The
+run's own operation now ends a run that waits inline in both orders, by the proposal's policy:
+`FailRun` fails it with the failure class `policy` and notifies like any failed run, `Withdraw` and
+`Escalate` (an inline proposal never escalates) let it complete with `assistant-approval-expired`.
+The maintenance job expires an inline proposal but leaves its run to the operation, whose wait
+expires at the same time on the same clock; it still fails the run of a deferred proposal under
+`FailRun`. Whichever expires the proposal publishes its `AgentWorkChanged` update, once.
+
+| Breaking change | Required action |
+|---|---|
+| A run whose inline proposal expires under `FailRun` now always ends `failed` (class `policy`) with `assistant-approval-expired`, sends `RunFailed`, and its background operation ends `Failed` with that code instead of `Succeeded`. | None. Assert a run's status after an inline expiry by its policy, not only its failure code. |
+
 ## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: proposal lifetimes on the application's clock
 
 A proposal's lifetime now follows the application's clock: a registered `TimeProvider`, otherwise

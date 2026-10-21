@@ -4023,7 +4023,7 @@
       "categoryId": "18",
       "title": "Inline approval that suspends and resumes a headless agent run",
       "surface": "`NhAiApprovalMode.Inline`, `NhAiApprovers.Initiator`, `NhAiApprovalExpiryAction.FailRun`, `POST threads/start`, `NhAssistantRunStatuses.WaitingForApproval` and `POST approvals/{id}/decisions`",
-      "outcome": "A project participant starts the status advisor on a project. Its status proposal follows the `project-status-inline` policy: the run stops as `waiting-for-approval`, and its background operation releases the worker as `WaitingForSignal` instead of holding a request or a thread. When the participant approves, the decision signals the operation, the run resumes in the same turn, changes the status itself and completes. Nothing changes before the decision. When nobody decides, the proposal expires after the policy's four hours on the application's clock, which the suspended operation waits on as well: the test host moves its registered `TimeProvider` past those hours instead of waiting, the run ends with `assistant-approval-expired` without a change, and a later decision is refused.",
+      "outcome": "A project participant starts the status advisor on a project. Its status proposal follows the `project-status-inline` policy: the run stops as `waiting-for-approval`, and its background operation releases the worker as `WaitingForSignal` instead of holding a request or a thread. When the participant approves, the decision signals the operation, the run resumes in the same turn, changes the status itself and completes. Nothing changes before the decision. When nobody decides, the proposal expires after the policy's four hours on the application's clock, which the suspended operation waits on as well: the test host moves its registered `TimeProvider` past those hours instead of waiting, the run fails with `assistant-approval-expired` and the failure class `policy` without a change, as the policy's `OnExpiry(FailRun)` says, and a later decision is refused. Whether the maintenance job or the woken operation expires the proposal first, the operation ends the run by the policy, once.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleStatusAdvisorComposition.cs",
@@ -4037,7 +4037,8 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnRunnerTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnRunnerTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInlineExpiryTests.cs"
       ]
     },
     {

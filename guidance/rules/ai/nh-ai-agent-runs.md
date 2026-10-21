@@ -44,6 +44,17 @@ guards receive as `ProposedAt`, executions and audit events keep the system cloc
 A test lets a proposal expire by moving its clock past the lifetime instead of
 shortening it or waiting.
 
+A proposal that nobody decided in time expires, and the policy's `OnExpiry` says what
+happens to its run. `NhAiApprovalExpiryAction.FailRun` fails the run with
+`assistant-approval-expired` and the failure class `policy`, and notifies like any failed
+run; `Withdraw` lets it complete without the proposal, with the same failure code.
+`Escalate` gives a deferred proposal the escalation policy's lifetime once; an inline
+proposal never escalates and expires as with `Withdraw`. A run that waits inline is always
+ended by its own background operation when its wait expires, also when the maintenance job
+expired the proposal first, so the outcome does not depend on which of the two came first
+and the run ends, and is audited, once. The job applies `FailRun` itself only to the run of a
+deferred proposal, which no longer waits for it.
+
 `GET conversations/{id}` of a thread says who decides, so a chat client does not apply
 the chat rule that only a turn's author decides: it returns `kind: "thread"` and
 `thread` (`NhAssistantConversationThreadDto`) with the subject, the caller's live role
@@ -903,7 +914,10 @@ rejection with the feedback on one line, that the report counts statuses, catego
 distinct authors per tool and agent version on both providers, and that forgetting the
 subject deletes the feedback. Make a proposal in a headless run in one culture and read it
 in each supported culture; close a deferred proposal by rejection and by expiry and assert
-that its tool call reads `rejected` and `not-executed`; decide a proposal and assert that
+that its tool call reads `rejected` and `not-executed`; let an inline proposal expire under
+`FailRun` and under `Withdraw`, once with the run's operation waking first and once with the
+maintenance job first, and assert the run's status by the policy, one `AgentRunEnded` event
+and one live update of the proposal in both orders, on both providers; decide a proposal and assert that
 `AgentWorkChanged` reaches the subject's members. Start an agent by hand on a subject without a
 member snapshot, as a person no member list names, let the run propose nothing and assert that
 `AgentWorkChanged` reaches that person and the subject's members when the run runs and when it

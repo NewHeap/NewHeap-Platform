@@ -46,7 +46,8 @@ when it fails without a result, the proposal waits as `execution-unknown` until 
 approver resolves it. The status advisor (SPM-272, SPM-273) has no grants; a
 participant starts it, it acts with that participant's rights without a request, and
 its inline proposal suspends the run's background operation until the participant
-approves. The review board answers through a signed webhook trigger, a weekly
+approves; when nobody decides in time, the proposal expires and its policy fails the
+run. The review board answers through a signed webhook trigger, a weekly
 schedule reviews projects whose deadline is near, and an administrator can stop the
 reviewer with the kill switch (SPM-275). The reviewer keeps its checks in a typed
 working memory, saves an intake note as a versioned file of the thread and starts

@@ -179,7 +179,9 @@ internal sealed class NhAssistantRunMaintenance(
     /// <summary>
     /// Expires the pending proposals of agent threads whose expiry <paramref name="now"/> of the
     /// application's clock reached, or escalates a deferred one once; an escalation starts the
-    /// escalation policy's lifetime and reminders at that time.
+    /// escalation policy's lifetime and reminders at that time. A deferred proposal whose policy
+    /// says <see cref="NhAiApprovalExpiryAction.FailRun"/> fails its run; a run that waits inline
+    /// for its proposal is ended by its own operation, by the same policy.
     /// </summary>
     private static async Task ExpireAsync(
         NhAssistantRunStore runs,
@@ -248,7 +250,14 @@ internal sealed class NhAssistantRunMaintenance(
                     approval.RunId,
                     cancellationToken);
             }
-            if (expired && policy?.OnExpiry == NhAiApprovalExpiryAction.FailRun && approval.RunId is { } runId)
+            // A run that waits inline for the proposal ends through its own operation, whose wait
+            // expires at the same time on the same clock: it applies the policy's OnExpiry there,
+            // also when this job expired the proposal first. A deferred proposal's run did not
+            // wait for it, so its policy fails that run here.
+            if (expired
+                && policy?.OnExpiry == NhAiApprovalExpiryAction.FailRun
+                && approval.Mode == NhAssistantApprovalModes.Deferred
+                && approval.RunId is { } runId)
             {
                 await runs.TrySetRunStatusAsync(
                     runId,

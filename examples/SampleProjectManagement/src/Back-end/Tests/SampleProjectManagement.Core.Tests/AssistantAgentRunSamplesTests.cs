@@ -2374,12 +2374,14 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
-    public async Task An_inline_proposal_nobody_decides_expires_on_the_applications_clock_and_its_run_ends_without_it()
+    public async Task An_inline_proposal_nobody_decides_expires_on_the_applications_clock_and_fails_its_run_by_its_policy()
     {
         // SPM-272: the status advisor's proposal waits four hours for the participant who started it.
         // Nobody decides. The proposal lives by the application's clock, which the run's suspended
         // background operation waits on too, so the host's clock moves past those four hours instead
-        // of waiting: the wait expires, the proposal expires and the run ends without a change.
+        // of waiting: the wait expires, the proposal expires and the run fails without a change, as
+        // the policy's OnExpiry(FailRun) says. The maintenance job may expire the proposal before
+        // the run's operation wakes; the operation ends the run by the policy either way.
         var project = await host.CreateProjectAsync("EXPIRING", ownerId: host.OwnerId);
         await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
         using var participant = host.CreateClient(host.ParticipantId.ToString());
@@ -2405,7 +2407,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var expired = await WaitForProposalAsync(participant, conversationId, NhAssistantApprovalStatuses.Expired);
         Assert.Equal(proposal.ApprovalId, expired.ApprovalId);
         var ended = await WaitForRunResultAsync(participant, waiting.Id);
+        Assert.Equal(NhAssistantRunStatuses.Failed, ended.Run.Status);
         Assert.Equal(NhAssistantErrorCodes.ApprovalExpired, ended.Run.FailureCode);
+        Assert.Equal(NhAssistantRunFailureClasses.Policy, ended.Run.FailureClass);
         Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == project);
 
         // A decision after the expiry comes too late.

@@ -369,7 +369,8 @@ internal sealed class NhAssistantAgentRunOperation(
         // The token ceiling bounds this execution of the run: a resumed run gets a new allowance.
         // The ceiling is the one of the skill the run works in, otherwise the agent's.
         var used = 0L;
-        var result = await ContinueWaitingTurnAsync(agentTurn with { RunTokensUsed = used }, context, cancellationToken)
+        var resumed = await ContinueWaitingTurnAsync(agentTurn with { RunTokensUsed = used }, context, cancellationToken);
+        var result = resumed?.Result
             ?? await RunTurnAsync(run, agentTurn with { RunTokensUsed = used }, cancellationToken);
         used += result.InputTokens + result.OutputTokens;
         agentTurn = WithSkill(agentTurn, result);
@@ -395,7 +396,8 @@ internal sealed class NhAssistantAgentRunOperation(
             turnCount++;
         }
 
-        return await CompleteAsync(run, agentTurn, result, context, cancellationToken);
+        // Only a resumed turn ends with an expired proposal, and it takes no further turns.
+        return await CompleteAsync(run, agentTurn, result, resumed?.ApprovalId, context, cancellationToken);
     }
 
     /// <summary>
@@ -437,10 +439,6 @@ internal sealed class NhAssistantAgentRunOperation(
     }
 
     /// <summary>
-    /// Re-entry after a suspension: continues the turn that waited for an inline approval, or
-    /// returns <see langword="null"/> when the run has no waiting turn.
-    /// </summary>
-    /// <summary>
     /// Why the run may not work now: the assistant is disabled, the agent is disabled in code or
     /// stopped, or the agent is paused and the run has not started yet. A run that started before a
     /// pause finishes.
@@ -467,7 +465,13 @@ internal sealed class NhAssistantAgentRunOperation(
         };
     }
 
-    private async Task<NhAssistantAgentTurnResult?> ContinueWaitingTurnAsync(
+    /// <summary>
+    /// Re-entry after a suspension: continues the turn that waited for an inline approval, or
+    /// returns <see langword="null"/> when the run has no waiting turn. When the wait expired, the
+    /// proposal expires here unless the maintenance job expired it first; either way the people on
+    /// the subject hear about it once.
+    /// </summary>
+    private async Task<NhAssistantResumedTurn?> ContinueWaitingTurnAsync(
         NhAssistantAgentTurnContext agentTurn,
         INhBackgroundOperationContext context,
         CancellationToken cancellationToken)
@@ -483,14 +487,20 @@ internal sealed class NhAssistantAgentRunOperation(
             WaitKey(wait.ApprovalId),
             wait.ExpiresAt,
             cancellationToken);
-        if (signal.Status == NhBackgroundOperationSignalWaitStatus.Expired)
-        {
-            await runs.TryTransitionApprovalAsync(
+        if (signal.Status == NhBackgroundOperationSignalWaitStatus.Expired
+            && await runs.TryTransitionApprovalAsync(
                 wait.ApprovalId,
                 [NhAssistantApprovalStatuses.Pending],
                 NhAssistantApprovalStatuses.Expired,
                 NhAssistantApprovalTransition.None,
-                cancellationToken);
+                cancellationToken))
+        {
+            await workUpdates.PublishAsync(
+                agentTurn.Thread.ConversationId,
+                NhAssistantAgentWorkReasons.Proposal,
+                wait.ApprovalId,
+                agentTurn.RunId,
+                CancellationToken.None);
         }
 
         // The continued turn answers the messages the run claimed before it waited; their authors
@@ -503,8 +513,13 @@ internal sealed class NhAssistantAgentRunOperation(
         await RecordUsageAsync(agentTurn.RunId!.Value, result, cancellationToken);
         await KeepAnswerAsync(agentTurn.RunId!.Value, agentTurn.Thread.ConversationId, result, cancellationToken);
         await connectionNotices.RecordAsync(agentTurn.RunId!.Value, agentTurn.Thread, result.MissingMcpConnections, cancellationToken);
-        return result;
+        return new NhAssistantResumedTurn(result, wait.ApprovalId);
     }
+
+    /// <summary>
+    /// The outcome of a continued turn and the inline proposal it waited for.
+    /// </summary>
+    private sealed record NhAssistantResumedTurn(NhAssistantAgentTurnResult Result, Guid ApprovalId);
 
     /// <summary>
     /// Keeps the answer of a turn that completed as part of the run's result (K13): people read the
@@ -525,10 +540,13 @@ internal sealed class NhAssistantAgentRunOperation(
         await results.AppendTurnAsync(runId, conversationId, turnId, result.LocalizedAnswer, cancellationToken);
     }
 
+    /// <param name="waitedApprovalId">The inline proposal a resumed turn waited for; <see langword="null"/>
+    /// when the run did not resume a waiting turn.</param>
     private async Task<TaskResult> CompleteAsync(
         AssistantRun run,
         NhAssistantAgentTurnContext agentTurn,
         NhAssistantAgentTurnResult result,
+        Guid? waitedApprovalId,
         INhBackgroundOperationContext context,
         CancellationToken cancellationToken)
     {
@@ -601,13 +619,12 @@ internal sealed class NhAssistantAgentRunOperation(
                 return TaskResult.Succeeded();
 
             default:
-                var failureClass = Classify(result.ErrorCode);
                 if (result.ErrorCode == NhAssistantErrorCodes.ApprovalExpired)
                 {
-                    // An expired inline approval ends the run unless the policy fails it.
-                    await EndAsync(run, agentTurn.Thread, NhAssistantRunStatuses.Completed, null, result.ErrorCode);
-                    return TaskResult.Succeeded();
+                    return await EndAfterExpiryAsync(run, agentTurn.Thread, result, waitedApprovalId, cancellationToken);
                 }
+
+                var failureClass = Classify(result.ErrorCode);
                 if (failureClass == NhAssistantRunFailureClasses.Transient
                     && context.AttemptNumber <= agentTurn.Options.RetryCount)
                 {
@@ -645,6 +662,42 @@ internal sealed class NhAssistantAgentRunOperation(
             NhAssistantErrorCodes.ProposalStale => NhAssistantRunFailureClasses.Stale,
             _ => NhAssistantRunFailureClasses.Internal
         };
+    }
+
+    /// <summary>
+    /// Ends a run whose inline proposal expired before anyone decided, as the proposal's approval
+    /// policy says: <see cref="NhAiApprovalExpiryAction.FailRun"/> fails the run, and every other
+    /// expiry action lets it complete without the proposal, with <c>assistant-approval-expired</c>.
+    /// The maintenance job leaves a run that waits inline to this operation, also when the job
+    /// expired the proposal first, so the run ends the same way, and once, whichever came first.
+    /// </summary>
+    private async Task<TaskResult> EndAfterExpiryAsync(
+        AssistantRun run,
+        AssistantThread thread,
+        NhAssistantAgentTurnResult result,
+        Guid? approvalId,
+        CancellationToken cancellationToken)
+    {
+        var approval = approvalId is { } id
+            ? await store.FindApprovalAsync(id, cancellationToken)
+            : null;
+        if (FailsRunOnExpiry(approval))
+        {
+            await FailAsync(run, thread, NhAssistantRunFailureClasses.Policy, NhAssistantErrorCodes.ApprovalExpired, result.TurnId);
+            return TaskResult.Failed(NhAssistantErrorCodes.ApprovalExpired, "assistant.run-approval-expired");
+        }
+
+        await EndAsync(run, thread, NhAssistantRunStatuses.Completed, null, NhAssistantErrorCodes.ApprovalExpired);
+        return TaskResult.Succeeded();
+    }
+
+    /// <summary>
+    /// True when the policy the proposal was made under fails its run on expiry.
+    /// </summary>
+    private static bool FailsRunOnExpiry(AssistantApproval? approval)
+    {
+        return approval?.PolicyJson is { } policyJson
+            && NhAssistantApprovalPolicySnapshot.Deserialize(policyJson).OnExpiry == NhAiApprovalExpiryAction.FailRun;
     }
 
     private async Task FailAsync(AssistantRun run, AssistantThread? thread, string failureClass, string code, Guid? turnId = null)
