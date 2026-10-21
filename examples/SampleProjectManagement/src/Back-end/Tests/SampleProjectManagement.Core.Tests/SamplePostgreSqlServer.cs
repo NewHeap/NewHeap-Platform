@@ -8,8 +8,10 @@ namespace SampleProjectManagement.Core.Tests;
 
 /// <summary>
 /// One PostgreSQL container for the whole test run instead of one per test or sample host. Every
-/// test that needs a real database creates an empty database of its own on it, so test classes run
-/// in parallel without seeing each other's tables, rows or migrations.
+/// test that needs a real database uses a database of its own on it, so test classes run in
+/// parallel without seeing each other's tables, rows or migrations: a sample host leases a migrated
+/// sample database from <see cref="MigratedDatabases"/>, and a test that proves migrations creates
+/// an empty database with <see cref="CreateDatabaseAsync"/>.
 /// </summary>
 /// <remarks>
 /// xUnit creates the fixture once for the test assembly and passes it to every test class and class
@@ -20,6 +22,16 @@ public sealed class SamplePostgreSqlServer : IAsyncDisposable
 {
     private readonly Lazy<Task<PostgreSqlContainer>> _container = new(StartAsync);
     private int _databaseCount;
+
+    public SamplePostgreSqlServer()
+    {
+        MigratedDatabases = new SampleDatabasePool(this);
+    }
+
+    /// <summary>
+    /// The migrated sample databases that sample hosts lease, one host at a time per database.
+    /// </summary>
+    public SampleDatabasePool MigratedDatabases { get; }
 
     /// <summary>
     /// Creates an empty database and returns its connection string. The database name starts with

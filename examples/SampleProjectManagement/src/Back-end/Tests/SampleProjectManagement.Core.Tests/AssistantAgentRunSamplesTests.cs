@@ -3614,8 +3614,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
 
 /// <summary>
 /// The assistant sample host with the platform's background operations on Hangfire in memory and
-/// the intake reviewer of Program.cs. The sample database is migrated before the host starts so
-/// the background-operation dispatcher finds its tables from its first poll.
+/// the intake reviewer of Program.cs. The host leases a migrated sample database, so the
+/// background-operation dispatcher finds its tables from its first poll.
 /// </summary>
 public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : AssistantCollaborationSampleHost(postgreSql)
 {
@@ -3682,15 +3682,6 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
     {
         await base.DisposeAsync();
         _hangfireStorage.Dispose();
-    }
-
-    protected override async Task OnDatabaseCreatedAsync()
-    {
-        var options = new DbContextOptionsBuilder<SampleProjectManagementDbContext>()
-            .UseNpgsql(ConnectionString)
-            .Options;
-        await using var dbContext = new SampleProjectManagementDbContext(options);
-        await dbContext.Database.MigrateAsync();
     }
 
     protected override void ConfigureSettings(IDictionary<string, string?> settings)

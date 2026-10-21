@@ -205,10 +205,10 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
 }
 
 /// <summary>
-/// One Kestrel host with the sample assistant composition over a PostgreSQL database of its own on
-/// the shared <see cref="SamplePostgreSqlServer"/>. Project data is served by an in-memory fake so
-/// the evidence focuses on the assistant. Derived hosts add compositions (such as the API bridge)
-/// through the protected hooks.
+/// One Kestrel host with the sample assistant composition over a migrated sample database that it
+/// leases from the shared <see cref="SamplePostgreSqlServer"/> and uses alone. Project data is served
+/// by an in-memory fake so the evidence focuses on the assistant. Derived hosts add compositions
+/// (such as the API bridge) through the protected hooks.
 /// </summary>
 public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLifetime
 {
@@ -218,6 +218,7 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
     public const string OAuthRedirectUri = "https://sample-project-management-api.dev.localhost:5281/api/assistant/mcp/oauth/callback";
 
     private string? _connectionString;
+    private SampleDatabaseLease? _database;
     private WebApplication? _app;
     private Uri? _baseAddress;
 
@@ -234,7 +235,17 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
 
     public virtual async ValueTask InitializeAsync()
     {
-        _connectionString = await postgreSql.CreateDatabaseAsync("assistant_sample");
+        if (CreatesOwnSchema)
+        {
+            _connectionString = await postgreSql.CreateDatabaseAsync("assistant_sample");
+        }
+        else
+        {
+            // Disposing the host returns the database to the pool, which empties it for the next host.
+            _database = await postgreSql.MigratedDatabases.LeaseAsync();
+            _connectionString = _database.ConnectionString;
+        }
+
         await OnDatabaseCreatedAsync();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.WebHost.UseUrls("http://127.0.0.1:0");
@@ -310,8 +321,14 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
     }
 
     /// <summary>
-    /// Runs after the host's empty database was created and before the host is built, for example
-    /// to apply migrations that hosted services need from their first run.
+    /// Whether the host's application creates its own schema, such as the partner portal. Such a host
+    /// gets an empty database of its own instead of a migrated sample database.
+    /// </summary>
+    protected virtual bool CreatesOwnSchema => false;
+
+    /// <summary>
+    /// Runs after the host's database is ready and before the host is built, for example to create
+    /// the application's own schema or rows that hosted services need from their first run.
     /// </summary>
     protected virtual Task OnDatabaseCreatedAsync()
     {
@@ -359,6 +376,11 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
         {
             await _app.StopAsync();
             await _app.DisposeAsync();
+        }
+
+        if (_database is not null)
+        {
+            await _database.DisposeAsync();
         }
     }
 

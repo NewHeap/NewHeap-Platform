@@ -161,6 +161,8 @@ public sealed class PartnerPortalSampleHost(SamplePostgreSqlServer postgreSql) :
         _hangfireStorage.Dispose();
     }
 
+    protected override bool CreatesOwnSchema => true;
+
     protected override async Task OnDatabaseCreatedAsync()
     {
         // The portal creates its schema itself; in an application this is its own migration.

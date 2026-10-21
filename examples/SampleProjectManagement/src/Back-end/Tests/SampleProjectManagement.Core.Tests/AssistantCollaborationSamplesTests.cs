@@ -119,8 +119,6 @@ public class AssistantCollaborationSampleHost(SamplePostgreSqlServer postgreSql)
         await base.InitializeAsync();
         await using var scope = Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
-        await dbContext.Database.MigrateAsync();
-
         dbContext.Set<NhDivision>().AddRange(
             new NhDivision { Id = DivisionId, Name = "Assistant sample division", TimeZoneId = "Europe/Amsterdam" },
             new NhDivision { Id = OtherDivisionId, Name = "Other division", TimeZoneId = "Europe/Amsterdam" });
