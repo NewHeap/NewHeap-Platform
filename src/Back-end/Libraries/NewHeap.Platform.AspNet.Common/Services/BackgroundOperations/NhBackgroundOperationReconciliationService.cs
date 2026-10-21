@@ -83,6 +83,8 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
         // A dispatch counts as stalled only when it has been due for the stale timeout on the
         // application's clock and nothing touched it for that long on the system clock, so a jump of
         // the application's clock never takes work that just became due for a stalled dispatch.
+        // Without a due time an operation is due at once, as the dispatcher treats it. The readiness
+        // check (NhBackgroundOperationHealthCheck) counts overdue work by the same definition.
         var now = DateTimeOffset.UtcNow;
         var staleBefore = now - _options.StaleAttemptTimeout;
         var due = _dueClock.GetUtcNow();
@@ -91,11 +93,12 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             .AsNoTracking()
             .Where(x => x.ProcessorKey == _options.ProcessorKey)
             .Where(x =>
-                (x.Status == NhBackgroundOperationStatus.RetryScheduled && x.NextDispatchAt <= due)
+                (x.Status == NhBackgroundOperationStatus.RetryScheduled
+                    && (x.NextDispatchAt == null || x.NextDispatchAt <= due))
                 || (x.Status == NhBackgroundOperationStatus.CancelRequested && x.CurrentAttemptId == null)
                 || (x.Status == NhBackgroundOperationStatus.Queued && x.LastModifiedDateTime <= staleBefore)
                 || (x.Status == NhBackgroundOperationStatus.PendingDispatch
-                    && x.NextDispatchAt <= dueStaleBefore
+                    && (x.NextDispatchAt == null || x.NextDispatchAt <= dueStaleBefore)
                     && x.LastModifiedDateTime <= staleBefore)
                 || (x.Status == NhBackgroundOperationStatus.Running && (x.HeartbeatAt == null || x.HeartbeatAt <= staleBefore)))
             .OrderBy(x => x.LastModifiedDateTime)
@@ -544,13 +547,13 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
         DateTimeOffset dueStaleBefore)
     {
         return (operation.Status == NhBackgroundOperationStatus.RetryScheduled
-                && operation.NextDispatchAt <= due)
+                && (operation.NextDispatchAt is null || operation.NextDispatchAt <= due))
             || (operation.Status == NhBackgroundOperationStatus.CancelRequested
                 && operation.CurrentAttemptId is null)
             || (operation.Status == NhBackgroundOperationStatus.Queued
                 && operation.LastModifiedDateTime <= staleBefore)
             || (operation.Status == NhBackgroundOperationStatus.PendingDispatch
-                && operation.NextDispatchAt <= dueStaleBefore
+                && (operation.NextDispatchAt is null || operation.NextDispatchAt <= dueStaleBefore)
                 && operation.LastModifiedDateTime <= staleBefore)
             || (operation.Status == NhBackgroundOperationStatus.Running
                 && (operation.HeartbeatAt is null || operation.HeartbeatAt <= staleBefore));

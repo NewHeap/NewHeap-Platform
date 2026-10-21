@@ -1,6 +1,7 @@
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -18,7 +19,8 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 
 /// <summary>
 /// Agent-owned operations, access policies for non-owners, delayed dispatch on the application's
-/// clock and enqueue inside a caller transaction, on both relational providers.
+/// clock, stalled-dispatch recovery and the readiness check that reports it, and enqueue inside a
+/// caller transaction, on both relational providers.
 /// </summary>
 public sealed class NhBackgroundOperationOwnershipProviderTests
 {
@@ -126,20 +128,26 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
         // it was enqueued a moment ago. Before a dispatcher reaches it, no round of reconciliation
         // takes it for a stalled dispatch, however often the clock jumps; it would fail after
         // MaxDispatchRecoveries rounds otherwise.
+        // The readiness check agrees: the operation is not overdue.
+        var healthCheck = CreateHealthCheck(serviceProvider, options, clock);
         for (var jump = 0; jump <= options.MaxDispatchRecoveries; jump++)
         {
             clock.Advance(TimeSpan.FromMinutes(15));
             (await reconciler.ReconcileAsync(CancellationToken.None)).Should().Be(0);
+            (await healthCheck.CheckHealthAsync(new HealthCheckContext())).Status.Should().Be(HealthStatus.Healthy);
         }
         var due = await ReadOperationWithEventsAsync(serviceProvider, operationId);
         due.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
         due.Events.Should().NotContain(operationEvent => operationEvent.MessageKey == "background-operation.dispatch-stalled");
 
-        // Left alone past the stale timeout of real time, it is a stalled dispatch: one round records
-        // the operator diagnosis and dispatches it again. That round touched it, so a further jump
-        // of the application's clock starts no second round.
+        // Left alone past the stale timeout of real time, it is a stalled dispatch, which the
+        // readiness check reports: one round records the operator diagnosis and dispatches it again.
+        // That round touched it, so the check is healthy again and a further jump of the
+        // application's clock starts no second round.
         await BackdateLastModifiedAsync(serviceProvider, operationId, options.StaleAttemptTimeout + TimeSpan.FromMinutes(1));
+        (await healthCheck.CheckHealthAsync(new HealthCheckContext())).Status.Should().Be(HealthStatus.Degraded);
         (await reconciler.ReconcileAsync(CancellationToken.None)).Should().Be(1);
+        (await healthCheck.CheckHealthAsync(new HealthCheckContext())).Status.Should().Be(HealthStatus.Healthy);
         clock.Advance(TimeSpan.FromMinutes(15));
         (await reconciler.ReconcileAsync(CancellationToken.None)).Should().Be(0);
         var recovered = await ReadOperationWithEventsAsync(serviceProvider, operationId);
@@ -147,6 +155,65 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
         recovered.NextDispatchAt.Should().Be(clock.GetUtcNow() - TimeSpan.FromMinutes(15));
         recovered.Events.Count(operationEvent => operationEvent.MessageKey == "background-operation.dispatch-stalled").Should().Be(1);
         recovered.Events.Should().Contain(operationEvent => operationEvent.MessageKey == "background-operation.dispatch-recovered");
+    }
+
+    /// <summary>
+    /// A pending operation without a due time is due at once, as the dispatcher treats it: when
+    /// nothing touched it for the stale timeout, the readiness check reports it and reconciliation
+    /// recovers it as a stalled dispatch, by the same definition.
+    /// </summary>
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task APendingDispatchWithoutADueTimeIsOverdueForTheCheckAndReconciliationAlikeOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+        var clock = new TestClock(new DateTimeOffset(2001, 2, 3, 4, 5, 0, TimeSpan.Zero));
+        var options = CreateClockedOptions();
+        var registry = CreateClockedRegistry(options);
+        await using var serviceProvider = await CreateClockedServicesAsync(database, clock, options, registry);
+        var reconciler = serviceProvider.GetRequiredService<NhBackgroundOperationReconciliationService>();
+        var healthCheck = CreateHealthCheck(serviceProvider, options, clock);
+
+        Guid operationId;
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var enqueued = await scope.ServiceProvider.GetRequiredService<NhBackgroundOperationService>().EnqueueAsync(
+                new OwnershipSimpleRequest("without-due-time"),
+                new NhBackgroundOperationEnqueueOptions { OwnerAgentKey = AgentKey });
+            enqueued.Success.Should().BeTrue();
+            operationId = enqueued.Data!.Id;
+            await scope.ServiceProvider.GetRequiredService<OwnershipDbContext>().BackgroundOperations
+                .Where(x => x.Id == operationId)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.NextDispatchAt, (DateTimeOffset?)null));
+        }
+
+        // Written a moment ago, it is neither overdue nor stalled.
+        (await healthCheck.CheckHealthAsync(new HealthCheckContext())).Status.Should().Be(HealthStatus.Healthy);
+        (await reconciler.ReconcileAsync(CancellationToken.None)).Should().Be(0);
+
+        await BackdateLastModifiedAsync(serviceProvider, operationId, options.StaleAttemptTimeout + TimeSpan.FromMinutes(1));
+        var overdue = await healthCheck.CheckHealthAsync(new HealthCheckContext());
+        overdue.Status.Should().Be(HealthStatus.Degraded);
+        overdue.Data["overdueDispatches"].Should().Be(1);
+        (await reconciler.ReconcileAsync(CancellationToken.None)).Should().Be(1);
+
+        var recovered = await ReadOperationWithEventsAsync(serviceProvider, operationId);
+        recovered.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+        recovered.NextDispatchAt.Should().Be(clock.GetUtcNow());
+        recovered.Events.Count(operationEvent => operationEvent.MessageKey == "background-operation.dispatch-stalled").Should().Be(1);
+        (await healthCheck.CheckHealthAsync(new HealthCheckContext())).Status.Should().Be(HealthStatus.Healthy);
+    }
+
+    private static NhBackgroundOperationHealthCheck CreateHealthCheck(
+        IServiceProvider serviceProvider,
+        NhBackgroundOperationsOptions options,
+        TestClock clock)
+    {
+        return new NhBackgroundOperationHealthCheck(
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            options,
+            clock);
     }
 
     private static NhBackgroundOperationsOptions CreateClockedOptions()

@@ -19,6 +19,27 @@ expires at the same time on the same clock; it still fails the run of a deferred
 |---|---|
 | A run whose inline proposal expires under `FailRun` now always ends `failed` (class `policy`) with `assistant-approval-expired`, sends `RunFailed`, and its background operation ends `Failed` with that code instead of `Succeeded`. | None. Assert a run's status after an inline expiry by its policy, not only its failure code. |
 
+## NewHeap.Platform.AspNet.Common: a readiness check that does not count work before it is due
+
+Fix. The `nh-background-operations` readiness check counted a `PendingDispatch`, `RetryScheduled` or
+`WaitingForChildren` operation as overdue dispatch once its last change was `StaleAttemptTimeout`
+old (two minutes by default, or ten `DispatchInterval`s when that is longer), also while its due
+time still lay ahead: a trigger debounce of more than two minutes, a long retry backoff or a fan-out
+parent with a recheck interval (`ReconciliationInterval`) of more than two minutes made a healthy
+application degraded. It counted a signal wait by its expiry on the application's clock alone, so a
+forward jump of a registered `TimeProvider` degraded it as well. The check now uses the
+reconciler's definition of a stalled dispatch for every status that waits for a due time: due for
+`StaleAttemptTimeout` on the application's clock (an operation without a due time counts as due)
+and unchanged for as long on the system clock. A queued operation that no worker started is
+overdue by its last change, and an attempt is stale by its heartbeat, as before. Reconciliation now
+treats a pending or retry-scheduled operation without a due time as due, as the dispatcher does, so
+the check and reconciliation agree on when a pending dispatch has stalled. Each count in the
+check's data stops at 1,000.
+
+| Breaking change | Required action |
+|---|---|
+| Debounced, backed-off, signal-waiting and fan-out work that is not due, and a jump of the application's clock, no longer degrade the readiness check; work is overdue after `StaleAttemptTimeout` instead of the longer of that and ten `DispatchInterval`s, and `staleAttempts` and `overdueDispatches` stop at 1,000. | None. |
+
 ## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: proposal lifetimes on the application's clock
 
 A proposal's lifetime now follows the application's clock: a registered `TimeProvider`, otherwise
