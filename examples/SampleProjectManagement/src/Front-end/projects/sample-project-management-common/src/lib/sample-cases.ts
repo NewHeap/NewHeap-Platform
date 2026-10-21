@@ -3962,7 +3962,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Inline approval that suspends and resumes a headless agent run",
     "category": "AI tools and generated catalogs",
     "surface": "NhAiApprovalMode.Inline, NhAiApprovers.Initiator, NhAiApprovalExpiryAction.FailRun, POST threads/start, NhAssistantRunStatuses.WaitingForApproval and POST approvals/{id}/decisions",
-    "outcome": "A project participant starts the status advisor on a project. Its status proposal follows the `project-status-inline` policy: the run stops as `waiting-for-approval`, and its background operation releases the worker as `WaitingForSignal` instead of holding a request or a thread. When the participant approves, the decision signals the operation, the run resumes in the same turn, changes the status itself and completes. Nothing changes before the decision.",
+    "outcome": "A project participant starts the status advisor on a project. Its status proposal follows the `project-status-inline` policy: the run stops as `waiting-for-approval`, and its background operation releases the worker as `WaitingForSignal` instead of holding a request or a thread. When the participant approves, the decision signals the operation, the run resumes in the same turn, changes the status itself and completes. Nothing changes before the decision. When nobody decides, the proposal expires after the policy's four hours on the application's clock, which the suspended operation waits on as well: the test host moves its registered `TimeProvider` past those hours instead of waiting, the run ends with `assistant-approval-expired` without a change, and a later decision is refused.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleStatusAdvisorComposition.cs",
@@ -3971,7 +3971,12 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSuspension.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleTestClock.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnRunnerTests.cs"
     ]
   },
   {

@@ -4,9 +4,10 @@ namespace SampleProjectManagement.Core.Tests;
 /// The clock of one sample host: real time plus an offset that a test moves forward instead of
 /// waiting, for example past the debounce of an agent's follow-up run. Registered as the host's
 /// <see cref="TimeProvider"/>, it moves what the NewHeap libraries read from the application's
-/// clock, such as when a background operation becomes due and how long a trigger debounces.
-/// Leases, heartbeats and tokens keep the system clock, so moving it forward never takes work
-/// away from a running attempt. It never moves back.
+/// clock, such as when a background operation becomes due, how long a trigger debounces, the
+/// minute a schedule tick belongs to and how long a proposal lives. Leases, heartbeats, tokens and
+/// audit timestamps keep the system clock, so moving it forward never takes work away from a
+/// running attempt. It never moves back.
 /// </summary>
 public sealed class SampleTestClock : TimeProvider
 {

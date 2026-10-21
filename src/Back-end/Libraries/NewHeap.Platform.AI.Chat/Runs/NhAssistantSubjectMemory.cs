@@ -177,17 +177,20 @@ internal sealed class NhAssistantMemoryService(
             latest = readable;
         }
 
+        // Decisions are recorded on the application's clock, so their window is too.
+        var decidedSince = (services.GetService<TimeProvider>() ?? TimeProvider.System).GetUtcNow()
+            - registration.Limits.RejectionContextWindow;
         var rejections = viewer is null && registration.Limits.MaxRejectionsInContext > 0
             ? await feedback.GetRecentRejectionsAsync(
                 thread.ConversationId,
-                DateTimeOffset.UtcNow - registration.Limits.RejectionContextWindow,
+                decidedSince,
                 registration.Limits.MaxRejectionsInContext,
                 cancellationToken)
             : [];
         var invalidations = viewer is null && registration.Limits.MaxRejectionsInContext > 0
             ? await feedback.GetRecentInvalidationsAsync(
                 thread.ConversationId,
-                DateTimeOffset.UtcNow - registration.Limits.RejectionContextWindow,
+                decidedSince,
                 registration.Limits.MaxRejectionsInContext,
                 cancellationToken)
             : [];

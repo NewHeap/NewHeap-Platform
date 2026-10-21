@@ -160,6 +160,63 @@ public sealed class NhAiApprovalTests
         Assert.Equal("executed", allowed.Data);
     }
 
+    /// <summary>
+    /// The invoker validates approval evidence at the time of the application's clock it was given,
+    /// so a proposal whose times were taken from that clock executes within its window and not
+    /// after it, whatever the system clock says: the evidence here lies months before it.
+    /// </summary>
+    [Fact]
+    public async Task Invoker_validates_approval_evidence_at_the_time_of_its_clock()
+    {
+        var factory = new NhAiProposalFactory();
+        var proposal = factory.Create(CreateRequest(new Dictionary<string, string>()));
+        var approval = CreateApproval(proposal);
+        var context = CreateContext(proposal, approval);
+        var clock = new MovableClock(GeneratedAt.AddMinutes(4));
+        var executions = 0;
+        var invoker = new NhAiToolInvoker(
+            NhAiTestInvocationGate.Authorized(context),
+            [],
+            new RequireApprovalPolicy(),
+            new FixedEvidenceProvider(new NhAiApprovalEvidence(proposal, approval)),
+            new NhAiApprovalValidator(factory),
+            new AcquireIdempotencyManager(),
+            [new SuccessfulVerifier()],
+            new AllowCapabilityResolver(),
+            new NhAiTestBudgetManager(),
+            new AllowConcurrencyLimiter(),
+            null,
+            null,
+            clock);
+
+        var within = await invoker.InvokeAsync(
+            Descriptor,
+            new StatusChangeInput(ProjectId, "active"),
+            (_, _) =>
+            {
+                executions++;
+                return Task.FromResult(TaskResult<string>.Succeeded("executed"));
+            });
+
+        Assert.True(within.Success);
+        Assert.Equal(1, executions);
+
+        // The approval expires five minutes after the proposal on the same clock.
+        clock.Now = GeneratedAt.AddMinutes(6);
+        var after = await invoker.InvokeAsync(
+            Descriptor,
+            new StatusChangeInput(ProjectId, "active"),
+            (_, _) =>
+            {
+                executions++;
+                return Task.FromResult(TaskResult<string>.Succeeded("executed"));
+            });
+
+        Assert.False(after.Success);
+        Assert.Contains(after.GetResultItems(), item => item.Name == NhAiToolFailureCodes.ApprovalInvalid);
+        Assert.Equal(1, executions);
+    }
+
     [Fact]
     public async Task Invoker_accepts_consumer_validated_authoritative_evidence_without_a_platform_proposal()
     {
@@ -280,6 +337,19 @@ public sealed class NhAiApprovalTests
     private sealed record StatusChangeInput(
         Guid ProjectId,
         string Status);
+
+    /// <summary>
+    /// The application's clock, standing at <see cref="Now"/> until the test moves it.
+    /// </summary>
+    private sealed class MovableClock(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = now;
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            return Now;
+        }
+    }
 
     private sealed class RequireApprovalPolicy : INhAiEffectPolicy
     {

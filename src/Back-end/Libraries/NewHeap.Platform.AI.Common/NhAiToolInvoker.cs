@@ -25,6 +25,11 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
     private readonly INhAiToolConcurrencyLimiter _concurrencyLimiter;
     private readonly ILogger? _logger;
 
+    /// <summary>
+    /// The application's clock, at whose time approval evidence is validated.
+    /// </summary>
+    private readonly TimeProvider _approvalClock;
+
     public NhAiToolInvoker(INhAiToolInvocationGate invocationGate)
         : this(
             invocationGate,
@@ -217,6 +222,44 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         INhAiToolConcurrencyLimiter concurrencyLimiter,
         INhAiAuthoritativeExecutionEvidenceValidator? authoritativeEvidenceValidator = null,
         ILogger<NhAiToolInvoker>? logger = null)
+        : this(
+            invocationGate,
+            auditSinks,
+            effectPolicy,
+            approvalEvidenceProvider,
+            approvalValidator,
+            idempotencyManager,
+            verifiers,
+            capabilityResolver,
+            budgetManager,
+            concurrencyLimiter,
+            authoritativeEvidenceValidator,
+            logger,
+            TimeProvider.System)
+    {
+    }
+
+    /// <summary>
+    /// Creates the invoker with the application's clock: approval evidence is validated at the
+    /// time <paramref name="timeProvider"/> reports, so a proposal lives by the clock its expiry
+    /// was taken from. <c>AddNewHeapPlatformAI</c> passes a registered <see cref="TimeProvider"/>;
+    /// the other constructors use <see cref="TimeProvider.System"/>. Capability grants, deadlines
+    /// and audit records keep the system clock.
+    /// </summary>
+    public NhAiToolInvoker(
+        INhAiToolInvocationGate invocationGate,
+        IEnumerable<INhAiAuditSink> auditSinks,
+        INhAiEffectPolicy effectPolicy,
+        INhAiApprovalEvidenceProvider approvalEvidenceProvider,
+        INhAiApprovalValidator approvalValidator,
+        INhAiIdempotencyManager idempotencyManager,
+        IEnumerable<INhAiToolVerifier> verifiers,
+        INhAiCapabilityResolver capabilityResolver,
+        INhAiBudgetManager budgetManager,
+        INhAiToolConcurrencyLimiter concurrencyLimiter,
+        INhAiAuthoritativeExecutionEvidenceValidator? authoritativeEvidenceValidator,
+        ILogger<NhAiToolInvoker>? logger,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(invocationGate);
         ArgumentNullException.ThrowIfNull(auditSinks);
@@ -228,6 +271,7 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         ArgumentNullException.ThrowIfNull(capabilityResolver);
         ArgumentNullException.ThrowIfNull(budgetManager);
         ArgumentNullException.ThrowIfNull(concurrencyLimiter);
+        ArgumentNullException.ThrowIfNull(timeProvider);
         _invocationGate = invocationGate;
         _auditSinks = auditSinks.ToArray();
         _effectPolicy = effectPolicy;
@@ -241,6 +285,7 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         _budgetManager = budgetManager;
         _concurrencyLimiter = concurrencyLimiter;
         _logger = logger;
+        _approvalClock = timeProvider;
     }
 
     public async Task<TaskResult<T>> InvokeAsync<T>(
@@ -463,12 +508,13 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                     "AI tool approval is required.");
             }
 
+            // A proposal lives by the application's clock, which its expiry was taken from.
             var validation = _approvalValidator.Validate(
                 descriptor,
                 context,
                 arguments,
                 evidence,
-                DateTimeOffset.UtcNow);
+                _approvalClock.GetUtcNow());
             if (!validation.Succeeded)
             {
                 activity?.SetTag("newheap.ai.tool.outcome", "approval-invalid");

@@ -129,6 +129,84 @@ public sealed class AssistantAgentRunTests(AssistantDatabaseFixture database) : 
         Assert.Equal(NhAssistantConversationStatuses.Idle, (await host.ReloadAsync(run.Thread.ConversationId, AgentActorId)).Status);
     }
 
+    /// <summary>
+    /// An agent's inline proposal lives by the application's clock: decades behind the system
+    /// clock, where a check on the system clock would have expired it at once, it stays open to its
+    /// approvers and to the maintenance job for its lifetime of three days, is approved at the end of
+    /// it and executes when the waiting run continues.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_inline_proposal_lives_by_the_applications_clock_and_executes_within_its_lifetime(AssistantTestProvider provider)
+    {
+        var clock = new AssistantTestClock(new DateTimeOffset(2001, 2, 3, 4, 5, 0, TimeSpan.Zero));
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Closed" } }, "call-close")
+            .RespondWithText("The project is closed.");
+        await using var host = await CreateHostAsync(provider, model, NhAiApprovalMode.Inline, clock: clock);
+        var run = await StartRunAsync(host, projectId);
+
+        var waiting = await RunTurnAsync(host, run, "Close project PRJ-1.");
+
+        Assert.Equal(NhAssistantTurnStatuses.WaitingForApproval, waiting.Outcome);
+        var approval = await FindApprovalAsync(host, waiting.PendingApprovalId!.Value);
+        Assert.Equal(clock.GetUtcNow().AddDays(3), approval.ExpiresAt);
+        Assert.Equal(clock.GetUtcNow(), Governance.NhAssistantProposalSerializer.Deserialize(approval.ProposalJson).GeneratedAt);
+
+        // A minute before the end of its lifetime it is still open, and the maintenance job leaves it.
+        clock.Advance(TimeSpan.FromDays(3) - TimeSpan.FromMinutes(1));
+        await RunMaintenanceAsync(host);
+        Assert.Equal(approval.Id, Assert.Single(await RunStore(host).GetOpenThreadApprovalsAsync(run.Thread.ConversationId, 10, CancellationToken.None)).Id);
+        Assert.True((await DecideAsync(host, approval.Id, approve: true)).Success);
+        var approved = await FindApprovalAsync(host, approval.Id);
+        Assert.Equal(NhAssistantApprovalStatuses.Approved, approved.Status);
+        Assert.Equal(clock.GetUtcNow(), approved.DecidedAt);
+
+        // The run continues and executes the proposal: the invoker validates the approval at the
+        // application's clock as well.
+        var resumed = await ResumeAsync(host, run, approval.Id);
+
+        Assert.Equal(NhAssistantTurnStatuses.Completed, resumed.Outcome);
+        Assert.Equal(new ProjectStatusInput(projectId, "Closed"), Assert.Single(host.Tools.StatusChanges));
+    }
+
+    /// <summary>
+    /// An agent's inline proposal expires when the application's clock passes its lifetime, years
+    /// before the system clock would: it is no longer open, an approver's decision comes too late,
+    /// and the waiting run continues without executing it.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_inline_proposal_expires_on_the_applications_clock_and_its_run_continues_without_it(AssistantTestProvider provider)
+    {
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 5, 6, 7, 8, 0, TimeSpan.Zero));
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Closed" } }, "call-close");
+        await using var host = await CreateHostAsync(provider, model, NhAiApprovalMode.Inline, clock: clock);
+        var run = await StartRunAsync(host, projectId);
+        var waiting = await RunTurnAsync(host, run, "Close project PRJ-1.");
+        Assert.Equal(NhAssistantTurnStatuses.WaitingForApproval, waiting.Outcome);
+        var approvalId = waiting.PendingApprovalId!.Value;
+
+        clock.Advance(TimeSpan.FromDays(3));
+
+        Assert.Empty(await RunStore(host).GetOpenThreadApprovalsAsync(run.Thread.ConversationId, 10, CancellationToken.None));
+        var late = await DecideAsync(host, approvalId, approve: true);
+        Assert.False(late.Success);
+        Assert.Contains(late.GetResultItems(), item => item.Name == NhAssistantErrorCodes.ApprovalExpired);
+        Assert.Equal(NhAssistantApprovalStatuses.Expired, (await FindApprovalAsync(host, approvalId)).Status);
+
+        var resumed = await ResumeAsync(host, run, approvalId);
+
+        Assert.Equal(NhAssistantErrorCodes.ApprovalExpired, resumed.ErrorCode);
+        Assert.Empty(host.Tools.StatusChanges);
+        Assert.Equal(NhAssistantConversationStatuses.Idle, (await host.ReloadAsync(run.Thread.ConversationId, AgentActorId)).Status);
+    }
+
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
@@ -248,7 +326,8 @@ public sealed class AssistantAgentRunTests(AssistantDatabaseFixture database) : 
         NhAiApprovalMode mode,
         bool fourEyes = false,
         bool grants = true,
-        bool delegation = false)
+        bool delegation = false,
+        TimeProvider? clock = null)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -256,6 +335,10 @@ public sealed class AssistantAgentRunTests(AssistantDatabaseFixture database) : 
             model,
             configure: services =>
             {
+                if (clock is not null)
+                {
+                    services.AddSingleton(clock);
+                }
                 services.AddSingleton(new TestSubjects());
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, TestPrincipalFactory>());
                 services.AddScoped<NhAssistantApproverCheck>();
@@ -389,6 +472,47 @@ public sealed class AssistantAgentRunTests(AssistantDatabaseFixture database) : 
             },
             CancellationToken.None);
         Assert.True(approved);
+    }
+
+    private static async Task<AssistantApproval> FindApprovalAsync(AssistantTestHost host, Guid approvalId)
+    {
+        return (await host.Services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approvalId, CancellationToken.None))!;
+    }
+
+    /// <summary>
+    /// Decides the proposal as the subject's approver does through <c>POST approvals/{id}/decisions</c>.
+    /// </summary>
+    private static async Task<Common.Models.TaskResult<AssistantApproval>> DecideAsync(AssistantTestHost host, Guid approvalId, bool approve)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<NhAssistantProposalDecisions>().DecideAsync(
+            approvalId,
+            Approver,
+            new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, Approver)], "test")),
+            approve,
+            expectedProposalHash: null,
+            reason: null,
+            CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Continues the run that waits for <paramref name="approvalId"/>, as its background operation
+    /// does once the wait ends.
+    /// </summary>
+    private static async Task<NhAssistantAgentTurnResult> ResumeAsync(AssistantTestHost host, StartedRun run, Guid approvalId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<INhAssistantTurnRunner>().ResumeAgentTurnAsync(
+            new NhAssistantAgentResumeRequest(run.AgentTurn, approvalId),
+            CancellationToken.None);
+    }
+
+    private static async Task RunMaintenanceAsync(AssistantTestHost host)
+    {
+        await host.Services.GetServices<Microsoft.Extensions.Hosting.IHostedService>()
+            .OfType<NhAssistantRunMaintenance>()
+            .Single()
+            .RunOnceAsync(CancellationToken.None);
     }
 
     private static NhAssistantRunStore RunStore(AssistantTestHost host)

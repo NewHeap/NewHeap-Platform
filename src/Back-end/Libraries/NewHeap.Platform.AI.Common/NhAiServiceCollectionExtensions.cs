@@ -86,7 +86,8 @@ public static class NhAiServiceCollectionExtensions
             provider.GetRequiredService<INhAiBudgetManager>(),
             provider.GetRequiredService<INhAiToolConcurrencyLimiter>(),
             provider.GetService<INhAiAuthoritativeExecutionEvidenceValidator>(),
-            provider.GetService<ILogger<NhAiToolInvoker>>());
+            provider.GetService<ILogger<NhAiToolInvoker>>(),
+            provider.GetService<TimeProvider>() ?? TimeProvider.System);
     }
 }
 

@@ -55,7 +55,8 @@ internal sealed class NhAssistantApprovalPolicies(NhAssistantRegistrationState r
 /// </summary>
 /// <summary>
 /// The reminder schedule of a deferred proposal: each reminder of the policy counts from the
-/// moment the proposal started waiting, and no reminder falls on or after its expiry.
+/// moment the proposal started waiting, and no reminder falls on or after its expiry. Like the
+/// expiry, the schedule is on the application's clock.
 /// </summary>
 internal static class NhAssistantApprovalReminders
 {
@@ -68,6 +69,18 @@ internal static class NhAssistantApprovalReminders
 
         var due = since.Add(policy.Reminders[index]);
         return due < expiresAt ? due : null;
+    }
+
+    /// <summary>
+    /// When the proposal started waiting on the application's clock: its escalation, or else the
+    /// moment its proposal was generated. Its <c>CreatedAt</c> records the same moment on the
+    /// system clock.
+    /// </summary>
+    public static DateTimeOffset Since(Entities.AssistantApproval approval)
+    {
+        ArgumentNullException.ThrowIfNull(approval);
+        return approval.EscalatedAt
+            ?? Governance.NhAssistantProposalSerializer.Deserialize(approval.ProposalJson).GeneratedAt;
     }
 }
 

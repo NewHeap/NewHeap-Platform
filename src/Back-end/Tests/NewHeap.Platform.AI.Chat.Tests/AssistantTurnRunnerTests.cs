@@ -175,21 +175,30 @@ public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database) 
         Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ApprovalRejected);
     }
 
-    [Fact]
-    public async Task An_expired_proposal_ends_the_decision_with_a_stable_error_code()
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_expired_proposal_ends_the_decision_with_a_stable_error_code(AssistantTestProvider provider)
     {
+        // Years ahead of the system clock, so only the application's clock lets the proposal expire.
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 5, 6, 7, 8, 0, TimeSpan.Zero));
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId = Guid.NewGuid(), status = "Active" } });
-        await using var host = await AssistantTestHost.CreateAsync(database, AssistantTestProvider.PostgreSql, model);
+        await using var host = await AssistantTestHost.CreateAsync(
+            database,
+            provider,
+            model,
+            configure: services => services.AddSingleton<TimeProvider>(clock));
         var conversation = await host.CreateConversationAsync();
         var paused = await host.SendAsync(conversation.Id, "Activate the project.");
         var approval = paused.Single<NhAssistantApprovalRequiredEvent>().Approval;
-        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
-        {
-            await context.Approvals
-                .Where(item => item.Id == approval.ApprovalId)
-                .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.ExpiresAt, DateTimeOffset.UtcNow.AddSeconds(-1)));
-        }
+        var lifetime = host.Services.GetRequiredService<NhAssistantRegistrationState>().Limits.ApprovalLifetime;
+        Assert.Equal(clock.GetUtcNow().Add(lifetime), approval.ExpiresAt);
+
+        // Once the application's clock passed the proposal's lifetime, the conversation reads it as
+        // expired, without waiting for it.
+        clock.Advance(lifetime);
+        Assert.Equal(NhAssistantApprovalStatuses.Expired, (await host.ReadViewAsync(conversation.Id)).PendingApproval!.Status);
 
         var decision = await host.DecideAsync(conversation.Id, approval, approve: true);
 
@@ -199,6 +208,55 @@ public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database) 
         Assert.Empty(host.Tools.StatusChanges);
         Assert.Equal(NhAssistantConversationStatuses.Idle, (await host.ReloadAsync(conversation.Id)).Status);
         Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ApprovalExpired);
+        var expired = (await host.Services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approval.ApprovalId, CancellationToken.None))!;
+        Assert.Equal(NhAssistantApprovalStatuses.Expired, expired.Status);
+        Assert.Equal(clock.GetUtcNow(), expired.DecidedAt);
+    }
+
+    /// <summary>
+    /// A person's proposal lives by the application's clock from its creation to its execution:
+    /// decades behind the system clock, where a check on the system clock would have expired it at
+    /// once, it waits, is approved within its lifetime and executes, because the invoker validates
+    /// the approval at the same clock's time.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_proposal_lives_by_the_applications_clock_from_creation_to_execution(AssistantTestProvider provider)
+    {
+        var clock = new AssistantTestClock(new DateTimeOffset(2001, 2, 3, 4, 5, 0, TimeSpan.Zero));
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Active" } }, "call-activate")
+            .RespondWithText("The project is active.");
+        await using var host = await AssistantTestHost.CreateAsync(
+            database,
+            provider,
+            model,
+            configure: services => services.AddSingleton<TimeProvider>(clock));
+        var conversation = await host.CreateConversationAsync();
+        var paused = await host.SendAsync(conversation.Id, "Activate the project.");
+        var approval = paused.Single<NhAssistantApprovalRequiredEvent>().Approval;
+        var lifetime = host.Services.GetRequiredService<NhAssistantRegistrationState>().Limits.ApprovalLifetime;
+        var stored = (await host.Services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approval.ApprovalId, CancellationToken.None))!;
+        var proposal = NhAssistantProposalSerializer.Deserialize(stored.ProposalJson);
+        Assert.Equal(clock.GetUtcNow(), proposal.GeneratedAt);
+        Assert.Equal(clock.GetUtcNow().Add(lifetime), proposal.ExpiresAt);
+        Assert.Equal(proposal.ExpiresAt, stored.ExpiresAt);
+        // When it was recorded stays on the system clock, for audit and proposal guards.
+        Assert.True(stored.CreatedAt > DateTimeOffset.UtcNow.AddMinutes(-5));
+
+        // A minute before the end of its lifetime it still waits, and the person approves it.
+        clock.Advance(lifetime - TimeSpan.FromMinutes(1));
+        Assert.Equal(NhAssistantApprovalStatuses.Pending, (await host.ReadViewAsync(conversation.Id)).PendingApproval!.Status);
+        var decision = await host.DecideAsync(conversation.Id, approval, approve: true);
+
+        Assert.Equal("The project is active.", decision.Text);
+        Assert.Equal(new ProjectStatusInput(projectId, "Active"), Assert.Single(host.Tools.StatusChanges));
+        var approved = (await host.Services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approval.ApprovalId, CancellationToken.None))!;
+        Assert.Equal(NhAssistantApprovalStatuses.Approved, approved.Status);
+        Assert.Equal(clock.GetUtcNow(), approved.DecidedAt);
+        Assert.Equal(proposal.ExpiresAt, approved.ApprovalExpiresAt);
     }
 
     [Fact]

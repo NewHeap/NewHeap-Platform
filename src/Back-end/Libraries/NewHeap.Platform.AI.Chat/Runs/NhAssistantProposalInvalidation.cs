@@ -36,6 +36,12 @@ internal sealed class NhAssistantProposalInvalidation(
     public const string SystemActorId = "assistant-system";
 
     /// <summary>
+    /// The application's clock, on which a proposal's decisions are recorded, closing it included;
+    /// the time of an execution keeps the system clock.
+    /// </summary>
+    private readonly TimeProvider _applicationClock = services.GetService<TimeProvider>() ?? TimeProvider.System;
+
+    /// <summary>
     /// Moves the proposal from one of <paramref name="expectedStatuses"/> to <c>stale</c>. Returns
     /// the closed proposal, or <see langword="null"/> when another decision or worker moved it first.
     /// </summary>
@@ -49,7 +55,6 @@ internal sealed class NhAssistantProposalInvalidation(
         string actorId,
         CancellationToken cancellationToken)
     {
-        var now = DateTimeOffset.UtcNow;
         var reasonCode = NhAssistantProposalGuards.ReasonCodeOf(result);
         var kind = NhAssistantStaleKinds.From(result.Kind);
         var executing = stage == NhAssistantInvalidationStages.Execution;
@@ -59,8 +64,8 @@ internal sealed class NhAssistantProposalInvalidation(
             NhAssistantApprovalStatuses.Stale,
             new NhAssistantApprovalTransition
             {
-                DecidedAt = executing ? null : now,
-                ExecutedAt = executing ? now : null,
+                DecidedAt = executing ? null : _applicationClock.GetUtcNow(),
+                ExecutedAt = executing ? DateTimeOffset.UtcNow : null,
                 ExecutionResultCode = reasonCode,
                 StaleKind = kind,
                 StaleExplanationsJson = explanations.Render(result.Explain),
@@ -114,7 +119,7 @@ internal sealed class NhAssistantProposalInvalidation(
             NhAssistantApprovalStatuses.Withdrawn,
             new NhAssistantApprovalTransition
             {
-                DecidedAt = DateTimeOffset.UtcNow,
+                DecidedAt = _applicationClock.GetUtcNow(),
                 ExecutionResultCode = NhAssistantErrorCodes.ProposalSuperseded,
                 SupersededByApprovalId = supersededBy
             },

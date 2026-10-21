@@ -61,6 +61,13 @@ internal sealed partial class NhAssistantTurnRunner(
     ];
 
     /// <summary>
+    /// The application's clock (a registered <see cref="TimeProvider"/>, otherwise the system
+    /// clock), which a proposal's lifetime follows: its creation, its expiry, its decision and the
+    /// windows over recent decisions. Turns, tool calls and audit events keep the system clock.
+    /// </summary>
+    private readonly TimeProvider _applicationClock = services.GetService<TimeProvider>() ?? TimeProvider.System;
+
+    /// <summary>
     /// Provider error codes inside a model stream that usually pass within seconds: the provider is
     /// overloaded or failed on its side, or a rate limit applies.
     /// </summary>
@@ -262,7 +269,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 pending.Id,
                 NhAssistantApprovalStatuses.Rejected,
                 access.ActorId,
-                DateTimeOffset.UtcNow,
+                _applicationClock.GetUtcNow(),
                 null,
                 null,
                 cancellationToken))
@@ -1296,7 +1303,8 @@ internal sealed partial class NhAssistantTurnRunner(
         var conversationId = agentTurn.Thread.ConversationId;
         var memory = services.GetRequiredService<NhAssistantMemoryService>();
         var feedback = services.GetRequiredService<NhAssistantProposalFeedbackStore>();
-        var since = DateTimeOffset.UtcNow - registration.Limits.RejectionContextWindow;
+        // Decisions are recorded on the application's clock, so their window is too.
+        var since = _applicationClock.GetUtcNow() - registration.Limits.RejectionContextWindow;
         var rejections = await feedback.GetRecentRejectionsAsync(conversationId, since, registration.Limits.MaxRejectionsInContext, cancellationToken);
         var invalidations = await feedback.GetRecentInvalidationsAsync(conversationId, since, registration.Limits.MaxRejectionsInContext, cancellationToken);
         var summaries = await runs.GetRecentSummariesAsync(
@@ -1507,14 +1515,18 @@ internal sealed partial class NhAssistantTurnRunner(
         var invocation = await store.FindToolInvocationAsync(approval.ToolInvocationId, CancellationToken.None)
             ?? throw new InvalidOperationException("The tool invocation of a pending approval is missing.");
         var now = DateTimeOffset.UtcNow;
+        // The decision belongs to the proposal's lifetime, so it is taken and recorded on the
+        // application's clock, as the invoker validates it; the tool call and the audit event keep
+        // the system clock.
+        var decidedAt = _applicationClock.GetUtcNow();
         var decider = request.CallerContext.ActorId;
-        if (now >= approval.ExpiresAt)
+        if (decidedAt >= approval.ExpiresAt)
         {
             await store.TryDecideApprovalAsync(
                 approval.Id,
                 NhAssistantApprovalStatuses.Expired,
                 null,
-                now,
+                decidedAt,
                 null,
                 null,
                 CancellationToken.None);
@@ -1535,7 +1547,7 @@ internal sealed partial class NhAssistantTurnRunner(
             approval.Id,
             decisionStatus,
             decider,
-            now,
+            decidedAt,
             approvalExpiresAt,
             request.Reason,
             CancellationToken.None);
@@ -2718,7 +2730,8 @@ internal sealed partial class NhAssistantTurnRunner(
             invalidation,
             texts,
             services.GetService<NhAssistantProposalPlacement>(),
-            services.GetService<Live.NhAssistantAgentWorkUpdates>());
+            services.GetService<Live.NhAssistantAgentWorkUpdates>(),
+            _applicationClock);
     }
 
     private async Task FinishWithErrorAsync(

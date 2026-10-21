@@ -7,11 +7,14 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 
 /// <summary>
 /// Builds the conversation read model with message parts hydrated from their authoritative
-/// tool-invocation and approval rows.
+/// tool-invocation and approval rows. A pending proposal reads as expired once the application's
+/// clock (a registered <see cref="TimeProvider"/>, otherwise the system clock) reaches its expiry.
 /// </summary>
-internal sealed class NhAssistantConversationReader(INhAssistantStore store)
+internal sealed class NhAssistantConversationReader(INhAssistantStore store, TimeProvider? timeProvider = null)
 {
     public const int MaxMessages = 200;
+
+    private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
 
     /// <summary>
     /// Returns the conversation as the owner or a participant of the same tenant sees it.
@@ -67,6 +70,7 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             .ToDictionary(invocation => invocation.Id);
         var approvals = (await store.GetApprovalsAsync(conversation.Id, approvalIds, cancellationToken))
             .ToDictionary(approval => approval.Id);
+        var now = _applicationClock.GetUtcNow();
 
         var messageViews = new List<NhAssistantMessageView>(messages.Count);
         foreach (var message in messages)
@@ -85,7 +89,7 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
                         break;
                     case NhAssistantStoredPart.ApprovalType
                         when part.ApprovalId is { } approvalId && approvals.TryGetValue(approvalId, out var approval):
-                        parts.Add(ToView(approval));
+                        parts.Add(ToView(approval, now));
                         break;
                     case NhAssistantStoredPart.ConnectionRequiredType
                         when part is { ServerId: { } serverId, DisplayName: { } serverName, Reason: { } reason }:
@@ -107,7 +111,7 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
         if (conversation.Status == NhAssistantConversationStatuses.WaitingForApproval)
         {
             var pendingApproval = await store.FindPendingApprovalAsync(conversation.Id, cancellationToken);
-            pending = pendingApproval is null ? null : ToView(pendingApproval);
+            pending = pendingApproval is null ? null : ToView(pendingApproval, now);
         }
 
         var participants = await store.GetParticipantsAsync(conversation.Id, cancellationToken);
@@ -183,10 +187,14 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             : null;
     }
 
-    public static NhAssistantApprovalView ToView(AssistantApproval approval)
+    /// <summary>
+    /// The proposal as the conversation shows it; a pending one whose expiry <paramref name="now"/>
+    /// of the application's clock reached reads as expired.
+    /// </summary>
+    public static NhAssistantApprovalView ToView(AssistantApproval approval, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(approval);
-        var status = approval.Status == NhAssistantApprovalStatuses.Pending && approval.ExpiresAt <= DateTimeOffset.UtcNow
+        var status = approval.Status == NhAssistantApprovalStatuses.Pending && approval.ExpiresAt <= now
             ? NhAssistantApprovalStatuses.Expired
             : approval.Status;
         var targets = JsonSerializer.Deserialize<string[]>(approval.TargetsJson, NhAssistantContent.JsonOptions) ?? [];

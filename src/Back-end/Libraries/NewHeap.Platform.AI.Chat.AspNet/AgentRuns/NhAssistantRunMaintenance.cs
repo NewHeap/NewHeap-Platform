@@ -76,14 +76,19 @@ internal sealed class NhAssistantBackgroundOperationAccess(
 /// <c>execution-unknown</c> and cancels runs whose trigger transaction rolled back. Once an hour it
 /// removes board visits older than <see cref="NhAssistantLimits.BoardVisitRetention"/> and those of
 /// groups that are no longer registered. Every change is a compare-and-set update or a conditional
-/// delete, so several instances can run it at the same time.
+/// delete, so several instances can run it at the same time. A proposal's expiry, escalation,
+/// reminders and decision follow the application's clock (a registered <see cref="TimeProvider"/>,
+/// otherwise the system clock); runs and board visits keep the system clock.
 /// </summary>
 internal sealed class NhAssistantRunMaintenance(
     IServiceScopeFactory scopeFactory,
     NhAssistantRegistrationState registration,
-    ILogger<NhAssistantRunMaintenance> logger) : BackgroundService
+    ILogger<NhAssistantRunMaintenance> logger,
+    TimeProvider? timeProvider = null) : BackgroundService
 {
     private const int BatchSize = 100;
+
+    private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
 
     /// <summary>
     /// How often board visits are cleaned up; they change once per person, group and visit.
@@ -129,12 +134,15 @@ internal sealed class NhAssistantRunMaintenance(
         var notifier = services.GetRequiredService<NhAssistantAgentNotifier>();
         var events = services.GetRequiredService<NhAssistantAgentEvents>();
         var workUpdates = services.GetRequiredService<NhAssistantAgentWorkUpdates>();
-        await ExpireAsync(runs, policies, notifier, workUpdates, cancellationToken);
+        // A proposal's expiry, reminders and decisions follow the application's clock; the board
+        // visits below keep the system clock.
+        var proposalTime = _applicationClock.GetUtcNow();
+        await ExpireAsync(runs, policies, notifier, workUpdates, proposalTime, cancellationToken);
         if (services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<NhAssistantOptions>>().CurrentValue.Enabled)
         {
             // With the assistant disabled nobody is reminded and nothing is queued for execution.
-            await RemindAsync(runs, notifier, cancellationToken);
-            await QueueMissingExecutionsAsync(runs, decisions, cancellationToken);
+            await RemindAsync(runs, notifier, proposalTime, cancellationToken);
+            await QueueMissingExecutionsAsync(runs, decisions, proposalTime, cancellationToken);
         }
         if (operations is not null)
         {
@@ -168,14 +176,19 @@ internal sealed class NhAssistantRunMaintenance(
         return removed;
     }
 
+    /// <summary>
+    /// Expires the pending proposals of agent threads whose expiry <paramref name="now"/> of the
+    /// application's clock reached, or escalates a deferred one once; an escalation starts the
+    /// escalation policy's lifetime and reminders at that time.
+    /// </summary>
     private static async Task ExpireAsync(
         NhAssistantRunStore runs,
         NhAssistantApprovalPolicies policies,
         NhAssistantAgentNotifier notifier,
         NhAssistantAgentWorkUpdates workUpdates,
+        DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var now = DateTimeOffset.UtcNow;
         foreach (var approval in await runs.GetPendingThreadApprovalsAsync(now, BatchSize, cancellationToken))
         {
             var policy = approval.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
@@ -249,20 +262,21 @@ internal sealed class NhAssistantRunMaintenance(
     }
 
     /// <summary>
-    /// Sends the due reminders of deferred proposals that still wait, each once.
+    /// Sends the reminders of deferred proposals that still wait and are due at <paramref name="now"/>
+    /// of the application's clock, each once.
     /// </summary>
     private static async Task RemindAsync(
         NhAssistantRunStore runs,
         NhAssistantAgentNotifier notifier,
+        DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var now = DateTimeOffset.UtcNow;
         foreach (var approval in await runs.GetDueRemindersAsync(now, BatchSize, cancellationToken))
         {
             var policy = approval.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
             var next = policy is null
                 ? null
-                : NhAssistantApprovalReminders.Next(policy, approval.EscalatedAt ?? approval.CreatedAt, approval.RemindersSent + 1, approval.ExpiresAt);
+                : NhAssistantApprovalReminders.Next(policy, NhAssistantApprovalReminders.Since(approval), approval.RemindersSent + 1, approval.ExpiresAt);
             if (!await runs.TryRecordReminderAsync(approval.Id, approval.RemindersSent, next, cancellationToken))
             {
                 continue;
@@ -287,12 +301,18 @@ internal sealed class NhAssistantRunMaintenance(
     /// for example after their agent was stopped. The query leaves out the proposals that stopped
     /// and code-disabled agents hold, so they never hide the ones behind them.
     /// </summary>
+    /// <remarks>
+    /// Decisions are recorded on the application's clock, so a decision settles a minute after it on
+    /// that clock. A forward jump may queue an execution while its decider still does; the
+    /// execution's idempotency key makes that one operation.
+    /// </remarks>
     private async Task QueueMissingExecutionsAsync(
         NhAssistantRunStore runs,
         NhAssistantProposalDecisions decisions,
+        DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var settled = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var settled = now.AddMinutes(-1);
         var configuredOff = registration.AgentRuns
             .Where(item => !item.Value.Enabled)
             .Select(item => item.Key)

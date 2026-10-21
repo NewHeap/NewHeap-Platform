@@ -1,5 +1,25 @@
 # v-next
 
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: proposal lifetimes on the application's clock
+
+A proposal's lifetime now follows the application's clock: a registered `TimeProvider`, otherwise
+the system clock as before. The assistant takes a proposal's `GeneratedAt` and expiry
+(`NhAssistantLimits.ApprovalLifetime` or the approval policy's `Lifetime`), its reminders and
+escalation and the `DecidedAt` of every decision from that clock, and every check whether a
+proposal expired reads it: the conversation's `expired` status, the inbox, the thread and subject
+lists, a person's or an approver's decision, the maintenance job, the rejection cooldown and the
+windows over recent decisions. `NhAiToolInvoker` validates approval evidence at the same clock's
+time; `AddNewHeapPlatformAI` passes it a registered `TimeProvider` through a new constructor. A run
+that waits inline for a decision already waited on that clock, so its wait and its proposal now
+expire together. `CreatedAt`, which proposal guards receive as `ProposedAt`, executions, tool calls
+and audit events keep the system clock. A test registers a clock and moves it past a lifetime
+instead of waiting or shortening the lifetime.
+
+| Breaking change | Required action |
+|---|---|
+| With a registered `TimeProvider` that is not the system clock, proposals expire, remind and escalate by that clock, decisions record its time as `DecidedAt`, and `NhAiToolInvoker` validates every approval's time window at its time. | Take an `NhAiProposal`'s `GeneratedAt` and `ExpiresAt` and an `NhAiApproval`'s `ApprovedAt` and `ExpiresAt` from the same `TimeProvider`, and move a test clock forward to let a proposal expire. |
+| `NhAiToolInvoker` has a public constructor with a `TimeProvider`. | None; the existing constructors keep the system clock. |
+
 ## NewHeap.Platform.AI.Chat.AspNet: schedule ticks on the application's clock
 
 The minute a scheduled trigger's tick belongs to now comes from the application's clock: a

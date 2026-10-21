@@ -26,7 +26,11 @@ arguments, targets, constraints, action budget, actor, accountable owner, tool
 contract hash, intent, expected effects, and expiry. Persist approval evidence in
 the consuming application. An `NhAiApproval` is valid only for that canonical
 proposal hash, approving actor, target set, constraints, maximum budget, and
-time window. An agent cannot approve its own proposal.
+time window. An agent cannot approve its own proposal. The shared invoker
+validates that time window at the application's clock (a registered
+`TimeProvider`, otherwise the system clock), so take the proposal's `GeneratedAt`
+and `ExpiresAt` and the approval's `ApprovedAt` and `ExpiresAt` from the same
+clock.
 
 When approval and idempotency are already authoritative in the consuming domain,
 register one `INhAiAuthoritativeExecutionEvidenceValidator`. Validate the

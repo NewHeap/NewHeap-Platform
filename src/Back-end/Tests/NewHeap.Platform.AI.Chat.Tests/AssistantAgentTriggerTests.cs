@@ -228,37 +228,46 @@ public sealed class AssistantAgentTriggerTests(AssistantDatabaseFixture database
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
-    public async Task A_due_reminder_of_a_waiting_proposal_is_sent_once(AssistantTestProvider provider)
+    public async Task A_waiting_proposal_is_reminded_once_and_expires_on_the_applications_clock(AssistantTestProvider provider)
     {
+        // Years ahead of the system clock, so reminders and expiry taken from the system clock show.
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 5, 6, 7, 8, 0, TimeSpan.Zero));
         var projectId = Guid.NewGuid();
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId, status = "Closed" } }, "call-close")
             .RespondWithText("Proposed.");
-        await using var host = await CreateHostAsync(provider, model);
+        await using var host = await CreateHostAsync(provider, model, clock);
         var started = Assert.Single(await PublishAsync(host, new ProjectChanged(Guid.NewGuid(), projectId, "created")));
         var approval = await ProposeAsync(host, started);
-        Assert.NotNull(approval.NextReminderAt);
-        Assert.True(approval.NextReminderAt > DateTimeOffset.UtcNow.AddHours(23));
-        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
-        {
-            // A day later: the first reminder is due.
-            await context.Approvals
-                .Where(item => item.Id == approval.Id)
-                .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.NextReminderAt, DateTimeOffset.UtcNow.AddMinutes(-1)));
-        }
+        // The policy reminds the approvers after a day and lets the proposal wait three days.
+        Assert.Equal(clock.GetUtcNow().AddDays(1), approval.NextReminderAt);
+        Assert.Equal(clock.GetUtcNow().AddDays(3), approval.ExpiresAt);
         var maintenance = host.Services.GetServices<IHostedService>().OfType<NhAssistantRunMaintenance>().Single();
+        var reminders = host.Services.GetRequiredService<RecordingChannel>().Deliveries;
+        await maintenance.RunOnceAsync(CancellationToken.None);
+        Assert.DoesNotContain(reminders, delivery => delivery.Context.Kind == NhAssistantAgentNotificationKind.ProposalExpiring);
 
+        // A day later on the application's clock the first reminder is due, and it is sent once.
+        clock.Advance(TimeSpan.FromDays(1));
         await maintenance.RunOnceAsync(CancellationToken.None);
         await maintenance.RunOnceAsync(CancellationToken.None);
 
         var reminder = Assert.Single(
-            host.Services.GetRequiredService<RecordingChannel>().Deliveries,
+            reminders,
             delivery => delivery.Context.Kind == NhAssistantAgentNotificationKind.ProposalExpiring);
         Assert.Equal(approval.Id, reminder.Context.ApprovalId);
         Assert.Equal(["approver-1"], reminder.Recipients);
-        var stored = await host.Services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approval.Id, CancellationToken.None);
-        Assert.Equal(1, stored!.RemindersSent);
+        var store = host.Services.GetRequiredService<INhAssistantStore>();
+        var stored = await store.FindApprovalAsync(approval.Id, CancellationToken.None);
+        Assert.Equal(NhAssistantApprovalStatuses.Pending, stored!.Status);
+        Assert.Equal(1, stored.RemindersSent);
         Assert.Null(stored.NextReminderAt);
+
+        // At the end of its lifetime on the application's clock the maintenance job expires it.
+        clock.Advance(TimeSpan.FromDays(2));
+        await maintenance.RunOnceAsync(CancellationToken.None);
+
+        Assert.Equal(NhAssistantApprovalStatuses.Expired, (await store.FindApprovalAsync(approval.Id, CancellationToken.None))!.Status);
     }
 
     private async Task<AssistantTestHost> CreateHostAsync(

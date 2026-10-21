@@ -167,6 +167,13 @@ internal sealed class NhAssistantProposalDecisions(
     private readonly IReadOnlyList<INhAssistantBusinessAuditSink> _businessSinks = businessSinks.ToArray();
 
     /// <summary>
+    /// The application's clock (a registered <see cref="TimeProvider"/>, otherwise the system
+    /// clock), which a proposal's lifetime follows: a decision is refused once it reaches the
+    /// expiry and is recorded at its time. Audit events keep the system clock.
+    /// </summary>
+    private readonly TimeProvider _applicationClock = services.GetService<TimeProvider>() ?? TimeProvider.System;
+
+    /// <summary>
     /// Background operations are needed only once an agent runs; hosts without agents do not
     /// register them.
     /// </summary>
@@ -206,7 +213,7 @@ internal sealed class NhAssistantProposalDecisions(
                 "Decide this proposal in the conversation.");
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = _applicationClock.GetUtcNow();
         if (approval.ExpiresAt <= now)
         {
             await runs.TryTransitionApprovalAsync(

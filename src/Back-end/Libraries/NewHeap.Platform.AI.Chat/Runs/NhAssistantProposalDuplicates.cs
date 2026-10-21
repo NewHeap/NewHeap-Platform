@@ -22,9 +22,10 @@ internal sealed record NhAssistantDuplicateCheck(
 /// Keeps agent proposals from piling up: an identical open proposal is never recorded twice, a
 /// newer proposal for the same objects follows the policy's <see cref="NhAiDuplicateProposals"/>,
 /// and a proposal people rejected recently is not made again. Checks the proposals of one agent
-/// within one scope key.
+/// within one scope key. The rejection cooldown counts on the application's clock (a registered
+/// <see cref="TimeProvider"/>, otherwise the system clock), on which decisions are recorded.
 /// </summary>
-internal sealed class NhAssistantProposalDuplicates(NhAssistantRunStore runs)
+internal sealed class NhAssistantProposalDuplicates(NhAssistantRunStore runs, TimeProvider? timeProvider = null)
 {
     private static readonly string[] OpenStatuses =
     [
@@ -32,6 +33,8 @@ internal sealed class NhAssistantProposalDuplicates(NhAssistantRunStore runs)
         NhAssistantApprovalStatuses.Approved,
         NhAssistantApprovalStatuses.Executing
     ];
+
+    private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
 
     /// <summary>
     /// The identity of a proposal: its tool id and canonical arguments.
@@ -57,7 +60,7 @@ internal sealed class NhAssistantProposalDuplicates(NhAssistantRunStore runs)
 
         if (policy.RejectionCooldown > TimeSpan.Zero)
         {
-            var since = DateTimeOffset.UtcNow - policy.RejectionCooldown;
+            var since = _applicationClock.GetUtcNow() - policy.RejectionCooldown;
             var rejected = await runs.FindRecentRejectionAsync(thread.ScopeKey, thread.AgentId, toolId, argumentsHash, since, cancellationToken)
                 ?? (await runs.FindProposalsForObjectsAsync(
                     thread.ScopeKey,

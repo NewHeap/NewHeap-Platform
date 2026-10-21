@@ -36,7 +36,15 @@ are subject roles (`NhAiApprovers.SubjectRole`), the initiator or a policy;
 proposal as stale when the subject changed before execution, and every approver
 must also satisfy the tool's approval policy. Approved proposals execute as their
 own background operation; a non-idempotent tool runs at most once, and an
-execution whose outcome is unknown waits for a person in `resolve`.
+execution whose outcome is unknown waits for a person in `resolve`. A proposal waits
+for its policy's `Lifetime` on the application's clock (a registered `TimeProvider`,
+otherwise the system clock): its expiry, reminders and escalation, every decision's
+`DecidedAt`, the rejection cooldown and every check whether it expired (the inbox,
+the thread, the decision, the maintenance job and the invoker's validation) read
+that clock, and an inline run's wait expires on it too. `CreatedAt`, which proposal
+guards receive as `ProposedAt`, executions and audit events keep the system clock.
+A test lets a proposal expire by moving its clock past the lifetime instead of
+shortening it or waiting.
 
 `GET conversations/{id}` of a thread says who decides, so a chat client does not apply
 the chat rule that only a turn's author decides: it returns `kind: "thread"` and

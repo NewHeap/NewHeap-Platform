@@ -33,13 +33,15 @@ internal sealed class NhAssistantRunCancellation(
         }
 
         await runs.MarkRunCancelRequestedAsync(run.Id, actorId, cancellationToken);
+        // A proposal's decisions, its withdrawal included, are recorded on the application's clock.
+        var withdrawnAt = (services.GetService<TimeProvider>() ?? TimeProvider.System).GetUtcNow();
         foreach (var approval in await runs.GetRunApprovalsAsync(run.Id, cancellationToken))
         {
             await runs.TryTransitionApprovalAsync(
                 approval.Id,
                 [NhAssistantApprovalStatuses.Pending],
                 NhAssistantApprovalStatuses.Withdrawn,
-                new NhAssistantApprovalTransition { DecidedByActorId = actorId, DecidedAt = DateTimeOffset.UtcNow },
+                new NhAssistantApprovalTransition { DecidedByActorId = actorId, DecidedAt = withdrawnAt },
                 cancellationToken);
         }
 

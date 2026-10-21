@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "7bc3f4ba322e2020d360cefe6fb811dffed241c1afec9370eeecc46c59ec549f",
-    "declarationCount": 9177,
+    "hash": "56931881189a5d36aaf73b24eb0af6d3907b71b4783694b9a5f6ea04707f3cb0",
+    "declarationCount": 9179,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -14623,6 +14623,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApprovalPolicies.cs",
+        "declaration": "public static DateTimeOffset Since(Entities.AssistantApproval approval) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApprovalPolicies.cs",
         "declaration": "public static string Serialize(NhAiApprovalPolicy policy) {"
       },
       {
@@ -15347,7 +15351,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantConversationReader.cs",
-        "declaration": "public static NhAssistantApprovalView ToView(AssistantApproval approval) {"
+        "declaration": "public static NhAssistantApprovalView ToView(AssistantApproval approval, DateTimeOffset now) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantConversationReader.cs",
@@ -18788,6 +18792,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
         "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks, INhAiEffectPolicy effectPolicy, INhAiApprovalEvidenceProvider approvalEvidenceProvider, INhAiApprovalValidator approvalValidator, INhAiIdempotencyManager idempotencyManager, IEnumerable<INhAiToolVerifier> verifiers, INhAiCapabilityResolver capabilityResolver, INhAiBudgetManager budgetManager, INhAiToolConcurrencyLimiter concurrencyLimiter, INhAiAuthoritativeExecutionEvidenceValidator? authoritativeEvidenceValidator = null, ILogger<NhAiToolInvoker>? logger = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks, INhAiEffectPolicy effectPolicy, INhAiApprovalEvidenceProvider approvalEvidenceProvider, INhAiApprovalValidator approvalValidator, INhAiIdempotencyManager idempotencyManager, IEnumerable<INhAiToolVerifier> verifiers, INhAiCapabilityResolver capabilityResolver, INhAiBudgetManager budgetManager, INhAiToolConcurrencyLimiter concurrencyLimiter, INhAiAuthoritativeExecutionEvidenceValidator? authoritativeEvidenceValidator, ILogger<NhAiToolInvoker>? logger, TimeProvider timeProvider) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",

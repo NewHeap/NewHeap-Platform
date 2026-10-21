@@ -299,7 +299,8 @@ internal sealed class NhAssistantToolCallInterceptor(
     NhAssistantProposalInvalidation? invalidation = null,
     NhAssistantStaleExplanations? texts = null,
     NhAssistantProposalPlacement? placements = null,
-    Live.NhAssistantAgentWorkUpdates? workUpdates = null)
+    Live.NhAssistantAgentWorkUpdates? workUpdates = null,
+    TimeProvider? applicationClock = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
     public const string ProposalRecordedCode = "assistant-proposal-recorded";
@@ -312,6 +313,11 @@ internal sealed class NhAssistantToolCallInterceptor(
     /// </summary>
     private Func<CultureInfo, string?>? _rationale;
     private NhAssistantRecordedProposal? _lastProposal;
+
+    /// <summary>
+    /// The application's clock, which a proposal's lifetime and reminders follow.
+    /// </summary>
+    private readonly TimeProvider _applicationClock = applicationClock ?? TimeProvider.System;
 
     /// <summary>
     /// Registers the governed descriptors the adapter offered to the agent, keyed by function name.
@@ -875,8 +881,13 @@ internal sealed class NhAssistantToolCallInterceptor(
         // The thread the proposal waits in: the run's own, or the agent's thread at the object.
         var home = placed?.Thread ?? agentTurn?.Thread;
 
+        // The proposal lives by the application's clock: its validity starts and ends there, where
+        // decisions, reminders and the invoker's validation read it. When it was recorded stays on
+        // the system clock, which audit events and proposal guards compare with the subject's own
+        // changes.
         var now = DateTimeOffset.UtcNow;
-        var expiresAt = now.Add(lifetime);
+        var proposedAt = _applicationClock.GetUtcNow();
+        var expiresAt = proposedAt.Add(lifetime);
         var targets = context.ExecutionScopes
             .Take(32)
             .Select(scope => new NhAiProposalTarget(scope.Type, scope.Id))
@@ -897,7 +908,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             [EffectCode(descriptor.Effect)],
             new Dictionary<string, string>(StringComparer.Ordinal),
             new NhAiActionBudget(1),
-            now,
+            proposedAt,
             expiresAt)
         {
             // A proposal bound to the tool contract only stays valid across prompt updates.
@@ -988,7 +999,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             GrantSource = context.GrantSource,
             ConsultationId = consultation?.ConsultationId,
             NextReminderAt = policy is not null && mode == NhAiApprovalMode.Deferred && !shadow
-                ? NhAssistantApprovalReminders.Next(policy, now, 0, expiresAt)
+                ? NhAssistantApprovalReminders.Next(policy, proposedAt, 0, expiresAt)
                 : null,
             ArgumentsHash = argumentsHash,
             RationalesJson = _rationale is null ? null : texts?.Render(_rationale),

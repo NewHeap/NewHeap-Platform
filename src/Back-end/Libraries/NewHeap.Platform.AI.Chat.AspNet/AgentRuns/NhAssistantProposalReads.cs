@@ -9,15 +9,20 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// Reads proposals of agent threads by id as the caller may see them: the caller's tenant, the live
 /// role on the thread's subject or an invitation to the thread, shadow agents for administrators
 /// only, and the caller's live right to decide each pending proposal. Reading never joins a thread,
-/// and every subject is resolved once per read.
+/// and every subject is resolved once per read. A proposal can no longer be decided once the
+/// application's clock (a registered <see cref="TimeProvider"/>, otherwise the system clock) reaches
+/// its expiry.
 /// </summary>
 internal sealed class NhAssistantProposalReads(
     NhAssistantRunStore runs,
     NhAssistantThreadService threads,
     NhAssistantSubjectAccessService subjects,
     NhAssistantApproverCheck approvers,
-    NhAssistantProposalFeedbackStore feedback)
+    NhAssistantProposalFeedbackStore feedback,
+    TimeProvider? timeProvider = null)
 {
+    private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
+
     /// <summary>
     /// The proposals among <paramref name="approvalIds"/> that the caller may see, in the order of
     /// the ids and each once; unknown and invisible ids are left out.
@@ -114,7 +119,7 @@ internal sealed class NhAssistantProposalReads(
         Dictionary<NhAiSubjectRef, NhAssistantResolvedSubject> described,
         CancellationToken cancellationToken)
     {
-        if (approval.Status != NhAssistantApprovalStatuses.Pending || approval.ExpiresAt <= DateTimeOffset.UtcNow)
+        if (approval.Status != NhAssistantApprovalStatuses.Pending || approval.ExpiresAt <= _applicationClock.GetUtcNow())
         {
             return (false, null);
         }

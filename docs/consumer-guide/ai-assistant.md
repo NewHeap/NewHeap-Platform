@@ -81,7 +81,13 @@ expected proposal hash. On approve, the same governed function runs again throug
 the invoker with the proposal and approval ids bound to the context, a durable
 idempotency lease keyed by the proposal and the tool's verifier; on reject, the
 model receives a rejected result and may close with one message. Expired
-proposals end with `assistant-approval-expired`.
+proposals end with `assistant-approval-expired`. A proposal lives for
+`NhAssistantLimits.ApprovalLifetime` (15 minutes) on the application's clock (a
+registered `TimeProvider`, otherwise the system clock): its expiry, the decision's
+`DecidedAt`, the conversation's `expired` status and the invoker's validation all
+read that clock, while `CreatedAt`, tool calls and audit events keep the system
+clock. A test lets a proposal expire by moving its clock past the lifetime instead
+of shortening the lifetime or waiting.
 
 Use `AddToolPresenter<T>()` when a consumer can explain a tool with localized domain
 names. The presenter receives the exact governed arguments, invocation context and

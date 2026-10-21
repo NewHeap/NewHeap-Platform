@@ -227,7 +227,8 @@ internal sealed class NhAssistantAgentRunOperation(
     NhAssistantMcpConnectionNotices connectionNotices,
     IOptions<RequestLocalizationOptions> localization,
     IOptionsMonitor<NhAssistantOptions> assistantOptions,
-    ILogger<NhAssistantAgentRunOperation> logger) : INhBackgroundOperationHandler<NhAssistantAgentRunRequest>
+    ILogger<NhAssistantAgentRunOperation> logger,
+    TimeProvider? timeProvider = null) : INhBackgroundOperationHandler<NhAssistantAgentRunRequest>
 {
     internal const string WaitCheckpointKey = "agent-run-wait";
     private const int MaxTurnsPerRun = 5;
@@ -238,6 +239,12 @@ internal sealed class NhAssistantAgentRunOperation(
         NhAssistantRunStatuses.Running,
         NhAssistantRunStatuses.WaitingForApproval
     ];
+
+    /// <summary>
+    /// The application's clock, which a proposal's expiry and so the run's inline wait follow; the
+    /// background operation's signal wait expires on the same clock.
+    /// </summary>
+    private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
 
     public static string WaitKey(Guid approvalId)
     {
@@ -536,7 +543,7 @@ internal sealed class NhAssistantAgentRunOperation(
 
             case NhAssistantTurnStatuses.WaitingForApproval when result.PendingApprovalId is { } approvalId:
                 var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
-                var expiresAt = approval?.ExpiresAt ?? DateTimeOffset.UtcNow;
+                var expiresAt = approval?.ExpiresAt ?? _applicationClock.GetUtcNow();
                 await runs.TrySetRunStatusAsync(
                     run.Id,
                     StartableStatuses,

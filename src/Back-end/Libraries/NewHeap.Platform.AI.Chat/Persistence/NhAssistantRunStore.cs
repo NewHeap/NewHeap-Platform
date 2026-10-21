@@ -8,8 +8,11 @@ namespace NewHeap.Platform.AI.Chat.Persistence;
 /// Persistence of agent threads, runs, queued inputs, subject member snapshots and the approval
 /// queries of the inbox and the maintenance job. Every call uses its own short-lived context;
 /// status transitions are compare-and-set updates, so concurrent workers never overwrite each other.
+/// Whether a proposal is still open, and which decisions are recent, is read from the application's
+/// clock (a registered <see cref="TimeProvider"/>, otherwise the system clock), which a proposal's
+/// lifetime follows; threads, runs and inputs keep the system clock.
 /// </summary>
-internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFactory)
+internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFactory, TimeProvider? timeProvider = null)
 {
     /// <summary>
     /// The failure code of a queued run whose trigger never reached the background-operation
@@ -23,6 +26,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         NhAssistantRunStatuses.Running,
         NhAssistantRunStatuses.WaitingForApproval
     ];
+
+    private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
 
     /// <summary>
     /// The live thread of the agent about the subject, or with <paramref name="shadow"/> its shadow
@@ -592,7 +597,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
-        var since = DateTimeOffset.UtcNow.AddMinutes(-5);
+        // Decisions are recorded on the application's clock.
+        var since = _applicationClock.GetUtcNow().AddMinutes(-5);
         return await context.Runs
             .Where(run => run.BackgroundOperationId == operationId)
             .Join(
@@ -1562,7 +1568,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
-        var now = DateTimeOffset.UtcNow;
+        // A proposal expires on the application's clock.
+        var now = _applicationClock.GetUtcNow();
         return await context.Approvals
             .AsNoTracking()
             .Where(approval => approval.ConversationId == conversationId
@@ -1589,7 +1596,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         }
 
         var ids = conversationIds.Distinct().ToArray();
-        var now = DateTimeOffset.UtcNow;
+        // A proposal expires on the application's clock.
+        var now = _applicationClock.GetUtcNow();
         await using var context = contextFactory.CreateDbContext();
         var counts = await context.Approvals
             .AsNoTracking()
@@ -1618,7 +1626,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         }
 
         var ids = conversationIds.Distinct().ToArray();
-        var now = DateTimeOffset.UtcNow;
+        // A proposal expires on the application's clock.
+        var now = _applicationClock.GetUtcNow();
         await using var context = contextFactory.CreateDbContext();
         var stats = await context.Approvals
             .AsNoTracking()
@@ -1698,7 +1707,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
-        var now = DateTimeOffset.UtcNow;
+        // A proposal expires on the application's clock.
+        var now = _applicationClock.GetUtcNow();
         var threads = await (
                 from approval in context.Approvals.AsNoTracking()
                 join thread in context.Threads.AsNoTracking() on approval.ConversationId equals thread.ConversationId
@@ -2282,7 +2292,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         IReadOnlyCollection<Guid>? visibleConversationIds = null)
     {
         await using var context = contextFactory.CreateDbContext();
-        var now = DateTimeOffset.UtcNow;
+        // A proposal expires on the application's clock.
+        var now = _applicationClock.GetUtcNow();
         // The whole application counts only the threads of agents whose view policy the caller passes.
         var restrictThreads = visibleConversationIds is not null;
         var visible = (visibleConversationIds ?? []).ToArray();
@@ -2361,7 +2372,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         NhAssistantSystemInbox? system = null)
     {
         await using var context = contextFactory.CreateDbContext();
-        var now = DateTimeOffset.UtcNow;
+        // A proposal expires on the application's clock.
+        var now = _applicationClock.GetUtcNow();
         var systemApprover = (system?.ApproverConversationIds ?? []).ToArray();
         var systemViewer = (system?.ViewerConversationIds ?? []).ToArray();
         var approverSubjects = context.SubjectMembers

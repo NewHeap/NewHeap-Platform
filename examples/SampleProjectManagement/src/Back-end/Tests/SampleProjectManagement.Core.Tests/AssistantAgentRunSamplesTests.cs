@@ -2374,6 +2374,47 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task An_inline_proposal_nobody_decides_expires_on_the_applications_clock_and_its_run_ends_without_it()
+    {
+        // SPM-272: the status advisor's proposal waits four hours for the participant who started it.
+        // Nobody decides. The proposal lives by the application's clock, which the run's suspended
+        // background operation waits on too, so the host's clock moves past those four hours instead
+        // of waiting: the wait expires, the proposal expires and the run ends without a change.
+        var project = await host.CreateProjectAsync("EXPIRING", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        var started = await participant.PostAsJsonAsync(
+            "/api/assistant/threads/start",
+            new NhAssistantStartAgentRequest(
+                SampleStatusAdvisorComposition.AgentId,
+                ProjectSubjects.Type,
+                project.ToString("D"),
+                $"Set project {project:D} to onhold."),
+            Json);
+        Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+        var conversationId = (await started.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!.ConversationId!.Value;
+        var proposal = await WaitForProposalAsync(participant, conversationId, NhAssistantApprovalStatuses.Pending);
+        Assert.Equal(NhAssistantApprovalModes.Inline, proposal.Mode);
+        // Its four hours count from the host's clock, which may already run ahead of real time.
+        Assert.InRange(proposal.ExpiresAt - host.Clock.GetUtcNow(), TimeSpan.FromHours(4) - TimeSpan.FromMinutes(1), TimeSpan.FromHours(4));
+        var waiting = await WaitForRunAsync(participant, conversationId, NhAssistantRunStatuses.WaitingForApproval);
+        await host.WaitForOperationAsync(waiting.BackgroundOperationId!.Value, NhBackgroundOperationStatus.WaitingForSignal);
+
+        await host.AdvanceToDueTimeAsync(waiting.BackgroundOperationId!.Value);
+
+        var expired = await WaitForProposalAsync(participant, conversationId, NhAssistantApprovalStatuses.Expired);
+        Assert.Equal(proposal.ApprovalId, expired.ApprovalId);
+        var ended = await WaitForRunResultAsync(participant, waiting.Id);
+        Assert.Equal(NhAssistantErrorCodes.ApprovalExpired, ended.Run.FailureCode);
+        Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == project);
+
+        // A decision after the expiry comes too late.
+        var late = await DecideAsync(participant, proposal, "approve");
+        Assert.Equal(HttpStatusCode.Conflict, late.StatusCode);
+        Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == project);
+    }
+
+    [Fact]
     public async Task An_approved_request_that_fails_without_a_result_waits_for_a_person_instead_of_running_again()
     {
         // SPM-274
@@ -3793,7 +3834,8 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
 
     /// <summary>
     /// Moves the host's clock to the due time of a background operation that waits for it, such as
-    /// a debounced follow-up run, instead of waiting it out.
+    /// a debounced follow-up run or the expiry of a run's wait for an inline proposal, instead of
+    /// waiting it out.
     /// </summary>
     public async Task AdvanceToDueTimeAsync(Guid operationId)
     {
@@ -3804,7 +3846,9 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
             var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
             due = await dbContext.Set<NhBackgroundOperation>()
                 .AsNoTracking()
-                .Where(item => item.Id == operationId && item.Status == NhBackgroundOperationStatus.PendingDispatch)
+                .Where(item => item.Id == operationId
+                    && (item.Status == NhBackgroundOperationStatus.PendingDispatch
+                        || item.Status == NhBackgroundOperationStatus.WaitingForSignal))
                 .Select(item => item.NextDispatchAt)
                 .SingleOrDefaultAsync();
         }
