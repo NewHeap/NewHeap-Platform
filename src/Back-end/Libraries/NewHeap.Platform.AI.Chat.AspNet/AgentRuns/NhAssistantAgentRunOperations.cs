@@ -81,10 +81,14 @@ public static class NhAssistantBackgroundOperationBuilderExtensions
     public static NhBackgroundOperationBuilder AddAssistantAgentRuns(this NhBackgroundOperationBuilder operations)
     {
         ArgumentNullException.ThrowIfNull(operations);
+        // The agent's Retry (0 to MaxRetryCount) decides how often a run is retried: the run's
+        // operation allows the most an agent can configure, and the run's handler fails the run once
+        // its failed attempts exceed the agent's setting, so a lower value is never stretched and a
+        // higher one is never cut off.
         operations.Add<NhAssistantAgentRunRequest, NhAssistantAgentRunOperation>(
             NhAssistantAgentRunOperationTypes.Run,
             operation => operation
-                .WithRetry(3)
+                .WithRetry(NhAssistantAgentConfigurationLimits.MaxRetryCount)
                 .WithSoftTimeout(TimeSpan.FromMinutes(15))
                 .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
         operations.Add<NhAssistantExecuteProposalRequest, NhAssistantExecuteProposalOperation>(

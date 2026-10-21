@@ -27,8 +27,11 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// reconciliation failed it as dispatch-stalled or it failed for good in another way, the handler
 /// never runs again. The maintenance job ends such a run once, through the run's own end path,
 /// closes its inline proposal and frees its thread, so the agent's next run starts. A run whose
-/// operation still waits is left alone. The operations live in the application's own database and
-/// are driven by the platform's runner, on both relational providers.
+/// operation still waits is left alone, and an approved inline proposal of a run that ended before it
+/// executed it is withdrawn once the run's operation can no longer run. A run's operation retries
+/// as the agent's <c>Retry</c> says, and gives way to contention without spending retries. The
+/// operations live in the application's own database and are driven by the platform's runner, on
+/// both relational providers.
 /// </summary>
 public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
@@ -164,16 +167,7 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
         await using var host = await CreateHostAsync(provider, clock, model);
         var waiting = await StartWaitingRunAsync(host, projectId);
 
-        await using (var scope = host.Services.CreateAsyncScope())
-        {
-            var run = await FindRunAsync(host, waiting.RunId);
-            var thread = (await host.Services.GetRequiredService<NhAssistantRunStore>().FindThreadByConversationAsync(run.ConversationId, CancellationToken.None))!;
-            await scope.ServiceProvider.GetRequiredService<NhAssistantRunCancellation>().CancelAsync(
-                run,
-                Member,
-                NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId),
-                CancellationToken.None);
-        }
+        await CancelAsParticipantAsync(host, waiting.RunId);
 
         var cancelled = await FindRunAsync(host, waiting.RunId);
         Assert.True(
@@ -200,6 +194,62 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
         Assert.True(
             nextRun.Status == NhAssistantRunStatuses.Completed,
             $"The next run {nextRun.Id} should complete in the freed thread, but is {nextRun.Status} ({nextRun.FailureCode}); its operation is {nextOperation.Status} ({nextOperation.FailureCode}).");
+    }
+
+    /// <summary>
+    /// An approver approves the inline proposal and a participant then cancels the run before its
+    /// operation resumed to execute it. The cancel leaves the approved proposal as it is, because the
+    /// operation might still execute it, and so does the job while the operation has not ended and
+    /// right after it ended. Once the operation has been terminal for the stale timeout, the job
+    /// withdraws the proposal once, with the run's status as its result and the approver kept, and
+    /// nothing executes.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_approved_inline_proposal_of_a_run_a_person_cancelled_is_withdrawn_once_the_runs_operation_ended(AssistantTestProvider provider)
+    {
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 5, 6, 7, 8, 0, TimeSpan.Zero));
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Closed" } }, "call-close");
+        await using var host = await CreateHostAsync(provider, clock, model);
+        var waiting = await StartWaitingRunAsync(host, projectId);
+
+        var decided = await DecideAsync(host, waiting.ApprovalId);
+        Assert.True(decided.Success, string.Join("; ", decided.AllErrorMessages.Select(error => error.ToString())));
+        await CancelAsParticipantAsync(host, waiting.RunId);
+        var cancelled = await FindRunAsync(host, waiting.RunId);
+        Assert.Equal(NhAssistantRunStatuses.Cancelled, cancelled.Status);
+        var approved = await FindApprovalAsync(host, waiting.ApprovalId);
+        Assert.Equal(NhAssistantApprovalStatuses.Approved, approved.Status);
+
+        // The operation's cancellation waits for a worker, and a moment after the worker completed it
+        // the operation has not been terminal long enough: the job leaves the proposal alone.
+        await RunMaintenanceAsync(host);
+        Assert.Equal(approved.ConcurrencyStamp, (await FindApprovalAsync(host, waiting.ApprovalId)).ConcurrencyStamp);
+        await RunWorkerAsync(host, waiting.OperationId);
+        Assert.Equal(NhBackgroundOperationStatus.Cancelled, (await FindOperationAsync(host, waiting.OperationId)).Status);
+        await RunMaintenanceAsync(host);
+        Assert.Equal(approved.ConcurrencyStamp, (await FindApprovalAsync(host, waiting.ApprovalId)).ConcurrencyStamp);
+
+        await BackdateOperationEndAsync(host, waiting.OperationId, Settled + TimeSpan.FromMinutes(1));
+        host.Services.GetRequiredService<RecordedLiveUpdates>().Clear();
+        await RunMaintenanceAsync(host);
+
+        var approval = await FindApprovalAsync(host, waiting.ApprovalId);
+        Assert.Equal(NhAssistantApprovalStatuses.Withdrawn, approval.Status);
+        Assert.Equal(NhAssistantRunStatuses.Cancelled, approval.ExecutionResultCode);
+        Assert.Equal(Approver, approval.DecidedByActorId);
+        Assert.Empty(host.Tools.StatusChanges);
+        Assert.Single(
+            host.Services.GetRequiredService<RecordedLiveUpdates>().Sent.Select(sent => sent.Event).OfType<NhAssistantLiveAgentWorkChanged>(),
+            update => update.Reason == NhAssistantAgentWorkReasons.Proposal && update.ApprovalId == waiting.ApprovalId);
+        Assert.Equal(cancelled.ConcurrencyStamp, (await FindRunAsync(host, waiting.RunId)).ConcurrencyStamp);
+
+        // A further round changes nothing.
+        await RunMaintenanceAsync(host);
+        Assert.Equal(approval.ConcurrencyStamp, (await FindApprovalAsync(host, waiting.ApprovalId)).ConcurrencyStamp);
     }
 
     /// <summary>
@@ -243,7 +293,7 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
     /// A run whose agent uses every slot, or whose thread a person's turn holds, gives way without
     /// spending a retry: the attempt is abandoned and the operation is due again after a delay on the
     /// application's clock, which doubles up to five minutes. After more such attempts than the run
-    /// and its operation may retry, the run completes once the slots and the thread are free.
+    /// may retry, the run completes once the slots and the thread are free.
     /// </summary>
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -299,8 +349,8 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
             new[] { 30, 60, 60, 120, 240, 300 }.Select(seconds => TimeSpan.FromSeconds(seconds)).ToArray(),
             delays.ToArray());
 
-        // Six attempts gave way, more than the run's three retries and its operation's three; the
-        // next attempt after the person's turn ended runs the turn, and the run completes.
+        // Six attempts gave way, more than the run's three retries; the next attempt after the
+        // person's turn ended runs the turn, and the run completes.
         Assert.True(await store.TryEndTurnAsync(conversationId, personsTurn, NhAssistantConversationStatuses.Idle, CancellationToken.None));
         var operation = await ExecuteNextAttemptAsync(host, operationId);
         var run = await FindRunAsync(host, runId);
@@ -315,6 +365,49 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
             .ToListAsync();
         Assert.Equal(6, attempts.Count(status => status == NhBackgroundOperationAttemptStatus.Abandoned));
         Assert.DoesNotContain(NhBackgroundOperationAttemptStatus.Failed, attempts);
+    }
+
+    /// <summary>
+    /// The agent's <c>Retry</c> decides how often a run is retried after a transient failure, also
+    /// above the three retries its operation used to allow: with a model that keeps failing,
+    /// <c>Retry(5)</c> gives the run six attempts and <c>Retry(0)</c> one. Every attempt failed and
+    /// counts; the run then fails with the model's failure and its operation ends failed, without
+    /// another retry.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.PostgreSql, 5)]
+    [InlineData(AssistantTestProvider.PostgreSql, 0)]
+    public async Task A_run_that_fails_transiently_is_retried_as_often_as_its_agents_retry_setting_says(AssistantTestProvider provider, int retry)
+    {
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 5, 6, 7, 8, 0, TimeSpan.Zero));
+        var model = new NhAiScriptedChatClient(loop: true).RespondWithProviderError("server_is_overloaded");
+        await using var host = await CreateHostAsync(provider, clock, model, retry);
+        var runId = (await StartAsync(host, Guid.NewGuid())).RunId!.Value;
+        var operationId = (await FindRunAsync(host, runId)).BackgroundOperationId!.Value;
+
+        // Every attempt fails; the operation is due again until the run's retries are spent.
+        var operation = await ExecuteNextAttemptAsync(host, operationId);
+        for (var retried = 0; operation.Status == NhBackgroundOperationStatus.RetryScheduled; retried++)
+        {
+            Assert.True(retried < NhAssistantAgentConfigurationLimits.MaxRetryCount, $"Run {runId} is retried more often than an agent can configure.");
+            operation = await ExecuteNextAttemptAsync(host, operationId);
+        }
+
+        var run = await FindRunAsync(host, runId);
+        Assert.True(
+            operation.Status == NhBackgroundOperationStatus.Failed
+                && run.Status == NhAssistantRunStatuses.Failed
+                && run.FailureClass == NhAssistantRunFailureClasses.Transient
+                && run.FailureCode == NhAssistantErrorCodes.ModelUnavailable,
+            $"Run {runId} should fail transiently, but is {run.Status}/{run.FailureClass}/{run.FailureCode}; its operation is {operation.Status} ({operation.FailureCode}).");
+        await using var scope = host.Services.CreateAsyncScope();
+        var attempts = await scope.ServiceProvider.GetRequiredService<OrderDbContext>().Set<NhBackgroundOperationAttempt>()
+            .AsNoTracking()
+            .Where(item => item.OperationId == operationId)
+            .Select(item => item.Status)
+            .ToListAsync();
+        Assert.Equal(retry + 1, attempts.Count);
+        Assert.All(attempts, status => Assert.Equal(NhBackgroundOperationAttemptStatus.Failed, status));
     }
 
     /// <summary>
@@ -687,6 +780,21 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
     }
 
     /// <summary>
+    /// A participant cancels the run, as <c>POST runs/{id}/cancel</c> does.
+    /// </summary>
+    private static async Task CancelAsParticipantAsync(AssistantTestHost host, Guid runId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var run = await FindRunAsync(host, runId);
+        var thread = (await host.Services.GetRequiredService<NhAssistantRunStore>().FindThreadByConversationAsync(run.ConversationId, CancellationToken.None))!;
+        await scope.ServiceProvider.GetRequiredService<NhAssistantRunCancellation>().CancelAsync(
+            run,
+            Member,
+            NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId),
+            CancellationToken.None);
+    }
+
+    /// <summary>
     /// An approver of the project approves the proposal.
     /// </summary>
     private static async Task<NewHeap.Platform.Common.Models.TaskResult<Entities.AssistantApproval>> DecideAsync(AssistantTestHost host, Guid approvalId)
@@ -771,7 +879,8 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
         return (await host.Services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approvalId, CancellationToken.None))!;
     }
 
-    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, AssistantTestClock clock, IChatClient model)
+    /// <param name="retry">The agent's <c>Retry</c>; <see langword="null"/> keeps its default.</param>
+    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, AssistantTestClock clock, IChatClient model, int? retry = null)
     {
         var pool = provider == AssistantTestProvider.SqlServer ? SqlServerApplications : PostgreSqlApplications;
         var application = await pool.LeaseAsync();
@@ -811,9 +920,16 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
                         .Lifetime(Lifetime)
                         .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
                         .OnExpiry(NhAiApprovalExpiryAction.FailRun))
-                    .ConfigureAgent(AgentId, agent => agent
-                        .Grant("projects.*")
-                        .UseApprovalPolicy(InlinePolicy)));
+                    .ConfigureAgent(AgentId, agent =>
+                    {
+                        agent
+                            .Grant("projects.*")
+                            .UseApprovalPolicy(InlinePolicy);
+                        if (retry is { } retryCount)
+                        {
+                            agent.Retry(retryCount);
+                        }
+                    }));
 
             // The host's services own the lease from here on: disposing the host returns the
             // application's database to its pool.

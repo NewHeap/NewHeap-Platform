@@ -68,6 +68,24 @@ boundary are checked in the same pass.
 | An inline proposal approved after its run's operation ended is `withdrawn` (result code the run's failure code) when the maintenance job ends the run. | None. |
 | Resuming a run that the maintenance job ended while it waited inline starts a new turn instead of waiting for the old proposal. | None. |
 
+## NewHeap.Platform.AI.Chat.AspNet: approved proposals of cancelled runs, and retries as the agent says
+
+Fix. An inline proposal that was approved but not executed yet when a person
+(`POST runs/{id}/cancel`), the kill switch or subject retention cancelled its run stayed `approved`
+for good. The maintenance job now withdraws it once the run's background operation has been terminal
+for `StaleAttemptTimeout` on the system clock (or is gone and the run ended that long ago), once,
+with one `AgentWorkChanged` update and without executing it. Its result code is the run's failure
+code, or the run's status (`cancelled`) when the run ended without one; the decider is kept.
+An agent's `Retry` above 3 was cut off by the three retries its runs' background operation allowed:
+the operation failed and the job then ended the run with `assistant-run-operation-ended`. The run's
+operation now allows ten retries, the most an agent can configure, and the run's own check enforces
+the agent's value, so `Retry(0)` still never retries.
+
+| Breaking change | Required action |
+|---|---|
+| An approved inline proposal that its cancelled (or otherwise ended) run never executed becomes `withdrawn` with the run's failure code or `cancelled` as its result once the run's operation has ended. | None. |
+| The `nh-ai-agent-run` operation is registered with `WithRetry(10)` instead of `WithRetry(3)`; a run is retried as often as its agent's `Retry` says. A run whose handler keeps throwing is retried up to its agent's `Retry` as well and then fails with `assistant-turn-failed` (class `transient`), no longer with `assistant-run-operation-ended` from the maintenance job. | None. |
+
 ## @newheap/platform-ai-chat: runs whose background operation ended without them
 
 The bundled English and Dutch texts and `NH_ASSISTANT_SERVER_ERROR_CODES` include the failure codes

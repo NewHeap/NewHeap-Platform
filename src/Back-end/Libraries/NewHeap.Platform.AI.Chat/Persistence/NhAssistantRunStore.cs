@@ -27,6 +27,13 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         NhAssistantRunStatuses.WaitingForApproval
     ];
 
+    private static readonly string[] EndedRunStatuses =
+    [
+        NhAssistantRunStatuses.Completed,
+        NhAssistantRunStatuses.Failed,
+        NhAssistantRunStatuses.Cancelled
+    ];
+
     private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
 
     /// <summary>
@@ -544,6 +551,38 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ThenBy(run => run.Id)
             .Take(maximum)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs that ended while an inline proposal of theirs was approved and not executed, at most
+    /// <paramref name="maximum"/>: one page of the maintenance job's check whether their operation can
+    /// still execute it. A person's cancel, the kill switch and subject retention leave such a
+    /// proposal approved. The page is read from the approved proposals through the
+    /// <c>(Status, ExpiresAt)</c> index, the earliest expiry first, and joins their runs by key, so it
+    /// never reads the history of ended runs. Such proposals are few and each one leaves the page
+    /// once its run's operation has ended, so no cursor is kept.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantRun>> GetEndedRunsWithApprovedInlineProposalsAsync(
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var ended = await context.Approvals
+            .AsNoTracking()
+            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Approved
+                && approval.Mode == NhAssistantApprovalModes.Inline
+                && approval.RunId != null)
+            .Join(
+                context.Runs.AsNoTracking().Where(run => EndedRunStatuses.Contains(run.Status)),
+                approval => approval.RunId,
+                run => (Guid?)run.Id,
+                (approval, run) => new { approval.ExpiresAt, ApprovalId = approval.Id, Run = run })
+            .OrderBy(item => item.ExpiresAt)
+            .ThenBy(item => item.ApprovalId)
+            .Take(maximum)
+            .Select(item => item.Run)
+            .ToListAsync(cancellationToken);
+        return ended.DistinctBy(run => run.Id).ToArray();
     }
 
     /// <summary>

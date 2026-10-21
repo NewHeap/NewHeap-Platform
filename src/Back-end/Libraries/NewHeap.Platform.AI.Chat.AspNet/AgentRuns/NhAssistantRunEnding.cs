@@ -12,7 +12,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// only the call that wins it writes the run's summary, its <c>AgentRunEnded</c> event and work
 /// update, tells the agents that handed it work how it ended and notifies the people who wait for
 /// it. The run's own background operation ends its run here, and so does the maintenance job for a
-/// run whose operation ended without it (<see cref="EndAfterOperationEndedAsync"/>).
+/// run whose operation ended without it (<see cref="EndAfterOperationEndedAsync"/>). The job also
+/// closes here the approved inline proposals that an ended run never executed
+/// (<see cref="CloseInlineProposalsOfEndedRunAsync"/>).
 /// </summary>
 internal sealed class NhAssistantRunEnding(
     NhAssistantRunStore runs,
@@ -225,11 +227,25 @@ internal sealed class NhAssistantRunEnding(
     }
 
     /// <summary>
+    /// Closes the inline proposals of a run that ended before it executed an approved one, such as a
+    /// run that a person, the kill switch or subject retention cancelled after the approval. The
+    /// cancel leaves the approved proposal as it is, because the run's operation may still be
+    /// starting and about to execute it; the maintenance job calls this once that operation can no
+    /// longer run. The proposal is withdrawn as in <see cref="EndAfterOperationEndedAsync"/>, with the
+    /// run's failure code as its result, or the run's status when it ended without one (a cancel
+    /// records none), and executes nothing.
+    /// </summary>
+    public Task CloseInlineProposalsOfEndedRunAsync(AssistantRun run, CancellationToken cancellationToken)
+    {
+        return CloseInlineProposalsAsync(run, run.FailureCode ?? run.Status, cancellationToken);
+    }
+
+    /// <summary>
     /// Closes the run's open inline proposals, each once, and tells the people on the subject. A
-    /// pending one expires or is withdrawn; one that a person approved after the operation ended, and
-    /// that so never executed, is withdrawn with the run's failure code <paramref name="code"/> as
-    /// its result and executes nothing. Deferred proposals do not wait for the run and keep their own
-    /// lifecycle.
+    /// pending one expires or is withdrawn; an approved one that never executed, because the run's
+    /// operation ended before it could, is withdrawn with <paramref name="code"/>, why the run ended,
+    /// as its result and executes nothing. Deferred proposals do not wait for the run and keep their
+    /// own lifecycle.
     /// </summary>
     private async Task CloseInlineProposalsAsync(AssistantRun run, string code, CancellationToken cancellationToken)
     {

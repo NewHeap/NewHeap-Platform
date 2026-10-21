@@ -73,12 +73,13 @@ internal sealed class NhAssistantBackgroundOperationAccess(
 /// <summary>
 /// Keeps agent proposals and runs moving without a person: expires and escalates proposals,
 /// queues approved executions that have none, marks interrupted non-idempotent executions as
-/// <c>execution-unknown</c>, cancels runs whose trigger transaction rolled back and ends runs whose
+/// <c>execution-unknown</c>, cancels runs whose trigger transaction rolled back, ends runs whose
 /// background operation ended without them, such as a run that waited inline for a decision when an
-/// operator cancelled its operation. Once an hour it removes board visits older than
-/// <see cref="NhAssistantLimits.BoardVisitRetention"/> and those of groups that are no longer
-/// registered. Every change is a compare-and-set update or a conditional delete, so several
-/// instances can run it at the same time. A proposal's expiry, escalation, reminders and decision
+/// operator cancelled its operation, and withdraws approved inline proposals that a run never
+/// executed because it ended first, such as after a person's cancel. Once an hour it removes board
+/// visits older than <see cref="NhAssistantLimits.BoardVisitRetention"/> and those of groups that
+/// are no longer registered. Every change is a compare-and-set update or a conditional delete, so
+/// several instances can run it at the same time. A proposal's expiry, escalation, reminders and decision
 /// follow the application's clock (a registered <see cref="TimeProvider"/>, otherwise the system
 /// clock); runs, background-operation liveness and board visits keep the system clock.
 /// </summary>
@@ -160,7 +161,9 @@ internal sealed class NhAssistantRunMaintenance(
             // An operation counts as ended once it has been terminal for as long as the background
             // operations take an attempt to be stale: liveness, on the system clock.
             var settled = services.GetService<NhBackgroundOperationsOptions>()?.StaleAttemptTimeout ?? TimeSpan.FromMinutes(2);
-            await EndRunsOfEndedOperationsAsync(runs, operations, services.GetRequiredService<NhAssistantRunEnding>(), settled, cancellationToken);
+            var ending = services.GetRequiredService<NhAssistantRunEnding>();
+            await EndRunsOfEndedOperationsAsync(runs, operations, ending, settled, cancellationToken);
+            await WithdrawUnexecutedApprovalsOfEndedRunsAsync(runs, operations, ending, settled, cancellationToken);
         }
         var now = DateTimeOffset.UtcNow;
         if (now - _boardVisitsCleanedAt >= BoardVisitCleanupInterval)
@@ -503,6 +506,79 @@ internal sealed class NhAssistantRunMaintenance(
             }
 
             await ending.EndAfterOperationEndedAsync(run, null, null, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Withdraws the approved inline proposals that their run never executed because it ended first,
+    /// such as a run that a person (<c>POST runs/{id}/cancel</c>), the kill switch or subject
+    /// retention cancelled after the approval. The cancel leaves such a proposal approved: the run's
+    /// operation may still be starting and about to execute it. The job therefore waits until that
+    /// operation has been terminal for <paramref name="settled"/> on the system clock, or, when it is
+    /// gone, until the run ended as long ago, and then withdraws the proposal through
+    /// <see cref="NhAssistantRunEnding.CloseInlineProposalsOfEndedRunAsync"/>, once and without
+    /// executing it. An operation that waits, is due or runs is left alone, and so is a proposal that
+    /// is executing or whose execution is unknown: <see cref="DetectInterruptedExecutionsAsync"/>
+    /// recovers those. Deferred proposals keep their own lifecycle.
+    /// </summary>
+    private static async Task WithdrawUnexecutedApprovalsOfEndedRunsAsync(
+        NhAssistantRunStore runs,
+        IRepository<NhBackgroundOperation> operations,
+        NhAssistantRunEnding ending,
+        TimeSpan settled,
+        CancellationToken cancellationToken)
+    {
+        var ended = await runs.GetEndedRunsWithApprovedInlineProposalsAsync(BatchSize, cancellationToken);
+        if (ended.Count == 0)
+        {
+            return;
+        }
+
+        var operationIds = ended
+            .Where(run => run.BackgroundOperationId.HasValue)
+            .Select(run => run.BackgroundOperationId!.Value)
+            .Distinct()
+            .ToArray();
+        var found = await operations.GetAll()
+            .AsNoTracking()
+            .Where(operation => operationIds.Contains(operation.Id))
+            .Select(operation => new
+            {
+                operation.Id,
+                operation.Status,
+                EndedAt = operation.CompletedAt ?? operation.LastModifiedDateTime
+            })
+            .ToDictionaryAsync(operation => operation.Id, cancellationToken);
+
+        var settledBefore = DateTimeOffset.UtcNow - settled;
+        foreach (var run in ended)
+        {
+            DateTimeOffset quietSince;
+            if (run.BackgroundOperationId is { } operationId && found.TryGetValue(operationId, out var operation))
+            {
+                if (operation.Status is not (NhBackgroundOperationStatus.Succeeded
+                    or NhBackgroundOperationStatus.Failed
+                    or NhBackgroundOperationStatus.Cancelled
+                    or NhBackgroundOperationStatus.TimedOut))
+                {
+                    continue;
+                }
+
+                quietSince = operation.EndedAt;
+            }
+            else
+            {
+                // The cleanup removes only operations that ended; the run's end is the last change
+                // that is still known.
+                quietSince = run.EndedAt ?? run.StartedAt ?? run.CreatedAt;
+            }
+
+            if (quietSince > settledBefore)
+            {
+                continue;
+            }
+
+            await ending.CloseInlineProposalsOfEndedRunAsync(run, cancellationToken);
         }
     }
 

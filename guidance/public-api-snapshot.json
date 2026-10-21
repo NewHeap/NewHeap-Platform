@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.75",
   "backEnd": {
-    "hash": "bc92c8b807c60ff35a41793528cf27bbfae8e3e7e4a72b4a501fe3596273974a",
-    "declarationCount": 9189,
+    "hash": "4092e96aeea59a60f2bb9972d9d2468f2af8a2591d77fdf618415824d1c4fded",
+    "declarationCount": 9191,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3048,6 +3048,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunEnding.cs",
         "declaration": "public async Task<bool> EndAfterOperationEndedAsync( AssistantRun run, NhBackgroundOperationStatus? operationStatus, string? operationFailureCode, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunEnding.cs",
+        "declaration": "public Task CloseInlineProposalsOfEndedRunAsync(AssistantRun run, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunHistory.cs",
@@ -13856,6 +13860,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<IReadOnlyList<AssistantRun>> GetActiveRunsWithOperationAsync( (DateTimeOffset CreatedAt, Guid Id)? after, int maximum, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantRun>> GetEndedRunsWithApprovedInlineProposalsAsync( int maximum, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",

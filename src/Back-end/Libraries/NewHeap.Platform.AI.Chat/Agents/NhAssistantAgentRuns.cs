@@ -501,7 +501,7 @@ public sealed class NhAssistantAgentRunBuilder
 
     public NhAssistantAgentRunBuilder Retry(int retryCount)
     {
-        if (retryCount is < 0 or > 10)
+        if (retryCount is < 0 or > NhAssistantAgentConfigurationLimits.MaxRetryCount)
         {
             throw new ArgumentOutOfRangeException(nameof(retryCount));
         }

@@ -77,8 +77,14 @@ ended operations removed it, fails with `assistant-run-operation-ended` once the
 was created) at least that timeout ago. The job checks a bounded page of open runs per round, in the order
 of their creation time and id, continuing after the last one, and leaves a run whose operation
 still waits, is due or runs alone. A run that a person or the kill switch cancels while it waits
-inline ends at once and releases that turn as well. Cancel a run with `POST runs/{id}/cancel`
-rather than its operation. Resuming a run that ended this way (`retry` with `mode: "resume"`)
+inline ends at once and releases that turn as well. Such a cancel, and subject retention, leave
+an inline proposal that was approved but not executed yet `approved`, because the run's operation
+may still be starting and about to execute it. Once that operation has been terminal for
+`StaleAttemptTimeout` on the system clock (or is gone and the run ended that long ago), the job
+withdraws it, once and without executing it, with the run's failure code as its result, or the
+run's status (`cancelled`) when the run ended without one; the decider is kept. A proposal that is
+executing or whose execution is unknown stays with the execution recovery. Cancel a run with
+`POST runs/{id}/cancel` rather than its operation. Resuming a run that ended this way (`retry` with `mode: "resume"`)
 retries its operation, which drops the wait the run gave up and starts a new turn in the thread;
 `mode: "restart"` starts a new run instead.
 
@@ -402,7 +408,11 @@ at once. Maintenance queues a run again whose operation never committed. Choose
 coalesce, queue, supersede or ignore. Bound agents with `Budget`, `Retry`,
 `Enabled`, and `Shadow()` on the agent or a skill to start it in shadow for evaluation on real
 events: its work goes to the agent's shadow thread of the subject, which administrators alone see,
-where nobody is notified and nothing proposed executes. `Retry` counts attempts that failed only:
+where nobody is notified and nothing proposed executes. `Retry` (0 to 10, 3 by default, in code
+or in the run settings) alone decides how often a run is retried after a transient failure: the
+run's background operation allows the most an agent can configure, and the run fails once its
+failed attempts exceed the agent's value, so `Retry(0)` never retries and `Retry(5)` gives six
+attempts. `Retry` counts attempts that failed only:
 a run whose thread a person's turn holds, or whose agent already has `maxConcurrentRuns` runs
 going, gives way without spending a retry and tries again 15 or 30 seconds later on the
 application's clock, twice as long after every attempt that gave way, at most five minutes. Call
@@ -954,7 +964,12 @@ and assert that the maintenance job leaves it alone until the operation has been
 `StaleAttemptTimeout` of real time, then ends it once with its code and class, withdraws its
 proposal, frees its thread for the next run that completes, and that further rounds change
 nothing, while a run whose operation still waits stays waiting; cancel a waiting run as a
-participant and assert that its thread is idle and the next run completes, on both providers; decide a proposal and assert that
+participant and assert that its thread is idle and the next run completes; approve an inline
+proposal, cancel its run as a participant and assert that the job leaves the proposal `approved`
+until the operation has been terminal for `StaleAttemptTimeout`, then withdraws it once with one
+proposal update and no tool call, on both providers; let a model keep failing for an agent with
+`Retry(5)` and with `Retry(0)` and assert six and one failed attempts and a run failed as
+transient; decide a proposal and assert that
 `AgentWorkChanged` reaches the subject's members. Start an agent by hand on a subject without a
 member snapshot, as a person no member list names, let the run propose nothing and assert that
 `AgentWorkChanged` reaches that person and the subject's members when the run runs and when it
