@@ -7,9 +7,14 @@ case are authoritative.
 
 ## Status
 
-Decisions F1–F11 taken by Lars on 2026-10-22; see [Decision record](#decision-record). Not
-implemented. Phase 1 builds on the agent "off" state and the data classification per agent and
-skill, which are being built on `feat/agent-off-state`.
+Decisions F1–F11 taken by Lars on 2026-10-22; see [Decision record](#decision-record). F-1 is
+implemented on `feat/ai-files-f1` (2026-10-22): file references, the file source, tool results with
+files, native reading per profile, the limits, the classification, audit and retention, and the
+opt-in per agent and skill in code and in the administration, with the `AcceptsFiles` migration for
+SQL Server and PostgreSQL. The details it settled are in
+[F-1 implementation decisions](#f-1-implementation-decisions), for Lars to review; the contracts
+F-2 and F-3 build on are in [Contracts for F-2 and F-3](#contracts-for-f-2-and-f-3). F-2, F-3 and
+F-4 are not implemented.
 
 ## Problem
 
@@ -129,6 +134,56 @@ skill, which are being built on `feat/agent-off-state`.
 | F-2 | Reading tools: local tool declarations and the MCP reader setting in the administration, with classification and consent checks. |
 | F-3 | Chat attachments: upload endpoint, Angular composer control, mock API. |
 | F-4 | Sample case on the media library (upload a project document and ask about it; an agent skill that reads a document through a tool), the example Word and Excel reading tool, an evaluation case with a malicious document, guidance and release notes. |
+
+## F-1 implementation decisions
+
+Each line: the decision, why, and its status.
+
+| # | Decision | Reason | Status |
+|---|---|---|---|
+| D1 | The file reference is `NhAiFileReference` in `NewHeap.Platform.AI.Common`, not `NhAssistantFileReference`. | `NhAiToolResult`, the generator and MCP tools live in AI.Common, which cannot reference the assistant; one type serves tools, the file source and the thread. | For Lars to review |
+| D2 | A tool names files through data that implements `INhAiToolResultFiles` or `NhAiToolResult.Create(result, options, files)`; the envelope gets `files` next to `data`, at most 16, on success only. | Generated tools get it through their existing marshaller; the shape stays one envelope for every protocol. | For Lars to review |
+| D3 | A tool's files reach the model in one user message after the tool results of its round; the governed model call (`INhAiChatExecutor`) moves them there. | Most providers accept files only in user messages, and every tool result must follow its call directly. | For Lars to review |
+| D4 | A model call is classified as the most sensitive file it carries, in `INhAiChatExecutor`; the assistant refuses a file up front when no profile may receive the turn's new classification. | A confidential file then moves the calls to the fallback that permits it instead of reaching a profile that may not take it. | For Lars to review |
+| D5 | "The profile accepts the type" means the profile that would serve the turn with the file's classification, as the resolver picks it, declares the type and still reads every file the turn already holds. | Fallbacks can serve the turn; a file must never reach a model that cannot read it. | For Lars to review |
+| D6 | File tokens are estimated: 1,000 per page, an image one page, a file without a page count one page per started 100 KB; the turn's files must also fit the serving profile's input budget. | F8's 100 pages and 100,000 tokens per turn imply about 1,000 tokens per page; providers do not report file tokens up front. | For Lars to review |
+| D7 | The files of one tool result or message count together against `MaxFilesPerTurn`: when they do not fit, all are refused. | No silent truncation (F4) and no choice of which files the model sees. | For Lars to review |
+| D8 | Refusals in a tool result are per file (`attached`, `code`, `message` in `files`) and the call stays successful; a refused attachment ends the person's turn with the first code. | The tool's data is still valid; the person who attached a file must hear why it was not read. | For Lars to review |
+| D9 | The source's failures pass through as `assistant-file-not-found` or `assistant-file-forbidden`; any other code or exception becomes `assistant-file-unavailable`. | Only registered codes reach the front end; an exception may carry file content. | For Lars to review |
+| D10 | The chat assistant is an agent without run settings, in code or in the administration; an agent with run settings needs `AcceptsFiles()`, and in a skill both the agent and the skill must accept files. | F11: a new skill never inherits a stream of documents; it matches the "off" state, which also applies to configured agents. | For Lars to review |
+| D11 | Code limits of an agent or skill above the application's stop the host; the administration stores only the switch (`acceptsFiles`), without lower limits. | Invalid configuration fails explicitly; lower limits for data agents can follow when someone needs them. | For Lars to review |
+| D12 | A later turn opens the files of the history it replays again, newest first and each once, within the per-turn limits counted on their own; a file it cannot open is named with the code. Consultations open no files of the thread. | Earlier files never crowd out the files of the current turn; a model call carries at most twice the per-turn limits. | For Lars to review |
+| D13 | The thread and the audit record the SHA-256 the runtime computed over what the model read (`sha256:<hex>`), next to the application's own hash. | The audit then proves which content the model saw, also when a re-opened file changed. | For Lars to review |
+| D14 | `use_skill` refuses a skill that cannot take the files the turn already reads; rule turns process no files. | The files stay in the conversation when the turn switches skills; rule tools only propose. | For Lars to review |
+| D15 | The runtime already reads attachments (`NhAssistantMessageTurnRequest.Files`, internal); the HTTP field, the upload endpoint and the composer stay F-3. | The checks, limits, persistence and re-opening are shared with tool results and are tested in F-1. | For Lars to review |
+| D16 | HTTP statuses: `files-unavailable` and `file-not-found` 404, `file-forbidden` 403, `file-too-large` 413, `file-type-not-supported` 415, `files-not-accepted` 409, `file-unavailable` 503, the other file codes 400. | One status per code in the shared table, as for every assistant code. | For Lars to review |
+| D17 | The audit events are `FileRead` and `FileRefused`, with `FileId`, `FileMediaType`, `FileHash` and the origin (`NhAssistantFileOrigins`) as `ObjectId`. | Content-free, and the existing event shape names the tool and invocation. | For Lars to review |
+| D18 | An approved call that returns files gives them to the model as any tool call does. | Same rules for every tool result that reaches the model. | For Lars to review |
+
+## Contracts for F-2 and F-3
+
+- **Public, stable:** `NhAiFileReference`, `NhAiMediaTypes`, `INhAiToolResultFiles`,
+  `NhAiToolResult.FilesPropertyName`, `MaxFiles`, `Create(result, options, files)` and `TryGetFiles`;
+  `NhAiModelProfileBuilder.AcceptMediaTypes`, `NhAiModelProfile.AcceptedMediaTypes` and
+  `AcceptsMediaType`; `INhAssistantFileSource` with `OpenAsync` and `StoreUploadAsync`,
+  `NhAssistantFile`, `NhAssistantFileActor`, `NhAssistantFileUpload`, `NhAssistantFileOrigins`;
+  `UseFileSource<T>()`; `NhAssistantLimits.MaxFileBytes`, `MaxFilePages`, `MaxFilesPerTurn` and
+  `MaxFileTokensPerTurn`; `AcceptsFiles()` on agents and skills with `NhAssistantFileLimits`; the
+  eleven file error codes and the `FileRead` and `FileRefused` audit events.
+- **F-2 seam:** the internal `INhAssistantFileReader` in `NhAssistantTurnFiles`. When the serving
+  profile does not declare a file's type, the runtime reads the content and asks the registered
+  reader for text (`NhAssistantFileReadRequest` with reference, media type, content, classification
+  and actor); `null` means no reader declares the type and the file is refused with
+  `assistant-file-type-not-supported`. The text reaches the model as untrusted external data with
+  the same marker and annotations, and `NhAssistantTurnFile.Native` is false. F-2 registers the
+  reader that chooses local reading tools first, then MCP servers set up as readers, and checks
+  their classification and consent.
+- **F-3 seam:** `NhAssistantMessageTurnRequest.Files` takes the references a message carries; the
+  turn checks them before it claims the conversation and opens them with the person's rights. A
+  person's message stores them as `file` parts (`NhAssistantStoredPart.FileType`, reference and
+  SHA-256) that the conversation reader does not show yet; F-3 adds the part to the message view,
+  the upload endpoint that calls `StoreUploadAsync` after the per-file limits and media types, the
+  composer control and the mock API.
 
 ## Open questions
 
