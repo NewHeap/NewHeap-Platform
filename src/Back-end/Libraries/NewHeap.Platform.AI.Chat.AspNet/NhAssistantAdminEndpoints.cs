@@ -962,7 +962,8 @@ internal static class NhAssistantAdminEndpoints
                 body.RunPolicy,
                 body.ViewPolicy),
             body.StartsOff == true,
-            string.IsNullOrWhiteSpace(body.Profile) ? null : body.Profile.Trim()), errors);
+            string.IsNullOrWhiteSpace(body.Profile) ? null : body.Profile.Trim(),
+            string.IsNullOrWhiteSpace(body.DataClassification) ? null : body.DataClassification.Trim()), errors);
     }
 
     private static (NhAssistantMcpServerInput? Input, NhAssistantValidationErrors Errors) ToInput(
@@ -1082,6 +1083,9 @@ internal static class NhAssistantAdminEndpoints
             ServiceAccount = state.ServiceAccount,
             OfferedInChat = agent.OfferedInChat,
             Profile = agent.Definition.ProfileName,
+            DataClassification = agent.DataClassification is { } classification
+                ? NhAssistantDataClassificationNames.NameOf(classification)
+                : null,
             WorksOnSubjectTypes = agent.WorksOn.SubjectTypes,
             WorksOnAllSubjects = agent.WorksOn.AllSubjects,
             WorksOnApplication = agent.WorksOn.Application,

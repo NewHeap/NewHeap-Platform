@@ -69,6 +69,13 @@ internal sealed record NhAssistantAgent(
     /// agent created in the administration.
     /// </summary>
     public NhAssistantAgentWorksOn WorksOn { get; init; } = NhAssistantAgentWorksOn.Undeclared;
+
+    /// <summary>
+    /// The classification of the data the agent's model calls carry: <c>DataClassification(...)</c>
+    /// in code for an agent in code, the stored one for an agent created in the administration;
+    /// <see langword="null"/> for <see cref="NhAiDataClassification.Internal"/>. A skill's own wins.
+    /// </summary>
+    public NhAiDataClassification? DataClassification { get; init; }
 }
 
 /// <summary>
@@ -185,8 +192,25 @@ internal sealed class NhAssistantAgentCatalog(
                 : !row.HiddenFromChat,
             WorksOn = row.Source == NhAssistantAgentSources.Code
                 ? registration.CodeAgentRuns.TryGetValue(row.Id, out var codeOptions) ? codeOptions.WorksOn : NhAssistantAgentWorksOn.Undeclared
-                : NhAssistantAgentWorksOn.FromRow(row)
+                : NhAssistantAgentWorksOn.FromRow(row),
+            DataClassification = ClassificationOf(row)
         };
+    }
+
+    /// <summary>
+    /// The agent's own classification: from its code for an agent in code, stored for an agent created
+    /// in the administration.
+    /// </summary>
+    private NhAiDataClassification? ClassificationOf(AssistantAgent row)
+    {
+        if (row.Source == NhAssistantAgentSources.Code)
+        {
+            return registration.CodeAgentRuns.TryGetValue(row.Id, out var options) ? options.DataClassification : null;
+        }
+
+        return NhAssistantDataClassificationNames.TryParse(row.DataClassification, out var classification)
+            ? classification
+            : null;
     }
 
     /// <summary>

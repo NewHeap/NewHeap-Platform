@@ -146,6 +146,13 @@ export interface AdminAgentInput {
    * the application's chat profile. Agents in code take it from their code.
    */
   profile?: string | null;
+  /**
+   * For an agent created in the administration: the classification of the data its model calls carry,
+   * in people's chats with it and in its runs (`dataClassification: invalid` for another value). A
+   * skill's own wins. Omitted keeps it on update; a new agent has none, so its calls are `internal`.
+   * Agents in code take it from their code.
+   */
+  dataClassification?: AssistantDataClassification | null;
 }
 
 /** Body of `PUT admin/agents/{id}`. */
@@ -211,6 +218,12 @@ export interface AdminAgent extends AdminAgentInput {
    * here; missing on older servers.
    */
   profile?: string;
+  /**
+   * The classification of the data the agent's model calls carry: from its code, or chosen here for
+   * an agent created here; `null` when it has none, so its calls are `internal`. Missing on older
+   * servers.
+   */
+  dataClassification?: AssistantDataClassification | null;
 }
 
 /** The groups one agent is in, as `setAgentGroups` answers. */

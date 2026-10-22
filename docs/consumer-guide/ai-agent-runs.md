@@ -658,16 +658,20 @@ route; keep separate roles separate agents.
 Classify the data an agent sends to its model with `DataClassification(...)` on `ConfigureAgent`
 and, for a skill that reads more sensitive data than the rest of its agent, on `Skill(...)`. The
 most specific one wins: the skill's, then the agent's, then `NhAiDataClassification.Internal`. It
-applies to every model call of the agent's runs, people's turns in its threads and its
-consultations, and the agent's own one to triage; it also classifies the skill's instructions and
-the run's hand-off calls. The model profile of each call must permit it
-(`PermitDataClassifications`): otherwise its fallbacks are tried, and when none permits it the
-turn fails at once with `assistant-classification-not-permitted` (failure class `policy`), which a
-run does not retry, so give such an agent or skill a profile that permits its classification
-(`UseProfile`). A data skill stores it as
-`dataClassification` (`public`, `internal`, `confidential` or `restricted`, see
-`NhAssistantDataClassificationNames`); an unknown name is a field error. A consultation's own
-`DataClassification(...)` keeps classifying its answers in the asking conversation.
+applies to every model call of the agent: its runs, people's turns in its threads, its
+consultations and people's plain chat conversations with it, and the agent's own one to triage; it
+also classifies the skill's instructions and the run's hand-off calls. The model profile of each
+call must permit it (`PermitDataClassifications`): otherwise its fallbacks are tried, and when none
+permits it the turn fails at once with `assistant-classification-not-permitted` (failure class
+`policy`), which a run does not retry, so give such an agent or skill a profile, or a profile with a
+fallback (`WithFallbackProfiles`), that permits its classification (`UseProfile`). A data skill
+stores it as `dataClassification` (`public`, `internal`, `confidential` or `restricted`, see
+`NhAssistantDataClassificationNames`); an unknown name is a field error. An agent created in the
+administration chooses it in its definition next to its profile (`dataClassification` on
+`NhAssistantAdminAgentInputDto` and `NhAssistantAgentRequest`, shown on `NhAssistantAdminAgentDto`;
+omitted keeps it on update and leaves a new agent at `internal`); its plain chats and, with run
+settings, its runs use it. A consultation's own `DataClassification(...)` keeps classifying its
+answers in the asking conversation.
 
 An agent and each of its skills read no files until they are switched on, so a deploy never opens
 a new stream of documents unnoticed: `AcceptsFiles()` on `ConfigureAgent` lets people's messages
@@ -1111,11 +1115,14 @@ a schedule tick and a webhook read `ignored` with `agent-off` without running a 
 an audit; that a run that started finishes and its proposal stays decidable and executes while its
 follow-up is ignored; that people still chat and start it by hand; that waiting inputs of a pause
 end and switching on starts no run; that a skill that is off ignores its triggers with `skill-off`
-and that rules and triage do not route to it; and that `StartsOff()` applies only at the first
-start, also after a new host start and a deploy, on both providers. Assert that a skill's
-classification, or else its agent's, reaches the model call, that a profile that does not permit it
-refuses the call with `assistant-classification-not-permitted` without a retry, and that a data skill stores its classification and refuses an unknown one, on
-both providers. Assert that an agent configured for runs and a skill refuse files with
+and that rules and triage do not route to it; that releasing the kill switch leaves an agent that
+was off off and its skills in their states, while a paused or stopped agent resumes; and that
+`StartsOff()` applies only at the first start, also after a new host start and a deploy, on both
+providers. Assert that a skill's classification, or else its agent's, reaches the model call, also
+in a plain chat with the agent, where it moves to the profile's fallback that permits it; that a
+profile chain that does not permit it refuses the call with
+`assistant-classification-not-permitted` without a retry; and that a data skill and an agent created
+in the administration store their classification and refuse an unknown one, on both providers. Assert that an agent configured for runs and a skill refuse files with
 `assistant-files-not-accepted` until `AcceptsFiles()` or `acceptsFiles` in the administration switches
 them on, that a run opens a file for the agent, and that an agent's limit only lowers the
 application's, on both providers. SPM-306 runs the sample's document reader end to end: its skill

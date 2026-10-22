@@ -147,6 +147,18 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
             agentInput.toolSelectors, agentInput.mcpServerIds, agentInput.requiredPolicy, agentInput.autonomy,
             profile = "missing-chat"
         }));
+        using var classified = await admin.PostAsync("/api/assistant/admin/agents", Json(new
+        {
+            id = "figures-helper", agentInput.displayName, agentInput.description, agentInput.instructions,
+            agentInput.toolSelectors, agentInput.mcpServerIds, agentInput.requiredPolicy, agentInput.autonomy,
+            dataClassification = "confidential"
+        }));
+        using var unknownClassification = await admin.PostAsync("/api/assistant/admin/agents", Json(new
+        {
+            id = "secret-helper", agentInput.displayName, agentInput.description, agentInput.instructions,
+            agentInput.toolSelectors, agentInput.mcpServerIds, agentInput.requiredPolicy, agentInput.autonomy,
+            dataClassification = "secret"
+        }));
         using var noVersion = await admin.PutAsync("/api/assistant/admin/agents/budget-helper", Json(agentInput));
         using var updated = await admin.PutAsync("/api/assistant/admin/agents/budget-helper", Json(new
         {
@@ -176,10 +188,16 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         AssertNames(code, "id", "displayName", "description", "instructions", "toolSelectors", "mcpServerIds", "requiredPolicy",
             "autonomy", "isEnabled", "version", "source", "isOverridden", "instructionsHash", "updatedAt",
             "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf", "shadow", "serviceAccount",
-            "offeredInChat", "profile", "worksOnSubjectTypes", "worksOnAllSubjects", "worksOnApplication", "perDivision", "runPolicy", "viewPolicy",
-            "worksOnDeclared", "knownSubjectTypes", "groups", "codeGroups");
+            "offeredInChat", "profile", "dataClassification", "worksOnSubjectTypes", "worksOnAllSubjects", "worksOnApplication", "perDivision",
+            "runPolicy", "viewPolicy", "worksOnDeclared", "knownSubjectTypes", "groups", "codeGroups");
         Assert.Equal("active", code.GetProperty("runState").GetString());
         Assert.Equal("project-chat", code.GetProperty("profile").GetString());
+        Assert.Equal(JsonValueKind.Null, code.GetProperty("dataClassification").ValueKind);
+        // An agent created here chooses the classification of its model calls.
+        Assert.Equal(HttpStatusCode.Created, classified.StatusCode);
+        Assert.Equal("confidential", (await ReadJsonAsync(classified)).GetProperty("dataClassification").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, unknownClassification.StatusCode);
+        Assert.Equal("invalid", (await ReadJsonAsync(unknownClassification)).GetProperty("errors").GetProperty("dataClassification")[0].GetString());
         Assert.Equal("code", code.GetProperty("source").GetString());
         Assert.Equal("execute", code.GetProperty("autonomy").GetString());
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);

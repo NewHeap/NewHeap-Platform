@@ -72,11 +72,10 @@ internal sealed partial class NhAssistantTurnRunner
     }
 
     /// <summary>
-    /// The classification of the turn's model calls: the skill's, then the agent's run
-    /// configuration, then <see cref="NhAiDataClassification.Internal"/>, raised to the highest
-    /// classification of the files the model reads. A turn outside an agent's thread is
-    /// <see cref="NhAiDataClassification.Internal"/> without files. The profile resolution refuses a
-    /// profile that does not permit it.
+    /// The classification of the turn's model calls: the skill's, then the agent's, then
+    /// <see cref="NhAiDataClassification.Internal"/>, raised to the highest classification of the
+    /// files the model reads. A plain chat with the agent uses the agent's as well. The profile
+    /// resolution refuses a profile that does not permit it.
     /// </summary>
     private static NhAiDataClassification ClassificationOf(NhAssistantTurnState state)
     {
@@ -273,7 +272,7 @@ internal sealed partial class NhAssistantTurnRunner
         var agent = ForSkill(
             state.EffectiveAgent.Definition,
             skill,
-            state.AgentTurn?.Options.ClassificationOf(skill) ?? NhAiDataClassification.Internal);
+            NhAssistantTurnFiles.ConfiguredClassificationOf(state, skill));
         var prompt = await ComposePromptAsync(agent, state.Scope.TurnId, callerContext, state.Language, state.ClientContext, state.Speakers);
         state.Scope.Agent = agent;
         state.Scope.ModelProfileName = agent.ProfileName;

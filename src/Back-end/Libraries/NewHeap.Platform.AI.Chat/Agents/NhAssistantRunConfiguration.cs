@@ -49,11 +49,8 @@ public static class NhAssistantAgentConfigurationLimits
 }
 
 /// <summary>
-/// The names of <see cref="NhAiElevatedReads"/> in the run settings of an agent.
-/// </summary>
-/// <summary>
-/// The names of <see cref="NhAiDataClassification"/> that data skills store and the administration
-/// sends.
+/// The names of <see cref="NhAiDataClassification"/> that data skills and agents created in the
+/// administration store and the administration sends.
 /// </summary>
 public static class NhAssistantDataClassificationNames
 {
@@ -89,6 +86,9 @@ public static class NhAssistantDataClassificationNames
     }
 }
 
+/// <summary>
+/// The names of <see cref="NhAiElevatedReads"/> in the run settings of an agent.
+/// </summary>
 public static class NhAssistantElevatedReadNames
 {
     public const string Restricted = "restricted";
@@ -621,8 +621,9 @@ internal sealed class NhAssistantRunConfigurations(
                 continue;
             }
 
-            // What the agent works on is part of its definition; its runs follow it.
-            agentRuns[settings.AgentId] = ToOptions(settings, stored.AdminAgents[settings.AgentId].WorksOn);
+            // What the agent works on and its classification are part of its definition; its runs
+            // follow them.
+            agentRuns[settings.AgentId] = ToOptions(settings, stored.AdminAgents[settings.AgentId]);
             runAgents[settings.AgentId] = new NhAssistantRunAgent([], agentSelectors!);
         }
 
@@ -711,7 +712,7 @@ internal sealed class NhAssistantRunConfigurations(
     /// The run options of an agent created in the administration. It has no grants: it acts with the
     /// rights of the account it answers to.
     /// </summary>
-    private NhAssistantAgentRunOptions ToOptions(AssistantAgentRunConfiguration settings, NhAssistantAgentWorksOn worksOn)
+    private NhAssistantAgentRunOptions ToOptions(AssistantAgentRunConfiguration settings, NhAssistantStoredAdminAgent agent)
     {
         NhAssistantAccountabilities.TryParse(settings.Accountability, out var accountability);
         NhAssistantElevatedReadNames.TryParse(settings.ElevatedReads, out var elevatedReads);
@@ -732,7 +733,10 @@ internal sealed class NhAssistantRunConfigurations(
             RuleHandlerType = settings.RuleHandlerName is { } handler ? registration.RuleHandlers[handler].HandlerType : null,
             ActWithAccountableRights = true,
             DataVersion = settings.Version,
-            WorksOn = worksOn,
+            WorksOn = agent.WorksOn,
+            DataClassification = NhAssistantDataClassificationNames.TryParse(agent.DataClassification, out var classification)
+                ? classification
+                : null,
             // Switched on in the administration, the agent reads files within the application's limits.
             FileLimits = settings.AcceptsFiles ? new NhAssistantFileLimits() : null
         };

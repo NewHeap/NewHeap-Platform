@@ -211,6 +211,18 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(standard.profile).toBe('chat');
   });
 
+  it('lets an agent created in the administration choose its classification and keeps it when omitted, as the server does', async () => {
+    const invalid = await failure(firstValueFrom(admin.createAgent({ ...newAgent, id: 'secret-agent', dataClassification: 'secret' as 'internal' })));
+    const created = await firstValueFrom(admin.createAgent({ ...newAgent, id: 'figures-agent', dataClassification: 'confidential' }));
+    const kept = await firstValueFrom(admin.updateAgent('figures-agent', { ...newAgent, id: 'figures-agent', expectedVersion: created.version }));
+    const standard = await firstValueFrom(admin.createAgent({ ...newAgent, id: 'notes-agent' }));
+
+    expect(invalid.fieldErrors?.['dataClassification']).toEqual(['invalid']);
+    expect(created.dataClassification).toBe('confidential');
+    expect(kept.dataClassification).toBe('confidential');
+    expect(standard.dataClassification).toBeNull();
+  });
+
   it('stores whether a data skill and the run settings of an agent accept files', async () => {
     const skill = await firstValueFrom(admin.saveDataSkill('projects', 'audit', {
       description: 'Audits the project documents.', acceptsFiles: true

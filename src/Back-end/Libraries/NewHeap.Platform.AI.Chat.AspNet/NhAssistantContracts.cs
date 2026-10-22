@@ -602,6 +602,12 @@ public sealed record NhAssistantToolCatalogEntryDto(
 /// calls, one of the run catalog's <c>profiles</c> (field error <c>profile: not-found</c> otherwise).
 /// Omitted keeps it on update; a new agent uses the application's chat profile. Agents in code take
 /// it from their code.</param>
+/// <param name="DataClassification">For an agent created in the administration: the classification of
+/// the data its model calls carry, in people's chats with it and in its runs, one of
+/// <c>public</c>, <c>internal</c>, <c>confidential</c> or <c>restricted</c> (field error
+/// <c>dataClassification: invalid</c> otherwise). A skill's own wins. Omitted keeps it on update; a new
+/// agent has none, so its model calls are <c>internal</c>. Agents in code take it from their
+/// code.</param>
 public sealed record NhAssistantAdminAgentInputDto(
     string? Id,
     string? DisplayName,
@@ -621,7 +627,8 @@ public sealed record NhAssistantAdminAgentInputDto(
     string? RunPolicy = null,
     string? ViewPolicy = null,
     bool? StartsOff = null,
-    string? Profile = null);
+    string? Profile = null,
+    string? DataClassification = null);
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
 /// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c>, <c>off</c> or <c>configured-off</c>.</param>
@@ -680,6 +687,14 @@ public sealed record NhAssistantAdminAgentDto(
     /// the administration for one created there. A skill may use another.
     /// </summary>
     public string Profile { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The classification of the data the agent's model calls carry, one of
+    /// <see cref="NhAssistantDataClassificationNames"/>: from its code for an agent in code, chosen in
+    /// the administration for one created there. <see langword="null"/> when it has none, so its model
+    /// calls are <c>internal</c>. A skill's own wins.
+    /// </summary>
+    public string? DataClassification { get; init; }
 
     /// <summary>
     /// The object types the agent works on, ordered by id; empty with

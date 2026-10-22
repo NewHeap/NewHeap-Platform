@@ -317,6 +317,39 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(requestBodies('POST', 'admin/agents')).toEqual([jasmine.objectContaining({ id: 'profiled-agent', profile: 'project-chat' })]);
   });
 
+  it('creates an agent with a data classification and sends it only when it changes', async () => {
+    await configure(runScenario());
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+
+    button(element, 'New agent').click();
+    await settle(fixture);
+    const select = element.querySelector('[data-agent-classification] select') as HTMLSelectElement;
+    expect(Array.from(select.options).map(option => option.textContent?.trim())).toEqual(['Public', 'Internal', 'Confidential', 'Restricted']);
+    expect(select.value).toBe('internal');
+    expect(select.getAttribute('aria-describedby')).toContain('-classification-hint');
+    type(element, 'input[id$="-id"]', 'figures-desk');
+    type(element, 'input[id$="-name"]', 'Figures desk');
+    type(element, 'textarea', 'Answer about the figures.');
+    choose(element, '[data-agent-classification] select', 'confidential');
+    fixture.detectChanges();
+    button(element, 'Save').click();
+    await settle(fixture);
+    button(element, 'New agent').click();
+    await settle(fixture);
+    type(element, 'input[id$="-id"]', 'notes-desk');
+    type(element, 'input[id$="-name"]', 'Notes desk');
+    type(element, 'textarea', 'Write notes.');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    const [confidential, standard] = requestBodies('POST', 'admin/agents') as Record<string, unknown>[];
+    expect(confidential).toEqual(jasmine.objectContaining({ id: 'figures-desk', dataClassification: 'confidential' }));
+    expect(Object.keys(standard)).not.toContain('dataClassification');
+    const agents = await firstValueFrom(TestBed.inject(NhAssistantAdminApiService).getAgents());
+    expect(agents.find(agent => agent.id === 'figures-desk')?.dataClassification).toBe('confidential');
+    expect(agents.find(agent => agent.id === 'notes-desk')?.dataClassification).toBeNull();
+  });
+
   it('refuses an invalid id without calling the server', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);

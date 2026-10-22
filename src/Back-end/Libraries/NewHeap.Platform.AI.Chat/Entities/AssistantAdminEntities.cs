@@ -24,6 +24,14 @@ public sealed class AssistantAgent
 
     public string ProfileName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The classification of the data the model calls of an agent created in the administration carry,
+    /// one of <see cref="NhAssistantDataClassificationNames"/>; <see langword="null"/> for
+    /// <see cref="NhAiDataClassification.Internal"/>. Agents in code take it from
+    /// <c>DataClassification(...)</c> on <c>ConfigureAgent</c> instead.
+    /// </summary>
+    public string? DataClassification { get; set; }
+
     public string Instructions { get; set; } = string.Empty;
 
     public string InstructionsAssetId { get; set; } = string.Empty;

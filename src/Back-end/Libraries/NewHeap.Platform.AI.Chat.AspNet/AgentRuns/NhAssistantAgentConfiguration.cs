@@ -307,6 +307,10 @@ public sealed record NhAssistantAccountDto(string ActorId, string DisplayName, s
 /// <param name="Profile">The model profile of its model calls, one of the run catalog's
 /// <see cref="NhAssistantRunCatalogDto.Profiles"/> (field error <c>profile: not-found</c> otherwise);
 /// without it the application's chat profile.</param>
+/// <param name="DataClassification">The classification of the data its model calls carry, in people's
+/// chats with it and in its runs: <c>public</c>, <c>internal</c>, <c>confidential</c> or
+/// <c>restricted</c> (field error <c>dataClassification: invalid</c> otherwise); without it
+/// <c>internal</c>. A skill's own wins.</param>
 /// <remarks>
 /// Without <paramref name="WorksOnSubjectTypes"/>, <paramref name="WorksOnAllSubjects"/> and
 /// <paramref name="WorksOnApplication"/> the agent works on all object types and not on the
@@ -328,7 +332,8 @@ public sealed record NhAssistantAgentRequest(
     string? RunPolicy = null,
     string? ViewPolicy = null,
     bool StartsOff = false,
-    string? Profile = null);
+    string? Profile = null,
+    string? DataClassification = null);
 
 /// <param name="Name">The building block's name.</param>
 /// <param name="Description">What it means, for the administration.</param>
@@ -778,7 +783,8 @@ internal sealed class NhAssistantAgentConfiguration(
                     request.RunPolicy,
                     request.ViewPolicy),
                 request.StartsOff,
-                string.IsNullOrWhiteSpace(request.Profile) ? null : request.Profile.Trim()),
+                string.IsNullOrWhiteSpace(request.Profile) ? null : request.Profile.Trim(),
+                string.IsNullOrWhiteSpace(request.DataClassification) ? null : request.DataClassification.Trim()),
             actorId,
             cancellationToken);
         if (!created.Success)

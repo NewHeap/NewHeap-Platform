@@ -233,37 +233,48 @@ was off off when it is released, as the server does, and answers `runState`.
 `DataClassification(...)` on `ConfigureAgent` (`NhAssistantAgentRunOptions.DataClassification`) and on
 `Skill(...)` (`NhAssistantSkillOptions.DataClassification`) classifies the data of an agent's model
 calls, which were always `Internal` before. The most specific one wins: the skill's, then the
-agent's, then `Internal`. It applies to the model calls of the agent's runs, people's turns in its
-threads and its consultations, and the agent's own one to its triage; it also classifies a skill's
-instructions and the run's hand-off calls. The profile resolution applies its existing check: a
+agent's, then `Internal`. It applies to every model call of the agent: its runs, people's turns in
+its threads, its consultations and people's plain chat conversations with it, and the agent's own one
+to its triage; it also classifies a skill's instructions and the run's hand-off calls. The profile resolution applies its existing check: a
 profile that does not permit the classification is skipped for its fallbacks. When neither the
 profile nor any of its fallbacks permits it, the turn fails at once with the new, non-transient code
 `assistant-classification-not-permitted` (failure class `policy`, HTTP 400): a run is not retried,
 because every attempt would be refused the same way. A data skill stores its own
 (`dataClassification` on `NhAssistantDataSkillRequest` and `NhAssistantDataSkillDto`, one of
 `NhAssistantDataClassificationNames`: `public`, `internal`, `confidential` or `restricted`; another
-value is the field error `dataClassification: invalid`).
+value is the field error `dataClassification: invalid`). An agent created in the administration
+chooses its classification in its definition, next to its profile: `dataClassification` on `POST`
+and `PUT admin/agents` (`NhAssistantAdminAgentInputDto.DataClassification`) and on
+`NhAssistantAgentRequest`, with the same names and field error; omitted keeps it on update and a new
+agent has none, so its calls are `Internal`. Its plain chats and, with run settings, its runs use it,
+and `NhAssistantAdminAgentDto.DataClassification` shows the classification of every agent, from the
+code for an agent in code.
 
-Apply the `SkillDataClassification` migration of `NewHeap.Platform.AI.Chat.SqlServer` or
-`NewHeap.Platform.AI.Chat.PostgreSql`: it adds the nullable `DataClassification` column to
-`AssistantAgentSkillDefinition`.
+Apply the `SkillDataClassification` and `AgentDataClassification` migrations of
+`NewHeap.Platform.AI.Chat.SqlServer` or `NewHeap.Platform.AI.Chat.PostgreSql`: they add the nullable
+`DataClassification` columns to `AssistantAgentSkillDefinition` and `AssistantAgent`.
 
 | Breaking change | Required action |
 |---|---|
-| Database schema change. | Apply the `SkillDataClassification` migration. |
+| Database schema change. | Apply the `SkillDataClassification` and `AgentDataClassification` migrations. |
 | `NhAssistantDataSkillRequest` has a new optional last parameter, `DataClassification`. | Recompile callers that construct it positionally. |
+| A plain chat conversation with an agent that has a `DataClassification(...)` carries that classification instead of `Internal`, so its profile chain must permit it or the turn fails with `assistant-classification-not-permitted`. | Give such an agent a profile, or a profile with a fallback, that permits its classification. |
+| `NhAssistantAdminAgentInputDto` and `NhAssistantAgentRequest` have a new optional last parameter, `DataClassification`; `NhAssistantAdminAgentDto` lists `dataClassification`. | Recompile callers that construct them positionally; clients that compare the agent's fields add `dataClassification`. |
 
 ## @newheap/platform-ai-chat: data classification of a skill
 
 The skill form of the run configuration asks for the skill's data classification, with "The agent's
 classification" as the default (Dutch: "Dataclassificatie", "De classificatie van de agent"), and
-shows the server's `dataClassification` field error. `DataSkill` and `DataSkillRequest` gain
-`dataClassification` of the new type `AssistantDataClassification`. The mock backend of
-`@newheap/platform-ai-chat/testing` stores it and refuses an unknown value as the server does.
+shows the server's `dataClassification` field error. The agent editor asks for the classification of
+an agent created here, next to its model profile, with "Internal" as the default, sends
+`dataClassification` only when it changes and shows its field error. `DataSkill`, `DataSkillRequest`,
+`AdminAgentInput` and `AdminAgent` gain `dataClassification` of the new type
+`AssistantDataClassification`. The mock backend of `@newheap/platform-ai-chat/testing` stores it for
+data skills and agents created here and refuses an unknown value as the server does.
 
 | Breaking change | Required action |
 |---|---|
-| New translation keys `nh-assistant.admin.run-config.skills.classification.*` and `nh-assistant.errors.assistant-classification-not-permitted`. | Applications with their own translation files add them. |
+| New translation keys `nh-assistant.admin.run-config.skills.classification.*`, `nh-assistant.admin.agent-editor.classification` and `classification-hint`, and `nh-assistant.errors.assistant-classification-not-permitted`. | Applications with their own translation files add them. |
 
 ## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: model profile of an agent created in the administration
 

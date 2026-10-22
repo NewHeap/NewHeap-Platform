@@ -17,6 +17,7 @@ import {
   AdminAgentGroups,
   AdminAgentInput,
   AssistantAutonomy,
+  AssistantDataClassification,
   McpServer,
   ɵNH_ASSISTANT_DASH_CASE as NH_ASSISTANT_DASH_CASE,
   NhAssistantAdminApiService,
@@ -104,6 +105,7 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly id = `nh-assistant-agent-editor-${nextId++}`;
   readonly max = NH_ASSISTANT_MAX_INSTRUCTIONS;
   readonly autonomyLevels: readonly AssistantAutonomy[] = ['observe', 'explain', 'propose', 'simulate', 'execute'];
+  readonly classifications: readonly AssistantDataClassification[] = ['public', 'internal', 'confidential', 'restricted'];
 
   readonly agentId = signal('');
   readonly displayName = signal('');
@@ -116,6 +118,8 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly switchOnNow = signal(true);
   /** The model profile of an agent created here; empty uses the application's chat profile. */
   readonly profile = signal('');
+  /** The classification of the model calls of an agent created here; `internal` when it has none. */
+  readonly dataClassification = signal<AssistantDataClassification>('internal');
   readonly requiredPolicy = signal('');
   readonly toolSelectors = signal<string[]>([]);
   readonly mcpServerIds = signal<string[]>([]);
@@ -295,7 +299,11 @@ export class NhAssistantAdminAgentEditorComponent {
       ...(this.editsWorksOn() ? this.worksOnInput() : {}),
       ...(this.isNew() && !this.switchOnNow() ? { startsOff: true } : {}),
       // Omitted, the profile stays as it is; a new agent then uses the application's chat profile.
-      ...(this.choosesProfile() && this.profile() !== '' ? { profile: this.profile() } : {})
+      ...(this.choosesProfile() && this.profile() !== '' ? { profile: this.profile() } : {}),
+      // Sent only when it changes, so an agent without a classification keeps none.
+      ...(this.choosesUse() && this.dataClassification() !== (this.editing()?.dataClassification ?? 'internal')
+        ? { dataClassification: this.dataClassification() }
+        : {})
     };
     const startsWork = this.agent() === null && this.use() !== 'chat';
 
@@ -362,6 +370,7 @@ export class NhAssistantAdminAgentEditorComponent {
     this.use.set(agent?.offeredInChat === false ? 'background' : 'chat');
     this.switchOnNow.set(true);
     this.profile.set(agent?.source === 'admin' ? agent.profile ?? '' : '');
+    this.dataClassification.set(agent?.source === 'admin' ? agent.dataClassification ?? 'internal' : 'internal');
     this.requiredPolicy.set(agent?.requiredPolicy ?? '');
     this.toolSelectors.set([...(agent?.toolSelectors ?? [])]);
     this.mcpServerIds.set([...(agent?.mcpServerIds ?? [])]);

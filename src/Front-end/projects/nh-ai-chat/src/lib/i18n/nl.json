@@ -726,6 +726,8 @@
         "profile": "Modelprofiel",
         "profile-default": "Het chatprofiel van de applicatie",
         "profile-hint": "Het model waarmee de agent werkt, uit de profielen die de applicatie aanbiedt voor agents die hier gemaakt worden.",
+        "classification": "Dataclassificatie",
+        "classification-hint": "Hoe gevoelig de gegevens zijn die de modelaanroepen van de agent bevatten, in chats met hem en in zijn runs. Zijn modelprofiel of een van de terugvalprofielen daarvan moet dit toestaan; een vaardigheid kan een eigen classificatie hebben.",
         "state-hint": "Pauzeer, stop en hervat de agent vanuit de lijst met agents. Opslaan verandert de stand nooit.",
         "switch-on-now": "Nu aanzetten",
         "switch-on-now-hint": "Anders begint de agent uit: zijn gebeurtenissen, schema's en andere triggers worden genegeerd tot je hem aanzet in de lijst met agents. Mensen kunnen nog met de agent chatten en hem handmatig starten.",

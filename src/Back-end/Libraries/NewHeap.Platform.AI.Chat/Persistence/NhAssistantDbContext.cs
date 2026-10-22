@@ -507,6 +507,7 @@ public sealed class NhAssistantDbContext : DbContext
             agent.Property(item => item.DisplayName).HasMaxLength(256).IsRequired();
             agent.Property(item => item.Description).HasMaxLength(512).IsRequired();
             agent.Property(item => item.ProfileName).HasMaxLength(128).IsRequired();
+            agent.Property(item => item.DataClassification).HasMaxLength(16);
             agent.Property(item => item.Instructions).IsRequired();
             agent.Property(item => item.InstructionsAssetId).HasMaxLength(128).IsRequired();
             agent.Property(item => item.InstructionsHash).HasMaxLength(64).IsRequired();
