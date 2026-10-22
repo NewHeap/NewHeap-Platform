@@ -1614,6 +1614,34 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.ToTable("AssistantMcpConnectionNotice", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpReader", b =>
+                {
+                    b.Property<string>("ServerId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ToolName")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("MaxClassification")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("MediaTypes")
+                        .IsRequired()
+                        .HasMaxLength(2064)
+                        .HasColumnType("nvarchar(2064)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.HasKey("ServerId", "ToolName");
+
+                    b.ToTable("AssistantMcpReader", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpServer", b =>
                 {
                     b.Property<string>("Id")
@@ -1706,18 +1734,6 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<string>("ProtectedSecret")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
-
-                    b.Property<string>("ReaderMaxClassification")
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
-                    b.Property<string>("ReaderMediaTypes")
-                        .HasMaxLength(2064)
-                        .HasColumnType("nvarchar(2064)");
-
-                    b.Property<string>("ReaderToolName")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
 
                     b.Property<string>("RequiredPolicy")
                         .HasMaxLength(256)
@@ -2665,6 +2681,15 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpReader", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantMcpServer", null)
+                        .WithMany("Readers")
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpTool", b =>
                 {
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantMcpServer", null)
@@ -2744,6 +2769,8 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantMcpServer", b =>
                 {
+                    b.Navigation("Readers");
+
                     b.Navigation("Tools");
                 });
 #pragma warning restore 612, 618
