@@ -7,8 +7,9 @@ case are authoritative.
 
 ## Status
 
-Decisions F1–F7 taken by Lars on 2026-10-22; see [Decision record](#decision-record). Not
-implemented. The open questions at the end need an answer before phase 1 starts.
+Decisions F1–F11 taken by Lars on 2026-10-22; see [Decision record](#decision-record). Not
+implemented. Phase 1 builds on the agent "off" state and the data classification per agent and
+skill, which are being built on `feat/agent-off-state`.
 
 ## Problem
 
@@ -31,8 +32,10 @@ implemented. The open questions at the end need an answer before phase 1 starts.
 ## Non-goals
 
 - NewHeap does not become a document store: it keeps references and hashes, not file content.
-- No built-in PDF or OCR engine in the platform; reading a type the model cannot read is done by
-  a tool the application or an MCP server provides.
+- No built-in PDF, Office or OCR engine and no reader package in the platform; reading a type the
+  model cannot read is done by a tool the application or an MCP server provides. The sample shows
+  one such tool; NewHeap intends to offer document reading later as an MCP server, which plugs
+  into the same fallback (F3).
 - No file output from the model (generating documents) in this plan.
 
 ## Decision record
@@ -43,9 +46,13 @@ implemented. The open questions at the end need an answer before phase 1 starts.
 | F2 | In what form does the model get it? | Natively, as file content, when the model profile declares the media type. Otherwise the runtime falls back to a reading tool (F3); without one the turn gets a stable error code, never a silent fallback. | Native reading keeps layout, tables and scans; an explicit error keeps what the model sees predictable. |
 | F3 | Who picks the reading tool? | The runtime, from what the tool declares: the media types it accepts and that it returns text. MCP tools declare it through a setting on the MCP server in the administration, because MCP has no standard way to say it. The runtime calls the tool before the model sees the file and gives the model the text. | Predictable and auditable, and no extra model call. |
 | F4 | Limits | Per file (bytes, pages), per turn (number of files, file tokens) and per agent or skill (lower only). NewHeap ships defaults; the application sets its own values in options. Exceeding a limit refuses with a stable error code; nothing is truncated silently. | Bounded cost per file and per turn, and the consumer decides what fits. |
-| F5 | Classification | The application's file hook gives every file a classification; uploads get a configurable default. A turn takes the highest classification of everything in it. The model profile, and a reading tool or MCP server in the fallback, must allow that classification, or the turn refuses. It combines with the classification per agent and skill. | A confidential document cannot slip through an agent configured as internal. |
+| F5 | Classification | The application's file hook gives every file a classification; uploads get a configurable default, `Confidential` unless the application lowers it. A turn takes the highest classification of everything in it. The model profile, and a reading tool or MCP server in the fallback, must allow that classification, or the turn refuses. It combines with the classification per agent and skill. | A confidential document cannot slip through an agent configured as internal. |
 | F6 | Retention | The thread stores a reference, the name, the media type and a hash, never the content. A later turn fetches the file again through the hook, if it still exists and the person or account of that turn may still read it. The application stores uploads in its own storage, such as the media library, with its own retention. | Follow-up questions about a document work, and the platform keeps no copies. |
-| F7 | Prompt injection | File content is untrusted data, as retrieved context is (`NhAiContextTrust.UntrustedRetrieved`): marked as external data and never as instructions; it cannot unlock tools, rights or approvals; the audit holds the file id and hash, not the content; an evaluation case with a malicious document proves it. An agent and a skill can declare that they accept no files. | Documents come from outside and must not steer the agent; some agents have no reason to read files at all. |
+| F7 | Prompt injection | File content is untrusted data, as retrieved context is (`NhAiContextTrust.UntrustedRetrieved`): marked as external data and never as instructions; it cannot unlock tools, rights or approvals; the audit holds the file id and hash, not the content; an evaluation case with a malicious document proves it. Whether an agent or skill accepts files is a setting (see F11). | Documents come from outside and must not steer the agent; some agents have no reason to read files at all. |
+| F8 | Default limits | 20 MB and 100 pages per file; 5 files and 100,000 file tokens per turn. | Room for normal project documents while one turn stays bounded. |
+| F9 | File types in the first version | PDF, PNG and JPEG natively where the profile declares them; Word and Excel documents through reading tools from the start. | Office documents are common in the applications that asked for this. |
+| F10 | Reading tools from NewHeap | No reader package. The sample contains an example reading tool for Word and Excel that applications can copy; NewHeap will offer document reading later as an MCP server. | Keeps document libraries out of the platform packages; an MCP server serves every application without new dependencies. |
+| F11 | Accepting files by default | New agents and skills accept no files until someone switches it on, in code or in the administration; the chat assistant accepts uploads by default. | Matches agents that start off: a deploy does not open a new data stream unnoticed, while uploading in the chat works out of the box. |
 
 ## Design
 
@@ -80,7 +87,7 @@ implemented. The open questions at the end need an answer before phase 1 starts.
 
 ### Turning files into model content
 
-1. Check the agent or skill accepts files (F7) and the per-turn limits (F4).
+1. Check the agent or skill accepts files (F11) and the per-turn limits (F4).
 2. Open each file through the hook; check per-file limits and compute the turn classification
    (F5).
 3. If the model profile declares the media type, add the file as `DataContent` to the message,
@@ -97,7 +104,8 @@ implemented. The open questions at the end need an answer before phase 1 starts.
 ### Limits
 
 - `NhAssistantLimits` gains `MaxFileBytes`, `MaxFilePages`, `MaxFilesPerTurn` and
-  `MaxFileTokensPerTurn`, with defaults; agent and skill settings can only lower them.
+  `MaxFileTokensPerTurn`, with the defaults of F8; the application sets its own values, and agent
+  and skill settings can only lower them.
 - Each refusal has its own error code, registered for the front end.
 
 ### Audit and retention
@@ -117,17 +125,11 @@ implemented. The open questions at the end need an answer before phase 1 starts.
 
 | Phase | Content |
 |---|---|
-| F-1 | File references, the hook, tool results with files, native reading per profile, limits, classification, audit, the opt-out per agent and skill. Library tests on SQL Server and PostgreSQL. |
+| F-1 | File references, the hook, tool results with files, native reading per profile, limits, classification, audit, accepting files per agent and skill. Library tests on SQL Server and PostgreSQL. |
 | F-2 | Reading tools: local tool declarations and the MCP reader setting in the administration, with classification and consent checks. |
 | F-3 | Chat attachments: upload endpoint, Angular composer control, mock API. |
-| F-4 | Sample case on the media library (upload a project document and ask about it; an agent skill that reads a document through a tool), evaluation case with a malicious document, guidance and release notes. |
+| F-4 | Sample case on the media library (upload a project document and ask about it; an agent skill that reads a document through a tool), the example Word and Excel reading tool, an evaluation case with a malicious document, guidance and release notes. |
 
-## Open questions for Lars
+## Open questions
 
-1. Default limits: proposed 20 MB and 100 pages per file, 5 files and 100,000 file tokens per
-   turn.
-2. Media types in the first version: PDF and common images only, or also Office documents
-   through reading tools?
-3. Default classification for chat uploads: `Internal` or `Confidential`?
-4. Should agents and skills accept files by default (opt-out, as decided in F7), or should new
-   ones start without files (opt-in), in line with agents that start off?
+None; the questions of the first draft are answered as F8–F11.
