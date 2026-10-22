@@ -118,7 +118,7 @@
     "nuget-proxy": {
       "displayName": "NewHeap ASP.NET proxy NuGet packages",
       "kind": "nuget",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "tagPrefix": "nuget-proxy-v",
       "includeSymbols": true,
       "projects": [

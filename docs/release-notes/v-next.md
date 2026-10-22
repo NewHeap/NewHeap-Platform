@@ -1,10 +1,5 @@
 # v-next
 
-## NewHeap.Platform.AspNet.Proxy: management API endpoints built once at host start
-
-`MapProxyEndpoints` now builds the endpoints of `/newheap-proxy/api` once; the branch's routing and
-the application-wide endpoints share them instead of each building their own.
-
 ## @newheap/platform-ai-chat: error codes and toNhAssistantError exported
 
 Fix. The 0.15.0 notes name `NH_ASSISTANT_SERVER_ERROR_CODES` and `toNhAssistantError` for consumers,
