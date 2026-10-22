@@ -368,12 +368,13 @@ internal sealed class NhAiChatExecutor(
         }
 
         // Files a tool returned reach the model in a user message after the tool results; the call
-        // carries the most sensitive data of its files and counts their tokens.
+        // carries the most sensitive data of its files and counts their tokens next to the text the
+        // caller counted.
         var messages = NhAiModelFiles.MoveToolContent(request.Messages);
         var classification = NhAiModelFiles.Highest(messages, request.DataClassification);
         var estimatedInputTokens = (int)Math.Min(
             int.MaxValue,
-            request.EstimatedInputTokens + NhAiModelFiles.EstimatedTokens(messages));
+            request.EstimatedInputTokens + NhAiModelFiles.EstimatedTokens(request.Messages));
         var resolution = await modelProfiles.ResolveChatAsync(
             new NhAiModelResolutionRequest(
                 request.ProfileName,

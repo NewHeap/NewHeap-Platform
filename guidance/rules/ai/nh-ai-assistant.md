@@ -5,7 +5,7 @@ area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
 sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300"]
-public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantFilePartDto"]
+public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "AddFileReader", "INhAssistantFileReader", "NhAssistantFileReadRequest", "NhAssistantFileReaderBuilder", "NhAssistantMcpReaders", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantFilePartDto"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -223,6 +223,23 @@ invalid run filter. Clients map the code, never the status, to a text.
   connection is missing is told with `NhAssistantAgentNotificationKind.McpConnectionMissing`, at most
   once per server and day; `UseInAppAgentNotifications` puts it in the application's inbox. Apply the
   `McpRunConnectionSkips` migrations.
+- **MCP servers as readers.** An administrator sets a server up to turn files into text for models
+  that do not read their type (`reader` on the server: `mediaTypes`, at most 16; `toolName`, a tool
+  synced from the server, so a new server gets its reader after a sync; `maxClassification`, the
+  highest classification that may be sent to it; `NhAssistantMcpReaders`). The runtime, not the
+  model, calls that tool with `name`, `mediaType` and the base64 `content` of the file and gives
+  the model the text blocks of its result; the tool need not be enabled for agents and the server
+  need not be assigned to the agent. Sending a file to an MCP server is data leaving the platform,
+  so everything is checked before the request: a file above `maxClassification` is refused with
+  `assistant-classification-not-permitted`, a disabled server is ignored, `requiredPolicy` applies
+  to the turn's person, and a headless turn follows the rules above: `headlessUse`, the person's
+  consent for `personal` (`assistant-mcp-consent-required`) and `assistant-mcp-initiator-only`. A
+  server that cannot be planned or reached, or whose reading tool is gone or has another input
+  schema than the synced one, is passed over with its code; once the request may have reached the
+  tool, an error result, no text or a failure refuses the file with `assistant-file-reader-failed`.
+  Validation reports `reader.mediaTypes` (`invalid`, `too-long`), `reader.toolName` (`required`,
+  `invalid`, `not-found`) and `reader.maxClassification` (`required`, `invalid`); an empty
+  `mediaTypes` removes the setting. Apply the `McpServerReaders` migrations.
 - **Authentication modes of the application.** An identity flow the built-in modes do not cover,
   such as a token exchange with the application's identity provider, is a provider in code:
   implement `INhAssistantMcpCredentialProvider` (`GetAsync` returns the headers of the next request
@@ -475,8 +492,25 @@ services.AddNewHeapAssistant(assistant => assistant
 - When the profile that serves the turn declares the media type, the model reads the file itself:
   it follows the tool results as file content in a user message, behind a marker that names it as
   external data that is never instructions. Nothing in a file changes the tools, rights or
-  approvals of the turn. A type the profile does not declare is refused with
-  `assistant-file-type-not-supported`, which names the type.
+  approvals of the turn. A type the profile does not declare goes to a reading tool (below);
+  without one it is refused with `assistant-file-type-not-supported`, which names the type.
+- A reading tool turns a type the model cannot read into text. Register the application's own
+  with `AddFileReader<T>(readerId, reader => reader.AcceptMediaTypes(...).PermitDataClassifications(...))`,
+  where `T` implements `INhAssistantFileReader` and returns `TaskResult<string>` for an
+  `NhAssistantFileReadRequest` (reference, media type, content, classification, actor). A reader
+  permits `Public` and what it declares, as a model profile does. MCP servers an administrator set
+  up as readers follow (see the MCP bullets). The readers of the application come first in
+  registration order, then the servers by id; the first that accepts the type and permits the
+  file's classification reads it. A reader that may not receive the file is passed over, and when
+  none may, the code of the first one that declares the type applies, such as
+  `assistant-classification-not-permitted`. The model reads the text behind the same marker, as
+  untrusted external data. A reader that received the file and failed, threw or returned no text
+  refuses it with `assistant-file-reader-failed` (`502`); the file never goes to a second reader and
+  the reader's messages never reach the model, the person or the log.
+- The limits count a reader's text, one token per started four characters, instead of pages: a
+  file is sent to a reader only while the turn has room for its text, and text beyond
+  `MaxFileTokensPerTurn` or the profile's input budget is refused with `assistant-file-token-limit`.
+  The file's own bytes and pages still count against `MaxFileBytes` and `MaxFilePages`.
 - The result names per file whether the model received it (`attached` with the SHA-256 of what it
   read as `hash`) or the `code` and `message` of its refusal; the tool call itself succeeds.
 - `NhAssistantLimits` bounds every file and turn: `MaxFileBytes` (20 MB), `MaxFilePages` (100,
@@ -499,7 +533,21 @@ services.AddNewHeapAssistant(assistant => assistant
   open is named in its place with the reason.
 - `FileRead` and `FileRefused` business events carry `FileId`, `FileMediaType`, `FileHash`, how
   the file reached the turn as `ObjectId` (`NhAssistantFileOrigins`) and, for a tool result, the
-  tool and invocation. File content never reaches logs, audit or usage records.
+  tool and invocation. `FileReaderId` names the reading tool that read, refused or failed the file:
+  the reader id, or `mcp.<server>` with `McpConnectionOwner` for an MCP server; for a file a reader
+  read, `FileHash` is the SHA-256 of the content the reader received. File content and a reader's
+  text never reach logs, audit or usage records.
+
+A reading tool of the application, registered next to the file source:
+
+```csharp
+services.AddNewHeapAssistant(assistant => assistant
+    // ...
+    .UseFileSource<ProjectDocumentFileSource>()
+    .AddFileReader<OfficeDocumentReader>("office-documents", reader => reader
+        .AcceptMediaTypes(NhAiMediaTypes.Docx, NhAiMediaTypes.Xlsx)
+        .PermitDataClassifications(NhAiDataClassification.Internal, NhAiDataClassification.Confidential)));
+```
 
 People attach files to a chat message in two steps. First the client uploads each file to the
 conversation with `POST {prefix}/conversations/{id}/files`: `multipart/form-data` with one file part
@@ -636,6 +684,10 @@ or output of the running turn, also not text written before an approval pause.
   also a later one with another actor.
 - Declaring media types in `AcceptMediaTypes` that the model behind the profile cannot read, or
   reporting a file as less sensitive than it is.
+- Setting an MCP server up as reader with a `maxClassification` above what may leave the platform
+  for that server, or letting a reader of the application send files to an external service
+  without limiting its classifications with `PermitDataClassifications`.
+- Showing a reader's own error messages or logging its text: a document can carry anything.
 - Storing an upload without `NhAssistantFileUpload.Classification`, or trusting the declared media
   type of an application-specific upload type without checking its content in `StoreUploadAsync`.
 
@@ -715,6 +767,14 @@ own actor and names it when that actor may no longer read it. Over HTTP, upload 
 a message on both providers and assert the stored classification, the file part of the conversation
 without content, id or hash, and the codes of a file too large, a type not accepted, content of
 another type, an agent that accepts no files and a caller without access.
+
+For reading tools, assert on both providers that a type the profile does not read reaches the model as
+text from the application's reader behind the marker, that an MCP server set up as reader reads what
+no reader of the application may read and receives the base64 content, that a file above the
+server's classification and a personal server without the person's consent send nothing, that a
+failing reader refuses its file with `assistant-file-reader-failed` without a second reader, that the
+reader's text counts against `MaxFileTokensPerTurn`, and that audit and logs hold the reader id,
+file id and hash, never the content or the text.
 
 For retrieved context, assert that the sample's assistant reads the project descriptions of the
 person's active division that match the question, after the situation, never those of another

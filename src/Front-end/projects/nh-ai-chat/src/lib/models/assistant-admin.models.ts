@@ -494,6 +494,31 @@ export interface McpServerInput {
   connectionScope?: McpConnectionScope;
   /** The OAuth settings of `oauth` and `oauth-client-credentials`; omit to keep them. */
   oauth?: McpOAuthInput | null;
+  /** The reader setting; omit to keep it, an empty `mediaTypes` removes it. */
+  reader?: McpReaderInput | null;
+}
+
+/**
+ * The reader setting of an MCP server: the server turns files of `mediaTypes` into text, with its
+ * synced tool `toolName`, for models that do not read those types themselves. A file above
+ * `maxClassification` is never sent to it; sending a file to an MCP server is data leaving the
+ * application.
+ */
+export interface McpReader {
+  mediaTypes: string[];
+  toolName: string;
+  maxClassification: AssistantDataClassification;
+}
+
+/**
+ * The reader setting as saved: at most 16 media types; empty removes the setting. `toolName` must
+ * name a tool synced from the server; the tool receives `name`, `mediaType` and the base64
+ * `content` of a file and returns its text.
+ */
+export interface McpReaderInput {
+  mediaTypes: string[];
+  toolName: string | null;
+  maxClassification: AssistantDataClassification | null;
 }
 
 export interface McpServer {
@@ -526,6 +551,8 @@ export interface McpServer {
   authorization: McpAuthorization | null;
   /** The organization's OAuth connection; `null` for servers without one. */
   organizationConnection: McpOrganizationConnection | null;
+  /** The reader setting; `null` when the server is not set up as reader. */
+  reader: McpReader | null;
 }
 
 export interface McpServerTestResult {

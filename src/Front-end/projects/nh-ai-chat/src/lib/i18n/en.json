@@ -317,6 +317,7 @@
       "assistant-file-not-found": "The file was not found. It may have been removed.",
       "assistant-file-forbidden": "You may not read this file, so the assistant did not read it either.",
       "assistant-file-unavailable": "The file could not be opened right now. Try again in a moment.",
+      "assistant-file-reader-failed": "The reading tool for this type of file could not turn it into text.",
       "assistant-file-too-large": "The file is larger than the assistant may read. Share a smaller file.",
       "assistant-file-too-many-pages": "The file has more pages than the assistant may read. Share a shorter document.",
       "assistant-file-count-limit": "The assistant may read no more files in this answer. Ask about fewer files at a time.",
@@ -942,7 +943,22 @@
         "client-secret-reference": "Client secret reference",
         "organization-account-label": "Connected account",
         "organization-account-label-hint": "Which account the organization connects, for example \"Planning service account\". Everyone using the server sees it.",
-        "organization-account-label-required": "Name the account that will be connected."
+        "organization-account-label-required": "Name the account that will be connected.",
+        "reader": {
+          "title": "Reading documents",
+          "hint": "Models that cannot read a file type themselves can get the file as text from this server. The assistant calls the reading tool with the file name, media type and base64 content of the file, after the application's own readers.",
+          "media-types": "Media types",
+          "media-types-hint": "Comma-separated, at most 16, such as application/vnd.openxmlformats-officedocument.wordprocessingml.document. Empty: the server reads no files.",
+          "media-types-invalid": "Enter up to 16 media types of the form type/subtype, separated by commas.",
+          "tool": "Reading tool",
+          "tool-choose": "Choose a tool",
+          "tool-hint": "A tool synced from this server that turns a file into text. It does not have to be enabled for agents.",
+          "tool-sync": "Sync the server's tools first, then choose the reading tool.",
+          "max-classification": "Highest classification",
+          "max-classification-choose": "Choose a classification",
+          "max-classification-hint": "A file that is more sensitive is never sent to this server.",
+          "leaves-application": "A file sent to this server leaves the application. Choose a classification the server may receive; for personal connections the person's consent to background use still applies."
+        }
       },
       "tools": {
         "title": "Tools of {{name}}",

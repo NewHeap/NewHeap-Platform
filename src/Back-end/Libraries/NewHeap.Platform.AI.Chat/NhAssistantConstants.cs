@@ -535,6 +535,12 @@ public static class NhAssistantErrorCodes
     public const string FileUnavailable = "assistant-file-unavailable";
 
     /// <summary>
+    /// The reading tool that received the file, a reader of the application or an MCP server set up
+    /// as reader, failed or returned no text. No other reader is asked for the same file.
+    /// </summary>
+    public const string FileReaderFailed = "assistant-file-reader-failed";
+
+    /// <summary>
     /// The file is larger than <see cref="NhAssistantLimits.MaxFileBytes"/> or the lower limit of the
     /// agent or skill.
     /// </summary>

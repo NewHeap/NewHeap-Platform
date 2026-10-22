@@ -1926,7 +1926,7 @@ internal sealed partial class NhAssistantTurnRunner(
     /// background run, and the execution of a deferred proposal. It uses the person whose rights
     /// the turn uses, as the invocation gate decides them.
     /// </summary>
-    private static NhAssistantMcpToolRequest CreateMcpToolRequest(NhAssistantTurnState state)
+    internal static NhAssistantMcpToolRequest CreateMcpToolRequest(NhAssistantTurnState state)
     {
         if (state.AgentTurn is not { IsRequestTurn: false } agentTurn || CreateAgentScope(state) is not { } scope)
         {

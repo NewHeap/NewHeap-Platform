@@ -1,5 +1,6 @@
 import {
   AdminAgent,
+  AssistantDataClassification,
   McpAuthMode,
   McpAuthorization,
   McpAuthorizationStart,
@@ -11,6 +12,7 @@ import {
   McpDiscovery,
   McpHeadlessUse,
   McpOrganizationConnection,
+  McpReader,
   McpServer,
   McpServerInput,
   McpServerTestResult,
@@ -83,6 +85,12 @@ const maxUserName = 256;
 const maxPolicy = 256;
 const maxClientId = 512;
 const maxAccountLabel = 200;
+/** The reader setting of a server: at most 16 media types and a tool name of at most 128 characters. */
+const maxReaderMediaTypes = 16;
+const maxReaderToolName = 128;
+const classifications: AssistantDataClassification[] = ['public', 'internal', 'confidential', 'restricted'];
+const mediaTypePattern = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/;
+const controlCharacters = /[\u0000-\u001f\u007f]/;
 
 /** Records one field error of a server change; the first value per field wins. */
 type AddFieldError = (field: string, value: 'required' | 'invalid' | 'too-long' | 'not-found') => void;
@@ -134,6 +142,12 @@ export class NhAssistantMockAdminMcp {
         remoteTools: remoteTools ?? [],
         tools: new Map()
       };
+      const reader = readerAfter(input, null);
+      if (reader) {
+        // A preconfigured reader was set up after a sync of the server's tools.
+        this.sync(stored);
+        stored.server.reader = reader;
+      }
       if (oauthModes.includes(input.authMode)) {
         // A preconfigured OAuth server was confirmed by an administrator before.
         const found = this.discovery(input.url);
@@ -408,7 +422,8 @@ export class NhAssistantMockAdminMcp {
           ...toServerFields(input, stored.server),
           ...oauthFields(input, stored.server, oauth.authorization),
           headlessUse,
-          transport: input.transport ?? stored.server.transport
+          transport: input.transport ?? stored.server.transport,
+          reader: readerAfter(input, stored.server.reader)
         };
         if (!oauthModes.includes(input.authMode)) {
           stored.oauthSecret = null;
@@ -615,6 +630,7 @@ export class NhAssistantMockAdminMcp {
     checkServerFields(input, stored, this.scenario.admin?.policies, add, this.scenario.admin?.mcpAuthModes ?? []);
     this.checkCredential(input, stored, add);
     this.checkOAuth(input, stored, add);
+    checkReader(input, stored, add);
     return errors;
   }
 
@@ -1123,15 +1139,79 @@ function consentFingerprint(stored: StoredServer): string {
 }
 
 /** The state of a server that was just added: never in headless runs unless the input says so. */
-function newServerState(input: McpServerInput): Pick<McpServer, 'lastSyncAt' | 'lastSyncStatus' | 'headlessUse' | 'lastConnectAt' | 'lastConnectCode' | 'transport'> {
+function newServerState(input: McpServerInput): Pick<McpServer, 'lastSyncAt' | 'lastSyncStatus' | 'headlessUse' | 'lastConnectAt' | 'lastConnectCode' | 'transport' | 'reader'> {
   return {
     lastSyncAt: null,
     lastSyncStatus: null,
     headlessUse: input.headlessUse ?? 'never',
     lastConnectAt: null,
     lastConnectCode: null,
-    transport: input.transport ?? 'streamable-http'
+    transport: input.transport ?? 'streamable-http',
+    // A new server has no synced tools, so it gets its reader after a sync.
+    reader: null
   };
+}
+
+/** A media type in lowercase without parameters, or null for a value that is not one. */
+function normalizeMediaType(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const essence = value.split(';')[0].trim().toLowerCase();
+  return essence.length <= 128 && mediaTypePattern.test(essence) ? essence : null;
+}
+
+/**
+ * The reader setting after an input, as on the server: an omitted or null setting keeps the stored
+ * one, no media types removes it, and the media types are stored normalized and once each.
+ */
+function readerAfter(input: McpServerInput, stored: McpReader | null): McpReader | null {
+  const reader = input.reader;
+  if (reader === undefined || reader === null) {
+    return stored;
+  }
+  const mediaTypes = [...new Set((Array.isArray(reader.mediaTypes) ? reader.mediaTypes : [])
+    .map(normalizeMediaType)
+    .filter((mediaType): mediaType is string => mediaType !== null))];
+  if (mediaTypes.length === 0 || reader.toolName === null || reader.maxClassification === null) {
+    return null;
+  }
+  return { mediaTypes, toolName: reader.toolName, maxClassification: reader.maxClassification };
+}
+
+/**
+ * The field errors of the reader setting, as the server reports them: `reader.mediaTypes` (invalid,
+ * too-long for more than 16), `reader.toolName` (required, invalid, not-found when the server has
+ * not synced that tool) and `reader.maxClassification` (required, invalid).
+ */
+function checkReader(input: McpServerInput, stored: StoredServer | null, add: AddFieldError): void {
+  const reader = input.reader;
+  if (!reader || !Array.isArray(reader.mediaTypes) || reader.mediaTypes.length === 0) {
+    return;
+  }
+
+  const mediaTypes = reader.mediaTypes.map(normalizeMediaType);
+  if (mediaTypes.some(mediaType => mediaType === null)) {
+    add('reader.mediaTypes', 'invalid');
+  } else if (new Set(mediaTypes).size > maxReaderMediaTypes) {
+    add('reader.mediaTypes', 'too-long');
+  }
+
+  const toolName = reader.toolName;
+  if (typeof toolName !== 'string' || toolName.trim().length === 0) {
+    add('reader.toolName', 'required');
+  } else if (toolName.length > maxReaderToolName || controlCharacters.test(toolName)) {
+    add('reader.toolName', 'invalid');
+  } else if (!stored?.tools.has(toolName)) {
+    add('reader.toolName', 'not-found');
+  }
+
+  const classification = reader.maxClassification;
+  if (classification === null || classification === undefined) {
+    add('reader.maxClassification', 'required');
+  } else if (!classifications.includes(classification)) {
+    add('reader.maxClassification', 'invalid');
+  }
 }
 
 /**

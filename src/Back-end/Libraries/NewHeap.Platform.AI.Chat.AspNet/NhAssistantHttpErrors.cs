@@ -249,6 +249,9 @@ internal static class NhAssistantHttpErrors
             NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable,
             NhAssistantAdminErrorCodes.McpDiscoveryFailed,
             NhAssistantAdminErrorCodes.McpTokenRequestFailed);
+        // A reading tool, of the application or an MCP server, that failed to turn a file into text.
+        Add(statuses, StatusCodes.Status502BadGateway,
+            NhAssistantErrorCodes.FileReaderFailed);
         Add(statuses, StatusCodes.Status503ServiceUnavailable,
             NhAssistantErrorCodes.ProposalCheckFailed,
             NhAssistantErrorCodes.FileUnavailable,

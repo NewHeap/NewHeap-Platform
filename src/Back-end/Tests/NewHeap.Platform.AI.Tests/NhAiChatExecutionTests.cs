@@ -99,6 +99,35 @@ public sealed class NhAiChatExecutionTests
         Assert.False(reader.AcceptsMediaType(NhAiMediaTypes.Jpeg));
     }
 
+    [Fact]
+    public async Task Text_a_reading_tool_made_of_a_file_in_a_message_counts_once_with_the_text()
+    {
+        var client = new NhAiDeterministicChatClient("read");
+        using var provider = CreateServices(client, new NhAiCapturedUsageSink()).BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var executor = scope.ServiceProvider.GetRequiredService<INhAiChatExecutor>();
+        // The caller counted 1,500 tokens of text, including the 1,200 of the text a reader made of a
+        // file; the profile allows 2,000.
+        var request = CreateRequest("read") with { EstimatedInputTokens = 1_500 };
+        var text = new TextContent(new string('x', 4_800))
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                ["newheap.data-classification"] = NhAiDataClassification.Internal.ToString(),
+                ["newheap.estimated-tokens"] = "1200",
+                ["newheap.trust"] = "untrusted-retrieved"
+            }
+        };
+
+        var withText = await executor.GetResponseAsync(request with { Messages = [new ChatMessage(ChatRole.User, [new TextContent("read"), text])] });
+        var withFile = await executor.GetResponseAsync(request with { Messages = [WithFile(NhAiDataClassification.Internal, 1_200)] });
+
+        // The text is the message's own; a file the model reads itself counts next to the text.
+        Assert.True(withText.Success);
+        Assert.False(withFile.Success);
+        Assert.Single(client.Requests);
+    }
+
     /// <summary>
     /// A user message with a file the assistant annotated with its classification and tokens.
     /// </summary>

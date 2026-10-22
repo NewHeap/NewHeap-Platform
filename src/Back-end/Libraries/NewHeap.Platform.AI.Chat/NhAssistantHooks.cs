@@ -439,16 +439,29 @@ public sealed record NhAssistantAuditEvent(
 
     /// <summary>
     /// The application's id of the file a <see cref="NhAssistantAuditEventKind.FileRead"/> or
-    /// <see cref="NhAssistantAuditEventKind.FileRefused"/> event concerns.
+    /// <see cref="NhAssistantAuditEventKind.FileRefused"/> event concerns: an identifier, never the
+    /// file's name.
     /// </summary>
     public string? FileId { get; init; }
 
+    /// <summary>
+    /// The file's media type as a code, lowercase without parameters, such as <c>application/pdf</c>.
+    /// </summary>
     public string? FileMediaType { get; init; }
 
     /// <summary>
-    /// The SHA-256 of the content the model received, <c>sha256:&lt;hex&gt;</c>.
+    /// The SHA-256 of the content the model received, <c>sha256:&lt;hex&gt;</c>; never the content. For a
+    /// file a reading tool turned into text, the SHA-256 of the file's content that the reader received.
     /// </summary>
     public string? FileHash { get; init; }
+
+    /// <summary>
+    /// The reading tool that turned the file into text, or that refused or failed it: the id of a
+    /// reader of the application (<c>AddFileReader</c>), or <c>mcp.&lt;server&gt;</c> for an MCP server
+    /// set up as reader, whose credential <see cref="McpConnectionOwner"/> names. Null when the model
+    /// read the file itself.
+    /// </summary>
+    public string? FileReaderId { get; init; }
 }
 
 /// <summary>

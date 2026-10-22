@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "e22c8131bcb37d32f875fbb1fc10ba3c654ac0e26531b8e01bf5f2a7770f0c91",
-    "declarationCount": 9430,
+    "hash": "b9b7011005fe73c89b803e9ac6c5d42a07c5d893e3f1894d6008788f0bc41358",
+    "declarationCount": 9483,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3367,6 +3367,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
+        "declaration": "public NhAssistantMcpReaderInput? Reader { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
         "declaration": "public const string AdministratorReason = \"administrator\";"
       },
       {
@@ -3864,6 +3868,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
         "declaration": "protected override async Task<HttpResponseMessage> SendAsync( HttpRequestMessage request, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpFileReader.cs",
+        "declaration": "public const string ContentArgument = \"content\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpFileReader.cs",
+        "declaration": "public const string MediaTypeArgument = \"mediaType\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpFileReader.cs",
+        "declaration": "public const string NameArgument = \"name\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpFileReader.cs",
+        "declaration": "public async Task<bool> DeclaresAsync(string mediaType, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpFileReader.cs",
+        "declaration": "public async Task<NhAssistantFileReading?> ReadAsync(NhAssistantMcpFileReadRequest request, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpHealthCheck.cs",
@@ -4575,6 +4599,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public NhAssistantMcpReaderInputDto? Reader { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantMcpReaderInputDto( IReadOnlyList<string>? MediaTypes, string? ToolName, string? MaxClassification);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantMcpReaderDto( IReadOnlyList<string> MediaTypes, string ToolName, string MaxClassification);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantMcpOAuthInputDto( string? ClientId, string? ClientSecret, string? ClientSecretReference, string? Scopes, string? OrganizationAccountLabel, bool? ConfirmAuthorization);"
       },
       {
@@ -4668,6 +4704,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public NhAssistantMcpOrganizationConnectionDto? OrganizationConnection { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public NhAssistantMcpReaderDto? Reader { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -5514,6 +5554,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022102912_McpServerReaders.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022102912_McpServerReaders.cs",
+        "declaration": "public partial class McpServerReaders : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022102912_McpServerReaders.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022102912_McpServerReaders.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -6055,6 +6111,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022095024_AcceptsFiles.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022102908_McpServerReaders.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022102908_McpServerReaders.cs",
+        "declaration": "public partial class McpServerReaders : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022102908_McpServerReaders.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022102908_McpServerReaders.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -8248,6 +8320,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
         "declaration": "public string? AuthorizationConfirmedBy { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public string? ReaderMediaTypes { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public string? ReaderToolName { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public string? ReaderMaxClassification { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
@@ -10767,6 +10851,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder AddFileReader<TReader>(string readerId, Action<NhAssistantFileReaderBuilder> configure) where TReader : class, INhAssistantFileReader {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public sealed class NhAssistantSystemSubjectBuilder {"
       },
       {
@@ -10896,6 +10984,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public void AddSubjectSet(NhAssistantSubjectSetDefinition definition) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public IReadOnlyList<NhAssistantFileReaderDefinition> FileReaders => _fileReaders;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public void AddFileReader(NhAssistantFileReaderDefinition definition) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -11592,6 +11688,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string FileUnavailable = \"assistant-file-unavailable\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileReaderFailed = \"assistant-file-reader-failed\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -12498,6 +12598,58 @@
         "declaration": "public static NewHeap.Platform.Common.Models.TaskResult Failed(string field, string error) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public interface INhAssistantFileReader {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public sealed record NhAssistantFileReadRequest( NhAiFileReference Reference, string MediaType, ReadOnlyMemory<byte> Content, NhAiDataClassification Classification, NhAssistantFileActor Actor);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public sealed class NhAssistantFileReaderBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public const int MaxMediaTypes = 16;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public NhAssistantFileReaderBuilder AcceptMediaTypes(params string[] mediaTypes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public NhAssistantFileReaderBuilder PermitDataClassifications(params NhAiDataClassification[] classifications) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public static class NhAssistantMcpReaders {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public const int MaxMediaTypes = 16;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public const int MaxToolNameLength = 128;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public const int MaxMediaTypesLength = MaxMediaTypes * (NhAiFileReference.MaxMediaTypeLength + 1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public static string ReaderIdOf(string serverId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public bool Accepts(string mediaType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public bool Permits(NhAiDataClassification classification) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
         "declaration": "public interface INhAssistantFileSource {"
       },
@@ -12796,6 +12948,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public string? FileHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? FileReaderId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -13664,6 +13820,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
         "declaration": "public async Task<IReadOnlyList<(AssistantMcpServer Server, IReadOnlyList<string> AgentIds)>> ListMcpServersAsync( CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantMcpServer>> ListMcpReaderServersAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
@@ -16122,6 +16282,42 @@
         "declaration": "public void Dispose() {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
+        "declaration": "public string? ConnectionOwner { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
+        "declaration": "public bool Received { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
+        "declaration": "public static NhAssistantFileReading Read(string readerId, string text, string? connectionOwner = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
+        "declaration": "public static NhAssistantFileReading Failed(string readerId, string? connectionOwner = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
+        "declaration": "public static NhAssistantFileReading PassedOver(string readerId, string code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
+        "declaration": "public Task<bool> DeclaresAsync(string mediaType, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
+        "declaration": "public Task<NhAssistantFileReading?> ReadAsync(NhAssistantMcpFileReadRequest request, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
+        "declaration": "public async Task<bool> DeclaresAsync(string mediaType, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
+        "declaration": "public async Task<NhAssistantFileReading> ReadAsync( NhAssistantFileReadRequest request, NhAssistantMcpToolRequest turn, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantMcpConsent.cs",
         "declaration": "public static string HashOf(AssistantMcpServer server) {"
       },
@@ -16619,7 +16815,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public string? ReaderId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public string? McpConnectionOwner { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
         "declaration": "public bool Attached => Code is null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public string? ReaderId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public string? McpConnectionOwner { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
@@ -41665,6 +41877,11 @@
       "MaxFilePages",
       "MaxFilesPerTurn",
       "MaxFileTokensPerTurn",
+      "AddFileReader",
+      "INhAssistantFileReader",
+      "NhAssistantFileReadRequest",
+      "NhAssistantFileReaderBuilder",
+      "NhAssistantMcpReaders",
       "ConfigureUploads",
       "NhAssistantUploadOptions",
       "NhAssistantAgentUploadsDto",
@@ -42031,6 +42248,8 @@
     "nh-ai-assistant-ui": [
       "McpCustomAuthMode",
       "McpBuiltInAuthMode",
+      "McpReader",
+      "McpReaderInput",
       "getMcpAuthModes",
       "provideNhAssistant",
       "NhAssistantConfig",
