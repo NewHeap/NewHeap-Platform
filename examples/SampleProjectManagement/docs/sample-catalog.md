@@ -183,6 +183,18 @@ so the chat panel shows the attach control only for the project assistant and th
 `AssistantFileSamplesTests` runs both cases, and the safety evaluation of SPM-233 a turn with a
 malicious document, whose text stays untrusted data that changes no tools or approvals.
 
+Model calls carry a data classification (SPM-307): the skill's, then the agent's, then `Internal`,
+in runs and in people's plain chats alike. The document reader's `read-documents` skill classifies
+its calls with `DataClassification(Confidential)`, because what project documents say is
+confidential; the chat profile permits internal data only, so every model call of the skill moves to
+its fallback `project-assistant-confidential`, also when the documents themselves are internal. An
+administrator creates an agent with its model profile and classification in the administration; a
+confidential agent on the chat profile answers people's chats through the same fallback, and one
+with a classification that no profile of the chain permits is saved with the warning
+`classification-not-permitted`, while its chats fail with `assistant-classification-not-permitted`.
+`AssistantClassificationSamplesTests` and `AssistantFileSamplesTests` show which profile served the
+calls through the sample's budget manager (`ProjectAiBudgetUsage.ProfilesOf`).
+
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
 server protects its address, from its challenge and protected resource metadata; saving the server

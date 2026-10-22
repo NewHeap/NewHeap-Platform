@@ -675,6 +675,11 @@ or a start: saving such a data skill or agent succeeds and its DTO reports `warn
 (`NhAssistantConfigurationWarnings.ClassificationNotPermitted`, `classification-not-permitted`) for
 the administration to show, and an agent or skill in code logs a warning at startup. A consultation's
 own `DataClassification(...)` keeps classifying its answers in the asking conversation.
+SampleProjectManagement shows it (SPM-307): the document reader's `read-documents` skill is
+`Confidential`, so its model calls leave the chat profile, which permits internal data only, for the
+fallback `project-assistant-confidential`; an agent created in the administration with that chat
+profile and `confidential` answers people's chats through the same fallback, and one with `restricted`
+is saved with the warning and refused at the model call.
 
 An agent and each of its skills read no files until they are switched on, so a deploy never opens
 a new stream of documents unnoticed: `AcceptsFiles()` on `ConfigureAgent` lets people's messages

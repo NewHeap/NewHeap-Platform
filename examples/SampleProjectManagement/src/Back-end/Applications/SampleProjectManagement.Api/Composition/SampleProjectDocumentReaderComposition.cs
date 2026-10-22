@@ -18,8 +18,12 @@ public sealed record ProjectDocumentAdded(Guid DivisionId, Guid ProjectId, Guid 
 /// document tool. The tool's result names the media items; the assistant opens them through the
 /// application's file source for the agent, which may read the documents of the project it works on,
 /// and the model reads a PDF itself and a Word or Excel document as the text of the example reader.
-/// The other agents of the sample accept no files. Call it after <c>AddSampleIntakeReviewer</c>, which
-/// registers the project subject type, and <c>AddSampleAssistantFiles</c>, which registers the tool.
+/// The other agents of the sample accept no files. SPM-307: project documents are confidential, so the
+/// skill classifies its model calls with <c>DataClassification(Confidential)</c>; the agent's chat
+/// profile permits internal data only, and the profile resolution moves every model call of the skill
+/// to its fallback <see cref="SampleAssistantComposition.ConfidentialProfileName"/>. Call it after
+/// <c>AddSampleIntakeReviewer</c>, which registers the project subject type, and
+/// <c>AddSampleAssistantFiles</c>, which registers the tool.
 /// </summary>
 public static class SampleProjectDocumentReaderComposition
 {
@@ -56,7 +60,10 @@ public static class SampleProjectDocumentReaderComposition
                     .Instructions(ProjectAiAssets.ProjectDocumentReadingInstructions)
                     .Tools(ProjectDocumentAiTools.ReadToolId)
                     // A skill takes files only when it opts in as well, and may lower the limits.
-                    .AcceptsFiles(limits => limits.MaxFileBytes = 10 * 1024 * 1024)))
+                    .AcceptsFiles(limits => limits.MaxFileBytes = 10 * 1024 * 1024)
+                    // SPM-307: what the documents say is confidential, more than the rest of the
+                    // agent's work: the skill's model calls go to the profile that permits it.
+                    .DataClassification(NhAiDataClassification.Confidential)))
             .AddTrigger<ProjectDocumentAdded>(TriggerId, trigger => trigger
                 .StartAgent(AgentId)
                 .Skill(ReadDocumentsSkill)

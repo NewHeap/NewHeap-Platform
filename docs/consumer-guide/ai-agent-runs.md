@@ -675,6 +675,11 @@ or a start: saving such a data skill or agent succeeds and its DTO reports `warn
 (`NhAssistantConfigurationWarnings.ClassificationNotPermitted`, `classification-not-permitted`) for
 the administration to show, and an agent or skill in code logs a warning at startup. A consultation's
 own `DataClassification(...)` keeps classifying its answers in the asking conversation.
+SampleProjectManagement shows it (SPM-307): the document reader's `read-documents` skill is
+`Confidential`, so its model calls leave the chat profile, which permits internal data only, for the
+fallback `project-assistant-confidential`; an agent created in the administration with that chat
+profile and `confidential` answers people's chats through the same fallback, and one with `restricted`
+is saved with the warning and refused at the model call.
 
 An agent and each of its skills read no files until they are switched on, so a deploy never opens
 a new stream of documents unnoticed: `AcceptsFiles()` on `ConfigureAgent` lets people's messages
@@ -1432,3 +1437,8 @@ references.
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDocumentReaderComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDocumentReaderComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectDocumentEventHandler.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectDocumentEventHandler.cs)
+- SPM-307 — A skill classified as confidential and an agent created in the administration with its profile and classification move their model calls to the chat profile's fallback that permits them
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDocumentReaderComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDocumentReaderComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantClassificationSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantClassificationSamplesTests.cs)

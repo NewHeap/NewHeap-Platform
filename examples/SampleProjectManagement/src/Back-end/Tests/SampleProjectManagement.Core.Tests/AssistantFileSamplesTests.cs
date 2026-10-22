@@ -218,6 +218,28 @@ public sealed class AssistantFileSamplesTests(AssistantFileSampleHost host) : IC
     }
 
     [Fact]
+    public async Task SPM_307_the_document_readers_confidential_skill_moves_its_model_calls_to_the_fallback_profile()
+    {
+        host.Model.Use(new RecordingChatClient(new SampleAssistantChatClient()));
+        var project = await host.CreateProjectAsync("CONFIDENTIAL-DOCS", ownerId: host.OwnerId);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var usage = host.Services.GetRequiredService<ProjectAiBudgetUsage>();
+
+        var charter = await AddProjectDocumentAsync(project, "Charter.pdf", ProjectPlanPdf);
+        var thread = await WaitForThreadAsync(owner, project);
+        var run = (await WaitForRunsAsync(owner, thread, 1)).OrderBy(item => item.CreatedAt).First();
+
+        // The document itself is internal; the skill's DataClassification(Confidential) is what moves
+        // its model calls off the chat profile, which permits internal data only, to its fallback.
+        Assert.Equal(NhAiDataClassification.Internal, ProjectMediaMetadata.ClassificationOf(await MediaFileAsync(charter.ToString("D"))));
+        Assert.Equal(SampleProjectDocumentReaderComposition.ReadDocumentsSkill, run.Skill);
+        Assert.Equal(NhAssistantRunStatuses.Completed, run.Status);
+        Assert.Equal(
+            [SampleAssistantComposition.ConfidentialProfileName],
+            usage.ProfilesOf(SampleProjectDocumentReaderComposition.AgentId));
+    }
+
+    [Fact]
     public async Task SPM_306_agents_that_do_not_opt_in_refuse_files()
     {
         host.Model.Use(new RecordingChatClient(new SampleAssistantChatClient()));
