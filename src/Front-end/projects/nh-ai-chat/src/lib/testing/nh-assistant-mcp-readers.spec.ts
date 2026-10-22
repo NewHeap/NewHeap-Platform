@@ -255,4 +255,29 @@ describe('MCP servers as readers', () => {
     // The error is shown at the reader, not again in the form's list of other errors.
     expect(element.querySelector('[data-server-error] ul')).toBeNull();
   });
+
+  it('fits its readers into 375 pixels without scrolling sideways', async () => {
+    const fixture = TestBed.createComponent(NhAssistantAdminMcpServersComponent);
+    const host = fixture.nativeElement as HTMLElement;
+    host.style.display = 'block';
+    host.style.width = '375px';
+    let element = await settle(fixture);
+
+    buttonNamed(element, 'Edit', 1).click();
+    element = await settle(fixture);
+
+    const fieldset = element.querySelector('fieldset.readers') as HTMLElement;
+    expect(readerRows(element).length).toBe(2);
+    expect(fieldset.scrollWidth).toBeLessThanOrEqual(fieldset.clientWidth);
+    expect(host.scrollWidth).toBeLessThanOrEqual(375);
+    const columns = (row: HTMLElement) =>
+      new Set(Array.from(row.querySelectorAll<HTMLElement>('select, input')).map(control => Math.round(control.getBoundingClientRect().left))).size;
+    // One column: every control of a reader starts at the same left edge.
+    expect(readerRows(element).map(columns)).toEqual([1, 1]);
+
+    // A wide administration places the fields of a reader side by side.
+    host.style.width = '1100px';
+    element = await settle(fixture);
+    expect(readerRows(element).every(row => columns(row) > 1)).toBeTrue();
+  });
 });
