@@ -2,7 +2,13 @@ import { EnvironmentInjector, Injectable, inject, runInInjectionContext } from '
 import { TranslateService } from '@ngx-translate/core';
 import { Observable, Subscriber } from 'rxjs';
 import { NhAssistantClientErrorCodes } from '../models/assistant-sse.models';
-import { NH_ASSISTANT_CONFIG, NH_ASSISTANT_FETCH, NhAssistantConfig } from '../nh-assistant.config';
+import { NH_ASSISTANT_CONFIG, NH_ASSISTANT_FETCH, NH_ASSISTANT_UPLOAD, NhAssistantConfig } from '../nh-assistant.config';
+
+/**
+ * The request header every upload carries. A browser cannot send it with a cross-site form, so the
+ * upload endpoint keeps the posture of the JSON endpoints.
+ */
+export const NH_ASSISTANT_UPLOAD_HEADER = 'X-NH-Assistant-Upload';
 
 /** A failed JSON request of the assistant API. Carries a stable code, never response text. */
 export class NhAssistantApiError extends Error {
@@ -75,6 +81,7 @@ export function nhAssistantIsSafeCode(value: unknown): value is string {
 export class NhAssistantTransport {
   private readonly config = inject(NH_ASSISTANT_CONFIG);
   private readonly fetchFn = inject(NH_ASSISTANT_FETCH);
+  private readonly uploadFn = inject(NH_ASSISTANT_UPLOAD);
   private readonly translate = inject(TranslateService, { optional: true });
   private readonly injector = inject(EnvironmentInjector);
 
@@ -92,6 +99,37 @@ export class NhAssistantTransport {
   async fetch(method: string, path: string, accept: string, body: unknown, signal: AbortSignal): Promise<Response> {
     const init = await this.createInit(method, accept, body, signal);
     return this.fetchFn(this.url(path), init);
+  }
+
+  /**
+   * Uploads `form` with progress and resolves with the parsed JSON answer. Rejects with
+   * `NhAssistantApiError`, never with raw text: the code of a refused upload's error body, the
+   * generic status mapping without one and `assistant-network` when it did not reach the server.
+   * An aborted upload rejects with an `AbortError`.
+   */
+  async upload<T>(path: string, form: FormData, onProgress: (loaded: number, total: number) => void, signal: AbortSignal): Promise<T> {
+    const headers = await this.headers('application/json');
+    headers[NH_ASSISTANT_UPLOAD_HEADER] = '1';
+    let response: Response;
+    try {
+      response = await this.uploadFn({ url: this.url(path), headers, body: form, signal, onProgress });
+    } catch (error) {
+      if (signal.aborted) {
+        throw error;
+      }
+      throw createApiError(0, nhAssistantCodeForStatus(0));
+    }
+
+    if (!response.ok) {
+      const failure = await this.failure(response, {});
+      throw createApiError(response.status, failure.code, failure.fieldErrors);
+    }
+
+    try {
+      return JSON.parse(await response.text()) as T;
+    } catch {
+      throw createApiError(response.status, NhAssistantClientErrorCodes.invalidResponse);
+    }
   }
 
   /**
@@ -197,6 +235,22 @@ export class NhAssistantTransport {
   }
 
   private async createInit(method: string, accept: string, body: unknown, signal: AbortSignal): Promise<RequestInit> {
+    const headers = await this.headers(accept);
+    if (body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    return {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+      cache: 'no-store'
+    };
+  }
+
+  /** The host's extra headers, `Accept`, the bearer token and the current language. */
+  private async headers(accept: string): Promise<Record<string, string>> {
     const headers: Record<string, string> = await nhAssistantRequestHeaders(this.config, this.injector);
     headers['Accept'] = accept;
 
@@ -210,17 +264,7 @@ export class NhAssistantTransport {
       headers['Accept-Language'] = language;
     }
 
-    if (body !== undefined) {
-      headers['Content-Type'] = 'application/json';
-    }
-
-    return {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal,
-      cache: 'no-store'
-    };
+    return headers;
   }
 
   private url(path: string): string {

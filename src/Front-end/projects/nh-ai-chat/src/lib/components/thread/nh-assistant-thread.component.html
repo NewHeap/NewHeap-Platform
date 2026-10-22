@@ -49,6 +49,17 @@
         @case ('tools') {
           <nh-assistant-tool-call-group class="part" [calls]="group.calls" />
         }
+        @case ('files') {
+          <ul class="files" [attr.aria-label]="'nh-assistant.thread.files' | translate">
+            @for (file of group.files; track $index) {
+              <li class="file">
+                <nh-assistant-icon class="file-icon" name="file" />
+                <span class="file-name" [attr.title]="file.name">{{ file.name }}</span>
+                <span class="file-meta">{{ 'nh-assistant.thread.file-meta' | translate: fileMeta(file) }}</span>
+              </li>
+            }
+          </ul>
+        }
         @case ('connection') {
           <nh-assistant-connection-required
             class="part"

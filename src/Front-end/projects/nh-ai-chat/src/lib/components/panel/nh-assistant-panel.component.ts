@@ -228,7 +228,12 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
     this.showConversations.set(false);
     this.showPreferences.set(false);
     this.showShare.set(false);
-    void this.store.submit(text);
+    void this.store.submit(text, this.store.attachedFiles());
+  }
+
+  /** Uploads the files the person attached to the next message. */
+  attach(files: File[]): void {
+    void this.store.attach(files);
   }
 
   editQueuedMessage(id: string, text: string): void {

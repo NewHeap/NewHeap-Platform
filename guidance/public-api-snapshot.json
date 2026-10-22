@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "14eb7bfd96370da95ba1fa8634614605326bd0e8d7740dabfb51f4e1453fa132",
-    "declarationCount": 9405,
+    "hash": "e22c8131bcb37d32f875fbb1fc10ba3c654ac0e26531b8e01bf5f2a7770f0c91",
+    "declarationCount": 9430,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4227,7 +4227,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantAgentSummaryDto( string Id, int Version, string DisplayNameKey, string DescriptionKey, bool CanMutate);"
+        "declaration": "public sealed record NhAssistantAgentSummaryDto( string Id, int Version, string DisplayNameKey, string DescriptionKey, bool CanMutate) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public NhAssistantAgentUploadsDto? Uploads { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentUploadsDto( IReadOnlyList<string> AcceptedMediaTypes, int MaxFileBytes, int MaxFiles);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -4327,7 +4335,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "[JsonPolymorphic(TypeDiscriminatorPropertyName = \"type\")] [JsonDerivedType(typeof(NhAssistantTextPartDto), \"text\")] [JsonDerivedType(typeof(NhAssistantToolCallPartDto), \"tool-call\")] [JsonDerivedType(typeof(NhAssistantApprovalPartDto), \"approval\")] [JsonDerivedType(typeof(NhAssistantConnectionRequiredPartDto), \"connection-required\")] public abstract record NhAssistantMessagePartDto;"
+        "declaration": "[JsonPolymorphic(TypeDiscriminatorPropertyName = \"type\")] [JsonDerivedType(typeof(NhAssistantTextPartDto), \"text\")] [JsonDerivedType(typeof(NhAssistantToolCallPartDto), \"tool-call\")] [JsonDerivedType(typeof(NhAssistantApprovalPartDto), \"approval\")] [JsonDerivedType(typeof(NhAssistantConnectionRequiredPartDto), \"connection-required\")] [JsonDerivedType(typeof(NhAssistantFilePartDto), \"file\")] public abstract record NhAssistantMessagePartDto;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantFilePartDto(string Name, string MediaType, long Size) : NhAssistantMessagePartDto;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -4387,7 +4399,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantSendMessageRequest( string? Text, string? ClientMessageId, JsonElement? ClientContext = null);"
+        "declaration": "public sealed record NhAssistantSendMessageRequest( string? Text, string? ClientMessageId, JsonElement? ClientContext = null, IReadOnlyList<NhAiFileReference>? Files = null);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -4431,7 +4443,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantClientContextDto))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantMessageDto))] [JsonSerializable(typeof(NhAssistantMarkReadRequest))] [JsonSerializable(typeof(NhAssistantShareLinkDto))] [JsonSerializable(typeof(NhAssistantJoinConversationRequest))] [JsonSerializable(typeof(NhAssistantInviteParticipantRequest))] [JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))] [JsonSerializable(typeof(NhAssistantNotificationSettingsDto))] [JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))] [JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantLiveConversationDto))] [JsonSerializable(typeof(NhAssistantLiveReadDto))] [JsonSerializable(typeof(NhAssistantLiveRemovedDto))] [JsonSerializable(typeof(NhAssistantLiveAgentWorkDto))] [JsonSerializable(typeof(NhAssistantLiveEventDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpAuthModeDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoverRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoveryDto))] [JsonSerializable(typeof(NhAssistantMcpAuthorizeRequest))] [JsonSerializable(typeof(NhAssistantMcpAuthorizationStartDto))] [JsonSerializable(typeof(NhAssistantMcpCompleteRequest))] [JsonSerializable(typeof(NhAssistantMcpCompletionDto))] [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))] [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
+        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantClientContextDto))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantMessageDto))] [JsonSerializable(typeof(NhAssistantMarkReadRequest))] [JsonSerializable(typeof(NhAssistantShareLinkDto))] [JsonSerializable(typeof(NhAssistantJoinConversationRequest))] [JsonSerializable(typeof(NhAssistantInviteParticipantRequest))] [JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))] [JsonSerializable(typeof(NhAssistantNotificationSettingsDto))] [JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))] [JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantLiveConversationDto))] [JsonSerializable(typeof(NhAssistantLiveReadDto))] [JsonSerializable(typeof(NhAssistantLiveRemovedDto))] [JsonSerializable(typeof(NhAssistantLiveAgentWorkDto))] [JsonSerializable(typeof(NhAssistantLiveEventDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpAuthModeDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoverRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoveryDto))] [JsonSerializable(typeof(NhAssistantMcpAuthorizeRequest))] [JsonSerializable(typeof(NhAssistantMcpAuthorizationStartDto))] [JsonSerializable(typeof(NhAssistantMcpCompleteRequest))] [JsonSerializable(typeof(NhAssistantMcpCompletionDto))] [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))] [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))] [JsonSerializable(typeof(NhAiFileReference))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -4811,6 +4823,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+        "declaration": "public static NhAssistantAgentSummaryDto ToDto(NhAssistantAgentDefinition agent, NhAssistantUploads uploads) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
         "declaration": "public static NhAssistantConversationSummaryDto ToSummary(Persistence.NhAssistantConversationListItem item) {"
       },
       {
@@ -4876,6 +4892,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantShareTokenProtector.cs",
         "declaration": "public string? Unprotect(string protectedToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantUploadEndpoints.cs",
+        "declaration": "public const string UploadHeader = \"X-NH-Assistant-Upload\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantUploadEndpoints.cs",
+        "declaration": "public const string FileField = \"file\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantUploadEndpoints.cs",
+        "declaration": "public static void Map(RouteGroupBuilder group) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantPushSubscriptionValidator.cs",
@@ -10735,6 +10763,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder ConfigureUploads(Action<NhAssistantUploadOptions> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public sealed class NhAssistantSystemSubjectBuilder {"
       },
       {
@@ -10780,6 +10812,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantLimits Limits { get; set; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantUploadOptions Uploads { get; set; } = new();"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -11576,6 +11612,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string FileTypeNotSupported = \"assistant-file-type-not-supported\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileUploadInvalid = \"assistant-file-upload-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileTypeNotAccepted = \"assistant-file-type-not-accepted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileUploadRefused = \"assistant-file-upload-refused\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileUploadFailed = \"assistant-file-upload-failed\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -12515,7 +12567,31 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
-        "declaration": "public sealed record NhAssistantFileUpload( Guid ConversationId, string Name, string MediaType, long Length, Stream Content);"
+        "declaration": "public sealed record NhAssistantFileUpload( Guid ConversationId, string Name, string MediaType, long Length, Stream Content) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public NhAiDataClassification Classification { get; init; } = NhAiDataClassification.Confidential;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public sealed class NhAssistantUploadOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public const int MaxAcceptedMediaTypes = 50;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public NhAiDataClassification DefaultClassification { get; set; } = NhAiDataClassification.Confidential;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public IReadOnlyList<string> AcceptedMediaTypes => _mediaTypes;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public NhAssistantUploadOptions AcceptMediaTypes(params string[] mediaTypes) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
@@ -16507,6 +16583,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public static NhAssistantFilePartView From(NhAssistantStoredFile file) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public static NhAssistantFilePartView From(NhAiFileReference file) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
         "declaration": "public NhAiGrantSource GrantSource { get; init; }"
       },
       {
@@ -16544,6 +16628,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
         "declaration": "public NhAssistantTurnFileLimits? LimitsOf(NhAssistantTurnState state, NhAssistantSkillOptions? skill) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public NhAssistantTurnFileLimits? LimitsOfAgent(string agentId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
@@ -16612,6 +16700,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
         "declaration": "public object? GetService(Type serviceType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public bool Available => registration.Uploads.AcceptedMediaTypes.Count > 0"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public NhAssistantUploadRules? RulesOf(string agentId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public async Task<TaskResult<NhAiFileReference>> StoreAsync( Guid conversationId, NhAssistantUploadInput input, NhAssistantUploadRules rules, NhAssistantFileActor actor, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Snapshots/NhAssistantConversationSnapshots.cs",
@@ -41564,7 +41664,11 @@
       "MaxFileBytes",
       "MaxFilePages",
       "MaxFilesPerTurn",
-      "MaxFileTokensPerTurn"
+      "MaxFileTokensPerTurn",
+      "ConfigureUploads",
+      "NhAssistantUploadOptions",
+      "NhAssistantAgentUploadsDto",
+      "NhAssistantFilePartDto"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",
@@ -42068,7 +42172,19 @@
       "NhAssistantMockRunConfigurationPreset",
       "NhAssistantMockDataSkill",
       "NhAssistantMockDataTrigger",
-      "LiveAgentWorkWatch"
+      "LiveAgentWorkWatch",
+      "NhAssistantComposerComponent",
+      "NhAssistantAttachment",
+      "AgentUploads",
+      "FileReference",
+      "FilePart",
+      "NhAssistantUploadEvent",
+      "NH_ASSISTANT_UPLOAD",
+      "NhAssistantUpload",
+      "NhAssistantUploadRequest",
+      "nhAssistantXhrUpload",
+      "NH_ASSISTANT_UPLOAD_HEADER",
+      "NhAssistantMockUpload"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

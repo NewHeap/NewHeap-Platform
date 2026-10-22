@@ -1,5 +1,6 @@
 import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import {
+  AgentUploads,
   ApprovalPart,
   ClientContext,
   Conversation,
@@ -7,14 +8,17 @@ import {
   ConversationSummary,
   CreateConversationRequest,
   DecideApprovalRequest,
+  FileReference,
   LiveAgentWorkChanged,
   LiveConversationChanged,
   LiveConversationEvent,
   LiveConversationRead,
   LiveConversationRemoved,
   Message,
+  MessagePart,
   NH_ASSISTANT_CONFIG,
   NhAssistantSseEvent,
+  NhAssistantUploadRequest,
   SendMessageRequest,
   TurnUsage,
   applyNhAssistantApprovalDecision,
@@ -24,6 +28,7 @@ import {
 import { Observable, Subject } from 'rxjs';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
 import { mockFailure } from './nh-assistant-mock-admin-shared';
+import { NhAssistantMockFiles } from './nh-assistant-mock-files';
 import { NhAssistantMockAgentRuns } from './nh-assistant-mock-agent-runs';
 import { NhAssistantMockBoards } from './nh-assistant-mock-boards';
 import { NhAssistantMockProposals } from './nh-assistant-mock-proposals';
@@ -133,6 +138,7 @@ export class NhAssistantMockBackend {
   private readonly shareTokens = new Map<string, string>();
   private readonly activeActors = new Map<string, string>();
   private readonly liveSubject = new Subject<NhAssistantMockLiveMessage>();
+  private readonly files = new NhAssistantMockFiles(this.scenario.refuseUpload);
   private pushEnabled = true;
   private sequence = 0;
 
@@ -227,12 +233,59 @@ export class NhAssistantMockBackend {
     this.admin.setMcpConnectionStatus(serverId, status);
   }
 
+  /** The files people uploaded, oldest first, as the application's file source stored them. */
+  get uploads(): readonly { conversationId: string; name: string; mediaType: string; size: number; reference: FileReference }[] {
+    return this.files.uploads;
+  }
+
+  /**
+   * An upload implementation (`NH_ASSISTANT_UPLOAD`) that answers `POST conversations/{id}/files` with
+   * the server's checks, after reporting the progress in four steps.
+   */
+  readonly upload = async (request: NhAssistantUploadRequest): Promise<Response> => {
+    const path = this.pathOf(request.url);
+    const file = request.body.get('file');
+    this.requests.push({
+      method: 'POST',
+      path: path ?? request.url,
+      headers: { ...request.headers },
+      body: file instanceof Blob ? { name: file instanceof File ? file.name : null, mediaType: file.type, size: file.size } : undefined
+    });
+
+    const total = file instanceof Blob ? file.size : 0;
+    for (const share of [0.25, 0.5, 0.75, 1]) {
+      if (request.signal.aborted) {
+        throw new DOMException('The operation was aborted.', 'AbortError');
+      }
+      await delay(this.scenario.timing?.eventDelayMs ?? 40);
+      request.onProgress(Math.round(total * share), total);
+    }
+    if (request.signal.aborted) {
+      throw new DOMException('The operation was aborted.', 'AbortError');
+    }
+
+    const segments = path?.split('/').map(segment => decodeURIComponent(segment)) ?? [];
+    if (!this.enabledState() || segments.length !== 3 || segments[0] !== 'conversations' || segments[2] !== 'files') {
+      return this.empty(404);
+    }
+    const conversation = this.conversations.get(segments[1]);
+    if (!conversation) {
+      return this.error('assistant-conversation-not-found');
+    }
+
+    return this.result(await this.files.upload(
+      conversation.id,
+      this.offersFiles(),
+      this.uploadsOf(conversation.agentId),
+      request.headers,
+      request.body));
+  };
+
   /** A `fetch` implementation that answers the assistant endpoints below `apiBaseUrl`. */
   readonly fetch = async (input: string, init: RequestInit): Promise<Response> => {
     const method = (init.method ?? 'GET').toUpperCase();
     const url = new URL(input, 'http://mock.local');
-    const base = new URL(this.config.apiBaseUrl.replace(/\/+$/, ''), 'http://mock.local').pathname;
-    const path = url.pathname.startsWith(`${base}/`) ? url.pathname.slice(base.length + 1) : null;
+    const path = this.pathOf(input);
     const body = typeof init.body === 'string' && init.body.length > 0 ? JSON.parse(init.body) : undefined;
 
     this.requests.push({ method, path: path ?? url.pathname, headers: { ...(init.headers as Record<string, string>) }, body });
@@ -438,6 +491,12 @@ export class NhAssistantMockBackend {
     if (text.length === 0 || text.length > limit || !request.clientMessageId) {
       return this.empty(400);
     }
+    // Like the server: the attachments are checked before the turn claims the conversation.
+    const uploads = this.uploadsOf(conversation.agentId);
+    const filesCode = this.files.checkMessage(request.files, this.offersFiles(), uploads?.maxFiles ?? 5);
+    if (filesCode) {
+      return this.error(filesCode);
+    }
     if (!acceptsMessage(conversation.status)) {
       return this.empty(409);
     }
@@ -448,6 +507,14 @@ export class NhAssistantMockBackend {
     const turn = this.findTurn(text, conversation.agentId, pageContext);
     const userMessageId = this.nextId();
     const assistantMessageId = this.nextId();
+    const files: FileReference[] = request.files ?? [];
+    // The turn opens the attachments with the sender's rights; it ends with the first refusal and the
+    // message keeps only what the model read.
+    const refusal = files.length === 0 ? null : uploads ? this.files.openCode(conversation.id, files) : 'assistant-files-not-accepted';
+    const parts: MessagePart[] = [
+      { type: 'text', text },
+      ...(refusal ? [] : files.map(file => ({ type: 'file' as const, name: file.name, mediaType: file.mediaType, size: file.size })))
+    ];
     this.activeActors.set(conversation.id, this.currentUser.actorId);
     this.update(conversation.id, current => ({
       ...current,
@@ -455,7 +522,7 @@ export class NhAssistantMockBackend {
       status: 'running',
       messages: [
         ...current.messages,
-        { id: userMessageId, role: 'user', createdAt: new Date().toISOString(), parts: [{ type: 'text', text }], authorActorId: this.currentUser.actorId }
+        { id: userMessageId, role: 'user', createdAt: new Date().toISOString(), parts, authorActorId: this.currentUser.actorId }
       ]
     }));
     // The sender has read their own message.
@@ -463,7 +530,10 @@ export class NhAssistantMockBackend {
 
     return this.stream(conversation.id, async emit => {
       await emit({ type: 'turn.started', data: { turnId: this.nextId(), userMessageId, assistantMessageId } });
-      await this.playSteps(conversation.id, assistantMessageId, turn?.steps ?? [], emit);
+      const steps: NhAssistantMockStep[] = refusal
+        ? [{ error: { code: refusal, messageKey: `nh-assistant.errors.${refusal}` } }]
+        : turn?.steps ?? [];
+      await this.playSteps(conversation.id, assistantMessageId, steps, emit);
     });
   }
 
@@ -860,6 +930,25 @@ export class NhAssistantMockBackend {
   /** A contract error with the one status the server gives its code. */
   private error(code: string): Response {
     return this.result(mockFailure(code));
+  }
+
+  /** The path below `apiBaseUrl`, or `null` for another URL. */
+  private pathOf(input: string): string | null {
+    const url = new URL(input, 'http://mock.local');
+    const base = new URL(this.config.apiBaseUrl.replace(/\/+$/, ''), 'http://mock.local').pathname;
+    return url.pathname.startsWith(`${base}/`) ? url.pathname.slice(base.length + 1) : null;
+  }
+
+  /** Whether the application keeps files for the assistant: an agent of the scenario takes uploads. */
+  private offersFiles(): boolean {
+    return this.scenario.agents.some(agent => !!agent.uploads);
+  }
+
+  /** What people may attach to a message to the agent, as its summary says. */
+  private uploadsOf(agentId: string): AgentUploads | null {
+    return this.admin.chatAgents().find(agent => agent.id === agentId)?.uploads
+      ?? this.scenario.agents.find(agent => agent.id === agentId)?.uploads
+      ?? null;
   }
 
   /**

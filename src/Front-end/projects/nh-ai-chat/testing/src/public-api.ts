@@ -2,6 +2,7 @@
  * Public API surface of @newheap/platform-ai-chat/testing.
  */
 export * from './nh-assistant-mock.models';
+export type { NhAssistantMockUpload } from './nh-assistant-mock-files';
 export * from './nh-assistant-mock-backend';
 export * from './nh-assistant-mock-live';
 export * from './nh-assistant-mock-authorization';

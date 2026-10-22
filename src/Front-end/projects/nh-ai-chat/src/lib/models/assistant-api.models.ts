@@ -41,6 +41,35 @@ export interface AgentSummary {
   displayNameKey: string;
   descriptionKey: string;
   canMutate: boolean;
+  /**
+   * What people may attach to a message to this agent; `null` or missing when they can attach
+   * nothing: the application keeps no files for the assistant, accepts no uploads, or the agent
+   * accepts no files.
+   */
+  uploads?: AgentUploads | null;
+}
+
+/** What people may upload with `POST conversations/{id}/files` and attach to one message to an agent. */
+export interface AgentUploads {
+  /** Lowercase media types, for example `application/pdf`. */
+  acceptedMediaTypes: string[];
+  /** The largest file in bytes. */
+  maxFileBytes: number;
+  /** The most files of one message. */
+  maxFiles: number;
+}
+
+/**
+ * A file the application keeps, as the upload endpoint returns it and a message names it in
+ * `files`. It never carries content.
+ */
+export interface FileReference {
+  id: string;
+  name: string;
+  mediaType: string;
+  size: number;
+  /** The application's hash of the content, when it keeps one. */
+  hash?: string | null;
 }
 
 export interface ConversationSummary {
@@ -151,7 +180,18 @@ export interface Message {
  */
 export type MessageAuthorKind = 'person' | 'trigger' | 'rule';
 
-export type MessagePart = TextPart | ToolCallPart | ApprovalPart | ConnectionRequiredPart;
+export type MessagePart = TextPart | ToolCallPart | ApprovalPart | ConnectionRequiredPart | FilePart;
+
+/**
+ * A file a person attached to a message: its name, media type and size in bytes, never its content.
+ * The application keeps the file; a later turn opens it again with the rights of that turn.
+ */
+export interface FilePart {
+  type: 'file';
+  name: string;
+  mediaType: string;
+  size: number;
+}
 
 /**
  * Why a turn asks the person to connect an MCP server: never connected, the connection ended, or
@@ -307,6 +347,8 @@ export interface SendMessageRequest {
   clientMessageId: string;
   /** Page context of this message; `null` when the user left it out. */
   clientContext?: ClientContext | null;
+  /** Files the person attaches, as `POST conversations/{id}/files` returned them. */
+  files?: FileReference[];
 }
 
 export type ApprovalDecision = 'approve' | 'reject';

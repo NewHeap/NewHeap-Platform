@@ -151,6 +151,25 @@ an explicit send and restore it after a disappearing composer-owned control only
 the user has not moved focus elsewhere; skip automatic restoration on coarse pointers.
 Use a compact localized approval status; do not show the old sending-unavailable notice.
 
+People attach files to a message when the server offers uploads for the agent
+(`AgentSummary.uploads`, read as `NhAssistantStore.uploads()`): the panel's composer then shows a
+labelled attach button that opens the file picker for the accepted types. `NhAssistantStore.attach`
+checks every chosen file before it uploads it (the agent's `maxFiles`, the accepted media types,
+content and `maxFileBytes`; a browser that gives no type, as for Office documents, is read by the
+known extension), creates the conversation first in a new chat, because an upload belongs to one,
+and uploads with progress (`NhAssistantApiService.uploadFile`, `multipart/form-data` with the
+`X-NH-Assistant-Upload` header). `attachments()` lists them as `uploading` with `progress`,
+`uploaded` with the stored `FileReference`, or `failed` with the code; the composer shows each at the
+control, with its remove button, and keeps sending disabled while a file uploads. Send with
+`submit(text, attachedFiles())`: the message carries the references in `files`, a queued message
+keeps them, and once the message is accepted its attachments, and the failed ones, leave the
+composer. `removeAttachment` stops an upload in progress. In a custom layout, bind the composer's
+`uploads` and `attachments` inputs and its `attach` and `removeAttachment` outputs to the store. The
+thread shows a person's files by name, type and size (`FilePart`), never their content. Uploads
+use `NH_ASSISTANT_UPLOAD`, `XMLHttpRequest` by default because `fetch` reports no upload progress;
+the mock API replaces it, answers with the server's checks and codes, and refuses an upload with
+`refuseUpload` of the scenario. Give an agent of the scenario `uploads` to offer attachments.
+
 A turn that fails leaves the conversation open, as the server does: the error bar keeps the
 translated failure, the composer stays available and the next message starts a new turn in
 the same conversation or agent thread. An explicit send goes out directly while nothing is
@@ -607,7 +626,10 @@ usable; the launcher disappears for
 `enabled: false` and a denying policy; model text with a script tag renders no
 script; `en` and `nl` have identical keys and a regional language such as `nl-NL`
 receives the `nl` texts; and the mock emits exactly the contract
-event fields. The preference tests save, validate the 1,000-character limit and show
+event fields. The attachment tests check type, size and number before any upload, follow the
+progress to the stored file, send it with the message, stop a removed upload, show failures and the
+uploading state at the composer, show a message's files by name, type and size, fit a 375px screen
+without horizontal overflow, and get the server's upload codes from the mock. The preference tests save, validate the 1,000-character limit and show
 failures; the administration tests save context versions and report conflicts,
 create, disable, reset and delete agents after confirmation, put an agent and a skill in
 shadow and back and replace and restore a technical account, never render a stored

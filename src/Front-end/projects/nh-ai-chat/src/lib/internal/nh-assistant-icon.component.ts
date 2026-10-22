@@ -23,7 +23,9 @@ export type NhAssistantIconName =
   | 'users'
   | 'copy'
   | 'bell'
-  | 'leave';
+  | 'leave'
+  | 'attach'
+  | 'file';
 
 /**
  * Optional icon classes of the host's icon library, for example `{ close: 'ph ph-x' }`.
@@ -54,7 +56,9 @@ const builtInPaths: Record<NhAssistantIconName, string> = {
   users: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 1 0 0 7zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.5c1.8.9 3 2.8 3 5',
   copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
   bell: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0',
-  leave: 'M10 4H5v16h5M14 8l4 4-4 4M18 12H9'
+  leave: 'M10 4H5v16h5M14 8l4 4-4 4M18 12H9',
+  attach: 'M19 11.5l-7.6 7.6a4.6 4.6 0 0 1-6.5-6.5l8.3-8.3a3 3 0 0 1 4.3 4.3l-8.2 8.2a1.5 1.5 0 0 1-2.1-2.1l7.4-7.4',
+  file: 'M6 3h8l4 4v14H6zM14 3v4h4'
 };
 
 /** Decorative icon. The surrounding control provides the accessible name. */

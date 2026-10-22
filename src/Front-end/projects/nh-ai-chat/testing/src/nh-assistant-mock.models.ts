@@ -22,6 +22,7 @@ import {
   RunCatalog,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
+import type { NhAssistantMockUpload } from './nh-assistant-mock-files';
 
 /** Streams text as `message.delta` events, split into word-sized pieces. */
 export interface NhAssistantMockTextStep {
@@ -478,6 +479,14 @@ export interface NhAssistantMockScenario {
    * the approval inbox, their thread and their subject's work list them, and people decide them.
    */
   proposals?: NhAssistantMockProposal[];
+  /**
+   * The application's own answer to an upload that passed the assistant's checks: `null` stores it,
+   * a code refuses it as the server passes the file source's refusal on, for example
+   * `'application-virus-found'` as `assistant-file-upload-refused`. People attach files to messages for
+   * the agents whose summary in `agents` lists `uploads`; without such an agent the application keeps
+   * no files for the assistant. Default: every upload is stored.
+   */
+  refuseUpload?: (upload: NhAssistantMockUpload) => string | null;
 }
 
 /**

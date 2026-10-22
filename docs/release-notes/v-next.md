@@ -364,3 +364,58 @@ file error codes, with English and Dutch texts.
 | Breaking change | Required action |
 |---|---|
 | New translation keys `nh-assistant.admin.run-config.files.*` and `nh-assistant.errors.assistant-file*` for the file codes. | Applications with their own translation files add them. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: chat attachments
+
+People can attach files to a chat message. The new endpoint `POST {prefix}/conversations/{id}/files`
+takes one file as `multipart/form-data` (part `file`, header `X-NH-Assistant-Upload: 1`) under the
+assistant's access policy, checks the conversation, the agent's policy, a file source, an agent that
+accepts files, the accepted media types (whose content must start as files of that type do) and the
+agent's `MaxFileBytes`, and then has `INhAssistantFileSource.StoreUploadAsync` store it. It returns
+the file's `NhAiFileReference`, which the message carries in the new `files` of
+`POST conversations/{id}/messages` (`NhAssistantSendMessageRequest.Files`).
+
+- `ConfigureUploads(...)` on `NhAssistantBuilder` configures `NhAssistantUploadOptions`: the accepted
+  media types (`AcceptMediaTypes`, by default PDF, PNG, JPEG, Word and Excel; none switches uploads
+  off) and `DefaultClassification` (`Confidential`), which `StoreUploadAsync` receives as the new
+  `NhAssistantFileUpload.Classification`.
+- `NhAssistantAgentSummaryDto.Uploads` (`NhAssistantAgentUploadsDto`: accepted media types, largest
+  file, most files of one message) in `GET status` and `GET agents` says what people may attach to
+  each agent; `null` when nothing.
+- The conversation shows a person's attachments as the new message part `file`
+  (`NhAssistantFilePartDto`: name, media type and size), also in the live `message.created` event;
+  never content, the application's id or a hash.
+- A message with attachments in a busy agent thread is refused with `assistant-conversation-busy`
+  instead of waiting for the next run.
+- New error codes `assistant-file-upload-invalid` (400), `assistant-file-type-not-accepted` (415),
+  `assistant-file-upload-refused` (422) and `assistant-file-upload-failed` (503).
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantSendMessageRequest` has a new optional last parameter, `Files`. | Recompile callers that construct it positionally. |
+| Conversation views and live `message.created` events can contain parts of type `file`. | Clients that switch over part types handle or skip `file`. |
+
+## @newheap/platform-ai-chat: attaching files in the chat
+
+The composer offers an attach button when the server offers uploads for the agent
+(`AgentSummary.uploads`, `AgentUploads`). `NhAssistantStore` checks every chosen file before it
+uploads it (number, type, size; Office documents without a browser type by extension), creates the
+conversation of a new chat first, follows the upload's progress and sends the stored files with the
+message: `uploads`, `attachments` (`NhAssistantAttachment`), `attachedFiles`, `uploading`, `attach`,
+`removeAttachment`, and `files` on `send` and `submit`; queued messages keep their files
+(`NhAssistantQueuedMessage.files`). `NhAssistantComposerComponent` gains the inputs `uploads` and
+`attachments` and the outputs `attach` and `removeAttachment`, shows progress and failures at the
+control, and waits with sending while a file uploads. The thread shows a person's files by name, type
+and size (`FilePart`). `NhAssistantApiService.uploadFile` uploads through the new `NH_ASSISTANT_UPLOAD`
+(`NhAssistantUpload`, `NhAssistantUploadRequest`, by default `nhAssistantXhrUpload`, because `fetch`
+reports no upload progress) with `NH_ASSISTANT_UPLOAD_HEADER`. `SendMessageRequest.files` and
+`FileReference` follow the contract. The mock backend of `@newheap/platform-ai-chat/testing` answers
+uploads and messages with files with the server's checks and codes, reports progress, lists its
+`uploads` and refuses an upload through the scenario's `refuseUpload` (`NhAssistantMockUpload`).
+`NH_ASSISTANT_SERVER_ERROR_CODES` lists the four upload codes, with English and Dutch texts.
+
+| Breaking change | Required action |
+|---|---|
+| `MessagePart` includes `FilePart` (`type: 'file'`). | Code that switches over part types handles or skips `file`. |
+| New translation keys `nh-assistant.composer.attach`, `attach-hint`, `attachments`, `remove-attachment`, `uploading`, `uploading-hint` and `attachment-errors.*`, `nh-assistant.thread.files` and `file-meta`, `nh-assistant.queue.files`, and `nh-assistant.errors.assistant-file-upload-invalid`, `assistant-file-type-not-accepted`, `assistant-file-upload-refused` and `assistant-file-upload-failed`. | Applications with their own translation files add them. |
+| `NhAssistantIconName` includes `attach` and `file`. | Hosts that map every icon in `NH_ASSISTANT_ICONS` add classes for them. |

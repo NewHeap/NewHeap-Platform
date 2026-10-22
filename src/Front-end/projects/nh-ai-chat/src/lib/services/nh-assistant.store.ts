@@ -15,6 +15,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { Observable, Subscription, firstValueFrom, isObservable } from 'rxjs';
 import {
   AgentSummary,
+  AgentUploads,
   ApprovalDecision,
   ApprovalPart,
   ApprovalStatus,
@@ -24,8 +25,11 @@ import {
   ConversationMember,
   ConversationStatus,
   ConversationSummary,
-  DirectoryEntry
+  DirectoryEntry,
+  FileReference,
+  MessagePart
 } from '../models/assistant-api.models';
+import { nhAssistantFileProblem, nhAssistantMediaTypeOf } from '../internal/nh-assistant-files';
 import {
   LiveAgentWorkChanged,
   LiveConversationChanged,
@@ -69,6 +73,30 @@ export interface NhAssistantQueuedMessage {
   conversationId: string;
   text: string;
   state: 'preparing' | 'queued' | 'sending' | 'failed';
+  /** The files the message carries, uploaded before it was queued. */
+  files?: readonly FileReference[];
+}
+
+/**
+ * A file the person attaches to the next message of the open conversation: while it uploads, once
+ * the application stored it, or why it cannot be attached. Attachments live only in this tab's
+ * memory.
+ */
+export interface NhAssistantAttachment {
+  /** The attachment's id in this tab. */
+  id: string;
+  name: string;
+  /** The media type the upload declares, lowercase. */
+  mediaType: string;
+  /** The size in bytes. */
+  size: number;
+  state: 'uploading' | 'uploaded' | 'failed';
+  /** The share of the file sent so far, from 0 to 1. */
+  progress: number;
+  /** The stored file, once uploaded; the message carries its reference. */
+  file: FileReference | null;
+  /** Why the file is not attached, for a failed attachment. */
+  error: NhAssistantError | null;
 }
 
 interface QueuedMessage extends NhAssistantQueuedMessage {
@@ -195,7 +223,12 @@ export class NhAssistantStore {
   private readonly submittingState = signal(false);
   /** Agent proposals the current user rejected in this session and may give feedback on. */
   private readonly feedbackApprovalsState = signal<ReadonlySet<string>>(new Set());
+  /** The attachments of the next message per conversation; `''` for a new conversation. */
+  private readonly attachmentsState = signal<ReadonlyMap<string, readonly NhAssistantAttachment[]>>(new Map());
   private destroyed = false;
+  private readonly uploadSubscriptions = new Map<string, Subscription>();
+  /** The conversation an attachment of a new conversation creates, once for every file chosen meanwhile. */
+  private attachmentConversation: Promise<Conversation | null> | null = null;
 
   private readonly streams = new Map<string, Subscription>();
   private readonly cancelTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -283,6 +316,33 @@ export class NhAssistantStore {
       && ['running', 'waiting-for-approval'].includes(conversation?.status ?? '')
       && (this.isOwner() || ownsTurn);
   });
+  /**
+   * What the person may attach to the next message: the uploads of the open conversation's agent, or
+   * of the selected agent for a new conversation. `null` when nothing can be attached: the server
+   * offers no uploads for the agent, the conversation is archived, or the person only reads the
+   * agent's thread.
+   */
+  readonly uploads = computed<AgentUploads | null>(() => {
+    const conversation = this.activeConversation();
+    const thread = conversation?.thread;
+    if (!this.enabled() || conversation?.status === 'archived'
+      || (thread && thread.role !== 'participant' && thread.role !== 'approver')) {
+      return null;
+    }
+
+    const agentId = conversation?.agentId ?? this.selectedAgentIdState();
+    const uploads = this.agents().find(agent => agent.id === agentId)?.uploads ?? null;
+    return uploads && uploads.acceptedMediaTypes.length > 0 && uploads.maxFiles > 0 ? uploads : null;
+  });
+  /** The attachments of the next message of the open conversation, in the order they were chosen. */
+  readonly attachments = computed<readonly NhAssistantAttachment[]>(() =>
+    this.attachmentsState().get(this.activeIdState() ?? newConversationKey) ?? []);
+  /** The stored files of the open conversation's next message, for `submit`. */
+  readonly attachedFiles = computed<FileReference[]>(() => this.attachments()
+    .filter(attachment => attachment.state === 'uploaded' && attachment.file !== null)
+    .map(attachment => attachment.file!));
+  /** True while a file of the next message still uploads; the message waits for it. */
+  readonly uploading = computed(() => this.attachments().some(attachment => attachment.state === 'uploading'));
   /** The owner and participants of the open conversation; empty while it is not shared. */
   readonly members = computed<ConversationMember[]>(() => this.activeConversation()?.members ?? []);
   /** True when the current user owns the open conversation (or it is new). */
@@ -388,6 +448,9 @@ export class NhAssistantStore {
       this.liveSubscription.unsubscribe();
       this.stopAllTurns();
       this.clearAgentWorkTimers();
+      for (const upload of this.uploadSubscriptions.values()) {
+        upload.unsubscribe();
+      }
       clearTimeout(this.refreshTimer);
     });
 
@@ -589,27 +652,29 @@ export class NhAssistantStore {
   /**
    * Sends a user message. Creates a conversation with the selected agent when none is open,
    * shows the message optimistically and applies the streamed events. Other conversations keep
-   * their own turns. Resolves `false` when the message was not accepted.
+   * their own turns. Resolves `false` when the message was not accepted. `files` are uploaded
+   * attachments, such as `attachedFiles()`; once the message is accepted, the attachments of the
+   * conversation leave the composer.
    */
-  async send(text: string): Promise<boolean> {
+  async send(text: string, files: readonly FileReference[] = []): Promise<boolean> {
     // Browsers only ask for notification permission during a user action such as this one.
     void this.push.onUserGesture().catch(() => undefined);
-    return this.sendMessage(text);
+    return this.sendMessage(text, undefined, files);
   }
 
   /**
    * Sends immediately when the conversation accepts a message, otherwise appends to the
    * conversation's FIFO queue. A shown error alone does not hold a message back while nothing is
    * queued: the person asks again, for example after a failed turn. Queued messages still wait
-   * for an explicit `resumeQueue` after Stop or a failure.
+   * for an explicit `resumeQueue` after Stop or a failure. A queued message keeps its `files`.
    */
-  async submit(text: string): Promise<boolean> {
+  async submit(text: string, files: readonly FileReference[] = []): Promise<boolean> {
     const stopped = this.pausedQueuesState().has(this.activeIdState() ?? newConversationKey);
     if (this.canSend() && this.queuedMessages().length === 0 && !stopped && !this.submittingState()) {
       const revision = this.accountRevision;
       this.submittingState.set(true);
       try {
-        return await this.send(text);
+        return await this.send(text, files);
       } finally {
         if (revision === this.accountRevision && !this.destroyed) {
           this.submittingState.set(false);
@@ -623,8 +688,15 @@ export class NhAssistantStore {
     }
     void this.push.onUserGesture().catch(() => undefined);
     const revision = this.accountRevision;
-    const item: QueuedMessage = { id: createClientMessageId(), conversationId, text: trimmed, state: 'preparing' };
+    const item: QueuedMessage = {
+      id: createClientMessageId(),
+      conversationId,
+      text: trimmed,
+      state: 'preparing',
+      ...(files.length > 0 ? { files: [...files] } : {})
+    };
     this.queuedState.update(items => [...items, item]);
+    this.releaseAttachments(conversationId, files);
     const clientContext = await this.contextForMessage();
     if (revision !== this.accountRevision || this.destroyed) {
       return false;
@@ -692,7 +764,7 @@ export class NhAssistantStore {
     const revision = this.accountRevision;
     this.queueDispatchState.set(item.id);
     this.queuedState.update(items => items.map(current => current.id === item.id ? { ...current, state: 'sending' } : current));
-    const accepted = await this.sendMessage(item.text, item);
+    const accepted = await this.sendMessage(item.text, item, item.files ?? []);
     if (revision !== this.accountRevision || this.destroyed) {
       return;
     }
@@ -704,7 +776,7 @@ export class NhAssistantStore {
     this.queueDispatchState.set(null);
   }
 
-  private async sendMessage(text: string, queued?: QueuedMessage): Promise<boolean> {
+  private async sendMessage(text: string, queued: QueuedMessage | undefined, files: readonly FileReference[]): Promise<boolean> {
     const trimmed = text.trim();
     const accountRevision = this.accountRevision;
     await this.initialize();
@@ -747,6 +819,10 @@ export class NhAssistantStore {
     const conversationId = conversation.id;
     const clientMessageId = createClientMessageId();
     const previousStatus = conversation.status;
+    const parts: MessagePart[] = [
+      { type: 'text', text: trimmed },
+      ...files.map(file => ({ type: 'file' as const, name: file.name, mediaType: file.mediaType, size: file.size }))
+    ];
     this.patchSession(conversationId, session => ({
       ...session,
       error: null,
@@ -760,7 +836,7 @@ export class NhAssistantStore {
             id: clientMessageId,
             role: 'user',
             createdAt: new Date().toISOString(),
-            parts: [{ type: 'text', text: trimmed }],
+            parts,
             authorActorId: session.conversation.currentActorId ?? null
           }
         ]
@@ -776,7 +852,8 @@ export class NhAssistantStore {
       this.runStream(conversationId, this.api.sendMessage(conversationId, {
         text: trimmed,
         clientMessageId,
-        ...(clientContext === undefined ? {} : { clientContext })
+        ...(clientContext === undefined ? {} : { clientContext }),
+        ...(files.length > 0 ? { files: [...files] } : {})
       }), {
         next: event => {
           if (event.type === 'error' && !started) {
@@ -791,6 +868,8 @@ export class NhAssistantStore {
 
           if (event.type === 'turn.started') {
             started = true;
+            // The message carries the files now; they leave the composer.
+            this.releaseAttachments(conversationId, files);
             resolve(true);
           }
           if (event.type === 'error') {
@@ -1111,6 +1190,172 @@ export class NhAssistantStore {
     return draft;
   }
 
+  /**
+   * Attaches files to the next message of the open conversation and uploads them at once. Each
+   * file is checked first against `uploads()`: the most files of one message, the accepted media
+   * types and the largest size; a file that fails stays as a failed attachment with its code and
+   * is never uploaded. A new conversation is created first, because an upload belongs to one.
+   */
+  async attach(files: readonly File[]): Promise<void> {
+    const uploads = this.uploads();
+    if (!uploads || files.length === 0) {
+      return;
+    }
+
+    const revision = this.accountRevision;
+    const key = this.activeIdState() ?? newConversationKey;
+    let attached = this.attachmentsOf(key).filter(attachment => attachment.state !== 'failed').length;
+    const added: NhAssistantAttachment[] = [];
+    const pending: { attachment: NhAssistantAttachment; content: Blob }[] = [];
+    for (const file of files) {
+      const mediaType = nhAssistantMediaTypeOf(file);
+      const problem = nhAssistantFileProblem(file, mediaType, uploads, attached);
+      const attachment: NhAssistantAttachment = {
+        id: createClientMessageId(),
+        name: file.name,
+        mediaType,
+        size: file.size,
+        state: problem ? 'failed' : 'uploading',
+        progress: 0,
+        file: null,
+        error: problem ? clientError(problem) : null
+      };
+      added.push(attachment);
+      if (!problem) {
+        attached++;
+        // The upload declares the media type the check accepted, also when the browser gave none.
+        pending.push({ attachment, content: file.slice(0, file.size, mediaType) });
+      }
+    }
+    this.patchAttachments(key, attachments => [...attachments, ...added]);
+    if (pending.length === 0) {
+      return;
+    }
+
+    let conversationId = this.activeIdState();
+    if (conversationId === null) {
+      this.attachmentConversation ??= this.createConversation().finally(() => {
+        this.attachmentConversation = null;
+      });
+      const conversation = await this.attachmentConversation;
+      if (revision !== this.accountRevision || this.destroyed) {
+        return;
+      }
+      if (!conversation) {
+        const error = this.draftErrorState() ?? clientError(NhAssistantClientErrorCodes.server);
+        this.patchAttachments(key, attachments => attachments.map(attachment => pending.some(item => item.attachment.id === attachment.id)
+          ? { ...attachment, state: 'failed', error }
+          : attachment));
+        return;
+      }
+      conversationId = conversation.id;
+      this.moveAttachments(key, conversationId);
+    }
+
+    for (const { attachment, content } of pending) {
+      this.startUpload(conversationId, attachment, content);
+    }
+  }
+
+  /** Removes an attachment of the next message; an upload in progress stops. */
+  removeAttachment(attachmentId: string): void {
+    this.uploadSubscriptions.get(attachmentId)?.unsubscribe();
+    this.uploadSubscriptions.delete(attachmentId);
+    this.attachmentsState.update(all => {
+      const next = new Map<string, readonly NhAssistantAttachment[]>();
+      for (const [key, attachments] of all) {
+        const kept = attachments.filter(attachment => attachment.id !== attachmentId);
+        if (kept.length > 0) {
+          next.set(key, kept);
+        }
+      }
+      return next;
+    });
+  }
+
+  private startUpload(conversationId: string, attachment: NhAssistantAttachment, content: Blob): void {
+    const revision = this.accountRevision;
+    const update = (change: Partial<NhAssistantAttachment>) => {
+      if (revision === this.accountRevision) {
+        this.patchAttachments(conversationId, attachments => attachments.map(item => item.id === attachment.id ? { ...item, ...change } : item));
+      }
+    };
+    const subscription = this.api.uploadFile(conversationId, content, attachment.name).subscribe({
+      next: event => {
+        if (event.type === 'progress') {
+          update({ progress: event.total > 0 ? Math.min(1, event.loaded / event.total) : 0 });
+          return;
+        }
+        update({ state: 'uploaded', progress: 1, file: event.file });
+      },
+      error: error => {
+        this.uploadSubscriptions.delete(attachment.id);
+        update({ state: 'failed', error: error instanceof NhAssistantApiError
+          ? { code: error.code, messageKey: error.messageKey }
+          : clientError(NhAssistantClientErrorCodes.server) });
+      },
+      complete: () => this.uploadSubscriptions.delete(attachment.id)
+    });
+    if (!subscription.closed) {
+      this.uploadSubscriptions.set(attachment.id, subscription);
+    }
+  }
+
+  private attachmentsOf(key: string): readonly NhAssistantAttachment[] {
+    return this.attachmentsState().get(key) ?? [];
+  }
+
+  private patchAttachments(
+    key: string,
+    update: (attachments: readonly NhAssistantAttachment[]) => readonly NhAssistantAttachment[]
+  ): void {
+    this.attachmentsState.update(all => {
+      const next = new Map(all);
+      const attachments = update(all.get(key) ?? []);
+      if (attachments.length > 0) {
+        next.set(key, attachments);
+      } else {
+        next.delete(key);
+      }
+      return next;
+    });
+  }
+
+  /** Moves the attachments of a new conversation to the conversation that was created for them. */
+  private moveAttachments(from: string, to: string): void {
+    const moving = this.attachmentsOf(from);
+    this.patchAttachments(from, () => []);
+    this.patchAttachments(to, attachments => [...attachments, ...moving]);
+  }
+
+  /**
+   * The attachments a message took leave the composer, and with them the failed ones; files that
+   * still upload stay for the next message.
+   */
+  private releaseAttachments(conversationId: string, files: readonly FileReference[]): void {
+    const sent = new Set(files.map(file => file.id));
+    this.patchAttachments(conversationId, attachments => attachments.filter(attachment =>
+      attachment.state === 'uploading' || (attachment.state === 'uploaded' && !sent.has(attachment.file?.id ?? ''))));
+  }
+
+  /** Stops the uploads of a conversation, or of every conversation, and forgets their attachments. */
+  private dropAttachments(conversationId?: string): void {
+    for (const [key, attachments] of this.attachmentsState()) {
+      if (conversationId !== undefined && key !== conversationId) {
+        continue;
+      }
+      for (const attachment of attachments) {
+        this.uploadSubscriptions.get(attachment.id)?.unsubscribe();
+        this.uploadSubscriptions.delete(attachment.id);
+      }
+    }
+    if (conversationId === undefined) {
+      this.attachmentsState.set(new Map());
+    } else {
+      this.patchAttachments(conversationId, () => []);
+    }
+  }
+
   private async loadConversation(conversationId: string, restoring: boolean): Promise<void> {
     if (this.sessionsState().has(conversationId)) {
       const session = this.sessionsState().get(conversationId)!;
@@ -1262,6 +1507,8 @@ export class NhAssistantStore {
     this.steeringState.set(null);
     this.submittingState.set(false);
     this.feedbackApprovalsState.set(new Set());
+    this.dropAttachments();
+    this.attachmentConversation = null;
     this.clearAgentWorkTimers();
     void this.live.stop();
     void this.push.deactivate().catch(() => undefined);
@@ -1604,6 +1851,7 @@ export class NhAssistantStore {
 
   /** Removes a deleted, left or inaccessible conversation everywhere. */
   private forget(conversationId: string): void {
+    this.dropAttachments(conversationId);
     this.queuedState.update(items => items.filter(item => item.conversationId !== conversationId));
     this.pausedQueuesState.update(paused => new Set([...paused].filter(id => id !== conversationId)));
     this.streams.get(conversationId)?.unsubscribe();

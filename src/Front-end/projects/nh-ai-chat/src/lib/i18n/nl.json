@@ -72,7 +72,9 @@
       "elapsed": "{{seconds}} s",
       "participant": "Deelnemer",
       "trigger": "Gebeurtenis",
-      "rule": "Automatische regel"
+      "rule": "Automatische regel",
+      "files": "Bijgevoegde bestanden",
+      "file-meta": "{{type}}, {{size}}"
     },
     "composer": {
       "label": "Bericht",
@@ -87,6 +89,18 @@
         "waiting-for-approval": "Wacht op goedkeuring",
         "running-by": "{{name}} werkt met de assistent…",
         "waiting-for-approval-by": "Wacht op de beslissing van {{name}}…"
+      },
+      "attach": "Bestanden bijvoegen",
+      "attach-hint": "{{types}}, elk tot {{max}}, hoogstens {{count}} bestanden per bericht",
+      "attachments": "Bijgevoegde bestanden",
+      "remove-attachment": "{{name}} verwijderen",
+      "uploading": "{{name}} wordt geüpload",
+      "uploading-hint": "Het bericht kan worden verstuurd zodra de bestanden zijn geüpload",
+      "attachment-errors": {
+        "assistant-file-type-not-accepted": "Dit type bestand kan niet worden bijgevoegd. Voeg {{types}} bij.",
+        "assistant-file-too-large": "Het bestand is groter dan {{max}}.",
+        "assistant-file-count-limit": "Een bericht kan hoogstens {{count}} bestanden bevatten.",
+        "assistant-file-upload-invalid": "Het bestand is leeg of de naam is niet bruikbaar."
       }
     },
     "queue": {
@@ -104,7 +118,8 @@
         "preparing": "Klaarzetten…",
         "sending": "Versturen…",
         "failed": "Niet verstuurd; hervat om opnieuw te proberen"
-      }
+      },
+      "files": "Bestanden: {{count}}"
     },
     "tool-call": {
       "label": "Toolaanroep: {{name}}",
@@ -423,7 +438,11 @@
       "assistant-mcp-popup-blocked": "De browser heeft het autorisatievenster geblokkeerd. Sta pop-ups toe voor deze site en probeer het opnieuw.",
       "assistant-proposal-placed": "Het voorstel wacht bij het object waar het om gaat, op de goedkeurders daarvan.",
       "assistant-proposal-not-placed": "Het voorstel is niet bij het object geplaatst waar het om gaat.",
-      "assistant-proposal-not-needed": "Niet voorgesteld: het werk is al gedaan of is niet meer van toepassing."
+      "assistant-proposal-not-needed": "Niet voorgesteld: het werk is al gedaan of is niet meer van toepassing.",
+      "assistant-file-upload-invalid": "Het bestand kon niet worden geüpload. Kies één bestand en probeer het opnieuw.",
+      "assistant-file-type-not-accepted": "Dit type bestand kan niet worden bijgevoegd.",
+      "assistant-file-upload-refused": "De applicatie heeft dit bestand geweigerd, bijvoorbeeld na een virusscan.",
+      "assistant-file-upload-failed": "Het bestand kon nu niet worden opgeslagen. Probeer het zo opnieuw."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",

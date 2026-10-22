@@ -13,7 +13,68 @@
     (input)="onInput($event)"
     (keydown)="onKeydown($event)"></textarea>
 
+  @if (attachments().length > 0) {
+    <ul class="attachments" [id]="attachmentsId" [attr.aria-label]="'nh-assistant.composer.attachments' | translate">
+      @for (attachment of attachments(); track attachment.id) {
+        <li class="attachment" [attr.data-state]="attachment.state">
+          <nh-assistant-icon class="attachment-icon" [name]="attachment.state === 'failed' ? 'warning' : 'file'" />
+          <div class="attachment-body">
+            <span class="attachment-name" [attr.title]="attachment.name">{{ attachment.name }}</span>
+            @switch (attachment.state) {
+              @case ('uploading') {
+                <progress
+                  class="attachment-progress"
+                  max="100"
+                  [value]="percent(attachment)"
+                  [attr.aria-label]="'nh-assistant.composer.uploading' | translate: { name: attachment.name }"></progress>
+              }
+              @case ('failed') {
+                <span class="attachment-error" role="alert">
+                  {{ errorKeys(attachment) | nhAssistantTranslate: (attachment.error?.code ?? '') : uploadParams() }}
+                </span>
+              }
+              @default {
+                <span class="attachment-meta">{{ size(attachment.size) }}</span>
+              }
+            }
+          </div>
+          <button
+            class="attachment-remove"
+            type="button"
+            [attr.aria-label]="'nh-assistant.composer.remove-attachment' | translate: { name: attachment.name }"
+            [attr.title]="'nh-assistant.composer.remove-attachment' | translate: { name: attachment.name }"
+            (click)="remove(attachment)">
+            <nh-assistant-icon name="close" />
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
   <div class="prompt-bar">
+    @if (uploads()) {
+      <button
+        #attachButton
+        class="attach"
+        type="button"
+        [disabled]="disabled()"
+        [attr.aria-label]="'nh-assistant.composer.attach' | translate"
+        [attr.title]="'nh-assistant.composer.attach-hint' | translate: uploadParams()"
+        [attr.aria-describedby]="attachHintId"
+        (click)="fileInput.click()">
+        <nh-assistant-icon name="attach" />
+      </button>
+      <span class="visually-hidden" [id]="attachHintId">{{ 'nh-assistant.composer.attach-hint' | translate: uploadParams() }}</span>
+      <input
+        #fileInput
+        class="visually-hidden"
+        type="file"
+        multiple
+        tabindex="-1"
+        aria-hidden="true"
+        [accept]="accept()"
+        (change)="onFilesChosen($event)" />
+    }
     <div class="prompt-controls">
       <ng-content select="[nhAssistantComposerControls]" />
     </div>
@@ -55,6 +116,8 @@
 <p class="hint" [id]="hintId">
   @if (tooLong()) {
     <span class="error">{{ 'nh-assistant.composer.too-long' | translate }}</span>
+  } @else if (uploading()) {
+    <span>{{ 'nh-assistant.composer.uploading-hint' | translate }}</span>
   } @else {
     <span>{{ (busy() && queueWhileBusy() ? 'nh-assistant.queue.hint' : 'nh-assistant.composer.hint') | translate }}</span>
   }

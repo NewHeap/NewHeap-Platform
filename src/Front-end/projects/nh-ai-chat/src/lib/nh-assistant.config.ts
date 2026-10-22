@@ -151,6 +151,71 @@ export const NH_ASSISTANT_FETCH = new InjectionToken<NhAssistantFetch>('NH_ASSIS
   factory: () => (input: string, init: RequestInit) => globalThis.fetch(input, init)
 });
 
+/** One file upload of the assistant client, which reports how much of the body was sent. */
+export interface NhAssistantUploadRequest {
+  url: string;
+  /** The request headers; never `Content-Type`, which the browser sets with the multipart boundary. */
+  headers: Record<string, string>;
+  body: FormData;
+  signal: AbortSignal;
+  /** Called while the body is sent, with the bytes sent so far and the total. */
+  onProgress: (loaded: number, total: number) => void;
+}
+
+/** Sends an upload and resolves with the server's response; rejects when the request did not reach the server. */
+export type NhAssistantUpload = (request: NhAssistantUploadRequest) => Promise<Response>;
+
+/**
+ * Sends the uploads of the assistant client. The default uses `XMLHttpRequest`, because `fetch` does
+ * not report upload progress. The mock API from `@newheap/platform-ai-chat/testing` replaces it.
+ */
+export const NH_ASSISTANT_UPLOAD = new InjectionToken<NhAssistantUpload>('NH_ASSISTANT_UPLOAD', {
+  providedIn: 'root',
+  factory: () => nhAssistantXhrUpload
+});
+
+/** The default upload: `XMLHttpRequest` with upload progress, answered as a `Response`. */
+export function nhAssistantXhrUpload(request: NhAssistantUploadRequest): Promise<Response> {
+  return new Promise<Response>((resolve, reject) => {
+    if (request.signal.aborted) {
+      reject(new DOMException('The upload was aborted.', 'AbortError'));
+      return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    const abort = () => xhr.abort();
+    request.signal.addEventListener('abort', abort, { once: true });
+    const finish = () => request.signal.removeEventListener('abort', abort);
+
+    xhr.open('POST', request.url);
+    for (const [name, value] of Object.entries(request.headers)) {
+      xhr.setRequestHeader(name, value);
+    }
+    xhr.upload.onprogress = event => {
+      if (event.lengthComputable) {
+        request.onProgress(event.loaded, event.total);
+      }
+    };
+    xhr.onload = () => {
+      finish();
+      const contentType = xhr.getResponseHeader('content-type');
+      resolve(new Response(xhr.status === 204 ? null : xhr.responseText, {
+        status: xhr.status,
+        headers: contentType ? { 'content-type': contentType } : {}
+      }));
+    };
+    xhr.onerror = () => {
+      finish();
+      reject(new TypeError('The upload did not reach the server.'));
+    };
+    xhr.onabort = () => {
+      finish();
+      reject(new DOMException('The upload was aborted.', 'AbortError'));
+    };
+    xhr.send(request.body);
+  });
+}
+
 /** Default policy: every user who can reach the host may use the assistant. */
 export class NhAssistantAllowAllAccessPolicy implements NhAssistantAccessPolicy {
   canUse(): boolean {

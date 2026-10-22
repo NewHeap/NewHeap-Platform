@@ -72,7 +72,9 @@
       "elapsed": "{{seconds}}s",
       "participant": "Participant",
       "trigger": "Event",
-      "rule": "Automatic rule"
+      "rule": "Automatic rule",
+      "files": "Attached files",
+      "file-meta": "{{type}}, {{size}}"
     },
     "composer": {
       "label": "Message",
@@ -87,6 +89,18 @@
         "waiting-for-approval": "Waiting for approval",
         "running-by": "{{name}} is working with the assistant…",
         "waiting-for-approval-by": "Waiting for {{name}} to decide…"
+      },
+      "attach": "Attach files",
+      "attach-hint": "{{types}}, up to {{max}} each, at most {{count}} files per message",
+      "attachments": "Attached files",
+      "remove-attachment": "Remove {{name}}",
+      "uploading": "Uploading {{name}}",
+      "uploading-hint": "The message can be sent once the files are uploaded",
+      "attachment-errors": {
+        "assistant-file-type-not-accepted": "This type of file cannot be attached. Attach {{types}}.",
+        "assistant-file-too-large": "The file is larger than {{max}}.",
+        "assistant-file-count-limit": "A message can carry at most {{count}} files.",
+        "assistant-file-upload-invalid": "The file is empty or its name cannot be used."
       }
     },
     "queue": {
@@ -104,7 +118,8 @@
         "preparing": "Preparing…",
         "sending": "Sending…",
         "failed": "Not sent; resume to retry"
-      }
+      },
+      "files": "Files: {{count}}"
     },
     "tool-call": {
       "label": "Tool call: {{name}}",
@@ -423,7 +438,11 @@
       "assistant-mcp-popup-blocked": "The browser blocked the authorization window. Allow pop-ups for this site and try again.",
       "assistant-proposal-placed": "The proposal waits at the object it concerns, for that object's approvers.",
       "assistant-proposal-not-placed": "The proposal was not placed at the object it concerns.",
-      "assistant-proposal-not-needed": "Not proposed: the work is already done or no longer applies."
+      "assistant-proposal-not-needed": "Not proposed: the work is already done or no longer applies.",
+      "assistant-file-upload-invalid": "The file could not be uploaded. Choose one file and try again.",
+      "assistant-file-type-not-accepted": "This type of file cannot be attached.",
+      "assistant-file-upload-refused": "The application refused this file, for example after a virus scan.",
+      "assistant-file-upload-failed": "The file could not be stored right now. Try again in a moment."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",

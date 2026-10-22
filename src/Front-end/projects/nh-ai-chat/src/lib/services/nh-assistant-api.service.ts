@@ -17,6 +17,7 @@ import {
   CreateConversationRequest,
   DecideApprovalRequest,
   DirectoryEntry,
+  FileReference,
   NotificationSettings,
   PushSubscriptionRequest,
   SendMessageRequest,
@@ -31,9 +32,19 @@ import {
 import { NhAssistantSseParser } from './nh-assistant-sse-parser';
 import { NhAssistantTransport, nhAssistantErrorMessageKey } from './nh-assistant-transport';
 
-export { NhAssistantApiError, nhAssistantCodeForStatus, nhAssistantErrorMessageKey } from './nh-assistant-transport';
+export {
+  NH_ASSISTANT_UPLOAD_HEADER,
+  NhAssistantApiError,
+  nhAssistantCodeForStatus,
+  nhAssistantErrorMessageKey
+} from './nh-assistant-transport';
 
 const knownEventTypes = new Set<string>(NH_ASSISTANT_SSE_EVENT_TYPES);
+
+/** The progress of one upload, then the file the application stored. */
+export type NhAssistantUploadEvent =
+  | { type: 'progress'; loaded: number; total: number }
+  | { type: 'uploaded'; file: FileReference };
 
 /**
  * Client for the assistant HTTP API. JSON endpoints return cold observables that abort
@@ -72,6 +83,39 @@ export class NhAssistantApiService {
 
   sendMessage(conversationId: string, request: SendMessageRequest): Observable<NhAssistantSseEvent> {
     return this.requestStream(`conversations/${encodeURIComponent(conversationId)}/messages`, request);
+  }
+
+  /**
+   * Uploads one file to a conversation as `multipart/form-data` (`POST conversations/{id}/files`):
+   * emits the progress while the file is sent and then the stored file, whose reference a message
+   * carries in `files`. Fails with `NhAssistantApiError`; unsubscribing aborts the upload. The
+   * media type of `file` is the one the upload declares.
+   */
+  uploadFile(conversationId: string, file: Blob, name: string): Observable<NhAssistantUploadEvent> {
+    return new Observable<NhAssistantUploadEvent>(subscriber => {
+      const abort = new AbortController();
+      const form = new FormData();
+      form.append('file', file, name);
+
+      this.transport.upload<FileReference>(
+        `conversations/${encodeURIComponent(conversationId)}/files`,
+        form,
+        (loaded, total) => subscriber.next({ type: 'progress', loaded, total }),
+        abort.signal
+      ).then(
+        reference => {
+          subscriber.next({ type: 'uploaded', file: reference });
+          subscriber.complete();
+        },
+        error => {
+          if (!abort.signal.aborted) {
+            subscriber.error(error);
+          }
+        }
+      );
+
+      return () => abort.abort();
+    });
   }
 
   decideApproval(conversationId: string, approvalId: string, request: DecideApprovalRequest): Observable<NhAssistantSseEvent> {

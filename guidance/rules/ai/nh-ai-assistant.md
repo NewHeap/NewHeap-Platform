@@ -5,7 +5,7 @@ area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
 sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300"]
-public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn"]
+public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantFilePartDto"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -501,6 +501,51 @@ services.AddNewHeapAssistant(assistant => assistant
   the file reached the turn as `ObjectId` (`NhAssistantFileOrigins`) and, for a tool result, the
   tool and invocation. File content never reaches logs, audit or usage records.
 
+People attach files to a chat message in two steps. First the client uploads each file to the
+conversation with `POST {prefix}/conversations/{id}/files`: `multipart/form-data` with one file part
+named `file` and the header `X-NH-Assistant-Upload: 1`, which a cross-site form cannot send, so the
+endpoint keeps the posture of the JSON endpoints under the same access policy. The endpoint checks, in
+this order, the conversation and the agent's policy (as for a message), a file source
+(`assistant-files-unavailable`), an agent that accepts files (`assistant-files-not-accepted`), one
+named, non-empty file part (`assistant-file-upload-invalid`), an accepted media type whose content
+starts as files of that type do (`assistant-file-type-not-accepted`) and the agent's `MaxFileBytes`
+(`assistant-file-too-large`). Only then does `StoreUploadAsync` receive the file, with the name
+without its path, the media type lowercase and `NhAssistantFileUpload.Classification`; it answers the
+`NhAiFileReference` the endpoint returns. A refusal of the source answers
+`assistant-file-upload-refused` (422) unless it is `assistant-file-too-large`,
+`assistant-file-type-not-accepted` or `assistant-files-unavailable`; an exception or an invalid
+reference answers `assistant-file-upload-failed` (503) and logs only its type. Then the message carries
+the references in `files` of `POST conversations/{id}/messages` (`NhAssistantSendMessageRequest.Files`),
+at most the agent's files per turn, and the turn opens them as described above.
+
+```csharp
+services.AddNewHeapAssistant(assistant => assistant
+    // ...
+    .UseFileSource<ProjectDocumentFileSource>()
+    .ConfigureUploads(uploads =>
+    {
+        // PDF, PNG, JPEG, Word and Excel by default; no types switches uploads off.
+        uploads.AcceptMediaTypes(NhAiMediaTypes.Pdf, NhAiMediaTypes.Png, NhAiMediaTypes.Jpeg);
+        // Confidential by default: the profile, or a fallback, must permit it.
+        uploads.DefaultClassification = NhAiDataClassification.Confidential;
+    }));
+```
+
+- Store the classification of an upload with the file and report it from `OpenAsync`; raise it when
+  the application knows the content is more sensitive. Uploads that no message ends up carrying stay
+  in the application's storage under its own retention.
+- The endpoint lowers the request body limit of an upload to the agent's `MaxFileBytes` plus 16 KB,
+  but never raises the server's own limit (Kestrel's `MaxRequestBodySize`, 30 MB by default); raise
+  that one too when `MaxFileBytes` is larger.
+- `GET status` and `GET agents` give each agent `uploads` (`NhAssistantAgentUploadsDto`) with the
+  accepted media types, the largest file and the most files of one message, or `null` when people can
+  attach nothing to it, so a client checks a file before it uploads it.
+- The conversation shows a person's attachments as `file` parts (`NhAssistantFilePartDto`) with name,
+  media type and size, also in the live `message.created` event; never the content, the application's
+  id or a hash. Files a tool returned stay named in that call's result, which follows the viewer's
+  rights to it. A message with attachments in a busy agent thread is refused with
+  `assistant-conversation-busy` instead of waiting for the next run, whose queue carries text only.
+
 ## Agent threads
 
 An agent that runs on its own (see the agent-runs rule) keeps one thread per agent and
@@ -591,6 +636,8 @@ or output of the running turn, also not text written before an approval pause.
   also a later one with another actor.
 - Declaring media types in `AcceptMediaTypes` that the model behind the profile cannot read, or
   reporting a file as less sensitive than it is.
+- Storing an upload without `NhAssistantFileUpload.Classification`, or trusting the declared media
+  type of an application-specific upload type without checking its content in `StoreUploadAsync`.
 
 ## Verification
 
@@ -664,7 +711,10 @@ that the result names `attached` and the hash, that each limit, an undeclared ty
 missing file and a file no profile may receive are refused with their own codes, that a
 confidential file moves the model calls to the fallback that permits it, that messages, tool calls,
 audit and logs hold references and hashes only, and that a later turn opens the file again with its
-own actor and names it when that actor may no longer read it.
+own actor and names it when that actor may no longer read it. Over HTTP, upload a file and send it with
+a message on both providers and assert the stored classification, the file part of the conversation
+without content, id or hash, and the codes of a file too large, a type not accepted, content of
+another type, an agent that accepts no files and a caller without access.
 
 For retrieved context, assert that the sample's assistant reads the project descriptions of the
 person's active division that match the question, after the situation, never those of another

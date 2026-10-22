@@ -34,7 +34,12 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-mcp-authorization-invalid',
     'assistant-mcp-pkce-unsupported',
     'assistant-mcp-client-registration-required',
-    'assistant-mcp-oauth-not-configured'
+    'assistant-mcp-oauth-not-configured',
+    'assistant-file-reference-invalid',
+    'assistant-file-upload-invalid',
+    'assistant-file-too-many-pages',
+    'assistant-file-count-limit',
+    'assistant-file-token-limit'
   ],
   401: [
     'assistant-webhook-signature-invalid'
@@ -50,7 +55,8 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-four-eyes-required',
     'assistant-forbidden',
     'assistant-mcp-credential-mismatch',
-    'assistant-mcp-initiator-only'
+    'assistant-mcp-initiator-only',
+    'assistant-file-forbidden'
   ],
   404: [
     'assistant-disabled',
@@ -74,7 +80,9 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-not-found',
     'assistant-context-not-found',
     'assistant-mcp-server-not-found',
-    'assistant-mcp-tool-not-found'
+    'assistant-mcp-tool-not-found',
+    'assistant-files-unavailable',
+    'assistant-file-not-found'
   ],
   409: [
     'assistant-conversation-busy',
@@ -118,10 +126,19 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-mcp-issuer-changed',
     'assistant-mcp-authorization-not-confirmed',
     'assistant-mcp-connection-not-supported',
-    'assistant-mcp-secret-unreadable'
+    'assistant-mcp-secret-unreadable',
+    'assistant-files-not-accepted'
   ],
   413: [
-    'assistant-webhook-payload-too-large'
+    'assistant-webhook-payload-too-large',
+    'assistant-file-too-large'
+  ],
+  415: [
+    'assistant-file-type-not-supported',
+    'assistant-file-type-not-accepted'
+  ],
+  422: [
+    'assistant-file-upload-refused'
   ],
   429: [
     'assistant-mcp-too-many-authorizations'
@@ -137,7 +154,9 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
   503: [
     'assistant-proposal-check-failed',
     'assistant-trigger-rolled-back',
-    'assistant-mcp-secret-unavailable'
+    'assistant-mcp-secret-unavailable',
+    'assistant-file-unavailable',
+    'assistant-file-upload-failed'
   ]
 };
 

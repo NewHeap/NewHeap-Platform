@@ -235,6 +235,9 @@
                   } @else {
                     <div class="queue-message">
                       <p [title]="item.text">{{ item.text }}</p>
+                      @if (item.files?.length) {
+                        <span class="queue-state">{{ 'nh-assistant.queue.files' | translate: { count: item.files!.length } }}</span>
+                      }
                       @if (item.state !== 'queued') {
                         <span class="queue-state">{{ 'nh-assistant.queue.state.' + item.state | translate }}</span>
                       }
@@ -268,8 +271,12 @@
           [canStop]="canStop()"
           [maxLength]="store.limits()?.maxMessageChars ?? null"
           [restore]="store.restoredDraft()"
+          [uploads]="store.uploads()"
+          [attachments]="store.attachments()"
           (restored)="store.consumeRestoredDraft()"
           (send)="send($event)"
+          (attach)="attach($event)"
+          (removeAttachment)="store.removeAttachment($event)"
           (cancel)="cancel()">
           @if (store.agents().length > 1) {
             <nh-assistant-agent-picker

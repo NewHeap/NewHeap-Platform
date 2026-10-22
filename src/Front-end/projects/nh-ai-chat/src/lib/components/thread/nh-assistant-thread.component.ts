@@ -15,8 +15,10 @@ import {
   untracked,
   viewChild
 } from '@angular/core';
-import { TranslatePipe } from '@ngx-translate/core';
-import { ApprovalDecision, ApprovalPart, ConversationMember, Message } from '../../models/assistant-api.models';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { ApprovalDecision, ApprovalPart, ConversationMember, FilePart, Message } from '../../models/assistant-api.models';
+import { nhAssistantFileTypeLabel, nhAssistantFormatFileSize } from '../../internal/nh-assistant-files';
+import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantMarkdownPipe } from '../../internal/nh-assistant-markdown.pipe';
 import { NhAssistantPartGroupsPipe } from '../../internal/nh-assistant-part-groups';
 import { NhAssistantApprovalCardComponent } from '../approval-card/nh-assistant-approval-card.component';
@@ -39,9 +41,10 @@ const stickToBottomDistance = 120;
 /**
  * The messages of a conversation as a live log. Assistant text renders as sanitized
  * Markdown, consecutive tool calls as one collapsible group that counts along, and
- * approvals as cards. Messages a trigger wrote into an agent thread read as events, not as
- * a person. While a turn runs without visible progress, a working indicator shows the
- * elapsed time. The thread follows new content while the user is at the bottom.
+ * approvals as cards. The files a person attached show by name, type and size. Messages a
+ * trigger wrote into an agent thread read as events, not as a person. While a turn runs
+ * without visible progress, a working indicator shows the elapsed time. The thread follows
+ * new content while the user is at the bottom.
  */
 @Component({
   selector: 'nh-assistant-thread',
@@ -50,6 +53,7 @@ const stickToBottomDistance = 120;
     NgTemplateOutlet,
     ScrollingModule,
     TranslatePipe,
+    NhAssistantIconComponent,
     NhAssistantMarkdownPipe,
     NhAssistantPartGroupsPipe,
     NhAssistantToolCallGroupComponent,
@@ -62,6 +66,15 @@ const stickToBottomDistance = 120;
 })
 export class NhAssistantThreadComponent {
   private readonly injector = inject(Injector);
+  private readonly translate = inject(TranslateService, { optional: true });
+
+  /** The type and size of an attached file, in the current language. */
+  fileMeta(file: FilePart): { type: string; size: string } {
+    return {
+      type: nhAssistantFileTypeLabel(file.mediaType),
+      size: nhAssistantFormatFileSize(file.size, this.translate?.getCurrentLang())
+    };
+  }
 
   readonly messages = input.required<readonly Message[]>();
   readonly streaming = input(false);
