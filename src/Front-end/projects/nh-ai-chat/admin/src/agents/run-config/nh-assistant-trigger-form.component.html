@@ -71,25 +71,28 @@
         <fieldset class="field" data-trigger-filters [attr.aria-describedby]="describedBy(id + '-trigger-filters-hint', 'filters', id + '-trigger-filters-error')">
           <legend>{{ 'nh-assistant.admin.run-config.triggers.filters.title' | translate }}</legend>
           <p class="hint" [id]="id + '-trigger-filters-hint'">{{ 'nh-assistant.admin.run-config.triggers.filters.hint' | translate }}</p>
-          @for (filter of eventFilters(); track filter.name) {
-            <label class="check described" [attr.data-filter]="filter.name">
-              <input type="checkbox" [checked]="filters().includes(filter.name)" [attr.aria-invalid]="fieldError('filters') ? true : null" (change)="toggleFilter(filter.name, checked($event))" />
-              <span>
-                <span class="mono">{{ filter.name }}</span>
-                <span class="muted">{{ filter.description }}</span>
-              </span>
-            </label>
-          }
-          @for (name of missingFilters(); track name) {
-            <!-- Stored, but the event no longer offers it: the trigger starts nothing until it is cleared. -->
-            <label class="check described" [attr.data-missing-filter]="name">
-              <input type="checkbox" [checked]="true" aria-invalid="true" (change)="toggleFilter(name, checked($event))" />
-              <span>
-                <span class="mono">{{ name }}</span>
-                <span class="error-text">{{ 'nh-assistant.admin.run-config.triggers.filters.missing' | translate }}</span>
-              </span>
-            </label>
-          }
+          <!-- In their own block: a label right under the field would take the field's label style. -->
+          <div class="checks">
+            @for (filter of eventFilters(); track filter.name) {
+              <label class="check described" [attr.data-filter]="filter.name">
+                <input type="checkbox" [checked]="filters().includes(filter.name)" [attr.aria-invalid]="fieldError('filters') ? true : null" (change)="toggleFilter(filter.name, checked($event))" />
+                <span>
+                  <span class="mono">{{ filter.name }}</span>
+                  <span class="muted">{{ filter.description }}</span>
+                </span>
+              </label>
+            }
+            @for (name of missingFilters(); track name) {
+              <!-- Stored, but the event no longer offers it: the trigger starts nothing until it is cleared. -->
+              <label class="check described" [attr.data-missing-filter]="name">
+                <input type="checkbox" [checked]="true" aria-invalid="true" (change)="toggleFilter(name, checked($event))" />
+                <span>
+                  <span class="mono">{{ name }}</span>
+                  <span class="error-text">{{ 'nh-assistant.admin.run-config.triggers.filters.missing' | translate }}</span>
+                </span>
+              </label>
+            }
+          </div>
           @if (eventFilters().length === 0 && missingFilters().length === 0) {
             <p class="muted" data-filters-empty>{{ 'nh-assistant.admin.run-config.triggers.filters.empty' | translate }}</p>
           }
