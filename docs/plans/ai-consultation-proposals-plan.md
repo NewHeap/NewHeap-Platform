@@ -16,7 +16,9 @@ it, executes with the agent's own rights, as the agent's runs do. It builds on t
 Decided by Lars, 2026-10-22: every decision from CP1 to CP24 is **Decided** (see the decision record).
 Lars followed the recommendation except for three decisions: CP20 (b) adds "leave for approvers" to
 the A card, CP21 (c) lets administrators switch the routes within a ceiling set in code, and CP23 (c)
-delivers A and B together. Implementation is in progress on `feature/consultation-proposals`.
+delivers A and B together. A and B are implemented on `feature/consultation-proposals` with the
+library, the Angular package, sample case SPM-278, guidance and release notes. The lane decided the
+open details CP25 to CP34 for Lars to review (see the decision record).
 
 The plan assumes the parallel fix that makes the platform recognise the asker of a consultation in the
 current request by actor id, so that the consult turn, the consultation viewer and the invocation gate
@@ -378,8 +380,10 @@ a stopped agent wait, as run proposals do), and shadow (no consultations).
 
 ## API and contract changes
 
-All additive; no breaking change. The one changed behaviour is CP24 (a), which gets a release-note
-entry in `docs/release-notes/v-next.md` under `NewHeap.Platform.AI.Chat`.
+Additive for clients. The release notes in `docs/release-notes/v-next.md` list what can still affect
+an application: the changed expiry of consultation proposals (CP24), the `AgentConsultationRoutes`
+migrations (CP21), the new member of `INhAssistantAgentControl`, the new notification kind, the
+consult tool's contract hash and the widened npm union types.
 
 | Surface | Change |
 |---|---|
@@ -391,8 +395,11 @@ entry in `docs/release-notes/v-next.md` under `NewHeap.Platform.AI.Chat`.
 | `NhAssistantConsultationDto` | counts per route of the proposals it left |
 | Error codes | `assistant-consult-proposal-refused` (with `reason`), `assistant-consult-asker-decides` |
 | `NhAssistantAgentNotificationKind` | `ConsultationProposalDecided` (CP16) |
-| `NhAssistantAuditEvent` | `ConsultationRoute` (CP17) |
-| Public builder types | `NhAssistantConsultationProposalBuilder`, `NhAssistantConsultationRights` |
+| `NhAssistantAuditEvent` | `ConsultationRoute` (CP17) and `ConsultationRefusalReason`; new kind `AdminAgentConsultationRoutesChanged` (CP21) |
+| Public builder types | `NhAssistantConsultationProposalBuilder`, `NhAssistantConsultationRights`; `NhAssistantConsultationOptions.AskerDecides`, `AtSubjectRights`, `ProposalPolicyId`, `AllowedRoutes` (`AllowProposals` is derived) |
+| Constants | `NhAssistantConsultationRoutes`, `NhAssistantConsultationRefusalReasons`, `NhAssistantConsultationDecisions`, `NhAssistantLimits.MaxOpenConsultationProposalsPerAsker` |
+| `POST conversations/{id}/approvals/{approvalId}/decide` | decision `leave` for an A proposal with `consultation.leaveRoute` (CP20) |
+| Administration (CP21) | `INhAssistantAgentControl.SetConsultationRoutesAsync`, `POST admin/agents/{id}/consultation-routes` (`on`, `off` or `code` per route), `NhAssistantAgentState.ConsultationRoutes`, error code `assistant-consult-route-not-allowed` |
 
 The mock API in `@newheap/platform-ai-chat/testing` gets a scenario step for an A card and a B proposal.
 
@@ -410,7 +417,12 @@ The mock API in `@newheap/platform-ai-chat/testing` gets a scenario step for an 
 - **Inbox and boards.** B proposals appear like run proposals; A proposals do not appear.
 - **Chat after B.** The consult call's card says that a proposal waits for the subject's approvers,
   with a link to it in the thread when the asker may read the thread.
-- Texts in English (and the other maintained languages with aligned keys).
+- **Leave for approvers (CP20).** The A card offers it next to Approve and Reject when
+  `consultation.leaveRoute` is set, with an explanation of who then decides and whose rights run it.
+- **Administration (CP21).** The run configuration of an agent in code shows a Consultation routes
+  section when the agent has consultations: one row per route with its explanation, on or off, set in
+  code or overridden, or not allowed in code, with switch on, switch off and back to the code setting.
+- Texts in English and Dutch with aligned keys.
 
 ## Audit
 
@@ -428,7 +440,11 @@ The mock API in `@newheap/platform-ai-chat/testing` gets a scenario step for an 
 
 ## Persistence and migrations
 
-No migration (CP18):
+No migration for the route of a proposal (CP18). The administration's route switches (CP21) are six
+nullable columns on `AssistantAgent` (`ConsultAskerDecides`, `ConsultSubjectAgentRights`,
+`ConsultSubjectAskerRights`, `ConsultRoutesChangedAt`, `ConsultRoutesChangedBy`,
+`ConsultRoutesReason`) in the `AgentConsultationRoutes` migrations for SQL Server and PostgreSQL, next
+to the shadow and technical account overrides.
 
 - The route of a proposal is derived: `ConsultationId` with mode inline is A, with mode deferred and
   grant source `delegated` is today's route, with grant source `agent` or `accountable` is B.
@@ -533,3 +549,13 @@ Each line: the question, the options, the recommendation and the status.
 | CP22 | Which sample evidence? | (a) extend SPM-278 with A (intake reviewer) and B (project closer, technical account), with a principal factory that refuses people; (b) a new case. | (a): AGENTS.md asks to extend the existing case; SPM-278 is the consultation case. | Decided: (a), extend SPM-278. |
 | CP23 | In which order is it delivered? | (a) B first (server side, reuses run execution), then A (chat flow and card); (b) A first; (c) together. | (a): B gives these applications proposals at all with the smallest change; A adds the immediate path. | Decided by Lars: (c), deviating from the recommendation: A and B in one delivery. |
 | CP24 | Does the maintenance job expire and escalate consultation proposals? | (a) every consultation proposal, today's route included, with a release note (an escalating policy then escalates them); (b) only A and B proposals; (c) as today, lazily at the next decision. | (a): the policy's `OnExpiry` should mean the same for every proposal, and A needs the job to free the asking conversation anyway. | Decided: (a), with a release note. |
+| CP25 | What do administrators switch for an agent created in the administration? | (a) nothing: consultations stay code-only, so such an agent has no ceiling and no section; its switches become the setting itself only when consultations become data; (b) let administrators create consultations. | (a): the non-goal "consultations configured in the administration" stands; the stored switches already work for any agent once it has consultations. | Decided by the lane: (a), for Lars to review. |
+| CP26 | How does a proposal the asker leaves for approvers close? | (a) status `rejected`, decided by the asker, outcome `assistant-consult-proposal-moved` and `supersededByApprovalId` naming the new proposal, outside the cooldown and the rejection context like any rejection by the asker; (b) status `withdrawn`. | (a): the asker decided not to decide it inline; the link shows where it went. | Decided by the lane: (a), for Lars to review. |
+| CP27 | When does the card offer "leave for approvers"? | (a) when the route at the subject is configured, switched on and possible for the agent and subject (not a person's agent, not `nh-system`); the agent's rights, the open cap and duplicates are checked when the asker leaves it, and a refusal keeps the card with `assistant-consult-proposal-refused` (409); (b) check everything for every card read. | (a): reads stay cheap; the decision checks again anyway. | Decided by the lane: (a), for Lars to review. |
+| CP28 | Does CP16's notification also go to the asker of today's route? | (a) no, only for proposals with the agent's rights; (b) yes. | (a): today's behaviour stays unchanged; extend it when people ask for it. | Decided by the lane: (a), for Lars to review. |
+| CP29 | What counts toward CP15's cap? | (a) the asker's pending proposals with the agent's rights in the subject's thread; (b) also approved and executing ones. | (a): the cap protects the approvers' inbox, which shows pending ones. | Decided by the lane: (a), for Lars to review. |
+| CP30 | Whom does a proposal with the agent's rights answer to? | (a) the thread's accountable account when it is recorded, the runtime override included, kept on the proposal (a later replacement does not change it, as for run proposals); (b) the account at execution. | (a): the evidence binds the proposal to its accountable owner, as SPM-294 does for runs. | Decided by the lane: (a), for Lars to review. |
+| CP31 | What happens to an A proposal when its consultation fails or times out after recording it? | (a) it is withdrawn and the asking turn's decision is freed; (b) it waits until it expires. | (a): nobody would see a card for it. | Decided by the lane: (a), for Lars to review. |
+| CP32 | Which A decisions check CP4 again with the live principal? | (a) approve only; reject and leave need no approver right; (b) all three. | (a): rejecting or leaving changes nothing the asker could not change. | Decided by the lane: (a), for Lars to review. |
+| CP33 | What does the consulted model read for each route? | (a) the platform's consultation instruction names the configured routes, and every recorded or refused call returns a message for its route or reason, so it tells the asker who decides; (b) one generic text. | (a): the model cannot tell the asker otherwise. | Decided by the lane: (a), for Lars to review. |
+| CP34 | Does the Angular thread view hide the actions of an asker who is also an approver on a B proposal? | (a) not yet: the thread view decides actions by role, so the server's four-eyes refusal shows; the subject work and run views use the server's right and show the reason; (b) give the thread view per-proposal rights now. | (a) in this lane, (b) as a follow-up. | Decided by the lane: (a), for Lars to review. |
