@@ -112,6 +112,11 @@ export class NhAssistantMockRunConfiguration {
     return this.catalog.divisions === true;
   }
 
+  /** The profiles the run catalog offers to data skills and to agents created in the administration. */
+  get profileNames(): string[] {
+    return [...this.catalog.profiles];
+  }
+
   /** `GET admin/run-catalog`. */
   runCatalog(method: string): MockResult {
     return method === 'GET' ? { status: 200, body: this.catalog } : { status: 405 };

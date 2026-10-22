@@ -564,6 +564,10 @@ public sealed record NhAssistantToolCatalogEntryDto(
 /// <param name="StartsOff">On create only: the new agent starts off (<c>off</c>), so its triggers are
 /// ignored until someone switches it on with <c>POST admin/agents/{id}/state</c>. Omitted or
 /// <see langword="false"/> starts it active; ignored on update.</param>
+/// <param name="Profile">For an agent created in the administration: the model profile of its model
+/// calls, one of the run catalog's <c>profiles</c> (field error <c>profile: not-found</c> otherwise).
+/// Omitted keeps it on update; a new agent uses the application's chat profile. Agents in code take
+/// it from their code.</param>
 public sealed record NhAssistantAdminAgentInputDto(
     string? Id,
     string? DisplayName,
@@ -582,7 +586,8 @@ public sealed record NhAssistantAdminAgentInputDto(
     bool? PerDivision = null,
     string? RunPolicy = null,
     string? ViewPolicy = null,
-    bool? StartsOff = null);
+    bool? StartsOff = null,
+    string? Profile = null);
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
 /// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c>, <c>off</c> or <c>configured-off</c>.</param>
@@ -635,6 +640,12 @@ public sealed record NhAssistantAdminAgentDto(
     /// its triggers and in its subject threads.
     /// </summary>
     public bool OfferedInChat { get; init; } = true;
+
+    /// <summary>
+    /// The model profile of the agent's model calls: from its code for an agent in code, chosen in
+    /// the administration for one created there. A skill may use another.
+    /// </summary>
+    public string Profile { get; init; } = string.Empty;
 
     /// <summary>
     /// The object types the agent works on, ordered by id; empty with

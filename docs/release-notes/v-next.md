@@ -117,3 +117,31 @@ shows the server's `dataClassification` field error. `DataSkill` and `DataSkillR
 | Breaking change | Required action |
 |---|---|
 | New translation keys `nh-assistant.admin.run-config.skills.classification.*`. | Applications with their own translation files add them. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: model profile of an agent created in the administration
+
+An agent created in the administration always got the application's chat profile. It now chooses
+its profile: `profile` on `POST` and `PUT admin/agents` (`NhAssistantAdminAgentInputDto.Profile`) and
+`Profile` on `NhAssistantAgentRequest`. Only a profile of the run catalog's `Profiles` is accepted,
+the registered profiles with chat, function calling and streaming that data skills already choose
+from; another name is the field error `profile: not-found`. Without it a new agent keeps the chat
+profile and an update keeps the agent's profile; an agent in code takes its profile from its code.
+`NhAssistantAdminAgentDto.Profile` shows the profile of every agent. No migration: the agent's
+existing `ProfileName` column holds it.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantAdminAgentDto` lists `profile`; `NhAssistantAdminAgentInputDto` and `NhAssistantAgentRequest` have a new optional last parameter, `Profile`. | Recompile callers that construct them positionally; clients that compare the agent's fields add `profile`. |
+
+## @newheap/platform-ai-chat: model profile of an agent created here
+
+The agent editor offers the model profile of an agent created in the administration from the run
+catalog's profiles, with "The application's chat profile" as the default for a new agent (Dutch:
+"Modelprofiel", "Het chatprofiel van de applicatie"), and shows the server's `profile` field error.
+`AdminAgentInput` gains `profile` and `AdminAgent` gains `profile`. The mock backend of
+`@newheap/platform-ai-chat/testing` stores the profile and refuses one its run catalog does not
+offer.
+
+| Breaking change | Required action |
+|---|---|
+| New translation keys `nh-assistant.admin.agent-editor.profile`, `profile-default` and `profile-hint`. | Applications with their own translation files add them. |

@@ -298,6 +298,25 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(element.textContent).toContain('Created here');
   });
 
+  it('creates an agent that works with a model profile of the run catalog', async () => {
+    await configure(runScenario());
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+
+    button(element, 'New agent').click();
+    await settle(fixture);
+    type(element, 'input[id$="-id"]', 'profiled-agent');
+    type(element, 'input[id$="-name"]', 'Profiled agent');
+    type(element, 'textarea', 'Help with the chosen model.');
+    const select = element.querySelector('[data-agent-profile] select') as HTMLSelectElement;
+    expect(Array.from(select.options).map(option => option.textContent?.trim())).toEqual(["The application's chat profile", 'project-chat']);
+    choose(element, '[data-agent-profile] select', 'project-chat');
+    fixture.detectChanges();
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    expect(requestBodies('POST', 'admin/agents')).toEqual([jasmine.objectContaining({ id: 'profiled-agent', profile: 'project-chat' })]);
+  });
+
   it('refuses an invalid id without calling the server', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);

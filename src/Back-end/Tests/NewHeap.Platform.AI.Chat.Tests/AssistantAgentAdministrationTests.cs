@@ -175,6 +175,76 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
         Assert.Equal(NhAssistantAdminErrorCodes.ValidationFailed, Code(aboveStorage));
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_administration_agent_uses_a_profile_the_administration_offers_and_keeps_it_on_update(AssistantTestProvider provider)
+    {
+        var state = CreateState(AssistantTestData.Agent());
+        state.ChatProfileName = "project-chat";
+        await using var services = await CreateServicesAsync(provider, state, collection => collection.AddNewHeapPlatformAI(ai =>
+        {
+            ai.AddChatProfile("planning-chat", profile => profile
+                .UseKeyedClient("planning-model")
+                .RequireCapabilities(NhAiModelCapability.FunctionCalling)
+                .WithStreaming(NhAiStreamingPolicy.Allowed)
+                .PermitDataClassifications(NhAiDataClassification.Internal)
+                .PermitExecutionRegions("local")
+                .WithBudget(maxInputTokens: 8_192, maxOutputTokens: 1_024, maxCalls: 16));
+            // Without function calling an agent cannot use tools: the administration does not offer it.
+            ai.AddChatProfile("summary-chat", profile => profile
+                .UseKeyedClient("summary-model")
+                .PermitDataClassifications(NhAiDataClassification.Internal)
+                .PermitExecutionRegions("local")
+                .WithBudget(maxInputTokens: 8_192, maxOutputTokens: 1_024, maxCalls: 16));
+        }));
+        await using var scope = services.CreateAsyncScope();
+        var administration = scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>();
+        var input = new NhAssistantAgentInput(
+            "planning-helper",
+            "Planning helper",
+            "Plans projects.",
+            "Plan the project.",
+            ["projects.search"],
+            [],
+            null,
+            NhAiAutonomyLevel.Propose,
+            ProfileName: "planning-chat");
+        var original = (await scope.ServiceProvider.GetRequiredService<NhAssistantAgentCatalog>()
+            .FindAsync("project-assistant", includeDisabled: true, CancellationToken.None))!;
+
+        var created = await administration.CreateAsync(input, "admin-1", CancellationToken.None);
+        var notOffered = await administration.CreateAsync(input with { Id = "summary-helper", ProfileName = "summary-chat" }, "admin-1", CancellationToken.None);
+        var unknown = await administration.CreateAsync(input with { Id = "unknown-helper", ProfileName = "missing-chat" }, "admin-1", CancellationToken.None);
+        var standard = await administration.CreateAsync(input with { Id = "standard-helper", ProfileName = null }, "admin-1", CancellationToken.None);
+        var kept = await administration.UpdateAsync(input with { Instructions = "Plan briefly.", ProfileName = null }, 1, "admin-1", CancellationToken.None);
+        // An agent in code takes its profile from its code.
+        var code = await administration.UpdateAsync(
+            Input(original, "Answer only about budgets.") with { ProfileName = "planning-chat" },
+            original.Definition.Version,
+            "admin-1",
+            CancellationToken.None);
+
+        Assert.Equal("planning-chat", created.Data!.Definition.ProfileName);
+        Assert.Equal(["not-found"], Field(notOffered, "profile"));
+        Assert.Equal(["not-found"], Field(unknown, "profile"));
+        Assert.Equal("project-chat", standard.Data!.Definition.ProfileName);
+        Assert.Equal("planning-chat", kept.Data!.Definition.ProfileName);
+        Assert.Equal("project-chat", code.Data!.Definition.ProfileName);
+    }
+
+    /// <summary>
+    /// The errors of one field of a validation failure.
+    /// </summary>
+    private static string[] Field(NewHeap.Platform.Common.Models.TaskResult result, string field)
+    {
+        Assert.Equal(NhAssistantAdminErrorCodes.ValidationFailed, Code(result));
+        return result.GetResultItems()
+            .Where(item => item.Name == NhAssistantValidationErrors.FieldPrefix + field)
+            .SelectMany(item => item.ErrorMessages.Select(message => message.ToString()))
+            .ToArray();
+    }
+
     private static NhAssistantAgentInput Input(NhAssistantAgent agent, string instructions)
     {
         return new NhAssistantAgentInput(
@@ -211,10 +281,14 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
         return state;
     }
 
-    private Task<ServiceProvider> CreateServicesAsync(AssistantTestProvider provider, NhAssistantRegistrationState state)
+    private Task<ServiceProvider> CreateServicesAsync(
+        AssistantTestProvider provider,
+        NhAssistantRegistrationState state,
+        Action<IServiceCollection>? configure = null)
     {
         return database.CreateStorageAsync(provider, configure: services =>
         {
+            configure?.Invoke(services);
             services.AddSingleton(state);
             services.AddSingleton<NhAssistantAgentRegistry>();
             services.AddSingleton<NhAssistantSeeder>();

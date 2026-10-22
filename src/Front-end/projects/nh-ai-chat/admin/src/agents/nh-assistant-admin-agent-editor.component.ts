@@ -114,6 +114,8 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly use = signal<AgentUse>('chat');
   /** A new agent takes its triggers at once; without it, it starts off until someone switches it on. */
   readonly switchOnNow = signal(true);
+  /** The model profile of an agent created here; empty uses the application's chat profile. */
+  readonly profile = signal('');
   readonly requiredPolicy = signal('');
   readonly toolSelectors = signal<string[]>([]);
   readonly mcpServerIds = signal<string[]>([]);
@@ -178,6 +180,14 @@ export class NhAssistantAdminAgentEditorComponent {
   });
   /** What the agent works on is edited here: an agent created here, while the run catalog is known. */
   readonly editsWorksOn = computed(() => this.choosesUse() && !this.catalogUnavailable());
+  /** An agent created here chooses its profile from those the run catalog offers. */
+  readonly choosesProfile = computed(() => this.choosesUse() && !this.catalogUnavailable());
+  /** The profiles the run catalog offers, and the agent's own when the catalog no longer lists it. */
+  readonly profileChoices = computed(() => {
+    const listed = this.catalog()?.profiles ?? [];
+    const current = this.agent()?.profile;
+    return current && !listed.includes(current) ? [...listed, current] : listed;
+  });
   /** Chosen object types without a type, and not the application either: the agent would work on nothing. */
   readonly worksOnMissing = computed(() =>
     this.editsWorksOn() && this.worksOnScope() === 'types' && this.worksOnTypes().length === 0 && !this.worksOnApplication());
@@ -283,7 +293,9 @@ export class NhAssistantAdminAgentEditorComponent {
       ...(this.choosesUse() ? { offeredInChat: this.use() !== 'background' } : {}),
       // Omitted, what the agent works on stays as it is; a new agent then works on every object type.
       ...(this.editsWorksOn() ? this.worksOnInput() : {}),
-      ...(this.isNew() && !this.switchOnNow() ? { startsOff: true } : {})
+      ...(this.isNew() && !this.switchOnNow() ? { startsOff: true } : {}),
+      // Omitted, the profile stays as it is; a new agent then uses the application's chat profile.
+      ...(this.choosesProfile() && this.profile() !== '' ? { profile: this.profile() } : {})
     };
     const startsWork = this.agent() === null && this.use() !== 'chat';
 
@@ -349,6 +361,7 @@ export class NhAssistantAdminAgentEditorComponent {
     this.autonomy.set(agent?.autonomy ?? 'explain');
     this.use.set(agent?.offeredInChat === false ? 'background' : 'chat');
     this.switchOnNow.set(true);
+    this.profile.set(agent?.source === 'admin' ? agent.profile ?? '' : '');
     this.requiredPolicy.set(agent?.requiredPolicy ?? '');
     this.toolSelectors.set([...(agent?.toolSelectors ?? [])]);
     this.mcpServerIds.set([...(agent?.mcpServerIds ?? [])]);

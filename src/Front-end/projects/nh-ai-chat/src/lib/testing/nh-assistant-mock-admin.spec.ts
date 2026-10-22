@@ -184,6 +184,14 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(state.skills?.find(skill => skill.skillId === 'audit')?.runState).toBe('off');
   });
 
+  it('lets an agent created in the administration use only a profile the run catalog offers', async () => {
+    const unknown = await failure(firstValueFrom(admin.createAgent({ ...newAgent, id: 'profiled-agent', profile: 'missing-chat' })));
+    const standard = await firstValueFrom(admin.createAgent({ ...newAgent, id: 'standard-agent' }));
+
+    expect(unknown.fieldErrors?.['profile']).toEqual(['not-found']);
+    expect(standard.profile).toBe('chat');
+  });
+
   it('rejects invalid agents', async () => {
     const invalid = [
       { ...newAgent, id: 'Not Dash Case' },

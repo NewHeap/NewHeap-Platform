@@ -34,7 +34,12 @@ export interface NhAssistantMockAgentRules {
   agentPolicyNames(): string[];
   /** Whether the scenario lists divisions, so an agent may work per division. */
   divisionsListed(): boolean;
+  /** The profiles the run catalog offers, which an agent created here may choose. */
+  profileNames(): string[];
 }
+
+/** The profile of an agent that did not choose one, as the application's chat profile. */
+const mockChatProfile = 'chat';
 
 const autonomyLevels: AssistantAutonomy[] = ['observe', 'explain', 'propose', 'simulate', 'execute'];
 
@@ -568,6 +573,11 @@ export class NhAssistantMockAdminAgents {
         return failure('assistant-validation', errors);
       }
     }
+    // An agent created here uses a profile the run catalog offers; an agent in code takes its own.
+    if (source === 'admin' && typeof input?.profile === 'string' && input.profile.trim().length > 0
+      && !this.rules.profileNames().includes(input.profile.trim())) {
+      return failure('assistant-validation', { profile: ['not-found'] });
+    }
     return null;
   }
 
@@ -597,10 +607,13 @@ export class NhAssistantMockAdminAgents {
     previous?: AdminAgent
   ): AdminAgent {
     // Only a new agent starts off, created that way here or with StartsOff() in code.
-    const { isEnabled, startsOff, ...definition } = structuredClone(input);
+    const { isEnabled, startsOff, profile, ...definition } = structuredClone(input);
     const createdOff = previous === undefined && startsOff === true;
+    const chosenProfile = source === 'admin' && typeof profile === 'string' && profile.trim().length > 0 ? profile.trim() : null;
     return {
       ...definition,
+      // An agent created here keeps its profile when the input omits it; code decides for the others.
+      profile: chosenProfile ?? previous?.profile ?? mockChatProfile,
       isEnabled: previous?.isEnabled ?? true,
       version,
       source,

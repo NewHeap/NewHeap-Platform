@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "58364a00c51724132a29f28f6573d8b00a56249ecca61e9e5aa9b2a7438ba52f",
-    "declarationCount": 9239,
+    "hash": "473b87cc6875cd08022cbda2c18e611d91a2eb5e33e4a2ecf6bc181e53147bbc",
+    "declarationCount": 9241,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1779,7 +1779,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantAgentRequest( string Id, string DisplayName, string Description, string Instructions, IReadOnlyList<string> ToolSelectors, NhAiAutonomyLevel Autonomy, string? RequiredPolicy = null, bool OfferedInChat = true, IReadOnlyList<string>? WorksOnSubjectTypes = null, bool? WorksOnAllSubjects = null, bool? WorksOnApplication = null, bool PerDivision = false, string? RunPolicy = null, string? ViewPolicy = null, bool StartsOff = false);"
+        "declaration": "public sealed record NhAssistantAgentRequest( string Id, string DisplayName, string Description, string Instructions, IReadOnlyList<string> ToolSelectors, NhAiAutonomyLevel Autonomy, string? RequiredPolicy = null, bool OfferedInChat = true, IReadOnlyList<string>? WorksOnSubjectTypes = null, bool? WorksOnAllSubjects = null, bool? WorksOnApplication = null, bool PerDivision = false, string? RunPolicy = null, string? ViewPolicy = null, bool StartsOff = false, string? Profile = null);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -4427,7 +4427,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantAdminAgentInputDto( string? Id, string? DisplayName, string? Description, string? Instructions, IReadOnlyList<string>? ToolSelectors, IReadOnlyList<string>? McpServerIds, string? RequiredPolicy, string? Autonomy, bool? IsEnabled, int? ExpectedVersion = null, bool? OfferedInChat = null, IReadOnlyList<string>? WorksOnSubjectTypes = null, bool? WorksOnAllSubjects = null, bool? WorksOnApplication = null, bool? PerDivision = null, string? RunPolicy = null, string? ViewPolicy = null, bool? StartsOff = null);"
+        "declaration": "public sealed record NhAssistantAdminAgentInputDto( string? Id, string? DisplayName, string? Description, string? Instructions, IReadOnlyList<string>? ToolSelectors, IReadOnlyList<string>? McpServerIds, string? RequiredPolicy, string? Autonomy, bool? IsEnabled, int? ExpectedVersion = null, bool? OfferedInChat = null, IReadOnlyList<string>? WorksOnSubjectTypes = null, bool? WorksOnAllSubjects = null, bool? WorksOnApplication = null, bool? PerDivision = null, string? RunPolicy = null, string? ViewPolicy = null, bool? StartsOff = null, string? Profile = null);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -4452,6 +4452,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public bool OfferedInChat { get; init; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public string Profile { get; init; } = string.Empty;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -7688,6 +7692,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
         "declaration": "public string? ValidateRunSettings(AssistantAgentRunConfiguration settings) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public bool IsChoosableProfile(string profileName) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",

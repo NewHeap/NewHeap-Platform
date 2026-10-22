@@ -63,7 +63,8 @@ export class NhAssistantMockAdmin {
     this.agents = new NhAssistantMockAdminAgents(scenario, now, {
       hasServer: serverId => this.mcp.hasServer(serverId),
       agentPolicyNames: () => this.runConfiguration.agentPolicyNames,
-      divisionsListed: () => this.runConfiguration.divisionsListed
+      divisionsListed: () => this.runConfiguration.divisionsListed,
+      profileNames: () => this.runConfiguration.profileNames
     });
     this.accounts = new NhAssistantMockAccounts(admin);
     this.runConfiguration = new NhAssistantMockRunConfiguration(

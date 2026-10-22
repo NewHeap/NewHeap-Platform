@@ -141,6 +141,12 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         using var duplicate = await admin.PostAsync("/api/assistant/admin/agents", Json(agentInput));
         using var badSelector = await admin.PostAsync("/api/assistant/admin/agents", Json(agentInput with { id = "x-agent", toolSelectors = new[] { "*" } }));
         using var unknownPolicy = await admin.PostAsync("/api/assistant/admin/agents", Json(agentInput with { id = "y-agent", requiredPolicy = "app.unknown" }));
+        using var unknownProfile = await admin.PostAsync("/api/assistant/admin/agents", Json(new
+        {
+            id = "z-agent", agentInput.displayName, agentInput.description, agentInput.instructions,
+            agentInput.toolSelectors, agentInput.mcpServerIds, agentInput.requiredPolicy, agentInput.autonomy,
+            profile = "missing-chat"
+        }));
         using var noVersion = await admin.PutAsync("/api/assistant/admin/agents/budget-helper", Json(agentInput));
         using var updated = await admin.PutAsync("/api/assistant/admin/agents/budget-helper", Json(new
         {
@@ -170,9 +176,10 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         AssertNames(code, "id", "displayName", "description", "instructions", "toolSelectors", "mcpServerIds", "requiredPolicy",
             "autonomy", "isEnabled", "version", "source", "isOverridden", "instructionsHash", "updatedAt",
             "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf", "shadow", "serviceAccount",
-            "offeredInChat", "worksOnSubjectTypes", "worksOnAllSubjects", "worksOnApplication", "perDivision", "runPolicy", "viewPolicy",
+            "offeredInChat", "profile", "worksOnSubjectTypes", "worksOnAllSubjects", "worksOnApplication", "perDivision", "runPolicy", "viewPolicy",
             "worksOnDeclared", "knownSubjectTypes", "groups", "codeGroups");
         Assert.Equal("active", code.GetProperty("runState").GetString());
+        Assert.Equal("project-chat", code.GetProperty("profile").GetString());
         Assert.Equal("code", code.GetProperty("source").GetString());
         Assert.Equal("execute", code.GetProperty("autonomy").GetString());
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -184,6 +191,9 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         AssertNames(badSelectorBody.GetProperty("errors"), "toolSelectors");
         Assert.Equal(HttpStatusCode.BadRequest, unknownPolicy.StatusCode);
         Assert.Equal("not-found", (await ReadJsonAsync(unknownPolicy)).GetProperty("errors").GetProperty("requiredPolicy")[0].GetString());
+        // An agent created here uses one of the profiles the run catalog lists.
+        Assert.Equal(HttpStatusCode.BadRequest, unknownProfile.StatusCode);
+        Assert.Equal("not-found", (await ReadJsonAsync(unknownProfile)).GetProperty("errors").GetProperty("profile")[0].GetString());
         Assert.Equal(HttpStatusCode.BadRequest, noVersion.StatusCode);
         AssertNames((await ReadJsonAsync(noVersion)).GetProperty("errors"), "expectedVersion");
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);

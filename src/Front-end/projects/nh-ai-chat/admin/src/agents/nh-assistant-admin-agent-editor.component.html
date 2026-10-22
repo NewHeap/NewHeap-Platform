@@ -285,6 +285,28 @@
         (input)="requiredPolicy.set(value($event))" />
       <p class="hint" [id]="id + '-policy-hint'">{{ 'nh-assistant.admin.agent-editor.required-policy-hint' | translate }}</p>
     </div>
+
+    @if (choosesProfile()) {
+      <div class="field" data-agent-profile>
+        <label [for]="id + '-profile'">{{ 'nh-assistant.admin.agent-editor.profile' | translate }}</label>
+        <select
+          [id]="id + '-profile'"
+          [attr.aria-describedby]="id + '-profile-hint' + (fieldError('profile') ? ' ' + id + '-profile-error' : '')"
+          [attr.aria-invalid]="fieldError('profile') ? true : null"
+          (change)="profile.set(value($event))">
+          @if (isNew()) {
+            <option value="" [selected]="profile() === ''">{{ 'nh-assistant.admin.agent-editor.profile-default' | translate }}</option>
+          }
+          @for (name of profileChoices(); track name) {
+            <option [value]="name" [selected]="profile() === name">{{ name }}</option>
+          }
+        </select>
+        <p class="hint" [id]="id + '-profile-hint'">{{ 'nh-assistant.admin.agent-editor.profile-hint' | translate }}</p>
+        @if (fieldError('profile'); as key) {
+          <p class="hint" [id]="id + '-profile-error'"><span class="error-text">{{ key | translate }}</span></p>
+        }
+      </div>
+    }
   </div>
 
   <p class="hint">{{ 'nh-assistant.admin.agent-editor.state-hint' | translate }}</p>

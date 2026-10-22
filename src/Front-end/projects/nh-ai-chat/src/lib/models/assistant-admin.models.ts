@@ -140,6 +140,12 @@ export interface AdminAgentInput {
    * update.
    */
   startsOff?: boolean;
+  /**
+   * For an agent created in the administration: the model profile of its model calls, one of the run
+   * catalog's `profiles` (`profile: not-found` otherwise). Omitted keeps it on update; a new agent uses
+   * the application's chat profile. Agents in code take it from their code.
+   */
+  profile?: string | null;
 }
 
 /** Body of `PUT admin/agents/{id}`. */
@@ -200,6 +206,11 @@ export interface AdminAgent extends AdminAgentInput {
   groups?: string[];
   /** The groups the agent joins in code, by id; empty for an agent created here. */
   codeGroups?: string[];
+  /**
+   * The model profile of the agent's model calls: from its code, or chosen here for an agent created
+   * here; missing on older servers.
+   */
+  profile?: string;
 }
 
 /** The groups one agent is in, as `setAgentGroups` answers. */

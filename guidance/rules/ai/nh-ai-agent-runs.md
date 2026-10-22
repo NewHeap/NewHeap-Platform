@@ -567,7 +567,13 @@ and then gives it run settings, skills and triggers as above; an existing id fai
 `ConfigureAgent(id, run => run.HideFromChat())`, for an agent created in the administration with
 `offeredInChat: false` (`OfferedInChat` on the request). Such an agent is left out of the agent picker
 and `POST conversations` answers `assistant-agent-not-found` for it; its triggers, runs, subject
-threads, consultations and existing conversations keep working. The run catalog explains its
+threads, consultations and existing conversations keep working. An agent created in the
+administration works with the application's chat profile unless it chooses another (`profile` on
+`POST`/`PUT admin/agents` and `Profile` on `NhAssistantAgentRequest`, shown as `profile` on
+`NhAssistantAdminAgentDto`): only a profile of the run catalog's `Profiles` is accepted, the
+registered profiles with chat, function calling and streaming that data skills choose from, so the
+administration can never pick an arbitrary or unconfigured model (`profile: not-found` otherwise).
+Omitted on an update keeps it; an agent in code takes its profile from its code. The run catalog explains its
 choices: `ApprovalPolicySummaries` says per policy who approves (the initiator, a subject role or an
 authorization policy), how long a proposal waits, four eyes and whether the run waits, and
 `AccountSearch` tells whether `GET admin/accounts?query=` finds accounts by name through
@@ -1061,7 +1067,9 @@ and that rules and triage do not route to it; and that `StartsOff()` applies onl
 start, also after a new host start and a deploy, on both providers. Assert that a skill's
 classification, or else its agent's, reaches the model call, that a profile that does not permit it
 refuses the call, and that a data skill stores its classification and refuses an unknown one, on
-both providers. Assert that a headless run, a consultation and a person's
+both providers. Assert that an agent created in the administration keeps the profile it chose, uses
+the chat profile without one and refuses a profile that the run catalog does not offer, on both
+providers. Assert that a headless run, a consultation and a person's
 turn in the thread read the briefing once, before the continuity, with markup neutralized; that a
 rule run that hands over passes its reason inside it; that a briefing over its bound is cut at a
 section boundary with a note and that a throwing or slow provider leaves the turn without one; and

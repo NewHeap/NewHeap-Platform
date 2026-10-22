@@ -304,6 +304,9 @@ public sealed record NhAssistantAccountDto(string ActorId, string DisplayName, s
 /// <c>AddAgentPolicy</c>; without it the agent's required policy.</param>
 /// <param name="StartsOff">The agent starts off: its triggers are ignored until someone switches it on
 /// with <c>INhAssistantAgentControl.ResumeAsync</c>. People can still chat with it and start it.</param>
+/// <param name="Profile">The model profile of its model calls, one of the run catalog's
+/// <see cref="NhAssistantRunCatalogDto.Profiles"/> (field error <c>profile: not-found</c> otherwise);
+/// without it the application's chat profile.</param>
 /// <remarks>
 /// Without <paramref name="WorksOnSubjectTypes"/>, <paramref name="WorksOnAllSubjects"/> and
 /// <paramref name="WorksOnApplication"/> the agent works on all object types and not on the
@@ -324,7 +327,8 @@ public sealed record NhAssistantAgentRequest(
     bool PerDivision = false,
     string? RunPolicy = null,
     string? ViewPolicy = null,
-    bool StartsOff = false);
+    bool StartsOff = false,
+    string? Profile = null);
 
 /// <param name="Name">The building block's name.</param>
 /// <param name="Description">What it means, for the administration.</param>
@@ -746,7 +750,8 @@ internal sealed class NhAssistantAgentConfiguration(
                     request.PerDivision ? true : null,
                     request.RunPolicy,
                     request.ViewPolicy),
-                request.StartsOff),
+                request.StartsOff,
+                string.IsNullOrWhiteSpace(request.Profile) ? null : request.Profile.Trim()),
             actorId,
             cancellationToken);
         if (!created.Success)

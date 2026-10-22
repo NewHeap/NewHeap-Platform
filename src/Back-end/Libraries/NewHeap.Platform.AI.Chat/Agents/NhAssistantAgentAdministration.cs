@@ -8,10 +8,10 @@ namespace NewHeap.Platform.AI.Chat;
 /// <summary>
 /// Administrator input for an agent. It carries no state: pause, stop, switching off and resume
 /// change that through the agent control, never the definition; only a new agent created in the
-/// administration may start off with <paramref name="StartsOff"/>. <paramref name="OfferedInChat"/>
-/// and <paramref name="WorksOn"/> apply to agents created in the administration;
-/// <see langword="null"/> keeps them, a new agent is offered in the chat and works on all object
-/// types. Agents in code take both from their code.
+/// administration may start off with <paramref name="StartsOff"/>. <paramref name="OfferedInChat"/>,
+/// <paramref name="WorksOn"/> and <paramref name="ProfileName"/> apply to agents created in the
+/// administration; <see langword="null"/> keeps them, a new agent is offered in the chat, works on all
+/// object types and uses the application's chat profile. Agents in code take them from their code.
 /// </summary>
 internal sealed record NhAssistantAgentInput(
     string Id,
@@ -24,7 +24,8 @@ internal sealed record NhAssistantAgentInput(
     NhAiAutonomyLevel Autonomy,
     bool? OfferedInChat = null,
     NhAssistantAgentWorksOn? WorksOn = null,
-    bool StartsOff = false);
+    bool StartsOff = false,
+    string? ProfileName = null);
 
 /// <summary>
 /// Creates, overrides, resets and deletes agents. Every change is versioned and reported to the
@@ -39,7 +40,8 @@ internal sealed class NhAssistantAgentAdministration(
     NhAssistantRunConfigurationStore runConfigurationStore,
     NhAssistantRunConfigurations runConfigurations,
     NhAssistantWorksOnRule worksOnRule,
-    Runs.NhAssistantSubjectAccessService subjects)
+    Runs.NhAssistantSubjectAccessService subjects,
+    NhAssistantRunConfigurationValidator validator)
 {
     public const int MaxInstructionsLength = 20_000;
 
@@ -56,7 +58,7 @@ internal sealed class NhAssistantAgentAdministration(
             return TaskResult<NhAssistantAgent>.Failed(validation);
         }
         await catalog.ListAsync(includeDisabled: true, cancellationToken);
-        var profileName = DefaultProfileName();
+        var profileName = input.ProfileName ?? DefaultProfileName();
         if (profileName is null)
         {
             return TaskResult<NhAssistantAgent>.Failed(
@@ -236,9 +238,16 @@ internal sealed class NhAssistantAgentAdministration(
             .Require(input.McpServerIds.Count <= 32, "mcpServerIds", NhAssistantFieldErrors.TooLong)
             .Require(input.RequiredPolicy is not { Length: 0 or > 256 }, "requiredPolicy", NhAssistantFieldErrors.Invalid)
             .Require(Enum.IsDefined(input.Autonomy), "autonomy", NhAssistantFieldErrors.Invalid);
-        if (input.WorksOn is { } worksOn && await IsAdminAgentInputAsync(input.Id, cancellationToken))
+        var adminAgent = await IsAdminAgentInputAsync(input.Id, cancellationToken);
+        if (input.WorksOn is { } worksOn && adminAgent)
         {
             worksOnRule.Validate(worksOn, subjects, errors);
+        }
+        // An agent created here uses a profile the application registered for the administration,
+        // as a data skill does; an agent in code takes its profile from its code.
+        if (input.ProfileName is { } profileName && adminAgent)
+        {
+            errors.Require(validator.IsChoosableProfile(profileName), "profile", NhAssistantFieldErrors.NotFound);
         }
         if (!errors.IsEmpty)
         {
@@ -283,6 +292,10 @@ internal sealed class NhAssistantAgentAdministration(
         if (input.WorksOn is { } worksOn && row.Source == NhAssistantAgentSources.Admin)
         {
             worksOn.ApplyTo(row);
+        }
+        if (input.ProfileName is { } profileName && row.Source == NhAssistantAgentSources.Admin)
+        {
+            row.ProfileName = profileName;
         }
         var hash = NhAssistantAgentCatalog.ComputeHash(instructions);
         if (!string.Equals(hash, row.InstructionsHash, StringComparison.Ordinal))

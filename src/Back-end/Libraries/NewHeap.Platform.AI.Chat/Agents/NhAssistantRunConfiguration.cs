@@ -302,6 +302,18 @@ internal sealed class NhAssistantRunConfigurationValidator(
     }
 
     /// <summary>
+    /// Whether <paramref name="profileName"/> is a profile the administration may choose for a data
+    /// skill or an agent created there: registered by the application with chat, function calling
+    /// and streaming, as the run catalog lists them.
+    /// </summary>
+    public bool IsChoosableProfile(string profileName)
+    {
+        return services.GetService<INhAiModelProfileRegistry>() is { } profiles
+               && profiles.TryGet(profileName, out var profile)
+               && (profile.Capabilities & ChatProfileCapabilities) == ChatProfileCapabilities;
+    }
+
+    /// <summary>
     /// The problem of a data skill on its agent, or <see langword="null"/> when it fits.
     /// </summary>
     public string? ValidateSkill(AssistantAgentSkillDefinition definition, IReadOnlyList<string> toolSelectors, NhAssistantRunAgent? agent)
@@ -330,10 +342,7 @@ internal sealed class NhAssistantRunConfigurationValidator(
         {
             return NhAssistantRunConfigurationProblems.ToolNotCovered;
         }
-        if (definition.ProfileName is { } profileName
-            && (services.GetService<INhAiModelProfileRegistry>() is not { } profiles
-                || !profiles.TryGet(profileName, out var profile)
-                || (profile.Capabilities & ChatProfileCapabilities) != ChatProfileCapabilities))
+        if (definition.ProfileName is { } profileName && !IsChoosableProfile(profileName))
         {
             return NhAssistantRunConfigurationProblems.UnknownProfile;
         }
