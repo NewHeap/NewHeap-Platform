@@ -526,7 +526,8 @@ describe('The mock API for the flow view', () => {
       accountability: 'service-account',
       delegateFromInitiator: false,
       approvalPolicy: 'project-review',
-      usesRules: true
+      usesRules: true,
+      startsOff: false
     });
 
     const followUp = (await call('GET', 'admin/agents/follow-up/configuration')).body as AgentRunConfiguration;

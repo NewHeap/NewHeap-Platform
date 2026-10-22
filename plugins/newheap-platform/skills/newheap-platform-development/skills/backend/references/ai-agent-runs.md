@@ -575,7 +575,9 @@ administration works with the application's chat profile unless it chooses anoth
 `NhAssistantAdminAgentDto`): only a profile of the run catalog's `Profiles` is accepted, the
 registered profiles with chat, function calling and streaming that data skills choose from, so the
 administration can never pick an arbitrary or unconfigured model (`profile: not-found` otherwise).
-Omitted on an update keeps it; an agent in code takes its profile from its code. The run catalog explains its
+The profile the agent has and the chat profile stay accepted, so an editor that sends the agent back
+unchanged is not refused. Omitted on an update keeps it; an agent in code takes its profile from its
+code. The run catalog explains its
 choices: `ApprovalPolicySummaries` says per policy who approves (the initiator, a subject role or an
 authorization policy), how long a proposal waits, four eyes and whether the run waits, and
 `AccountSearch` tells whether `GET admin/accounts?query=` finds accounts by name through

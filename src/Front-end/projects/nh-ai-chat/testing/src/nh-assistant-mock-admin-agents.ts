@@ -573,9 +573,12 @@ export class NhAssistantMockAdminAgents {
         return failure('assistant-validation', errors);
       }
     }
-    // An agent created here uses a profile the run catalog offers; an agent in code takes its own.
-    if (source === 'admin' && typeof input?.profile === 'string' && input.profile.trim().length > 0
-      && !this.rules.profileNames().includes(input.profile.trim())) {
+    // An agent created here uses a profile the run catalog offers, or keeps the one it has or the
+    // chat profile it gets by default; an agent in code takes its own.
+    const profile = typeof input?.profile === 'string' ? input.profile.trim() : '';
+    if (source === 'admin' && profile.length > 0 && profile !== mockChatProfile
+      && profile !== this.agents.get(input!.id)?.agent.profile
+      && !this.rules.profileNames().includes(profile)) {
       return failure('assistant-validation', { profile: ['not-found'] });
     }
     return null;

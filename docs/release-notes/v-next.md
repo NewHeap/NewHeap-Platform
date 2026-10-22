@@ -124,8 +124,10 @@ An agent created in the administration always got the application's chat profile
 its profile: `profile` on `POST` and `PUT admin/agents` (`NhAssistantAdminAgentInputDto.Profile`) and
 `Profile` on `NhAssistantAgentRequest`. Only a profile of the run catalog's `Profiles` is accepted,
 the registered profiles with chat, function calling and streaming that data skills already choose
-from; another name is the field error `profile: not-found`. Without it a new agent keeps the chat
-profile and an update keeps the agent's profile; an agent in code takes its profile from its code.
+from; another name is the field error `profile: not-found`, except the profile the agent has and the
+chat profile, so a client that sends the agent back unchanged is not refused. Without it a new agent
+keeps the chat profile and an update keeps the agent's profile; an agent in code takes its profile
+from its code.
 `NhAssistantAdminAgentDto.Profile` shows the profile of every agent. No migration: the agent's
 existing `ProfileName` column holds it.
 

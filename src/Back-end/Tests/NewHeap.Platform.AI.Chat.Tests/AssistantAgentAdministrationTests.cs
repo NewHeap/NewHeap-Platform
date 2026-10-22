@@ -218,6 +218,13 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
         var unknown = await administration.CreateAsync(input with { Id = "unknown-helper", ProfileName = "missing-chat" }, "admin-1", CancellationToken.None);
         var standard = await administration.CreateAsync(input with { Id = "standard-helper", ProfileName = null }, "admin-1", CancellationToken.None);
         var kept = await administration.UpdateAsync(input with { Instructions = "Plan briefly.", ProfileName = null }, 1, "admin-1", CancellationToken.None);
+        // An editor that sends the agent back with the profile it has is not refused, also when the
+        // administration does not offer that profile.
+        var echoed = await administration.UpdateAsync(
+            input with { Id = "standard-helper", Instructions = "Help as before.", ProfileName = "project-chat" },
+            1,
+            "admin-1",
+            CancellationToken.None);
         // An agent in code takes its profile from its code.
         var code = await administration.UpdateAsync(
             Input(original, "Answer only about budgets.") with { ProfileName = "planning-chat" },
@@ -230,6 +237,8 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
         Assert.Equal(["not-found"], Field(unknown, "profile"));
         Assert.Equal("project-chat", standard.Data!.Definition.ProfileName);
         Assert.Equal("planning-chat", kept.Data!.Definition.ProfileName);
+        Assert.True(echoed.Success);
+        Assert.Equal("project-chat", echoed.Data!.Definition.ProfileName);
         Assert.Equal("project-chat", code.Data!.Definition.ProfileName);
     }
 

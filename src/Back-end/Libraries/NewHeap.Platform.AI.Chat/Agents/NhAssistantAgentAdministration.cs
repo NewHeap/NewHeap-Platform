@@ -238,14 +238,23 @@ internal sealed class NhAssistantAgentAdministration(
             .Require(input.McpServerIds.Count <= 32, "mcpServerIds", NhAssistantFieldErrors.TooLong)
             .Require(input.RequiredPolicy is not { Length: 0 or > 256 }, "requiredPolicy", NhAssistantFieldErrors.Invalid)
             .Require(Enum.IsDefined(input.Autonomy), "autonomy", NhAssistantFieldErrors.Invalid);
-        var adminAgent = await IsAdminAgentInputAsync(input.Id, cancellationToken);
+        // The input is for an agent created in the administration, new or existing; an agent in code
+        // takes what it works on and its profile from its code, so they are not checked for it.
+        var inCode = registry.TryGet(input.Id, out _);
+        var stored = inCode ? null : await store.FindAgentAsync(input.Id, cancellationToken);
+        var adminAgent = !inCode && (stored is null || stored.Source == NhAssistantAgentSources.Admin);
         if (input.WorksOn is { } worksOn && adminAgent)
         {
             worksOnRule.Validate(worksOn, subjects, errors);
         }
         // An agent created here uses a profile the application registered for the administration,
-        // as a data skill does; an agent in code takes its profile from its code.
-        if (input.ProfileName is { } profileName && adminAgent)
+        // as a data skill does. The profile it has and the chat profile it gets by default stay
+        // accepted, so an editor that sends the agent back unchanged is not refused. An agent in code
+        // takes its profile from its code.
+        if (input.ProfileName is { } profileName
+            && adminAgent
+            && !string.Equals(profileName, stored?.ProfileName, StringComparison.Ordinal)
+            && !string.Equals(profileName, DefaultProfileName(), StringComparison.Ordinal))
         {
             errors.Require(validator.IsChoosableProfile(profileName), "profile", NhAssistantFieldErrors.NotFound);
         }
@@ -260,21 +269,6 @@ internal sealed class NhAssistantAgentAdministration(
             return TaskResult.Failed(NhAssistantAdminErrorCodes.McpServerNotFound, "An assigned MCP server does not exist.");
         }
         return TaskResult.Succeeded();
-    }
-
-    /// <summary>
-    /// Whether the input is for an agent created in the administration, new or existing; an agent in
-    /// code takes what it works on from its code, so its input is not checked.
-    /// </summary>
-    private async Task<bool> IsAdminAgentInputAsync(string agentId, CancellationToken cancellationToken)
-    {
-        if (registry.TryGet(agentId, out _))
-        {
-            return false;
-        }
-
-        var existing = await store.FindAgentAsync(agentId, cancellationToken);
-        return existing is null || existing.Source == NhAssistantAgentSources.Admin;
     }
 
     private static void ApplyInput(AssistantAgent row, NhAssistantAgentInput input, int assetVersion)
