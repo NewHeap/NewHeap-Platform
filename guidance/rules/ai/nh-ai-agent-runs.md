@@ -459,8 +459,11 @@ proposals stay decidable and executable, and people keep chatting with it and st
 policies allow. Inputs that waited from an earlier pause end, so switching it on again with
 `ResumeAsync` starts no run for anything that happened meanwhile. A skill switches off on its own
 (`SwitchOffSkillAsync`): triggers that name it are ignored with `skill-off`, rules that route to it
-end their run with `assistant-skill-off`, and triage and `use_skill` do not offer it. The kill switch,
-`POST admin/agents/{id}/kill-switch`, is stop and resume without a reason. A state change never
+end their run with `assistant-skill-off`, and triage and `use_skill` do not offer it. The kill switch
+(`SetKillSwitchAsync`, `POST admin/agents/{id}/kill-switch` `{ engaged }`) stops an agent without a
+reason when engaged; releasing it never switches on an agent that was off: one that was off when it
+stopped goes back off, one that is off stays off, and every other agent resumes, a paused one included.
+Skills keep their own states through it. A state change never
 changes the agent's definition or version; editing and resetting never change the state, and
 `isEnabled` in the definition is ignored. An agent disabled in code with `Enabled(false)` reads
 `configured-off` and cannot be switched on at runtime; with `NewHeap:AI:Assistant:Enabled` off,

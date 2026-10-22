@@ -104,6 +104,13 @@ public sealed class AssistantAgent
     public string? StateReason { get; set; }
 
     /// <summary>
+    /// <see langword="true"/> while the agent is stopped after it was off: releasing the kill switch
+    /// switches it off again instead of on. Every state change sets it anew, so it is
+    /// <see langword="false"/> in every other state.
+    /// </summary>
+    public bool OffBeforeStop { get; set; }
+
+    /// <summary>
     /// The shadow mode an administrator set at runtime; <see langword="null"/> follows the code.
     /// </summary>
     public bool? ShadowOverride { get; set; }

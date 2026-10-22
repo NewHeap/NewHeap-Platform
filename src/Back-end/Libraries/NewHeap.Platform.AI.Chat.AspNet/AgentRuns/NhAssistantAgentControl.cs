@@ -27,6 +27,10 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// them all; switching an agent that is off on starts nothing, because nothing waited. Leaving the
 /// stopped state, by a resume, a pause or switching off, queues the executions of the approved
 /// proposals the stop held.</description></item>
+/// <item><description><b>Kill switch:</b> <see cref="SetKillSwitchAsync"/> stops the agent when it is
+/// engaged. Releasing it never switches on an agent that was off: one that was off when it stopped
+/// is switched off again. It resumes every other agent, a paused one included. The agent's skills
+/// keep their own states throughout.</description></item>
 /// </list>
 /// The state never changes the agent's definition or version, and <c>Enabled(false)</c> in code
 /// wins: such an agent reports <see cref="NhAssistantAgentRunStates.ConfiguredOff"/> and cannot be
@@ -81,6 +85,20 @@ public interface INhAssistantAgentControl
         string agentId,
         string actorId,
         string? reason = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Engages the kill switch of an agent (<paramref name="engaged"/> <see langword="true"/>), which
+    /// stops it as <see cref="StopAsync"/> does, or releases it. Releasing never switches on an agent
+    /// that was off: one that was off when it stopped is switched off again, as
+    /// <see cref="SwitchOffAsync"/> does, and one that is off stays off. It resumes every other agent
+    /// as <see cref="ResumeAsync"/> does, a paused one included. The change carries no reason.
+    /// <c>POST admin/agents/{id}/kill-switch</c> uses it.
+    /// </summary>
+    Task<TaskResult<NhAssistantAgentState>> SetKillSwitchAsync(
+        string agentId,
+        bool engaged,
+        string actorId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -391,6 +409,27 @@ internal sealed class NhAssistantAgentControl(
         CancellationToken cancellationToken = default)
     {
         return ChangeAsync(agentId, NhAssistantAgentRunStates.Active, actorId, reason, cancellationToken);
+    }
+
+    public async Task<TaskResult<NhAssistantAgentState>> SetKillSwitchAsync(
+        string agentId,
+        bool engaged,
+        string actorId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        if (engaged)
+        {
+            return await ChangeAsync(agentId, NhAssistantAgentRunStates.Stopped, actorId, null, cancellationToken);
+        }
+
+        // Releasing never switches on an agent that was off: one that was off when it stopped goes
+        // back off, and one that is off stays off.
+        var agent = await agents.FindAsync(agentId, includeDisabled: true, cancellationToken);
+        var target = agent is not null && (agent.RunState == NhAssistantAgentRunStates.Off || agent.OffBeforeStop)
+            ? NhAssistantAgentRunStates.Off
+            : NhAssistantAgentRunStates.Active;
+        return await ChangeAsync(agentId, target, actorId, null, cancellationToken);
     }
 
     public Task<TaskResult<NhAssistantSkillState>> PauseSkillAsync(

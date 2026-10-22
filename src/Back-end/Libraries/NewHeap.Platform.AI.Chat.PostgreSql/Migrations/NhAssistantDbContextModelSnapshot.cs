@@ -74,6 +74,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<bool>("IsOverridden")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("OffBeforeStop")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("PerDivision")
                         .HasColumnType("boolean");
 

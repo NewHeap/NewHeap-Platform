@@ -485,15 +485,16 @@ internal static class NhAssistantAdminEndpoints
         }
 
         var control = httpContext.RequestServices.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
-        var result = engaged
-            ? await control.StopAsync(id, actor, null, httpContext.RequestAborted)
-            : await control.ResumeAsync(id, actor, null, httpContext.RequestAborted);
+        var result = await control.SetKillSwitchAsync(id, engaged, actor, httpContext.RequestAborted);
         return result.Success
             ? Json(
                 new AgentRuns.NhAssistantKillSwitchDto(
                     id,
                     result.Data!.RunState != NhAssistantAgentRunStates.Stopped,
-                    result.Data.CancelledRuns),
+                    result.Data.CancelledRuns)
+                {
+                    RunState = result.Data.RunState
+                },
                 AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantKillSwitchDto)
             : Failure(result);
     }

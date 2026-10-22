@@ -166,6 +166,25 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(active.runState).toBe('active');
   });
 
+  it('releases the kill switch without switching on an agent that was off, as the server does', async () => {
+    const killSwitch = async (engaged: boolean) => (await backend.fetch('/api/assistant/admin/agents/projects/kill-switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ engaged })
+    })).json() as Promise<{ enabled: boolean; runState: string }>;
+
+    await firstValueFrom(admin.setAgentState('projects', { state: 'off' }));
+    const engaged = await killSwitch(true);
+    const released = await killSwitch(false);
+    await firstValueFrom(admin.setAgentState('projects', { state: 'paused' }));
+    await killSwitch(true);
+    const resumed = await killSwitch(false);
+
+    expect(engaged).toEqual(jasmine.objectContaining({ enabled: false, runState: 'stopped' }));
+    expect(released).toEqual(jasmine.objectContaining({ enabled: true, runState: 'off' }));
+    expect(resumed).toEqual(jasmine.objectContaining({ enabled: true, runState: 'active' }));
+  });
+
   it('adds a data skill that starts off with its classification, as the server checks both', async () => {
     const invalid = await failure(firstValueFrom(admin.saveDataSkill('projects', 'audit', {
       description: 'Audits the project.', dataClassification: 'secret' as 'internal'

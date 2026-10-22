@@ -24,6 +24,8 @@ interface StoredAgent {
   agent: AdminAgent;
   /** The definition in code, for `reset`; null for admin agents. */
   codeDefinition: AdminAgentInput | null;
+  /** The agent stopped while it was off: releasing the kill switch switches it off again. */
+  offBeforeStop?: boolean;
 }
 
 /** What the agents read of the other areas of the mock administration. */
@@ -190,9 +192,15 @@ export class NhAssistantMockAdminAgents {
       if (typeof engaged !== 'boolean') {
         return validationFailure();
       }
-      const changed = this.agentStateEndpoint(stored, 'POST', { state: engaged ? 'stopped' : 'active' });
+      // Releasing never switches on an agent that was off, as on the server: one that was off when
+      // it stopped goes back off, and one that is off stays off.
+      const released = stored.agent.runState === 'off' || stored.offBeforeStop === true ? 'off' : 'active';
+      const changed = this.agentStateEndpoint(stored, 'POST', { state: engaged ? 'stopped' : released });
       return changed.status === 200
-        ? { status: 200, body: { agentId: id, enabled: stored.agent.runState !== 'stopped', cancelledRuns: 0 } }
+        ? {
+          status: 200,
+          body: { agentId: id, enabled: stored.agent.runState !== 'stopped', cancelledRuns: 0, runState: stored.agent.runState }
+        }
         : changed;
     }
     if (length !== 3) {
@@ -538,6 +546,8 @@ export class NhAssistantMockAdminAgents {
         : { status: 200, body: toAgentState(stored.agent) };
     }
     if (stored.agent.runState !== request.state) {
+      // A stop remembers whether the agent was off, for the kill switch; every other change forgets it.
+      stored.offBeforeStop = request.state === 'stopped' && stored.agent.runState === 'off';
       stored.agent = {
         ...stored.agent,
         isEnabled: request.state !== 'stopped',

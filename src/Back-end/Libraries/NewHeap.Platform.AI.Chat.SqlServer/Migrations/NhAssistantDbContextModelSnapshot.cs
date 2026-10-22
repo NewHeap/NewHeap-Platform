@@ -74,6 +74,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<bool>("IsOverridden")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("OffBeforeStop")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("PerDivision")
                         .HasColumnType("bit");
 

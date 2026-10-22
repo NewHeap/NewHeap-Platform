@@ -164,7 +164,7 @@ A tool call whose proposal a proposal guard found not needed reads `assistant-pr
 |---|---|
 | A new error code with texts under `nh-assistant.result-codes` and `nh-assistant.errors`. | Add both keys to translations a host provides itself (`translations: 'host'`). |
 
-## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: agents and skills that are off
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: agents and skills that are off
 
 An agent and a skill have a fourth state next to active, paused and stopped: **off**
 (`NhAssistantAgentRunStates.Off`). `INhAssistantAgentControl.SwitchOffAsync` and
@@ -182,6 +182,14 @@ for anything that happened meanwhile. A skill that is off ignores the triggers t
 `use_skill` do not offer it. Switching off is audited as `NhAssistantAuditEventKind.AdminAgentSwitchedOff`
 (`off`), switching on as `AdminAgentRunsResumed`.
 
+The kill switch is `INhAssistantAgentControl.SetKillSwitchAsync`, which
+`POST admin/agents/{id}/kill-switch` uses. Engaged it stops the agent, as before. Releasing it never
+switches on an agent that was off: an agent that was off when it stopped goes back off, one that is
+off stays off, and every other agent resumes as before, a paused one included; skills keep their own
+states. `NhAssistantKillSwitchDto.RunState` reports the state after the change. The
+`AgentOffBeforeStop` migration adds the `OffBeforeStop` column to `AssistantAgent`, which a stop sets
+for an agent that was off.
+
 `StartsOff()` on `ConfigureAgent` and on `Skill(...)` (`NhAssistantAgentRunOptions.StartsOff`,
 `NhAssistantSkillOptions.StartsOff`) deploys an agent or skill that waits for an administrator: it is
 off the first time the application sees it, after which the stored state wins, also after a deploy.
@@ -189,12 +197,14 @@ off the first time the application sees it, after which the stored state wins, a
 in code gets a state row at its first start, which marks it as seen. An agent created in the
 administration (`startsOff` on `NhAssistantAdminAgentInputDto` and `NhAssistantAgentRequest`) and a
 new data skill (`startsOff` on `NhAssistantDataSkillRequest`) start off only when asked to;
-`NhAssistantCodeRunSettingsDto` and `NhAssistantCodeSkillDto` report `StartsOff`. No migration: the
-state uses the existing `RunState` columns.
+`NhAssistantCodeRunSettingsDto` and `NhAssistantCodeSkillDto` report `StartsOff`. The state itself
+uses the existing `RunState` columns.
 
 | Breaking change | Required action |
 |---|---|
-| `INhAssistantAgentControl` has two new members, `SwitchOffAsync` and `SwitchOffSkillAsync`. | Implement them in your own implementations and test doubles. |
+| `INhAssistantAgentControl` has three new members, `SwitchOffAsync`, `SwitchOffSkillAsync` and `SetKillSwitchAsync`. | Implement them in your own implementations and test doubles. |
+| Database schema change. | Apply the `AgentOffBeforeStop` migration of `NewHeap.Platform.AI.Chat.SqlServer` or `NewHeap.Platform.AI.Chat.PostgreSql`. |
+| Releasing the kill switch of an agent that was off before it was engaged switches it off again instead of on. | Switch such an agent on with `ResumeAsync` or `POST admin/agents/{id}/state` `{ "state": "active" }`. |
 | `NhAssistantAgentRunStates.IsStored` accepts `off`, and `RunState` of agents and skills, `NhAssistantAgentState` and `NhAssistantSkillState` can read `off`. | Treat `off` in code that switches over the state. |
 | `NhAssistantAuditEventKind` has the new value `AdminAgentSwitchedOff` (62). | Map it in business audit sinks that switch over the kinds. |
 | At the first start on this version every skill in code gets a state row; a skill deployed before that gets `StartsOff()` in the same deploy starts off once. | Add `StartsOff()` to an existing skill only when it should go off. |
@@ -210,7 +220,8 @@ now; unticked, they send `startsOff: true`. `AgentRunState` and the skill and re
 `off`, `AdminAgentInput` and `DataSkillRequest` gain `startsOff`, and `CodeRunSettings` and
 `CodeSkill` gain `startsOff`. The mock backend of `@newheap/platform-ai-chat/testing` serves the
 state, creates agents and data skills off with `startsOff`, refuses `startsOff` on a change of a
-skill and starts scenario agents and skills off with `startsOff`.
+skill and starts scenario agents and skills off with `startsOff`; its kill switch leaves an agent that
+was off off when it is released, as the server does, and answers `runState`.
 
 | Breaking change | Required action |
 |---|---|

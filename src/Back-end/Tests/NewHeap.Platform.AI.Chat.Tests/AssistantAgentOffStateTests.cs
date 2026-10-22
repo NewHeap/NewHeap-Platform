@@ -154,6 +154,51 @@ public sealed class AssistantAgentOffStateTests(AssistantDatabaseFixture databas
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Releasing_the_kill_switch_leaves_an_agent_and_skills_that_were_off_off_and_resumes_a_paused_or_stopped_agent(AssistantTestProvider provider)
+    {
+        var probe = new TriggerProbe();
+        await using var host = await CreateHostAsync(provider, probe, startsOff: true);
+        var operations = host.Services.GetRequiredService<RecordingOperations>();
+
+        // The agent and its review skill start off; engaging the kill switch stops the agent.
+        var engaged = await ControlAsync(host, control => control.SetKillSwitchAsync(AgentId, true, "operator-1"));
+        var released = await ControlAsync(host, control => control.SetKillSwitchAsync(AgentId, false, "operator-1"));
+        var ignored = await PublishAsync(host, new ProjectChanged(Guid.NewGuid(), Guid.NewGuid(), "task added"), ProjectChangedTrigger);
+        // Releasing a kill switch that was never engaged leaves an agent that is off off as well.
+        var releasedAgain = await ControlAsync(host, control => control.SetKillSwitchAsync(AgentId, false, "operator-1"));
+
+        Assert.Equal(NhAssistantAgentRunStates.Stopped, engaged.Data!.RunState);
+        Assert.Equal(NhAssistantAgentRunStates.Off, released.Data!.RunState);
+        Assert.False(released.Data.Active);
+        Assert.Equal(NhAssistantAgentRunStates.Off, released.Data.Skills.Single(skill => skill.SkillId == Review).RunState);
+        Assert.Equal(NhAssistantAgentRunStates.Active, released.Data.Skills.Single(skill => skill.SkillId == Notes).RunState);
+        Assert.Equal(NhAssistantTriggerReasons.AgentOff, Assert.Single(ignored).ReasonCode);
+        Assert.Equal(NhAssistantAgentRunStates.Off, releasedAgain.Data!.RunState);
+        Assert.Empty(operations.Enqueued);
+        Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentSwitchedOff
+            && evt.ObjectId == AgentId
+            && evt.ActorId == "operator-1");
+
+        // An explicit resume still switches the agent on, and a later stop forgets that it was off.
+        await ControlAsync(host, control => control.ResumeAsync(AgentId, "operator-1"));
+        await ControlAsync(host, control => control.StopAsync(AgentId, "operator-1"));
+        var resumed = await ControlAsync(host, control => control.SetKillSwitchAsync(AgentId, false, "operator-1"));
+        Assert.Equal(NhAssistantAgentRunStates.Active, resumed.Data!.RunState);
+
+        // A paused agent behaves as before: the kill switch stops it and releasing it resumes it.
+        await ControlAsync(host, control => control.PauseAsync(AgentId, "operator-1"));
+        var pausedEngaged = await ControlAsync(host, control => control.SetKillSwitchAsync(AgentId, true, "operator-1"));
+        var pausedReleased = await ControlAsync(host, control => control.SetKillSwitchAsync(AgentId, false, "operator-1"));
+        Assert.Equal(NhAssistantAgentRunStates.Stopped, pausedEngaged.Data!.RunState);
+        Assert.Equal(NhAssistantAgentRunStates.Active, pausedReleased.Data!.RunState);
+        Assert.Equal(NhAssistantAgentRunStates.Off, pausedReleased.Data.Skills.Single(skill => skill.SkillId == Review).RunState);
+        await using var context = Factory(host).CreateDbContext();
+        Assert.False((await context.Agents.SingleAsync(agent => agent.Id == AgentId)).OffBeforeStop);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Switching_off_during_a_run_lets_it_finish_and_its_proposal_stays_decidable_and_executes(AssistantTestProvider provider)
     {
         await using var host = await CreateHostAsync(provider, new TriggerProbe());

@@ -21,7 +21,7 @@ internal sealed record NhAssistantAgent(
     public string Id => Definition.Id;
 
     /// <summary>
-    /// The stored run state: active, paused or stopped.
+    /// The stored run state: active, paused, stopped or off.
     /// </summary>
     public string RunState { get; init; } = NhAssistantAgentRunStates.Active;
 
@@ -30,6 +30,11 @@ internal sealed record NhAssistantAgent(
     public string? StateChangedBy { get; init; }
 
     public string? StateReason { get; init; }
+
+    /// <summary>
+    /// The agent is stopped and was off before: releasing the kill switch switches it off again.
+    /// </summary>
+    public bool OffBeforeStop { get; init; }
 
     /// <summary>
     /// The shadow mode an administrator set at runtime; <see langword="null"/> follows the code.
@@ -166,6 +171,7 @@ internal sealed class NhAssistantAgentCatalog(
             StateChangedAt = row.StateChangedAt,
             StateChangedBy = row.StateChangedBy,
             StateReason = row.StateReason,
+            OffBeforeStop = !row.IsEnabled && row.OffBeforeStop,
             ShadowOverride = row.ShadowOverride,
             ShadowChangedAt = row.ShadowChangedAt,
             ShadowChangedBy = row.ShadowChangedBy,

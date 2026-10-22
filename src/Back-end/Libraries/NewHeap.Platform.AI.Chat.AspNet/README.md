@@ -125,8 +125,9 @@ these endpoints. Access follows the caller's role on the subject, which the subj
 `X-NH-Timestamp` (Unix seconds), `X-NH-Delivery` and `X-NH-Signature` (`sha256=` plus the
 lowercase hex digest). It returns `202` with a receipt, `401` with
 `assistant-webhook-signature-invalid` for a missing, stale or wrong signature, `400` when
-the body names no subject and `413` above 64 KB. Administrators stop or resume an agent
-with `POST admin/agents/{id}/kill-switch` `{ engaged }`.
+the body names no subject and `413` above 64 KB. Administrators stop an agent with
+`POST admin/agents/{id}/kill-switch` `{ engaged: true }` and release it with `{ engaged: false }`,
+which switches an agent that was off before off again and resumes every other agent.
 
 Administrators review why people reject an agent's proposals. For proposals made in a
 period (`from`, `to`; the last 30 days by default, at most 366 days),
