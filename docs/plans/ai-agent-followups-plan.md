@@ -8,7 +8,8 @@ This document records four follow-ups and one fix to the agents of `NewHeap.Plat
 ## Status
 
 Built on 2026-10-22 in one lane of a merge train. Lars decided the five parts below (F1 to F5); the
-open choices taken while building them are recorded as AF1 to AF11 for Lars to review.
+open choices taken while building them are recorded as AF1 to AF11. Lars reviewed them on 2026-10-22
+and kept all eleven as built, including no sample variant for F2 and F4 (AF10).
 
 | Part | Status |
 | --- | --- |
@@ -34,7 +35,7 @@ open choices taken while building them are recorded as AF1 to AF11 for Lars to r
   within the privacy rules for what models may read.
 - **F5.** `nh-assistant-agent-board` binds `[divisionId]` on the per-agent `nh-assistant-agent-inbox`.
 
-## Decisions for Lars to review
+## Decisions reviewed by Lars (all kept)
 
 - **AF1. The source of the request's actor id is the authenticated invocation context resolver.** The
   assistant names people by `INhAiAuthenticatedInvocationContextResolver.ResolveAsync(httpContext).ActorId`:
