@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +16,8 @@ using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
+using NewHeap.Platform.Common.Actors;
+using NewHeap.Platform.Common.Models;
 using NSubstitute;
 using Xunit;
 
@@ -272,6 +277,38 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
         Assert.DoesNotContain(tools, name => name == "projects_change_status_v1");
         Assert.DoesNotContain(request.Messages, message => message.Text.Contains("search-notes", StringComparison.Ordinal));
         Assert.Contains("I know of no open points.", asker.FunctionResults.Single().Result?.ToString());
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_application_with_its_own_actor_ids_consults_with_the_askers_live_request(AssistantTestProvider provider)
+    {
+        var target = new NhAiScriptedChatClient().RespondWithText("Nothing is missing.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "What is still missing?" } }, "call-1")
+            .RespondWithText("The intake reviewer says nothing is missing.");
+        await using var host = await CreateHostAsync(provider, target, asker, configure: services =>
+        {
+            // The application names its people by its own actor ids, which are no claim, and cannot
+            // rebuild their principals outside their own requests.
+            services.AddNewHeapActorContext<PortalActors>();
+            services.AddNewHeapPlatformAIAspNet(ai => ai.UseAuthenticatedInvocationContextResolver<PortalActorResolver>());
+            services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory>(new NoPrincipals()));
+        });
+        var person = PortalActors.IdOf(Member);
+        host.Services.GetRequiredService<TestSubjects>().Roles[person] = NhAiSubjectRole.Participant;
+        var conversation = await host.CreateConversationAsync(person, AskingAgentId);
+
+        var turn = await host.SendAsync(conversation.Id, "What is missing for the project?", Member);
+
+        // The person's own request is recognized by the application's actor id, so the consulted agent
+        // works with the person's live rights and is offered the project tools the person may use.
+        Assert.Equal(NhAssistantTurnStatuses.Completed, turn.Single<NhAssistantTurnCompletedEvent>().Status);
+        Assert.Contains(ToolNames(target.Requests.Single()), name => name == "projects_search_v1");
+        var consultation = await SingleConsultationAsync(host);
+        Assert.Equal(NhAssistantConsultationStatuses.Completed, consultation.Status);
+        Assert.Equal(person, consultation.AskerActorId);
     }
 
     [Theory]
@@ -619,5 +656,58 @@ public sealed class ConsultationPrincipals : INhAiPrincipalFactory
         return ValueTask.FromResult<ClaimsPrincipal?>(Revoked.ContainsKey(actorId)
             ? null
             : new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, actorId)], "test")));
+    }
+}
+
+/// <summary>
+/// An application that cannot rebuild a person's principal outside the person's own request.
+/// </summary>
+public sealed class NoPrincipals : INhAiPrincipalFactory
+{
+    public ValueTask<ClaimsPrincipal?> CreateAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.FromResult<ClaimsPrincipal?>(null);
+    }
+}
+
+/// <summary>
+/// An application with its own identity model: its actor ids are a prefixed hash of the
+/// <c>NameIdentifier</c> claim, not the claim itself.
+/// </summary>
+public sealed class PortalActors(IHttpContextAccessor httpContextAccessor) : INhActorContextAccessor
+{
+    public static string IdOf(string claim)
+    {
+        return "portal:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(claim)))[..24];
+    }
+
+    public ValueTask<NhActorContext> GetCurrentAsync(CancellationToken cancellationToken = default)
+    {
+        var claim = httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return ValueTask.FromResult(claim is null
+            ? NhActorContext.Anonymous
+            : new NhActorContext(new NhActorRef(NhActorKinds.User, IdOf(claim)), null));
+    }
+}
+
+/// <summary>
+/// The application's resolver: the assistant's actor id of a request is the application's actor.
+/// </summary>
+public sealed class PortalActorResolver(
+    INhActorContextAccessor actors,
+    INhAiInvocationContextFactory contexts) : INhAiAuthenticatedInvocationContextResolver
+{
+    public async ValueTask<TaskResult<NhAiInvocationContext>> ResolveAsync(
+        HttpContext httpContext,
+        CancellationToken cancellationToken = default)
+    {
+        var actor = (await actors.GetCurrentAsync(cancellationToken)).Actor;
+        if (actor is null)
+        {
+            return TaskResult<NhAiInvocationContext>.Failed(NhAiAspNetFailureCodes.AuthenticationRequired, "Sign in first.");
+        }
+
+        var context = await contexts.CreateAsync(new NhAiInvocationContextSeed(actor.Id, "project-assistance"), cancellationToken);
+        return TaskResult<NhAiInvocationContext>.Succeeded(context);
     }
 }

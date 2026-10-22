@@ -483,9 +483,14 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
         }
 
         var actorId = CreateActorId(issuer.Data, subject.Data!);
-        var context = await contextFactory.CreateAsync(
-            new NhAiInvocationContextSeed(actorId, state.ToolInvocationPurpose, Scope: scope),
-            token);
+        NhAiInvocationContext context;
+        // The contributors recognize the context as the request's own by this actor id.
+        using (NhAiRequestActor.BeginResolving(httpContext, actorId))
+        {
+            context = await contextFactory.CreateAsync(
+                new NhAiInvocationContextSeed(actorId, state.ToolInvocationPurpose, Scope: scope),
+                token);
+        }
         var executionScopes = context.ExecutionScopes.ToList();
         if (projection is not null && tenantId is not null)
         {
@@ -531,6 +536,7 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
                 "The AI tool idempotency key is invalid.");
         }
 
+        NhAiRequestActor.Remember(httpContext, actorId);
         return TaskResult<NhAiInvocationContext>.Succeeded(context with
         {
             Issuer = issuer.Data,
@@ -688,7 +694,8 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
 internal sealed class NhAiAspNetInvocationContextContributor(
     IHttpContextAccessor httpContextAccessor,
     IAuthorizationService authorizationService,
-    NhAiAspNetRegistrationState state) : INhAiInvocationContextContributor
+    NhAiAspNetRegistrationState state,
+    IServiceProvider services) : INhAiInvocationContextContributor
 {
     public int Order => 100;
 
@@ -702,8 +709,9 @@ internal sealed class NhAiAspNetInvocationContextContributor(
             return;
         }
 
-        var actorId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!string.Equals(actorId, builder.ActorId, StringComparison.Ordinal))
+        // Only a context of the request's own person gets the request's correlation id, division and
+        // capabilities; the person is recognized by the platform's actor id, not by a claim.
+        if (!await NhAiRequestActor.IsAsync(httpContext, builder.ActorId, services, cancellationToken))
         {
             return;
         }

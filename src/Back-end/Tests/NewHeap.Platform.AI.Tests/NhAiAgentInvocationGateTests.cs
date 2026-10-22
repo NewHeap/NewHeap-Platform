@@ -1,10 +1,13 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
+using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.Common.Models;
 using Xunit;
 
@@ -234,6 +237,103 @@ public sealed class NhAiAgentInvocationGateTests
     }
 
     [Fact]
+    public async Task A_request_turn_uses_the_initiators_live_request_when_the_claim_is_the_actor_id()
+    {
+        var authorization = new PolicyAuthorizationService();
+        authorization.Allow("project-manage", InitiatorId);
+        var httpContext = RequestOf(InitiatorId);
+        // Nothing rebuilds a principal: only the live request can lend the initiator's rights.
+        await using var provider = CreateProvider(httpContext, authorization, principals: new NoPrincipals());
+        await using var scope = provider.CreateAsyncScope();
+        httpContext.RequestServices = scope.ServiceProvider;
+        var gate = scope.ServiceProvider.GetRequiredService<INhAiToolInvocationGate>();
+
+        TaskResult<NhAiInvocationContext> result;
+        using (NhAiAgentInvocationScopes.Begin(DelegatedRequestTurn(InitiatorId)))
+        {
+            result = await gate.AuthorizeAsync(MutationTool(allowAgentGrant: false));
+        }
+
+        Assert.True(result.Success);
+        Assert.Equal(NhAiGrantSource.Delegated, result.Data.GrantSource);
+    }
+
+    [Fact]
+    public async Task A_request_turn_recognizes_its_initiator_by_the_applications_actor_id_and_nobody_else()
+    {
+        var authorization = new PolicyAuthorizationService();
+        authorization.Allow("project-manage", "claim-1");
+        var httpContext = RequestOf("claim-1");
+        await using var provider = CreateProvider(
+            httpContext,
+            authorization,
+            principals: new NoPrincipals(),
+            configure: services => services
+                .AddNewHeapActorContext<PortalActors>()
+                .AddNewHeapPlatformAIAspNet(ai => ai.UseAuthenticatedInvocationContextResolver<PortalActorResolver>()));
+        await using var scope = provider.CreateAsyncScope();
+        httpContext.RequestServices = scope.ServiceProvider;
+        var gate = scope.ServiceProvider.GetRequiredService<INhAiToolInvocationGate>();
+
+        // The application's actor ids are no claim: the request's person is the one its resolver names.
+        TaskResult<NhAiInvocationContext> own;
+        using (NhAiAgentInvocationScopes.Begin(DelegatedRequestTurn(PortalActors.IdOf("claim-1"))))
+        {
+            own = await gate.AuthorizeAsync(MutationTool(allowAgentGrant: false));
+        }
+        TaskResult<NhAiInvocationContext> claimAsActorId;
+        using (NhAiAgentInvocationScopes.Begin(DelegatedRequestTurn("claim-1")))
+        {
+            claimAsActorId = await gate.AuthorizeAsync(MutationTool(allowAgentGrant: false));
+        }
+        TaskResult<NhAiInvocationContext> otherPerson;
+        using (NhAiAgentInvocationScopes.Begin(DelegatedRequestTurn(PortalActors.IdOf("claim-2"))))
+        {
+            otherPerson = await gate.AuthorizeAsync(MutationTool(allowAgentGrant: false));
+        }
+
+        Assert.True(own.Success);
+        Assert.Equal(NhAiGrantSource.Delegated, own.Data.GrantSource);
+        Assert.Equal(NhAiAgentFailureCodes.NotGranted, FailureCode(claimAsActorId));
+        Assert.Equal(NhAiAgentFailureCodes.NotGranted, FailureCode(otherPerson));
+    }
+
+    [Fact]
+    public async Task Only_the_requests_own_person_gets_its_division_and_capabilities_by_the_applications_actor_id()
+    {
+        var authorization = new PolicyAuthorizationService();
+        authorization.Allow("division-access", "claim-1");
+        authorization.Allow("project-read", "claim-1");
+        var httpContext = RequestOf("claim-1");
+        httpContext.Request.Headers["X-NH-ActiveDivisionId"] = DivisionId.ToString();
+        await using var provider = CreateProvider(
+            httpContext,
+            authorization,
+            configure: services => services
+                .AddNewHeapActorContext<PortalActors>()
+                .AddNewHeapPlatformAIAspNet(ai => ai.UseAuthenticatedInvocationContextResolver<PortalActorResolver>()));
+        await using var scope = provider.CreateAsyncScope();
+        httpContext.RequestServices = scope.ServiceProvider;
+
+        var resolved = await scope.ServiceProvider.GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
+            .ResolveAsync(httpContext);
+        var otherPerson = await scope.ServiceProvider.GetRequiredService<INhAiInvocationContextFactory>()
+            .CreateAsync(new NhAiInvocationContextSeed(PortalActors.IdOf("claim-2"), "agent-run"));
+
+        Assert.True(resolved.Success);
+        var own = resolved.Data;
+        Assert.Equal(PortalActors.IdOf("claim-1"), own.ActorId);
+        Assert.Equal(httpContext.TraceIdentifier, own.CorrelationId);
+        Assert.Equal(DivisionId.ToString(), own.Scope["division-id"]);
+        Assert.Contains(own.ExecutionScopes, entry => entry.Type == "division" && entry.Id == DivisionId.ToString());
+        Assert.Contains("projects-read", own.CapabilityGrants);
+        Assert.Null(otherPerson.CorrelationId);
+        Assert.False(otherPerson.Scope.ContainsKey("division-id"));
+        Assert.Empty(otherPerson.ExecutionScopes);
+        Assert.Empty(otherPerson.CapabilityGrants);
+    }
+
+    [Fact]
     public void Proposal_execution_keeps_the_origin_run_and_fences_only_when_asked()
     {
         var services = new ServiceCollection();
@@ -266,7 +366,11 @@ public sealed class NhAiAgentInvocationGateTests
         return message[1..message.IndexOf('\'', 1)];
     }
 
-    private static ServiceProvider CreateProvider(HttpContext? httpContext, PolicyAuthorizationService authorization)
+    private static ServiceProvider CreateProvider(
+        HttpContext? httpContext,
+        PolicyAuthorizationService authorization,
+        INhAiPrincipalFactory? principals = null,
+        Action<IServiceCollection>? configure = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor { HttpContext = httpContext });
@@ -274,8 +378,35 @@ public sealed class NhAiAgentInvocationGateTests
         services.AddNewHeapPlatformAIAspNet(ai => ai
             .AddActiveDivisionScope("division-access")
             .AddCapabilityGrant("projects-read", "project-read"));
-        services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, TestPrincipalFactory>());
+        services.Replace(principals is null
+            ? ServiceDescriptor.Singleton<INhAiPrincipalFactory, TestPrincipalFactory>()
+            : ServiceDescriptor.Singleton(principals));
+        configure?.Invoke(services);
         return services.BuildServiceProvider();
+    }
+
+    /// <summary>
+    /// A signed-in request of the person whose <c>NameIdentifier</c> claim is <paramref name="claim"/>.
+    /// </summary>
+    private static DefaultHttpContext RequestOf(string claim)
+    {
+        return new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, claim)], "test"))
+        };
+    }
+
+    /// <summary>
+    /// A turn in the initiator's own request that delegates the initiator's rights, without grants.
+    /// </summary>
+    private static NhAiAgentInvocationScope DelegatedRequestTurn(string initiatorActorId)
+    {
+        return CreateScope(grants: []) with
+        {
+            InitiatorActorId = initiatorActorId,
+            DelegateFromInitiator = true,
+            IsRequestTurn = true
+        };
     }
 
     private static NhAiAgentInvocationScope CreateScope(IReadOnlyList<NhAiAgentGrant> grants)
@@ -326,6 +457,64 @@ public sealed class NhAiAgentInvocationGateTests
             AllowAgentGrant = allowAgentGrant,
             RequiredCapabilities = ["projects-manage"]
         };
+    }
+
+    /// <summary>
+    /// An application that cannot rebuild a person's principal outside the person's request.
+    /// </summary>
+    private sealed class NoPrincipals : INhAiPrincipalFactory
+    {
+        public ValueTask<ClaimsPrincipal?> CreateAsync(
+            string actorId,
+            NhAiSubjectInfo subject,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult<ClaimsPrincipal?>(null);
+        }
+    }
+
+    /// <summary>
+    /// An application with its own identity model: its actor ids are a prefixed hash of the
+    /// <c>NameIdentifier</c> claim, not the claim itself.
+    /// </summary>
+    private sealed class PortalActors(IHttpContextAccessor httpContextAccessor) : INhActorContextAccessor
+    {
+        public static string IdOf(string claim)
+        {
+            return "portal:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(claim)))[..24];
+        }
+
+        public ValueTask<NhActorContext> GetCurrentAsync(CancellationToken cancellationToken = default)
+        {
+            var claim = httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return ValueTask.FromResult(claim is null
+                ? NhActorContext.Anonymous
+                : new NhActorContext(new NhActorRef(NhActorKinds.User, IdOf(claim)), null));
+        }
+    }
+
+    /// <summary>
+    /// The application's resolver: the assistant's actor id of a request is the application's actor.
+    /// </summary>
+    private sealed class PortalActorResolver(
+        INhActorContextAccessor actors,
+        INhAiInvocationContextFactory contexts) : INhAiAuthenticatedInvocationContextResolver
+    {
+        public async ValueTask<TaskResult<NhAiInvocationContext>> ResolveAsync(
+            HttpContext httpContext,
+            CancellationToken cancellationToken = default)
+        {
+            var actor = (await actors.GetCurrentAsync(cancellationToken)).Actor;
+            if (actor is null)
+            {
+                return TaskResult<NhAiInvocationContext>.Failed(
+                    NhAiAspNetFailureCodes.AuthenticationRequired,
+                    "Sign in first.");
+            }
+
+            var context = await contexts.CreateAsync(new NhAiInvocationContextSeed(actor.Id, "agent-run"), cancellationToken);
+            return TaskResult<NhAiInvocationContext>.Succeeded(context);
+        }
     }
 
     private sealed class TestPrincipalFactory : INhAiPrincipalFactory
