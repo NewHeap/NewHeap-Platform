@@ -468,6 +468,16 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
         Assert.Equal(RequestTool, request.ExportName);
         Assert.Equal(NhAiToolEffect.ReadOnly, consult.Effect);
         Assert.Equal(NhAiToolEffect.IdempotentMutation, request.Effect);
+        // The answer names who decides what the agent proposed; the fields are optional, so the
+        // contract keeps version 1 and its export names (CP19).
+        Assert.Equal(1, consult.Version);
+        using (var output = System.Text.Json.JsonDocument.Parse(consult.OutputSchemaJson!))
+        {
+            var properties = output.RootElement.GetProperty("properties");
+            Assert.True(properties.TryGetProperty("decision", out _));
+            Assert.True(properties.TryGetProperty("approvalIds", out _));
+            Assert.DoesNotContain(output.RootElement.GetProperty("required").EnumerateArray(), item => item.GetString() is "decision" or "approvalIds");
+        }
         Assert.All(catalog.Descriptors, descriptor =>
         {
             Assert.False(descriptor.AllowAgentGrant);
@@ -638,6 +648,11 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
     private sealed class AllowAllViewer : INhAssistantConsultationViewer
     {
         public ValueTask<bool> MayViewAsync(NhAiGrantSource grantSource, string toolId, string? readForActorId, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(true);
+        }
+
+        public ValueTask<bool> MayDecideAsync(NhAiApprovalPolicy policy, AssistantThread thread, string toolId, CancellationToken cancellationToken)
         {
             return ValueTask.FromResult(true);
         }

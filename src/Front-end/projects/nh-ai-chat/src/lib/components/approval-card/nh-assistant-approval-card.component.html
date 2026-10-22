@@ -1,12 +1,20 @@
 <section class="card" [attr.aria-label]="'nh-assistant.approval.title' | translate">
   <header class="header">
-    <nh-assistant-icon [name]="actionable() ? 'warning' : succeeded() ? 'check' : 'x'" />
+    <nh-assistant-icon [name]="leftForApprovers() ? 'users' : actionable() ? 'warning' : succeeded() ? 'check' : 'x'" />
     <h3>{{ 'nh-assistant.approval.title' | translate }}</h3>
     <span class="status">{{ statusKey() | translate }}</span>
   </header>
 
   @if (staleExplanation(); as explanation) {
     <p class="stale-explanation">{{ explanation }}</p>
+  }
+
+  <!-- Another agent the assistant consulted proposes this; the person who asked decides it here. -->
+  @if (consultation(); as origin) {
+    <p class="consultation-origin" data-consultation-origin>
+      <nh-assistant-icon name="users" />
+      <span>{{ 'nh-assistant.approval.consultation.origin' | translate: { agent: (consultedAgentKeys() | nhAssistantTranslate: origin.agentId), subject: consultedSubject() } }}</span>
+    </p>
   }
 
   @if (approval().presentation; as presentation) {
@@ -33,6 +41,21 @@
     <p class="rationale">{{ 'nh-assistant.approval.rationale' | translate: { rationale: why } }}</p>
   }
 
+  @if (consultation(); as origin) {
+    @if (origin.answer) {
+      <details class="consultation-answer" data-consultation-answer>
+        <summary>{{ 'nh-assistant.approval.consultation.answer' | translate: { agent: (consultedAgentKeys() | nhAssistantTranslate: origin.agentId) } }}</summary>
+        <p>{{ origin.answer }}</p>
+      </details>
+    }
+    @if (leftForApprovers()) {
+      <p class="consultation-moved" role="status" data-consultation-moved>
+        <nh-assistant-icon name="users" />
+        <span>{{ 'nh-assistant.approval.consultation.moved' | translate: { subject: consultedSubject() } }}</span>
+      </p>
+    }
+  }
+
   <details class="technical-details">
     <summary>{{ 'nh-assistant.approval.technical-details' | translate }}</summary>
     <p class="label">{{ 'nh-assistant.approval.tool-id' | translate }}</p>
@@ -57,6 +80,9 @@
       {{ waitingKey() | translate: { name: decisionOwner() } }}
     </p>
   } @else if (actionable()) {
+    @if (consultation()) {
+      <p class="consultation-rights" data-consultation-rights>{{ 'nh-assistant.approval.consultation.own-rights' | translate }}</p>
+    }
     <p class="expiry" aria-live="off">
       <nh-assistant-icon name="clock" />
       {{ 'nh-assistant.approval.expires-in' | translate: { time: countdown() } }}
@@ -79,6 +105,22 @@
         {{ 'nh-assistant.approval.approve' | translate }}
       </button>
     </div>
+    <!-- The person may leave a consulted agent's proposal for the subject's approvers instead. -->
+    @if (leaveRoute(); as route) {
+      <div class="leave-for-approvers">
+        <p class="leave-explanation" [id]="leaveHintId">{{ 'nh-assistant.approval.consultation.leave-explain.' + route | translate: { subject: consultedSubject() } }}</p>
+        <button
+          class="leave"
+          type="button"
+          data-leave
+          [disabled]="disabled()"
+          [attr.aria-label]="'nh-assistant.approval.consultation.leave-label' | translate: { summary: presentedSummary() ?? ('nh-assistant.approval.fallback-summary' | translate) }"
+          [attr.aria-describedby]="leaveHintId"
+          (click)="choose('leave')">
+          {{ 'nh-assistant.approval.consultation.leave' | translate }}
+        </button>
+      </div>
+    }
     @if (deciding()) {
       <p class="deciding" role="status">{{ 'nh-assistant.approval.deciding' | translate }}</p>
     }

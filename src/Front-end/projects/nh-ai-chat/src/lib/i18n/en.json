@@ -192,6 +192,7 @@
       "waiting-for-participant": "Waiting for the participant who started this task to decide.",
       "waiting-for-approver": "Waiting for an approver to decide.",
       "waiting-for-other-approver": "You started this work, so another approver decides.",
+      "waiting-for-asker": "Waiting for the person who asked to decide in their own chat.",
       "give-feedback": "What was wrong?",
       "stale-kind": {
         "already-done": "Already done",
@@ -199,7 +200,20 @@
         "not-applicable": "No longer needed"
       },
       "rationale": "Why: {{rationale}}",
-      "superseded": "Replaced by a newer proposal"
+      "superseded": "Replaced by a newer proposal",
+      "consultation": {
+        "origin": "{{agent}} proposes this, about {{subject}}",
+        "answer": "Answer of {{agent}}",
+        "own-rights": "Approving runs it right away with your own rights.",
+        "leave": "Leave for approvers",
+        "leave-label": "Leave for approvers: {{summary}}",
+        "leave-explain": {
+          "subject-agent-rights": "The approvers of {{subject}} decide; it then runs with the agent's own rights.",
+          "subject-asker-rights": "The approvers of {{subject}} decide; it then runs with your rights."
+        },
+        "moved-status": "Left for approvers",
+        "moved": "It now waits for the approvers of {{subject}}."
+      }
     },
     "proposal-feedback": {
       "legend": "What was wrong? (optional)",
@@ -407,6 +421,10 @@
       "assistant-consult-timeout": "The agent did not answer in time.",
       "assistant-consult-failed": "The agent could not answer.",
       "assistant-consult-read-only": "A consultation cannot change anything.",
+      "assistant-consult-proposal-refused": "No route at the subject takes this proposal any more. Approve or reject it here.",
+      "assistant-consult-asker-decides": "The person who asked decides this proposal in their own chat.",
+      "assistant-consult-route-not-allowed": "The agent's consultations in code do not allow this route, so it cannot be switched on.",
+      "assistant-consult-proposal-moved": "The proposal was left for the subject's approvers.",
       "assistant-moved-to-shadow": "The work went to the agent's shadow thread, where a run in shadow takes it.",
       "assistant-shadow-variant": "A shadow variant always works in shadow.",
       "assistant-service-account-not-used": "This agent does not answer to a technical account.",
@@ -691,6 +709,44 @@
             "code": "Confirm"
           },
           "input-label-search": "Account"
+        },
+        "consultation-routes": {
+          "title": "Consultation routes",
+          "description": "When another assistant consults this agent and the agent proposes a change, a route decides who decides it and whose rights run it.",
+          "load-failed": "The consultation routes could not be read.",
+          "route": {
+            "asker-decides": "The person who asked decides",
+            "subject-agent-rights": "Approvers decide, agent's rights",
+            "subject-asker-rights": "Approvers decide, asker's rights"
+          },
+          "explain": {
+            "asker-decides": "The person who asked decides in their own chat; it runs with their own rights.",
+            "subject-agent-rights": "The subject's approvers other than the person who asked decide; it runs with the agent's own rights.",
+            "subject-asker-rights": "The subject's approvers decide; it runs later with the rights of the person who asked."
+          },
+          "on": "On",
+          "off": "Off",
+          "code": "Set in code",
+          "overridden": "Overridden",
+          "not-allowed": "Not allowed in code",
+          "not-allowed-hint": "No consultation in code allows this route, so it stays off and cannot be switched on.",
+          "subject-types": "For: {{types}}",
+          "action": {
+            "on": "Switch on",
+            "off": "Switch off",
+            "code": "Back to the code setting"
+          },
+          "explain-change": {
+            "on": "Consultations use this route for new proposals again. Proposals already recorded keep their route.",
+            "off": "Consultations no longer use this route for new proposals; with every route off, the agent's consultations only read. Proposals already recorded keep their route.",
+            "code-on": "The setting in code decides again: code allows this route, so it is on.",
+            "code-off": "The setting in code decides again: code does not allow this route, so it stays off."
+          },
+          "confirm": {
+            "on": "Confirm switching on",
+            "off": "Confirm switching off",
+            "code": "Confirm"
+          }
         },
         "run-config": "Run configuration",
         "run-now": "Run now",
@@ -1831,7 +1887,22 @@
           "shadow": "Shadow"
         },
         "from-consultation": "From a consultation",
-        "from-consultation-hint": "Another assistant consulted the agent for this person; it runs with that person's rights only.",
+        "from-consultation-hint": "Another assistant consulted the agent for a person, and the agent proposed this.",
+        "consultation": {
+          "asked-by": "Asked by {{name}}",
+          "the-asker": "the person who asked",
+          "route": {
+            "asker-decides": "The person who asked decides in their own chat; it runs with their own rights.",
+            "subject-agent-rights": "The subject's approvers other than the person who asked decide; it runs with the agent's own rights.",
+            "subject-asker-rights": "The subject's approvers decide; it runs with the rights of the person who asked."
+          },
+          "waiting-for-asker": "Waiting for {{name}} to decide in their own chat.",
+          "four-eyes": "You asked for this, so another approver decides; it runs with the agent's own rights.",
+          "runs-with": {
+            "agent": "Runs with the agent's rights",
+            "accountable": "Runs with the technical account's rights"
+          }
+        },
         "give-feedback": "Give feedback",
         "change-feedback": "Change feedback",
         "your-feedback": "Your feedback: {{category}}",
@@ -1910,6 +1981,11 @@
           "running": "Running",
           "completed": "Answered",
           "failed": "Not answered"
+        },
+        "routes": {
+          "asker-decides": "Asker decides: {{count}}",
+          "subject-agent-rights": "Approvers, agent's rights: {{count}}",
+          "subject-asker-rights": "Approvers, asker's rights: {{count}}"
         }
       },
       "object-agents": {

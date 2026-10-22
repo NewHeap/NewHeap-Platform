@@ -146,7 +146,8 @@ internal sealed class NhAssistantWebPushNotifier(
                     context.Kind,
                     language,
                     push.IncludeConversationTitle ? context.SubjectDisplayName : null,
-                    context.ProposalCount),
+                    context.ProposalCount,
+                    proposalStatus: context.ProposalStatus),
                 cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
@@ -339,6 +340,7 @@ internal static class NhAssistantPushKinds
     public const string AgentRunFailed = "agent-run-failed";
     public const string AgentRequestAnswered = "agent-request-answered";
     public const string AgentMcpConnectionMissing = "agent-mcp-connection-missing";
+    public const string AgentConsultationProposalDecided = "agent-consultation-proposal-decided";
 
     public static string ForAgent(NhAssistantAgentNotificationKind kind)
     {
@@ -351,6 +353,7 @@ internal static class NhAssistantPushKinds
             NhAssistantAgentNotificationKind.RunFailed => AgentRunFailed,
             NhAssistantAgentNotificationKind.RequestAnswered => AgentRequestAnswered,
             NhAssistantAgentNotificationKind.McpConnectionMissing => AgentMcpConnectionMissing,
+            NhAssistantAgentNotificationKind.ConsultationProposalDecided => AgentConsultationProposalDecided,
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
     }
@@ -423,9 +426,10 @@ internal static class NhAssistantPushTexts
         string? subjectDisplayName,
         int proposalCount,
         string? mcpServerDisplayName = null,
-        string? code = null)
+        string? code = null,
+        string? proposalStatus = null)
     {
-        return NhAssistantAgentNotificationTexts.ForAgent(kind, language, subjectDisplayName, proposalCount, mcpServerDisplayName, code);
+        return NhAssistantAgentNotificationTexts.ForAgent(kind, language, subjectDisplayName, proposalCount, mcpServerDisplayName, code, proposalStatus);
     }
 
     private static bool IsDutch(string language)

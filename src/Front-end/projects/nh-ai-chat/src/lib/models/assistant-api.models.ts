@@ -301,6 +301,44 @@ export interface ApprovalPart {
   rationale?: string;
   /** The newer proposal for the same objects that replaced this withdrawn one. Only sent then. */
   supersededByApprovalId?: string;
+  /**
+   * The consultation that proposed it, when the conversation's assistant consulted another agent and
+   * the person who asked decides that agent's proposal here (`asker-decides`). Approving executes it
+   * in the person's own request with their own rights. Missing for the conversation's own proposals.
+   */
+  consultation?: ApprovalConsultation | null;
+}
+
+/**
+ * How a consulted agent's proposal is decided and whose rights execute it: `asker-decides`, the person
+ * who asked decides it in their own chat and it runs with their own rights; `subject-agent-rights`, the
+ * subject's approvers other than the asker decide it and it runs with the agent's own rights;
+ * `subject-asker-rights`, the subject's approvers decide it and it runs with the asker's rights.
+ */
+export type NhAssistantConsultationRoute = 'asker-decides' | 'subject-agent-rights' | 'subject-asker-rights';
+
+/** The routes at the subject a person may leave a consulted agent's proposal for (`decision: 'leave'`). */
+export type NhAssistantConsultationLeaveRoute = Exclude<NhAssistantConsultationRoute, 'asker-decides'>;
+
+/** Where a proposal the person who asked decides in their own conversation comes from. */
+export interface ApprovalConsultation {
+  /** The consultation record in the consulted agent's thread. */
+  consultationId: string;
+  /** The consulted agent that proposed it. */
+  agentId: string;
+  subjectType: string;
+  subjectId: string;
+  /** The subject's name as the consulted agent's thread knows it; `null` when unknown. */
+  subjectDisplayName: string | null;
+  /**
+   * The route at the subject the person may leave the pending proposal for with the decision `leave`;
+   * `null` when they can only approve or reject it.
+   */
+  leaveRoute: NhAssistantConsultationLeaveRoute | null;
+  /** The consulted agent's answer, bounded, when the consultation's classification allows a preview. */
+  answer: string | null;
+  /** The proposal that waits at the subject since the person left this one for its approvers. */
+  movedToApprovalId: string | null;
 }
 
 /** Response of `GET conversations?page=&itemsPerPage=`. */
@@ -351,7 +389,11 @@ export interface SendMessageRequest {
   files?: FileReference[];
 }
 
-export type ApprovalDecision = 'approve' | 'reject';
+/**
+ * `approve` or `reject`; for a consulted agent's proposal with a `consultation.leaveRoute` also
+ * `leave`, which leaves it for the subject's approvers instead of deciding it.
+ */
+export type ApprovalDecision = 'approve' | 'reject' | 'leave';
 
 /** Body of `POST conversations/{id}/approvals/{approvalId}/decide`. */
 export interface DecideApprovalRequest {

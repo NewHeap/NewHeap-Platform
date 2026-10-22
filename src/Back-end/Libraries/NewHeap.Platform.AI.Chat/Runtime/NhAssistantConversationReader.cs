@@ -10,7 +10,11 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 /// tool-invocation and approval rows. A pending proposal reads as expired once the application's
 /// clock (a registered <see cref="TimeProvider"/>, otherwise the system clock) reaches its expiry.
 /// </summary>
-internal sealed class NhAssistantConversationReader(INhAssistantStore store, TimeProvider? timeProvider = null)
+internal sealed class NhAssistantConversationReader(
+    INhAssistantStore store,
+    TimeProvider? timeProvider = null,
+    NhAssistantRunStore? runs = null,
+    Runs.NhAssistantConsultationProposals? consultationProposals = null)
 {
     public const int MaxMessages = 200;
 
@@ -70,6 +74,13 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store, Tim
             .ToDictionary(invocation => invocation.Id);
         var approvals = (await store.GetApprovalsAsync(conversation.Id, approvalIds, cancellationToken))
             .ToDictionary(approval => approval.Id);
+        // The proposals of consultations the conversation's person decides here wait in the consulted
+        // agent's thread; they belong to this conversation through their consultation.
+        var origins = await ReadAskerDecisionsAsync(
+            conversation.Id,
+            approvalIds.Where(id => !approvals.ContainsKey(id)).ToArray(),
+            approvals,
+            cancellationToken);
         var now = _applicationClock.GetUtcNow();
 
         var messageViews = new List<NhAssistantMessageView>(messages.Count);
@@ -89,7 +100,7 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store, Tim
                         break;
                     case NhAssistantStoredPart.ApprovalType
                         when part.ApprovalId is { } approvalId && approvals.TryGetValue(approvalId, out var approval):
-                        parts.Add(ToView(approval, now));
+                        parts.Add(WithOrigin(ToView(approval, now), origins, invocations.Values));
                         break;
                     case NhAssistantStoredPart.ConnectionRequiredType
                         when part is { ServerId: { } serverId, DisplayName: { } serverName, Reason: { } reason }:
@@ -118,7 +129,22 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store, Tim
         if (conversation.Status == NhAssistantConversationStatuses.WaitingForApproval)
         {
             var pendingApproval = await store.FindPendingApprovalAsync(conversation.Id, cancellationToken);
-            pending = pendingApproval is null ? null : ToView(pendingApproval, now);
+            if (pendingApproval is null
+                && runs is not null
+                && conversation.ActiveTurnId is { } activeTurnId
+                && await runs.FindPendingAskerDecisionAsync(conversation.Id, activeTurnId, cancellationToken) is { } askerDecision)
+            {
+                pendingApproval = askerDecision;
+                if (!origins.ContainsKey(askerDecision.Id))
+                {
+                    var described = await ReadAskerDecisionsAsync(conversation.Id, [askerDecision.Id], approvals, cancellationToken);
+                    foreach (var (id, origin) in described)
+                    {
+                        origins[id] = origin;
+                    }
+                }
+            }
+            pending = pendingApproval is null ? null : WithOrigin(ToView(pendingApproval, now), origins, invocations.Values);
         }
 
         var participants = await store.GetParticipantsAsync(conversation.Id, cancellationToken);
@@ -158,6 +184,94 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store, Tim
             Members = members,
             ProtectedShareToken = access.IsOwner ? conversation.ProtectedShareToken : null
         };
+    }
+
+    /// <summary>
+    /// Reads the proposals of consultations among <paramref name="approvalIds"/> that the conversation's
+    /// person decides here, adds them to <paramref name="approvals"/> and describes their origin.
+    /// </summary>
+    private async Task<Dictionary<Guid, NhAssistantApprovalConsultationView>> ReadAskerDecisionsAsync(
+        Guid conversationId,
+        IReadOnlyCollection<Guid> approvalIds,
+        Dictionary<Guid, AssistantApproval> approvals,
+        CancellationToken cancellationToken)
+    {
+        if (approvalIds.Count == 0 || runs is null)
+        {
+            return [];
+        }
+
+        var rows = await runs.GetAskerDecisionsAsync(conversationId, approvalIds, cancellationToken);
+        foreach (var row in rows)
+        {
+            approvals[row.Approval.Id] = row.Approval;
+        }
+
+        if (consultationProposals is not null)
+        {
+            return new Dictionary<Guid, NhAssistantApprovalConsultationView>(
+                await consultationProposals.DescribeAsync(rows, cancellationToken));
+        }
+
+        return rows.ToDictionary(
+            row => row.Approval.Id,
+            row => new NhAssistantApprovalConsultationView(
+                row.Consultation.Id,
+                row.Consultation.AgentId,
+                row.Thread.SubjectType,
+                row.Thread.SubjectId,
+                row.Thread.SubjectDisplayName,
+                null));
+    }
+
+    /// <summary>
+    /// The view of a proposal a consultation left for this conversation's person, with its origin and
+    /// the consulted agent's answer that its consult call keeps.
+    /// </summary>
+    private static NhAssistantApprovalView WithOrigin(
+        NhAssistantApprovalView view,
+        IReadOnlyDictionary<Guid, NhAssistantApprovalConsultationView> origins,
+        IEnumerable<AssistantToolInvocation> invocations)
+    {
+        if (!origins.TryGetValue(view.ApprovalId, out var origin))
+        {
+            return view;
+        }
+
+        var call = invocations.FirstOrDefault(invocation => invocation.ApprovalId == view.ApprovalId);
+        return view with
+        {
+            Consultation = origin with { Answer = call is null ? null : ConsultationAnswerOf(call) }
+        };
+    }
+
+    /// <summary>
+    /// The consulted agent's answer that a consult call keeps as its result, bounded, when the
+    /// consultation's classification allows a preview.
+    /// </summary>
+    public static string? ConsultationAnswerOf(AssistantToolInvocation invocation)
+    {
+        ArgumentNullException.ThrowIfNull(invocation);
+        if (invocation.ResultJson is null || invocation.DataClassification >= NhAiDataClassification.Confidential)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(invocation.ResultJson);
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                   && document.RootElement.TryGetProperty("data", out var data)
+                   && data.ValueKind == JsonValueKind.Object
+                   && data.TryGetProperty("answer", out var answer)
+                   && answer.ValueKind == JsonValueKind.String
+                ? NhAssistantContent.Bound(answer.GetString()!, 4_000)
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     public static NhAssistantToolCallPartView ToView(AssistantToolInvocation invocation, string? displayName = null)

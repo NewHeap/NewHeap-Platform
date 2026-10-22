@@ -6,7 +6,8 @@ import {
   AgentProposal,
   AgentProposalLookup,
   AgentSubjectWorkProposal,
-  NH_ASSISTANT_MAX_PROPOSAL_LOOKUP
+  NH_ASSISTANT_MAX_PROPOSAL_LOOKUP,
+  NhAssistantConsultationRoute
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockResult, mockFailure as failure } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockProposal } from './nh-assistant-mock.models';
@@ -26,6 +27,10 @@ const guid = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$
 const lifetimeMs = 3 * 24 * 60 * 60 * 1000;
 /** The platform's subject type of the whole application. */
 const systemType = 'nh-system';
+/** The person who asked decides a consultation's proposal in their own chat; nobody decides it in the thread. */
+const askerDecidesCode = 'assistant-consult-asker-decides';
+/** Someone other than the person who started the work decides it. */
+const fourEyesCode = 'assistant-four-eyes-required';
 
 /**
  * The proposals the scenario lists, which the mock's agents left, for example one a run for the whole
@@ -36,7 +41,10 @@ const systemType = 'nh-system';
  * with the server's validation and statuses. An approved proposal executes at once. A proposal of the
  * whole application (`nh-system`) exists only for the approvers of the whole application who pass the
  * agent's view policy (`mayDecideApplication`): for anybody else the inbox leaves it out, reading it
- * answers `404` and deciding it `404 assistant-approval-not-found`.
+ * answers `404` and deciding it `404 assistant-approval-not-found`. A consultation's proposal that the
+ * person who asked decides in their own chat (`asker-decides`) waits inline and is refused here with
+ * `assistant-consult-asker-decides`; one that runs with the agent's own rights refuses its asker with
+ * `assistant-four-eyes-required`.
  */
 export class NhAssistantMockProposals {
   private readonly proposals = new Map<string, StoredProposal>();
@@ -59,6 +67,12 @@ export class NhAssistantMockProposals {
       if (!dashCase.test(item.subjectType)) {
         throw new Error(`Mock proposal '${item.approvalId}' names subject type '${item.subjectType}', which is not dash-case.`);
       }
+      if (item.consultationRoute && !item.consultationId) {
+        throw new Error(`Mock proposal '${item.approvalId}' names a consultation route without its consultation.`);
+      }
+      const route = item.consultationRoute ?? null;
+      const refusal = consultationRefusal(route, item.initiatorActorId ?? null, actorId());
+      const canDecide = item.canDecide ?? refusal === null;
       this.proposals.set(item.approvalId, {
         proposal: {
           approvalId: item.approvalId,
@@ -78,12 +92,12 @@ export class NhAssistantMockProposals {
           argumentsPreview: '{}',
           targets: [],
           status: item.status ?? 'pending',
-          mode: 'deferred',
+          mode: route === 'asker-decides' ? 'inline' : 'deferred',
           policyId: null,
-          grantSource: 'agent',
+          grantSource: item.grantSource ?? (route === 'subject-asker-rights' ? 'delegated' : 'agent'),
           createdAt: item.createdAt ?? new Date(created).toISOString(),
           expiresAt: item.expiresAt ?? new Date(Date.parse(item.createdAt ?? new Date(created).toISOString()) + lifetimeMs).toISOString(),
-          initiatorActorId: null,
+          initiatorActorId: item.initiatorActorId ?? null,
           decidedByActorId: null,
           decidedAt: null,
           executionResultCode: null,
@@ -91,11 +105,13 @@ export class NhAssistantMockProposals {
           rationale: item.rationale ?? null,
           placedBy: item.placedBy ?? null,
           parent: item.parent ?? null,
-          canGiveFeedback: false
+          canGiveFeedback: false,
+          consultationId: item.consultationId ?? null,
+          consultationRoute: route
         },
         divisionId: item.divisionId ?? null,
-        canDecide: item.canDecide ?? true,
-        reasonCode: item.canDecide === false ? item.reasonCode ?? 'assistant-approval-policy-denied' : null
+        canDecide,
+        reasonCode: canDecide ? null : item.reasonCode ?? refusal ?? 'assistant-approval-policy-denied'
       });
     }
   }
@@ -130,6 +146,22 @@ export class NhAssistantMockProposals {
       .map(item => item.proposal)
       .reverse();
     return items.length === 0 ? null : items;
+  }
+
+  /** The proposals a consultation left per route; routes without proposals are left out. */
+  consultationCounts(consultationId: string): { total: number; byRoute: Partial<Record<NhAssistantConsultationRoute, number>> } {
+    const byRoute: Partial<Record<NhAssistantConsultationRoute, number>> = {};
+    let total = 0;
+    for (const { proposal } of this.proposals.values()) {
+      if (proposal.consultationId !== consultationId) {
+        continue;
+      }
+      total++;
+      if (proposal.consultationRoute) {
+        byRoute[proposal.consultationRoute] = (byRoute[proposal.consultationRoute] ?? 0) + 1;
+      }
+    }
+    return { total, byRoute };
   }
 
   /** The proposals of a run the caller may see, in the order the scenario lists them. */
@@ -315,6 +347,18 @@ export class NhAssistantMockProposals {
       reasonCode: pending && !item.canDecide ? item.reasonCode : null
     };
   }
+}
+
+/**
+ * Why nobody, or not the caller, decides a consultation's proposal here: the person who asked decides
+ * an `asker-decides` proposal in their own chat, and four-eyes keeps the asker out of a proposal that
+ * runs with the agent's own rights; `null` when the route does not keep the caller out.
+ */
+function consultationRefusal(route: NhAssistantConsultationRoute | null, initiatorActorId: string | null, actorId: string): string | null {
+  if (route === 'asker-decides') {
+    return askerDecidesCode;
+  }
+  return route === 'subject-agent-rights' && initiatorActorId === actorId ? fourEyesCode : null;
 }
 
 /** The scope of the inbox's visits: `global`, or the scope key of a division. */

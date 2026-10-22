@@ -117,7 +117,7 @@ describe('NhAssistantStore', () => {
     return TestBed.inject(NhAssistantStore);
   }
 
-  async function waitingForApproval(store: NhAssistantStore): Promise<void> {
+  async function waitingForApproval(store: NhAssistantStore, part: ApprovalPart = approval): Promise<void> {
     await store.initialize();
     const sent = store.send('Pause Alpha');
     await flush();
@@ -126,7 +126,7 @@ describe('NhAssistantStore', () => {
       type: 'tool.started',
       data: { invocationId: 'i1', toolId: approval.toolId, toolVersion: 1, displayName: 'Update status', argumentsPreview: '{}' }
     });
-    stream.next({ type: 'approval.required', data: approval });
+    stream.next({ type: 'approval.required', data: part });
     stream.next({ type: 'turn.completed', data: { turnId: 't1', status: 'waiting-for-approval', usage, errorCode: null } });
     stream.complete();
     await sent;
@@ -511,6 +511,48 @@ describe('NhAssistantStore', () => {
     expect(api.decideApproval.calls.mostRecent().args[2]).toEqual({ decision: 'reject', expectedProposalHash: 'hash-1', reason: 'Not now' });
     expect((parts[0] as ToolCallPart).status).toBe('rejected');
     expect((parts[1] as ApprovalPart).status).toBe('rejected');
+  });
+
+  it('leaves a consulted agent\'s proposal for the subject\'s approvers and reads the conversation again', async () => {
+    const consulted: ApprovalPart = {
+      ...approval,
+      consultation: {
+        consultationId: 'consultation-1', agentId: 'planner', subjectType: 'project', subjectId: 'p1', subjectDisplayName: 'Alpha',
+        leaveRoute: 'subject-asker-rights', answer: null, movedToApprovalId: null
+      }
+    };
+    const store = setup();
+    await waitingForApproval(store, consulted);
+    api.getConversation.calls.reset();
+    stream = new Subject<NhAssistantSseEvent>();
+
+    store.decide('leave');
+    expect(api.decideApproval).toHaveBeenCalledOnceWith('c1', 'approval-1', { decision: 'leave', expectedProposalHash: 'hash-1' });
+
+    stream.next({ type: 'turn.started', data: { turnId: 't2', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    const left = store.activeConversation()!.messages[1].parts[1] as ApprovalPart;
+    expect(left.status).toBe('rejected');
+    expect(left.consultation?.leaveRoute).toBeNull();
+    expect(store.pendingApproval()).toBeNull();
+
+    stream.next({ type: 'turn.completed', data: { turnId: 't2', status: 'completed', usage, errorCode: null } });
+    stream.complete();
+    await flush();
+
+    // The conversation read again names the proposal that now waits at the subject.
+    expect(api.getConversation).toHaveBeenCalledWith('c1');
+  });
+
+  it('never leaves an approval without a route at the subject', async () => {
+    const store = setup();
+    await waitingForApproval(store);
+    stream = new Subject<NhAssistantSseEvent>();
+
+    store.decide('leave');
+
+    expect(api.decideApproval).not.toHaveBeenCalled();
+    expect(store.pendingApproval()?.status).toBe('pending');
+    expect(store.deciding()).toBeFalse();
   });
 
   it('keeps the approval pending when the decision is refused', async () => {
@@ -940,6 +982,18 @@ describe('NhAssistantStore', () => {
       expect(store.approvalRights().get('intake-2')).toEqual({ canDecide: false, waitingFor: 'other-approver', decisionOwner: null });
       // Deferred proposals leave the thread idle, so there is no pending approval to resume.
       expect(store.canDecide()).toBeFalse();
+    });
+
+    it('says that the person who consulted the agent decides its proposal in their own chat', async () => {
+      api.getConversation.and.returnValue(of(thread([
+        { approvalId: 'intake-1', runId: null, canDecide: false, reasonCode: 'assistant-consult-asker-decides' }
+      ], [intake])));
+      const store = setup();
+      await store.initialize();
+
+      await store.openConversation('t1');
+
+      expect(store.approvalRights().get('intake-1')).toEqual({ canDecide: false, waitingFor: 'asker', decisionOwner: null });
     });
 
     it('decides a run proposal with its hash through the agent-run endpoint and reloads the thread', async () => {

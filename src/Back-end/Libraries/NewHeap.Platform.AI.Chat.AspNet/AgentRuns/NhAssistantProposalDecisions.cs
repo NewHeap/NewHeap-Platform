@@ -207,9 +207,10 @@ internal sealed class NhAssistantProposalDecisions(
         }
         if (approval.Mode == NhAssistantApprovalModes.Inline && approval.RunId is null)
         {
-            // A person's own turn waits for this decision in the conversation stream.
+            // A person's own turn waits for this decision in the conversation stream; a consultation's
+            // proposal is decided by the person who asked, in their own conversation.
             return TaskResult<AssistantApproval>.Failed(
-                NhAssistantErrorCodes.ApprovalDecisionInvalid,
+                approval.ConsultationId is null ? NhAssistantErrorCodes.ApprovalDecisionInvalid : NhAssistantErrorCodes.ConsultAskerDecides,
                 "Decide this proposal in the conversation.");
         }
 
@@ -260,6 +261,10 @@ internal sealed class NhAssistantProposalDecisions(
             if (approve)
             {
                 await EnqueueExecutionAsync(approval, thread, cancellationToken);
+            }
+            else
+            {
+                await services.GetRequiredService<NhAssistantAgentNotifier>().ConsultationProposalEndedAsync(thread, approval, cancellationToken);
             }
         }
         else
@@ -498,7 +503,12 @@ internal sealed class NhAssistantProposalDecisions(
             ProposalId = approval.ProposalId,
             RunId = approval.RunId,
             GrantSource = approval.GrantSource,
-            ApprovalPolicyId = approval.PolicyId
+            ApprovalPolicyId = approval.PolicyId,
+            SubjectType = thread.SubjectType,
+            SubjectId = thread.SubjectId,
+            InitiatorActorId = approval.InitiatorActorId,
+            ConsultationId = approval.ConsultationId,
+            ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource)
         };
         foreach (var sink in _businessSinks)
         {

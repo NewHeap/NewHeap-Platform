@@ -128,7 +128,12 @@ its working memory and earlier runs with the asking person's rights only and wri
 message into its thread, while the intake reviews page lists who consulted it under
 Consultations. People outside the project get the same answer as for an unknown project.
 A participant can also ask the reviewer to review the project again in a run of its own
-and is notified when it ends.
+and is notified when it ends. When the reviewer proposes to request a review during a
+consultation, the participant who asked decides it right away in their own chat, and it
+runs in their own request with their own rights. The project assistant also consults the
+project closer, whose proposal to complete a project waits for a project approver other
+than the person who asked and runs with the closer's own grant. Neither path rebuilds a
+person's principal outside that person's request.
 After rejecting a proposal, an approver may say what was wrong (SPM-279): a category such
 as `not-now` and a short text, never required and never asked before the decision. The
 next run of the reviewer on that project starts from the rejection and the approver's

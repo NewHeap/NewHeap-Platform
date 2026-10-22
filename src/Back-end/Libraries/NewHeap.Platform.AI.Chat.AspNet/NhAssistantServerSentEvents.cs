@@ -270,7 +270,20 @@ internal static class NhAssistantDtoMapper
                 StaleKind = approval.StaleKind,
                 StaleExplanation = approval.StaleExplanation,
                 Rationale = approval.Rationale,
-                SupersededByApprovalId = approval.SupersededByApprovalId
+                SupersededByApprovalId = approval.SupersededByApprovalId,
+                Consultation = approval.Consultation is { } origin
+                    ? new NhAssistantApprovalConsultationDto(
+                        origin.ConsultationId,
+                        origin.AgentId,
+                        origin.SubjectType,
+                        origin.SubjectId,
+                        origin.SubjectDisplayName)
+                    {
+                        LeaveRoute = origin.LeaveRoute,
+                        Answer = origin.Answer,
+                        MovedToApprovalId = origin.MovedToApprovalId
+                    }
+                    : null
             },
             _ => throw new InvalidOperationException($"Unknown assistant message part '{part.GetType().Name}'.")
         };

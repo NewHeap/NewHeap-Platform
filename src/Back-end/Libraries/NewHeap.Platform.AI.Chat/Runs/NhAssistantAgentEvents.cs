@@ -21,6 +21,36 @@ internal sealed class NhAssistantAgentNotifier(
 {
     private readonly IReadOnlyList<INhAssistantAgentNotificationChannel> _channels = channels.ToArray();
 
+    /// <summary>
+    /// Tells the person who asked how a consultation proposal that executes with the agent's own
+    /// rights ended (CP16): rejected, expired, closed or executed. Proposals of other routes and of
+    /// runs notify nobody here.
+    /// </summary>
+    public Task ConsultationProposalEndedAsync(
+        AssistantThread thread,
+        AssistantApproval approval,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(thread);
+        ArgumentNullException.ThrowIfNull(approval);
+        var route = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource);
+        if (route != NhAssistantConsultationRoutes.SubjectAgentRights
+            || string.IsNullOrWhiteSpace(approval.InitiatorActorId)
+            || !NhAssistantApprovalStatuses.IsClosed(approval.Status))
+        {
+            return Task.CompletedTask;
+        }
+
+        return NotifyAsync(
+            NhAssistantAgentNotificationKind.ConsultationProposalDecided,
+            thread,
+            null,
+            approval,
+            approval.InitiatorActorId,
+            false,
+            cancellationToken);
+    }
+
     public async Task NotifyAsync(
         NhAssistantAgentNotificationKind kind,
         AssistantThread thread,
@@ -79,7 +109,8 @@ internal sealed class NhAssistantAgentNotifier(
                 FailureCode = failureCode,
                 McpServerId = mcpConnection?.ServerId,
                 McpServerDisplayName = mcpConnection?.ServerDisplayName,
-                McpConnectionPersonId = mcpConnection?.PersonActorId
+                McpConnectionPersonId = mcpConnection?.PersonActorId,
+                ProposalStatus = kind == NhAssistantAgentNotificationKind.ConsultationProposalDecided ? approval?.Status : null
             };
             var recipients = (await policy.SelectRecipientsAsync(context, cancellationToken))
                 .Where(actorId => !string.IsNullOrWhiteSpace(actorId) && actorId.Length <= 256)
@@ -275,7 +306,8 @@ internal sealed class NhAssistantAgentEvents(
                 InitiatorActorId = approval.InitiatorActorId,
                 GrantSource = approval.GrantSource,
                 ApprovalPolicyId = approval.PolicyId,
-                ConsultationId = approval.ConsultationId
+                ConsultationId = approval.ConsultationId,
+                ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource)
             },
             cancellationToken);
     }
@@ -316,7 +348,8 @@ internal sealed class NhAssistantAgentEvents(
                 InitiatorActorId = approval.InitiatorActorId,
                 GrantSource = approval.GrantSource,
                 ApprovalPolicyId = approval.PolicyId,
-                ConsultationId = approval.ConsultationId
+                ConsultationId = approval.ConsultationId,
+                ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource)
             },
             cancellationToken);
     }
@@ -373,7 +406,8 @@ internal sealed class NhAssistantAgentEvents(
                 InitiatorActorId = approval.InitiatorActorId,
                 GrantSource = approval.GrantSource,
                 ApprovalPolicyId = approval.PolicyId,
-                ConsultationId = approval.ConsultationId
+                ConsultationId = approval.ConsultationId,
+                ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource)
             },
             cancellationToken);
     }
@@ -518,6 +552,29 @@ internal sealed class NhAssistantAgentEvents(
                 ObjectId = agentId,
                 ResultCode = shadow switch { true => "shadow", false => "live", null => "code" },
                 SkillId = skillId
+            },
+            cancellationToken);
+    }
+
+    public Task AgentConsultationRoutesChangedAsync(
+        string agentId,
+        string actorId,
+        NhAssistantConsultationRouteOverrides routes,
+        CancellationToken cancellationToken)
+    {
+        static string Of(bool? value) => value switch
+        {
+            true => "on",
+            false => "off",
+            _ => "code"
+        };
+
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentConsultationRoutesChanged, Guid.Empty, Guid.Empty, actorId, agentId, 0, DateTimeOffset.UtcNow)
+            {
+                ResultCode = $"{NhAssistantConsultationRoutes.AskerDecides}={Of(routes.AskerDecides)};"
+                    + $"{NhAssistantConsultationRoutes.SubjectAgentRights}={Of(routes.SubjectAgentRights)};"
+                    + $"{NhAssistantConsultationRoutes.SubjectAskerRights}={Of(routes.SubjectAskerRights)}"
             },
             cancellationToken);
     }

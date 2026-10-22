@@ -160,6 +160,14 @@ public sealed class NhAssistantLimits
     public int MaxConsultationsPerActorPerDay { get; set; } = 50;
 
     /// <summary>
+    /// How many proposals of consultations that execute with the consulted agent's own rights
+    /// (<c>AtSubject(NhAssistantConsultationRights.Agent)</c>) one person may have waiting at one
+    /// subject. A further one is refused with the reason <c>open-limit</c>, so the subject's approvers
+    /// are not flooded. 1 to 100; 5 by default.
+    /// </summary>
+    public int MaxOpenConsultationProposalsPerAsker { get; set; } = 5;
+
+    /// <summary>
     /// How many hand-offs a chain of agents may hold: 2 lets the agent that received work hand it on
     /// once more. At most 3. An agent already in the chain never receives work from it again.
     /// </summary>
@@ -286,6 +294,7 @@ public sealed class NhAssistantLimits
             || MaxParticipantsPerConversation is < 1 or > 100
             || MaxConsultationDepth is < 1 or > 3
             || MaxConsultationsPerActorPerDay < 1
+            || MaxOpenConsultationProposalsPerAsker is < 1 or > 100
             || MaxHandOffDepth is < 1 or > 3
             || MaxPlacedProposalsPerRun is < 0 or > 200
             || MaxRejectionsInContext is < 0 or > 20

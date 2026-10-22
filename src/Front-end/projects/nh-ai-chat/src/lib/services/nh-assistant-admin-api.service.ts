@@ -42,6 +42,7 @@ import {
   AssistantAccount,
   RunCatalog,
   RunConfigurationRemoval,
+  SetAgentConsultationRoutesRequest,
   SetAgentServiceAccountRequest,
   SetAgentShadowRequest,
   SetAgentStateRequest,
@@ -160,6 +161,16 @@ export class NhAssistantAdminApiService {
    */
   setServiceAccount(agentId: string, request: SetAgentServiceAccountRequest): Observable<AgentState> {
     return this.request<AgentState>('POST', `admin/agents/${encodeURIComponent(agentId)}/service-account`, request);
+  }
+
+  /**
+   * Switches the routes of the agent's consultations on, off or back to the setting in code; a route
+   * left out keeps its switch. Code is the ceiling: switching on a route that no consultation in code
+   * allows fails with `assistant-consult-route-not-allowed`. Returns the agent's state with its
+   * `consultationRoutes`.
+   */
+  setConsultationRoutes(agentId: string, request: SetAgentConsultationRoutesRequest): Observable<AgentState> {
+    return this.request<AgentState>('POST', `admin/agents/${encodeURIComponent(agentId)}/consultation-routes`, request);
   }
 
   /**

@@ -293,6 +293,7 @@ internal static class NhAssistantAgentRunEndpoints
         }
 
         var (items, total) = await runs.ListConsultationsAsync(id, pageNumber, size, httpContext.RequestAborted);
+        var routes = await runs.CountConsultationProposalsByRouteAsync(items.Select(item => item.Id).ToArray(), httpContext.RequestAborted);
         // Names come from the subject's member snapshot; someone who left the subject keeps the id.
         var thread = access.Access!.Thread;
         var names = (await runs.GetMembersAsync(thread.ScopeKey, access.Access.Subject, httpContext.RequestAborted))
@@ -300,7 +301,11 @@ internal static class NhAssistantAgentRunEndpoints
             .ToDictionary(member => member.ActorId, member => member.DisplayName, StringComparer.Ordinal);
         return TypedResults.Json(
             new NhAssistantConsultationListDto(
-                items.Select(item => NhAssistantAgentRunDtoMapper.ToDto(item, names.GetValueOrDefault(item.AskerActorId))).ToArray(),
+                items.Select(item => NhAssistantAgentRunDtoMapper.ToDto(item, names.GetValueOrDefault(item.AskerActorId)) with
+                    {
+                        ProposalsByRoute = routes.TryGetValue(item.Id, out var byRoute) ? byRoute : new Dictionary<string, int>()
+                    })
+                    .ToArray(),
                 total),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantConsultationListDto);
     }

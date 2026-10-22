@@ -391,5 +391,13 @@
         </ul>
       }
     </section>
+
+    @if (config.source === 'code') {
+      <!-- Who decides what the agent proposes when another assistant consults it; agents created here are never consulted. -->
+      <nh-assistant-agent-consultation-routes
+        [agentId]="config.agentId"
+        [subjectTypes]="catalog()?.subjectTypes ?? []"
+        (changed)="changed.emit()" />
+    }
   }
 </section>

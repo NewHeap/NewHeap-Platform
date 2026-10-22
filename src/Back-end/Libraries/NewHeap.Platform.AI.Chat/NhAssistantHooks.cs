@@ -282,7 +282,15 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.ObjectId"/> are as for <see cref="FileRead"/>, without a hash
     /// when the file was not read.
     /// </summary>
-    FileRefused = 64
+    FileRefused = 64,
+
+    /// <summary>
+    /// An administrator or the application switched the routes of an agent's consultations within
+    /// the ceiling in code. <see cref="NhAssistantAuditEvent.ResultCode"/> lists each route with
+    /// <c>on</c>, <c>off</c> or <c>code</c>, such as
+    /// <c>asker-decides=on;subject-agent-rights=off;subject-asker-rights=code</c>.
+    /// </summary>
+    AdminAgentConsultationRoutesChanged = 65
 }
 
 /// <summary>
@@ -411,6 +419,21 @@ public sealed record NhAssistantAuditEvent(
     /// handed work off.
     /// </summary>
     public string? AskingAgentId { get; init; }
+
+    /// <summary>
+    /// How a consultation proposal is decided and whose rights execute it, one of
+    /// <see cref="NhAssistantConsultationRoutes"/>, on the request, decision, expiry and execution
+    /// events of a proposal a consultation left; <see langword="null"/> for other events.
+    /// </summary>
+    public string? ConsultationRoute { get; init; }
+
+    /// <summary>
+    /// Why a call of a consulted agent that changes something was not proposed, one of
+    /// <see cref="NhAssistantConsultationRefusalReasons"/>, on its
+    /// <see cref="NhAssistantAuditEventKind.ToolInvoked"/> event with
+    /// <c>assistant-consult-proposal-refused</c>.
+    /// </summary>
+    public string? ConsultationRefusalReason { get; init; }
 
     /// <summary>
     /// The run of the agent that handed work off.

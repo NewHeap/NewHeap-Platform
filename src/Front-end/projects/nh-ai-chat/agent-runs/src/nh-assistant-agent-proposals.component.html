@@ -152,7 +152,12 @@
           {{ statusKey(proposal) | translate }}
         </span>
         <span class="badge">{{ 'nh-assistant.agent-runs.proposal.mode.' + proposal.mode | translate }}</span>
-        @if (proposal.grantSource !== 'none') {
+        @if (agentRightsKey(proposal); as rightsKey) {
+          <!-- A consultation's proposal that runs with the agent's own rights says so plainly. -->
+          <span class="badge" data-consultation-rights [attr.title]="'nh-assistant.tool-call.grant-source.' + proposal.grantSource + '-hint' | translate">
+            {{ rightsKey | translate }}
+          </span>
+        } @else if (proposal.grantSource !== 'none') {
           <span class="badge" [attr.title]="'nh-assistant.tool-call.grant-source.' + proposal.grantSource + '-hint' | translate">
             {{ 'nh-assistant.tool-call.grant-source.' + proposal.grantSource | translate }}
           </span>
@@ -163,6 +168,17 @@
           </span>
         }
       </div>
+      @if (proposal.consultationId && (proposal.initiatorActorId || proposal.consultationRoute)) {
+        <!-- Who asked through the consultation, and who decides it with whose rights. -->
+        <p class="consultation-route" data-consultation-route [attr.data-route]="proposal.consultationRoute ?? null">
+          @if (proposal.initiatorActorId; as asker) {
+            <span data-consultation-asker>{{ 'nh-assistant.agent-runs.proposal.consultation.asked-by' | translate: { name: ('nh-assistant.account-id' | translate: { id: asker }) } }}</span>
+          }
+          @if (proposal.consultationRoute; as route) {
+            <span>{{ 'nh-assistant.agent-runs.proposal.consultation.route.' + route | translate }}</span>
+          }
+        </p>
+      }
       @if (proposal.placedBy; as origin) {
         @let placedBy = originText(origin);
         <p class="placed-by">
@@ -274,7 +290,11 @@
           (saved)="onFeedbackSaved()"
           (dismissed)="onFeedbackDismissed()" />
       }
-      @if (waitingForKey(proposal); as waitingFor) {
+      @if (waitsForAsker(proposal)) {
+        <p class="waiting-for" data-waiting-for-asker>
+          <nh-assistant-icon name="users" />{{ 'nh-assistant.agent-runs.proposal.consultation.waiting-for-asker' | translate: { name: (proposal.initiatorActorId ? ('nh-assistant.account-id' | translate: { id: proposal.initiatorActorId }) : ('nh-assistant.agent-runs.proposal.consultation.the-asker' | translate)) } }}
+        </p>
+      } @else if (waitingForKey(proposal); as waitingFor) {
         <p class="waiting-for"><nh-assistant-icon name="users" />{{ waitingFor | translate }}</p>
       }
       @if (proposal.status === 'pending' && mayDecide(proposal)) {

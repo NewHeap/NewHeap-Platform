@@ -95,6 +95,25 @@ describe('NhAssistantAdminApiService', () => {
     }
   });
 
+  it('switches the consultation routes of an agent with only the routes it changes', async () => {
+    fetchSpy.and.callFake(() => Promise.resolve(jsonResponse({ agentId: 'intake', consultationRoutes: null })));
+
+    await firstValueFrom(admin.setConsultationRoutes('intake reviewer', { askerDecides: 'off', subjectAgentRights: 'code', reason: 'Review first' }));
+
+    expect(lastCall().method).toBe('POST');
+    expect(lastCall().url).toBe('/api/assistant/admin/agents/intake%20reviewer/consultation-routes');
+    expect(lastCall().body).toEqual({ askerDecides: 'off', subjectAgentRights: 'code', reason: 'Review first' });
+  });
+
+  it('keeps the code of a refused route switch', async () => {
+    fetchSpy.and.callFake(() => Promise.resolve(jsonResponse(
+      { code: 'assistant-consult-route-not-allowed', messageKey: 'nh-assistant.errors.assistant-consult-route-not-allowed' }, 409)));
+
+    const failure = await firstValueFrom(admin.setConsultationRoutes('intake', { subjectAgentRights: 'on' })).catch((error: unknown) => error);
+
+    expect(failure).toEqual(jasmine.objectContaining({ status: 409, code: 'assistant-consult-route-not-allowed' }));
+  });
+
   it('sends the named filters a data trigger selects in its body', async () => {
     fetchSpy.and.callFake(() => Promise.resolve(jsonResponse({ triggerId: 'status-check', filters: ['not-own-change'] })));
 

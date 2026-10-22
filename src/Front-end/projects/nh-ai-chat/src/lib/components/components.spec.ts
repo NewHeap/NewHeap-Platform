@@ -361,6 +361,129 @@ describe('NhAssistantApprovalCardComponent', () => {
     expect(waiting()).toContain('Waiting for Sam to decide.');
   });
 
+  it('says that the person who consulted the agent decides in their own chat', () => {
+    fixture.componentRef.setInput('canDecide', false);
+    fixture.componentRef.setInput('waitingFor', 'asker');
+    fixture.detectChanges();
+
+    expect(buttons().length).toBe(0);
+    expect(fixture.nativeElement.querySelector('.waiting-for-other').textContent)
+      .toContain('Waiting for the person who asked to decide in their own chat.');
+  });
+
+  describe('of a consulted agent', () => {
+    const consulted: ApprovalPart = {
+      ...approval,
+      consultation: {
+        consultationId: 'consultation-1',
+        agentId: 'planner',
+        subjectType: 'project',
+        subjectId: 'p-1',
+        subjectDisplayName: 'Alpha',
+        leaveRoute: null,
+        answer: 'Alpha waits for the supplier, so it can go on hold.',
+        movedToApprovalId: null
+      }
+    };
+    const element = () => fixture.nativeElement as HTMLElement;
+    const leave = () => element().querySelector('[data-leave]') as HTMLButtonElement | null;
+
+    beforeEach(() => {
+      TestBed.inject(TranslateService).setTranslation('en', { 'nh-assistant': { agents: { planner: { name: 'Planning agent' } } } }, true);
+      fixture.componentRef.setInput('approval', consulted);
+      fixture.detectChanges();
+    });
+
+    it('names the agent and the subject, offers its answer and keeps approve and reject with the user\'s own rights', () => {
+      expect(element().querySelector('[data-consultation-origin]')!.textContent).toContain('Planning agent proposes this, about Alpha');
+      const answer = element().querySelector('[data-consultation-answer]') as HTMLDetailsElement;
+      expect(answer.open).toBeFalse();
+      expect(answer.querySelector('summary')!.textContent).toContain('Answer of Planning agent');
+      expect(answer.textContent).toContain('Alpha waits for the supplier, so it can go on hold.');
+      expect(element().querySelector('[data-consultation-rights]')!.textContent).toContain('Approving runs it right away with your own rights.');
+      // Without a route at the subject the proposal can only be approved or rejected here.
+      expect(leave()).toBeNull();
+
+      buttons()[1].click();
+      expect(decisions).toEqual(['approve']);
+
+      fixture.componentRef.setInput('approval', { ...consulted, approvalId: 'approval-2' });
+      fixture.componentRef.setInput('deciding', true);
+      fixture.detectChanges();
+      fixture.componentRef.setInput('deciding', false);
+      fixture.detectChanges();
+      buttons()[0].click();
+      expect(decisions).toEqual(['approve', 'reject']);
+    });
+
+    it('names the subject by id and the agent by id when neither has a name, and leaves out a missing answer', () => {
+      fixture.componentRef.setInput('approval', {
+        ...consulted,
+        consultation: { ...consulted.consultation!, agentId: 'unnamed-agent', subjectDisplayName: null, answer: null }
+      });
+      fixture.detectChanges();
+
+      expect(element().querySelector('[data-consultation-origin]')!.textContent).toContain('unnamed-agent proposes this, about p-1');
+      expect(element().querySelector('[data-consultation-answer]')).toBeNull();
+    });
+
+    it('leaves the proposal for the approvers with a short explanation of the route, then says it waits for them', () => {
+      fixture.componentRef.setInput('approval', { ...consulted, consultation: { ...consulted.consultation!, leaveRoute: 'subject-agent-rights' } });
+      fixture.detectChanges();
+
+      const explanation = element().querySelector('.leave-explanation')!;
+      expect(explanation.textContent).toContain('The approvers of Alpha decide; it then runs with the agent\'s own rights.');
+      expect(leave()!.getAttribute('aria-describedby')).toBe(explanation.id);
+      expect(leave()!.getAttribute('aria-label')).toBe('Leave for approvers: Set Alpha on hold');
+
+      leave()!.click();
+      fixture.detectChanges();
+      leave()?.click();
+      expect(decisions).toEqual(['leave']);
+      expect(leave()!.disabled).toBeTrue();
+
+      // The host shows the accepted decision until the conversation is read again.
+      fixture.componentRef.setInput('deciding', true);
+      fixture.componentRef.setInput('approval', {
+        ...consulted,
+        status: 'rejected',
+        consultation: { ...consulted.consultation!, leaveRoute: null }
+      });
+      fixture.detectChanges();
+      expect(element().querySelector('.status')!.textContent).toContain('Left for approvers');
+      expect(element().querySelector('[data-consultation-moved]')!.textContent).toContain('It now waits for the approvers of Alpha.');
+      expect(fixture.nativeElement.getAttribute('data-status')).toBe('moved');
+      expect(buttons().length).toBe(0);
+      expect(leave()).toBeNull();
+    });
+
+    it('explains the route with the asker\'s rights and reads a proposal the server moved as waiting for the approvers', () => {
+      fixture.componentRef.setInput('approval', { ...consulted, consultation: { ...consulted.consultation!, leaveRoute: 'subject-asker-rights' } });
+      fixture.detectChanges();
+      expect(element().querySelector('.leave-explanation')!.textContent)
+        .toContain('The approvers of Alpha decide; it then runs with your rights.');
+
+      fixture.componentRef.setInput('approval', {
+        ...consulted,
+        status: 'rejected',
+        consultation: { ...consulted.consultation!, movedToApprovalId: 'approval-9' }
+      });
+      fixture.detectChanges();
+      expect(element().querySelector('.status')!.textContent).toContain('Left for approvers');
+      expect(element().querySelector('[data-consultation-moved]')).not.toBeNull();
+      expect(element().querySelector('[data-consultation-rights]')).toBeNull();
+    });
+
+    it('keeps an own proposal free of the consultation and of leaving', () => {
+      fixture.componentRef.setInput('approval', approval);
+      fixture.detectChanges();
+
+      expect(element().querySelector('[data-consultation-origin]')).toBeNull();
+      expect(element().querySelector('[data-consultation-rights]')).toBeNull();
+      expect(leave()).toBeNull();
+    });
+  });
+
   it('asks what was wrong only on a rejected proposal the user may give feedback on', () => {
     const toggle = () => fixture.nativeElement.querySelector('.feedback-toggle') as HTMLButtonElement | null;
     fixture.componentRef.setInput('canGiveFeedback', true);

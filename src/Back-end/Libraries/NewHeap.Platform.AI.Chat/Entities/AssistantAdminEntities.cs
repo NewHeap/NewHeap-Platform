@@ -142,6 +142,32 @@ public sealed class AssistantAgent
     public string? ServiceAccountReason { get; set; }
 
     /// <summary>
+    /// Whether an administrator switched on (<see langword="true"/>) or off the route where the person
+    /// who asked decides the proposals of the agent's consultations; <see langword="null"/> follows the
+    /// code. The code's consultation registrations are the ceiling: a route they do not allow stays
+    /// off.
+    /// </summary>
+    public bool? ConsultAskerDecides { get; set; }
+
+    /// <summary>
+    /// Whether an administrator switched on or off the route at the subject that executes with the
+    /// agent's own rights; <see langword="null"/> follows the code.
+    /// </summary>
+    public bool? ConsultSubjectAgentRights { get; set; }
+
+    /// <summary>
+    /// Whether an administrator switched on or off the route at the subject that executes with the
+    /// asker's rights; <see langword="null"/> follows the code.
+    /// </summary>
+    public bool? ConsultSubjectAskerRights { get; set; }
+
+    public DateTimeOffset? ConsultRoutesChangedAt { get; set; }
+
+    public string? ConsultRoutesChangedBy { get; set; }
+
+    public string? ConsultRoutesReason { get; set; }
+
+    /// <summary>
     /// Hash of the code definition last applied, so unchanged code does not bump the version.
     /// </summary>
     public string? CodeHash { get; set; }

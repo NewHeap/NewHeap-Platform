@@ -140,6 +140,14 @@ internal static class NhAssistantAdminEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPost("agents/{id}/consultation-routes", SetAgentConsultationRoutesAsync)
+            .WithName("NhAssistantAdminSetAgentConsultationRoutes")
+            .WithSummary("Switch the routes of an agent's consultations")
+            .WithDescription("Each route on, off or code (a route left out keeps its switch): askerDecides lets the person who asked decide a consulted agent's proposal in their own chat, where it executes with their own rights; subjectAgentRights lets the subject's approvers other than the asker decide it, after which it executes with the agent's own rights; subjectAskerRights lets the subject's approvers decide it, after which it executes with the asker's rights. Code is the ceiling: switching on a route that no consultation in code allows, or switching an agent without consultations, returns 409. Proposals already recorded keep their route. The reason has at most 500 characters.")
+            .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPost("agents/{id}/state", SetAgentStateAsync)
             .WithName("NhAssistantAdminSetAgentState")
             .WithSummary("Pause, stop, switch off or resume an agent")
@@ -621,6 +629,43 @@ internal static class NhAssistantAdminEndpoints
 
         var control = httpContext.RequestServices.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
         var result = await control.SetServiceAccountAsync(id, body.ActorId, actor, body.Reason, httpContext.RequestAborted);
+        return result.Success
+            ? Json(result.Data!, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentState)
+            : Failure(result);
+    }
+
+    private static async Task<IResult> SetAgentConsultationRoutesAsync(string id, HttpContext httpContext)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var body = await ReadAsync(
+            httpContext,
+            AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantConsultationRoutesRequest);
+        if (body is null)
+        {
+            return Validation();
+        }
+
+        var services = httpContext.RequestServices;
+        var agent = await services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(id, includeDisabled: true, httpContext.RequestAborted);
+        var current = agent?.ConsultationRoutes ?? NhAssistantConsultationRouteOverrides.None;
+        if (!AgentRuns.NhAssistantRouteSwitches.TryApply(body.AskerDecides, current.AskerDecides, out var askerDecides)
+            || !AgentRuns.NhAssistantRouteSwitches.TryApply(body.SubjectAgentRights, current.SubjectAgentRights, out var agentRights)
+            || !AgentRuns.NhAssistantRouteSwitches.TryApply(body.SubjectAskerRights, current.SubjectAskerRights, out var askerRights))
+        {
+            return Validation();
+        }
+
+        var control = services.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
+        var result = await control.SetConsultationRoutesAsync(
+            id,
+            new NhAssistantConsultationRouteOverrides(askerDecides, agentRights, askerRights),
+            actor,
+            body.Reason,
+            httpContext.RequestAborted);
         return result.Success
             ? Json(result.Data!, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentState)
             : Failure(result);

@@ -110,8 +110,10 @@ h3 {
   background: var(--nha-surface-strong);
 }
 
-// Where a proposal placed at this object came from, with that run's conversation.
-.placed-by {
+// Where a proposal placed at this object came from, with that run's conversation; who asked through a
+// consultation, and who decides its proposal with whose rights.
+.placed-by,
+.consultation-route {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -121,6 +123,13 @@ h3 {
   overflow-wrap: anywhere;
   color: var(--nha-text-muted);
   font-size: 13px;
+}
+
+// The proposals a consultation left per route, next to its proposal count.
+.consultation-routes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
 }
 
 // The rule's reason sits with the proposal it explains.

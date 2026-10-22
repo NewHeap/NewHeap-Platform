@@ -1,4 +1,5 @@
 import {
+  ApprovalDecision,
   ApprovalPart,
   Conversation,
   ConversationStatus,
@@ -128,11 +129,15 @@ export function applyNhAssistantEvent(
   }
 }
 
-/** Records the user's approval decision locally until the server state is reloaded. */
+/**
+ * Records the user's approval decision locally until the server state is reloaded. A consulted
+ * agent's proposal that the user left for the subject's approvers (`leave`) closes here as the server
+ * closes it, rejected in this conversation, and can no longer be left; the waiting tool call goes on.
+ */
 export function applyNhAssistantApprovalDecision(
   conversation: Conversation,
   approvalId: string,
-  decision: 'approve' | 'reject'
+  decision: ApprovalDecision
 ): Conversation {
   const approval = conversation.messages
     .flatMap(message => message.parts)
@@ -144,7 +149,7 @@ export function applyNhAssistantApprovalDecision(
     ...message,
     parts: message.parts.map(part =>
       part.type === 'approval' && part.approvalId === approvalId
-        ? { ...part, status: decision === 'approve' ? 'approved' : 'rejected' } as ApprovalPart
+        ? decidedApproval(part, decision)
         : part
     )
   }));
@@ -161,12 +166,21 @@ export function applyNhAssistantApprovalDecision(
     if (awaiting) {
       updated = updateToolCall(updated, awaiting.invocationId, part => ({
         ...part,
-        status: decision === 'approve' ? 'running' : 'rejected'
+        status: decision === 'reject' ? 'rejected' : 'running'
       }));
     }
   }
 
   return updated;
+}
+
+/** An approval part after the user's decision. */
+function decidedApproval(part: ApprovalPart, decision: ApprovalDecision): ApprovalPart {
+  const decided: ApprovalPart = { ...part, status: decision === 'approve' ? 'approved' : 'rejected' };
+  if (decision === 'leave' && part.consultation) {
+    decided.consultation = { ...part.consultation, leaveRoute: null };
+  }
+  return decided;
 }
 
 /**

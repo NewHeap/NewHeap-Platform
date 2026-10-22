@@ -106,7 +106,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         enabled.MapPost("conversations/{id:guid}/approvals/{approvalId:guid}/decide", DecideAsync)
             .WithName("NhAssistantDecideApproval")
             .WithSummary("Decide an approval")
-            .WithDescription("Approves or rejects the pending proposal bound to the expected proposal hash and streams the resumed turn. Only the person whose turn created the proposal decides.")
+            .WithDescription("Approves or rejects the pending proposal bound to the expected proposal hash and streams the resumed turn. Only the person whose turn created the proposal decides. A proposal of a consultation that the person who asked decides here (its approval names the consultation) executes in this request with their own rights; decision leave leaves it for the subject's approvers instead when a route at the subject applies.")
             .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
@@ -457,7 +457,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         }
         var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantDecideApprovalRequest);
         if (request is null
-            || request.Decision is not ("approve" or "reject")
+            || request.Decision is not ("approve" or "reject" or "leave")
             || string.IsNullOrWhiteSpace(request.ExpectedProposalHash))
         {
             return Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
@@ -469,8 +469,37 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         }
 
         var threadAccess = ThreadAccessOf(httpContext);
+        var askerDecision = await AskerDecisionAsync(httpContext, id, approvalId, caller.Data.ActorId, request.Decision == "approve");
+        if (askerDecision.Error is not null)
+        {
+            return askerDecision.Error;
+        }
+        if (askerDecision.Approval is null && request.Decision == "leave")
+        {
+            return Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
+        }
+
         NhAssistantAgentTurnContext? agentTurn = null;
-        if (threadAccess is not null)
+        if (askerDecision.Approval is not null)
+        {
+            if (threadAccess is not null)
+            {
+                // The asking turn continues in its own thread, as the asker's request turn.
+                var created = await httpContext.RequestServices.GetRequiredService<NhAssistantAgentTurnFactory>().CreateAsync(
+                    id,
+                    null,
+                    NhAssistantConversationKinds.Chat,
+                    caller.Data.ActorId,
+                    threadAccess.Thread.AccountableOwnerId,
+                    httpContext.RequestAborted);
+                if (!created.Success)
+                {
+                    return FromFailure(created);
+                }
+                agentTurn = created.Data! with { IsRequestTurn = true };
+            }
+        }
+        else if (threadAccess is not null)
         {
             var services = httpContext.RequestServices;
             var approval = await services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approvalId, httpContext.RequestAborted);
@@ -520,12 +549,62 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 RequestLanguage(httpContext))
             {
                 AgentTurn = agentTurn,
-                PolicyAuthorized = agentTurn is not null
+                PolicyAuthorized = agentTurn is not null && askerDecision.Approval is null,
+                LeaveForApprovers = request.Decision == "leave"
             },
             httpContext.RequestAborted);
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)
             : FromFailure(started);
+    }
+
+    /// <summary>
+    /// The proposal of a consultation that the caller decides in this conversation as the person who
+    /// asked, or none for the conversation's own proposals. An approval is checked again with the
+    /// caller's live principal against the consulted agent's thread (CP4), as any approver is.
+    /// </summary>
+    private static async Task<(AssistantApproval? Approval, IResult? Error)> AskerDecisionAsync(
+        HttpContext httpContext,
+        Guid conversationId,
+        Guid approvalId,
+        string actorId,
+        bool approve)
+    {
+        var services = httpContext.RequestServices;
+        var approval = await services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approvalId, httpContext.RequestAborted);
+        if (approval is null
+            || approval.ConversationId == conversationId
+            || approval.ConsultationId is null
+            || approval.Mode != NhAssistantApprovalModes.Inline)
+        {
+            return (null, null);
+        }
+
+        var runs = services.GetRequiredService<NhAssistantRunStore>();
+        var row = (await runs.GetAskerDecisionsAsync(conversationId, [approval.Id], httpContext.RequestAborted)).FirstOrDefault();
+        if (row is null)
+        {
+            return (null, Error(NhAssistantErrorCodes.ApprovalNotFound));
+        }
+        if (!string.Equals(approval.InitiatorActorId, actorId, StringComparison.Ordinal))
+        {
+            return (null, Error(NhAssistantErrorCodes.ApprovalForbidden));
+        }
+        if (approve)
+        {
+            var check = await services.GetRequiredService<NhAssistantApproverCheck>().CheckAsync(
+                approval,
+                row.Thread,
+                actorId,
+                httpContext.User,
+                httpContext.RequestAborted);
+            if (!check.Success)
+            {
+                return (null, Error(NhAssistantErrorCodes.ApprovalPolicyDenied));
+            }
+        }
+
+        return (approval, null);
     }
 
     private static async Task<IResult> CancelAsync(

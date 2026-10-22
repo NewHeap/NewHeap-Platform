@@ -193,6 +193,21 @@ public interface INhAssistantAgentControl
         string actorId,
         string? reason = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Switches the routes of the agent's consultations within the ceiling in code (CP21): each route
+    /// on (<see langword="true"/>), off, or back to the code (<see langword="null"/>). The code's
+    /// <c>AllowConsultation</c> registrations decide which routes exist at all; switching on a route no
+    /// registration allows fails with <c>assistant-consult-route-not-allowed</c>, as does an agent
+    /// without consultations. With every route off the agent's consultations only read. Proposals
+    /// already recorded keep their route.
+    /// </summary>
+    Task<TaskResult<NhAssistantAgentState>> SetConsultationRoutesAsync(
+        string agentId,
+        NhAssistantConsultationRouteOverrides routes,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
 }
 
 /// <param name="RunState">One of <see cref="NhAssistantAgentRunStates"/>: <c>active</c>,
@@ -248,7 +263,40 @@ public sealed record NhAssistantAgentState(
     /// releasing the kill switch makes it work again, as resuming does.
     /// </summary>
     public bool OffBeforeStop { get; init; }
+
+    /// <summary>
+    /// The routes of the agent's consultations, as code allows them and an administrator switched
+    /// them; <see langword="null"/> for an agent nobody can consult.
+    /// </summary>
+    public NhAssistantConsultationRoutesState? ConsultationRoutes { get; init; }
 }
+
+/// <summary>
+/// The routes of an agent's consultations: one entry per route, and the last change at runtime.
+/// </summary>
+/// <param name="ChangedAt">When the routes last changed at runtime.</param>
+/// <param name="ChangedBy">Who changed them last.</param>
+/// <param name="Reason">The reason given with the last change.</param>
+public sealed record NhAssistantConsultationRoutesState(
+    IReadOnlyList<NhAssistantConsultationRouteState> Routes,
+    DateTimeOffset? ChangedAt,
+    string? ChangedBy,
+    string? Reason);
+
+/// <param name="Route"><c>asker-decides</c> (the person who asked decides in their own conversation),
+/// <c>subject-agent-rights</c> (the subject's approvers decide; it executes with the agent's own rights)
+/// or <c>subject-asker-rights</c> (the subject's approvers decide; it executes with the asker's rights).</param>
+/// <param name="Allowed">Whether a consultation registration in code allows the route: the ceiling.</param>
+/// <param name="Override">The switch an administrator set: <see langword="true"/> on,
+/// <see langword="false"/> off, <see langword="null"/> following the code.</param>
+/// <param name="On">Whether consultations use the route now: allowed and not switched off.</param>
+/// <param name="SubjectTypes">The subject types whose consultation allows the route.</param>
+public sealed record NhAssistantConsultationRouteState(
+    string Route,
+    bool Allowed,
+    bool? Override,
+    bool On,
+    IReadOnlyList<string> SubjectTypes);
 
 /// <param name="Shadow">Whether the work goes to shadow threads now. For a skill this includes the
 /// agent's own shadow mode.</param>
@@ -353,6 +401,48 @@ public sealed record NhAssistantShadowRequest(string? Mode, string? Reason);
 /// uses the account in code again.</param>
 /// <param name="Reason">Optional, at most 500 characters.</param>
 public sealed record NhAssistantServiceAccountRequest(string? ActorId, string? Reason);
+
+/// <summary>
+/// Switches the routes of an agent's consultations; a route left out keeps its switch.
+/// </summary>
+/// <param name="AskerDecides"><c>on</c>, <c>off</c> or <c>code</c>.</param>
+/// <param name="SubjectAgentRights"><c>on</c>, <c>off</c> or <c>code</c>.</param>
+/// <param name="SubjectAskerRights"><c>on</c>, <c>off</c> or <c>code</c>.</param>
+/// <param name="Reason">Optional, at most 500 characters.</param>
+public sealed record NhAssistantConsultationRoutesRequest(
+    string? AskerDecides,
+    string? SubjectAgentRights,
+    string? SubjectAskerRights,
+    string? Reason);
+
+/// <summary>
+/// The switches of a consultation route.
+/// </summary>
+public static class NhAssistantRouteSwitches
+{
+    public const string On = "on";
+
+    public const string Off = "off";
+
+    /// <summary>The code decides again.</summary>
+    public const string Code = "code";
+
+    /// <summary>
+    /// Applies a switch to the current one: <see langword="null"/> keeps it. Returns
+    /// <see langword="false"/> for an unknown switch.
+    /// </summary>
+    internal static bool TryApply(string? value, bool? current, out bool? result)
+    {
+        result = value switch
+        {
+            null => current,
+            On => true,
+            Off => false,
+            _ => null
+        };
+        return value is null or On or Off or Code;
+    }
+}
 
 internal sealed class NhAssistantAgentControl(
     NhAssistantAdminStore store,
@@ -553,6 +643,104 @@ internal sealed class NhAssistantAgentControl(
 
         var states = await SkillStatesAsync(agent, options, cancellationToken);
         return TaskResult<NhAssistantSkillState>.Succeeded(states.Single(state => state.SkillId == skillId));
+    }
+
+    public async Task<TaskResult<NhAssistantAgentState>> SetConsultationRoutesAsync(
+        string agentId,
+        NhAssistantConsultationRouteOverrides routes,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentNullException.ThrowIfNull(routes);
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return TaskResult<NhAssistantAgentState>.Failed(invalid);
+        }
+
+        var agent = await agents.FindAsync(agentId, includeDisabled: true, cancellationToken);
+        if (agent is null)
+        {
+            return TaskResult<NhAssistantAgentState>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
+        }
+
+        // Code is the ceiling: a route no consultation registration allows can never be switched on.
+        var allowed = AllowedRoutes(agentId);
+        if (allowed.Count == 0
+            || (routes.AskerDecides == true && !allowed.ContainsKey(NhAssistantConsultationRoutes.AskerDecides))
+            || (routes.SubjectAgentRights == true && !allowed.ContainsKey(NhAssistantConsultationRoutes.SubjectAgentRights))
+            || (routes.SubjectAskerRights == true && !allowed.ContainsKey(NhAssistantConsultationRoutes.SubjectAskerRights)))
+        {
+            return TaskResult<NhAssistantAgentState>.Failed(
+                NhAssistantErrorCodes.ConsultRouteNotAllowed,
+                "The agent's consultations in code do not allow this route.");
+        }
+
+        if (agent.ConsultationRoutes != routes)
+        {
+            await store.SetAgentConsultationRoutesAsync(agentId, routes, actorId, reason, cancellationToken);
+            await events.AgentConsultationRoutesChangedAsync(agentId, actorId, routes, cancellationToken);
+            agent = await agents.FindAsync(agentId, includeDisabled: true, cancellationToken) ?? agent;
+        }
+
+        return TaskResult<NhAssistantAgentState>.Succeeded(await StateOfAsync(agent, 0, 0, cancellationToken));
+    }
+
+    /// <summary>
+    /// The routes the agent's consultation registrations in code allow, with the subject types that
+    /// allow each.
+    /// </summary>
+    private Dictionary<string, List<string>> AllowedRoutes(string agentId)
+    {
+        var allowed = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        if (!registration.AgentRuns.TryGetValue(agentId, out var runOptions))
+        {
+            return allowed;
+        }
+
+        foreach (var consultation in runOptions.Consultations)
+        {
+            foreach (var route in consultation.AllowedRoutes)
+            {
+                if (!allowed.TryGetValue(route, out var types))
+                {
+                    types = [];
+                    allowed[route] = types;
+                }
+                types.Add(consultation.SubjectType);
+            }
+        }
+
+        return allowed;
+    }
+
+    private NhAssistantConsultationRoutesState? ConsultationRoutesOf(NhAssistantAgent agent)
+    {
+        if (!registration.AgentRuns.TryGetValue(agent.Id, out var runOptions) || runOptions.Consultations.Count == 0)
+        {
+            return null;
+        }
+
+        var allowed = AllowedRoutes(agent.Id);
+        var routes = new[]
+            {
+                NhAssistantConsultationRoutes.AskerDecides,
+                NhAssistantConsultationRoutes.SubjectAgentRights,
+                NhAssistantConsultationRoutes.SubjectAskerRights
+            }
+            .Select(route =>
+            {
+                var types = allowed.TryGetValue(route, out var found) ? found : [];
+                var switched = agent.ConsultationRoutes.Of(route);
+                return new NhAssistantConsultationRouteState(route, types.Count > 0, switched, types.Count > 0 && switched != false, types);
+            })
+            .ToArray();
+        return new NhAssistantConsultationRoutesState(
+            routes,
+            agent.ConsultationRoutesChangedAt,
+            agent.ConsultationRoutesChangedBy,
+            agent.ConsultationRoutesReason);
     }
 
     public async Task<TaskResult<NhAssistantAgentState>> SetServiceAccountAsync(
@@ -930,7 +1118,8 @@ internal sealed class NhAssistantAgentControl(
                     agent.ServiceAccountReason)
                 : null,
             // An agent disabled in code reads configured-off whatever it stored.
-            OffBeforeStop = runState == NhAssistantAgentRunStates.Stopped && agent.OffBeforeStop
+            OffBeforeStop = runState == NhAssistantAgentRunStates.Stopped && agent.OffBeforeStop,
+            ConsultationRoutes = ConsultationRoutesOf(agent)
         };
     }
 }

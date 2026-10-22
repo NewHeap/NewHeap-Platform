@@ -841,10 +841,40 @@ tools that change anything are offered, `Limits(4 calls, 60 seconds, 4,000 chara
 and `Exposure(Local | Agent)`; add `NhAiToolExposure.Mcp` only when MCP clients may run
 consultations. A consult answers in the same turn: the agent reads its working memory,
 earlier summaries, recent thread history and the artifacts the asker may read, with its
-tools under the asker's rights only. Anything it would change becomes a deferred proposal
-in its thread with `consultationId`, decided by the subject's approvers and executed with
-the asker's rights, never with the agent's grants; `RequireApprovalForEffects` on the
-agent scope enforces that in the tool invoker. The consult writes no message into the
+tools under the asker's rights only. Anything it would change becomes a proposal in its
+thread with `consultationId`; it never executes during the consultation, because
+`RequireApprovalForEffects` on the agent scope enforces that in the tool invoker. Choose who
+decides it with `Proposals(p => p.MinimumRole(...).AskerDecides().AtSubject(rights).Policy(id))`;
+each call takes the first route that applies and the audit names it (`ConsultationRoute`):
+
+- `AskerDecides()`: the person who asked decides it right away in their own chat. The asking
+  turn waits as for its own inline proposal, the card names the consulted agent and the subject,
+  and approving executes it in the asker's own request with their live rights, so no person's
+  principal is rebuilt. It applies when the policy lets the asker decide (an approver rule they
+  meet, such as `NhAiApprovers.Initiator`, no `FourEyes()`, the tool's approve policies) and the
+  asking turn is the asker's own turn in their own request; it lives at most
+  `NhAssistantLimits.ApprovalLifetime`. The card may offer "leave for approvers" (decision
+  `leave`) when a route at the subject applies. Only the asker decides it; the inbox never shows it.
+- `AtSubject(NhAssistantConsultationRights.Asker)`, the route of `Proposals(true, role)`: it waits
+  for the subject's approvers and executes later with the asker's rights, which the
+  application's `INhAiPrincipalFactory` rebuilds outside the asker's request.
+- `AtSubject(NhAssistantConsultationRights.Agent)`: it waits for the subject's approvers and
+  executes with the agent's own rights (its grants, trigger-only ones included, or the rights of
+  the technical account it acts with), never the asker's. The call must also be one the asker may
+  make, the platform always makes it four-eyes, and an asker has at most
+  `MaxOpenConsultationProposalsPerAsker` of them open per subject. Startup refuses it for an agent
+  that answers to the subject's responsible person, for the whole application and for a policy
+  that names only the initiator.
+
+A consultation's own `Policy(id)` applies where the agent has no policy for the tool itself; the
+agent's policy was written for its runs. When no route applies, the call is refused with
+`assistant-consult-proposal-refused` and a reason of `NhAssistantConsultationRefusalReasons`, and the
+consulted agent describes the change instead. Applications that never rebuild a person's
+principal use `AskerDecides()` with `AtSubject(NhAssistantConsultationRights.Agent)` or either
+alone. Administrators switch each route on or off per agent within what code allows
+(`SetConsultationRoutesAsync`, `POST admin/agents/{id}/consultation-routes`), never beyond it. The
+asker of a proposal with the agent's rights is told how it ended
+(`ConsultationProposalDecided`). The consult writes no message into the
 thread; `GET threads/{id}/consultations` lists who asked through which assistant, without
 the question or the answer. A request starts an ordinary run with the asker as initiator
 (`NhAssistantTriggerIds.AgentRequest`, participant role) and notifies the initiator with
@@ -1039,6 +1069,10 @@ profile and instructions that answer questions about the rules' proposals from t
   leaving a deleted subject's agent threads behind.
 - Letting a consulted agent use its own grants, execute changes or update its memory, or
   writing the asking person's question and the answer into the consulted agent's thread.
+- Rebuilding a person's principal outside their request to execute a consultation's proposal in
+  an application that cannot do so safely, instead of `AskerDecides()` or
+  `AtSubject(NhAssistantConsultationRights.Agent)`; letting the asker approve a proposal that runs
+  with the agent's rights, or giving that route to an agent that answers to a person.
 - Building agent-to-agent calls by hand (for example a tool that calls
   `INhAssistantAgentTriggers` and waits, or an event published only to start another agent)
   instead of `AllowConsultation` or `AcceptHandOffs`, or raising `MaxConsultationDepth` or
@@ -1155,7 +1189,11 @@ background-operation owner columns on SQL Server and PostgreSQL. Consult an agen
 participant and assert the answer, the consultation record without content and no new
 thread message; consult as someone without a role and as a reader and assert the shared
 refusal code and that no tool that changes anything was offered; assert that a
-consultation's proposal waits deferred and executes with the asker's rights only, that a
+consultation's proposal waits deferred and executes with the asker's rights only, that with
+`AskerDecides()` the asker decides it in their own chat and it executes in their request, that with
+`AtSubject(NhAssistantConsultationRights.Agent)` the asker cannot approve it and it executes with the
+agent's grant, with a principal factory that refuses people and counts calls, that every refusal
+reason reaches the model and that the maintenance job expires both kinds, that a
 loop or a deeper chain is refused and that consultations count in the agent's daily
 usage on both providers. Reject a proposal and assert that only its decider and the
 subject's approvers may give feedback, that a pending or approved proposal refuses it,
@@ -1424,11 +1462,11 @@ executable references.
   - [src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html)
   - [src/Front-end/projects/management/src/app/project-members/project-members-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-members/project-members-page.component.ts)
   - [src/Front-end/projects/management/src/app/project-members/project-members-page.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-members/project-members-page.component.html)
-- SPM-278 — The project assistant consults the intake reviewer about a project
+- SPM-278 — The project assistant consults the intake reviewer and the project closer about a project
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
-  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)
 - SPM-279 — Approvers explain rejected agent proposals and administrators review the feedback
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs)

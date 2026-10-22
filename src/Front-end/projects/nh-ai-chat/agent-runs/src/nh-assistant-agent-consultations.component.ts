@@ -5,17 +5,21 @@ import { Subscription } from 'rxjs';
 import {
   AgentConsultation,
   NhAssistantAgentRunApiService,
+  NhAssistantConsultationRoute,
   ɵnhAssistantCodeKeys as nhAssistantCodeKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 
+/** The routes in the order the list names them. */
+const routeOrder: readonly NhAssistantConsultationRoute[] = ['asker-decides', 'subject-agent-rights', 'subject-asker-rights'];
+
 /**
  * Who consulted the thread's agent through another assistant, newest first: the person whose rights
- * were used, the asking assistant, the outcome, the usage and the proposals left for approvers. The
- * question and the answer stay in the asking conversation and are never shown here. With live
- * updates the list reloads by itself when a run or proposal of the thread changes.
+ * were used, the asking assistant, the outcome, the usage and the proposals it left, with their
+ * number per route. The question and the answer stay in the asking conversation and are never shown
+ * here. With live updates the list reloads by itself when a run or proposal of the thread changes.
  */
 @Component({
   selector: 'nh-assistant-agent-consultations',
@@ -51,6 +55,14 @@ export class NhAssistantAgentConsultationsComponent {
 
   load(): void {
     this.fetch(false);
+  }
+
+  /** The proposals the consultation left per route, in a fixed order; routes without proposals are left out. */
+  routeCounts(consultation: AgentConsultation): { route: NhAssistantConsultationRoute; count: number }[] {
+    const byRoute = consultation.proposalsByRoute ?? {};
+    return routeOrder
+      .map(route => ({ route, count: byRoute[route] ?? 0 }))
+      .filter(item => item.count > 0);
   }
 
   /** A quiet load, after a live update, shows no loading state and keeps the list when it fails. */

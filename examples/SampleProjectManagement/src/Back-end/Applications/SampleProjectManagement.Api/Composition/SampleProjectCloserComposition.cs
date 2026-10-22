@@ -24,6 +24,10 @@ namespace SampleProjectManagement.Api.Composition;
 /// SPM-294: with a technical account in the application's configuration
 /// (<see cref="ServiceAccountKey"/>), the closer answers to that account instead of to itself; an
 /// operator replaces it per agent at runtime on the maintenance page, without a deploy.
+/// SPM-278: the project assistant may consult the closer about a project. What the closer proposes in
+/// a consultation waits in its thread for a project approver other than the person who asked, and
+/// executes with the closer's own rights (its grant, under the account it answers to), so no person's
+/// principal is rebuilt.
 /// Call it after <c>AddSampleIntakeReviewer</c>, which registers the project subject type, and add
 /// the planner with <c>AddSampleProjectPlanner</c>; the host must call
 /// <c>AddAssistantAgentRuns</c> inside <c>WithBackgroundOperations</c>.
@@ -89,6 +93,15 @@ public static class SampleProjectCloserComposition
                     .Description("Checks whether a project whose tasks are all completed can be completed, and proposes it.")
                     .NotifySource()
                     .Limits(maxPerSubjectPerDay: 3))
+                // SPM-278: a consultation's proposal waits at the project for its approvers and runs
+                // with the closer's own rights; the platform makes it four-eyes, so the person who
+                // asked never approves it.
+                .AllowConsultation(ProjectSubjects.Type, consultation => consultation
+                    .Description("Knows whether a project can be completed and proposes completing it.")
+                    .Policy(SampleAssistantComposition.AccessPolicy)
+                    .Instructions(ProjectAiAssets.ProjectCloserConsultationInstructions)
+                    .Limits(maxToolCalls: 2, timeout: TimeSpan.FromSeconds(45), maxAnswerChars: 2_000)
+                    .Proposals(proposals => proposals.AtSubject(NhAssistantConsultationRights.Agent)))
                 .Retry(2)
                 .Budget(
                     NhAssistantAgentBudget.PerDay(toolCalls: 50, tokens: 50_000),

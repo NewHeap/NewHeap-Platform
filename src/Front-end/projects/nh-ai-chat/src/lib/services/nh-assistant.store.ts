@@ -37,6 +37,7 @@ import {
   LiveConversationRead,
   LiveConversationRemoved
 } from '../models/assistant-live.models';
+import { AgentProposalDecision } from '../models/assistant-agent-run.models';
 import { NhAssistantClientErrorCodes, NhAssistantMessageEvent, NhAssistantSseEvent, TurnUsage } from '../models/assistant-sse.models';
 import { NH_ASSISTANT_ACCESS_POLICY, NH_ASSISTANT_CONFIG } from '../nh-assistant.config';
 import { NhAssistantAgentRunApiService } from './nh-assistant-agent-run-api.service';
@@ -115,9 +116,10 @@ export const NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE = 'assistant-message-queued
 /**
  * Who decides an approval the current user cannot decide: `turn`, the person whose turn created
  * it in a chat; `approver`, an approver of the agent thread's subject; `other-approver`, another
- * approver, because the current user started the work and four-eyes applies.
+ * approver, because the current user started the work and four-eyes applies; `asker`, the person
+ * who consulted the thread's agent, in their own chat.
  */
-export type NhAssistantApprovalWaitingFor = 'turn' | 'approver' | 'other-approver';
+export type NhAssistantApprovalWaitingFor = 'turn' | 'approver' | 'other-approver' | 'asker';
 
 /** The current user's right to decide, or to give feedback on, one approval of the open conversation. */
 export interface NhAssistantApprovalRight {
@@ -134,6 +136,9 @@ export interface NhAssistantApprovalRight {
 }
 
 const fourEyesRequiredCode = 'assistant-four-eyes-required';
+
+/** A consultation's proposal in the consulted thread that the person who asked decides in their own chat. */
+const askerDecidesCode = 'assistant-consult-asker-decides';
 
 
 /**
@@ -375,7 +380,7 @@ export class NhAssistantStore {
         const decision = decisions.get(approval.approvalId);
         rights.set(approval.approvalId, {
           canDecide: decision?.canDecide === true,
-          waitingFor: decision?.reasonCode === fourEyesRequiredCode ? 'other-approver' : 'approver',
+          waitingFor: waitingForOf(decision?.reasonCode),
           decisionOwner: null
         });
       }
@@ -909,8 +914,11 @@ export class NhAssistantStore {
   /**
    * Approves or rejects an approval of the open conversation: `approvalId`, or the pending approval
    * when it is left out. A proposal of an agent's run is decided with its proposal hash through the
-   * agent-run endpoint; other approvals resume their turn as a stream. Ignores calls the current
-   * user may not make and repeated calls while a decision is in flight.
+   * agent-run endpoint; other approvals resume their turn as a stream. `leave` leaves a consulted
+   * agent's proposal that has a `consultation.leaveRoute` for the subject's approvers; it resumes the
+   * turn like a decision and reads the conversation again, which then names the proposal that waits
+   * at the subject. Ignores calls the current user may not make, `leave` for other approvals and
+   * repeated calls while a decision is in flight.
    */
   decide(decision: ApprovalDecision, reason?: string, approvalId?: string): void {
     const session = this.activeSession();
@@ -925,9 +933,16 @@ export class NhAssistantStore {
       return;
     }
 
+    if (decision === 'leave' && !approval.consultation?.leaveRoute) {
+      // Only a consulted agent's proposal with a route at the subject can be left for its approvers.
+      return;
+    }
+
     const proposal = conversation.thread?.decisions.find(item => item.approvalId === approval.approvalId);
     if (proposal?.runId) {
-      void this.decideProposal(conversation.id, approval, decision, reason);
+      if (decision !== 'leave') {
+        void this.decideProposal(conversation.id, approval, decision, reason);
+      }
       return;
     }
     if (conversation.pendingApproval?.approvalId !== approval.approvalId) {
@@ -963,7 +978,8 @@ export class NhAssistantStore {
       },
       complete: () => {
         this.patchSession(conversationId, current => ({ ...current, deciding: false }));
-        this.afterTurn(conversationId, failed);
+        // A proposal left for the subject's approvers names the one that waits there only once read again.
+        this.afterTurn(conversationId, failed || decision === 'leave');
       }
     });
   }
@@ -976,7 +992,7 @@ export class NhAssistantStore {
   private async decideProposal(
     conversationId: string,
     approval: ApprovalPart,
-    decision: ApprovalDecision,
+    decision: AgentProposalDecision,
     reason?: string
   ): Promise<void> {
     const revision = this.accountRevision;
@@ -1980,6 +1996,21 @@ function pendingApprovalParts(conversation: Conversation): ApprovalPart[] {
     approvals.set(conversation.pendingApproval.approvalId, conversation.pendingApproval);
   }
   return [...approvals.values()];
+}
+
+/**
+ * Who decides an open proposal of an agent thread the caller may not decide, by the server's reason:
+ * the person who consulted the agent, another approver for four-eyes, otherwise an approver.
+ */
+function waitingForOf(reasonCode: string | null | undefined): NhAssistantApprovalWaitingFor {
+  switch (reasonCode) {
+    case askerDecidesCode:
+      return 'asker';
+    case fourEyesRequiredCode:
+      return 'other-approver';
+    default:
+      return 'approver';
+  }
 }
 
 /**

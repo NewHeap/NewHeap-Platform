@@ -1178,6 +1178,11 @@ internal sealed class NhAssistantRegistrationState
                     $"Agent '{agentId}' allows consultation about '{consultation.SubjectType}', which it does not work on. Add the type to WorksOn.");
             }
 
+            foreach (var consultation in options.Consultations)
+            {
+                ValidateConsultationProposals(options, consultation);
+            }
+
             // WithLimits may run after ConfigureAgent: agent and skill file limits are checked now.
             options.FileLimits?.Validate(Limits, $"agent '{agentId}'");
             foreach (var skill in options.Skills.Values)
@@ -1237,6 +1242,51 @@ internal sealed class NhAssistantRegistrationState
         foreach (var policy in _approvalPolicies.Values.Where(policy => policy.EscalationPolicyId is not null))
         {
             ValidatePolicyReference(policy.EscalationPolicyId!, $"approval policy '{policy.Id}'");
+        }
+    }
+
+    /// <summary>
+    /// The static rules of a consultation's proposals: its own approval policy is registered, and a
+    /// route that executes with the agent's own rights is refused for an agent that answers to the
+    /// subject's responsible person, for the whole application and for a known policy that names no
+    /// approver other than the person who caused the proposal.
+    /// </summary>
+    private void ValidateConsultationProposals(NhAssistantAgentRunOptions options, NhAssistantConsultationOptions consultation)
+    {
+        var owner = $"consultation of agent '{consultation.AgentId}' about '{consultation.SubjectType}'";
+        if (consultation.ProposalPolicyId is { } proposalPolicy)
+        {
+            ValidatePolicyReference(proposalPolicy, owner);
+        }
+        if (consultation.AtSubjectRights != NhAssistantConsultationRights.Agent)
+        {
+            return;
+        }
+
+        if (options.Accountability == NhAiAgentAccountability.SubjectResponsible)
+        {
+            throw new InvalidOperationException(
+                $"The {owner} executes proposals with the agent's own rights, but the agent answers to the subject's responsible person. Use a technical account, let the agent answer for itself, or use AtSubject(NhAssistantConsultationRights.Asker).");
+        }
+        if (string.Equals(consultation.SubjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"The {owner} executes proposals with the agent's own rights for the whole application, which is too broad. Use AskerDecides() there.");
+        }
+
+        var known = options.ToolApprovalPolicies.Values
+            .Append(consultation.ProposalPolicyId)
+            .Append(options.ApprovalPolicyId)
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal);
+        foreach (var policyId in known)
+        {
+            if (_approvalPolicies.TryGetValue(policyId, out var policy)
+                && policy.Approvers.All(rule => rule is NhAiInitiatorApproverRule))
+            {
+                throw new InvalidOperationException(
+                    $"The {owner} executes proposals with the agent's own rights after another approver decided them, but approval policy '{policyId}' names only the initiator. Add an approver rule.");
+            }
         }
     }
 

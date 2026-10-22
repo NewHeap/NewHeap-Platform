@@ -179,7 +179,9 @@ public static class SampleAssistantComposition
                     // SPM-289: the gateway's four reads, which the application map points at.
                     SampleAiBridgeComposition.GatewayToolSetId + ".*",
                     NhAssistantConsultationTools.ConsultToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
-                    NhAssistantConsultationTools.RequestToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type)
+                    NhAssistantConsultationTools.RequestToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
+                    // SPM-278: the project closer, whose proposals run with its own rights.
+                    NhAssistantConsultationTools.ConsultToolId(SampleProjectCloserComposition.AgentId, ProjectSubjects.Type)
                 ],
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: AccessPolicy))

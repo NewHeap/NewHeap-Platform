@@ -114,6 +114,12 @@ internal sealed record NhAssistantDecisionTurnRequest(
     /// to the person who started the turn.
     /// </summary>
     public bool PolicyAuthorized { get; init; }
+
+    /// <summary>
+    /// The person who asked leaves the proposal of a consultation for the subject's approvers instead
+    /// of deciding it (CP20); <see cref="Approve"/> is ignored then.
+    /// </summary>
+    public bool LeaveForApprovers { get; init; }
 }
 
 /// <summary>
@@ -139,6 +145,14 @@ internal sealed record NhAssistantAgentTurnContext(
     /// proposal of a consultation executes.
     /// </summary>
     public bool DelegatedOnly { get; init; }
+
+    /// <summary>
+    /// The turn uses the agent's own rights only: its grants and, where it acts with them, the rights
+    /// of the account it answers to, never its initiator's rights, also for an agent whose runs
+    /// delegate. Set when an approved proposal of a consultation that executes with the agent's
+    /// rights executes.
+    /// </summary>
+    public bool AgentRightsOnly { get; init; }
 
     /// <summary>
     /// The tokens earlier turns of the same execution of the run used; <see langword="null"/> for a

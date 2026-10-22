@@ -18,6 +18,18 @@ internal interface INhAssistantConsultationViewer
         string toolId,
         string? readForActorId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether the asking person may decide a proposal of <paramref name="toolId"/> in the thread under
+    /// <paramref name="policy"/> (CP4): an approver rule they meet, the initiator rule included, and the
+    /// tool's approve policies, checked with the live principal of their own request. Without that
+    /// request nobody decides here.
+    /// </summary>
+    ValueTask<bool> MayDecideAsync(
+        NhAiApprovalPolicy policy,
+        AssistantThread thread,
+        string toolId,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -50,6 +62,29 @@ internal sealed record NhAssistantConsultationScope(
     INhAssistantConsultationViewer Viewer)
 {
     /// <summary>
+    /// The routes of the consultation's proposals as they apply now: the registration within the
+    /// administration's switches.
+    /// </summary>
+    public NhAssistantConsultationRouting Routing { get; init; } = new(false, NhAssistantConsultationRights.Asker);
+
+    /// <summary>
+    /// The person whose rights the consultation uses.
+    /// </summary>
+    public string AskerActorId { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The asking turn that can wait for its person's decision (CP9): a person's own turn in their own
+    /// request, not a nested consultation; <see langword="null"/> otherwise, such as for an MCP call or
+    /// a headless run.
+    /// </summary>
+    public NhAssistantConsultationAsker? Asker { get; init; }
+
+    /// <summary>
+    /// The proposals the consult turn recorded, by route.
+    /// </summary>
+    public NhAssistantConsultationOutcome Outcome { get; } = new();
+
+    /// <summary>
     /// Whether the consulted agent may in turn be offered the consultation tool
     /// <paramref name="toolId"/>: requests never, consultations only below the depth limit and never
     /// of an agent already in the chain.
@@ -66,6 +101,82 @@ internal sealed record NhAssistantConsultationScope(
                && !Chain.Contains(agentId, StringComparer.Ordinal);
     }
 }
+
+/// <summary>
+/// The asking turn of a consultation that waits for its person to decide: its scope, which holds the
+/// one decision a turn may wait for, and the consult call that waits.
+/// </summary>
+internal sealed record NhAssistantConsultationAsker(NhAssistantTurnScope AskingTurn, NhAssistantToolCallScope AskingCall);
+
+/// <summary>
+/// What a consult turn proposed, as it recorded it: the proposal the asker decides, if any, and every
+/// proposal with its route. Only the consult turn's flow writes it.
+/// </summary>
+internal sealed class NhAssistantConsultationOutcome
+{
+    private readonly object _sync = new();
+    private readonly List<NhAssistantConsultationProposal> _proposals = [];
+    private int _askerDecisionReserved;
+
+    /// <summary>
+    /// Reserves the one proposal of the consultation the asker decides (CP7).
+    /// </summary>
+    public bool TryReserveAskerDecision()
+    {
+        return Interlocked.Exchange(ref _askerDecisionReserved, 1) == 0;
+    }
+
+    public void ReleaseAskerDecision()
+    {
+        Volatile.Write(ref _askerDecisionReserved, 0);
+    }
+
+    public void Record(Guid approvalId, string route)
+    {
+        lock (_sync)
+        {
+            _proposals.Add(new NhAssistantConsultationProposal(approvalId, route));
+        }
+    }
+
+    public IReadOnlyList<NhAssistantConsultationProposal> Proposals
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _proposals.ToArray();
+            }
+        }
+    }
+
+    /// <summary>
+    /// The proposal the asker decides, when the consult turn recorded one.
+    /// </summary>
+    public Guid? AskerApprovalId => Proposals
+        .Where(proposal => proposal.Route == NhAssistantConsultationRoutes.AskerDecides)
+        .Select(proposal => (Guid?)proposal.ApprovalId)
+        .FirstOrDefault();
+}
+
+/// <param name="Route">One of <see cref="NhAssistantConsultationRoutes"/>.</param>
+internal sealed record NhAssistantConsultationProposal(Guid ApprovalId, string Route);
+
+/// <summary>
+/// The proposal of a consultation that the asking turn's person decides in their own conversation,
+/// with what the approval card shows about its origin.
+/// </summary>
+/// <param name="LeaveRoute">
+/// The route at the subject the person may leave it for, one of <see cref="NhAssistantConsultationRoutes"/>,
+/// or <see langword="null"/> when none applies.
+/// </param>
+internal sealed record NhAssistantAskerDecision(
+    Guid ApprovalId,
+    Guid ConsultationId,
+    string AgentId,
+    NhAiSubjectRef Subject,
+    string? SubjectDisplayName,
+    string? LeaveRoute);
 
 internal sealed record NhAssistantConsultationTurnRequest(
     NhAssistantAgentTurnContext AgentTurn,
@@ -118,6 +229,18 @@ internal sealed class NhAssistantConsultationService(
         var askingAgentId = asking?.Agent.Id;
         var askers = asking?.Consultation?.Chain ?? (askingAgentId is null ? [] : [askingAgentId]);
         var depth = (asking?.Consultation?.Depth ?? 0) + 1;
+        var askingCall = NhAssistantExecutionScope.CurrentCall;
+        var askingScope = NhAiAgentInvocationScopes.Current;
+        // Only a person's own turn in their own request can wait for them to decide (CP9): not an MCP
+        // call, a headless run or a nested consultation.
+        var asker = asking is not null
+                    && askingCall is not null
+                    && asking.Consultation is null
+                    && request.AskerInRequest
+                    && string.Equals(asking.OwnerActorId, request.AskerActorId, StringComparison.Ordinal)
+                    && (askingScope is null || askingScope.IsRequestTurn)
+            ? new NhAssistantConsultationAsker(asking, askingCall)
+            : null;
 
         var prepared = await PrepareAsync(request, askers, depth, cancellationToken);
         if (!prepared.Success)
@@ -151,14 +274,23 @@ internal sealed class NhAssistantConsultationService(
         };
         await runs.AddConsultationAsync(consultation, cancellationToken);
 
+        // The administration switches routes within what the registration allows (CP21).
+        var routing = NhAssistantConsultationRouting.Of(options, target.Agent.ConsultationRoutes);
+        var mayPropose = target.Access.Has(options.ProposalRole)
+                         && (routing.AtSubjectRights is not null || (routing.AskerDecides && asker is not null));
         var scope = new NhAssistantConsultationScope(
             consultation.Id,
             options,
             askers.Append(options.AgentId).ToArray(),
             depth,
-            options.AllowProposals && target.Access.Has(options.ProposalRole),
+            mayPropose,
             askingAgentId,
-            request.Viewer);
+            request.Viewer)
+        {
+            Routing = routing,
+            AskerActorId = request.AskerActorId,
+            Asker = asker
+        };
         var agentTurn = new NhAssistantAgentTurnContext(
             target.Thread,
             target.Subject,
@@ -179,6 +311,7 @@ internal sealed class NhAssistantConsultationService(
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             await EndAsync(consultation, target.Thread, null, NhAssistantErrorCodes.ConsultFailed);
+            await WithdrawAskerDecisionAsync(scope);
             if (exception is OperationCanceledException)
             {
                 throw;
@@ -202,13 +335,58 @@ internal sealed class NhAssistantConsultationService(
         await NotifyProposalsAsync(target.Thread, consultation);
         if (failureCode is not null)
         {
+            // Nobody waits for a decision of a consultation that failed.
+            await WithdrawAskerDecisionAsync(scope);
             return TaskResult<NhAssistantConsultationAnswer>.Failed(failureCode, "The agent could not answer.");
+        }
+
+        var proposals = scope.Outcome.Proposals;
+        var askerApprovalId = scope.Outcome.AskerApprovalId;
+        if (askerApprovalId is { } waiting && asker is not null)
+        {
+            // The asking turn waits for its person's decision once this call returns (option A).
+            asker.AskingCall.AskerDecision = new NhAssistantAskerDecision(
+                waiting,
+                consultation.Id,
+                options.AgentId,
+                target.Subject.Subject,
+                target.Thread.SubjectDisplayName ?? target.Subject.DisplayName,
+                NhAssistantConsultationProposals.LeaveRouteOf(routing, target.Thread, target.Agent));
         }
 
         return TaskResult<NhAssistantConsultationAnswer>.Succeeded(new NhAssistantConsultationAnswer(
             consultation.Id,
             NhAssistantContent.Bound(result.Answer.Trim(), options.MaxAnswerChars),
-            result.ProposalCount));
+            result.ProposalCount)
+        {
+            Decision = askerApprovalId is not null
+                ? NhAssistantConsultationDecisions.Asker
+                : proposals.Count > 0 ? NhAssistantConsultationDecisions.Subject : null,
+            ApprovalIds = proposals
+                .OrderBy(proposal => proposal.Route == NhAssistantConsultationRoutes.AskerDecides ? 0 : 1)
+                .Select(proposal => proposal.ApprovalId)
+                .ToArray()
+        });
+    }
+
+    /// <summary>
+    /// Withdraws the proposal a failed consultation left for its asker, and frees the asking turn's
+    /// one decision.
+    /// </summary>
+    private async Task WithdrawAskerDecisionAsync(NhAssistantConsultationScope scope)
+    {
+        if (scope.Outcome.AskerApprovalId is not { } approvalId)
+        {
+            return;
+        }
+
+        await runs.TryTransitionApprovalAsync(
+            approvalId,
+            [NhAssistantApprovalStatuses.Pending],
+            NhAssistantApprovalStatuses.Withdrawn,
+            NhAssistantApprovalTransition.None,
+            CancellationToken.None);
+        scope.Asker?.AskingTurn.ReleaseAskerDecision();
     }
 
     /// <summary>
@@ -311,7 +489,7 @@ internal sealed class NhAssistantConsultationService(
         }
 
         return TaskResult<NhAssistantConsultationTarget>.Succeeded(
-            new NhAssistantConsultationTarget(thread.Data!, subject, access, runOptions, timeout));
+            new NhAssistantConsultationTarget(thread.Data!, subject, access, runOptions, timeout, agent));
     }
 
     /// <summary>
@@ -374,8 +552,10 @@ internal sealed class NhAssistantConsultationService(
     /// </summary>
     private async Task NotifyProposalsAsync(AssistantThread thread, AssistantConsultation consultation)
     {
+        // A proposal the asker decides in their own conversation is nothing for the approvers.
         var waiting = (await runs.GetConsultationApprovalsAsync(consultation.Id, CancellationToken.None))
-            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending)
+            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending
+                && approval.Mode == NhAssistantApprovalModes.Deferred)
             .ToArray();
         if (waiting.Length == 0)
         {
@@ -410,7 +590,8 @@ internal sealed class NhAssistantConsultationService(
         NhAiSubjectInfo Subject,
         NhAiSubjectAccess Access,
         NhAssistantAgentRunOptions RunOptions,
-        TimeSpan Timeout);
+        TimeSpan Timeout,
+        NhAssistantAgent Agent);
 }
 
 /// <summary>
