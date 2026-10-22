@@ -119,7 +119,7 @@
         "sending": "Versturen…",
         "failed": "Niet verstuurd; hervat om opnieuw te proberen"
       },
-      "files": "Bestanden: {{count}}"
+      "files": "Bestanden ({{count}}): {{names}}"
     },
     "tool-call": {
       "label": "Toolaanroep: {{name}}",
@@ -442,8 +442,9 @@
       "assistant-proposal-not-needed": "Niet voorgesteld: het werk is al gedaan of is niet meer van toepassing.",
       "assistant-file-upload-invalid": "Het bestand kon niet worden geüpload. Kies één bestand en probeer het opnieuw.",
       "assistant-file-type-not-accepted": "Dit type bestand kan niet worden bijgevoegd.",
-      "assistant-file-upload-refused": "De applicatie heeft dit bestand geweigerd, bijvoorbeeld na een virusscan.",
-      "assistant-file-upload-failed": "Het bestand kon nu niet worden opgeslagen. Probeer het zo opnieuw."
+      "assistant-file-upload-refused": "De applicatie heeft dit bestand geweigerd.",
+      "assistant-file-upload-failed": "Het bestand kon nu niet worden opgeslagen. Probeer het zo opnieuw.",
+      "assistant-file-scan-refused": "Het bestand is niet door de scan op schadelijke inhoud gekomen en is niet opgeslagen."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
@@ -1114,7 +1115,15 @@
         "files": {
           "label": "Neemt bestanden aan",
           "agent-hint": "Berichten van mensen en de tools van de agent mogen hem documenten geven, zoals pdf's, binnen de limieten van de applicatie. Een nieuwe agent neemt er geen aan totdat je dit aanzet.",
-          "skill-hint": "Runs in deze vaardigheid mogen documenten lezen als de agent ze ook aanneemt. Een nieuwe vaardigheid neemt er geen aan totdat je dit aanzet."
+          "skill-hint": "Runs in deze vaardigheid mogen documenten lezen als de agent ze ook aanneemt. Een nieuwe vaardigheid neemt er geen aan totdat je dit aanzet.",
+          "limits-title": "Lagere bestandslimieten",
+          "agent-limits-hint": "Laat een veld leeg om de limiet van de applicatie te houden. Een waarde kan die alleen verlagen.",
+          "skill-limits-hint": "Laat een veld leeg om de limiet van de agent te houden. Een waarde kan die van de applicatie alleen verlagen.",
+          "max-file-megabytes": "Grootste bestand (MB)",
+          "max-file-pages": "Meeste pagina's per bestand",
+          "max-files-per-turn": "Meeste bestanden per beurt",
+          "max-file-tokens-per-turn": "Meeste bestandstokens per beurt",
+          "application-limit": "De applicatie staat hooguit {{value}} toe."
         },
         "back": "Terug naar agents",
         "title": "Runconfiguratie van {{name}}",
@@ -1154,7 +1163,9 @@
           "taken": "Deze id is al in gebruik.",
           "name-letters": "Gebruik minstens één letter in de naam.",
           "instructions-for-model": "Zonder vaste regels werkt het model met deze instructies; beschrijf wat het moet doen.",
-          "application-not-worked-on": "De agent werkt niet aan de hele applicatie. Kies een verzameling objecten, of laat de agent eerst aan de hele applicatie werken."
+          "application-not-worked-on": "De agent werkt niet aan de hele applicatie. Kies een verzameling objecten, of laat de agent eerst aan de hele applicatie werken.",
+          "megabytes-up-to": "Vul een grootte in boven 0 en hooguit {{max}} MB.",
+          "megabytes-positive": "Vul een grootte in boven 0 MB."
         },
         "settings": {
           "title": "Runinstellingen",

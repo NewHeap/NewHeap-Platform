@@ -16,7 +16,7 @@ import {
 } from '@angular/core';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import { ApprovalDecision, ClientContext } from '../../models/assistant-api.models';
+import { ApprovalDecision, ClientContext, FileReference } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NH_ASSISTANT_CONFIG } from '../../nh-assistant.config';
@@ -234,6 +234,11 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   /** Uploads the files the person attached to the next message. */
   attach(files: File[]): void {
     void this.store.attach(files);
+  }
+
+  /** The names of the files a queued message carries, as the queue lists them. */
+  fileNames(files: readonly FileReference[]): string {
+    return files.map(file => file.name).join(', ');
   }
 
   editQueuedMessage(id: string, text: string): void {

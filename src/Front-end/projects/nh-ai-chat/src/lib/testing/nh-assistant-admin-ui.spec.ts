@@ -817,6 +817,88 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(document.activeElement).toBe(element.querySelector('[data-run-config-agent="follower"]'));
   });
 
+  it('lowers the file limits of an administration agent and its skill within the application\'s, with errors at their fields', async () => {
+    const script = runScenario();
+    script.admin!.runCatalog!.fileLimits = { maxFileBytes: 10 * 1024 * 1024, maxFilePages: 50, maxFilesPerTurn: 3, maxFileTokensPerTurn: 50_000 };
+    await configure(script);
+    await firstValueFrom(TestBed.inject(NhAssistantAdminApiService).createAgent({
+      id: 'reader', displayName: 'Document reader', description: 'Reads documents.', instructions: 'Read documents.',
+      toolSelectors: ['sample-api.project.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'execute'
+    }));
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    (element.querySelector('[data-run-config-agent="reader"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
+    const form = () => view().querySelector('[data-form="settings"]') as HTMLElement;
+    button(view(), 'Add run settings').click();
+    await settle(fixture);
+    check(form(), 'input[type="radio"][value="agent"]');
+
+    // The limits appear once the agent accepts files, each naming the application's limit.
+    expect(form().querySelector('[data-file-limits]')).toBeNull();
+    check(form(), '[data-accepts-files] input');
+    await settle(fixture);
+    const limits = form().querySelector('[data-file-limits]') as HTMLElement;
+    expect(limits.textContent).toContain('Lower file limits');
+    expect(limits.querySelector('[data-file-limit="maxFileBytes"]')?.textContent).toContain('The application allows at most 10 MB.');
+    expect(limits.querySelector('[data-file-limit="maxFilesPerTurn"]')?.textContent).toContain('The application allows at most 3.');
+
+    // A value above the application's, or not positive, is refused at its field before sending.
+    type(form(), 'input[id$="-file-size"]', '30');
+    type(form(), 'input[id$="-file-pages"]', '0');
+    button(form(), 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/reader/run-settings')).toEqual([]);
+    expect(form().querySelector('input[id$="-file-size"]')?.getAttribute('aria-invalid')).toBe('true');
+    expect(form().textContent).toContain('Enter a size above 0 and at most 10 MB.');
+    expect(form().textContent).toContain('Enter a whole number from 1 to 50.');
+    expect(document.activeElement).toBe(form().querySelector('input[id$="-file-size"]'));
+
+    type(form(), 'input[id$="-file-size"]', '2.5');
+    type(form(), 'input[id$="-file-pages"]', '10');
+    type(form(), 'input[id$="-files-per-turn"]', '2');
+    button(form(), 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/reader/run-settings').at(-1)).toEqual(jasmine.objectContaining({
+      accountability: 'agent', acceptsFiles: true,
+      maxFileBytes: 2.5 * 1024 * 1024, maxFilePages: 10, maxFilesPerTurn: 2, maxFileTokensPerTurn: null
+    }));
+
+    // The saved limits come back into the form; without files the agent sends none.
+    button(view(), 'Change run settings').click();
+    await settle(fixture);
+    expect((form().querySelector('input[id$="-file-size"]') as HTMLInputElement).value).toBe('2.5');
+    expect((form().querySelector('input[id$="-files-per-turn"]') as HTMLInputElement).value).toBe('2');
+    check(form(), '[data-accepts-files] input');
+    await settle(fixture);
+    expect(form().querySelector('[data-file-limits]')).toBeNull();
+    button(form(), 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/reader/run-settings').at(-1)).toEqual(jasmine.objectContaining({
+      acceptsFiles: false, maxFileBytes: null, maxFilePages: null, maxFilesPerTurn: null, maxFileTokensPerTurn: null
+    }));
+
+    // A skill lowers the agent's limits the same way.
+    button(view(), 'Add skill').click();
+    await settle(fixture);
+    const skillForm = () => view().querySelector('[data-form="skill"]') as HTMLElement;
+    type(skillForm(), 'input[id$="-skill-id"]', 'audit');
+    type(skillForm(), 'input[id$="-skill-description"]', 'Audits the project documents.');
+    check(skillForm(), '[data-accepts-files] input');
+    await settle(fixture);
+    expect(skillForm().querySelector('[data-file-limits]')?.textContent).toContain('keep the agent\'s limit');
+    type(skillForm(), 'input[id$="-files-per-turn"]', '4');
+    button(skillForm(), 'Save').click();
+    await settle(fixture);
+    expect(skillForm().textContent).toContain('Enter a whole number from 1 to 3.');
+    type(skillForm(), 'input[id$="-files-per-turn"]', '1');
+    button(skillForm(), 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/reader/skills/audit')).toEqual([jasmine.objectContaining({
+      acceptsFiles: true, maxFilesPerTurn: 1, maxFileBytes: null
+    })]);
+  });
+
   it('creates an agent that works on its own, out of the chat, through the guided setup', async () => {
     const script = runScenario();
     script.admin!.accounts = [{ actorId: 'service-1', displayName: 'Operations account', detail: 'operations@example.test' }];

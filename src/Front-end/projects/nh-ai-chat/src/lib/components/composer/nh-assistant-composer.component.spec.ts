@@ -130,7 +130,7 @@ describe('NhAssistantComposerComponent attachments', () => {
     const errors = items.slice(2).map(item => item.querySelector('[role="alert"]')!.textContent!.trim());
     expect(errors).toEqual([
       'The file is larger than 2 MB.',
-      'The application refused this file, for example after a virus scan.'
+      'The application refused this file.'
     ]);
   });
 

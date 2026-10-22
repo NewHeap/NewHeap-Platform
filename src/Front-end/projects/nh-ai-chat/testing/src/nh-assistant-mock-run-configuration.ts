@@ -12,6 +12,8 @@ import {
   DataSkillVersionStatus,
   DataTrigger,
   DataTriggerRequest,
+  FileLimits,
+  LowerFileLimits,
   RunCatalog,
   SkillComparison
 } from '@newheap/platform-ai-chat';
@@ -48,6 +50,16 @@ const maxDescription = 300;
 const maxInstructions = 20_000;
 const maxMessage = 2_000;
 const maxReason = 500;
+
+/** The platform's default file limits (`NhAssistantLimits`). */
+const defaultFileLimits: FileLimits = {
+  maxFileBytes: 20 * 1024 * 1024,
+  maxFilePages: 100,
+  maxFilesPerTurn: 5,
+  maxFileTokensPerTurn: 100_000
+};
+
+const fileLimitFields: readonly (keyof FileLimits)[] = ['maxFileBytes', 'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn'];
 
 /**
  * In-memory run configuration as data of the mock API: run settings of agents created in the
@@ -92,7 +104,9 @@ export class NhAssistantMockRunConfiguration {
       })),
       accountSearch: accounts.searchable,
       agentPolicies: scenario.runCatalog?.agentPolicies ?? [],
-      divisions: scenario.runCatalog?.divisions ?? false
+      divisions: scenario.runCatalog?.divisions ?? false,
+      // The platform's default file limits, unless the scenario's application chose its own.
+      fileLimits: scenario.runCatalog?.fileLimits ?? defaultFileLimits
     };
     this.codeTriggers = (scenario.codeTriggers ?? []).map(trigger => ({
       ...trigger,
@@ -264,6 +278,7 @@ export class NhAssistantMockRunConfiguration {
     this.requireKnown(errors, 'approvalPolicy', request.approvalPolicy, this.catalog.approvalPolicies);
     this.requireKnown(errors, 'triageProfile', request.triageProfile, this.catalog.profiles);
     this.requireKnown(errors, 'ruleHandler', request.ruleHandler, this.catalog.ruleHandlers.map(handler => handler.name));
+    this.requireFileLimits(errors, request.acceptsFiles ?? false, request);
     if (Object.keys(errors).length > 0) {
       return failure('assistant-validation', errors);
     }
@@ -295,7 +310,8 @@ export class NhAssistantMockRunConfiguration {
       reason: text(request.reason),
       inEffect: true,
       problem: null,
-      acceptsFiles: request.acceptsFiles ?? false
+      acceptsFiles: request.acceptsFiles ?? false,
+      ...storedFileLimits(request)
     };
     this.settings.set(agent.id, saved);
     return { status: 200, body: saved };
@@ -367,6 +383,7 @@ export class NhAssistantMockRunConfiguration {
     this.requireKnown(errors, 'profile', request.profile, this.catalog.profiles);
     this.requireKnown(errors, 'ruleHandler', request.ruleHandler, this.catalog.ruleHandlers.map(handler => handler.name));
     this.requireKnown(errors, 'approvalPolicy', request.approvalPolicy, this.catalog.approvalPolicies);
+    this.requireFileLimits(errors, request.acceptsFiles ?? false, request);
     if (Object.keys(errors).length > 0) {
       return failure('assistant-validation', errors);
     }
@@ -394,6 +411,7 @@ export class NhAssistantMockRunConfiguration {
       profile: text(request.profile),
       dataClassification: classification as AssistantDataClassification | null,
       acceptsFiles: request.acceptsFiles ?? false,
+      ...storedFileLimits(request),
       ruleHandler: text(request.ruleHandler),
       maxTokensPerRun: request.maxTokensPerRun ?? null,
       dailyToolCalls: request.dailyToolCalls ?? null,
@@ -655,6 +673,30 @@ export class NhAssistantMockRunConfiguration {
       errors[field] = ['not-found'];
     }
   }
+
+  /**
+   * Lower file limits as the server checks them: each a whole number from 1 to the application's
+   * limit, and only next to `acceptsFiles`.
+   */
+  private requireFileLimits(errors: Record<string, string[]>, acceptsFiles: boolean, request: LowerFileLimits): void {
+    const application = this.catalog.fileLimits ?? defaultFileLimits;
+    for (const field of fileLimitFields) {
+      const value = request[field];
+      if (value !== null && value !== undefined && (!acceptsFiles || !inRange(value, 1, application[field]))) {
+        errors[field] = ['invalid'];
+      }
+    }
+  }
+}
+
+/** The lower file limits a save stores, `null` where the request keeps the application's. */
+function storedFileLimits(request: LowerFileLimits): Required<LowerFileLimits> {
+  return {
+    maxFileBytes: request.maxFileBytes ?? null,
+    maxFilePages: request.maxFilePages ?? null,
+    maxFilesPerTurn: request.maxFilesPerTurn ?? null,
+    maxFileTokensPerTurn: request.maxFileTokensPerTurn ?? null
+  };
 }
 
 const ownerKey = '__agentId';

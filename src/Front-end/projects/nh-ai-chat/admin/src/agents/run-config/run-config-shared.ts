@@ -1,6 +1,9 @@
+import { WritableSignal, signal } from '@angular/core';
 import {
   ApprovalPolicySummary,
   AssistantDataClassification,
+  FileLimits,
+  LowerFileLimits,
   NhAssistantError,
   RunCatalog,
   ToolCatalogEntry,
@@ -298,4 +301,91 @@ function describeDuration(minutes: number, t: Translate): string {
     return t(hours === 1 ? `${base}.hour` : `${base}.hours`, { count: hours });
   }
   return t(minutes === 1 ? `${base}.minute` : `${base}.minutes`, { count: minutes });
+}
+
+/** The bytes of one megabyte, as the forms show a file size. */
+const bytesPerMegabyte = 1024 * 1024;
+
+/** The lower file limits of an agent or a skill, as their fields name them on the server. */
+export type FileLimitField = keyof FileLimits;
+
+/** The file limit fields in the order the forms show them. */
+export const fileLimitFields: readonly FileLimitField[] = ['maxFileBytes', 'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn'];
+
+/** A size in megabytes as a form shows it: whole megabytes plainly, others with up to two decimals. */
+export function megabytesText(bytes: number): string {
+  const megabytes = bytes / bytesPerMegabyte;
+  return Number.isInteger(megabytes) ? String(megabytes) : String(Math.round(megabytes * 100) / 100);
+}
+
+/**
+ * The lower file limits of an agent or a skill as a form edits them: the largest file in megabytes,
+ * the others as whole numbers; an empty field keeps the application's limit (for a skill, the
+ * agent's). A size shown with decimals keeps its exact bytes until the administrator changes it.
+ */
+export class FileLimitsDraft {
+  readonly megabytes = signal('');
+  readonly pages = signal('');
+  readonly files = signal('');
+  readonly tokens = signal('');
+  private loadedBytes: number | null = null;
+  private loadedMegabytes = '';
+
+  load(limits: LowerFileLimits | null | undefined): void {
+    this.loadedBytes = limits?.maxFileBytes ?? null;
+    this.loadedMegabytes = this.loadedBytes === null ? '' : megabytesText(this.loadedBytes);
+    this.megabytes.set(this.loadedMegabytes);
+    this.pages.set(numberText(limits?.maxFilePages));
+    this.files.set(numberText(limits?.maxFilesPerTurn));
+    this.tokens.set(numberText(limits?.maxFileTokensPerTurn));
+  }
+
+  /** The text of a field, by its server name. */
+  text(field: FileLimitField): WritableSignal<string> {
+    switch (field) {
+      case 'maxFileBytes':
+        return this.megabytes;
+      case 'maxFilePages':
+        return this.pages;
+      case 'maxFilesPerTurn':
+        return this.files;
+      default:
+        return this.tokens;
+    }
+  }
+
+  /** Checks the fields against the application's limits, as the server does; only next to accepting files. */
+  check(errors: RunConfigErrors, application: FileLimits | null | undefined): void {
+    const bytes = this.bytes();
+    if (this.megabytes().trim() !== '' && (bytes === null || bytes < 1 || (application && bytes > application.maxFileBytes))) {
+      errors['maxFileBytes'] = application
+        ? { code: 'megabytes-up-to', params: { max: megabytesText(application.maxFileBytes) } }
+        : { code: 'megabytes-positive' };
+    }
+    checkWhole(errors, 'maxFilePages', this.pages(), 1, application?.maxFilePages);
+    checkWhole(errors, 'maxFilesPerTurn', this.files(), 1, application?.maxFilesPerTurn);
+    checkWhole(errors, 'maxFileTokensPerTurn', this.tokens(), 1, application?.maxFileTokensPerTurn);
+  }
+
+  /** The limits a save sends: none when the agent or skill accepts no files. */
+  toRequest(acceptsFiles: boolean): Required<LowerFileLimits> {
+    return {
+      maxFileBytes: acceptsFiles ? this.bytes() : null,
+      maxFilePages: acceptsFiles ? toNumber(this.pages()) : null,
+      maxFilesPerTurn: acceptsFiles ? toNumber(this.files()) : null,
+      maxFileTokensPerTurn: acceptsFiles ? toNumber(this.tokens()) : null
+    };
+  }
+
+  private bytes(): number | null {
+    const text = this.megabytes().trim();
+    if (text === '') {
+      return null;
+    }
+    if (text === this.loadedMegabytes && this.loadedBytes !== null) {
+      return this.loadedBytes;
+    }
+    const megabytes = Number(text.replace(',', '.'));
+    return Number.isFinite(megabytes) ? Math.round(megabytes * bytesPerMegabyte) : null;
+  }
 }

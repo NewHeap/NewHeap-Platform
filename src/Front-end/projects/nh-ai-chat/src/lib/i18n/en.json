@@ -119,7 +119,7 @@
         "sending": "Sending…",
         "failed": "Not sent; resume to retry"
       },
-      "files": "Files: {{count}}"
+      "files": "Files ({{count}}): {{names}}"
     },
     "tool-call": {
       "label": "Tool call: {{name}}",
@@ -442,8 +442,9 @@
       "assistant-proposal-not-needed": "Not proposed: the work is already done or no longer applies.",
       "assistant-file-upload-invalid": "The file could not be uploaded. Choose one file and try again.",
       "assistant-file-type-not-accepted": "This type of file cannot be attached.",
-      "assistant-file-upload-refused": "The application refused this file, for example after a virus scan.",
-      "assistant-file-upload-failed": "The file could not be stored right now. Try again in a moment."
+      "assistant-file-upload-refused": "The application refused this file.",
+      "assistant-file-upload-failed": "The file could not be stored right now. Try again in a moment.",
+      "assistant-file-scan-refused": "The file did not pass the scan for harmful content and was not stored."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",
@@ -1114,7 +1115,15 @@
         "files": {
           "label": "Accepts files",
           "agent-hint": "People's messages and the agent's tools may give it documents, such as PDFs, within the application's limits. A new agent accepts none until you switch this on.",
-          "skill-hint": "Runs in this skill may read documents when the agent accepts them too. A new skill accepts none until you switch this on."
+          "skill-hint": "Runs in this skill may read documents when the agent accepts them too. A new skill accepts none until you switch this on.",
+          "limits-title": "Lower file limits",
+          "agent-limits-hint": "Leave a field empty to keep the application's limit. A value can only lower it.",
+          "skill-limits-hint": "Leave a field empty to keep the agent's limit. A value can only lower the application's.",
+          "max-file-megabytes": "Largest file (MB)",
+          "max-file-pages": "Most pages per file",
+          "max-files-per-turn": "Most files per turn",
+          "max-file-tokens-per-turn": "Most file tokens per turn",
+          "application-limit": "The application allows at most {{value}}."
         },
         "back": "Back to agents",
         "title": "Run configuration of {{name}}",
@@ -1154,7 +1163,9 @@
           "taken": "This id is already in use.",
           "name-letters": "Use at least one letter in the name.",
           "instructions-for-model": "Without fixed rules the model works from these instructions; describe what it should do.",
-          "application-not-worked-on": "The agent does not work on the whole application. Choose a set of objects, or let the agent work on the whole application first."
+          "application-not-worked-on": "The agent does not work on the whole application. Choose a set of objects, or let the agent work on the whole application first.",
+          "megabytes-up-to": "Enter a size above 0 and at most {{max}} MB.",
+          "megabytes-positive": "Enter a size above 0 MB."
         },
         "settings": {
           "title": "Run settings",

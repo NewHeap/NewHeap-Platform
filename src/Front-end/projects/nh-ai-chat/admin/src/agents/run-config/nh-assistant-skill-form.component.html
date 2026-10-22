@@ -135,6 +135,15 @@
         <span class="muted block">{{ 'nh-assistant.admin.run-config.files.skill-hint' | translate }}</span>
       </span>
     </label>
+    @if (acceptsFiles()) {
+      <nh-assistant-file-limits-fields
+        [draft]="fileLimits"
+        [application]="catalog()?.fileLimits"
+        [errors]="fieldErrors()"
+        [idPrefix]="id"
+        hintKey="nh-assistant.admin.run-config.files.skill-limits-hint"
+        (touched)="touch($event)" />
+    }
   </fieldset>
 
   <fieldset class="group">

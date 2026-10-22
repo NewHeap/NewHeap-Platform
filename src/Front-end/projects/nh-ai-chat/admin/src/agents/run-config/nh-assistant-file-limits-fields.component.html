@@ -1,0 +1,22 @@
+<fieldset class="field file-limits" data-file-limits>
+  <legend>{{ 'nh-assistant.admin.run-config.files.limits-title' | translate }}</legend>
+  <p class="hint" [id]="idPrefix() + '-file-limits-hint'">{{ hintKey() | translate }}</p>
+  <div class="grid">
+    @for (control of controls; track control.field) {
+      <div class="field" [attr.data-file-limit]="control.field">
+        <label [for]="idOf(control)">{{ 'nh-assistant.admin.run-config.files.' + control.label | translate }}</label>
+        <input type="number" min="0" [attr.step]="control.step" [attr.max]="max(control)" [attr.inputmode]="control.inputMode"
+          [id]="idOf(control)" [value]="draft().text(control.field)()"
+          [attr.aria-invalid]="errorKey(control) ? true : null"
+          [attr.aria-describedby]="describedBy(control)"
+          (input)="change(control, $event)" />
+        @if (applicationLimit(control); as limit) {
+          <p class="hint" [id]="idOf(control, '-limit')">{{ 'nh-assistant.admin.run-config.files.application-limit' | translate: { value: limit } }}</p>
+        }
+        @if (errorKey(control); as key) {
+          <p class="field-error" [id]="idOf(control, '-error')"><nh-assistant-icon name="warning" />{{ key | translate: errorParams(control) }}</p>
+        }
+      </div>
+    }
+  </div>
+</fieldset>

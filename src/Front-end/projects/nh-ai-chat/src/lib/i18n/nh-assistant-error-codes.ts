@@ -46,6 +46,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-file-type-not-accepted',
   'assistant-file-upload-refused',
   'assistant-file-upload-failed',
+  'assistant-file-scan-refused',
   'assistant-turn-failed',
   'assistant-context-unavailable',
   'assistant-actor-mismatch',

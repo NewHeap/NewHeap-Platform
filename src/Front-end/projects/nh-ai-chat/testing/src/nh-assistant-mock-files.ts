@@ -31,7 +31,10 @@ export class NhAssistantMockFiles {
   private readonly stored = new Map<string, NhAssistantMockUpload & { reference: FileReference }>();
   private next = 0;
 
-  constructor(private readonly refuse?: (upload: NhAssistantMockUpload) => string | null) {}
+  constructor(
+    private readonly refuse?: (upload: NhAssistantMockUpload) => string | null,
+    private readonly scan?: (upload: NhAssistantMockUpload) => 'refused' | 'failed' | null
+  ) {}
 
   /** The uploads the mock stored, oldest first. */
   get uploads(): readonly (NhAssistantMockUpload & { reference: FileReference })[] {
@@ -41,7 +44,8 @@ export class NhAssistantMockFiles {
   /**
    * Checks an upload as the server does, in its order: a file source, an agent that accepts files,
    * the upload header, one file part named `file` with a name and content, an accepted media type
-   * whose content matches, the agent's largest size, and finally the application's own refusal.
+   * whose content matches, the agent's largest size, the application's scanner, and finally the
+   * application's own refusal.
    */
   async upload(
     conversationId: string,
@@ -82,6 +86,11 @@ export class NhAssistantMockFiles {
     }
 
     const upload: NhAssistantMockUpload = { conversationId, name, mediaType, size: file.size };
+    // The application's scanner sees the file before its file source stores anything.
+    const scanned = this.scan?.(upload) ?? null;
+    if (scanned) {
+      return mockFailure(scanned === 'refused' ? 'assistant-file-scan-refused' : 'assistant-file-upload-failed');
+    }
     const refusal = this.refuse?.(upload) ?? null;
     if (refusal) {
       return mockFailure(refusalCode(refusal));
