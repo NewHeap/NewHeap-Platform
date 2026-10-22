@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.IO.Pipelines;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Client;
@@ -107,13 +108,37 @@ public sealed class NhAiToolResultTests
         var properties = schema.GetProperty("properties");
         Assert.Equal("object", schema.GetProperty("type").GetString());
         Assert.Equal(
-            [NhAiToolResult.SuccessPropertyName, NhAiToolResult.CodePropertyName, NhAiToolResult.MessagePropertyName, NhAiToolResult.DataPropertyName],
+            [NhAiToolResult.SuccessPropertyName, NhAiToolResult.CodePropertyName, NhAiToolResult.MessagePropertyName, NhAiToolResult.DataPropertyName, NhAiToolResult.FilesPropertyName],
             properties.EnumerateObject().Select(property => property.Name).ToArray());
         Assert.Equal("boolean", properties.GetProperty(NhAiToolResult.SuccessPropertyName).GetProperty("type").GetString());
         Assert.Equal(
             JsonSerializer.Serialize(JsonDocument.Parse(descriptor.OutputSchemaJson).RootElement),
             JsonSerializer.Serialize(properties.GetProperty(NhAiToolResult.DataPropertyName)));
+        Assert.Equal("array", properties.GetProperty(NhAiToolResult.FilesPropertyName).GetProperty("type").GetString());
         Assert.Equal(NhAiToolResult.SuccessPropertyName, Assert.Single(schema.GetProperty("required").EnumerateArray()).GetString());
+    }
+
+    [Fact]
+    public void A_success_names_the_files_of_its_data_next_to_it_and_a_failure_names_none()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { TypeInfoResolver = new DefaultJsonTypeInfoResolver() };
+        var plan = new NhAiFileReference("doc-1", "Plan.pdf", NhAiMediaTypes.Pdf, 2_048, "sha256:abc");
+
+        var success = NhAiToolResult.Create(TaskResult<ResultProbeFiles>.Succeeded(new ResultProbeFiles(1, [plan])), options);
+        var failure = NhAiToolResult.Create(TaskResult<ResultProbeFiles>.Failed("result-probe-failed", "No files."), options);
+        using var malformed = JsonDocument.Parse("""{"success":true,"files":[{"id":"doc-1","name":"Plan.pdf"}]}""");
+
+        Assert.Equal(
+            """{"success":true,"data":{"count":1},"files":[{"id":"doc-1","name":"Plan.pdf","mediaType":"application/pdf","size":2048,"hash":"sha256:abc"}]}""",
+            success.GetRawText());
+        Assert.True(NhAiToolResult.TryGetFiles(success, out var files));
+        Assert.Equal(plan, Assert.Single(files));
+        Assert.False(failure.TryGetProperty(NhAiToolResult.FilesPropertyName, out _));
+        Assert.True(NhAiToolResult.TryGetFiles(failure, out var none));
+        Assert.Empty(none);
+        Assert.False(NhAiToolResult.TryGetFiles(malformed.RootElement, out _));
+        // A reference is checked when the result is written: a media type is type/subtype.
+        Assert.Throws<ArgumentException>(() => NhAiToolResult.Create(TaskResult<int>.Succeeded(1), options, [plan with { MediaType = "pdf" }]));
     }
 
     [Fact]
@@ -355,6 +380,11 @@ public sealed class NhAiToolResultTests
 public sealed record ResultProbeInput(string Subject, string Mode);
 
 public sealed record ResultProbeOutput(string Subject);
+
+/// <summary>
+/// Data that names files: they become the result's files, not part of its data.
+/// </summary>
+public sealed record ResultProbeFiles(int Count, [property: JsonIgnore] IReadOnlyList<NhAiFileReference> Files) : INhAiToolResultFiles;
 
 [NhAiToolSet("result-probe")]
 public sealed class ResultProbeTools

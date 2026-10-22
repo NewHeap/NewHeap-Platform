@@ -17,7 +17,9 @@ namespace NewHeap.Platform.AI;
 /// </summary>
 /// <remarks>
 /// The envelope property names are fixed; only <c>data</c> follows the tool's serializer options.
-/// The shape is not part of a tool's contract hash: it is the same for every governed tool.
+/// The shape is not part of a tool's contract hash: it is the same for every governed tool. A
+/// success may name files next to its data (<c>"files":[{"id":...,"name":...,"mediaType":...,"size":...,"hash":...}]</c>);
+/// the assistant opens them through the application's file source and gives them to the model.
 /// </remarks>
 public static class NhAiToolResult
 {
@@ -26,18 +28,59 @@ public static class NhAiToolResult
     public const string MessagePropertyName = "message";
     public const string DataPropertyName = "data";
 
+    /// <summary>
+    /// The envelope property that names the files of a successful result.
+    /// </summary>
+    public const string FilesPropertyName = "files";
+
+    /// <summary>
+    /// The most files one result names.
+    /// </summary>
+    public const int MaxFiles = 16;
+
+    private const string FileIdPropertyName = "id";
+    private const string FileNamePropertyName = "name";
+    private const string FileMediaTypePropertyName = "mediaType";
+    private const string FileSizePropertyName = "size";
+    private const string FileHashPropertyName = "hash";
+
     private const int DefaultMaxDepth = 64;
 
     /// <summary>
     /// Writes a tool outcome in the shared shape. The code is the first result item named with a
     /// lowercase dash-case code, otherwise <see cref="NhAiToolFailureCodes.Failed"/>; the message is
-    /// that item's messages, or every message with its item name when no item carries a code.
+    /// that item's messages, or every message with its item name when no item carries a code. A
+    /// success whose data implements <see cref="INhAiToolResultFiles"/> names its files.
     /// </summary>
     public static JsonElement Create<T>(TaskResult<T> result, JsonSerializerOptions serializerOptions)
     {
         ArgumentNullException.ThrowIfNull(result);
+        var files = result.Success && result.Data is INhAiToolResultFiles named
+            ? named.Files
+            : [];
+        return Create(result, serializerOptions, files);
+    }
+
+    /// <summary>
+    /// Writes a successful tool outcome in the shared shape with the files it names next to its
+    /// data; a failure names no files. Every reference must be valid
+    /// (<see cref="NhAiFileReference.IsValid"/>) and a result names at most <see cref="MaxFiles"/>.
+    /// </summary>
+    public static JsonElement Create<T>(
+        TaskResult<T> result,
+        JsonSerializerOptions serializerOptions,
+        IReadOnlyList<NhAiFileReference> files)
+    {
+        ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(serializerOptions);
+        ArgumentNullException.ThrowIfNull(files);
         RequireTypeInfoResolver(serializerOptions, nameof(serializerOptions));
+        if (files.Count > MaxFiles || files.Any(file => !NhAiFileReference.IsValid(file)))
+        {
+            throw new ArgumentException(
+                $"A tool result names at most {MaxFiles} files, each with a bounded id, name and hash, a valid media type and a size of zero or more.",
+                nameof(files));
+        }
 
         var dataTypeInfo = (JsonTypeInfo<T>)serializerOptions.GetTypeInfo(typeof(T));
         var buffer = new ArrayBufferWriter<byte>();
@@ -56,10 +99,70 @@ public static class NhAiToolResult
                 writer.WritePropertyName(DataPropertyName);
                 JsonSerializer.Serialize(writer, result.Data!, dataTypeInfo);
             }
+            if (result.Success && files.Count > 0)
+            {
+                WriteFiles(writer, files);
+            }
             writer.WriteEndObject();
         }
 
         return Parse(buffer, serializerOptions.MaxDepth);
+    }
+
+    /// <summary>
+    /// Reads the files a successful result names. Returns <see langword="true"/> with an empty list
+    /// for a failure or a result without files, and <see langword="false"/> when <c>files</c> is not
+    /// a list of at most <see cref="MaxFiles"/> valid references.
+    /// </summary>
+    public static bool TryGetFiles(JsonElement result, out IReadOnlyList<NhAiFileReference> files)
+    {
+        files = [];
+        if (result.ValueKind != JsonValueKind.Object
+            || !result.TryGetProperty(SuccessPropertyName, out var success)
+            || success.ValueKind != JsonValueKind.True
+            || !result.TryGetProperty(FilesPropertyName, out var named))
+        {
+            return true;
+        }
+        if (named.ValueKind != JsonValueKind.Array || named.GetArrayLength() > MaxFiles)
+        {
+            return false;
+        }
+
+        var references = new List<NhAiFileReference>(named.GetArrayLength());
+        foreach (var item in named.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object
+                || Text(item, FileIdPropertyName) is not { } id
+                || Text(item, FileNamePropertyName) is not { } name
+                || Text(item, FileMediaTypePropertyName) is not { } mediaType
+                || !item.TryGetProperty(FileSizePropertyName, out var sizeValue)
+                || sizeValue.ValueKind != JsonValueKind.Number
+                || !sizeValue.TryGetInt64(out var size))
+            {
+                return false;
+            }
+
+            string? hash = null;
+            if (item.TryGetProperty(FileHashPropertyName, out var hashValue) && hashValue.ValueKind != JsonValueKind.Null)
+            {
+                if (hashValue.ValueKind != JsonValueKind.String)
+                {
+                    return false;
+                }
+                hash = hashValue.GetString();
+            }
+
+            var reference = new NhAiFileReference(id, name, mediaType, size, hash);
+            if (!NhAiFileReference.IsValid(reference))
+            {
+                return false;
+            }
+            references.Add(reference);
+        }
+
+        files = references;
+        return true;
     }
 
     /// <summary>
@@ -151,7 +254,25 @@ public static class NhAiToolResult
                     ["type"] = "string",
                     ["description"] = "A safe explanation of the failure; present only when success is false."
                 },
-                [DataPropertyName] = data
+                [DataPropertyName] = data,
+                [FilesPropertyName] = new JsonObject
+                {
+                    ["type"] = "array",
+                    ["description"] = "Files a successful result names; present only when it names files.",
+                    ["items"] = new JsonObject
+                    {
+                        ["type"] = "object",
+                        ["properties"] = new JsonObject
+                        {
+                            [FileIdPropertyName] = new JsonObject { ["type"] = "string" },
+                            [FileNamePropertyName] = new JsonObject { ["type"] = "string" },
+                            [FileMediaTypePropertyName] = new JsonObject { ["type"] = "string" },
+                            [FileSizePropertyName] = new JsonObject { ["type"] = "integer" },
+                            [FileHashPropertyName] = new JsonObject { ["type"] = "string" }
+                        },
+                        ["required"] = new JsonArray(FileIdPropertyName, FileNamePropertyName, FileMediaTypePropertyName, FileSizePropertyName)
+                    }
+                }
             },
             ["required"] = new JsonArray(SuccessPropertyName)
         };
@@ -204,6 +325,32 @@ public static class NhAiToolResult
                 "The serializer options need a TypeInfoResolver, such as a JsonSerializerContext or AIJsonUtilities.DefaultOptions.TypeInfoResolver.",
                 parameterName);
         }
+    }
+
+    private static void WriteFiles(Utf8JsonWriter writer, IReadOnlyList<NhAiFileReference> files)
+    {
+        writer.WriteStartArray(FilesPropertyName);
+        foreach (var file in files)
+        {
+            writer.WriteStartObject();
+            writer.WriteString(FileIdPropertyName, file.Id);
+            writer.WriteString(FileNamePropertyName, file.Name);
+            writer.WriteString(FileMediaTypePropertyName, file.MediaType);
+            writer.WriteNumber(FileSizePropertyName, file.Size);
+            if (file.Hash is not null)
+            {
+                writer.WriteString(FileHashPropertyName, file.Hash);
+            }
+            writer.WriteEndObject();
+        }
+        writer.WriteEndArray();
+    }
+
+    private static string? Text(JsonElement item, string propertyName)
+    {
+        return item.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
     }
 
     private static void WriteFailure(Utf8JsonWriter writer, string code, string? message)

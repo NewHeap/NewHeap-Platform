@@ -51,9 +51,11 @@ public sealed class NhAiModelProfile
         TimeSpan timeout,
         IReadOnlyList<string> fallbackProfileNames,
         string? evaluationBaselineId,
-        IReadOnlySet<string> routingTags)
+        IReadOnlySet<string> routingTags,
+        IReadOnlySet<string>? acceptedMediaTypes = null)
     {
         Name = name;
+        AcceptedMediaTypes = acceptedMediaTypes ?? new HashSet<string>(StringComparer.Ordinal);
         Version = version;
         KeyedClientKey = keyedClientKey;
         Capabilities = capabilities;
@@ -82,6 +84,21 @@ public sealed class NhAiModelProfile
     public string? EvaluationBaselineId { get; }
     public IReadOnlySet<string> RoutingTags { get; }
 
+    /// <summary>
+    /// The media types of files the model reads itself, lowercase without parameters, such as
+    /// <c>application/pdf</c> or <c>image/png</c>; empty for a model that reads no files. Declare them
+    /// with <see cref="NhAiModelProfileBuilder.AcceptMediaTypes"/>.
+    /// </summary>
+    public IReadOnlySet<string> AcceptedMediaTypes { get; }
+
+    /// <summary>
+    /// Whether the model reads files of <paramref name="mediaType"/> itself.
+    /// </summary>
+    public bool AcceptsMediaType(string? mediaType)
+    {
+        return NhAiMediaTypes.Normalize(mediaType) is { } normalized && AcceptedMediaTypes.Contains(normalized);
+    }
+
     internal string Fingerprint => string.Join(
         "|",
         Name,
@@ -99,7 +116,8 @@ public sealed class NhAiModelProfile
         Timeout.Ticks,
         string.Join(",", FallbackProfileNames),
         EvaluationBaselineId,
-        string.Join(",", RoutingTags.Order(StringComparer.Ordinal)));
+        string.Join(",", RoutingTags.Order(StringComparer.Ordinal)),
+        string.Join(",", AcceptedMediaTypes.Order(StringComparer.Ordinal)));
 }
 
 public sealed record NhAiModelResolutionRequest(
