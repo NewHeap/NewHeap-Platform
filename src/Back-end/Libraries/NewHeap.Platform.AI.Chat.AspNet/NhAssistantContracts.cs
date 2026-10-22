@@ -820,33 +820,39 @@ public sealed record NhAssistantMcpServerInputDto(
     public NhAssistantMcpOAuthInputDto? OAuth { get; init; }
 
     /// <summary>
-    /// The reader setting: the server turns files of these media types into text for models that do
-    /// not read them. Omitted or null keeps the stored setting; an empty <c>mediaTypes</c> removes it.
+    /// The readers of the server: synced tools that turn files of their media types into text for
+    /// models that do not read them, at most 16. Omitted or null keeps the stored readers; an empty
+    /// list removes them all. A field error of a reader names its index, such as
+    /// <c>readers[0].toolName</c>.
     /// </summary>
-    public NhAssistantMcpReaderInputDto? Reader { get; init; }
+    public IReadOnlyList<NhAssistantMcpReaderInputDto?>? Readers { get; init; }
 }
 
 /// <summary>
-/// The reader setting of an MCP server. <see cref="MediaTypes"/>: at most 16 media types, such as
-/// <c>application/vnd.openxmlformats-officedocument.wordprocessingml.document</c>; empty removes the
-/// setting. <see cref="ToolName"/>: the remote name of a tool synced from the server, which receives
-/// <c>name</c>, <c>mediaType</c> and the base64 <c>content</c> of a file and returns its text.
-/// <see cref="MaxClassification"/>: the highest classification that may be sent to the server,
-/// <c>public</c>, <c>internal</c>, <c>confidential</c> or <c>restricted</c>.
+/// One reader of an MCP server. <see cref="MediaTypes"/>: one to 16 media types, such as
+/// <c>application/vnd.openxmlformats-officedocument.wordprocessingml.document</c>.
+/// <see cref="ToolName"/>: the remote name of a tool synced from the server, one reader per tool, which
+/// receives <c>name</c>, <c>mediaType</c> and the base64 <c>content</c> of a file and returns its text.
+/// <see cref="MaxClassification"/>: the highest classification that may be sent to the tool,
+/// <c>public</c>, <c>internal</c>, <c>confidential</c> or <c>restricted</c>. <see cref="Priority"/>:
+/// from -1000 to 1000, omitted 0; the MCP readers of every server that read a file's type are asked in
+/// order of priority, highest first, then by server id and tool name, after the application's own.
 /// </summary>
 public sealed record NhAssistantMcpReaderInputDto(
     IReadOnlyList<string>? MediaTypes,
     string? ToolName,
-    string? MaxClassification);
+    string? MaxClassification,
+    int? Priority = null);
 
 /// <summary>
-/// The reader setting of an MCP server as stored: the media types it reads, the tool that turns a file
-/// into text and the highest classification that may be sent to it.
+/// One reader of an MCP server as stored: the media types it reads, the tool that turns a file into
+/// text, the highest classification that may be sent to it and its priority, higher first.
 /// </summary>
 public sealed record NhAssistantMcpReaderDto(
     IReadOnlyList<string> MediaTypes,
     string ToolName,
-    string MaxClassification);
+    string MaxClassification,
+    int Priority);
 
 /// <summary>
 /// OAuth settings of an MCP server. <see cref="ClientSecret"/> is write-only. Omitted or null values
@@ -997,8 +1003,11 @@ public sealed record NhAssistantMcpServerDto(
     /// <summary>The organization's OAuth connection; null for servers without one.</summary>
     public NhAssistantMcpOrganizationConnectionDto? OrganizationConnection { get; init; }
 
-    /// <summary>The reader setting; null when the server is not set up as reader.</summary>
-    public NhAssistantMcpReaderDto? Reader { get; init; }
+    /// <summary>
+    /// The readers of the server, by priority, highest first, then by tool name; empty when the server
+    /// reads no files.
+    /// </summary>
+    public IReadOnlyList<NhAssistantMcpReaderDto> Readers { get; init; } = [];
 }
 
 /// <summary>

@@ -13,6 +13,7 @@ using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.AspNet.Mcp;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
@@ -39,6 +40,7 @@ public sealed class AssistantFileReaderTests(AssistantDatabaseFixture database) 
     private const string OpenTool = "documents_open_v1";
     private const string SpreadsheetReader = "spreadsheets";
     private const string ReaderTool = "read_document";
+    private const string ConvertTool = "convert_document";
     private const string Approver = "approver-1";
     private const string DocumentsUrl = "http://localhost/documents/mcp";
 
@@ -189,7 +191,7 @@ public sealed class AssistantFileReaderTests(AssistantDatabaseFixture database) 
             "admin-1",
             CancellationToken.None));
         Assert.True(personal.Success);
-        Assert.Equal(ReaderTool, personal.Data!.ReaderToolName);
+        Assert.Equal(ReaderTool, Assert.Single(personal.Data!.Readers).ToolName);
         harness.Files.Add("brief", "Brief.docx", NhAiMediaTypes.Docx, "DOCX bytes of the brief");
         var connections = harness.Servers.Connections.Count;
 
@@ -215,7 +217,7 @@ public sealed class AssistantFileReaderTests(AssistantDatabaseFixture database) 
             .RespondWithFunctionCall(OpenTool, new { input = new { ids = new[] { "budget", "brief" } } }, "call-1")
             .RespondWithText("Neither document could be read.");
         await using var harness = await CreateAsync(provider, models);
-        // Two servers read Word documents; the first, by id, fails.
+        // Two servers read Word documents at the same priority; the first, by id, fails.
         await SetUpReaderAsync(harness, "documents-a", [NhAiMediaTypes.Docx], "confidential");
         await SetUpReaderAsync(harness, "documents-b", [NhAiMediaTypes.Docx], "confidential");
         harness.Mcp.Failing["documents-a"] = true;
@@ -287,46 +289,187 @@ public sealed class AssistantFileReaderTests(AssistantDatabaseFixture database) 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
-    public async Task The_reader_setting_of_an_mcp_server_is_validated_and_stored(AssistantTestProvider provider)
+    public async Task The_readers_of_an_mcp_server_are_validated_per_reader_and_stored_in_a_table_of_their_own(AssistantTestProvider provider)
     {
         await using var harness = await CreateAsync(provider, new ReaderModels());
         harness.Servers.Register(DocumentsUrl, () => harness.Mcp.Tools("documents"));
         var reader = new NhAssistantMcpReaderInput([NhAiMediaTypes.Docx], ReaderTool, "internal");
 
-        // A new server has no synced tools yet, so it gets its reader after a sync.
+        // A new server has no synced tools yet, so it gets its readers after a sync.
         var beforeSync = await WithAdministrationAsync(harness.Host, administration => administration.CreateAsync(
-            Server("documents") with { Reader = reader }, "admin-1", CancellationToken.None));
+            Server("documents") with { Readers = [reader] }, "admin-1", CancellationToken.None));
         Assert.True((await WithAdministrationAsync(harness.Host, administration => administration.CreateAsync(
             Server("documents"), "admin-1", CancellationToken.None))).Success);
         Assert.True((await WithAdministrationAsync(harness.Host, administration => administration.SyncAsync(
             "documents", "admin-1", CancellationToken.None))).Success);
-        var invalid = await UpdateReaderAsync(harness, new NhAssistantMcpReaderInput(["word", NhAiMediaTypes.Docx], null, "secret"));
-        var unknownTool = await UpdateReaderAsync(harness, reader with { ToolName = "read_everything" });
-        var tooMany = await UpdateReaderAsync(harness, reader with { MediaTypes = Enumerable.Range(1, 17).Select(index => "application/x-type-" + index).ToArray() });
-        var stored = await UpdateReaderAsync(harness, reader with
-        {
-            MediaTypes = ["Application/VND.openxmlformats-officedocument.wordprocessingml.document; charset=binary", NhAiMediaTypes.Xlsx, NhAiMediaTypes.Docx],
-            MaxClassification = "confidential"
-        });
-        var kept = await UpdateReaderAsync(harness, null);
-        var afterKeep = await FindServerAsync(harness.Host);
-        var removed = await UpdateReaderAsync(harness, reader with { MediaTypes = [] });
-        var afterRemove = await FindServerAsync(harness.Host);
+        // Each reader reports its own fields: the second here is invalid, the first is valid.
+        var invalid = await UpdateReadersAsync(harness,
+        [
+            reader,
+            new NhAssistantMcpReaderInput(["word", NhAiMediaTypes.Docx], null, "secret", 1_001)
+        ]);
+        var missing = await UpdateReadersAsync(harness, [new NhAssistantMcpReaderInput([], ConvertTool, null)]);
+        var unknownTool = await UpdateReadersAsync(harness, [reader, reader with { ToolName = "read_everything" }]);
+        var sameTool = await UpdateReadersAsync(harness, [reader, reader with { MediaTypes = [NhAiMediaTypes.Xlsx] }]);
+        var tooMany = await UpdateReadersAsync(harness, [reader with { MediaTypes = Enumerable.Range(1, 17).Select(index => "application/x-type-" + index).ToArray() }]);
+        var tooManyReaders = await UpdateReadersAsync(harness, Enumerable.Repeat(reader, 17).ToArray());
+        var stored = await UpdateReadersAsync(harness,
+        [
+            reader with
+            {
+                MediaTypes = ["Application/VND.openxmlformats-officedocument.wordprocessingml.document; charset=binary", NhAiMediaTypes.Xlsx, NhAiMediaTypes.Docx],
+                MaxClassification = "confidential",
+                Priority = -5
+            },
+            new NhAssistantMcpReaderInput([NhAiMediaTypes.Xlsx], ConvertTool, "internal", 20)
+        ]);
+        var kept = await UpdateReadersAsync(harness, null);
+        var afterKeep = await ListReadersAsync(harness.Host);
+        // Saving again changes a reader in place and removes the one left out.
+        var changed = await UpdateReadersAsync(harness, [new NhAssistantMcpReaderInput([NhAiMediaTypes.Docx], ReaderTool, "restricted", 3)]);
+        var afterChange = await ListReadersAsync(harness.Host);
+        var removed = await UpdateReadersAsync(harness, []);
+        var afterRemove = await ListReadersAsync(harness.Host);
 
-        Assert.Equal(["not-found"], FieldErrors(beforeSync)["reader.toolName"]);
+        Assert.Equal(["not-found"], FieldErrors(beforeSync)["readers[0].toolName"]);
         Assert.Equal(
-            [("reader.maxClassification", "invalid"), ("reader.mediaTypes", "invalid"), ("reader.toolName", "required")],
-            FieldErrors(invalid).OrderBy(item => item.Key, StringComparer.Ordinal).Select(item => (item.Key, item.Value.Single())).ToArray());
-        Assert.Equal(["not-found"], FieldErrors(unknownTool)["reader.toolName"]);
-        Assert.Equal(["too-long"], FieldErrors(tooMany)["reader.mediaTypes"]);
+            [
+                ("readers[1].maxClassification", "invalid"),
+                ("readers[1].mediaTypes", "invalid"),
+                ("readers[1].priority", "invalid"),
+                ("readers[1].toolName", "required")
+            ],
+            Errors(invalid));
+        Assert.Equal(
+            [("readers[0].maxClassification", "required"), ("readers[0].mediaTypes", "required")],
+            Errors(missing));
+        Assert.Equal([("readers[1].toolName", "not-found")], Errors(unknownTool));
+        Assert.Equal([("readers[1].toolName", "invalid")], Errors(sameTool));
+        Assert.Equal([("readers[0].mediaTypes", "too-long")], Errors(tooMany));
+        Assert.Equal([("readers", "too-long")], Errors(tooManyReaders));
         Assert.True(stored.Success);
+        // The server returns its readers by priority, highest first.
+        Assert.Equal([ConvertTool, ReaderTool], stored.Data!.Readers.OrderByDescending(item => item.Priority).Select(item => item.ToolName).ToArray());
         Assert.True(kept.Success);
         Assert.Equal(
-            (NhAiMediaTypes.Docx + " " + NhAiMediaTypes.Xlsx, ReaderTool, "confidential"),
-            (afterKeep.ReaderMediaTypes, afterKeep.ReaderToolName, afterKeep.ReaderMaxClassification));
+            [
+                ("documents", ConvertTool, NhAiMediaTypes.Xlsx, "internal", 20),
+                ("documents", ReaderTool, NhAiMediaTypes.Docx + " " + NhAiMediaTypes.Xlsx, "confidential", -5)
+            ],
+            afterKeep);
+        Assert.True(changed.Success);
+        Assert.Equal([("documents", ReaderTool, NhAiMediaTypes.Docx, "restricted", 3)], afterChange);
         Assert.True(removed.Success);
-        Assert.Equal(((string?)null, (string?)null, (string?)null), (afterRemove.ReaderMediaTypes, afterRemove.ReaderToolName, afterRemove.ReaderMaxClassification));
+        Assert.Empty(afterRemove);
         Assert.Contains(harness.Host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminMcpServerUpdated);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Mcp_readers_are_asked_by_priority_then_by_server_id_and_tool_name(AssistantTestProvider provider)
+    {
+        var models = new ReaderModels();
+        models.Default.RespondWithFunctionCall(OpenTool, new { input = new { ids = new[] { "memo", "contract" } } }, "call-1");
+        models.Confidential.RespondWithText("Both documents are read.");
+        await using var harness = await CreateAsync(provider, models);
+        // documents-b's reader comes first for its priority, then documents-a's converter before
+        // documents-c's reader of the same priority, then documents-a's reader.
+        await SetUpReaderAsync(harness, "documents-a",
+        [
+            new NhAssistantMcpReaderInput([NhAiMediaTypes.Docx], ReaderTool, "confidential", 0),
+            new NhAssistantMcpReaderInput([NhAiMediaTypes.Docx], ConvertTool, "internal", 5)
+        ]);
+        await SetUpReaderAsync(harness, "documents-b", [new NhAssistantMcpReaderInput([NhAiMediaTypes.Docx], ReaderTool, "internal", 10)]);
+        await SetUpReaderAsync(harness, "documents-c", [new NhAssistantMcpReaderInput([NhAiMediaTypes.Docx], ReaderTool, "internal", 5)]);
+        harness.Files.Add("memo", "Memo.docx", NhAiMediaTypes.Docx, "DOCX bytes of the memo");
+        harness.Files.Add("contract", "Contract.docx", NhAiMediaTypes.Docx, "DOCX bytes of the contract", NhAiDataClassification.Confidential);
+        var conversation = await harness.Host.CreateConversationAsync(agentId: ChatAgent);
+
+        await harness.Host.SendAsync(conversation.Id, "What do the memo and the contract say?");
+
+        Assert.Equal(
+            [("documents-b", ReaderTool, 10), ("documents-a", ConvertTool, 5), ("documents-c", ReaderTool, 5), ("documents-a", ReaderTool, 0)],
+            (await harness.Host.Services.GetRequiredService<NhAssistantAdminStore>().ListMcpReadersAsync(CancellationToken.None))
+                .Select(item => (item.Server.Id, item.Reader.ToolName, item.Reader.Priority))
+                .ToArray());
+        // The internal memo goes to the first reader; the confidential contract passes the readers
+        // that may not receive it by and reaches the first that may.
+        Assert.Equal(
+            [("documents-b", ReaderTool, "Memo.docx"), ("documents-a", ReaderTool, "Contract.docx")],
+            harness.Mcp.Calls.Select(call => (call.Server, call.Tool, call.Name)).ToArray());
+        var texts = FilesAfterToolResults(models.Confidential.Requests[0]).Contents.OfType<TextContent>().Select(content => content.Text).ToArray();
+        Assert.Contains("Read by documents-b: DOCX bytes of the memo", texts);
+        Assert.Contains("Read by documents-a: DOCX bytes of the contract", texts);
+        Assert.Equal(
+            [("memo", "mcp.documents-b"), ("contract", "mcp.documents-a")],
+            harness.Host.Business.Events
+                .Where(evt => evt.Kind == NhAssistantAuditEventKind.FileRead)
+                .Select(evt => (evt.FileId, evt.FileReaderId))
+                .ToArray());
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_personal_reader_the_person_has_not_connected_shows_the_connection_card_in_their_turn(AssistantTestProvider provider)
+    {
+        var models = new ReaderModels();
+        models.Default
+            .RespondWithFunctionCall(OpenTool, new { input = new { ids = new[] { "brief" } } }, "call-run")
+            .RespondWithText("The run could not read the brief.")
+            .RespondWithFunctionCall(OpenTool, new { input = new { ids = new[] { "brief" } } }, "call-1")
+            .RespondWithText("Connect Documents documents to read the brief.")
+            .RespondWithText("The brief ships in May.");
+        await using var harness = await CreateAsync(provider, models);
+        // Each person reads with their own account of the server.
+        await SetUpReaderAsync(harness, "documents", [NhAiMediaTypes.Docx], "confidential");
+        await MakePersonalOAuthAsync(harness.Host, "documents");
+        var brief = harness.Files.Add("brief", "Brief.docx", NhAiMediaTypes.Docx, "DOCX bytes of the brief");
+
+        // A headless run keeps its own rules: the server does not serve it, and it shows no card.
+        var run = await RunAsync(harness.Host, "runner-changed");
+        Assert.Equal(NhAssistantRunStatuses.Completed, run.Status);
+        Assert.Equal(NhAssistantAdminErrorCodes.McpHeadlessNotAllowed, Code(Assert.Single(ResultFiles(models.Default.FunctionResults[0]))));
+        Assert.False(await AnyConnectionCardAsync(harness.Host));
+
+        // A tool result of the person's turn: the file is refused with the connection's code, and the
+        // turn goes on with the card the server's tools would show.
+        var conversation = await harness.Host.CreateConversationAsync(agentId: ChatAgent);
+        var turn = await harness.Host.SendAsync(conversation.Id, "What does the brief say?");
+
+        var card = turn.Single<NhAssistantConnectionRequiredEvent>();
+        Assert.Equal(("documents", "Documents documents", NhAssistantMcpConnectionReasons.NotConnected), (card.ServerId, card.DisplayName, card.Reason));
+        Assert.Equal("Connect Documents documents to read the brief.", turn.Text);
+        var named = Assert.Single(ResultFiles(models.Default.FunctionResults[1]));
+        Assert.Equal(NhAssistantAdminErrorCodes.McpConnectionRequired, Code(named));
+        Assert.Contains("card in the chat", named.GetProperty("message").GetString(), StringComparison.Ordinal);
+        var stored = (await harness.Host.ReadViewAsync(conversation.Id)).Messages.Last().Parts.OfType<NhAssistantConnectionRequiredPartView>().Single();
+        Assert.Equal("documents", stored.ServerId);
+
+        // An attachment: the turn ends with the connection's code and the card, and the message keeps
+        // the file so that asking again reads it once the person connected.
+        var attached = await harness.Host.SendWithFilesAsync(conversation.Id, "And this attachment?", [brief.Reference]);
+
+        Assert.Equal(NhAssistantAdminErrorCodes.McpConnectionRequired, attached.Single<NhAssistantErrorEvent>().Code);
+        Assert.Equal("documents", attached.Single<NhAssistantConnectionRequiredEvent>().ServerId);
+        Assert.Empty(harness.Mcp.Calls);
+        var refused = harness.Host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.FileRefused).ToArray();
+        Assert.All(refused.Skip(1), evt => Assert.Equal((NhAssistantAdminErrorCodes.McpConnectionRequired, "mcp.documents"), (evt.ResultCode, evt.FileReaderId)));
+
+        // Connected (here: the server no longer needs the person's account), the person asks again and
+        // the earlier attachment reaches the model through the reader.
+        await MakeOrganizationServerAsync(harness.Host, "documents");
+        var again = await harness.Host.SendAsync(conversation.Id, "And this attachment?");
+
+        Assert.Equal("The brief ships in May.", again.Text);
+        Assert.Empty(again.Events.OfType<NhAssistantConnectionRequiredEvent>());
+        Assert.Equal([("documents", "Brief.docx")], harness.Mcp.Calls.Select(call => (call.Server, call.Name)).ToArray());
+        var reread = Assert.Single(harness.Host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.FileRead);
+        Assert.Equal((NhAssistantFileOrigins.EarlierTurn, "mcp.documents", Sha256(brief.Content)), (reread.ObjectId, reread.FileReaderId, reread.FileHash));
+        Assert.Contains(
+            models.Default.Requests[^1].Messages.SelectMany(message => message.Contents).OfType<TextContent>(),
+            content => content.Text == "Read by documents: DOCX bytes of the brief");
     }
 
     private async Task<ReaderHarness> CreateAsync(
@@ -418,9 +561,17 @@ public sealed class AssistantFileReaderTests(AssistantDatabaseFixture database) 
     }
 
     /// <summary>
-    /// Connects a server with the reading tool, syncs it and sets it up as reader.
+    /// Connects a server with the reading tools, syncs it and sets its reading tool up as reader.
     /// </summary>
-    private static async Task SetUpReaderAsync(ReaderHarness harness, string id, string[] mediaTypes, string maxClassification)
+    private static Task SetUpReaderAsync(ReaderHarness harness, string id, string[] mediaTypes, string maxClassification)
+    {
+        return SetUpReaderAsync(harness, id, [new NhAssistantMcpReaderInput(mediaTypes, ReaderTool, maxClassification)]);
+    }
+
+    /// <summary>
+    /// Connects a server with the reading tools, syncs it and sets up its readers.
+    /// </summary>
+    private static async Task SetUpReaderAsync(ReaderHarness harness, string id, IReadOnlyList<NhAssistantMcpReaderInput> readers)
     {
         var input = Server(id);
         harness.Servers.Register(input.Url, () => harness.Mcp.Tools(id));
@@ -428,26 +579,70 @@ public sealed class AssistantFileReaderTests(AssistantDatabaseFixture database) 
         {
             Assert.True((await administration.CreateAsync(input, "admin-1", CancellationToken.None)).Success);
             Assert.True((await administration.SyncAsync(id, "admin-1", CancellationToken.None)).Success);
-            var updated = await administration.UpdateAsync(
-                input with { Reader = new NhAssistantMcpReaderInput(mediaTypes, ReaderTool, maxClassification) },
-                "admin-1",
-                CancellationToken.None);
+            var updated = await administration.UpdateAsync(input with { Readers = readers }, "admin-1", CancellationToken.None);
             Assert.True(updated.Success);
             return updated;
         });
     }
 
-    private static Task<TaskResult<AssistantMcpServer>> UpdateReaderAsync(ReaderHarness harness, NhAssistantMcpReaderInput? reader)
+    private static Task<TaskResult<AssistantMcpServer>> UpdateReadersAsync(ReaderHarness harness, IReadOnlyList<NhAssistantMcpReaderInput>? readers)
     {
         return WithAdministrationAsync(harness.Host, administration => administration.UpdateAsync(
-            Server("documents") with { Reader = reader },
+            Server("documents") with { Readers = readers },
             "admin-1",
             CancellationToken.None));
     }
 
-    private static async Task<AssistantMcpServer> FindServerAsync(AssistantTestHost host)
+    /// <summary>
+    /// The stored readers, by priority, highest first.
+    /// </summary>
+    private static async Task<(string ServerId, string ToolName, string MediaTypes, string MaxClassification, int Priority)[]> ListReadersAsync(
+        AssistantTestHost host)
     {
-        return (await host.Services.GetRequiredService<NhAssistantAdminStore>().FindMcpServerAsync("documents", CancellationToken.None))!;
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        var readers = await context.McpReaders.AsNoTracking().ToListAsync();
+        return readers
+            .OrderByDescending(reader => reader.Priority)
+            .Select(reader => (reader.ServerId, reader.ToolName, reader.MediaTypes, reader.MaxClassification, reader.Priority))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Turns a server into one each person connects to with OAuth, its authorization server confirmed,
+    /// as an administrator would after discovery.
+    /// </summary>
+    private static async Task MakePersonalOAuthAsync(AssistantTestHost host, string id)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        var confirmedAt = DateTimeOffset.UtcNow;
+        await context.McpServers
+            .Where(server => server.Id == id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(server => server.AuthMode, NhAssistantMcpAuthModes.OAuth)
+                .SetProperty(server => server.ConnectionScope, NhAssistantMcpConnectionScopes.User)
+                .SetProperty(server => server.AuthorizationServerIssuer, "https://login.example.com")
+                .SetProperty(server => server.ResourceUri, DocumentsUrl)
+                .SetProperty(server => server.AuthorizationConfirmedAt, confirmedAt));
+    }
+
+    /// <summary>
+    /// Turns the server back into one without credentials, which needs no person's account.
+    /// </summary>
+    private static async Task MakeOrganizationServerAsync(AssistantTestHost host, string id)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        await context.McpServers
+            .Where(server => server.Id == id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(server => server.AuthMode, NhAssistantMcpAuthModes.None)
+                .SetProperty(server => server.ConnectionScope, NhAssistantMcpConnectionScopes.Organization));
+    }
+
+    private static async Task<bool> AnyConnectionCardAsync(AssistantTestHost host)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        var parts = await context.Messages.AsNoTracking().Select(message => message.PartsJson).ToListAsync();
+        return parts.Any(json => json.Contains(NhAssistantStoredPart.ConnectionRequiredType, StringComparison.Ordinal));
     }
 
     private static IReadOnlyDictionary<string, string[]> FieldErrors(TaskResult result)
@@ -455,6 +650,17 @@ public sealed class AssistantFileReaderTests(AssistantDatabaseFixture database) 
         Assert.False(result.Success);
         Assert.Equal(NhAssistantAdminErrorCodes.ValidationFailed, NhAssistantResults.CodeOf(result));
         return NhAssistantResults.FieldErrorsOf(result);
+    }
+
+    /// <summary>
+    /// Every field error of a refused change, one per field, by field.
+    /// </summary>
+    private static (string Field, string Error)[] Errors(TaskResult result)
+    {
+        return FieldErrors(result)
+            .OrderBy(item => item.Key, StringComparer.Ordinal)
+            .Select(item => (item.Key, Assert.Single(item.Value)))
+            .ToArray();
     }
 
     private static async Task<T> WithAdministrationAsync<T>(
@@ -622,12 +828,13 @@ public sealed class TestSpreadsheetReader(TestReaderScript script) : INhAssistan
 }
 
 /// <summary>
-/// The reading tool of the in-memory MCP servers: it records every call and returns the decoded
-/// content as text, or an error result for a failing server.
+/// The reading tools of the in-memory MCP servers, <c>read_document</c> and <c>convert_document</c>:
+/// they record every call and return the decoded content as text, or an error result for a failing
+/// server.
 /// </summary>
 public sealed class McpReaderScript
 {
-    public ConcurrentQueue<(string Server, string Name, string MediaType, string Content)> Calls { get; } = new();
+    public ConcurrentQueue<(string Server, string Name, string MediaType, string Content, string Tool)> Calls { get; } = new();
 
     public ConcurrentDictionary<string, bool> Failing { get; } = new(StringComparer.Ordinal);
 
@@ -636,14 +843,17 @@ public sealed class McpReaderScript
         return
         [
             McpServerTool.Create(
-                (string name, string mediaType, string content) => Read(server, name, mediaType, content),
-                new McpServerToolCreateOptions { Name = "read_document", Description = "Turns a document into text.", ReadOnly = true })
+                (string name, string mediaType, string content) => Read(server, "read_document", name, mediaType, content),
+                new McpServerToolCreateOptions { Name = "read_document", Description = "Turns a document into text.", ReadOnly = true }),
+            McpServerTool.Create(
+                (string name, string mediaType, string content) => Read(server, "convert_document", name, mediaType, content),
+                new McpServerToolCreateOptions { Name = "convert_document", Description = "Converts a document to text.", ReadOnly = true })
         ];
     }
 
-    private CallToolResult Read(string server, string name, string mediaType, string content)
+    private CallToolResult Read(string server, string tool, string name, string mediaType, string content)
     {
-        Calls.Enqueue((server, name, mediaType, content));
+        Calls.Enqueue((server, name, mediaType, content, tool));
         if (Failing.ContainsKey(server))
         {
             return new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = "Could not parse " + name }] };

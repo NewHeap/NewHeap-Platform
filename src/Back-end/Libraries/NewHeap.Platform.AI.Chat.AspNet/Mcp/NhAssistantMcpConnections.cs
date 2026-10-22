@@ -777,8 +777,9 @@ internal sealed partial class NhAssistantMcpToolSource(
     /// <summary>
     /// Why the person of a request turn has to connect a personal OAuth server that was skipped; null
     /// when the person cannot change it, for example while an administrator confirms another issuer.
+    /// The readers of the server ask for it the same way (D33).
     /// </summary>
-    private static string? PersonalConnectionReason(AssistantMcpServer server, NhAssistantMcpToolRequest request, string? code)
+    internal static string? PersonalConnectionReason(AssistantMcpServer server, NhAssistantMcpToolRequest request, string? code)
     {
         if (request.IsHeadless || !IsPersonalOAuth(server) || request.PersonActorId is null)
         {

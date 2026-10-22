@@ -53,8 +53,10 @@ internal sealed class NhAssistantTurnState
     /// </summary>
     public IReadOnlyList<NhAssistantMcpMissingConnection> MissingMcpConnections { get; set; } = [];
 
-    /// <summary>Whether the servers the person has to connect were shown in this turn.</summary>
-    public bool ConnectionsAnnounced { get; set; }
+    /// <summary>
+    /// The servers whose connection card this turn showed, for its tools or its readers; each once.
+    /// </summary>
+    public HashSet<string> AnnouncedConnections { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
     /// The application map entries the acting person may read, loaded once per turn of an agent that
@@ -577,11 +579,48 @@ internal sealed class NhAssistantToolCallInterceptor(
             }
             await RecordBusinessEventAsync(NhAssistantTurnFiles.AuditEventOf(state, outcome, row.Id), cancellationToken);
         }
+        // A reader the person has to connect first shows its card, as a server's tools do (D33).
+        await AnnounceConnectionsAsync(NhAssistantTurnFiles.ConnectionsNeededOf(outcomes), cancellationToken);
 
         var contents = outcomes.SelectMany(outcome => outcome.Contents).ToArray();
         return (
             execution with { Result = described },
             contents.Length > 0 ? new NhAiToolResultWithContent(described, contents) : described);
+    }
+
+    /// <summary>
+    /// Shows the person of a request turn which servers need their connection: a
+    /// <c>connection-required</c> part and event per server, once per turn, whether the server's tools
+    /// or one of its readers asked for it. The part survives a reload; a consultation shows none.
+    /// </summary>
+    public async Task AnnounceConnectionsAsync(
+        IEnumerable<NhAssistantMcpConnectionNeeded> needed,
+        CancellationToken cancellationToken)
+    {
+        if (state.Scope.Consultation is not null)
+        {
+            return;
+        }
+
+        var announced = needed.Where(item => state.AnnouncedConnections.Add(item.ServerId)).ToArray();
+        if (announced.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var item in announced)
+        {
+            state.AddPart(new NhAssistantStoredPart(
+                NhAssistantStoredPart.ConnectionRequiredType,
+                ServerId: item.ServerId,
+                DisplayName: item.DisplayName,
+                Reason: item.Reason));
+        }
+        await FlushAsync(cancellationToken);
+        foreach (var item in announced)
+        {
+            await state.EmitAsync(new NhAssistantConnectionRequiredEvent(item.ServerId, item.DisplayName, item.Reason));
+        }
     }
 
     /// <summary>

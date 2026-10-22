@@ -557,7 +557,11 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
-        var servers = await context.McpServers.AsNoTracking().OrderBy(server => server.Id).ToListAsync(cancellationToken);
+        var servers = await context.McpServers
+            .AsNoTracking()
+            .Include(server => server.Readers)
+            .OrderBy(server => server.Id)
+            .ToListAsync(cancellationToken);
         var assignments = await context.AgentMcpServers.AsNoTracking().ToListAsync(cancellationToken);
         return servers
             .Select(server => (server, (IReadOnlyList<string>)assignments
@@ -569,20 +573,27 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
     }
 
     /// <summary>
-    /// The enabled servers set up as readers, ordered by id: the order in which the assistant asks
-    /// them to read a file.
+    /// The readers of the enabled servers with their server, in the order in which the assistant asks
+    /// them to read a file: priority, highest first, then server id and tool name.
     /// </summary>
-    public async Task<IReadOnlyList<AssistantMcpServer>> ListMcpReaderServersAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<(AssistantMcpServer Server, AssistantMcpReader Reader)>> ListMcpReadersAsync(
+        CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
-        var readers = await context.McpServers
+        var servers = await context.McpServers
             .AsNoTracking()
-            .Where(server => server.IsEnabled && server.ReaderToolName != null && server.ReaderMediaTypes != null)
+            .Include(server => server.Readers)
+            .Where(server => server.IsEnabled && server.Readers.Any())
             .ToListAsync(cancellationToken);
 
-        // Ordinal, so both providers ask the same server first whatever their collation; the set of
-        // servers is small.
-        return readers.OrderBy(server => server.Id, StringComparer.Ordinal).ToArray();
+        // Ordinal, so both providers ask the same reader first whatever their collation; the set of
+        // readers is small.
+        return servers
+            .SelectMany(server => server.Readers.Select(reader => (Server: server, Reader: reader)))
+            .OrderByDescending(item => item.Reader.Priority)
+            .ThenBy(item => item.Server.Id, StringComparer.Ordinal)
+            .ThenBy(item => item.Reader.ToolName, StringComparer.Ordinal)
+            .ToArray();
     }
 
     public async Task<AssistantMcpServer?> FindMcpServerAsync(string id, CancellationToken cancellationToken)
@@ -626,13 +637,19 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
         }
     }
 
+    /// <summary>
+    /// Changes a server with its readers loaded, so <paramref name="apply"/> can change them too, and
+    /// returns it as stored; <see langword="null"/> when the server does not exist.
+    /// </summary>
     public async Task<AssistantMcpServer?> UpdateMcpServerAsync(
         string id,
         Action<AssistantMcpServer> apply,
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
-        var server = await context.McpServers.SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        var server = await context.McpServers
+            .Include(item => item.Readers)
+            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (server is null)
         {
             return null;
