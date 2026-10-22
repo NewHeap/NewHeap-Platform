@@ -29,3 +29,16 @@ start. An invalid catalog fails the host's start with the same exception as befo
 | Breaking change | Required action |
 |---|---|
 | In a web host the AI tool catalog checks run while the web host service builds the pipeline instead of at their own place among the hosted services. A host that captures startup errors (`CaptureStartupErrors`, as under IIS) serves its startup error page for an invalid catalog instead of stopping. | None. Do not read the API bridge catalog or ApiExplorer from your own hosted services before the pipeline is built. |
+
+## @newheap/platform-ai-chat: error codes and toNhAssistantError exported
+
+Fix. The 0.15.0 notes name `NH_ASSISTANT_SERVER_ERROR_CODES` and `toNhAssistantError` for consumers,
+but the main entry point did not export the first and exported the second only as the internal
+`ɵtoNhAssistantError`. `@newheap/platform-ai-chat` now exports `NH_ASSISTANT_SERVER_ERROR_CODES`
+(the failure codes of the back-end), `NH_ASSISTANT_ERROR_CODES` (those plus the client-side codes, the
+keys a host with `translations: 'host'` needs under `nh-assistant.errors`) and `toNhAssistantError`,
+which turns any failure into a code and translation key. `ɵtoNhAssistantError` remains as an alias.
+
+| Breaking change | Required action |
+|---|---|
+| None; the exports are added. | Import `toNhAssistantError` instead of `ɵtoNhAssistantError`. |

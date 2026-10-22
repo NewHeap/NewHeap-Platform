@@ -125,7 +125,9 @@ which the panel shows as is. The administration also reads
 a readable form of the skill id and the description from code) and `nh-assistant.policies.<policy>`
 for the policy an agent requires (otherwise the policy as it is named in code). Its agent editor
 shows the translations of an agent in code and sends the keys back unless the administrator
-changes the text. Theme the panel through the `--nh-assistant-*` custom
+changes the text. A host that provides every text itself (`translations: 'host'`) covers
+`nh-assistant.errors.<code>` for each code in `NH_ASSISTANT_ERROR_CODES` (the server's
+`NH_ASSISTANT_SERVER_ERROR_CODES` plus the client-side codes). Theme the panel through the `--nh-assistant-*` custom
 properties mapped onto the host's tokens, and pass the host icon library through
 `NH_ASSISTANT_ICONS`.
 
