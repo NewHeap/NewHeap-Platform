@@ -50,6 +50,9 @@ const maxDescription = 300;
 const maxInstructions = 20_000;
 const maxMessage = 2_000;
 const maxReason = 500;
+/** A data trigger applies at most this many filters of its event, each named in lowercase dash-case. */
+const maxTriggerFilters = 10;
+const filterName = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** The platform's default file limits (`NhAssistantLimits`). */
 const defaultFileLimits: FileLimits = {
@@ -89,7 +92,8 @@ export class NhAssistantMockRunConfiguration {
   ) {
     const approvalPolicies = scenario.runCatalog?.approvalPolicies ?? scenario.policies ?? [];
     this.catalog = {
-      triggerEvents: scenario.runCatalog?.triggerEvents ?? [],
+      // A trigger event lists its named filters, none unless the scenario's application registers some.
+      triggerEvents: (scenario.runCatalog?.triggerEvents ?? []).map(event => ({ ...event, filters: event.filters ?? [] })),
       subjectSets: scenario.runCatalog?.subjectSets ?? [],
       ruleHandlers: scenario.runCatalog?.ruleHandlers ?? [],
       approvalPolicies,
@@ -223,8 +227,13 @@ export class NhAssistantMockRunConfiguration {
    */
   private triggerProblem(agent: AdminAgent, trigger: DataTrigger): string | null {
     if (trigger.source === 'event') {
-      const subjectType = this.catalog.triggerEvents.find(item => item.name === trigger.event)?.subjectType;
-      return subjectType && !mockWorksOnCovers(agent, subjectType) ? 'not-worked-on' : null;
+      const event = this.catalog.triggerEvents.find(item => item.name === trigger.event);
+      if (event?.subjectType && !mockWorksOnCovers(agent, event.subjectType)) {
+        return 'not-worked-on';
+      }
+      // A filter the event no longer offers keeps the trigger from firing.
+      const offered = (event?.filters ?? []).map(filter => filter.name);
+      return (trigger.filters ?? []).some(name => !offered.includes(name)) ? 'unknown-filter' : null;
     }
     return trigger.subjectSet === null && !mockWorksOnCovers(agent, mockSystemSubjectType) ? 'not-worked-on' : null;
   }
@@ -562,8 +571,19 @@ export class NhAssistantMockRunConfiguration {
     if (skill !== null && !this.skillIds(agent).includes(skill)) {
       errors['skill'] = ['not-found'];
     }
+    // The filters in the order chosen, each once; only an event trigger takes them.
+    const filters = [...new Set((request.filters ?? []).map(name => (typeof name === 'string' ? name.trim() : '')))];
+    if (filters.length > maxTriggerFilters || filters.some(name => name.length > 64 || !filterName.test(name)) || (schedule && filters.length > 0)) {
+      errors['filters'] = ['invalid'];
+    }
     if (Object.keys(errors).length > 0) {
       return failure('assistant-validation', errors);
+    }
+    if (request.source === 'event') {
+      const offered = (this.catalog.triggerEvents.find(item => item.name === text(request.event))?.filters ?? []).map(filter => filter.name);
+      if (filters.some(name => !offered.includes(name))) {
+        return failure('assistant-trigger-filter-not-found', { filters: ['not-found'] });
+      }
     }
     if ((request.expectedVersion ?? null) !== (existing?.version ?? null)) {
       return failure('assistant-version-conflict');
@@ -586,7 +606,8 @@ export class NhAssistantMockRunConfiguration {
       changedBy: 'current-user',
       reason: text(request.reason),
       inEffect: true,
-      problem: null
+      problem: null,
+      filters: schedule ? [] : filters
     };
     this.triggers.set(triggerId, Object.assign(saved, { [ownerKey]: agent.id }));
     return { status: 200, body: withoutOwner(saved) };

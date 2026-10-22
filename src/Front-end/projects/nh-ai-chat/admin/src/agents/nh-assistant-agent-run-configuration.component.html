@@ -351,6 +351,9 @@
               <div class="meta">
                 @if (trigger.source === 'event') {
                   <span class="mono">{{ trigger.event }}</span>
+                  @if (trigger.filters?.length) {
+                    <span data-trigger-filters>{{ 'nh-assistant.admin.run-config.triggers.filters.applied' | translate: { filters: trigger.filters!.join(', ') } }}</span>
+                  }
                 } @else {
                   <span class="mono">{{ trigger.cron }} {{ trigger.timeZone ?? 'UTC' }}</span>
                   @if (trigger.subjectSet) {

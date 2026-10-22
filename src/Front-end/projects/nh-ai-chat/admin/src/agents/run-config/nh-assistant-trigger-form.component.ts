@@ -4,6 +4,7 @@ import {
   DataTrigger,
   DataTriggerRequest,
   NhAssistantAdminApiService,
+  RunBlock,
   RunCatalog,
   TriggerConflict,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
@@ -39,7 +40,9 @@ const conflicts: TriggerConflict[] = ['coalesce', 'queue', 'supersede', 'ignore'
  * Adds or changes a trigger defined as data: an event of the application or a schedule starts a skill
  * of the agent, or lets the agent choose. A schedule runs for every subject in a set or, for an agent
  * that works on the whole application, for the whole application: once each time, or once per
- * division for an agent that works per division. A new trigger starts in shadow.
+ * division for an agent that works per division. A new trigger starts in shadow. An event trigger may
+ * select named filters the event offers, such as one that skips the agent's own changes; every selected
+ * filter must let an event through.
  */
 @Component({
   selector: 'nh-assistant-trigger-form',
@@ -73,7 +76,7 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
   readonly examples = cronExamples;
   readonly timeZones = timeZoneOptions().filter(zone => zone.value !== 'UTC');
   protected readonly fields = [
-    'triggerId', 'source', 'event', 'debounceSeconds', 'cron', 'timeZone', 'subjectSet', 'message', 'skill', 'conflict', 'reason'
+    'triggerId', 'source', 'event', 'debounceSeconds', 'filters', 'cron', 'timeZone', 'subjectSet', 'message', 'skill', 'conflict', 'reason'
   ];
 
   readonly triggerId = signal('');
@@ -88,11 +91,28 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
   readonly skill = signal('');
   readonly conflict = signal<TriggerConflict>('coalesce');
   readonly debounce = signal('120');
+  /** The names of the event's filters the trigger applies. */
+  readonly filters = signal<readonly string[]>([]);
   readonly reason = signal('');
 
   readonly editing = computed(() => this.trigger() !== null);
   readonly events = computed(() => eventOptions(this.catalog(), this.worksOn()));
   readonly subjectSets = computed(() => subjectSetOptions(this.catalog()));
+  /** The filters the chosen event offers, in the order the application registered them. */
+  readonly eventFilters = computed<readonly RunBlock[]>(() => {
+    const event = this.event();
+    return this.catalog()?.triggerEvents.find(block => block.name === event)?.filters ?? [];
+  });
+  /**
+   * Selected filters the chosen event no longer offers, such as after a deploy removed one: the trigger
+   * starts nothing until they are cleared.
+   */
+  readonly missingFilters = computed(() => {
+    const offered = this.eventFilters();
+    return this.catalog() === null
+      ? []
+      : this.filters().filter(name => !offered.some(filter => filter.name === name));
+  });
   /** A schedule may run for the whole application only for an agent that works on it. */
   readonly offersApplication = computed(() => worksOnCovers(this.worksOn(), systemSubjectType));
   /** What the schedule runs for: the whole application while the agent works on it, otherwise a set. */
@@ -128,6 +148,22 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
     this.skill.set(trigger?.skillId ?? '');
     this.conflict.set(trigger?.conflict ?? 'coalesce');
     this.debounce.set(String(trigger?.debounceSeconds ?? 120));
+    this.filters.set(trigger?.filters ?? []);
+  }
+
+  /** Another event offers other filters: those it does not offer no longer apply. */
+  setEvent(event: string): void {
+    this.event.set(event);
+    this.touch('event');
+    const offered = this.eventFilters();
+    this.filters.update(filters => filters.filter(name => offered.some(filter => filter.name === name)));
+  }
+
+  toggleFilter(name: string, selected: boolean): void {
+    this.filters.update(filters => selected
+      ? [...filters.filter(filter => filter !== name), name]
+      : filters.filter(filter => filter !== name));
+    this.touch('filters');
   }
 
   /** A schedule skips a tick while a run is busy by default; an event coalesces. */
@@ -174,6 +210,9 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
       if (this.event() === '') {
         errors['event'] = { code: 'required' };
       }
+      if (this.missingFilters().length > 0) {
+        errors['filters'] = { code: 'not-found' };
+      }
       checkWhole(errors, 'debounceSeconds', this.debounce(), ...runConfigLimits.debounce, true);
     }
 
@@ -188,6 +227,8 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
       message: schedule ? blank(this.message()) : null,
       conflict: this.conflict(),
       debounceSeconds: schedule ? null : toNumber(this.debounce()),
+      // In the order the event offers them; a schedule takes none.
+      filters: schedule ? [] : this.orderedFilters(),
       expectedVersion: editing?.version ?? null,
       reason: blank(this.reason())
     };
@@ -195,6 +236,15 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
       trigger,
       added: editing === null
     }));
+  }
+
+  /** The selected filters in the order the event offers them, those it no longer offers last. */
+  private orderedFilters(): string[] {
+    const selected = this.filters();
+    return [
+      ...this.eventFilters().map(filter => filter.name).filter(name => selected.includes(name)),
+      ...selected.filter(name => !this.eventFilters().some(filter => filter.name === name))
+    ];
   }
 
   protected override mapServerErrors(errors: RunConfigErrors): RunConfigErrors {

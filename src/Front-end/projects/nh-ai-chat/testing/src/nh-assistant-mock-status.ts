@@ -20,6 +20,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-run-filter-invalid',
     'assistant-board-scope-invalid',
     'assistant-feedback-invalid',
+    'assistant-trigger-filter-not-found',
     'assistant-replay-not-shadow',
     'assistant-evaluation-not-variant',
     'assistant-instructions-too-long',

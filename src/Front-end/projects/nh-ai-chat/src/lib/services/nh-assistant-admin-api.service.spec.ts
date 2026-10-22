@@ -95,6 +95,19 @@ describe('NhAssistantAdminApiService', () => {
     }
   });
 
+  it('sends the named filters a data trigger selects in its body', async () => {
+    fetchSpy.and.callFake(() => Promise.resolve(jsonResponse({ triggerId: 'status-check', filters: ['not-own-change'] })));
+
+    const saved = await firstValueFrom(admin.saveDataTrigger('agent-1', 'status-check', {
+      source: 'event', event: 'project.status-changed', filters: ['not-own-change'], expectedVersion: 2
+    }));
+
+    expect(lastCall().method).toBe('PUT');
+    expect(lastCall().url).toBe('/api/assistant/admin/agents/agent-1/triggers/status-check');
+    expect(lastCall().body).toEqual({ source: 'event', event: 'project.status-changed', filters: ['not-own-change'], expectedVersion: 2 });
+    expect(saved.filters).toEqual(['not-own-change']);
+  });
+
   it('reads the feedback report of an agent with the filters as query parameters', async () => {
     fetchSpy.and.callFake(() => Promise.resolve(jsonResponse({})));
     const period = { from: '2026-09-13T00:00:00.000Z', to: '2026-10-13T00:00:00.000Z' };
