@@ -16,6 +16,12 @@ import {
 
 const secretValue = 'do-not-show-this-secret';
 
+/**
+ * The time of a spec that walks a whole form flow: each searchable picker waits for its search, so such
+ * a flow takes several seconds and needs more than Jasmine's default of five.
+ */
+const formFlowTimeout = 20_000;
+
 function scenario(): NhAssistantMockScenario {
   return {
     agents: [{ id: 'projects', version: 1, displayNameKey: 'agents.projects', descriptionKey: 'agents.projects', canMutate: true }],
@@ -815,7 +821,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
     const skill = element.querySelector('[data-skill="kickoff"]') as HTMLElement;
     expect(skill.querySelector('[data-shadow-badge]')).not.toBeNull();
     expect(document.activeElement).toBe(element.querySelector('[data-run-config-agent="follower"]'));
-  });
+  }, formFlowTimeout);
 
   it('lowers the file limits of an administration agent and its skill within the application\'s, with errors at their fields', async () => {
     const script = runScenario();
