@@ -315,7 +315,12 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
             context.NhAssistantErrorDto);
 
         AssertNames(status, "enabled", "agents", "limits", "canAdminister", "collaboration");
-        AssertNames(status.GetProperty("agents")[0], "id", "version", "displayNameKey", "descriptionKey", "canMutate");
+        AssertNames(status.GetProperty("agents")[0], "id", "version", "displayNameKey", "descriptionKey", "canMutate", "uploads");
+        Assert.Equal(JsonValueKind.Null, status.GetProperty("agents")[0].GetProperty("uploads").ValueKind);
+        var agents = JsonSerializer.SerializeToElement(
+            new[] { new NhAssistantAgentSummaryDto("a", 1, "n", "d", true) { Uploads = new NhAssistantAgentUploadsDto([NhAiMediaTypes.Pdf], 1_024, 2) } },
+            context.NhAssistantAgentSummaryDtoArray);
+        AssertNames(agents[0].GetProperty("uploads"), "acceptedMediaTypes", "maxFileBytes", "maxFiles");
         AssertNames(status.GetProperty("limits"), "maxMessageChars", "maxToolCallsPerTurn");
         AssertNames(summary, "items", "total");
         AssertNames(
@@ -334,11 +339,23 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
             context.NhAssistantSendMessageRequest);
         AssertNames(clientContext, "route", "title", "entities");
         AssertNames(clientContext.GetProperty("entities")[0], "type", "id", "label");
-        AssertNames(message, "text", "clientMessageId", "clientContext");
+        AssertNames(message, "text", "clientMessageId", "clientContext", "files");
         var read = JsonSerializer.Deserialize(
-            """{ "text": "Hi", "clientMessageId": "c-1", "clientContext": { "route": "/x" } }""",
+            """{ "text": "Hi", "clientMessageId": "c-1", "clientContext": { "route": "/x" }, "files": [{ "id": "f-1", "name": "Plan.pdf", "mediaType": "application/pdf", "size": 12, "hash": null }] }""",
             context.NhAssistantSendMessageRequest)!;
         Assert.Equal("/x", read.ClientContext!.Value.GetProperty("route").GetString());
+        Assert.Equal(new NhAiFileReference("f-1", "Plan.pdf", NhAiMediaTypes.Pdf, 12), Assert.Single(read.Files!));
+
+        // The upload answers the file's reference; a message shows an attachment as a `file` part.
+        var reference = JsonSerializer.SerializeToElement(
+            new NhAiFileReference("f-1", "Plan.pdf", NhAiMediaTypes.Pdf, 12, "sha256:abc"),
+            context.NhAiFileReference);
+        var file = JsonSerializer.SerializeToElement<NhAssistantMessagePartDto>(
+            new NhAssistantFilePartDto("Plan.pdf", NhAiMediaTypes.Pdf, 12),
+            context.NhAssistantMessagePartDto);
+        AssertNames(reference, "id", "name", "mediaType", "size", "hash");
+        AssertNames(file, "type", "name", "mediaType", "size");
+        Assert.Equal("file", file.GetProperty("type").GetString());
     }
 
     private static async Task<string> CreateConversationAsync(HttpClient client)
