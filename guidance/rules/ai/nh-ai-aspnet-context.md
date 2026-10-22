@@ -37,9 +37,22 @@ Set a bounded lowercase tool-invocation purpose with
 `INhAiToolInvocationGate`: it uses the same per-request authenticated resolver,
 re-authorizes descriptor policies, builds context through the shared factory,
 and accepts only a bounded idempotency header.
-The contributor matches the authenticated name-identifier claim to the requested
-actor, calls `IAuthorizationService`, and only then copies the division ID into a
-bounded execution scope and grants a lowercase dash-case capability.
+The contributor recognizes a context of the request's own person, calls
+`IAuthorizationService`, and only then copies the division ID into a bounded
+execution scope and grants a lowercase dash-case capability.
+
+The platform recognizes the person who sent a request by the platform's actor id,
+never by a claim: the id the registered `INhAiAuthenticatedInvocationContextResolver`
+resolves for the request, resolved at most once per request. It is the same id the
+assistant records as a conversation's owner, a run's initiator and a consultation's
+asker. The contributor, the agent gate that reuses an initiator's live request
+principal in a request turn, and the consultation tools that reuse the asker's all
+compare with it. NewHeap Identity hosts resolve the `NameIdentifier` claim, so for
+them the two are the same; an issuer projection (`oidc:` ids) or an application with
+its own identity model, whose resolver maps people to its own actor ids (for example
+through its `INhActorContextAccessor`), is recognized as well. Register such a
+resolver with `UseAuthenticatedInvocationContextResolver<TResolver>()` and return the
+application's actor id as `NhAiInvocationContext.ActorId`.
 
 Agent runs have no HTTP request. Inside an agent invocation scope the same gate
 first tries delegation: when the agent may act for its initiator, it builds the
@@ -72,6 +85,7 @@ an ASP.NET dependency.
 - Granting a capability when its configured authorization policy fails or is missing.
 - Replacing the ASP.NET gate with an allow-all or browser-derived production gate.
 - Authorizing a headless agent call with a cached principal or with the request header of whoever triggered the run.
+- Deciding that a request is a person's own by comparing a claim such as `NameIdentifier` with an actor id; compare with the actor id the registered resolver resolves.
 
 ## Verification
 
@@ -86,4 +100,9 @@ permission claims and rejection of duplicate authority claims.
 For a multi-issuer host, resolve one principal per mapping, verify issuer-specific
 claim scopes, verify the same subject produces distinct actor IDs, and reject both
 an unaccepted issuer and a principal carrying authority claims from multiple issuers.
+With a resolver whose actor ids differ from the claim, verify that the request's own
+person gets the scope, capabilities and correlation id while another person in the
+same request gets none, that a request turn reuses the initiator's live principal and
+refuses a different person, and that a consultation in the asker's own request offers
+the consulted agent the tools the asker may use.
 SPM-223 is the executable reference.
