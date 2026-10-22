@@ -2261,47 +2261,61 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var delivery = await host.CreateTaskAsync(project, "Deliver the release");
         using var colleague = host.CreateClient(host.ColleagueId.ToString());
 
-        // The last task completes the project's work. The planner's rules hand the project to the
-        // closer instead of proposing the closer's work themselves.
+        // The first task leaves work open. Both agents' runs for it end before the last task is
+        // completed, so the last task starts one follow-up run of the planner. Two completions in
+        // quick succession may start two follow-up runs that each find the work finished and hand
+        // it over, or let the closer's answer join a follow-up run that still waits for its turn.
         await host.DeliverAsync(await host.CompleteTaskByHandAsync(design, host.ParticipantId));
-        await host.DeliverAsync(await host.CompleteTaskByHandAsync(delivery, host.ParticipantId));
         var plannerThread = await WaitForThreadAsync(colleague, project, planner);
         var closerThread = await WaitForThreadAsync(colleague, project, closer);
+        await WaitForRunCountAsync(colleague, plannerThread, 1);
+        await WaitForRunCountAsync(colleague, closerThread, 1);
+
+        // The last task completes the project's work. The planner's rules hand the project to the
+        // closer instead of proposing the closer's work themselves.
+        await host.DeliverAsync(await host.CompleteTaskByHandAsync(delivery, host.ParticipantId));
 
         // The closer works in its own thread, without an initiator, and proposes under its own
         // policy; the run names the planner and links to its thread for a reader of both.
         var handedOff = await WaitForRunWithTriggerAsync(colleague, closerThread, NhAssistantTriggerIds.HandOff);
-        Assert.Equal(NhAssistantRunStatuses.Completed, handedOff.Status);
-        Assert.Equal(planner, handedOff.RequestedByAgentId);
-        Assert.Equal(plannerThread, handedOff.RequestedByConversationId);
-        Assert.Equal(1, handedOff.HandOffDepth);
-        Assert.Null(handedOff.InitiatorActorId);
-        Assert.Equal(NhAssistantRunKinds.Rule, handedOff.Kind);
+        Assert.True(
+            handedOff.Status == NhAssistantRunStatuses.Completed
+                && handedOff.RequestedByAgentId == planner
+                && handedOff.RequestedByConversationId == plannerThread
+                && handedOff.HandOffDepth == 1
+                && handedOff.InitiatorActorId is null
+                && handedOff.Kind == NhAssistantRunKinds.Rule,
+            $"Expected the closer's run completed by rule without an initiator, handed off at depth 1 by {planner} from thread {plannerThread}; found {Describe(handedOff)}, handed off at depth {handedOff.HandOffDepth} by {handedOff.RequestedByAgentId ?? "nobody"} from thread {handedOff.RequestedByConversationId?.ToString() ?? "none"}, initiator {handedOff.InitiatorActorId ?? "none"}.");
         var proposal = await WaitForProposalAsync(colleague, closerThread, NhAssistantApprovalStatuses.Pending);
-        Assert.Equal(ProjectAiTools.ChangeStatusToolId, proposal.ToolId);
-        Assert.Equal(SampleProjectCloserComposition.ApprovalPolicyId, proposal.PolicyId);
+        Assert.True(
+            proposal.ToolId == ProjectAiTools.ChangeStatusToolId && proposal.PolicyId == SampleProjectCloserComposition.ApprovalPolicyId,
+            $"Expected a proposal of {ProjectAiTools.ChangeStatusToolId} under policy {SampleProjectCloserComposition.ApprovalPolicyId}; found {Describe(proposal)}.");
         // The closer's own task trigger and the hand-off record one proposal together.
-        var proposals = await colleague.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{closerThread}/proposals", Json);
-        Assert.Single(proposals!);
+        var proposals = (await colleague.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{closerThread}/proposals", Json))!;
+        Assert.True(
+            proposals.Length == 1,
+            $"Expected one proposal in the closer's thread {closerThread}; found {proposals.Length}: {string.Join("; ", proposals.Select(Describe))}. Runs of the thread: {string.Join("; ", (await RunsAsync(colleague, closerThread)).Select(Describe))}.");
 
         // The planner hears how the closer's run ended, with its summary: both work on the project.
         var answered = await WaitForRunWithTriggerAsync(colleague, plannerThread, NhAssistantTriggerIds.HandOffEnded);
-        Assert.Equal(NhAssistantRunStatuses.Completed, answered.Status);
-        Assert.Equal(SampleProjectPlannerComposition.TaskFollowUpSkill, answered.Skill);
         var dutch = CultureInfo.GetCultureInfo("nl-NL");
         var prefix = string.Format(
             dutch,
             new ResourceManager(typeof(SampleAssistantToolPresenter)).GetString("PlannerCloserAnswered", dutch)!,
             string.Empty).Trim();
-        Assert.Contains(prefix, answered.Summary);
-        var audit = Assert.Single(
-            host.Services.GetRequiredService<SampleAssistantAuditLog>().Events,
-            evt => evt.Kind == NhAssistantAuditEventKind.AgentHandedOff
+        Assert.True(
+            answered.Status == NhAssistantRunStatuses.Completed
+                && answered.Skill == SampleProjectPlannerComposition.TaskFollowUpSkill
+                && answered.Summary?.Contains(prefix, StringComparison.Ordinal) == true,
+            $"Expected the planner's run completed in skill {SampleProjectPlannerComposition.TaskFollowUpSkill} with a summary that contains '{prefix}'; found {Describe(answered)}, summary '{answered.Summary}'.");
+        var handOffs = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events
+            .Where(evt => evt.Kind == NhAssistantAuditEventKind.AgentHandedOff
                 && evt.SubjectId == project.ToString("D")
-                && evt.AskingAgentId == planner);
-        Assert.Equal(closer, audit.AgentId);
-        Assert.Equal(planner, audit.AskingAgentId);
-        Assert.Equal(NhAssistantHandOffOutcomes.Accepted, audit.ResultCode);
+                && evt.AskingAgentId == planner)
+            .ToArray();
+        Assert.True(
+            handOffs is [{ } audit] && audit.AgentId == closer && audit.ResultCode == NhAssistantHandOffOutcomes.Accepted,
+            $"Expected one hand-off of project {project} from {planner} to {closer}, {NhAssistantHandOffOutcomes.Accepted}; the audit has {handOffs.Length}: {string.Join("; ", handOffs.Select(evt => $"to {evt.AgentId}: {evt.ResultCode} at {evt.OccurredAt:O}"))}. Runs of the planner's thread {plannerThread}: {string.Join("; ", (await RunsAsync(colleague, plannerThread)).Select(Describe))}.");
     }
 
     [Fact]
@@ -3359,7 +3373,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     /// </summary>
     private static async Task<NhAssistantRunDto[]> WaitForRunCountAsync(HttpClient client, Guid conversationId, int count)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        var started = DateTimeOffset.UtcNow;
+        var deadline = started.AddSeconds(90);
         NhAssistantRunDto[] runs = [];
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -3373,7 +3388,15 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
 
         throw new TimeoutException(
-            $"The thread has {runs.Length} runs: {string.Join(", ", runs.Select(run => run.Status + (run.Summary is null ? " without summary" : string.Empty)))}.");
+            $"Expected {count} ended runs in thread {conversationId}; after {Elapsed(started)} it has {runs.Length}: {string.Join("; ", runs.Select(Describe))}.");
+    }
+
+    /// <summary>
+    /// How long a wait that started at <paramref name="started"/> took, for its failure message.
+    /// </summary>
+    private static string Elapsed(DateTimeOffset started)
+    {
+        return (DateTimeOffset.UtcNow - started).TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture) + " s";
     }
 
     /// <summary>
@@ -3419,6 +3442,14 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             + (run.Summary is null ? ", no summary yet" : string.Empty);
     }
 
+    /// <summary>
+    /// A proposal as a failure message names it: approval id, tool, policy, status and run.
+    /// </summary>
+    private static string Describe(NhAssistantProposalDto proposal)
+    {
+        return $"proposal {proposal.ApprovalId} of tool {proposal.ToolId} under policy {proposal.PolicyId ?? "none"}: {proposal.Status}, of run {proposal.RunId?.ToString() ?? "none"}";
+    }
+
     private static Task<HttpResponseMessage> PostWebhookAsync(HttpClient client, byte[] body, string deliveryId, string secret)
     {
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -3444,7 +3475,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Guid projectId,
         string agentId = SampleIntakeReviewerComposition.AgentId)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        var started = DateTimeOffset.UtcNow;
+        var deadline = started.AddSeconds(90);
         while (DateTimeOffset.UtcNow < deadline)
         {
             var lookup = await client.GetFromJsonAsync<NhAssistantThreadLookupDto>(
@@ -3458,7 +3490,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
-        throw new TimeoutException($"No thread of agent {agentId} was created for project {projectId}.");
+        throw new TimeoutException($"No thread of agent {agentId} was created for project {projectId} within {Elapsed(started)}.");
     }
 
     /// <summary>
@@ -3488,7 +3520,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     /// </summary>
     private static async Task<NhAssistantRunDto> WaitForRunWithTriggerAsync(HttpClient client, Guid conversationId, string triggerId)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        var started = DateTimeOffset.UtcNow;
+        var deadline = started.AddSeconds(90);
         NhAssistantRunDto[] runs = [];
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -3502,7 +3535,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
 
         throw new TimeoutException(
-            $"The thread has no ended run of trigger {triggerId} within 90 seconds. Runs of the thread: {string.Join("; ", runs.Select(Describe))}.");
+            $"Thread {conversationId} has no ended run of trigger {triggerId} after {Elapsed(started)}. Its {runs.Length} runs: {string.Join("; ", runs.Select(Describe))}.");
     }
 
     /// <summary>
@@ -3672,7 +3705,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         string status,
         string? toolId = null)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        var started = DateTimeOffset.UtcNow;
+        var deadline = started.AddSeconds(90);
         NhAssistantProposalDto[] proposals = [];
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -3690,7 +3724,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
 
         throw new TimeoutException(
-            $"No proposal reached '{status}' within 90 seconds; seen: {string.Join(", ", proposals.Select(item => $"{item.ApprovalId} {item.ToolId} {item.Status} of run {item.RunId}"))}.");
+            $"No proposal in thread {conversationId} reached '{status}' after {Elapsed(started)}; seen {proposals.Length}: {string.Join("; ", proposals.Select(Describe))}.");
     }
 }
 
