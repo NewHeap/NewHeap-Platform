@@ -9,14 +9,16 @@ using NewHeap.Platform.AI.Chat.Runtime;
 namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 
 /// <summary>
-/// MCP servers an administrator set up as readers (<see cref="NhAssistantMcpReaders"/>). The runtime,
-/// not the model, calls the server's reading tool with the file, so the server needs no assignment to
-/// the agent. A server receives a file only when the file's classification is at or below the
-/// server's bound, the server is enabled, the turn's person passes its required policy and, in a
-/// headless turn, the server allows headless use with the existing consent and initiator rules (Q3,
-/// I18, I21). Everything up to the call is checked before the file leaves the platform; a server that
-/// does not pass is passed over with its code. The reading tool must still have the input schema the
-/// administrator synced.
+/// The readers an administrator set up on MCP servers (<see cref="NhAssistantMcpReaders"/>), asked by
+/// priority, highest first, then by server id and tool name. The runtime, not the model, calls a
+/// reader's tool with the file, so the server needs no assignment to the agent. A reader receives a
+/// file only when the file's classification is at or below the reader's bound, its server is enabled,
+/// the turn's person passes the server's required policy and, in a headless turn, the server allows
+/// headless use with the existing consent and initiator rules (Q3, I18, I21). Everything up to the
+/// call is checked before the file leaves the platform; a reader that does not pass is passed over
+/// with its code. The reading tool must still have the input schema the administrator synced. A
+/// personal OAuth server the person of a request turn has not connected asks for the connection as
+/// the tool path does (D33).
 /// </summary>
 internal sealed partial class NhAssistantMcpFileReader(
     NhAssistantAdminStore store,
@@ -43,23 +45,24 @@ internal sealed partial class NhAssistantMcpFileReader(
 
     public async Task<bool> DeclaresAsync(string mediaType, CancellationToken cancellationToken)
     {
-        var servers = await store.ListMcpReaderServersAsync(cancellationToken);
-        return servers.Any(server => Reads(server, mediaType));
+        var readers = await store.ListMcpReadersAsync(cancellationToken);
+        return readers.Any(item => Reads(item.Reader, mediaType));
     }
 
     public async Task<NhAssistantFileReading?> ReadAsync(NhAssistantMcpFileReadRequest request, CancellationToken cancellationToken)
     {
         var declared = false;
         NhAssistantFileReading? passedOver = null;
-        foreach (var server in await store.ListMcpReaderServersAsync(cancellationToken))
+        NhAssistantMcpConnectionNeeded? connectionNeeded = null;
+        foreach (var (server, reader) in await store.ListMcpReadersAsync(cancellationToken))
         {
-            if (!Reads(server, request.File.MediaType))
+            if (!Reads(reader, request.File.MediaType))
             {
                 continue;
             }
 
             declared = true;
-            var reading = await ReadWithAsync(server, request, cancellationToken);
+            var reading = await ReadWithAsync(server, reader, request, cancellationToken);
             if (reading.Received || reading.TextCached)
             {
                 return reading;
@@ -67,18 +70,26 @@ internal sealed partial class NhAssistantMcpFileReader(
 
             LogPassedOver(logger, server.Id, reading.Code ?? NhAssistantAdminErrorCodes.McpUnreachable);
             passedOver ??= reading;
+            connectionNeeded ??= reading.ConnectionNeeded;
         }
 
-        return declared ? passedOver : null;
+        if (!declared)
+        {
+            return null;
+        }
+
+        // The first reader's code applies; a server the person can connect is still asked for.
+        return passedOver! with { ConnectionNeeded = connectionNeeded };
     }
 
     private async Task<NhAssistantFileReading> ReadWithAsync(
         AssistantMcpServer server,
+        AssistantMcpReader reader,
         NhAssistantMcpFileReadRequest request,
         CancellationToken cancellationToken)
     {
         var readerId = NhAssistantMcpReaders.ReaderIdOf(server.Id);
-        if (await RefusalAsync(server, request, cancellationToken) is { } refusal)
+        if (await RefusalAsync(server, reader, request, cancellationToken) is { } refusal)
         {
             return NhAssistantFileReading.PassedOver(readerId, refusal);
         }
@@ -95,23 +106,23 @@ internal sealed partial class NhAssistantMcpFileReader(
             var plan = await planner.PlanAsync(server, NhAssistantMcpToolSource.SubjectOf(request.Turn), cancellationToken);
             if (!plan.Success)
             {
-                return NhAssistantFileReading.PassedOver(readerId, NhAssistantResults.CodeOf(plan, NhAssistantAdminErrorCodes.McpUnreachable));
+                return PassedOver(server, readerId, request, NhAssistantResults.CodeOf(plan, NhAssistantAdminErrorCodes.McpUnreachable));
             }
 
             var lease = await cache.ConnectAsync(server, plan.Data, bypassCache: false, cancellationToken);
             if (!lease.Success)
             {
-                return NhAssistantFileReading.PassedOver(readerId, NhAssistantResults.CodeOf(lease, NhAssistantAdminErrorCodes.McpUnreachable));
+                return PassedOver(server, readerId, request, NhAssistantResults.CodeOf(lease, NhAssistantAdminErrorCodes.McpUnreachable));
             }
 
             await using (lease.Data)
             {
-                if (await ToolRefusalAsync(server, lease.Data.Tools, cancellationToken) is { } toolRefusal)
+                if (await ToolRefusalAsync(server, reader, lease.Data.Tools, cancellationToken) is { } toolRefusal)
                 {
                     return NhAssistantFileReading.PassedOver(readerId, toolRefusal);
                 }
 
-                return await CallAsync(server, readerId, lease.Data.Client, request, cancellationToken);
+                return await CallAsync(server, reader, readerId, lease.Data.Client, request, cancellationToken);
             }
         }
         finally
@@ -123,16 +134,37 @@ internal sealed partial class NhAssistantMcpFileReader(
     }
 
     /// <summary>
-    /// Why the server may not receive the file in this turn, or <see langword="null"/> when it may:
-    /// a classification above its bound, a headless turn the server does not serve (headless use,
-    /// consent, initiator) or a person who does not pass its required policy.
+    /// A reader passed over before the file left the platform. For a personal OAuth server the person
+    /// of a request turn can connect, or connect again, the reading names the server, so the turn shows
+    /// the same connection card as for the server's tools.
+    /// </summary>
+    private static NhAssistantFileReading PassedOver(
+        AssistantMcpServer server,
+        string readerId,
+        NhAssistantMcpFileReadRequest request,
+        string code)
+    {
+        var reading = NhAssistantFileReading.PassedOver(readerId, code);
+        if (NhAssistantMcpToolSource.PersonalConnectionReason(server, request.Turn, code) is not { } reason)
+        {
+            return reading;
+        }
+
+        return reading with { ConnectionNeeded = new NhAssistantMcpConnectionNeeded(server.Id, server.DisplayName, reason) };
+    }
+
+    /// <summary>
+    /// Why the reader may not receive the file in this turn, or <see langword="null"/> when it may:
+    /// a classification above its bound, a headless turn its server does not serve (headless use,
+    /// consent, initiator) or a person who does not pass the server's required policy.
     /// </summary>
     private async Task<string?> RefusalAsync(
         AssistantMcpServer server,
+        AssistantMcpReader reader,
         NhAssistantMcpFileReadRequest request,
         CancellationToken cancellationToken)
     {
-        if (!NhAssistantDataClassificationNames.TryParse(server.ReaderMaxClassification, out var bound)
+        if (!NhAssistantDataClassificationNames.TryParse(reader.MaxClassification, out var bound)
             || request.File.Classification > bound)
         {
             return NhAssistantErrorCodes.ClassificationNotPermitted;
@@ -148,33 +180,35 @@ internal sealed partial class NhAssistantMcpFileReader(
     }
 
     /// <summary>
-    /// Why the server's reading tool may not be called: the server no longer offers it, or its input
-    /// schema differs from the one the administrator synced.
+    /// Why the reader's tool may not be called: the server no longer offers it, or its input schema
+    /// differs from the one the administrator synced.
     /// </summary>
     private async Task<string?> ToolRefusalAsync(
         AssistantMcpServer server,
+        AssistantMcpReader reader,
         IList<McpClientTool> remoteTools,
         CancellationToken cancellationToken)
     {
-        var remote = remoteTools.FirstOrDefault(tool => string.Equals(tool.Name, server.ReaderToolName, StringComparison.Ordinal));
+        var remote = remoteTools.FirstOrDefault(tool => string.Equals(tool.Name, reader.ToolName, StringComparison.Ordinal));
         if (remote is null)
         {
             return NhAssistantAdminErrorCodes.McpToolNotFound;
         }
 
         var reviewed = (await store.ListMcpToolsAsync(server.Id, cancellationToken))
-            .FirstOrDefault(tool => string.Equals(tool.RemoteName, server.ReaderToolName, StringComparison.Ordinal));
+            .FirstOrDefault(tool => string.Equals(tool.RemoteName, reader.ToolName, StringComparison.Ordinal));
         return reviewed is not null && string.Equals(reviewed.InputSchemaHash, NhAssistantMcpToolSource.SchemaHash(remote), StringComparison.Ordinal)
             ? null
             : NhAssistantAdminErrorCodes.McpSchemaChanged;
     }
 
     /// <summary>
-    /// Sends the file to the reading tool and returns the text of its result. A failure after the
-    /// request may have reached the server is final: the file is not sent to another server.
+    /// Sends the file to the reader's tool and returns the text of its result. A failure after the
+    /// request may have reached the server is final: the file is not sent to another reader.
     /// </summary>
     private async Task<NhAssistantFileReading> CallAsync(
         AssistantMcpServer server,
+        AssistantMcpReader reader,
         string readerId,
         McpClient client,
         NhAssistantMcpFileReadRequest request,
@@ -192,7 +226,7 @@ internal sealed partial class NhAssistantMcpFileReader(
         CallToolResult result;
         try
         {
-            result = await client.CallToolAsync(server.ReaderToolName!, arguments, cancellationToken: cancellationToken);
+            result = await client.CallToolAsync(reader.ToolName, arguments, cancellationToken: cancellationToken);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException
             && !(exception is OperationCanceledException && cancellationToken.IsCancellationRequested))
@@ -201,7 +235,7 @@ internal sealed partial class NhAssistantMcpFileReader(
             if (NhAssistantMcpFailures.ToolNotRun(exception))
             {
                 // The request never reached the tool, so the file did not leave the platform.
-                return NhAssistantFileReading.PassedOver(readerId, code);
+                return PassedOver(server, readerId, request, code);
             }
 
             LogReaderFailed(logger, server.Id, code);
@@ -219,9 +253,9 @@ internal sealed partial class NhAssistantMcpFileReader(
         return NhAssistantFileReading.Read(readerId, string.Join("\n", texts), owner);
     }
 
-    private static bool Reads(AssistantMcpServer server, string mediaType)
+    private static bool Reads(AssistantMcpReader reader, string mediaType)
     {
-        return NhAssistantMcpReaders.Split(server.ReaderMediaTypes).Contains(mediaType, StringComparer.Ordinal);
+        return NhAssistantMcpReaders.Split(reader.MediaTypes).Contains(mediaType, StringComparer.Ordinal);
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "MCP server {ServerId} was passed over as reader for a file ({Code}).")]

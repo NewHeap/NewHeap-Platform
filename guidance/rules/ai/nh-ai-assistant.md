@@ -223,23 +223,32 @@ invalid run filter. Clients map the code, never the status, to a text.
   connection is missing is told with `NhAssistantAgentNotificationKind.McpConnectionMissing`, at most
   once per server and day; `UseInAppAgentNotifications` puts it in the application's inbox. Apply the
   `McpRunConnectionSkips` migrations.
-- **MCP servers as readers.** An administrator sets a server up to turn files into text for models
-  that do not read their type (`reader` on the server: `mediaTypes`, at most 16; `toolName`, a tool
-  synced from the server, so a new server gets its reader after a sync; `maxClassification`, the
-  highest classification that may be sent to it; `NhAssistantMcpReaders`). The runtime, not the
-  model, calls that tool with `name`, `mediaType` and the base64 `content` of the file and gives
-  the model the text blocks of its result; the tool need not be enabled for agents and the server
-  need not be assigned to the agent. Sending a file to an MCP server is data leaving the platform,
-  so everything is checked before the request: a file above `maxClassification` is refused with
-  `assistant-classification-not-permitted`, a disabled server is ignored, `requiredPolicy` applies
-  to the turn's person, and a headless turn follows the rules above: `headlessUse`, the person's
-  consent for `personal` (`assistant-mcp-consent-required`) and `assistant-mcp-initiator-only`. A
-  server that cannot be planned or reached, or whose reading tool is gone or has another input
-  schema than the synced one, is passed over with its code; once the request may have reached the
-  tool, an error result, no text or a failure refuses the file with `assistant-file-reader-failed`.
-  Validation reports `reader.mediaTypes` (`invalid`, `too-long`), `reader.toolName` (`required`,
-  `invalid`, `not-found`) and `reader.maxClassification` (`required`, `invalid`); an empty
-  `mediaTypes` removes the setting. Apply the `McpServerReaders` migrations.
+- **MCP servers as readers.** An administrator gives a server readers that turn files into text for
+  models that do not read their type (`readers` on the server, at most 16, stored in their own table;
+  per reader `toolName`, a tool synced from the server, one reader per tool, so a new server gets its
+  readers after a sync; `mediaTypes`, one to 16; `maxClassification`, the highest classification that
+  may be sent to it; `priority`, -1000 to 1000, default 0; `NhAssistantMcpReaders`). The runtime, not
+  the model, calls the reader's tool with `name`, `mediaType` and the base64 `content` of the file
+  and gives the model the text blocks of its result; the tool need not be enabled for agents and the
+  server need not be assigned to the agent. The readers of every server are asked after the
+  application's own, by `priority`, highest first, then by server id and tool name. Sending a file to
+  an MCP server is data leaving the platform, so everything is checked before the request: a file
+  above the reader's `maxClassification` is refused with `assistant-classification-not-permitted`, a
+  disabled server is ignored, `requiredPolicy` applies to the turn's person, and a headless turn
+  follows the rules above: `headlessUse`, the person's consent for `personal`
+  (`assistant-mcp-consent-required`) and `assistant-mcp-initiator-only`. A reader whose server cannot
+  be planned or reached, or whose tool is gone or has another input schema than the synced one, is
+  passed over with its code; once the request may have reached the tool, an error result, no text or
+  a failure refuses the file with `assistant-file-reader-failed`. A personal OAuth server the person
+  of a request turn has not connected, or must connect again, shows that person the same
+  `connection-required` card as its tools; an attachment it refused stays in the message, so asking
+  again after connecting reads it. Headless runs show no card and keep their notices. `readers: null`
+  or omitted keeps the readers, `[]` removes them all; validation reports `readers` (`too-long`) and
+  per reader with its index `readers[0].mediaTypes` (`required`, `invalid`, `too-long`),
+  `readers[0].toolName` (`required`, `invalid` also for a second reader of the same tool,
+  `not-found`), `readers[0].maxClassification` (`required`, `invalid`) and `readers[0].priority`
+  (`invalid`). Apply the `McpServerReaders` and `McpReaders` migrations; the second moves a server's
+  reader setting into its own reader at priority 0.
 - **Authentication modes of the application.** An identity flow the built-in modes do not cover,
   such as a token exchange with the application's identity provider, is a provider in code:
   implement `INhAssistantMcpCredentialProvider` (`GetAsync` returns the headers of the next request
@@ -515,10 +524,10 @@ never serve the uploads.
   with `AddFileReader<T>(readerId, reader => reader.AcceptMediaTypes(...).PermitDataClassifications(...))`,
   where `T` implements `INhAssistantFileReader` and returns `TaskResult<string>` for an
   `NhAssistantFileReadRequest` (reference, media type, content, classification, actor). A reader
-  permits `Public` and what it declares, as a model profile does. MCP servers an administrator set
-  up as readers follow (see the MCP bullets). The readers of the application come first in
-  registration order, then the servers by id; the first that accepts the type and permits the
-  file's classification reads it. A reader that may not receive the file is passed over, and when
+  permits `Public` and what it declares, as a model profile does. The readers an administrator set
+  up on MCP servers follow (see the MCP bullets). The readers of the application come first in
+  registration order, then the MCP readers by priority, highest first, then by server id and tool
+  name; the first that accepts the type and permits the file's classification reads it. A reader that may not receive the file is passed over, and when
   none may, the code of the first one that declares the type applies, such as
   `assistant-classification-not-permitted`. The model reads the text behind the same marker, as
   untrusted external data. A reader that received the file and failed, threw or returned no text
@@ -823,12 +832,15 @@ open the upload, and the source refuses a project document to an actor who may n
 SPM-306 shows an agent skill that reads a project's documents through a tool result.
 
 For reading tools, assert on both providers that a type the profile does not read reaches the model as
-text from the application's reader behind the marker, that an MCP server set up as reader reads what
-no reader of the application may read and receives the base64 content, that a file above the
-server's classification and a personal server without the person's consent send nothing, that a
-failing reader refuses its file with `assistant-file-reader-failed` without a second reader, that the
-reader's text counts against `MaxFileTokensPerTurn`, and that audit and logs hold the reader id,
-file id and hash, never the content or the text.
+text from the application's reader behind the marker, that an MCP reader reads what no reader of the
+application may read and receives the base64 content, that MCP readers are asked by priority, then by
+server id and tool name, that a file above a reader's classification and a personal server without
+the person's consent send nothing, that a personal OAuth reader the person has not connected shows
+the connection card in the person's turn and none in a headless run, that a failing reader refuses
+its file with `assistant-file-reader-failed` without a second reader, that the reader's text counts
+against `MaxFileTokensPerTurn`, and that audit and logs hold the reader id, file id and hash, never
+the content or the text. Prove a migration that moves data, such as `McpReaders`, on both providers
+from the earlier schema up and back down.
 
 For retrieved context, assert that the sample's assistant reads the project descriptions of the
 person's active division that match the question, after the situation, never those of another

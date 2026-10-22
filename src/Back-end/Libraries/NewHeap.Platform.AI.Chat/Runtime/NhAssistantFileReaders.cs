@@ -28,6 +28,13 @@ internal sealed record NhAssistantFileReading(string? ReaderId, string? Text, st
     /// </summary>
     public bool TextCached { get; init; }
 
+    /// <summary>
+    /// The server the person of a request turn has to connect, or connect again, before its reader
+    /// can read the file: set for a personal OAuth reader passed over for the person's connection, as
+    /// the tool path asks for it (D33). Never set in a headless turn.
+    /// </summary>
+    public NhAssistantMcpConnectionNeeded? ConnectionNeeded { get; init; }
+
     public static NhAssistantFileReading Read(string readerId, string text, string? connectionOwner = null)
     {
         return new NhAssistantFileReading(readerId, text, null) { Received = true, ConnectionOwner = connectionOwner };
@@ -72,19 +79,20 @@ internal sealed record NhAssistantMcpFileReadRequest(NhAssistantFileReadRequest 
 }
 
 /// <summary>
-/// The MCP servers an administrator set up as readers. The ASP.NET integration supplies them; the
-/// core library knows none.
+/// The readers an administrator set up on MCP servers. The ASP.NET integration supplies them; the core
+/// library knows none.
 /// </summary>
 internal interface INhAssistantMcpFileReader
 {
     /// <summary>
-    /// Whether an enabled MCP server is set up to read <paramref name="mediaType"/>.
+    /// Whether a reader of an enabled MCP server reads <paramref name="mediaType"/>.
     /// </summary>
     Task<bool> DeclaresAsync(string mediaType, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Reads the file with the first server, ordered by id, that reads its type, permits its
-    /// classification and that the turn may use; <see langword="null"/> when no server reads the type.
+    /// Reads the file with the first reader, by priority, highest first, then by server id and tool
+    /// name, that reads its type, permits its classification and whose server the turn may use;
+    /// <see langword="null"/> when no reader reads the type.
     /// </summary>
     Task<NhAssistantFileReading?> ReadAsync(NhAssistantMcpFileReadRequest request, CancellationToken cancellationToken);
 }
@@ -104,14 +112,15 @@ internal sealed class NhAssistantNoMcpFileReader : INhAssistantMcpFileReader
 
 /// <summary>
 /// Chooses the reading tool for a file the serving model cannot read itself: the readers of the
-/// application in registration order first, then the MCP servers set up as readers. The first that
-/// accepts the type and permits the file's classification, and that the turn may use, reads it. A
-/// reader that received the file and failed ends it with
-/// <see cref="NhAssistantErrorCodes.FileReaderFailed"/>; the file is never sent to a second reader. When
-/// no reader may read it, the refusal of the first reader that declares the type applies, and
-/// <see cref="NhAssistantErrorCodes.FileTypeNotSupported"/> when none declares it. A reader the turn
-/// chooses that made a text of the same content earlier in the conversation is not called: the turn
-/// reads the kept text (<see cref="NhAssistantReaderTexts"/>), and a text a reader makes now is kept.
+/// application in registration order first, then the readers of MCP servers by priority, highest
+/// first, then by server id and tool name. The first that accepts the type and permits the file's
+/// classification, and that the turn may use, reads it. A reader that received the file and failed
+/// ends it with <see cref="NhAssistantErrorCodes.FileReaderFailed"/>; the file is never sent to a
+/// second reader. When no reader may read it, the refusal of the first reader that declares the type
+/// applies, and <see cref="NhAssistantErrorCodes.FileTypeNotSupported"/> when none declares it. A reader
+/// the turn chooses that made a text of the same content earlier in the conversation is not called:
+/// the turn reads the kept text (<see cref="NhAssistantReaderTexts"/>), and a text a reader makes now is
+/// kept.
 /// </summary>
 internal sealed class NhAssistantFileReaders(
     IServiceProvider services,
@@ -177,7 +186,10 @@ internal sealed class NhAssistantFileReaders(
             return remote;
         }
 
-        return passedOver ?? remote;
+        // The first reader's code applies; a server the person can connect is still asked for.
+        return passedOver is null
+            ? remote
+            : passedOver with { ConnectionNeeded = remote.ConnectionNeeded };
     }
 
     private async Task<NhAssistantFileReading> ReadLocalAsync(

@@ -440,8 +440,8 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         AssertNames(server, "id", "displayName", "url", "authMode", "headerName", "hasSecret", "requiredPolicy", "isEnabled",
             "lastSyncAt", "lastSyncStatus", "assignedAgentIds", "headlessUse", "lastConnectAt", "lastConnectCode",
             "userName", "secretReference", "clientCertificateReference", "transport", "connectionScope", "oauth", "authorization",
-            "organizationConnection", "reader");
-        Assert.Equal(JsonValueKind.Null, server.GetProperty("reader").ValueKind);
+            "organizationConnection", "readers");
+        Assert.Empty(server.GetProperty("readers").EnumerateArray());
         Assert.Equal("streamable-http", server.GetProperty("transport").GetString());
         Assert.True(server.GetProperty("hasSecret").GetBoolean());
         Assert.Equal("never", server.GetProperty("headlessUse").GetString());
@@ -717,8 +717,9 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
     }
 
     [Fact]
-    public async Task An_mcp_server_is_set_up_as_reader_once_its_reading_tool_is_synced()
+    public async Task The_readers_of_an_mcp_server_are_set_up_once_their_tools_are_synced_with_field_errors_per_reader()
     {
+        const string docx = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         var servers = new InMemoryMcpServers();
         servers.Register(McpUrl, () => servers.PlanningTools());
         await using var app = await StartAsync(configure: services =>
@@ -731,11 +732,10 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
             url = McpUrl,
             authMode = "none",
             isEnabled = true,
-            reader = new
+            readers = new object?[]
             {
-                mediaTypes = new[] { "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
-                toolName = "Lookup_Order",
-                maxClassification = "internal"
+                new { mediaTypes = new[] { docx }, toolName = "Lookup_Order", maxClassification = "internal" },
+                new { mediaTypes = new[] { "application/pdf" }, toolName = "reschedule", maxClassification = "confidential", priority = 7 }
             }
         };
 
@@ -744,32 +744,48 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         using var sync = await admin.PostAsync("/api/assistant/admin/mcp-servers/planning/sync", null);
         using var invalid = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(input with
         {
-            reader = new { mediaTypes = new[] { "word" }, toolName = "Lookup_Order", maxClassification = "secret" }
+            readers = new object?[]
+            {
+                input.readers[0],
+                new { mediaTypes = new[] { "word" }, toolName = "reschedule", maxClassification = "secret", priority = 5_000 },
+                null
+            }
         }));
-        using var reader = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(input));
+        using var stored = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(input));
         var listed = Assert.Single((await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/mcp-servers"))).EnumerateArray());
-        using var removed = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(input with
-        {
-            reader = new { mediaTypes = Array.Empty<string>(), toolName = (string)null!, maxClassification = (string)null! }
-        }));
+        using var removed = await admin.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(input with { readers = Array.Empty<object?>() }));
 
         Assert.Equal(HttpStatusCode.BadRequest, beforeSync.StatusCode);
-        Assert.Equal("not-found", (await ReadJsonAsync(beforeSync)).GetProperty("errors").GetProperty("reader.toolName")[0].GetString());
+        var notSynced = (await ReadJsonAsync(beforeSync)).GetProperty("errors");
+        Assert.Equal("not-found", notSynced.GetProperty("readers[0].toolName")[0].GetString());
+        Assert.Equal("not-found", notSynced.GetProperty("readers[1].toolName")[0].GetString());
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         Assert.Equal(HttpStatusCode.OK, sync.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         var errors = (await ReadJsonAsync(invalid)).GetProperty("errors");
-        Assert.Equal("invalid", errors.GetProperty("reader.mediaTypes")[0].GetString());
-        Assert.Equal("invalid", errors.GetProperty("reader.maxClassification")[0].GetString());
-        Assert.Equal(HttpStatusCode.OK, reader.StatusCode);
-        var setting = (await ReadJsonAsync(reader)).GetProperty("reader");
-        AssertNames(setting, "mediaTypes", "toolName", "maxClassification");
+        AssertNames(errors,
+            "readers[1].mediaTypes", "readers[1].maxClassification", "readers[1].priority",
+            "readers[2].mediaTypes", "readers[2].toolName", "readers[2].maxClassification");
+        Assert.Equal("invalid", errors.GetProperty("readers[1].mediaTypes")[0].GetString());
+        Assert.Equal("invalid", errors.GetProperty("readers[1].maxClassification")[0].GetString());
+        Assert.Equal("invalid", errors.GetProperty("readers[1].priority")[0].GetString());
+        Assert.Equal("required", errors.GetProperty("readers[2].toolName")[0].GetString());
+        Assert.Equal(HttpStatusCode.OK, stored.StatusCode);
+        // By priority, highest first; an omitted priority is 0.
+        var readers = (await ReadJsonAsync(stored)).GetProperty("readers").EnumerateArray().ToArray();
+        Assert.All(readers, reader => AssertNames(reader, "mediaTypes", "toolName", "maxClassification", "priority"));
         Assert.Equal(
-            ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "Lookup_Order", "internal"),
-            (Assert.Single(setting.GetProperty("mediaTypes").EnumerateArray()).GetString(), setting.GetProperty("toolName").GetString(), setting.GetProperty("maxClassification").GetString()));
-        Assert.Equal("Lookup_Order", listed.GetProperty("reader").GetProperty("toolName").GetString());
+            [("reschedule", "application/pdf", "confidential", 7), ("Lookup_Order", docx, "internal", 0)],
+            readers.Select(reader => (
+                reader.GetProperty("toolName").GetString(),
+                Assert.Single(reader.GetProperty("mediaTypes").EnumerateArray()).GetString(),
+                reader.GetProperty("maxClassification").GetString(),
+                reader.GetProperty("priority").GetInt32())).ToArray());
+        Assert.Equal(
+            ["reschedule", "Lookup_Order"],
+            listed.GetProperty("readers").EnumerateArray().Select(reader => reader.GetProperty("toolName").GetString()!).ToArray());
         Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
-        Assert.Equal(JsonValueKind.Null, (await ReadJsonAsync(removed)).GetProperty("reader").ValueKind);
+        Assert.Empty((await ReadJsonAsync(removed)).GetProperty("readers").EnumerateArray());
     }
 
     private static async Task AssignServerAsync(AssistantWebApplication app, string agentId, string serverId)

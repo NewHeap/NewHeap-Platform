@@ -513,31 +513,37 @@ export interface McpServerInput {
   connectionScope?: McpConnectionScope;
   /** The OAuth settings of `oauth` and `oauth-client-credentials`; omit to keep them. */
   oauth?: McpOAuthInput | null;
-  /** The reader setting; omit to keep it, an empty `mediaTypes` removes it. */
-  reader?: McpReaderInput | null;
+  /**
+   * The readers of the server, at most 16; omit to keep them, `[]` removes them all. A refused save
+   * names the field of a reader with its index, such as `readers[0].toolName`.
+   */
+  readers?: McpReaderInput[] | null;
 }
 
 /**
- * The reader setting of an MCP server: the server turns files of `mediaTypes` into text, with its
- * synced tool `toolName`, for models that do not read those types themselves. A file above
- * `maxClassification` is never sent to it; sending a file to an MCP server is data leaving the
- * application.
+ * One reader of an MCP server: its synced tool `toolName` turns files of `mediaTypes` into text for
+ * models that do not read those types themselves. A file above `maxClassification` is never sent to
+ * it; sending a file to an MCP server is data leaving the application. The assistant asks the
+ * application's own readers first, then the MCP readers by `priority`, highest first, then by server
+ * id and tool name.
  */
 export interface McpReader {
   mediaTypes: string[];
   toolName: string;
   maxClassification: AssistantDataClassification;
+  priority: number;
 }
 
 /**
- * The reader setting as saved: at most 16 media types; empty removes the setting. `toolName` must
- * name a tool synced from the server; the tool receives `name`, `mediaType` and the base64
- * `content` of a file and returns its text.
+ * A reader as saved: one to 16 media types; `toolName` must name a tool synced from the server, one
+ * reader per tool; the tool receives `name`, `mediaType` and the base64 `content` of a file and returns
+ * its text. `priority` is a whole number from -1000 to 1000; omitted it is 0.
  */
 export interface McpReaderInput {
   mediaTypes: string[];
   toolName: string | null;
   maxClassification: AssistantDataClassification | null;
+  priority?: number | null;
 }
 
 export interface McpServer {
@@ -570,8 +576,8 @@ export interface McpServer {
   authorization: McpAuthorization | null;
   /** The organization's OAuth connection; `null` for servers without one. */
   organizationConnection: McpOrganizationConnection | null;
-  /** The reader setting; `null` when the server is not set up as reader. */
-  reader: McpReader | null;
+  /** The readers of the server, by priority, highest first; empty when it reads no files. */
+  readers: McpReader[];
 }
 
 export interface McpServerTestResult {

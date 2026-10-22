@@ -1005,9 +1005,14 @@ internal static class NhAssistantAdminEndpoints
                     oauth.OrganizationAccountLabel,
                     oauth.ConfirmAuthorization == true)
                 : null,
-            Reader = body.Reader is { } reader
-                ? new NhAssistantMcpReaderInput(reader.MediaTypes ?? [], reader.ToolName, reader.MaxClassification)
-                : null
+            // A reader sent as null has no fields, so it is refused field by field like an empty one.
+            Readers = body.Readers?
+                .Select(reader => new NhAssistantMcpReaderInput(
+                    reader?.MediaTypes ?? [],
+                    reader?.ToolName,
+                    reader?.MaxClassification,
+                    reader?.Priority ?? 0))
+                .ToArray()
         }, errors);
     }
 
@@ -1152,9 +1157,15 @@ internal static class NhAssistantAdminEndpoints
             OrganizationConnection = NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope) && NhAssistantMcpAuthModes.IsOAuth(server.AuthMode)
                 ? ToDto(organizationConnection)
                 : null,
-            Reader = server.ReaderToolName is { } toolName && server.ReaderMaxClassification is { } maxClassification
-                ? new NhAssistantMcpReaderDto(NhAssistantMcpReaders.Split(server.ReaderMediaTypes), toolName, maxClassification)
-                : null
+            Readers = server.Readers
+                .OrderByDescending(reader => reader.Priority)
+                .ThenBy(reader => reader.ToolName, StringComparer.Ordinal)
+                .Select(reader => new NhAssistantMcpReaderDto(
+                    NhAssistantMcpReaders.Split(reader.MediaTypes),
+                    reader.ToolName,
+                    reader.MaxClassification,
+                    reader.Priority))
+                .ToArray()
         };
     }
 

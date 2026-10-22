@@ -79,10 +79,11 @@ const serverFields = [
   'oauth.confirmAuthorization',
   'requiredPolicy',
   'headlessUse',
-  'reader.mediaTypes',
-  'reader.toolName',
-  'reader.maxClassification'
+  'readers'
 ] as const;
+
+/** The fields of one reader the server reports errors for, as `readers[<index>].<field>`. */
+const readerFieldPattern = /^readers\[\d+\]\.(mediaTypes|toolName|maxClassification|priority)$/;
 
 /** A header name the server accepts: 1 to 128 letters, digits and dashes. */
 const headerNamePattern = /^[A-Za-z0-9-]{1,128}$/;
@@ -105,19 +106,47 @@ const certificateNamePattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 const scopesPattern = /^[\x21\x23-\x5B\x5D-\x7E]+( [\x21\x23-\x5B\x5D-\x7E]+)*$/;
 /** A media type without parameters, as the server compares them (`type/subtype`). */
 const mediaTypePattern = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/;
-/** The most media types one server reads. */
+/** The most media types one reader reads. */
 const maxReaderMediaTypes = 16;
+/** The most readers one server has. */
+const maxReaders = 16;
+/** The priorities a reader can have; a higher one is asked first. */
+const readerPriority = { min: -1000, max: 1000 } as const;
+
+/**
+ * One reader as the editor shows it: the tool, the media types as typed (separated by commas, spaces
+ * or new lines), the highest classification and the priority as typed. `key` keeps a row's controls
+ * when another row is removed.
+ */
+export interface NhAssistantReaderDraft {
+  key: number;
+  toolName: string;
+  mediaTypes: string;
+  maxClassification: AssistantDataClassification | '';
+  priority: string;
+}
+
+/** What is wrong with one reader before it is saved. */
+interface ReaderProblems {
+  types: boolean;
+  tool: boolean;
+  duplicate: boolean;
+  classification: boolean;
+  priority: boolean;
+}
 
 let nextId = 0;
+let nextReaderKey = 0;
 
 /**
  * Creates or edits one MCP server: the authentication with a write-only secret or a reference to
  * one, OAuth with discovery the administrator confirms, an optional client certificate, the
- * transport, the use in background runs and, for a server that is synced, the reader setting: the
- * media types the server turns into text, its reading tool and the highest classification that may be
- * sent to it. Every field stops at the length the server accepts; a
- * refused save shows each of the server's field errors at its field, for example a secret reference
- * the application cannot resolve (`not-found`), and moves the focus to the first of them.
+ * transport, the use in background runs and, for a server that exists, its readers: per reader the
+ * synced tool that turns files into text, the media types it reads, the highest classification that
+ * may be sent to it and its priority, with readers to add and remove. Every field stops at the length
+ * the server accepts; a refused save shows each of the server's field errors at its field, those of a
+ * reader at that reader (`readers[0].toolName`), for example a secret reference the application cannot
+ * resolve (`not-found`), and moves the focus to the first of them.
  */
 @Component({
   selector: 'nh-assistant-admin-mcp-server-editor',
@@ -189,11 +218,11 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly discovering = signal(false);
   readonly discoveryError = signal<NhAssistantError | null>(null);
   readonly confirmAuthorization = signal(false);
-  /** The media types the server reads, as typed: separated by commas, spaces or new lines. */
-  readonly readerMediaTypes = signal('');
-  readonly readerToolName = signal('');
-  readonly readerMaxClassification = signal<AssistantDataClassification | ''>('');
-  /** The server's synced tools, of which one reads files; empty until they are loaded. */
+  /** The readers of the server as the editor shows them, in their order. */
+  readonly readers = signal<readonly NhAssistantReaderDraft[]>([]);
+  readonly maxReaders = maxReaders;
+  readonly readerPriority = readerPriority;
+  /** The server's synced tools, which can read files; empty until they are loaded. */
   readonly readerTools = signal<readonly McpTool[]>([]);
   readonly submitted = signal(false);
   readonly saving = signal(false);
@@ -274,21 +303,37 @@ export class NhAssistantAdminMcpServerEditorComponent {
     const header = this.headerName().trim();
     return this.authMode() === 'api-key' && header.length > 0 && !headerNamePattern.test(header);
   });
-  readonly readerTypes = computed(() => splitMediaTypes(this.readerMediaTypes()));
-  /** The server reads files once it declares a media type; no types removes the setting. */
-  readonly readerEnabled = computed(() => !this.isNew() && this.readerTypes().length > 0);
-  readonly readerTypesInvalid = computed(() => this.readerEnabled() &&
-    (this.readerTypes().some(type => !isMediaType(type)) ||
-      new Set(this.readerTypes().map(type => type.split(';')[0].trim().toLowerCase())).size > maxReaderMediaTypes));
-  readonly readerToolMissing = computed(() => this.readerEnabled() && this.readerToolName().length === 0);
-  readonly readerClassificationMissing = computed(() => this.readerEnabled() && this.readerMaxClassification() === '');
-  /** The tool names to choose from, keeping a stored tool the list no longer holds selectable. */
+  /** The tool names to choose from, keeping the stored tools the list no longer holds selectable. */
   readonly readerToolNames = computed(() => {
     const names = this.readerTools().map(tool => tool.remoteName);
-    const stored = this.server()?.reader?.toolName;
-    return stored && !names.includes(stored) ? [...names, stored] : names;
+    const stored = (this.server()?.readers ?? []).map(reader => reader.toolName).filter(name => !names.includes(name));
+    return [...names, ...stored];
   });
-  readonly readerInvalid = computed(() => this.readerTypesInvalid() || this.readerToolMissing() || this.readerClassificationMissing());
+  /** What is wrong with each reader, in the order of `readers`. */
+  readonly readerProblems = computed<readonly ReaderProblems[]>(() => {
+    const seen = new Set<string>();
+    return this.readers().map(reader => {
+      const types = splitMediaTypes(reader.mediaTypes);
+      const duplicate = reader.toolName.length > 0 && seen.has(reader.toolName);
+      seen.add(reader.toolName);
+      return {
+        types: types.length === 0 || types.some(type => !isMediaType(type)) ||
+          new Set(types.map(type => type.split(';')[0].trim().toLowerCase())).size > maxReaderMediaTypes,
+        tool: reader.toolName.length === 0,
+        duplicate,
+        classification: reader.maxClassification === '',
+        priority: parsePriority(reader.priority) === null
+      };
+    });
+  });
+  /** Why a reader can or cannot be added: the server's tools are not synced, or it has the most. */
+  readonly readerAddHint = computed(() => this.readerToolNames().length === 0
+    ? 'nh-assistant.admin.server-editor.reader.tool-sync'
+    : this.readers().length >= maxReaders
+      ? 'nh-assistant.admin.server-editor.reader.limit'
+      : 'nh-assistant.admin.server-editor.reader.add-hint');
+  readonly readerInvalid = computed(() => this.readerProblems().some(problems =>
+    problems.types || problems.tool || problems.duplicate || problems.classification || problems.priority));
   readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.urlInvalid() && !this.headerNameInvalid() &&
     !this.userNameInvalid() && !this.secretReferenceInvalid() && !this.certificateInvalid() && !this.oauthInvalid() &&
     !this.readerInvalid());
@@ -306,7 +351,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
   });
   /** Field errors of fields the editor does not show, listed with the form's error. */
   readonly otherServerErrors = computed(() => Object.entries(this.serverErrors())
-    .filter(([field]) => !(serverFields as readonly string[]).includes(field))
+    .filter(([field]) => !(serverFields as readonly string[]).includes(field) && !this.showsReaderField(field))
     .map(([field, value]) => ({ field, keys: this.valueKeys(value) })));
   readonly discoveryErrorKeys = computed(() => nhAssistantErrorKeys(this.discoveryError()));
 
@@ -346,7 +391,41 @@ export class NhAssistantAdminMcpServerEditorComponent {
 
   /** The id of a field's error, for `aria-describedby`. */
   errorId(field: string): string {
-    return `${this.id}-${field.replace('.', '-')}-error`;
+    return `${this.id}-${field.replace(/[^A-Za-z0-9-]+/g, '-')}-error`;
+  }
+
+  /** The name of a reader's field in the server's errors, such as `readers[0].toolName`. */
+  readerField(index: number, field: 'mediaTypes' | 'toolName' | 'maxClassification' | 'priority'): string {
+    return `readers[${index}].${field}`;
+  }
+
+  /** Adds an empty reader at the end, at priority 0, and moves the focus to its tool. */
+  addReader(): void {
+    if (this.readers().length >= maxReaders) {
+      return;
+    }
+    this.forgetReaderErrors();
+    const key = nextReaderKey++;
+    this.readers.set([...this.readers(), { key, toolName: '', mediaTypes: '', maxClassification: '', priority: '0' }]);
+    this.focusById(`${this.id}-reader-tool-${key}`);
+  }
+
+  /**
+   * Removes a reader and moves the focus to the button that adds one; the server's errors of the
+   * readers no longer match their positions.
+   */
+  removeReader(index: number): void {
+    this.forgetReaderErrors();
+    this.readers.set(this.readers().filter((_, position) => position !== index));
+    this.focusById(`${this.id}-reader-add`);
+  }
+
+  /** Changes one field of a reader as the administrator typed or chose it. */
+  updateReader(index: number, field: 'toolName' | 'mediaTypes' | 'maxClassification' | 'priority', value: string): void {
+    // The classification comes from the select's options, the empty choice included.
+    this.readers.set(this.readers().map((reader, position) =>
+      position === index ? { ...reader, [field]: value } as NhAssistantReaderDraft : reader));
+    this.touch(this.readerField(index, field));
   }
 
   /** The ids a control describes itself with: its hint and, while the server refused it, its error. */
@@ -484,13 +563,13 @@ export class NhAssistantAdminMcpServerEditorComponent {
       input.oauth = this.oauthInput();
     }
     if (!this.isNew()) {
-      // Every save sends the setting as shown; no media types removes it.
-      const enabled = this.readerEnabled();
-      input.reader = {
-        mediaTypes: this.readerTypes(),
-        toolName: enabled ? this.readerToolName() : null,
-        maxClassification: enabled ? this.readerMaxClassification() || null : null
-      };
+      // Every save sends the readers as shown; none removes them all.
+      input.readers = this.readers().map(reader => ({
+        mediaTypes: splitMediaTypes(reader.mediaTypes),
+        toolName: reader.toolName,
+        maxClassification: reader.maxClassification || null,
+        priority: parsePriority(reader.priority) ?? 0
+      }));
     }
 
     const existing = this.server();
@@ -519,8 +598,26 @@ export class NhAssistantAdminMcpServerEditorComponent {
     afterNextRender(() => focusFirstInvalid(this.host.nativeElement.querySelector('form')), { injector: this.injector });
   }
 
+  private focusById(id: string): void {
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`[id="${id}"]`)?.focus(), { injector: this.injector });
+  }
+
   private valueKeys(value: string): string[] {
     return [`nh-assistant.admin.run-config.field-errors.${value}`, 'nh-assistant.errors.generic'];
+  }
+
+  /** Whether the editor shows a field error at a reader's own field. */
+  private showsReaderField(field: string): boolean {
+    const match = /^readers\[(\d+)\]\./.exec(field);
+    return match !== null && readerFieldPattern.test(field) && Number(match[1]) < this.readers().length;
+  }
+
+  /** The server's errors of the readers no longer apply once a reader is added or removed. */
+  private forgetReaderErrors(): void {
+    const readerFields = Object.keys(this.serverErrors()).filter(field => field.startsWith('readers'));
+    if (readerFields.length > 0) {
+      this.touched.set(new Set([...this.touched(), ...readerFields]));
+    }
   }
 
   private reset(server: McpServer | null): void {
@@ -552,9 +649,13 @@ export class NhAssistantAdminMcpServerEditorComponent {
     this.discovery.set(null);
     this.discoveryError.set(null);
     this.confirmAuthorization.set(false);
-    this.readerMediaTypes.set(server?.reader?.mediaTypes.join(', ') ?? '');
-    this.readerToolName.set(server?.reader?.toolName ?? '');
-    this.readerMaxClassification.set(server?.reader?.maxClassification ?? '');
+    this.readers.set((server?.readers ?? []).map(reader => ({
+      key: nextReaderKey++,
+      toolName: reader.toolName,
+      mediaTypes: reader.mediaTypes.join(', '),
+      maxClassification: reader.maxClassification,
+      priority: String(reader.priority)
+    })));
     this.loadReaderTools(server);
     this.submitted.set(false);
     this.error.set(null);
@@ -608,6 +709,19 @@ function isSecretReference(value: string): boolean {
 /** The media types an administrator typed, separated by commas, spaces or new lines. */
 function splitMediaTypes(value: string): string[] {
   return value.split(/[\s,]+/).map(item => item.trim()).filter(item => item.length > 0);
+}
+
+/**
+ * The priority a reader's field holds: a whole number from -1000 to 1000, empty for 0, or `null` when
+ * the server would refuse it.
+ */
+function parsePriority(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return 0;
+  }
+  const priority = Number(trimmed);
+  return Number.isInteger(priority) && priority >= readerPriority.min && priority <= readerPriority.max ? priority : null;
 }
 
 /** Whether a value is a media type the server accepts: `type/subtype`, optionally with parameters. */

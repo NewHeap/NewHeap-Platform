@@ -252,6 +252,117 @@ public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => second.SaveChangesAsync());
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_McpReaders_migration_moves_the_reader_setting_of_a_server_to_a_reader_of_its_own_and_back(
+        AssistantTestProvider provider)
+    {
+        // A schema of its own, in the shape before the readers had a table: the setting on the server.
+        var schema = AssistantDatabaseFixture.UniqueSchema();
+        var connectionString = await database.ConnectionStringAsync(provider);
+        await using var services = AssistantDatabaseFixture.CreateStorageServices(provider, connectionString, schema, null).BuildServiceProvider();
+        var factory = services.GetRequiredService<NhAssistantDbContextFactory>();
+        await using (var context = factory.CreateDbContext())
+        {
+            await context.GetService<IMigrator>().MigrateAsync("McpServerReaders");
+            await InsertServerAsync(context, "documents", ("read_document", "application/pdf application/msword", "confidential"));
+            await InsertServerAsync(context, "plain", null);
+        }
+
+        await using (var context = factory.CreateDbContext())
+        {
+            await context.GetService<IMigrator>().MigrateAsync("McpReaders");
+        }
+
+        // The setting became the server's only reader, at priority 0; a server without one has none.
+        await using (var context = factory.CreateDbContext())
+        {
+            var moved = Assert.Single(await context.McpReaders.AsNoTracking().ToListAsync());
+            Assert.Equal(
+                ("documents", "read_document", "application/pdf application/msword", "confidential", 0),
+                (moved.ServerId, moved.ToolName, moved.MediaTypes, moved.MaxClassification, moved.Priority));
+
+            // A second reader of the same server, asked first.
+            context.McpReaders.Add(new AssistantMcpReader
+            {
+                ServerId = "documents",
+                ToolName = "convert",
+                MediaTypes = "application/msword",
+                MaxClassification = "internal",
+                Priority = 5
+            });
+            await context.SaveChangesAsync();
+        }
+
+        // Back down, the server keeps the reader the assistant asks first.
+        await using (var context = factory.CreateDbContext())
+        {
+            await context.GetService<IMigrator>().MigrateAsync("McpServerReaders");
+            Assert.Equal(
+                [("documents", "convert", "application/msword", "internal"), ("plain", (string?)null, (string?)null, (string?)null)],
+                await ReadReaderSettingsAsync(context));
+        }
+
+        // And up again to the current model, the readers deleted with their server.
+        await using (var context = factory.CreateDbContext())
+        {
+            await context.Database.MigrateAsync();
+            Assert.Empty(await context.Database.GetPendingMigrationsAsync());
+            Assert.Equal(["documents"], await context.McpReaders.Select(reader => reader.ServerId).ToListAsync());
+            await context.McpServers.Where(server => server.Id == "documents").ExecuteDeleteAsync();
+            Assert.Empty(await context.McpReaders.ToListAsync());
+        }
+    }
+
+    /// <summary>
+    /// Inserts a server as the schema before the <c>McpReaders</c> migration stored it, with the reader
+    /// setting in its own columns.
+    /// </summary>
+    private static async Task InsertServerAsync(
+        NhAssistantDbContext context,
+        string id,
+        (string ToolName, string MediaTypes, string MaxClassification)? reader)
+    {
+        var sql = context.GetService<ISqlGenerationHelper>();
+        var columns = new List<string> { "Id", "DisplayName", "Url", "AuthMode", "IsEnabled", "CreatedAt", "UpdatedAt" };
+        var now = DateTimeOffset.UtcNow;
+        var values = new List<object> { id, "Server " + id, "https://" + id + ".example.com/mcp", NhAssistantMcpAuthModes.None, true, now, now };
+        if (reader is { } setting)
+        {
+            columns.AddRange(["ReaderToolName", "ReaderMediaTypes", "ReaderMaxClassification"]);
+            values.AddRange([setting.ToolName, setting.MediaTypes, setting.MaxClassification]);
+        }
+
+        var names = string.Join(", ", columns.Select(column => sql.DelimitIdentifier(column)));
+        var parameters = string.Join(", ", values.Select((_, index) => "{" + index + "}"));
+        await context.Database.ExecuteSqlRawAsync(
+            $"INSERT INTO {sql.DelimitIdentifier("AssistantMcpServer", context.Schema)} ({names}) VALUES ({parameters})",
+            values);
+    }
+
+    /// <summary>
+    /// The reader setting of every server, by id, from the columns before the <c>McpReaders</c>
+    /// migration.
+    /// </summary>
+    private static async Task<(string Id, string? ToolName, string? MediaTypes, string? MaxClassification)[]> ReadReaderSettingsAsync(
+        NhAssistantDbContext context)
+    {
+        var sql = context.GetService<ISqlGenerationHelper>();
+        var settings = await context.Database
+            .SqlQueryRaw<ReaderSetting>(
+                $"SELECT {sql.DelimitIdentifier("Id")} AS {sql.DelimitIdentifier(nameof(ReaderSetting.Id))}, "
+                + $"{sql.DelimitIdentifier("ReaderToolName")} AS {sql.DelimitIdentifier(nameof(ReaderSetting.ToolName))}, "
+                + $"{sql.DelimitIdentifier("ReaderMediaTypes")} AS {sql.DelimitIdentifier(nameof(ReaderSetting.MediaTypes))}, "
+                + $"{sql.DelimitIdentifier("ReaderMaxClassification")} AS {sql.DelimitIdentifier(nameof(ReaderSetting.MaxClassification))} "
+                + $"FROM {sql.DelimitIdentifier("AssistantMcpServer", context.Schema)}")
+            .ToListAsync();
+        return settings
+            .OrderBy(setting => setting.Id, StringComparer.Ordinal)
+            .Select(setting => (setting.Id, setting.ToolName, setting.MediaTypes, setting.MaxClassification))
+            .ToArray();
+    }
+
     private static AssistantConversation CreateConversation(string owner)
     {
         var now = DateTimeOffset.UtcNow;
@@ -281,9 +392,21 @@ public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
         Assert.Equal(0, await context.ApplicationContexts.CountAsync());
         Assert.Equal(0, await context.McpServers.CountAsync());
         Assert.Equal(0, await context.McpTools.CountAsync());
+        Assert.Equal(0, await context.McpReaders.CountAsync());
         Assert.Equal(0, await context.UserPreferences.CountAsync());
         Assert.Equal(0, await context.Participants.CountAsync());
         Assert.Equal(0, await context.PushSubscriptions.CountAsync());
         Assert.Equal(0, await context.NotificationSettings.CountAsync());
+    }
+
+    private sealed class ReaderSetting
+    {
+        public string Id { get; set; } = string.Empty;
+
+        public string? ToolName { get; set; }
+
+        public string? MediaTypes { get; set; }
+
+        public string? MaxClassification { get; set; }
     }
 }

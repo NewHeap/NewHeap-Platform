@@ -1622,9 +1622,11 @@ internal sealed partial class NhAssistantTurnRunner(
 
     /// <summary>
     /// Opens the attachments of a person's message with that person's rights, as new files of the
-    /// turn. The message then keeps the references of what the model reads with their hashes. Returns
-    /// the content the model reads after the message's text, or <see langword="null"/> when a file was
-    /// refused: the turn then ended with the code of the first refusal.
+    /// turn. The message then keeps the references of what the model reads with their hashes, and of
+    /// a file only a reader of a server the person has yet to connect can read, without a hash, so the
+    /// next turn opens it again once the person connected it with the card (D33). Returns the content
+    /// the model reads after the message's text, or <see langword="null"/> when a file was refused: the
+    /// turn then ended with the code of the first refusal.
     /// </summary>
     private async Task<IReadOnlyList<AIContent>?> OpenAttachmentsAsync(
         NhAssistantTurnState state,
@@ -1646,19 +1648,22 @@ internal sealed partial class NhAssistantTurnRunner(
             await interceptor.RecordBusinessEventAsync(NhAssistantTurnFiles.AuditEventOf(state, outcome, null), CancellationToken.None);
         }
 
-        // The message keeps only what the model read, so a later turn never asks for a refused file.
-        var read = outcomes
-            .Where(outcome => outcome.File is not null)
-            .Select(outcome => NhAssistantStoredFile.From(outcome.Reference, outcome.File!.Sha256, NhAssistantFileOrigins.Attachment));
+        // The message keeps what the model read, and what it can read once the person connected a
+        // reader's server; a later turn never asks for another refused file.
+        var kept = outcomes
+            .Where(outcome => outcome.File is not null || outcome.ConnectionNeeded is not null)
+            .Select(outcome => NhAssistantStoredFile.From(outcome.Reference, outcome.File?.Sha256, NhAssistantFileOrigins.Attachment));
         await store.UpdateMessageAsync(
             userMessage.Id,
-            NhAssistantContent.SerializeParts(MessageParts(text, read)),
+            NhAssistantContent.SerializeParts(MessageParts(text, kept)),
             0,
             0,
             0,
             CancellationToken.None);
         if (outcomes.FirstOrDefault(outcome => !outcome.Attached) is { } refused)
         {
+            // The person can connect a reader's server with its card and ask again.
+            await interceptor.AnnounceConnectionsAsync(NhAssistantTurnFiles.ConnectionsNeededOf(outcomes), CancellationToken.None);
             await FinishWithErrorAsync(state, refused.Code!, NhAssistantConversationStatuses.Idle);
             return null;
         }
@@ -2553,7 +2558,8 @@ internal sealed partial class NhAssistantTurnRunner(
         state.Scope.McpConnectionOwners = state.McpTools.ConnectionOwners;
         if (state.McpTools.ConnectionsNeeded.Count > 0)
         {
-            await AnnounceConnectionsNeededAsync(state, interceptor, cancellationToken);
+            // The person sees once per turn which servers need their connection.
+            await interceptor.AnnounceConnectionsAsync(state.McpTools.ConnectionsNeeded, cancellationToken);
             var note = ConnectionsNeededNote(state.McpTools.ConnectionsNeeded);
             if (modelInstructions.Length + note.Length <= NhAssistantPromptComposer.MaxInstructionsLength)
             {
@@ -2587,35 +2593,6 @@ internal sealed partial class NhAssistantTurnRunner(
             .AsBuilder()
             .Use(interceptor.InvokeAsync)
             .Build(agentServices);
-    }
-
-    /// <summary>
-    /// Shows the person once per turn which servers need their connection: a
-    /// <c>connection-required</c> event and message part per server, which survives a reload.
-    /// </summary>
-    private static async Task AnnounceConnectionsNeededAsync(
-        NhAssistantTurnState state,
-        NhAssistantToolCallInterceptor interceptor,
-        CancellationToken cancellationToken)
-    {
-        if (state.ConnectionsAnnounced || state.Scope.Consultation is not null)
-        {
-            return;
-        }
-        state.ConnectionsAnnounced = true;
-        foreach (var needed in state.McpTools!.ConnectionsNeeded)
-        {
-            state.AddPart(new NhAssistantStoredPart(
-                NhAssistantStoredPart.ConnectionRequiredType,
-                ServerId: needed.ServerId,
-                DisplayName: needed.DisplayName,
-                Reason: needed.Reason));
-        }
-        await interceptor.FlushAsync(cancellationToken);
-        foreach (var needed in state.McpTools.ConnectionsNeeded)
-        {
-            await state.EmitAsync(new NhAssistantConnectionRequiredEvent(needed.ServerId, needed.DisplayName, needed.Reason));
-        }
     }
 
     /// <summary>
@@ -3073,6 +3050,7 @@ internal sealed partial class NhAssistantTurnRunner(
         var files = services.GetRequiredService<NhAssistantTurnFiles>();
         var interceptor = CreateInterceptor(state);
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var outcomes = new List<NhAssistantFileOutcome>();
         foreach (var (parts, message, id) in newestFirst)
         {
             if (attachments is not null && attachments.TryGetValue(id, out var opened))
@@ -3101,6 +3079,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 }
 
                 var outcome = await files.ReopenAsync(state, stored.ToReference(), stored.ToolId, CancellationToken.None);
+                outcomes.Add(outcome);
                 await interceptor.RecordBusinessEventAsync(NhAssistantTurnFiles.AuditEventOf(state, outcome, part.InvocationId), CancellationToken.None);
                 if (outcome.Attached)
                 {
@@ -3129,6 +3108,8 @@ internal sealed partial class NhAssistantTurnRunner(
             }
         }
 
+        // An earlier file a reader can read once the person connected its server shows the card.
+        await interceptor.AnnounceConnectionsAsync(NhAssistantTurnFiles.ConnectionsNeededOf(outcomes), CancellationToken.None);
         return following;
     }
 

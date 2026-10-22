@@ -47,6 +47,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantMcpTool> McpTools => Set<AssistantMcpTool>();
 
+    public DbSet<AssistantMcpReader> McpReaders => Set<AssistantMcpReader>();
+
     public DbSet<AssistantMcpConnection> McpConnections => Set<AssistantMcpConnection>();
 
     public DbSet<AssistantMcpAuthorizationFlow> McpAuthorizationFlows => Set<AssistantMcpAuthorizationFlow>();
@@ -594,13 +596,24 @@ public sealed class NhAssistantDbContext : DbContext
             server.Property(item => item.OAuthClientSecretReference).HasMaxLength(NhAssistantMcpSecretReferences.MaxLength);
             server.Property(item => item.OrganizationAccountLabel).HasMaxLength(200);
             server.Property(item => item.AuthorizationConfirmedBy).HasMaxLength(128);
-            server.Property(item => item.ReaderMediaTypes).HasMaxLength(NhAssistantMcpReaders.MaxMediaTypesLength);
-            server.Property(item => item.ReaderToolName).HasMaxLength(NhAssistantMcpReaders.MaxToolNameLength);
-            server.Property(item => item.ReaderMaxClassification).HasMaxLength(16);
             server.HasMany(item => item.Tools)
                 .WithOne()
                 .HasForeignKey(item => item.ServerId)
                 .OnDelete(DeleteBehavior.Cascade);
+            server.HasMany(item => item.Readers)
+                .WithOne()
+                .HasForeignKey(item => item.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantMcpReader>(reader =>
+        {
+            reader.ToTable("AssistantMcpReader");
+            reader.HasKey(item => new { item.ServerId, item.ToolName });
+            reader.Property(item => item.ServerId).HasMaxLength(40);
+            reader.Property(item => item.ToolName).HasMaxLength(NhAssistantMcpReaders.MaxToolNameLength);
+            reader.Property(item => item.MediaTypes).HasMaxLength(NhAssistantMcpReaders.MaxMediaTypesLength).IsRequired();
+            reader.Property(item => item.MaxClassification).HasMaxLength(16).IsRequired();
         });
 
         modelBuilder.Entity<AssistantAgentSkillDefinition>(definition =>

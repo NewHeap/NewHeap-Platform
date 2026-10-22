@@ -11,6 +11,13 @@ namespace NewHeap.Platform.AI.Chat.Persistence;
 /// </summary>
 internal static class NhAssistantMigrationSchema
 {
+    /// <summary>
+    /// What the SQL of a data move in a checked-in migration writes for the assistant's schema, such
+    /// as <c>{nhai}.[AssistantMcpReader]</c>; <see cref="ApplyToSql"/> replaces it with the configured
+    /// schema, delimited, for the default schema too.
+    /// </summary>
+    public const string SchemaPlaceholder = "{nhai}";
+
     public static string GetConfiguredSchema(DbContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -96,6 +103,20 @@ internal static class NhAssistantMigrationSchema
                     rename.Schema = Route(rename.Schema, schema);
                     break;
             }
+        }
+    }
+
+    /// <summary>
+    /// Writes <paramref name="delimitedSchema"/>, the configured schema as the provider delimits it,
+    /// for <see cref="SchemaPlaceholder"/> in the SQL operations of a migration.
+    /// </summary>
+    public static void ApplyToSql(IEnumerable<MigrationOperation> operations, string delimitedSchema)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+        ArgumentException.ThrowIfNullOrWhiteSpace(delimitedSchema);
+        foreach (var operation in operations.OfType<SqlOperation>())
+        {
+            operation.Sql = operation.Sql.Replace(SchemaPlaceholder, delimitedSchema, StringComparison.Ordinal);
         }
     }
 
