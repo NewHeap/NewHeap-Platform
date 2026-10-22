@@ -396,7 +396,9 @@ both providers each project runs its SQL Server variants in a second process
 alongside its other tests. The Angular libraries, one at a time, and the sample
 checks need no build and run alongside from the start. Each job's output is printed
 in one block when it ends, and a summary lists every process with its duration and
-the failures. `--max-parallel <n>` changes the bound; `--max-parallel 1` runs one
+the failures; a failed `ng test` job shows each failed spec with its message and
+stack, and the summary names those specs under it, so do not rerun the library to
+find them. `--max-parallel <n>` changes the bound; `--max-parallel 1` runs one
 job after the other. Use
 `--dry-run` to see the plan, `--files a,b` to plan for files before changing them,
 `--all-providers` to add SQL Server and `--all` for everything. Do not rerun suites

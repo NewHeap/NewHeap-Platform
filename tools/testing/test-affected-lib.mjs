@@ -10,6 +10,7 @@ import {
   angularTestArguments,
   defaultMaxParallel,
   dotnetTestArguments,
+  failedSpecs,
   isTestProject,
   jobReport,
   needsAllProviders,
@@ -90,8 +91,11 @@ assert.deepEqual(
     },
     ['projects/nh-common/two-factor/src/x.spec.ts', String.raw`projects\nh-ai-chat\src\y.spec.ts`, 'projects/management/z.spec.ts']),
   { testable: ['nh-common', 'nh-ai-chat'], withoutSpecs: ['nh-toastr', 'nh-ai-chat-extra'] });
-// Angular libraries run once, in headless Chrome, so a hidden browser window cannot fail them.
-assert.deepEqual(angularTestArguments('nh-ai-chat'), ['ng', 'test', 'nh-ai-chat', '--watch=false', '--browsers=ChromeHeadless']);
+// Angular libraries run once, in headless Chrome, so a hidden browser window cannot fail them, and
+// report through dots, whose output keeps the failed specs where progress output would bury them.
+assert.deepEqual(
+  angularTestArguments('nh-ai-chat'),
+  ['ng', 'test', 'nh-ai-chat', '--watch=false', '--browsers=ChromeHeadless', '--reporters=dots']);
 
 // Persistence changes run both providers; other changes one.
 assert.ok(needsAllProviders(['src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261019_X.cs']));
@@ -257,6 +261,43 @@ assert.deepEqual(summaryLines([{ label: 'build (2 test projects)', passed: true,
   '  ng test nh-common'
 ]);
 assert.equal(summaryLines([passing], 12).at(-1), 'All affected tests passed. Run the validators AGENTS.md lists for the files you changed.');
+// A failed Karma run names each failed spec, with its message and stack in the job block however
+// much output precedes or follows, and under its job in the summary.
+const browser = 'Chrome Headless 141.0.0.0 (Windows 10)';
+const karmaOutput = [
+  ...Array.from({ length: 70 }, (_, line) => `build ${line}`),
+  '.'.repeat(80),
+  `\x1b[31m${browser} NhDatePipe formats (a) the day FAILED\x1b[39m`,
+  "\tError: Expected '1' to equal '01'.",
+  '\t    at <Jasmine>',
+  '\t    at UserContext.apply (projects/nh-common/src/date.pipe.spec.ts:12:20)',
+  '....',
+  `${browser} NhToast closes FAILED`,
+  ...Array.from({ length: 70 }, (_, line) => `\t    at frame ${line}`),
+  '..',
+  `${browser}: Executed 86 of 86 (2 FAILED) (0.4 secs / 0.3 secs)`,
+  '\x1b[31mTOTAL: 2 FAILED, 84 SUCCESS\x1b[39m'
+].join('\n');
+assert.deepEqual(failedSpecs(karmaOutput), ['NhDatePipe formats (a) the day', 'NhToast closes']);
+assert.deepEqual(failedSpecs(`${browser}: Executed 3 of 3 SUCCESS (0.1 secs / 0.1 secs)\nTOTAL: 3 SUCCESS`), []);
+assert.equal(outcomeSummary(karmaOutput), 'TOTAL: 2 FAILED, 84 SUCCESS');
+const karmaFailing = { label: 'ng test nh-common', passed: false, seconds: 9, output: karmaOutput };
+const karmaReport = jobReport([karmaFailing]).split('\n');
+assert.deepEqual(karmaReport.slice(0, 3), [
+  'FAIL ng test nh-common (9s)',
+  `${browser} NhDatePipe formats (a) the day FAILED`,
+  "\tError: Expected '1' to equal '01'."
+]);
+assert.ok(karmaReport.includes('\t    at frame 69'));
+assert.equal(karmaReport.at(-1), 'TOTAL: 2 FAILED, 84 SUCCESS');
+assert.ok(!karmaReport.some(line => line.includes('\x1b')));
+assert.ok(!karmaReport.includes('build 69'));
+assert.deepEqual(summaryLines([passing, karmaFailing], 20).slice(-4), [
+  'Affected tests failed: 1 of 2.',
+  '  ng test nh-common',
+  '    NhDatePipe formats (a) the day',
+  '    NhToast closes'
+]);
 
 // A provider flag named after SQL Server would send both of its cases to the SQL Server process.
 assert.deepEqual(sqlServerFlagParameters('public void Translates(bool sqlServer)'), ['sqlServer']);
