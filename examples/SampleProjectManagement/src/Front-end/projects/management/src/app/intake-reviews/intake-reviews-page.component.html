@@ -9,8 +9,22 @@
 
   <div class="reviews-grid">
     <article class="inbox-card">
+      <!-- SPM-310: the inbox groups the proposals per division, the parent every project names, and per
+           project and run; it marks what is new since the last visit and can show the active division only. -->
+      @if (activeDivisionId; as divisionId) {
+        <label class="division-filter">
+          <input type="checkbox" [checked]="activeDivisionOnly()" (change)="activeDivisionOnly.set(!activeDivisionOnly())" />
+          {{ 'intake-reviews.active-division-only' | translate }}
+        </label>
+      }
       <!-- SPM-302: a proposal a run for the whole application placed here opens that run's conversation. -->
-      <nh-assistant-agent-inbox [agentId]="agentId" subjectType="project" (openConversation)="openConversation($event)" />
+      <nh-assistant-agent-inbox
+        [agentId]="agentId"
+        subjectType="project"
+        [divisionId]="activeDivisionOnly() ? activeDivisionId : null"
+        [grouped]="true"
+        [groupByRun]="true"
+        (openConversation)="openConversation($event)" />
     </article>
 
     <article class="thread-card">

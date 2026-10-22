@@ -205,6 +205,16 @@ trigger fires for, so the planner's change of a project does not start it on tha
 while its change made while it worked on another project and a person's change do.
 `AssistantAgentRunSamplesTests` runs the three cases.
 
+Approvers get an overview of their inbox (SPM-310). The project resolver names each project's division as
+its parent, and every proposal records that parent when it is made, so the inbox groups without asking
+a resolver per proposal. The intake reviews page shows the inbox grouped: a division with its projects'
+proposals, per project and run, how many of a group the page shows of its total and whether the group
+continues on another page, and "Select group" selects only the shown pending proposals the person may
+decide. The page can show the active division's proposals only. What came since the person's last
+visit of the inbox in its scope is marked new, also what arrives while it is shown. A run's result
+lets its reader select and decide the run's proposals together. `AssistantAgentRunSamplesTests` proves the
+grouped order and totals across pages, the recorded parent, the division filter and what is new.
+
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
 server protects its address, from its challenge and protected resource metadata; saving the server
