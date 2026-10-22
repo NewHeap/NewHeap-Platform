@@ -677,6 +677,21 @@ takes the highest classification of its files, agent and skill, and refuses file
 with `assistant-files-not-accepted`; `use_skill` refuses a skill that cannot take the files the turn
 already reads. In the administration an agent's run settings and a data skill store
 `acceptsFiles`, off for a new one; the nh-ai-assistant rule covers the file source and its limits.
+SampleProjectManagement's document reader (SPM-306) shows it: a document added to a project's folder
+starts its `read-documents` skill through a trigger that names the skill, both the agent and the
+skill call `AcceptsFiles()`, and the skill's tool names the project's documents in its result
+(`INhAiToolResultFiles`) without content, so the file source opens them for the agent.
+
+```csharp
+.ConfigureAgent("sample-project-document-reader", agent => agent
+    .WorksOn("project")
+    .Grant("project-documents.read")
+    .TriggerOnly()
+    .AcceptsFiles()
+    .Skill("read-documents", skill => skill
+        .Tools("project-documents.read")
+        .AcceptsFiles(limits => limits.MaxFileBytes = 10 * 1024 * 1024)))
+```
 
 Let separate agents hand work to each other with hand-offs, never with events published to start
 another agent. Both sides opt in: the target lists its sources with `AcceptHandOffs(subjectType,
@@ -1100,7 +1115,9 @@ refuses the call with `assistant-classification-not-permitted` without a retry, 
 both providers. Assert that an agent configured for runs and a skill refuse files with
 `assistant-files-not-accepted` until `AcceptsFiles()` or `acceptsFiles` in the administration switches
 them on, that a run opens a file for the agent, and that an agent's limit only lowers the
-application's, on both providers. Assert that an agent created in the administration keeps the profile it chose, uses
+application's, on both providers. SPM-306 runs the sample's document reader end to end: its skill
+reads a PDF and a Word document a tool result names, and an upload to the intake reviewer's thread is
+refused with `assistant-files-not-accepted`. Assert that an agent created in the administration keeps the profile it chose, uses
 the chat profile without one and refuses a profile that the run catalog does not offer, on both
 providers. Assert that a headless run, a consultation and a person's
 turn in the thread read the briefing once, before the continuity, with markup neutralized; that a
@@ -1395,3 +1412,8 @@ references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
+- SPM-306 — The document reader, an agent whose skill accepts files, reads a project's documents through a tool result that names the media items, while agents that do not opt in refuse files
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectDocumentAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectDocumentAiTools.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDocumentReaderComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDocumentReaderComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectDocumentEventHandler.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectDocumentEventHandler.cs)

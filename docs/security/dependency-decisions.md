@@ -16,6 +16,12 @@ Angular build tooling 20.3.34 currently resolves `less` to an `image-size` relea
 
 This dependency is development-only and is absent from the published NewHeap npm tarballs. Pull-request validation has read-only repository permissions, release publication only runs from the validated `main` commit, and the build does not accept external image inputs. CI logs the full audit and fails on every critical advisory; it separately fails on high or critical runtime advisories. Reassess this exception on every Angular toolchain update and remove it as soon as Angular resolves to a patched parser.
 
+## Document reading in the sample only
+
+SampleProjectManagement's example reading tool, `OfficeDocumentReader`, turns Word and Excel documents into text for the assistant with `DocumentFormat.OpenXml` 3.5.1 (MIT) and its `DocumentFormat.OpenXml.Framework` dependency (MIT). Only the sample's API references it; the NewHeap packages carry no document library (decision F10 of the [files in model turns plan](../plans/ai-files-in-model-turns-plan.md)), so applications copy the example with a library of their choice or use a document-reading MCP server.
+
+The reader runs in the application's process on files whose size the assistant's limits already bound, and it bounds what one package part may unpack with `OpenSettings.MaxCharactersInPart`, so a document that compresses well cannot exhaust memory. A damaged or oversized document fails the file instead of returning partial text. Review the pin with the sample's other dependencies; a replacement must keep a permissive licence.
+
 ## Audit policy
 
 Do not suppress high or critical dependency advisories merely to make release output green. A suppression requires a documented, tested mitigation and an expiry/review condition. Public release validation must run NuGet and npm audits and report infrastructure-limited checks explicitly.

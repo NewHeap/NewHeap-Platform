@@ -4,7 +4,7 @@ title: "Add a governed assistant with durable conversations and in-chat approval
 area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300"]
+sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300", "SPM-305", "SPM-306"]
 public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "AddFileReader", "INhAssistantFileReader", "NhAssistantFileReadRequest", "NhAssistantFileReaderBuilder", "NhAssistantMcpReaders", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantFilePartDto"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
@@ -460,21 +460,35 @@ Let turns read the application's files with `UseFileSource<T>()`, where `T` impl
 `INhAssistantFileSource`. The application keeps the files, decides who may read them and how
 sensitive they are; the assistant keeps references and hashes only. Without a source turns take no
 files, and every file is refused with `assistant-files-unavailable`. Declare on the model profile
-which media types its model reads itself:
+which media types its model reads itself, and give the files people upload, which are
+`Confidential` by default, a fallback profile that permits them:
 
 ```csharp
-services.AddNewHeapPlatformAI(ai => ai.AddChatProfile("project-assistant-chat", profile => profile
-    .UseKeyedClient("project-model")
-    .RequireCapabilities(NhAiModelCapability.FunctionCalling)
-    .WithStreaming(NhAiStreamingPolicy.Allowed)
-    .PermitDataClassifications(NhAiDataClassification.Internal)
-    .AcceptMediaTypes(NhAiMediaTypes.Pdf, NhAiMediaTypes.Png, NhAiMediaTypes.Jpeg)));
+services.AddNewHeapPlatformAI(ai => ai
+    .AddChatProfile("project-assistant-chat", profile => profile
+        .UseKeyedClient("project-model")
+        .RequireCapabilities(NhAiModelCapability.FunctionCalling)
+        .WithStreaming(NhAiStreamingPolicy.Allowed)
+        .PermitDataClassifications(NhAiDataClassification.Internal)
+        .AcceptMediaTypes(NhAiMediaTypes.Pdf, NhAiMediaTypes.Png, NhAiMediaTypes.Jpeg)
+        .WithFallbackProfiles("project-assistant-confidential"))
+    .AddChatProfile("project-assistant-confidential", profile => profile
+        .UseKeyedClient("confidential-model")
+        .RequireCapabilities(NhAiModelCapability.FunctionCalling)
+        .WithStreaming(NhAiStreamingPolicy.Allowed)
+        .PermitDataClassifications(NhAiDataClassification.Internal, NhAiDataClassification.Confidential)
+        .AcceptMediaTypes(NhAiMediaTypes.Pdf, NhAiMediaTypes.Png, NhAiMediaTypes.Jpeg)));
 
 services.AddNewHeapAssistant(assistant => assistant
     // ...
-    .UseFileSource<ProjectDocumentFileSource>()
+    .UseFileSource<ProjectMediaFileSource>()
     .WithLimits(limits => { limits.MaxFilesPerTurn = 3; }));
 ```
+
+SampleProjectManagement implements the source on its media library (SPM-305): uploads live in a
+folder of their conversation and open only in its turns, a project document opens for the people who
+see the project's agent work and for an agent on that project, and the media library's own endpoints
+never serve the uploads.
 
 - `OpenAsync(reference, actor, cancellationToken)` returns `TaskResult<NhAssistantFile>` with the
   content stream, media type, length, page count where known and the file's
@@ -538,16 +552,21 @@ services.AddNewHeapAssistant(assistant => assistant
   read, `FileHash` is the SHA-256 of the content the reader received. File content and a reader's
   text never reach logs, audit or usage records.
 
-A reading tool of the application, registered next to the file source:
+A reading tool of the application, registered next to the file source. NewHeap's packages carry no
+document library; the sample's `OfficeDocumentReader` (SPM-305) is an example to copy, which reads
+Word and Excel documents with DocumentFormat.OpenXml in the application's own process:
 
 ```csharp
 services.AddNewHeapAssistant(assistant => assistant
     // ...
-    .UseFileSource<ProjectDocumentFileSource>()
+    .UseFileSource<ProjectMediaFileSource>()
     .AddFileReader<OfficeDocumentReader>("office-documents", reader => reader
         .AcceptMediaTypes(NhAiMediaTypes.Docx, NhAiMediaTypes.Xlsx)
         .PermitDataClassifications(NhAiDataClassification.Internal, NhAiDataClassification.Confidential)));
 ```
+
+- Bound what a reader unpacks, such as OpenXml's `OpenSettings.MaxCharactersInPart`, and return a
+  failed result for a damaged document instead of text cut off; the turn's limits count the text.
 
 People attach files to a chat message in two steps. First the client uploads each file to the
 conversation with `POST {prefix}/conversations/{id}/files`: `multipart/form-data` with one file part
@@ -569,7 +588,7 @@ at most the agent's files per turn, and the turn opens them as described above.
 ```csharp
 services.AddNewHeapAssistant(assistant => assistant
     // ...
-    .UseFileSource<ProjectDocumentFileSource>()
+    .UseFileSource<ProjectMediaFileSource>()
     .ConfigureUploads(uploads =>
     {
         // PDF, PNG, JPEG, Word and Excel by default; no types switches uploads off.
@@ -766,7 +785,11 @@ audit and logs hold references and hashes only, and that a later turn opens the 
 own actor and names it when that actor may no longer read it. Over HTTP, upload a file and send it with
 a message on both providers and assert the stored classification, the file part of the conversation
 without content, id or hash, and the codes of a file too large, a type not accepted, content of
-another type, an agent that accepts no files and a caller without access.
+another type, an agent that accepts no files and a caller without access. SPM-305 is the executable
+reference on the media library: a PDF a person uploads reaches the model as a file on the confidential
+fallback, Word and Excel documents as the example reader's text, another person's conversation cannot
+open the upload, and the source refuses a project document to an actor who may not see the project.
+SPM-306 shows an agent skill that reads a project's documents through a tool result.
 
 For reading tools, assert on both providers that a type the profile does not read reaches the model as
 text from the application's reader behind the marker, that an MCP server set up as reader reads what

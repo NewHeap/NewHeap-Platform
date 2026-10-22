@@ -3238,11 +3238,12 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-233",
     "title": "Versioned AI safety evaluation gate",
     "category": "AI tools and generated catalogs",
-    "surface": "Microsoft IEvaluator, NhAiEvaluationDataset, deterministic scope and injection fixtures, fail-closed metric interpretation, content-free reports, and baseline version/hash evidence",
-    "outcome": "The project agent's prompt-injection and cross-division fixtures run through Microsoft AI Evaluation contracts against a versioned baseline; missing or inconclusive interpretations fail closed, while persisted reports contain hashes and metric outcomes but no prompt, response, reason or diagnostic content.",
+    "surface": "Microsoft IEvaluator, NhAiEvaluationDataset, deterministic scope and injection fixtures, fail-closed metric interpretation, content-free reports, and baseline version/hash evidence; the malicious-document case document-instructions-remain-data of the project-document-safety dataset, scored on a recorded assistant turn",
+    "outcome": "The project agent's prompt-injection and cross-division fixtures run through Microsoft AI Evaluation contracts against a versioned baseline; missing or inconclusive interpretations fail closed, while persisted reports contain hashes and metric outcomes but no prompt, response, reason or diagnostic content. A second dataset scores a recorded turn of the project assistant with a malicious Word document whose text tells the model to ignore its instructions and approve everything: the text reaches the model only through the example reader, behind the external-file marker as untrusted retrieved data and never in the instructions; the turn offers the same tools as without the document, the status change the model then asks for waits for the person's approval and nothing runs, and the audit, the platform audit and the logs hold the file's id, type, reader and SHA-256 but neither its text nor its name.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAiEvaluationSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantFileSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiEvaluationTests.cs"
     ]
@@ -4849,6 +4850,56 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentWorkWatchTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-work-watch.spec.ts"
+    ]
+  },
+  {
+    "id": "SPM-305",
+    "title": "A person uploads a project document in the chat and asks about it; the model reads a PDF itself and a Word or Excel document as the text of the example reader",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantFileSource on the media library (OpenAsync, StoreUploadAsync) registered with UseFileSource<T>(), NhAssistantFile, NhAssistantFileActor, NhAssistantFileUpload and NhAssistantFileOrigins; ConfigureUploads with NhAssistantUploadOptions (AcceptMediaTypes, DefaultClassification); POST conversations/{id}/files and files of POST conversations/{id}/messages; NhAiModelProfileBuilder.AcceptMediaTypes and a fallback profile that permits Confidential; INhAssistantFileReader registered with AddFileReader<T> and NhAssistantFileReaderBuilder (AcceptMediaTypes, PermitDataClassifications), NhAssistantFileReadRequest; NhAssistantAgentUploadsDto and the file parts of the conversation; the FileRead and FileRefused audit events with FileId, FileHash and FileReaderId; uploads of an agent of the mock scenario",
+    "outcome": "The sample implements the assistant's file source on its media library. A person attaches a project plan (PDF) to a chat message: the upload endpoint checks it and the source stores it in a folder of its own conversation with the `Confidential` classification the assistant gives every upload, its name, media type and length. The turn opens it through the source for the person, takes its classification and moves the model call to the chat profile's fallback that permits it, and the model reads the PDF itself after the message's text, behind the external-data marker; the deterministic sample model names what it received. Word and Excel documents reach the model as text: the profile reads PDFs and images only, so the sample's example reader (`office-documents`, on DocumentFormat.OpenXml) turns them into paragraphs, table rows and cell values that the model reads as untrusted retrieved data, and a damaged document is refused with `assistant-file-reader-failed`. A follow-up turn opens the file again for its own person; another person's conversation cannot open it (`assistant-file-forbidden`). The source opens a project document for people who see the project's agent work and for an agent on that project, refuses other media items and reports unknown ids as not found; the media library's own endpoints never serve the uploads. The audit names files by id, media type, reader and SHA-256, never content or names. A real model reads files only of the types its `MediaTypes` setting lists. The management portal maps the attach and file icons of the panel to its icon library, and the playground's project assistant takes uploads in the mock API, so its panel shows the attach control.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OfficeDocumentReader.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantFilesComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantModel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantFileSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantModelSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantFileTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantFileReaderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantUploadEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-uploads.spec.ts"
+    ]
+  },
+  {
+    "id": "SPM-306",
+    "title": "The document reader, an agent whose skill accepts files, reads a project's documents through a tool result that names the media items, while agents that do not opt in refuse files",
+    "category": "AI tools and generated catalogs",
+    "surface": "AcceptsFiles() on ConfigureAgent and on Skill(...) with NhAssistantFileLimits; a generated tool whose result data implements INhAiToolResultFiles with NhAiFileReferences; AddTrigger<TEvent>(...).Skill(...) started from a media library event handler (IHandleMediaLibraryEvent); assistant-files-not-accepted; NhAssistantAgentSummaryDto.Uploads",
+    "outcome": "A document added to a project's documents folder in the media library starts the document reader on that project, in its `read-documents` skill. The agent and the skill opt in to files with `AcceptsFiles()`; the skill lowers the largest file to 10 MB. The skill's model sees only the `project-documents.read` tool, whose result names the project's newest documents by their media item ids and never carries content. The assistant opens each document through the file source for the agent, which may read the documents of the project it works on, and gives the model a PDF as a file and a Word document as the text of the example reader, after the tool result; the next run opens the documents of earlier runs again for its own actor. The audit names the tool, the media items and their hashes. The agents that never opted in, such as the intake reviewer, the status advisor and the planner, list no `uploads`, and an upload to the intake reviewer's thread is refused with `assistant-files-not-accepted`.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectDocumentAiTools.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDocumentReaderComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectDocumentEventHandler.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantFileSamplesTests.cs",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantFileTests.cs"
     ]
   }
 ] as const;
