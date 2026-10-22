@@ -11,6 +11,7 @@ import {
   AgentFeedbackOutcome,
   AgentInbox,
   AgentInboxFilter,
+  AgentInboxVisit,
   AgentObjectAgents,
   AgentProposal,
   AgentProposalDecision,
@@ -239,7 +240,10 @@ export class NhAssistantAgentRunApiService {
     return this.transport.json<AgentTriggerReceipt>('POST', `runs/${encodeURIComponent(runId)}/retry`, { mode });
   }
 
-  /** Pending proposals the caller may decide, sorted by expiry. */
+  /**
+   * Pending proposals the caller may decide, sorted by expiry, or with `grouped` by parent and subject,
+   * with what is new since the caller's last visit (`visitInbox`).
+   */
   getInbox(filter: AgentInboxFilter = {}): Observable<AgentInbox> {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(filter)) {
@@ -249,6 +253,16 @@ export class NhAssistantAgentRunApiService {
     }
     const suffix = query.toString();
     return this.transport.json<AgentInbox>('GET', suffix ? `approvals/inbox?${suffix}` : 'approvals/inbox');
+  }
+
+  /**
+   * Records that the caller looked at the inbox now, so it marks the proposals made after this visit
+   * as new. `divisionId` records the visit of the inbox of one division the caller may work in;
+   * otherwise of the whole inbox. Fails with `assistant-subject-not-found` for a division the caller
+   * may not work in.
+   */
+  visitInbox(divisionId?: string | null): Observable<AgentInboxVisit> {
+    return this.transport.json<AgentInboxVisit>('POST', withQuery('approvals/inbox/visit', { divisionId }));
   }
 
   /**

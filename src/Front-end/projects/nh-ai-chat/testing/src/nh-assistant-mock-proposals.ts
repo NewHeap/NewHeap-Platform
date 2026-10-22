@@ -1,6 +1,8 @@
 import {
   AgentDecisionOutcome,
   AgentInbox,
+  AgentInboxGroup,
+  AgentInboxVisit,
   AgentProposal,
   AgentProposalLookup,
   AgentSubjectWorkProposal,
@@ -13,12 +15,14 @@ interface StoredProposal {
   proposal: AgentProposal;
   canDecide: boolean;
   reasonCode: string | null;
+  divisionId: string | null;
 }
 
 const dashCase = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const maxReason = 500;
 const maxItemsPerPage = 100;
 const maxBulkDecisions = 50;
+const guid = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 const lifetimeMs = 3 * 24 * 60 * 60 * 1000;
 /** The platform's subject type of the whole application. */
 const systemType = 'nh-system';
@@ -36,13 +40,16 @@ const systemType = 'nh-system';
  */
 export class NhAssistantMockProposals {
   private readonly proposals = new Map<string, StoredProposal>();
+  /** When the caller last looked at the inbox, by scope key. */
+  private readonly visits = new Map<string, string>();
 
   constructor(
     scenario: readonly NhAssistantMockProposal[] = [],
     private readonly actorId: () => string,
     private readonly now: () => string,
     private readonly mayDecideApplication: (agentId: string) => boolean = () => true,
-    private readonly decided: (proposal: AgentProposal) => void = () => undefined
+    private readonly decided: (proposal: AgentProposal) => void = () => undefined,
+    private readonly mayWorkIn: (divisionId: string) => boolean = () => true
   ) {
     const created = new Date(now()).getTime();
     for (const item of scenario) {
@@ -74,8 +81,8 @@ export class NhAssistantMockProposals {
           mode: 'deferred',
           policyId: null,
           grantSource: 'agent',
-          createdAt: new Date(created).toISOString(),
-          expiresAt: new Date(created + lifetimeMs).toISOString(),
+          createdAt: item.createdAt ?? new Date(created).toISOString(),
+          expiresAt: item.expiresAt ?? new Date(Date.parse(item.createdAt ?? new Date(created).toISOString()) + lifetimeMs).toISOString(),
           initiatorActorId: null,
           decidedByActorId: null,
           decidedAt: null,
@@ -83,8 +90,10 @@ export class NhAssistantMockProposals {
           executedAt: null,
           rationale: item.rationale ?? null,
           placedBy: item.placedBy ?? null,
+          parent: item.parent ?? null,
           canGiveFeedback: false
         },
+        divisionId: item.divisionId ?? null,
         canDecide: item.canDecide ?? true,
         reasonCode: item.canDecide === false ? item.reasonCode ?? 'assistant-approval-policy-denied' : null
       });
@@ -95,6 +104,9 @@ export class NhAssistantMockProposals {
   handle(method: string, segments: string[], query: URLSearchParams, body: unknown): NhAssistantMockResult | null {
     if (segments.length === 2 && segments[1] === 'inbox') {
       return method === 'GET' ? this.inbox(query) : { status: 405 };
+    }
+    if (segments.length === 3 && segments[1] === 'inbox' && segments[2] === 'visit') {
+      return method === 'POST' ? this.visit(query) : { status: 405 };
     }
     if (segments.length === 2 && segments[1] === 'lookup') {
       return method === 'POST' ? this.lookup(body) : { status: 405 };
@@ -118,6 +130,13 @@ export class NhAssistantMockProposals {
       .map(item => item.proposal)
       .reverse();
     return items.length === 0 ? null : items;
+  }
+
+  /** The proposals of a run the caller may see, in the order the scenario lists them. */
+  ofRun(runId: string): AgentProposal[] {
+    return this.visible()
+      .filter(item => item.proposal.runId === runId)
+      .map(item => item.proposal);
   }
 
   /** The pending proposals on a subject with the caller's right to decide each, earliest expiry first. */
@@ -154,17 +173,50 @@ export class NhAssistantMockProposals {
 
     const agentId = query.get('agentId');
     const runId = query.get('runId');
+    const divisionId = query.get('divisionId');
+    if (divisionId !== null && !guid.test(divisionId)) {
+      return { status: 400 };
+    }
+
+    const grouped = query.get('grouped') === 'true';
     const items = this.visible()
       .filter(item => item.proposal.status === 'pending' && item.canDecide)
+      .filter(item => divisionId === null || sameGuid(item.divisionId, divisionId))
       .map(item => item.proposal)
       .filter(proposal => (subjectType === null || proposal.subjectType === subjectType)
         && (agentId === null || proposal.agentId === agentId)
         && (runId === null || proposal.runId === runId))
       .sort((left, right) => left.expiresAt.localeCompare(right.expiresAt) || left.approvalId.localeCompare(right.approvalId));
+    const ordered = grouped ? groupedOrder(items) : items;
+    const offset = (page - 1) * itemsPerPage;
+    const pageItems = ordered.slice(offset, offset + itemsPerPage);
+    const scopeKey = scopeKeyOf(divisionId);
+    const lastVisitedAt = this.visits.get(scopeKey) ?? null;
     const body: AgentInbox = {
-      items: items.slice((page - 1) * itemsPerPage, page * itemsPerPage),
-      total: items.length
+      items: pageItems,
+      total: items.length,
+      scopeKey,
+      lastVisitedAt,
+      newApprovalIds: pageItems
+        .filter(proposal => lastVisitedAt === null || Date.parse(proposal.createdAt) > Date.parse(lastVisitedAt))
+        .map(proposal => proposal.approvalId),
+      groups: grouped ? groupsOf(ordered, offset, pageItems.length) : null
     };
+    return { status: 200, body };
+  }
+
+  /** `POST approvals/inbox/visit`: the whole inbox, or that of a division the caller works in. */
+  private visit(query: URLSearchParams): NhAssistantMockResult {
+    const divisionId = query.get('divisionId');
+    if (divisionId !== null && !guid.test(divisionId)) {
+      return { status: 400 };
+    }
+    if (divisionId !== null && !this.mayWorkIn(divisionId)) {
+      return failure('assistant-subject-not-found');
+    }
+
+    const body: AgentInboxVisit = { scopeKey: scopeKeyOf(divisionId), visitedAt: this.now() };
+    this.visits.set(body.scopeKey, body.visitedAt);
     return { status: 200, body };
   }
 
@@ -263,6 +315,109 @@ export class NhAssistantMockProposals {
       reasonCode: pending && !item.canDecide ? item.reasonCode : null
     };
   }
+}
+
+/** The scope of the inbox's visits: `global`, or the scope key of a division. */
+function scopeKeyOf(divisionId: string | null): string {
+  return divisionId === null ? 'global' : `division:${divisionId.replaceAll('-', '').toLowerCase()}`;
+}
+
+function sameGuid(left: string | null, right: string): boolean {
+  return left !== null && left.replaceAll('-', '').toLowerCase() === right.replaceAll('-', '').toLowerCase();
+}
+
+/** The group a proposal belongs to: its parent, or its own subject without one. */
+function groupKeyOf(proposal: AgentProposal): string {
+  return proposal.parent
+    ? `${proposal.parent.subjectType}|${proposal.parent.subjectId}`
+    : `${proposal.subjectType}|${proposal.subjectId}`;
+}
+
+function subjectKeyOf(proposal: AgentProposal): string {
+  return `${groupKeyOf(proposal)}|${proposal.subjectType}|${proposal.subjectId}`;
+}
+
+function firstExpiries(items: readonly AgentProposal[], key: (proposal: AgentProposal) => string): Map<string, string> {
+  const first = new Map<string, string>();
+  for (const proposal of items) {
+    const current = first.get(key(proposal));
+    if (current === undefined || proposal.expiresAt < current) {
+      first.set(key(proposal), proposal.expiresAt);
+    }
+  }
+  return first;
+}
+
+/**
+ * The order of the grouped inbox, as the server sorts: groups by their first expiry, a group's own
+ * subject first, then its other subjects by their first expiry, one run's proposals together, then by
+ * expiry.
+ */
+function groupedOrder(items: readonly AgentProposal[]): AgentProposal[] {
+  const groups = firstExpiries(items, groupKeyOf);
+  const subjects = firstExpiries(items, subjectKeyOf);
+  const compare = (left: string, right: string) => (left < right ? -1 : left > right ? 1 : 0);
+  return [...items].sort((left, right) =>
+    compare(groups.get(groupKeyOf(left))!, groups.get(groupKeyOf(right))!)
+    || compare(groupKeyOf(left), groupKeyOf(right))
+    || (left.parent ? 1 : 0) - (right.parent ? 1 : 0)
+    || compare(subjects.get(subjectKeyOf(left))!, subjects.get(subjectKeyOf(right))!)
+    || compare(subjectKeyOf(left), subjectKeyOf(right))
+    || (left.runId === null ? 1 : 0) - (right.runId === null ? 1 : 0)
+    || compare(left.runId ?? '', right.runId ?? '')
+    || compare(left.expiresAt, right.expiresAt)
+    || compare(left.approvalId, right.approvalId));
+}
+
+/** The groups of the page `ordered[offset, offset + count)`, with their totals and continuation. */
+function groupsOf(ordered: readonly AgentProposal[], offset: number, count: number): AgentInboxGroup[] {
+  const page = ordered.slice(offset, offset + count);
+  const previous = offset > 0 ? ordered[offset - 1] : undefined;
+  const next = ordered[offset + count];
+  const groups: AgentInboxGroup[] = [];
+  for (let index = 0; index < page.length;) {
+    const key = groupKeyOf(page[index]);
+    let end = index;
+    while (end < page.length && groupKeyOf(page[end]) === key) {
+      end++;
+    }
+
+    const members = page.slice(index, end);
+    const own = members.find(proposal => !proposal.parent);
+    const parent = members.find(proposal => proposal.parent)?.parent ?? null;
+    const subjects: AgentInboxGroup['subjects'] = [];
+    for (let at = 0; at < members.length;) {
+      const subjectKey = subjectKeyOf(members[at]);
+      let stop = at;
+      while (stop < members.length && subjectKeyOf(members[stop]) === subjectKey) {
+        stop++;
+      }
+      subjects.push({
+        subjectType: members[at].subjectType,
+        subjectId: members[at].subjectId,
+        count: stop - at,
+        total: ordered.filter(proposal => subjectKeyOf(proposal) === subjectKey).length,
+        continuesFromPreviousPage: index === 0 && at === 0 && previous !== undefined && subjectKeyOf(previous) === subjectKey,
+        continuesOnNextPage: end === page.length && stop === members.length && next !== undefined && subjectKeyOf(next) === subjectKey
+      });
+      at = stop;
+    }
+
+    groups.push({
+      subjectType: own?.subjectType ?? parent!.subjectType,
+      subjectId: own?.subjectId ?? parent!.subjectId,
+      displayName: own ? own.subjectDisplayName : parent!.displayName,
+      subjectTypeName: own ? own.subjectTypeName ?? null : parent!.subjectTypeName ?? null,
+      subjectLink: own ? own.subjectLink ?? null : parent!.subjectLink ?? null,
+      count: members.length,
+      total: ordered.filter(proposal => groupKeyOf(proposal) === key).length,
+      continuesFromPreviousPage: index === 0 && previous !== undefined && groupKeyOf(previous) === key,
+      continuesOnNextPage: end === page.length && next !== undefined && groupKeyOf(next) === key,
+      subjects
+    });
+    index = end;
+  }
+  return groups;
 }
 
 function validDecision(request: { decision?: unknown; reason?: unknown } | undefined): boolean {

@@ -32,7 +32,8 @@ import { NhAssistantMockFiles } from './nh-assistant-mock-files';
 import { NhAssistantMockAgentRuns } from './nh-assistant-mock-agent-runs';
 import { NhAssistantMockBoards } from './nh-assistant-mock-boards';
 import { NhAssistantMockProposals } from './nh-assistant-mock-proposals';
-import { NhAssistantMockSubjects } from './nh-assistant-mock-subjects';
+import { NhAssistantMockSubjects, divisionSubjectId } from './nh-assistant-mock-subjects';
+import { mockSystemSubjectType } from './nh-assistant-mock-works-on';
 import { NhAssistantMockAuthorizationWindow } from './nh-assistant-mock-authorization';
 import {
   NhAssistantMockApprovalStep,
@@ -108,7 +109,8 @@ export class NhAssistantMockBackend {
       runId: proposal.runId,
       subjectType: proposal.subjectType,
       subjectId: proposal.subjectId
-    }, proposal.agentId));
+    }, proposal.agentId),
+    (divisionId: string): boolean => this.subjects.describe(mockSystemSubjectType, divisionSubjectId({ id: divisionId, name: '' }), null, this.admin.administers) != null);
   private readonly subjects = new NhAssistantMockSubjects(
     this.scenario.subjectTypes,
     this.scenario.divisions,
@@ -120,6 +122,7 @@ export class NhAssistantMockBackend {
       agents: () => this.admin.allAgents(),
       administers: () => this.admin.administers,
       threadProposals: conversationId => this.proposals.ofThread(conversationId),
+      runProposals: runId => this.proposals.ofRun(runId),
       workChanged: (change, agentId) => this.publishAgentWork(change, agentId)
     },
     () => new Date().toISOString());

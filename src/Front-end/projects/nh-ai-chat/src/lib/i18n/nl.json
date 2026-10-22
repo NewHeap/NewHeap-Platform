@@ -1788,7 +1788,18 @@
         "previous": "Vorige",
         "next": "Volgende",
         "page": "Pagina {{page}} van {{pages}}",
-        "pages": "Pagina's"
+        "pages": "Pagina's",
+        "new": "Nieuw",
+        "new-label": "Nieuw sinds je laatste bezoek",
+        "last-visit": "Je keek hier voor het laatst op {{date}}. Wat sindsdien kwam, staat als nieuw gemarkeerd.",
+        "first-visit": "Alles hier is nieuw voor je.",
+        "group-loaded": "{{loaded}} van {{total}} getoond",
+        "select-group": "De {{count}} getoonde selecteren",
+        "select-group-label": "De {{count}} voorstellen van {{name}} op deze pagina selecteren",
+        "group-continued": "Vervolg van de vorige pagina.",
+        "group-continues": "Meer voorstellen van deze groep staan op de volgende pagina.",
+        "run": "Eén run van {{agent}}, {{date}}",
+        "no-run": "Voorgesteld in een gesprek"
       },
       "proposal": {
         "approve": "Goedkeuren",

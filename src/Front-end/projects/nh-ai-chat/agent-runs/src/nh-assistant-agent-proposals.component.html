@@ -33,189 +33,271 @@
     </div>
   }
 
-  @if (shown().length > 0) {
-    <ul class="cards" [attr.aria-busy]="busy()">
-      @for (proposal of shown(); track proposal.approvalId) {
-        <li
-          class="card"
-          tabindex="-1"
-          [attr.data-approval-id]="proposal.approvalId"
-          [class.selected]="selected().has(proposal.approvalId)"
-          [class.closed]="isHeld(proposal)">
-          <div class="card-header">
-            @if (selectable() && proposal.status === 'pending' && mayDecide(proposal)) {
+  @if (sections(); as groups) {
+    @if (held().length > 0) {
+      <ul class="cards" [attr.aria-busy]="busy()">
+        @for (proposal of held(); track proposal.approvalId) {
+          <ng-container *ngTemplateOutlet="card; context: { $implicit: proposal }" />
+        }
+      </ul>
+    }
+    @for (group of groups; track group.key) {
+      <section class="proposal-group" [attr.data-proposal-group]="group.key" [attr.aria-label]="group.label">
+        <header class="proposal-group-header">
+          <h4>
+            <nh-assistant-subject-link
+              [subjectType]="group.subjectType"
+              [subjectId]="group.subjectId"
+              [label]="group.label"
+              [typeName]="group.typeName"
+              [link]="group.link" />
+          </h4>
+          <span class="muted" data-group-loaded>{{ 'nh-assistant.agent-runs.inbox.group-loaded' | translate: { loaded: group.count, total: group.total } }}</span>
+          @if (selectable() && group.selectableIds.length > 0) {
+            <label class="select">
               <input
                 type="checkbox"
-                [checked]="selected().has(proposal.approvalId)"
+                data-select-group
+                [checked]="groupSelected(group)"
                 [disabled]="busy()"
-                [attr.aria-label]="'nh-assistant.agent-runs.inbox.select' | translate"
-                (change)="toggle(proposal)" />
-            }
-            <strong>
+                [attr.aria-label]="'nh-assistant.agent-runs.inbox.select-group-label' | translate: { count: group.selectableIds.length, name: group.label }"
+                (change)="toggleGroup(group)" />
+              {{ 'nh-assistant.agent-runs.inbox.select-group' | translate: { count: group.selectableIds.length } }}
+            </label>
+          }
+        </header>
+        @if (group.continuesFromPreviousPage) {
+          <p class="muted" data-group-continued>{{ 'nh-assistant.agent-runs.inbox.group-continued' | translate }}</p>
+        }
+        @for (subject of group.subjects; track subject.key) {
+          @if (!subject.own) {
+            <h5 class="proposal-subject-header" [attr.data-proposal-subject]="subject.subjectType + '|' + subject.subjectId">
               <nh-assistant-subject-link
-                [subjectType]="proposal.subjectType"
-                [subjectId]="proposal.subjectId"
-                [label]="proposal.subjectDisplayName ?? proposal.subjectId"
-                [typeName]="proposal.subjectTypeName"
-                [link]="proposal.subjectLink" />
-            </strong>
-            <span class="muted">{{ proposal.presentation?.toolDisplayName ?? proposal.toolId }}</span>
-            <span
-              class="badge"
-              [class.success]="proposal.status === 'executed' || proposal.status === 'resolved'"
-              [class.warning]="proposal.status === 'pending' || proposal.status === 'execution-unknown' || proposal.status === 'stale'"
-              [class.danger]="proposal.status === 'execution-failed' || proposal.status === 'rejected'">
-              {{ statusKey(proposal) | translate }}
-            </span>
-            <span class="badge">{{ 'nh-assistant.agent-runs.proposal.mode.' + proposal.mode | translate }}</span>
-            @if (proposal.grantSource !== 'none') {
-              <span class="badge" [attr.title]="'nh-assistant.tool-call.grant-source.' + proposal.grantSource + '-hint' | translate">
-                {{ 'nh-assistant.tool-call.grant-source.' + proposal.grantSource | translate }}
-              </span>
-            }
-            @if (proposal.consultationId) {
-              <span class="badge" [attr.title]="'nh-assistant.agent-runs.proposal.from-consultation-hint' | translate">
-                {{ 'nh-assistant.agent-runs.proposal.from-consultation' | translate }}
-              </span>
-            }
-          </div>
-          @if (proposal.placedBy; as origin) {
-            @let placedBy = originText(origin);
-            <p class="placed-by">
-              <span>{{ placedBy.key | translate: placedBy.params }}</span>
-              <button
-                class="text-button"
-                type="button"
-                [attr.aria-label]="'nh-assistant.agent-runs.proposal.placed-by.open-label' | translate"
-                (click)="openConversation.emit(origin.conversationId)">
-                {{ 'nh-assistant.agent-runs.proposal.placed-by.open' | translate }}
-              </button>
-            </p>
+                [subjectType]="subject.subjectType"
+                [subjectId]="subject.subjectId"
+                [label]="subject.label"
+                [typeName]="subject.typeName"
+                [link]="subject.link" />
+              @if (subject.count < subject.total) {
+                <span class="muted">{{ 'nh-assistant.agent-runs.inbox.group-loaded' | translate: { loaded: subject.count, total: subject.total } }}</span>
+              }
+            </h5>
           }
-          @if (proposal.presentation; as presentation) {
-            <p class="summary">{{ presentation.summary }}</p>
-            @if (presentation.fields.length > 0) {
-              <dl class="presentation-fields">
-                @for (field of presentation.fields; track $index) {
-                  <div>
-                    <dt>{{ field.label }}</dt>
-                    <dd>{{ field.value }}</dd>
-                  </div>
+          @for (run of subject.runs; track run.key) {
+            @if (groupByRun()) {
+              <p class="proposal-run-header" [attr.data-proposal-run]="run.runId ?? ''">
+                @if (run.runId) {
+                  {{ 'nh-assistant.agent-runs.inbox.run' | translate: { agent: ([('nh-assistant.agents.' + run.agentId + '.name')] | nhAssistantTranslate: run.agentId), date: (run.proposedAt | date: 'short') } }}
+                } @else {
+                  {{ 'nh-assistant.agent-runs.inbox.no-run' | translate }}
                 }
-              </dl>
+              </p>
             }
-            @if (presentation.notice) {
-              <p class="message warning">{{ presentation.notice }}</p>
-            }
-          } @else {
-            <p class="summary">{{ 'nh-assistant.approval.fallback-summary' | translate }}</p>
+            <ul class="cards" [attr.aria-busy]="busy()">
+              @for (proposal of run.items; track proposal.approvalId) {
+                <ng-container *ngTemplateOutlet="card; context: { $implicit: proposal }" />
+              }
+            </ul>
           }
-          @if (proposal.rationale) {
-            <p class="rationale">{{ 'nh-assistant.approval.rationale' | translate: { rationale: proposal.rationale } }}</p>
-          }
-          @if (proposal.status === 'stale' && proposal.staleExplanation) {
-            <p class="message stale-explanation">{{ proposal.staleExplanation }}</p>
-          }
-          @if (hasSuccessor(proposal)) {
-            <button class="text-button" type="button" (click)="showSuccessor(proposal)">
-              {{ 'nh-assistant.agent-runs.proposal.show-successor' | translate }}
-            </button>
-          }
-          @if (isHeld(proposal)) {
-            <div class="closed-card">
-              <p class="muted" role="status">{{ 'nh-assistant.agent-runs.proposal.closed' | translate }}</p>
-              <button
-                class="text-button"
-                type="button"
-                [attr.aria-label]="'nh-assistant.agent-runs.proposal.dismiss-label' | translate: { summary: proposal.presentation?.summary ?? proposal.toolId }"
-                (click)="dismiss(proposal)">
-                {{ 'nh-assistant.agent-runs.proposal.dismiss' | translate }}
-              </button>
-            </div>
-          }
-          <details class="technical-details">
-            <summary>{{ 'nh-assistant.approval.technical-details' | translate }}</summary>
-            <p class="label">{{ 'nh-assistant.approval.tool-id' | translate }}</p>
-            <code>{{ proposal.toolId }}</code>
-            @if (proposal.targets.length > 0) {
-              <p class="label">{{ 'nh-assistant.approval.targets' | translate }}</p>
-              <ul class="targets">
-                @for (target of proposal.targets; track $index) {
-                  <li>{{ target }}</li>
-                }
-              </ul>
-            }
-            @if (proposal.argumentsPreview) {
-              <p class="label">{{ 'nh-assistant.approval.arguments' | translate }}</p>
-              <pre>{{ proposal.argumentsPreview }}</pre>
-            }
-          </details>
-          <div class="meta">
-            @if (proposal.status === 'pending') {
-              <span>{{ 'nh-assistant.agent-runs.proposal.expires' | translate: { date: (proposal.expiresAt | date: 'short') } }}</span>
-            }
-            @if (proposal.decidedByActorId) {
-              <span
-                data-proposal-decided-by
-                [attr.title]="proposal.decidedByDisplayName ? ('nh-assistant.account-id-title' | translate: { id: proposal.decidedByActorId }) : null">{{ 'nh-assistant.agent-runs.proposal.decided-by' | translate: { actor: proposal.decidedByDisplayName || ('nh-assistant.account-id' | translate: { id: proposal.decidedByActorId }) } }}</span>
-            }
-            @if (proposal.status === 'stale' && proposal.staleByActorId) {
-              <span
-                data-proposal-stale-by
-                [attr.title]="proposal.staleByDisplayName ? ('nh-assistant.account-id-title' | translate: { id: proposal.staleByActorId }) : null">{{ 'nh-assistant.agent-runs.proposal.stale-by' | translate: { actor: proposal.staleByDisplayName || ('nh-assistant.account-id' | translate: { id: proposal.staleByActorId }) } }}</span>
-            }
-            @if (proposal.executionResultCode; as code) {
-              <span class="mono">{{ code }}</span>
-            }
-            @if (proposal.feedback; as given) {
-              <span>
-                {{ 'nh-assistant.agent-runs.proposal.your-feedback' | translate: { category: ('nh-assistant.proposal-feedback.categories.' + given.category | translate) } }}
-              </span>
-            }
-            @if (proposal.canGiveFeedback && !isAsking(proposal)) {
-              <button
-                class="text-button"
-                type="button"
-                [attr.data-feedback-approval]="proposal.approvalId"
-                [disabled]="busy()"
-                (click)="giveFeedback(proposal)">
-                {{ (proposal.feedback ? 'nh-assistant.agent-runs.proposal.change-feedback' : 'nh-assistant.agent-runs.proposal.give-feedback') | translate }}
-              </button>
-            }
-          </div>
-          @if (inCard(proposal) && feedback(); as request) {
-            <nh-assistant-proposal-feedback
-              [approvalIds]="request.approvalIds"
-              [initial]="request.initial"
-              (saved)="onFeedbackSaved()"
-              (dismissed)="onFeedbackDismissed()" />
-          }
-          @if (waitingForKey(proposal); as waitingFor) {
-            <p class="waiting-for"><nh-assistant-icon name="users" />{{ waitingFor | translate }}</p>
-          }
-          @if (proposal.status === 'pending' && mayDecide(proposal)) {
-            <div class="card-actions">
-              <button class="primary" type="button" [disabled]="busy()" (click)="decide(proposal, 'approve')">
-                <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.proposal.approve' | translate }}
-              </button>
-              <button class="secondary" type="button" [disabled]="busy()" (click)="decide(proposal, 'reject')">
-                <nh-assistant-icon name="x" />{{ 'nh-assistant.agent-runs.proposal.reject' | translate }}
-              </button>
-            </div>
-          }
-          @if (proposal.status === 'execution-unknown' && mayDecide(proposal)) {
-            <p class="message warning"><nh-assistant-icon name="warning" />{{ 'nh-assistant.agent-runs.proposal.unknown-hint' | translate }}</p>
-            <div class="card-actions">
-              <button class="secondary" type="button" [disabled]="busy()" (click)="resolve(proposal, 'mark-resolved')">
-                <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.proposal.mark-resolved' | translate }}
-              </button>
-              <button class="danger" type="button" [disabled]="busy()" (click)="resolve(proposal, 're-execute')">
-                <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.proposal.re-execute' | translate }}
-              </button>
-            </div>
-          }
-        </li>
+        }
+        @if (group.continuesOnNextPage) {
+          <p class="muted" data-group-continues>{{ 'nh-assistant.agent-runs.inbox.group-continues' | translate }}</p>
+        }
+      </section>
+    }
+  } @else if (shown().length > 0) {
+    <ul class="cards" [attr.aria-busy]="busy()">
+      @for (proposal of shown(); track proposal.approvalId) {
+        <ng-container *ngTemplateOutlet="card; context: { $implicit: proposal }" />
       }
     </ul>
   }
+
+  <ng-template #card let-proposal>
+    <li
+      class="card"
+      tabindex="-1"
+      [attr.data-approval-id]="proposal.approvalId"
+      [class.selected]="selected().has(proposal.approvalId)"
+      [class.closed]="isHeld(proposal)"
+      [class.new]="isNew(proposal)">
+      <div class="card-header">
+        @if (selectable() && proposal.status === 'pending' && mayDecide(proposal)) {
+          <input
+            type="checkbox"
+            [checked]="selected().has(proposal.approvalId)"
+            [disabled]="busy()"
+            [attr.aria-label]="'nh-assistant.agent-runs.inbox.select' | translate"
+            (change)="toggle(proposal)" />
+        }
+        <strong>
+          <nh-assistant-subject-link
+            [subjectType]="proposal.subjectType"
+            [subjectId]="proposal.subjectId"
+            [label]="proposal.subjectDisplayName ?? proposal.subjectId"
+            [typeName]="proposal.subjectTypeName"
+            [link]="proposal.subjectLink" />
+        </strong>
+        <span class="muted">{{ proposal.presentation?.toolDisplayName ?? proposal.toolId }}</span>
+        @if (isNew(proposal)) {
+          <span class="badge new" data-proposal-new [attr.title]="'nh-assistant.agent-runs.inbox.new-label' | translate">
+            {{ 'nh-assistant.agent-runs.inbox.new' | translate }}<span class="visually-hidden">: {{ 'nh-assistant.agent-runs.inbox.new-label' | translate }}</span>
+          </span>
+        }
+        <span
+          class="badge"
+          [class.success]="proposal.status === 'executed' || proposal.status === 'resolved'"
+          [class.warning]="proposal.status === 'pending' || proposal.status === 'execution-unknown' || proposal.status === 'stale'"
+          [class.danger]="proposal.status === 'execution-failed' || proposal.status === 'rejected'">
+          {{ statusKey(proposal) | translate }}
+        </span>
+        <span class="badge">{{ 'nh-assistant.agent-runs.proposal.mode.' + proposal.mode | translate }}</span>
+        @if (proposal.grantSource !== 'none') {
+          <span class="badge" [attr.title]="'nh-assistant.tool-call.grant-source.' + proposal.grantSource + '-hint' | translate">
+            {{ 'nh-assistant.tool-call.grant-source.' + proposal.grantSource | translate }}
+          </span>
+        }
+        @if (proposal.consultationId) {
+          <span class="badge" [attr.title]="'nh-assistant.agent-runs.proposal.from-consultation-hint' | translate">
+            {{ 'nh-assistant.agent-runs.proposal.from-consultation' | translate }}
+          </span>
+        }
+      </div>
+      @if (proposal.placedBy; as origin) {
+        @let placedBy = originText(origin);
+        <p class="placed-by">
+          <span>{{ placedBy.key | translate: placedBy.params }}</span>
+          <button
+            class="text-button"
+            type="button"
+            [attr.aria-label]="'nh-assistant.agent-runs.proposal.placed-by.open-label' | translate"
+            (click)="openConversation.emit(origin.conversationId)">
+            {{ 'nh-assistant.agent-runs.proposal.placed-by.open' | translate }}
+          </button>
+        </p>
+      }
+      @if (proposal.presentation; as presentation) {
+        <p class="summary">{{ presentation.summary }}</p>
+        @if (presentation.fields.length > 0) {
+          <dl class="presentation-fields">
+            @for (field of presentation.fields; track $index) {
+              <div>
+                <dt>{{ field.label }}</dt>
+                <dd>{{ field.value }}</dd>
+              </div>
+            }
+          </dl>
+        }
+        @if (presentation.notice) {
+          <p class="message warning">{{ presentation.notice }}</p>
+        }
+      } @else {
+        <p class="summary">{{ 'nh-assistant.approval.fallback-summary' | translate }}</p>
+      }
+      @if (proposal.rationale) {
+        <p class="rationale">{{ 'nh-assistant.approval.rationale' | translate: { rationale: proposal.rationale } }}</p>
+      }
+      @if (proposal.status === 'stale' && proposal.staleExplanation) {
+        <p class="message stale-explanation">{{ proposal.staleExplanation }}</p>
+      }
+      @if (hasSuccessor(proposal)) {
+        <button class="text-button" type="button" (click)="showSuccessor(proposal)">
+          {{ 'nh-assistant.agent-runs.proposal.show-successor' | translate }}
+        </button>
+      }
+      @if (isHeld(proposal)) {
+        <div class="closed-card">
+          <p class="muted" role="status">{{ 'nh-assistant.agent-runs.proposal.closed' | translate }}</p>
+          <button
+            class="text-button"
+            type="button"
+            [attr.aria-label]="'nh-assistant.agent-runs.proposal.dismiss-label' | translate: { summary: proposal.presentation?.summary ?? proposal.toolId }"
+            (click)="dismiss(proposal)">
+            {{ 'nh-assistant.agent-runs.proposal.dismiss' | translate }}
+          </button>
+        </div>
+      }
+      <details class="technical-details">
+        <summary>{{ 'nh-assistant.approval.technical-details' | translate }}</summary>
+        <p class="label">{{ 'nh-assistant.approval.tool-id' | translate }}</p>
+        <code>{{ proposal.toolId }}</code>
+        @if (proposal.targets.length > 0) {
+          <p class="label">{{ 'nh-assistant.approval.targets' | translate }}</p>
+          <ul class="targets">
+            @for (target of proposal.targets; track $index) {
+              <li>{{ target }}</li>
+            }
+          </ul>
+        }
+        @if (proposal.argumentsPreview) {
+          <p class="label">{{ 'nh-assistant.approval.arguments' | translate }}</p>
+          <pre>{{ proposal.argumentsPreview }}</pre>
+        }
+      </details>
+      <div class="meta">
+        @if (proposal.status === 'pending') {
+          <span>{{ 'nh-assistant.agent-runs.proposal.expires' | translate: { date: (proposal.expiresAt | date: 'short') } }}</span>
+        }
+        @if (proposal.decidedByActorId) {
+          <span
+            data-proposal-decided-by
+            [attr.title]="proposal.decidedByDisplayName ? ('nh-assistant.account-id-title' | translate: { id: proposal.decidedByActorId }) : null">{{ 'nh-assistant.agent-runs.proposal.decided-by' | translate: { actor: proposal.decidedByDisplayName || ('nh-assistant.account-id' | translate: { id: proposal.decidedByActorId }) } }}</span>
+        }
+        @if (proposal.status === 'stale' && proposal.staleByActorId) {
+          <span
+            data-proposal-stale-by
+            [attr.title]="proposal.staleByDisplayName ? ('nh-assistant.account-id-title' | translate: { id: proposal.staleByActorId }) : null">{{ 'nh-assistant.agent-runs.proposal.stale-by' | translate: { actor: proposal.staleByDisplayName || ('nh-assistant.account-id' | translate: { id: proposal.staleByActorId }) } }}</span>
+        }
+        @if (proposal.executionResultCode; as code) {
+          <span class="mono">{{ code }}</span>
+        }
+        @if (proposal.feedback; as given) {
+          <span>
+            {{ 'nh-assistant.agent-runs.proposal.your-feedback' | translate: { category: ('nh-assistant.proposal-feedback.categories.' + given.category | translate) } }}
+          </span>
+        }
+        @if (proposal.canGiveFeedback && !isAsking(proposal)) {
+          <button
+            class="text-button"
+            type="button"
+            [attr.data-feedback-approval]="proposal.approvalId"
+            [disabled]="busy()"
+            (click)="giveFeedback(proposal)">
+            {{ (proposal.feedback ? 'nh-assistant.agent-runs.proposal.change-feedback' : 'nh-assistant.agent-runs.proposal.give-feedback') | translate }}
+          </button>
+        }
+      </div>
+      @if (inCard(proposal) && feedback(); as request) {
+        <nh-assistant-proposal-feedback
+          [approvalIds]="request.approvalIds"
+          [initial]="request.initial"
+          (saved)="onFeedbackSaved()"
+          (dismissed)="onFeedbackDismissed()" />
+      }
+      @if (waitingForKey(proposal); as waitingFor) {
+        <p class="waiting-for"><nh-assistant-icon name="users" />{{ waitingFor | translate }}</p>
+      }
+      @if (proposal.status === 'pending' && mayDecide(proposal)) {
+        <div class="card-actions">
+          <button class="primary" type="button" [disabled]="busy()" (click)="decide(proposal, 'approve')">
+            <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.proposal.approve' | translate }}
+          </button>
+          <button class="secondary" type="button" [disabled]="busy()" (click)="decide(proposal, 'reject')">
+            <nh-assistant-icon name="x" />{{ 'nh-assistant.agent-runs.proposal.reject' | translate }}
+          </button>
+        </div>
+      }
+      @if (proposal.status === 'execution-unknown' && mayDecide(proposal)) {
+        <p class="message warning"><nh-assistant-icon name="warning" />{{ 'nh-assistant.agent-runs.proposal.unknown-hint' | translate }}</p>
+        <div class="card-actions">
+          <button class="secondary" type="button" [disabled]="busy()" (click)="resolve(proposal, 'mark-resolved')">
+            <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.proposal.mark-resolved' | translate }}
+          </button>
+          <button class="danger" type="button" [disabled]="busy()" (click)="resolve(proposal, 're-execute')">
+            <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.proposal.re-execute' | translate }}
+          </button>
+        </div>
+      }
+    </li>
+  </ng-template>
 </div>

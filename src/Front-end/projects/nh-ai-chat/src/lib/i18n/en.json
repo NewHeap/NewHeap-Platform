@@ -1788,7 +1788,18 @@
         "previous": "Previous",
         "next": "Next",
         "page": "Page {{page}} of {{pages}}",
-        "pages": "Pages"
+        "pages": "Pages",
+        "new": "New",
+        "new-label": "New since your last visit",
+        "last-visit": "You last looked here on {{date}}. What came since is marked new.",
+        "first-visit": "Everything here is new for you.",
+        "group-loaded": "{{loaded}} of {{total}} shown",
+        "select-group": "Select the {{count}} shown",
+        "select-group-label": "Select the {{count}} proposals of {{name}} shown on this page",
+        "group-continued": "Continued from the previous page.",
+        "group-continues": "More proposals of this group are on the next page.",
+        "run": "One run of {{agent}}, {{date}}",
+        "no-run": "Proposed in a conversation"
       },
       "proposal": {
         "approve": "Approve",
