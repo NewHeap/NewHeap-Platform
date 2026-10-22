@@ -40,6 +40,8 @@ Keep packable test-support projects and internal regression tests separate.
 plural `*.Tests` projects. Release workflows test the latter and publish only
 the former.
 
+Keep tests fast as "Fast tests" in the repository `AGENTS.md` describes: focused tests while building, `npm run test:affected` before committing, the full matrix only before merging or releasing, a test clock instead of waits.
+
 For preview packages, stable versioning, public npm/NuGet publication, release assets or feed migration, follow [GitHub releases](references/github-releases.md). The release manifest and protected workflows replace the deleted PowerShell publish scripts.
 
 Follow [sample maintenance](references/sample-maintenance.md) for registry fields, evidence rules and generation. A Markdown snippet is not executable evidence. Register a `library-gap` when the public library cannot actually support the intended sample.
