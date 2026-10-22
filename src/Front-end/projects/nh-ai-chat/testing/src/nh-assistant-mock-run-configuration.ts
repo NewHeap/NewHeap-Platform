@@ -194,7 +194,8 @@ export class NhAssistantMockRunConfiguration {
       delegateFromInitiator: given.delegateFromInitiator ?? false,
       approvalPolicy: given.approvalPolicy ?? null,
       usesRules: given.usesRules ?? false,
-      startsOff: given.startsOff ?? false
+      startsOff: given.startsOff ?? false,
+      acceptsFiles: given.acceptsFiles ?? false
     };
   }
 
@@ -290,7 +291,8 @@ export class NhAssistantMockRunConfiguration {
       changedBy: 'current-user',
       reason: text(request.reason),
       inEffect: true,
-      problem: null
+      problem: null,
+      acceptsFiles: request.acceptsFiles ?? false
     };
     this.settings.set(agent.id, saved);
     return { status: 200, body: saved };
@@ -388,6 +390,7 @@ export class NhAssistantMockRunConfiguration {
       tools: [...new Set(request.tools ?? [])],
       profile: text(request.profile),
       dataClassification: classification as AssistantDataClassification | null,
+      acceptsFiles: request.acceptsFiles ?? false,
       ruleHandler: text(request.ruleHandler),
       maxTokensPerRun: request.maxTokensPerRun ?? null,
       dailyToolCalls: request.dailyToolCalls ?? null,

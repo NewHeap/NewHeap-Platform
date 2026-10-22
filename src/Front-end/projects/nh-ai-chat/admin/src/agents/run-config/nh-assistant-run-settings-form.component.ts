@@ -78,6 +78,8 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
   readonly dailyTokens = signal('');
   readonly allowGatewayReads = signal(false);
   readonly delegateFromInitiator = signal(false);
+  /** Whether people's messages and the agent's tools may give it files; off for a new agent. */
+  readonly acceptsFiles = signal(false);
   readonly elevatedReads = signal<AgentElevatedReads>('restricted');
   readonly reason = signal('');
   readonly advancedOpen = signal(false);
@@ -119,6 +121,7 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
     this.dailyTokens.set(numberText(settings?.dailyTokens));
     this.allowGatewayReads.set(settings?.allowGatewayReads ?? false);
     this.delegateFromInitiator.set(settings?.delegateFromInitiator ?? false);
+    this.acceptsFiles.set(settings?.acceptsFiles ?? false);
     this.elevatedReads.set(settings?.elevatedReads ?? 'restricted');
     this.advancedOpen.set(this.advancedInUse());
   }
@@ -156,7 +159,8 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
       triageProfile: blank(this.triageProfile()),
       ruleHandler: blank(this.ruleHandler()),
       expectedVersion: this.settings()?.version ?? null,
-      reason: blank(this.reason())
+      reason: blank(this.reason()),
+      acceptsFiles: this.acceptsFiles()
     };
     this.submit(errors, () => this.admin.saveRunSettings(this.agentId(), request), settings => this.saved.emit(settings));
   }

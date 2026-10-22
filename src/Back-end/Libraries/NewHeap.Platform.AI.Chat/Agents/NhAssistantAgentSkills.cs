@@ -58,6 +58,18 @@ public sealed class NhAssistantSkillOptions
     public NhAiDataClassification? DataClassification { get; internal set; }
 
     /// <summary>
+    /// The skill's lower file limits once it accepts files; <see langword="null"/> while it accepts
+    /// none, which is where every skill starts. A run in the skill reads files only when the agent
+    /// accepts them too.
+    /// </summary>
+    public NhAssistantFileLimits? FileLimits { get; internal set; }
+
+    /// <summary>
+    /// Whether the skill accepts files.
+    /// </summary>
+    public bool AcceptsFiles => FileLimits is not null;
+
+    /// <summary>
     /// The skill starts in shadow mode: its work goes to the agent's shadow thread of the subject,
     /// where nobody is notified and nothing executes. Administrators switch it at runtime with
     /// <c>INhAssistantAgentControl.SetSkillShadowAsync</c>.
@@ -222,6 +234,21 @@ public sealed class NhAssistantSkillBuilder
         }
 
         _options.DataClassification = classification;
+        return this;
+    }
+
+    /// <summary>
+    /// Lets a run in the skill read files, when the agent accepts them too
+    /// (<see cref="NhAssistantAgentRunBuilder.AcceptsFiles"/>). A skill accepts no files until it is
+    /// switched on here or, for a skill created there, in the administration. <paramref name="limits"/>
+    /// can only lower the application's <see cref="NhAssistantLimits"/>; a turn in the skill uses the
+    /// lowest limits of the application, the agent and the skill.
+    /// </summary>
+    public NhAssistantSkillBuilder AcceptsFiles(Action<NhAssistantFileLimits>? limits = null)
+    {
+        var fileLimits = new NhAssistantFileLimits();
+        limits?.Invoke(fileLimits);
+        _options.FileLimits = fileLimits;
         return this;
     }
 

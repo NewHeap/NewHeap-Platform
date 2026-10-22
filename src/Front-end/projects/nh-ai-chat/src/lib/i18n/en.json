@@ -296,6 +296,17 @@
       "assistant-message-too-long": "The message is too long. Shorten it and send it again.",
       "assistant-model-unavailable": "The language model is temporarily unavailable. Try again in a moment.",
       "assistant-classification-not-permitted": "The model this agent uses may not receive data of the agent's classification. Ask an administrator to choose a model profile that permits it.",
+      "assistant-files-unavailable": "This application gives the assistant no files.",
+      "assistant-files-not-accepted": "This agent does not accept files. An administrator can switch files on for it.",
+      "assistant-file-reference-invalid": "A file could not be read because its reference is not valid.",
+      "assistant-file-not-found": "The file was not found. It may have been removed.",
+      "assistant-file-forbidden": "You may not read this file, so the assistant did not read it either.",
+      "assistant-file-unavailable": "The file could not be opened right now. Try again in a moment.",
+      "assistant-file-too-large": "The file is larger than the assistant may read. Share a smaller file.",
+      "assistant-file-too-many-pages": "The file has more pages than the assistant may read. Share a shorter document.",
+      "assistant-file-count-limit": "The assistant may read no more files in this answer. Ask about fewer files at a time.",
+      "assistant-file-token-limit": "The files are too long for one answer. Ask about fewer or shorter files at a time.",
+      "assistant-file-type-not-supported": "The model of this agent cannot read files of this type.",
       "assistant-proposal-hash-mismatch": "The proposed change was modified in the meantime, so nothing was changed. Reload the conversation and decide again.",
       "assistant-title-invalid": "The conversation title is not valid. Use a shorter title.",
       "assistant-tool-call-limit-reached": "The assistant reached the maximum number of steps for one answer. Ask a narrower question.",
@@ -1060,6 +1071,11 @@
         "replay-progress": "{{replayed}} of at most {{max}} runs replayed, {{skipped}} skipped"
       },
       "run-config": {
+        "files": {
+          "label": "Accepts files",
+          "agent-hint": "People's messages and the agent's tools may give it documents, such as PDFs, within the application's limits. A new agent accepts none until you switch this on.",
+          "skill-hint": "Runs in this skill may read documents when the agent accepts them too. A new skill accepts none until you switch this on."
+        },
         "back": "Back to agents",
         "title": "Run configuration of {{name}}",
         "description": "Skills and triggers that the administration adds without a deploy, made of the building blocks the application registers. New skills and triggers start in shadow, where nobody is notified and nothing executes.",

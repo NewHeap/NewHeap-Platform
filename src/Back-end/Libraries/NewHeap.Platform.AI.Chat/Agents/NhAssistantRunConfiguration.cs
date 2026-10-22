@@ -732,7 +732,9 @@ internal sealed class NhAssistantRunConfigurations(
             RuleHandlerType = settings.RuleHandlerName is { } handler ? registration.RuleHandlers[handler].HandlerType : null,
             ActWithAccountableRights = true,
             DataVersion = settings.Version,
-            WorksOn = worksOn
+            WorksOn = worksOn,
+            // Switched on in the administration, the agent reads files within the application's limits.
+            FileLimits = settings.AcceptsFiles ? new NhAssistantFileLimits() : null
         };
     }
 
@@ -751,6 +753,7 @@ internal sealed class NhAssistantRunConfigurations(
             DataClassification = NhAssistantDataClassificationNames.TryParse(definition.DataClassification, out var classification)
                 ? classification
                 : null,
+            FileLimits = definition.AcceptsFiles ? new NhAssistantFileLimits() : null,
             // A data skill starts in shadow; an administrator puts it live like any skill.
             Shadow = true,
             DataVersion = definition.Version

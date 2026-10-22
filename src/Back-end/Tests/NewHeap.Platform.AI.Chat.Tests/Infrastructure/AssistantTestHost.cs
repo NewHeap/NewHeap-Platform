@@ -192,6 +192,28 @@ internal sealed class AssistantTestHost : IAsyncDisposable
             CancellationToken.None));
     }
 
+    /// <summary>
+    /// Sends a message with the references of files the person attached.
+    /// </summary>
+    internal Task<TurnResult> SendWithFilesAsync(
+        Guid conversationId,
+        string text,
+        IReadOnlyList<NhAiFileReference> files,
+        string? userId = null)
+    {
+        return RunAsync(userId, (runner, context) => runner.StartMessageTurnAsync(
+            new NhAssistantMessageTurnRequest(
+                conversationId,
+                context,
+                text,
+                Guid.NewGuid().ToString("N"),
+                CancellationToken.None)
+            {
+                Files = files
+            },
+            CancellationToken.None));
+    }
+
     public Task<TurnResult> DecideAsync(
         Guid conversationId,
         NhAssistantApprovalView approval,

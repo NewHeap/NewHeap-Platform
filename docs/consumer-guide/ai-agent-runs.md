@@ -666,6 +666,18 @@ run does not retry, so give such an agent or skill a profile that permits its cl
 `NhAssistantDataClassificationNames`); an unknown name is a field error. A consultation's own
 `DataClassification(...)` keeps classifying its answers in the asking conversation.
 
+An agent and each of its skills read no files until they are switched on, so a deploy never opens
+a new stream of documents unnoticed: `AcceptsFiles()` on `ConfigureAgent` lets people's messages
+and the agent's tools give it files, and `AcceptsFiles()` on `Skill(...)` lets a run in that skill
+read them while the agent accepts them too. `AcceptsFiles(limits => limits.MaxFilesPerTurn = 2)`
+lowers the application's `NhAssistantLimits` for that agent or skill (`NhAssistantFileLimits`); a
+value above the application's stops the host. A run opens files through the application's
+`INhAssistantFileSource` with its own actor (the agent, with the initiator and accountable owner),
+takes the highest classification of its files, agent and skill, and refuses files it may not take
+with `assistant-files-not-accepted`; `use_skill` refuses a skill that cannot take the files the turn
+already reads. In the administration an agent's run settings and a data skill store
+`acceptsFiles`, off for a new one; the nh-ai-assistant rule covers the file source and its limits.
+
 Let separate agents hand work to each other with hand-offs, never with events published to start
 another agent. Both sides opt in: the target lists its sources with `AcceptHandOffs(subjectType,
 handOff => handOff.From(sourceAgentId).Description(...).NotifySource().Limits(maxPerSubjectPerDay))`,
@@ -1085,7 +1097,10 @@ and that rules and triage do not route to it; and that `StartsOff()` applies onl
 start, also after a new host start and a deploy, on both providers. Assert that a skill's
 classification, or else its agent's, reaches the model call, that a profile that does not permit it
 refuses the call with `assistant-classification-not-permitted` without a retry, and that a data skill stores its classification and refuses an unknown one, on
-both providers. Assert that an agent created in the administration keeps the profile it chose, uses
+both providers. Assert that an agent configured for runs and a skill refuse files with
+`assistant-files-not-accepted` until `AcceptsFiles()` or `acceptsFiles` in the administration switches
+them on, that a run opens a file for the agent, and that an agent's limit only lowers the
+application's, on both providers. Assert that an agent created in the administration keeps the profile it chose, uses
 the chat profile without one and refuses a profile that the run catalog does not offer, on both
 providers. Assert that a headless run, a consultation and a person's
 turn in the thread read the briefing once, before the continuity, with markup neutralized; that a

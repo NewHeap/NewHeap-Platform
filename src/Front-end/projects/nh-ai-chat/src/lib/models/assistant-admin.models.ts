@@ -968,6 +968,11 @@ export interface AgentRunSettings {
   reason: string | null;
   inEffect: boolean;
   problem: string | null;
+  /**
+   * People's messages and the agent's tools may give it files; missing on older servers. Off for a new
+   * agent.
+   */
+  acceptsFiles?: boolean;
 }
 
 /** Body of `PUT admin/agents/{id}/run-settings`. */
@@ -996,6 +1001,8 @@ export interface AgentRunSettingsRequest {
   expectedVersion?: number | null;
   /** Optional, at most 500 characters. */
   reason?: string | null;
+  /** People's messages and the agent's tools may give it files; `false` by default. */
+  acceptsFiles?: boolean;
 }
 
 /** A skill the agent declares in code; it cannot change here. */
@@ -1007,6 +1014,8 @@ export interface CodeSkill {
    * state now is in the skill's state; missing on older servers.
    */
   startsOff?: boolean;
+  /** The skill accepts files in code (`AcceptsFiles()`); missing on older servers. */
+  acceptsFiles?: boolean;
 }
 
 /** A trigger registered in code; it cannot change here. */
@@ -1040,6 +1049,8 @@ export interface CodeRunSettings {
    * state now is the agent's `runState`; missing on older servers.
    */
   startsOff?: boolean;
+  /** The agent accepts files in code (`AcceptsFiles()`); missing on older servers. */
+  acceptsFiles?: boolean;
 }
 
 /**
@@ -1075,6 +1086,11 @@ export interface DataSkill {
    * older servers.
    */
   dataClassification?: AssistantDataClassification | null;
+  /**
+   * A run in the skill reads files when its agent accepts them too; missing on older servers. Off for a
+   * new skill.
+   */
+  acceptsFiles?: boolean;
 }
 
 /** How a change of a skill takes effect: at once, or as a candidate in shadow next to the live version. */
@@ -1109,6 +1125,8 @@ export interface DataSkillRequest {
    * profile of its runs must permit it, or its model calls are refused.
    */
   dataClassification?: AssistantDataClassification | null;
+  /** A run in the skill reads files when its agent accepts them too; `false` by default. */
+  acceptsFiles?: boolean;
 }
 
 export type DataSkillVersionStatus = 'live' | 'candidate' | 'superseded' | 'discarded';

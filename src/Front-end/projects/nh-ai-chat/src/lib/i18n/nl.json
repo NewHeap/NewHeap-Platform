@@ -296,6 +296,17 @@
       "assistant-message-too-long": "Het bericht is te lang. Maak het korter en verstuur het opnieuw.",
       "assistant-model-unavailable": "Het taalmodel is tijdelijk niet beschikbaar. Probeer het zo opnieuw.",
       "assistant-classification-not-permitted": "Het model dat deze agent gebruikt mag geen gegevens met de classificatie van de agent ontvangen. Vraag een beheerder een modelprofiel te kiezen dat dit toestaat.",
+      "assistant-files-unavailable": "Deze applicatie geeft de assistent geen bestanden.",
+      "assistant-files-not-accepted": "Deze agent neemt geen bestanden aan. Een beheerder kan bestanden voor hem aanzetten.",
+      "assistant-file-reference-invalid": "Een bestand kon niet worden gelezen omdat de verwijzing ongeldig is.",
+      "assistant-file-not-found": "Het bestand is niet gevonden. Misschien is het verwijderd.",
+      "assistant-file-forbidden": "Je mag dit bestand niet lezen, dus de assistent heeft het ook niet gelezen.",
+      "assistant-file-unavailable": "Het bestand kon nu niet worden geopend. Probeer het zo opnieuw.",
+      "assistant-file-too-large": "Het bestand is groter dan de assistent mag lezen. Deel een kleiner bestand.",
+      "assistant-file-too-many-pages": "Het bestand heeft meer pagina's dan de assistent mag lezen. Deel een korter document.",
+      "assistant-file-count-limit": "De assistent mag in dit antwoord geen bestanden meer lezen. Vraag naar minder bestanden tegelijk.",
+      "assistant-file-token-limit": "De bestanden zijn te lang voor één antwoord. Vraag naar minder of kortere bestanden tegelijk.",
+      "assistant-file-type-not-supported": "Het model van deze agent kan bestanden van dit type niet lezen.",
       "assistant-proposal-hash-mismatch": "De voorgestelde wijziging is intussen veranderd, er is niets gewijzigd. Laad het gesprek opnieuw en besluit opnieuw.",
       "assistant-title-invalid": "De titel van het gesprek is ongeldig. Gebruik een kortere titel.",
       "assistant-tool-call-limit-reached": "De assistent heeft het maximale aantal stappen voor één antwoord bereikt. Stel een gerichtere vraag.",
@@ -1060,6 +1071,11 @@
         "replay-progress": "{{replayed}} van hoogstens {{max}} runs herhaald, {{skipped}} overgeslagen"
       },
       "run-config": {
+        "files": {
+          "label": "Neemt bestanden aan",
+          "agent-hint": "Berichten van mensen en de tools van de agent mogen hem documenten geven, zoals pdf's, binnen de limieten van de applicatie. Een nieuwe agent neemt er geen aan totdat je dit aanzet.",
+          "skill-hint": "Runs in deze vaardigheid mogen documenten lezen als de agent ze ook aanneemt. Een nieuwe vaardigheid neemt er geen aan totdat je dit aanzet."
+        },
         "back": "Terug naar agents",
         "title": "Runconfiguratie van {{name}}",
         "description": "Vaardigheden en triggers die het beheer zonder deploy toevoegt, gemaakt van de bouwstenen die de applicatie registreert. Nieuwe vaardigheden en triggers starten in schaduw, waar niemand een melding krijgt en niets wordt uitgevoerd.",

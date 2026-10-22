@@ -73,13 +73,14 @@ internal sealed partial class NhAssistantTurnRunner
 
     /// <summary>
     /// The classification of the turn's model calls: the skill's, then the agent's run
-    /// configuration, then <see cref="NhAiDataClassification.Internal"/>. A turn outside an agent's
-    /// thread is <see cref="NhAiDataClassification.Internal"/>. The profile resolution refuses a
+    /// configuration, then <see cref="NhAiDataClassification.Internal"/>, raised to the highest
+    /// classification of the files the model reads. A turn outside an agent's thread is
+    /// <see cref="NhAiDataClassification.Internal"/> without files. The profile resolution refuses a
     /// profile that does not permit it.
     /// </summary>
     private static NhAiDataClassification ClassificationOf(NhAssistantTurnState state)
     {
-        return state.AgentTurn?.Options.ClassificationOf(state.Skill) ?? NhAiDataClassification.Internal;
+        return NhAssistantTurnFiles.ClassificationOf(state, state.Skill);
     }
 
     /// <summary>
@@ -217,6 +218,11 @@ internal sealed partial class NhAssistantTurnRunner
                 if (IsRun(state) && await SkillBudgetExhaustedAsync(state, target, cancellationToken))
                 {
                     return SkillResult(false, NhAssistantErrorCodes.BudgetExhausted, "That skill used its budget for today.");
+                }
+                if (await services.GetRequiredService<NhAssistantTurnFiles>().CheckSkillAsync(state, target, cancellationToken) is { } fileCode)
+                {
+                    // The files the model already reads go along into the skill; it must take them.
+                    return SkillResult(false, fileCode, "That skill cannot take the files of this turn; continue with the current tools.");
                 }
 
                 state.SkillSwitches++;

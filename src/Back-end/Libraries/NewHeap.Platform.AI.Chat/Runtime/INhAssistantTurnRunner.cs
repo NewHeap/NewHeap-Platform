@@ -89,6 +89,12 @@ internal sealed record NhAssistantMessageTurnRequest(
     /// The agent side of a turn in an agent thread; <see langword="null"/> in a chat.
     /// </summary>
     public NhAssistantAgentTurnContext? AgentTurn { get; init; }
+
+    /// <summary>
+    /// The files the person attached to the message, as the application's file source stored them.
+    /// The turn opens them with the person's rights and fails with the code of the first refusal.
+    /// </summary>
+    public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];
 }
 
 internal sealed record NhAssistantDecisionTurnRequest(

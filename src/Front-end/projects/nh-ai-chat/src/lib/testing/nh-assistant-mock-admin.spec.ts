@@ -192,6 +192,16 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(standard.profile).toBe('chat');
   });
 
+  it('stores whether a data skill and the run settings of an agent accept files', async () => {
+    const skill = await firstValueFrom(admin.saveDataSkill('projects', 'audit', {
+      description: 'Audits the project documents.', acceptsFiles: true
+    }));
+    const unchanged = await firstValueFrom(admin.saveDataSkill('projects', 'notes', { description: 'Writes notes.' }));
+
+    expect(skill.acceptsFiles).toBeTrue();
+    expect(unchanged.acceptsFiles).toBeFalse();
+  });
+
   it('rejects invalid agents', async () => {
     const invalid = [
       { ...newAgent, id: 'Not Dash Case' },

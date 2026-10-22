@@ -119,6 +119,10 @@ internal sealed partial class NhAssistantTurnRunner(
         {
             return Failed(NhAssistantErrorCodes.MessageTooLong, "The assistant message is too long.");
         }
+        if (ValidateAttachments(request.Files, limits) is { } attachmentCode)
+        {
+            return Failed(attachmentCode, "The files attached to the message cannot be read.");
+        }
 
         var access = await store.FindAccessAsync(
             request.ConversationId,
@@ -465,7 +469,8 @@ internal sealed partial class NhAssistantTurnRunner(
                 null,
                 null,
                 speakers,
-                (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0));
+                (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0),
+                state);
             // A run starts from its working memory and what earlier runs did, not from the full history.
             var continuity = await services.GetRequiredService<NhAssistantMemoryService>()
                 .DescribeContinuityAsync(agentTurn.Thread, agentTurn.Options, agentTurn.RunId, cancellationToken);
@@ -629,7 +634,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 return Result(state);
             }
 
-            var messages = await BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, null, invocation.Id, speakers);
+            var messages = await BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, null, invocation.Id, speakers, state: state);
             messages.Add(new ChatMessage(
                 ChatRole.Assistant,
                 [new FunctionCallContent(invocation.CallId, invocation.FunctionName, NhAssistantContent.DeserializeArguments(invocation.ArgumentsJson))]));
@@ -1439,7 +1444,8 @@ internal sealed partial class NhAssistantTurnRunner(
             TurnId = turnId,
             Role = NhAssistantMessageRoles.User,
             AuthorActorId = access.ActorId,
-            PartsJson = NhAssistantContent.SerializeParts([new NhAssistantStoredPart(NhAssistantStoredPart.TextType, Text: text)]),
+            PartsJson = NhAssistantContent.SerializeParts(MessageParts(text, request.Files.Select(file =>
+                NhAssistantStoredFile.From(file, null, NhAssistantFileOrigins.Attachment)))),
             ClientMessageId = string.IsNullOrWhiteSpace(request.ClientMessageId) ? null : request.ClientMessageId,
             ClientContextJson = request.ClientContext?.ToStorage(),
             CreatedAt = DateTimeOffset.UtcNow
@@ -1467,6 +1473,12 @@ internal sealed partial class NhAssistantTurnRunner(
 
         // A person's turn starts without a skill; use_skill loads one when the question needs it.
         await PrepareSkillsAsync(state, cancellationToken);
+        var attachments = await OpenAttachmentsAsync(state, userMessage, text, request.Files, cancellationToken);
+        if (attachments is null)
+        {
+            return;
+        }
+
         var briefing = request.AgentTurn is { } agentTurn
             ? await services.GetRequiredService<NhAssistantBriefingService>().DescribeAsync(
                 effectiveAgent.Id,
@@ -1485,13 +1497,97 @@ internal sealed partial class NhAssistantTurnRunner(
             text,
             null,
             speakers,
-            (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0));
+            (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0),
+            state);
         if (briefing is not null)
         {
             messages.Insert(0, new ChatMessage(ChatRole.System, briefing));
         }
-        messages.Add(new ChatMessage(ChatRole.User, speakers?.Mark(access.ActorId, text) ?? text));
+        messages.Add(new ChatMessage(
+            ChatRole.User,
+            [new TextContent(speakers?.Mark(access.ActorId, text) ?? text), .. attachments]));
         await RunModelAsync(state, request.CallerContext, messages, cancellationToken);
+    }
+
+    /// <summary>
+    /// The parts of a person's message: its text and the references of its attachments.
+    /// </summary>
+    private static IEnumerable<NhAssistantStoredPart> MessageParts(string text, IEnumerable<NhAssistantStoredFile> files)
+    {
+        yield return new NhAssistantStoredPart(NhAssistantStoredPart.TextType, Text: text);
+        foreach (var file in files)
+        {
+            yield return new NhAssistantStoredPart(NhAssistantStoredPart.FileType, File: file);
+        }
+    }
+
+    /// <summary>
+    /// The attachments a message can carry before the turn starts: at most the application's files of
+    /// one turn, each with a valid reference, and only when the application registered a file source.
+    /// Returns the refusal code, or <see langword="null"/>.
+    /// </summary>
+    private string? ValidateAttachments(IReadOnlyList<NhAiFileReference> files, NhAssistantLimits limits)
+    {
+        if (files.Count == 0)
+        {
+            return null;
+        }
+        if (!services.GetRequiredService<NhAssistantTurnFiles>().Available)
+        {
+            return NhAssistantErrorCodes.FilesUnavailable;
+        }
+        if (files.Count > limits.MaxFilesPerTurn)
+        {
+            return NhAssistantErrorCodes.FileCountLimit;
+        }
+
+        return files.All(NhAiFileReference.IsValid) ? null : NhAssistantErrorCodes.FileReferenceInvalid;
+    }
+
+    /// <summary>
+    /// Opens the attachments of a person's message with that person's rights, as new files of the
+    /// turn. The message then keeps the references of what the model reads with their hashes. Returns
+    /// the content the model reads after the message's text, or <see langword="null"/> when a file was
+    /// refused: the turn then ended with the code of the first refusal.
+    /// </summary>
+    private async Task<IReadOnlyList<AIContent>?> OpenAttachmentsAsync(
+        NhAssistantTurnState state,
+        AssistantMessage userMessage,
+        string text,
+        IReadOnlyList<NhAiFileReference> files,
+        CancellationToken cancellationToken)
+    {
+        if (files.Count == 0)
+        {
+            return [];
+        }
+
+        var outcomes = await services.GetRequiredService<NhAssistantTurnFiles>()
+            .OpenAsync(state, files, NhAssistantFileOrigins.Attachment, null, cancellationToken);
+        var interceptor = CreateInterceptor(state);
+        foreach (var outcome in outcomes)
+        {
+            await interceptor.RecordBusinessEventAsync(NhAssistantTurnFiles.AuditEventOf(state, outcome, null), CancellationToken.None);
+        }
+
+        // The message keeps only what the model read, so a later turn never asks for a refused file.
+        var read = outcomes
+            .Where(outcome => outcome.File is not null)
+            .Select(outcome => NhAssistantStoredFile.From(outcome.Reference, outcome.File!.Sha256, NhAssistantFileOrigins.Attachment));
+        await store.UpdateMessageAsync(
+            userMessage.Id,
+            NhAssistantContent.SerializeParts(MessageParts(text, read)),
+            0,
+            0,
+            0,
+            CancellationToken.None);
+        if (outcomes.FirstOrDefault(outcome => !outcome.Attached) is { } refused)
+        {
+            await FinishWithErrorAsync(state, refused.Code!, NhAssistantConversationStatuses.Idle);
+            return null;
+        }
+
+        return outcomes.SelectMany(outcome => outcome.Contents).ToArray();
     }
 
     private async Task RunDecisionTurnAsync(
@@ -1600,7 +1696,7 @@ internal sealed partial class NhAssistantTurnRunner(
         }
 
         // The resumed call is replayed below with its real result; the summary leaves it out.
-        var messages = await BuildHistoryAsync(conversation.Id, history, agent, null, invocation.Id, speakers);
+        var messages = await BuildHistoryAsync(conversation.Id, history, agent, null, invocation.Id, speakers, state: state);
         messages.Add(new ChatMessage(
             ChatRole.Assistant,
             [new FunctionCallContent(invocation.CallId, invocation.FunctionName, NhAssistantContent.DeserializeArguments(invocation.ArgumentsJson))]));
@@ -1772,8 +1868,10 @@ internal sealed partial class NhAssistantTurnRunner(
             token => aiFunction.InvokeAsync(arguments, token),
             cancellationToken,
             logger);
-        await interceptor.CompleteToolCallAsync(invocation, execution, CancellationToken.None);
-        return execution;
+        // Files the approved call returns reach the model as those of any tool call do.
+        var withFiles = await interceptor.WithFilesAsync(descriptor, invocation, execution, cancellationToken);
+        await interceptor.CompleteToolCallAsync(invocation, withFiles.Execution, CancellationToken.None);
+        return withFiles.Execution with { Result = withFiles.ModelResult };
     }
 
     private (AIFunction Function, NhAiToolDescriptor Descriptor)? FindGovernedFunction(AssistantToolInvocation invocation)
@@ -2759,7 +2857,8 @@ internal sealed partial class NhAssistantTurnRunner(
             texts,
             services.GetService<NhAssistantProposalPlacement>(),
             services.GetService<Live.NhAssistantAgentWorkUpdates>(),
-            _applicationClock);
+            _applicationClock,
+            services.GetService<NhAssistantTurnFiles>());
     }
 
     private async Task FinishWithErrorAsync(
@@ -2802,7 +2901,9 @@ internal sealed partial class NhAssistantTurnRunner(
     /// budget is used, leaving room for the instructions and the new message. An assistant message
     /// that made tool calls carries a compact summary of them (tool id, short argument preview and
     /// outcome, never results), so a follow-up turn knows what was already done. In a shared
-    /// conversation every user message starts with its writer's name in square brackets.
+    /// conversation every user message starts with its writer's name in square brackets. With the
+    /// turn's <paramref name="state"/>, the files of the replayed messages are opened again with this
+    /// turn's actor (<see cref="ReopenFilesAsync"/>).
     /// </summary>
     private async Task<List<ChatMessage>> BuildHistoryAsync(
         Guid conversationId,
@@ -2811,7 +2912,8 @@ internal sealed partial class NhAssistantTurnRunner(
         string? newMessage,
         Guid? excludedInvocationId,
         NhAssistantSpeakers? speakers,
-        int reservedCharacters = 0)
+        int reservedCharacters = 0,
+        NhAssistantTurnState? state = null)
     {
         var budget = profiles.TryGet(agent.ProfileName, out var profile)
             ? (long)profile.Budget.MaxInputTokens * 3
@@ -2824,7 +2926,7 @@ internal sealed partial class NhAssistantTurnRunner(
         var invocations = (await store.GetToolInvocationsAsync(conversationId, invocationIds, CancellationToken.None))
             .ToDictionary(invocation => invocation.Id);
 
-        var selected = new List<ChatMessage>();
+        var selected = new List<(IReadOnlyList<NhAssistantStoredPart> Parts, ChatMessage Message)>();
         foreach (var message in history.Reverse())
         {
             var parts = NhAssistantContent.DeserializeParts(message.PartsJson);
@@ -2848,10 +2950,94 @@ internal sealed partial class NhAssistantTurnRunner(
             {
                 break;
             }
-            selected.Add(new ChatMessage(isUser ? ChatRole.User : ChatRole.Assistant, text));
+            selected.Add((parts, new ChatMessage(isUser ? ChatRole.User : ChatRole.Assistant, text)));
         }
+
+        // A consultation reads the thread with the asker's rights and opens no files of it.
+        var following = state is null || state.Scope.Consultation is not null
+            ? new Dictionary<ChatMessage, ChatMessage>()
+            : await ReopenFilesAsync(state, selected);
         selected.Reverse();
-        return selected;
+        var messages = new List<ChatMessage>(selected.Count + following.Count);
+        foreach (var (_, message) in selected)
+        {
+            messages.Add(message);
+            if (following.TryGetValue(message, out var files))
+            {
+                messages.Add(files);
+            }
+        }
+
+        return messages;
+    }
+
+    /// <summary>
+    /// Opens the files of the replayed messages again with this turn's actor (F6), newest first and
+    /// each file once, within the turn's file limits for earlier files: a file that no longer exists,
+    /// that the actor may no longer read or that no longer fits is named with the reason instead. A
+    /// person's message carries its attachments; the files tools returned follow the agent's message
+    /// in a user message of their own, which this returns by that agent message.
+    /// </summary>
+    private async Task<Dictionary<ChatMessage, ChatMessage>> ReopenFilesAsync(
+        NhAssistantTurnState state,
+        IReadOnlyList<(IReadOnlyList<NhAssistantStoredPart> Parts, ChatMessage Message)> newestFirst)
+    {
+        var following = new Dictionary<ChatMessage, ChatMessage>();
+        if (!newestFirst.Any(item => item.Parts.Any(IsFilePart)))
+        {
+            return following;
+        }
+
+        var files = services.GetRequiredService<NhAssistantTurnFiles>();
+        var interceptor = CreateInterceptor(state);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (parts, message) in newestFirst)
+        {
+            var contents = new List<AIContent>();
+            foreach (var part in parts.Where(IsFilePart))
+            {
+                var stored = part.File!;
+                if (!seen.Add(stored.Id))
+                {
+                    // A newer message already gives the model this file.
+                    continue;
+                }
+
+                var outcome = await files.ReopenAsync(state, stored.ToReference(), stored.ToolId, CancellationToken.None);
+                await interceptor.RecordBusinessEventAsync(NhAssistantTurnFiles.AuditEventOf(state, outcome, part.InvocationId), CancellationToken.None);
+                if (outcome.Attached)
+                {
+                    contents.AddRange(outcome.Contents);
+                }
+                else
+                {
+                    contents.Add(new TextContent(NhAssistantTurnFiles.NoteOf(outcome, state.Language)));
+                }
+            }
+
+            if (contents.Count == 0)
+            {
+                continue;
+            }
+            if (message.Role == ChatRole.User)
+            {
+                foreach (var content in contents)
+                {
+                    message.Contents.Add(content);
+                }
+            }
+            else
+            {
+                following[message] = new ChatMessage(ChatRole.User, contents);
+            }
+        }
+
+        return following;
+    }
+
+    private static bool IsFilePart(NhAssistantStoredPart part)
+    {
+        return part is { Type: NhAssistantStoredPart.FileType, File: not null };
     }
 
     private static NhAssistantAuditEvent DecisionEvent(

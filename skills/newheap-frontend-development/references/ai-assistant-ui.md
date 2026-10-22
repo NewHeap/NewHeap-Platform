@@ -279,7 +279,9 @@ person or account by its name only, with the account ID as the name's tooltip an
 it; they show the ID itself, labeled as an account ID, only while no name is known. The editor of a new agent asks how it is
 used: in the chat, on its own (`offeredInChat: false`, kept out of the agent picker) or both,
 whether to switch it on now (unticked sends `startsOff: true`; the skill form offers the same for a
-new skill, next to its data classification), its model profile among the run catalog's `profiles`
+new skill, next to its data classification and its "Accepts files" switch, which sends
+`acceptsFiles` and is off for a new skill as the run settings' own switch is for a new agent), its
+model profile among the run catalog's `profiles`
 (the application's chat profile by default), and what it works on: "All objects" or chosen kinds of objects by the names of the run catalog's
 `subjectTypes`, "The whole application", "Per division" only when the catalog reports `divisions`,
 and the run and view policy for the whole application from the catalog's `agentPolicies`. It sends

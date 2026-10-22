@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "ea4b4b6f3608948924c894ef0d0e8b96938d590dac99d7da79003af5deb93ae6",
-    "declarationCount": 9295,
+    "hash": "14eb7bfd96370da95ba1fa8634614605326bd0e8d7740dabfb51f4e1453fa132",
+    "declarationCount": 9405,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1823,11 +1823,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantAgentRunSettingsDto( int Version, string Accountability, string? ServiceAccountActorId, bool DelegateFromInitiator, bool AllowGatewayReads, string ElevatedReads, string? ApprovalPolicy, int RetryCount, int? DailyToolCalls, long? DailyTokens, int MaxConcurrentRuns, int MaxRunsPerSubjectPerDay, long? MaxTokensPerRun, string? TriageProfile, string? RuleHandler, DateTimeOffset ChangedAt, string ChangedBy, string? Reason, bool InEffect, string? Problem);"
+        "declaration": "public bool AcceptsFiles { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantAgentRunSettingsRequest( string? Accountability, string? ServiceAccountActorId = null, bool DelegateFromInitiator = false, bool AllowGatewayReads = false, string? ElevatedReads = null, string? ApprovalPolicy = null, int? RetryCount = null, int? DailyToolCalls = null, long? DailyTokens = null, int? MaxConcurrentRuns = null, int? MaxRunsPerSubjectPerDay = null, long? MaxTokensPerRun = null, string? TriageProfile = null, string? RuleHandler = null, int? ExpectedVersion = null, string? Reason = null);"
+        "declaration": "public sealed record NhAssistantAgentRunSettingsDto( int Version, string Accountability, string? ServiceAccountActorId, bool DelegateFromInitiator, bool AllowGatewayReads, string ElevatedReads, string? ApprovalPolicy, int RetryCount, int? DailyToolCalls, long? DailyTokens, int MaxConcurrentRuns, int MaxRunsPerSubjectPerDay, long? MaxTokensPerRun, string? TriageProfile, string? RuleHandler, DateTimeOffset ChangedAt, string ChangedBy, string? Reason, bool InEffect, string? Problem) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool AcceptsFiles { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public sealed record NhAssistantAgentRunSettingsRequest( string? Accountability, string? ServiceAccountActorId = null, bool DelegateFromInitiator = false, bool AllowGatewayReads = false, string? ElevatedReads = null, string? ApprovalPolicy = null, int? RetryCount = null, int? DailyToolCalls = null, long? DailyTokens = null, int? MaxConcurrentRuns = null, int? MaxRunsPerSubjectPerDay = null, long? MaxTokensPerRun = null, string? TriageProfile = null, string? RuleHandler = null, int? ExpectedVersion = null, string? Reason = null, bool AcceptsFiles = false);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -1836,6 +1844,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public bool StartsOff { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool AcceptsFiles { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -1856,6 +1868,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public string? DataClassification { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool AcceptsFiles { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -1883,7 +1899,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantDataSkillRequest( string? Description, string? Instructions = null, IReadOnlyList<string>? Tools = null, string? Profile = null, string? RuleHandler = null, long? MaxTokensPerRun = null, int? DailyToolCalls = null, long? DailyTokens = null, string? ApprovalPolicy = null, int? ExpectedVersion = null, string? Reason = null, string? Apply = null, bool StartsOff = false, string? DataClassification = null);"
+        "declaration": "public sealed record NhAssistantDataSkillRequest( string? Description, string? Instructions = null, IReadOnlyList<string>? Tools = null, string? Profile = null, string? RuleHandler = null, long? MaxTokensPerRun = null, int? DailyToolCalls = null, long? DailyTokens = null, string? ApprovalPolicy = null, int? ExpectedVersion = null, string? Reason = null, string? Apply = null, bool StartsOff = false, string? DataClassification = null, bool AcceptsFiles = false);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -5454,6 +5470,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022095033_AcceptsFiles.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022095033_AcceptsFiles.cs",
+        "declaration": "public partial class AcceptsFiles : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022095033_AcceptsFiles.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022095033_AcceptsFiles.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -5979,6 +6011,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022082620_SkillDataClassification.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022095024_AcceptsFiles.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022095024_AcceptsFiles.cs",
+        "declaration": "public partial class AcceptsFiles : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022095024_AcceptsFiles.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022095024_AcceptsFiles.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -6727,6 +6775,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantFileLimits? FileLimits { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public bool AcceptsFiles => FileLimits is not null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public IReadOnlyDictionary<string, NhAssistantSkillOptions> Skills => _skills;"
       },
       {
@@ -6860,6 +6916,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder DataClassification(NhAiDataClassification classification) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder AcceptsFiles(Action<NhAssistantFileLimits>? limits = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -7231,6 +7291,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
+        "declaration": "public NhAssistantFileLimits? FileLimits { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
+        "declaration": "public bool AcceptsFiles => FileLimits is not null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
         "declaration": "public bool Shadow { get; internal set; }"
       },
       {
@@ -7288,6 +7356,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
         "declaration": "public NhAssistantSkillBuilder DataClassification(NhAiDataClassification classification) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
+        "declaration": "public NhAssistantSkillBuilder AcceptsFiles(Action<NhAssistantFileLimits>? limits = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
@@ -9955,6 +10027,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
+        "declaration": "public bool AcceptsFiles { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
         "declaration": "public string? RuleHandlerName { get; set; }"
       },
       {
@@ -10132,6 +10208,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
         "declaration": "public string? RuleHandlerName { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
+        "declaration": "public bool AcceptsFiles { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
@@ -10648,6 +10728,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder UseAgentMemoryMigrator<TMigrator>() where TMigrator : class, INhAssistantAgentMemoryMigrator {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseFileSource<TSource>() where TSource : class, INhAssistantFileSource {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -11448,6 +11532,50 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string ClassificationNotPermitted = \"assistant-classification-not-permitted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FilesUnavailable = \"assistant-files-unavailable\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FilesNotAccepted = \"assistant-files-not-accepted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileReferenceInvalid = \"assistant-file-reference-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileNotFound = \"assistant-file-not-found\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileForbidden = \"assistant-file-forbidden\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileUnavailable = \"assistant-file-unavailable\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileTooLarge = \"assistant-file-too-large\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileTooManyPages = \"assistant-file-too-many-pages\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileCountLimit = \"assistant-file-count-limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileTokenLimit = \"assistant-file-token-limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string FileTypeNotSupported = \"assistant-file-type-not-supported\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -12318,6 +12446,114 @@
         "declaration": "public static NewHeap.Platform.Common.Models.TaskResult Failed(string field, string error) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public interface INhAssistantFileSource {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public sealed class NhAssistantFile : IAsyncDisposable {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public NhAssistantFile( Stream content, string mediaType, long length, NhAiDataClassification classification) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public Stream Content { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public string MediaType { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public long Length { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public NhAiDataClassification Classification { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public int? PageCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public ValueTask DisposeAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public sealed record NhAssistantFileActor( string ActorId, NhAiActorKind ActorKind, string AgentId, Guid ConversationId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public string? AccountableOwnerId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public string? InitiatorActorId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public string? TenantId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public NhAiSubjectRef? Subject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public Guid? RunId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public string Origin { get; init; } = NhAssistantFileOrigins.ToolResult;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public string? ToolId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public sealed record NhAssistantFileUpload( Guid ConversationId, string Name, string MediaType, long Length, Stream Content);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public static class NhAssistantFileOrigins {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public const string Attachment = \"attachment\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public const string ToolResult = \"tool-result\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public const string EarlierTurn = \"earlier-turn\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public sealed class NhAssistantFileLimits {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public int? MaxFileBytes { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public int? MaxFilePages { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public int? MaxFilesPerTurn { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public int? MaxFileTokensPerTurn { get; set; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public enum NhAssistantAuditEventKind {"
       },
@@ -12472,6 +12708,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public string? McpConnectionOwner { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? FileId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? FileMediaType { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? FileHash { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -12656,6 +12904,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public TimeSpan BoardVisitRetention { get; set; } = TimeSpan.FromDays(180);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public int MaxFileBytes { get; set; } = 20 * 1024 * 1024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public int MaxFilePages { get; set; } = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public int MaxFilesPerTurn { get; set; } = 5;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public int MaxFileTokensPerTurn { get; set; } = 100_000;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
@@ -15391,6 +15655,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public NhAssistantAgentTurnContext? AgentTurn { get; init; }"
       },
       {
@@ -15528,6 +15796,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
         "declaration": "public const string ConnectionRequiredType = \"connection-required\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
+        "declaration": "public const string FileType = \"file\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
+        "declaration": "public static NhAssistantStoredFile From(NhAiFileReference reference, string? sha256, string origin, string? toolId = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
+        "declaration": "public NhAiFileReference ToReference() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
@@ -15939,6 +16219,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public List<NhAssistantTurnFile> Files { get; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public List<NhAssistantTurnFile> EarlierFiles { get; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public bool HasFiles => Files.Count > 0 || EarlierFiles.Count > 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public NhAiDataClassification FileClassification => Files.Concat(EarlierFiles)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public bool ToolsDisabled { get; set; }"
       },
       {
@@ -16236,6 +16532,46 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
         "declaration": "public Guid? SupersededByApprovalId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public bool Attached => Code is null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public bool Available => services.GetService<INhAssistantFileSource>() is not null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public NhAssistantTurnFileLimits? LimitsOf(NhAssistantTurnState state, NhAssistantSkillOptions? skill) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public static NhAiDataClassification ClassificationOf(NhAssistantTurnState state, NhAssistantSkillOptions? skill) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantFileOutcome>> OpenAsync( NhAssistantTurnState state, IReadOnlyList<NhAiFileReference> references, string origin, string? toolId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public async Task<NhAssistantFileOutcome> ReopenAsync( NhAssistantTurnState state, NhAiFileReference reference, string? toolId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public async Task<string?> CheckSkillAsync( NhAssistantTurnState state, NhAssistantSkillOptions skill, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public static JsonElement DescribeInResult(JsonElement result, IReadOnlyList<NhAssistantFileOutcome> outcomes, bool referencesInvalid) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public static NhAssistantAuditEvent AuditEventOf(NhAssistantTurnState state, NhAssistantFileOutcome outcome, Guid? invocationId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public static string NoteOf(NhAssistantFileOutcome outcome, string language) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs",
@@ -17414,6 +17750,66 @@
         "declaration": "public static string ComputeHash(object value) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public sealed record NhAiFileReference( string Id, string Name, string MediaType, long Size, string? Hash = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public const int MaxIdLength = 256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public const int MaxNameLength = 256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public const int MaxMediaTypeLength = 128;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public const int MaxHashLength = 128;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public static bool IsValid(NhAiFileReference? reference) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public static class NhAiMediaTypes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public const string Pdf = \"application/pdf\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public const string Png = \"image/png\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public const string Jpeg = \"image/jpeg\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public const string Docx = \"application/vnd.openxmlformats-officedocument.wordprocessingml.document\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public const string Xlsx = \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public static string? Normalize(string? mediaType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public static bool IsValid(string? mediaType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+        "declaration": "public interface INhAiToolResultFiles {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
         "declaration": "public sealed class NhAiInMemoryBudgetOptions {"
       },
@@ -17798,6 +18194,22 @@
         "declaration": "public async ValueTask<NhAiInvocationContext> CreateAsync( NhAiInvocationContextSeed seed, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelFiles.cs",
+        "declaration": "public static TContent Annotate<TContent>(TContent content, NhAiDataClassification classification, int estimatedTokens) where TContent : AIContent {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelFiles.cs",
+        "declaration": "public static NhAiDataClassification Highest(IEnumerable<ChatMessage> messages, NhAiDataClassification floor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelFiles.cs",
+        "declaration": "public static long EstimatedTokens(IEnumerable<ChatMessage> messages) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelFiles.cs",
+        "declaration": "public static IReadOnlyList<ChatMessage> MoveToolContent(IReadOnlyList<ChatMessage> messages) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
         "declaration": "public sealed class NhAiModelProfileBuilder {"
       },
@@ -17848,6 +18260,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
         "declaration": "public NhAiModelProfileBuilder WithRoutingTags(params string[] tags) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder AcceptMediaTypes(params string[] mediaTypes) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
@@ -17948,6 +18364,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
         "declaration": "public IReadOnlySet<string> RoutingTags { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public IReadOnlySet<string> AcceptedMediaTypes { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public bool AcceptsMediaType(string? mediaType) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
@@ -19363,7 +19787,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolResult.cs",
+        "declaration": "public const string FilesPropertyName = \"files\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolResult.cs",
+        "declaration": "public const int MaxFiles = 16;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolResult.cs",
         "declaration": "public static JsonElement Create<T>(TaskResult<T> result, JsonSerializerOptions serializerOptions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolResult.cs",
+        "declaration": "public static JsonElement Create<T>( TaskResult<T> result, JsonSerializerOptions serializerOptions, IReadOnlyList<NhAiFileReference> files) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolResult.cs",
+        "declaration": "public static bool TryGetFiles(JsonElement result, out IReadOnlyList<NhAiFileReference> files) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolResult.cs",
@@ -41110,7 +41550,21 @@
       "NhAssistantAgentContextOptions",
       "UseApplicationMap",
       "MaxApplicationMapCharacters",
-      "ApplicationMapTimeout"
+      "ApplicationMapTimeout",
+      "UseFileSource",
+      "INhAssistantFileSource",
+      "NhAssistantFile",
+      "NhAssistantFileActor",
+      "NhAssistantFileUpload",
+      "NhAssistantFileOrigins",
+      "NhAssistantFileLimits",
+      "NhAiFileReference",
+      "INhAiToolResultFiles",
+      "NhAiMediaTypes",
+      "MaxFileBytes",
+      "MaxFilePages",
+      "MaxFilesPerTurn",
+      "MaxFileTokensPerTurn"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",
@@ -41204,7 +41658,9 @@
       "NhAiModelResolutionRequest",
       "NhAiResolvedChatProfile",
       "NhAiServiceCollectionExtensions",
-      "NhAiStreamingPolicy"
+      "NhAiStreamingPolicy",
+      "AcceptMediaTypes",
+      "AcceptsMediaType"
     ],
     "nh-ai-observability-evaluation": [
       "INhAiChatExecutor",
