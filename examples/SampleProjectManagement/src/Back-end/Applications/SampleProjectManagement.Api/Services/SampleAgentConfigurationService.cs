@@ -7,6 +7,9 @@ using SampleProjectManagement.Api.Composition;
 namespace SampleProjectManagement.Api.Services;
 
 /// <summary>
+/// SPM-308: a trigger the application adds to the planner on every status change of a project, which
+/// selects the event's <c>not-own-change</c> filter: the planner's own status change of a project does
+/// not start its task follow-up on that project again, while a person's change does.
 /// SPM-297: a change of the progress note is evaluated before it goes live: saved for shadow, it is
 /// the note's candidate, which notes progress in the planner's shadow threads next to the live note
 /// on the same completed tasks. The comparison counts both; promoting makes the candidate the live
@@ -29,6 +32,7 @@ public sealed class SampleAgentConfigurationService(
     public const string ProgressNoteSkill = "progress-note";
     public const string ProgressNoteTriggerId = "planner-progress-note";
     public const string StarterTriggerId = "project-starter-created";
+    public const string StatusFollowUpTriggerId = "planner-status-follow-up";
 
     private const string AgentId = SampleProjectPlannerComposition.AgentId;
 
@@ -66,6 +70,36 @@ public sealed class SampleAgentConfigurationService(
                 Reason: "Imported from the progress package"),
             actorId,
             cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-308: adds a trigger that starts the planner's task follow-up when a project's status
+    /// changed, except for a change the planner made itself on that project. It starts in shadow.
+    /// </summary>
+    public Task<TaskResult<NhAssistantDataTriggerDto>> AddStatusFollowUpAsync(Guid operatorId, CancellationToken cancellationToken)
+    {
+        return configuration.SaveTriggerAsync(
+            AgentId,
+            StatusFollowUpTriggerId,
+            new NhAssistantDataTriggerRequest(
+                NhAssistantDataTriggerSources.Event,
+                SampleProjectPlannerComposition.TaskFollowUpSkill,
+                Event: SampleProjectPlannerComposition.StatusChangedEvent,
+                Conflict: NhAssistantTriggerConflictNames.Queue,
+                DebounceSeconds: 0,
+                Reason: "Follow up a project whose status changed",
+                Filters: [SampleProjectPlannerComposition.NotOwnChangeFilter]),
+            operatorId.ToString("D"),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-308: removes the status follow-up.
+    /// </summary>
+    public async Task<TaskResult> RemoveStatusFollowUpAsync(Guid operatorId, CancellationToken cancellationToken)
+    {
+        var trigger = await configuration.RemoveTriggerAsync(AgentId, StatusFollowUpTriggerId, null, operatorId.ToString("D"), cancellationToken: cancellationToken);
+        return trigger.Success || HasCode(trigger, NhAssistantErrorCodes.TriggerNotFound) ? TaskResult.Succeeded() : trigger;
     }
 
     /// <summary>

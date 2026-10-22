@@ -1094,6 +1094,7 @@ public sealed class AiToolSamplesTests
             Guid divisionId,
             Guid projectId,
             SampleProjectManagement.DAL.Entities.ProjectStatus status,
+            ProjectAgentCause? agentCause,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

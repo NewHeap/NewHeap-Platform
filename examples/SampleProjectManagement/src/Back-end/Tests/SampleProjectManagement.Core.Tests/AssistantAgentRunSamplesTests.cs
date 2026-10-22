@@ -1048,6 +1048,55 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_planner_is_not_started_again_by_its_own_status_change_of_a_project_but_by_every_other_change()
+    {
+        // SPM-308
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string triggerId = SampleAgentConfigurationService.StatusFollowUpTriggerId;
+        var project = await host.CreateProjectAsync("OWN-CHANGE", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            // The run catalog lists the status event with its filter; the application adds a trigger
+            // that selects it.
+            var catalog = (await administrator.GetFromJsonAsync<NhAssistantRunCatalogDto>("/api/assistant/admin/run-catalog", Json))!;
+            var statusEvent = Assert.Single(catalog.TriggerEvents, item => item.Name == SampleProjectPlannerComposition.StatusChangedEvent);
+            var filter = Assert.Single(statusEvent.Filters!);
+            Assert.Equal(SampleProjectPlannerComposition.NotOwnChangeFilter, filter.Name);
+            Assert.Contains("the agent made itself", filter.Description);
+            var added = await ConfigureAgentsAsync(service => service.AddStatusFollowUpAsync(host.OwnerId, CancellationToken.None));
+            Assert.True(added.Success);
+            Assert.Equal([SampleProjectPlannerComposition.NotOwnChangeFilter], added.Data!.Filters);
+
+            // The planner's status tool puts the project on hold while the planner works on it: the
+            // event names the planner and the project, and the filter skips it.
+            var own = await host.ChangeStatusAsAgentAsync(project, ProjectStatus.OnHold, planner, ProjectSubjects.For(project));
+            Assert.Equal(("assistant-agent:" + planner, ProjectSubjects.Type, ProjectSubjects.IdOf(project)), (own.ChangedByAgentActorId, own.ChangedInSubjectType, own.ChangedInSubjectId));
+            var ignored = Assert.Single(await host.PublishAsync(own), receipt => receipt.TriggerId == triggerId);
+            Assert.Equal((NhAssistantTriggerOutcomes.Ignored, NhAssistantTriggerReasons.Filtered, (Guid?)null), (ignored.Outcome, ignored.ReasonCode, ignored.RunId));
+
+            // The same planner changes the project while it works on another project: that change
+            // starts the follow-up on this project.
+            var elsewhere = await host.ChangeStatusAsAgentAsync(project, ProjectStatus.Active, planner, ProjectSubjects.For(Guid.NewGuid()));
+            var started = Assert.Single(await host.PublishAsync(elsewhere), receipt => receipt.TriggerId == triggerId);
+            Assert.Equal(NhAssistantTriggerOutcomes.Started, started.Outcome);
+            Assert.NotNull(started.RunId);
+
+            // A person's change starts it as well; the event names the person.
+            var byPerson = await host.SetStatusByHandAsync(project, ProjectStatus.OnHold, host.OwnerId);
+            Assert.Equal((host.OwnerId, (string?)null), (byPerson.ChangedByUserId, byPerson.ChangedByAgentActorId));
+            var person = Assert.Single(await host.PublishAsync(byPerson), receipt => receipt.TriggerId == triggerId);
+            Assert.Contains(person.Outcome, new[] { NhAssistantTriggerOutcomes.Started, NhAssistantTriggerOutcomes.Queued });
+            Assert.NotNull(person.RunId);
+        }
+        finally
+        {
+            // Other samples share the host and its planner.
+            Assert.True((await ConfigureAgentsAsync(service => service.RemoveStatusFollowUpAsync(host.OwnerId, CancellationToken.None))).Success);
+        }
+    }
+
+    [Fact]
     public async Task An_administrator_creates_a_project_starter_that_proposes_with_the_rights_of_its_technical_account()
     {
         // SPM-296
@@ -4285,6 +4334,58 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
             committedByUserId: userId);
         Assert.True(updated.Success);
         return Published<ProjectStatusChangedEvent>(evt => evt.ProjectId == projectId && evt.Status == status);
+    }
+
+    /// <summary>
+    /// SPM-308: changes a project's status through the planner's status tool, as the shared invoker
+    /// calls it inside an agent's turn: the invocation context names the agent's actor and the agent's
+    /// invocation scope, which the platform makes ambient for the turn, the subject the agent works in.
+    /// Returns the event the project service handed to the outbox.
+    /// </summary>
+    public async Task<ProjectStatusChangedEvent> ChangeStatusAsAgentAsync(Guid projectId, ProjectStatus status, string agentId, NhAiSubjectRef workingOn)
+    {
+        // The agent's actor, as NhAssistantAgentDefinition.ActorId names it.
+        var agentActorId = "assistant-agent:" + agentId;
+        var turn = new NhAiAgentInvocationScope(
+            agentId,
+            agentActorId,
+            1,
+            new NhAiSubjectInfo(workingOn, NhAiSubjectInfo.CreateScopeKey(null, null)),
+            OwnerId.ToString("D"),
+            Guid.NewGuid().ToString(),
+            "project-assistance");
+        var context = new NhAiInvocationContext(
+            agentActorId,
+            "project-assistance",
+            new Dictionary<string, string> { [ProjectAiTools.DivisionScopeKey] = DivisionId.ToString("D") })
+        {
+            ActorKind = NhAiActorKind.Agent,
+            AgentId = agentId
+        };
+
+        // The tools change the project through the application's project service; this host otherwise
+        // gives the assistant an in-memory project service.
+        await using var scope = Services.CreateAsyncScope();
+        var tools = new ProjectAiTools(
+            scope.ServiceProvider.GetRequiredService<IProjectAiReadService>(),
+            scope.ServiceProvider.GetRequiredService<ProjectService>(),
+            scope.ServiceProvider.GetRequiredService<IProjectAiStatusReceiptService>());
+        using (NhAiAgentInvocationScopes.Begin(turn))
+        {
+            var changed = await tools.ChangeStatusAsync(new SampleProjectManagement.Core.Models.AI.ProjectAiStatusChangeInput(projectId, status), context, CancellationToken.None);
+            Assert.True(changed.Success);
+        }
+        return Published<ProjectStatusChangedEvent>(evt => evt.ProjectId == projectId && evt.Status == status);
+    }
+
+    /// <summary>
+    /// SPM-308: fires the triggers of a status change and returns their receipts, as the sample's
+    /// status consumer does without looking at them.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync(ProjectStatusChangedEvent evt)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>().PublishAsync(evt);
     }
 
     /// <summary>

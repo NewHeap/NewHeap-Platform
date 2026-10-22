@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.80",
   "backEnd": {
-    "hash": "06d44776d286a6cd50bd435b35d21b1aea4636221c254f34be46c6a8b5189c82",
-    "declarationCount": 9603,
+    "hash": "3e3f39ea3189e995b1c297119a17c6e00ebbfb21d7f26da25a2ebd5ae9386da2",
+    "declarationCount": 9629,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1815,6 +1815,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public IReadOnlyList<NhAssistantRunBlockDto>? Filters { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantAgentConfigurationDto( string AgentId, IReadOnlyList<string> ToolSelectors, IReadOnlyList<NhAssistantCodeSkillDto> CodeSkills, IReadOnlyList<NhAssistantDataSkillDto> DataSkills, IReadOnlyList<NhAssistantCodeTriggerDto> CodeTriggers, IReadOnlyList<NhAssistantDataTriggerDto> DataTriggers, IReadOnlyList<NhAssistantRunConfigurationProblem> Problems, string Source, NhAssistantAgentRunSettingsDto? RunSettings) {"
       },
       {
@@ -1939,7 +1943,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantDataTriggerDto( string TriggerId, string? SkillId, string Source, string? Event, string? Cron, string? TimeZone, string? SubjectSet, string? Message, string Conflict, int DebounceSeconds, bool Shadow, int Version, DateTimeOffset ChangedAt, string ChangedBy, string? Reason, bool InEffect, string? Problem);"
+        "declaration": "public sealed record NhAssistantDataTriggerDto( string TriggerId, string? SkillId, string Source, string? Event, string? Cron, string? TimeZone, string? SubjectSet, string? Message, string Conflict, int DebounceSeconds, bool Shadow, int Version, DateTimeOffset ChangedAt, string ChangedBy, string? Reason, bool InEffect, string? Problem) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public IReadOnlyList<string> Filters { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -1959,7 +1967,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantDataTriggerRequest( string? Source, string? Skill = null, string? Event = null, string? Cron = null, string? TimeZone = null, string? SubjectSet = null, string? Message = null, string? Conflict = null, int? DebounceSeconds = null, int? ExpectedVersion = null, string? Reason = null);"
+        "declaration": "public sealed record NhAssistantDataTriggerRequest( string? Source, string? Skill = null, string? Event = null, string? Cron = null, string? TimeZone = null, string? SubjectSet = null, string? Message = null, string? Conflict = null, int? DebounceSeconds = null, int? ExpectedVersion = null, string? Reason = null, IReadOnlyList<string>? Filters = null);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -2888,6 +2896,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
         "declaration": "public const string Filtered = \"filtered\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "declaration": "public const string FilterMissing = \"filter-missing\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
@@ -5710,6 +5722,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022182423_TriggerEventFilters.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022182423_TriggerEventFilters.cs",
+        "declaration": "public partial class TriggerEventFilters : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022182423_TriggerEventFilters.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022182423_TriggerEventFilters.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -6335,6 +6363,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022140836_FileLimitsQueuedFilesReaderTexts.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022182415_TriggerEventFilters.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022182415_TriggerEventFilters.cs",
+        "declaration": "public partial class TriggerEventFilters : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022182415_TriggerEventFilters.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022182415_TriggerEventFilters.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -7383,6 +7427,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public IReadOnlyList<NhAssistantTriggerFilterDefinition> Filters { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public IReadOnlyList<string> MissingFilters { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public bool Shadow { get; init; }"
       },
       {
@@ -7851,6 +7903,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
+        "declaration": "public NhAssistantTriggerEventBuilder<TEvent> Filter( string name, string description, Func<TEvent, NhAssistantTriggerFilterContext, bool> filter) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
         "declaration": "public NhAssistantTriggerEventBuilder<TEvent> Subject(Func<TEvent, NhAiSubjectRef> subject) {"
       },
       {
@@ -7875,7 +7931,27 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
+        "declaration": "public sealed record NhAssistantTriggerFilterContext( string AgentId, string? SkillId, string TriggerId, string AgentActorId, NhAiSubjectRef Subject);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
         "declaration": "public string? SubjectType { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
+        "declaration": "public IReadOnlyList<NhAssistantTriggerFilterDefinition> Filters { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
+        "declaration": "public const int MaxLength = 64;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
+        "declaration": "public static bool IsValid(string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
+        "declaration": "public static void Validate(string name, string parameterName) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
@@ -7912,6 +7988,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
         "declaration": "public const int MaxDebounceSeconds = 3_600;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const int MaxTriggerFilters = 10;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
@@ -8031,6 +8111,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string UnknownFilter = \"unknown-filter\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
         "declaration": "public const string UnknownSubjectSet = \"unknown-subject-set\";"
       },
       {
@@ -8076,6 +8160,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
         "declaration": "public static bool TryParse(string? name, out NhAssistantTriggerConflict conflict) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const int MaxJsonLength = 1_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public static IReadOnlyList<string>? Read(string? json) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public static string? Write(IReadOnlyList<string> names) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
@@ -10515,6 +10611,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
+        "declaration": "public string? FiltersJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
         "declaration": "public string? Cron { get; set; }"
       },
       {
@@ -12204,6 +12304,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string TriggerInCode = \"assistant-trigger-in-code\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string TriggerFilterNotFound = \"assistant-trigger-filter-not-found\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -42110,6 +42214,7 @@
       "NhAssistantShadowChoices",
       "AddTriggerEvent",
       "NhAssistantTriggerEventBuilder",
+      "NhAssistantTriggerFilterContext",
       "AddSubjectSet",
       "AddRuleHandler",
       "INhAssistantAgentConfiguration",

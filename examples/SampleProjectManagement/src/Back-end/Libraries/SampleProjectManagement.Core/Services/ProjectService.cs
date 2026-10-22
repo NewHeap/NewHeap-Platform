@@ -442,6 +442,7 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
         Guid divisionId,
         Guid projectId,
         ProjectStatus status,
+        ProjectAgentCause? agentCause,
         CancellationToken cancellationToken = default)
     {
         var previousStatus = await GetStatusForAiAsync(
@@ -454,10 +455,12 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
                 "The project is unavailable in the authorized division scope.");
         }
 
-        var update = await UpdateStatusAsync(
+        var update = await UpdateStatusCoreAsync(
             projectId,
             new ProjectStatusMutateModel { Status = status },
-            cancellationToken: cancellationToken);
+            committedByUserId: null,
+            agentCause,
+            cancellationToken);
         if (!update.Success)
         {
             return TaskResult<ProjectAiStatusChangeReport>.Failed(update);
@@ -471,11 +474,25 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
                 true));
     }
 
-    public async Task<TaskResult<Project?>> UpdateStatusAsync(
+    public Task<TaskResult<Project?>> UpdateStatusAsync(
         Guid id,
         ProjectStatusMutateModel mutateModel,
         Guid? committedByUserId = null,
         CancellationToken cancellationToken = default)
+    {
+        return UpdateStatusCoreAsync(id, mutateModel, committedByUserId, agentCause: null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Changes the status and publishes the status event with its cause: the person, or the agent
+    /// whose tool made the change and the subject it worked in (SPM-308).
+    /// </summary>
+    private async Task<TaskResult<Project?>> UpdateStatusCoreAsync(
+        Guid id,
+        ProjectStatusMutateModel mutateModel,
+        Guid? committedByUserId,
+        ProjectAgentCause? agentCause,
+        CancellationToken cancellationToken)
     {
         await using var transaction = await _repository.StartOrGetTransactionScopeAsync(cancellationToken);
         var previousStatus = await _repository.GetAll()
@@ -498,7 +515,11 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
         {
             ProjectId = id,
             PreviousStatus = previousStatus ?? result.Data.Status,
-            Status = result.Data.Status
+            Status = result.Data.Status,
+            ChangedByUserId = committedByUserId,
+            ChangedByAgentActorId = agentCause?.AgentActorId,
+            ChangedInSubjectType = agentCause?.SubjectType,
+            ChangedInSubjectId = agentCause?.SubjectId
         });
         await transaction.CommitAsync(cancellationToken);
         return result;

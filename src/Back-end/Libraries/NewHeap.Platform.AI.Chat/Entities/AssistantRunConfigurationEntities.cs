@@ -110,6 +110,13 @@ public sealed class AssistantAgentTriggerDefinition
     /// </summary>
     public string? EventName { get; set; }
 
+    /// <summary>
+    /// The names of the trigger event's filters the trigger applies, as a JSON array in the order
+    /// the administration chose them; <see langword="null"/> applies none. Only an event trigger
+    /// has filters.
+    /// </summary>
+    public string? FiltersJson { get; set; }
+
     public string? Cron { get; set; }
 
     /// <summary>

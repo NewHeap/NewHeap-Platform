@@ -130,6 +130,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.HandOffChainLimit,
             NhAssistantErrorCodes.HandOffLimitReached,
             NhAssistantErrorCodes.FeedbackInvalid,
+            NhAssistantErrorCodes.TriggerFilterNotFound,
             NhAssistantAdminErrorCodes.ValidationFailed,
             NhAssistantAdminErrorCodes.McpHostBlocked,
             NhAssistantAdminErrorCodes.McpSchemaChanged,

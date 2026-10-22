@@ -551,6 +551,33 @@ whether it works by rules (`CodeRunSettings`, `NhAssistantCodeRunSettingsDto`). 
 names the object type a tool declares with `[NhAiSubject]` (`SubjectType`), so a screen can say that
 a run's proposal of it waits at that object; MCP tools never declare one.
 
+Keep an agent from starting itself again with a change it made, with a named filter on the trigger
+event that a data trigger selects. `When` on the event concerns every trigger on it and knows no
+agent; register a filter per concern instead with `Filter(name, description, (evt, ctx) => ...)`
+on `NhAssistantTriggerEventBuilder` (lowercase dash-case name of at most 64 characters, unique per
+event; a description of at most 300 characters that the administration shows). The run catalog lists
+each event's filters (`NhAssistantRunBlockDto.Filters`), and a data trigger stores the names it
+applies (`Filters` of `NhAssistantDataTriggerRequest` and `NhAssistantDataTriggerDto`, at most
+`MaxTriggerFilters`; only an event trigger takes them). Every selected filter must accept the event.
+The order is fixed: the agent's and the skill's state first (off ignores, stopped rejects), then the
+event's `When`, then its `Subject` function, then the selected filters, and only then the message,
+dedupe and payload functions. A refusing filter ignores the event with reason `filtered`, without
+an audit, exactly like `When`. The filter receives `NhAssistantTriggerFilterContext`: `AgentId`,
+`SkillId`, `TriggerId`, `Subject` (what the event's subject function returned, also for an event whose
+type is known only when it fires) and `AgentActorId`, the actor the agent acts as in its runs. Stamp
+the cause on the event where the agent's tool makes the change: inside the tool handler,
+`NhAiInvocationContext.ActorId` (with `ActorKind` `Agent`) is that same actor, and
+`NhAiAgentInvocationScopes.Current` is the agent's invocation scope with `AgentActorId` and the subject
+the agent works in (`Subject.Subject`). Skip the event only when the event's actor and subject both
+equal the context's: the agent then does not start itself again on the subject it changed, while its
+change made while it worked on another subject (a task's change on its project, say) and every
+person's change still start it. Keep filters cheap and free of I/O like `When`. Saving a filter the
+event does not register fails with `assistant-trigger-filter-not-found` and the field error
+`filters: not-found`; changing the filters is the trigger's next version, audited like every
+change. A stored filter that a later deploy removed fails closed: the trigger stays registered,
+ignores every event with reason `filter-missing` and logs a warning, and the run configuration shows
+it out of effect with the problem `unknown-filter` until an administrator clears the filter.
+
 An agent created in the administration gets runs through run settings as data:
 `INhAssistantAgentConfiguration.SaveRunSettingsAsync` or `PUT admin/agents/{id}/run-settings` sets
 whom it answers to (`agent`, `subject-responsible`, or `service-account` with an account that exists
@@ -911,6 +938,11 @@ profile and instructions that answer questions about the rules' proposals from t
 
 ## Avoid
 
+- An event `When` that compares the event with one agent: it applies to every trigger on the event.
+  Register a named filter with `Filter(...)` and select it on the data trigger.
+- Skipping every change an agent made, whatever the subject: its change on one subject may rightly
+  start it on another. Compare both the actor and the subject with the filter context.
+- Reading the database or calling services in a trigger filter: it runs for every published event.
 - Stopping an agent by editing its definition or sending `isEnabled`; pause or stop it with
   `INhAssistantAgentControl` or `POST admin/agents/{id}/state`.
 - Stopping an agent for an import or a migration that should lose no events; pause it.
@@ -1045,6 +1077,13 @@ profile and instructions that answer questions about the rules' proposals from t
   example through one shared helper.
 
 ## Verification
+
+For trigger event filters, publish the agent's own change on the trigger's subject and assert
+`ignored` with `filtered` and no audit, publish the same agent's change made on another subject and a
+person's change and assert a run each, assert that the filter's `AgentActorId` and `Subject` equal
+`NhAiInvocationContext.ActorId` and the ambient scope's subject inside the agent's tool call, save an
+unknown filter and assert `assistant-trigger-filter-not-found`, and store a filter the code no longer
+registers and assert `filter-missing` and the problem `unknown-filter`, on both providers.
 
 Publish the event twice and assert one run. Assert that the run's background
 operation is owned by the agent, that the deferred proposal is visible only to

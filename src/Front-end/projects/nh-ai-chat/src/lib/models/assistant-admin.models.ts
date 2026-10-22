@@ -875,6 +875,12 @@ export interface RunBlock {
    * agents that work on it. Missing or `null` when the type is known only when the event fires.
    */
   subjectType?: string | null;
+  /**
+   * For a trigger event: the named filters a data trigger on it may select, by name with what each
+   * skips, in the order the application registered them. `null` for other building blocks; missing
+   * on older servers.
+   */
+  filters?: RunBlock[] | null;
 }
 
 /** Response of `GET admin/run-catalog`: what skills, triggers and run settings defined as data can name. */
@@ -1308,6 +1314,12 @@ export interface DataTrigger {
   reason: string | null;
   inEffect: boolean;
   problem: string | null;
+  /**
+   * For an event trigger: the names of the event's filters it applies, which must all accept an event.
+   * A name the event no longer registers keeps the trigger from firing (problem `unknown-filter`).
+   * Missing on older servers.
+   */
+  filters?: string[];
 }
 
 /** Body of `PUT admin/agents/{id}/triggers/{triggerId}`. */
@@ -1334,6 +1346,12 @@ export interface DataTriggerRequest {
   /** The trigger's current version; `null` for a new trigger. */
   expectedVersion?: number | null;
   reason?: string | null;
+  /**
+   * For an event trigger: names of the event's filters (`RunBlock.filters`) that must all accept an
+   * event, at most 10; empty applies none. A name the event does not register fails with
+   * `assistant-trigger-filter-not-found`; a schedule takes none.
+   */
+  filters?: string[] | null;
 }
 
 /** Body of `POST admin/agents/{id}/triggers/{triggerId}/shadow`. */

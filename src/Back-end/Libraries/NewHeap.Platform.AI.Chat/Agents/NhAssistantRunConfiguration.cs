@@ -33,6 +33,11 @@ public static class NhAssistantAgentConfigurationLimits
     public const int MaxDebounceSeconds = 3_600;
 
     /// <summary>
+    /// The most named filters of its trigger event one data trigger applies.
+    /// </summary>
+    public const int MaxTriggerFilters = 10;
+
+    /// <summary>
     /// The most automatic retries of a run in the run settings of an agent.
     /// </summary>
     public const int MaxRetryCount = 10;
@@ -156,6 +161,14 @@ public static class NhAssistantRunConfigurationProblems
     /// <summary>The trigger event is not registered with <c>AddTriggerEvent</c>.</summary>
     public const string UnknownEvent = "unknown-event";
 
+    /// <summary>
+    /// The trigger applies a filter its event no longer registers with <c>Filter</c>. Unlike the
+    /// other problems, the trigger stays registered and fails closed: every event it would start a
+    /// run on is ignored with the reason <c>filter-missing</c> until the filter is removed from the
+    /// trigger or registered again.
+    /// </summary>
+    public const string UnknownFilter = "unknown-filter";
+
     /// <summary>The subject set is not registered with <c>AddSubjectSet</c>.</summary>
     public const string UnknownSubjectSet = "unknown-subject-set";
 
@@ -209,6 +222,63 @@ public static class NhAssistantTriggerConflictNames
             _ => NhAssistantTriggerConflict.Coalesce
         };
         return name is Coalesce or Queue or Supersede or Ignore;
+    }
+}
+
+/// <summary>
+/// The names of the filters a data trigger applies, as its row stores them: a JSON array of distinct
+/// filter names, at most <see cref="NhAssistantAgentConfigurationLimits.MaxTriggerFilters"/>, or
+/// <see langword="null"/> for none.
+/// </summary>
+internal static class NhAssistantDataTriggerFilters
+{
+    /// <summary>
+    /// The longest stored array; the most filters with the longest names fit with room to spare.
+    /// </summary>
+    public const int MaxJsonLength = 1_000;
+
+    /// <summary>
+    /// The stored names in their order, empty for none, or <see langword="null"/> when the stored
+    /// value is not a valid list of filter names.
+    /// </summary>
+    public static IReadOnlyList<string>? Read(string? json)
+    {
+        if (json is null)
+        {
+            return [];
+        }
+        if (json.Length > MaxJsonLength)
+        {
+            return null;
+        }
+
+        string[]? names;
+        try
+        {
+            names = JsonSerializer.Deserialize<string[]>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        if (names is null
+            || names.Length > NhAssistantAgentConfigurationLimits.MaxTriggerFilters
+            || names.Any(name => !NhAssistantTriggerFilterNames.IsValid(name))
+            || names.Distinct(StringComparer.Ordinal).Count() != names.Length)
+        {
+            return null;
+        }
+
+        return names;
+    }
+
+    /// <summary>
+    /// The value a row stores for <paramref name="names"/>: <see langword="null"/> for none.
+    /// </summary>
+    public static string? Write(IReadOnlyList<string> names)
+    {
+        return names.Count == 0 ? null : JsonSerializer.Serialize(names);
     }
 }
 
@@ -360,7 +430,9 @@ internal sealed class NhAssistantRunConfigurationValidator(
 
     /// <summary>
     /// The problem of a data trigger on the agent's effective options, or <see langword="null"/>
-    /// when it fits.
+    /// when it fits. A filter the trigger's event does not register is checked last, so
+    /// <see cref="NhAssistantRunConfigurationProblems.UnknownFilter"/> means that everything else
+    /// fits.
     /// </summary>
     public string? ValidateTrigger(
         AssistantAgentTriggerDefinition trigger,
@@ -370,10 +442,14 @@ internal sealed class NhAssistantRunConfigurationValidator(
         {
             return NhAssistantRunConfigurationProblems.UnknownAgent;
         }
+        var filters = NhAssistantDataTriggerFilters.Read(trigger.FiltersJson);
         if (!NhAiSubjectRef.IsValidType(trigger.Id)
             || NhAssistantTriggerIds.IsReserved(trigger.Id)
             || !NhAssistantTriggerConflictNames.TryParse(trigger.Conflict, out _)
-            || trigger.DebounceSeconds is < 0 or > NhAssistantAgentConfigurationLimits.MaxDebounceSeconds)
+            || trigger.DebounceSeconds is < 0 or > NhAssistantAgentConfigurationLimits.MaxDebounceSeconds
+            || filters is null
+            // Filters belong to trigger events; a schedule has none.
+            || (filters.Count > 0 && trigger.Source != NhAssistantDataTriggerSources.Event))
         {
             return NhAssistantRunConfigurationProblems.Invalid;
         }
@@ -395,9 +471,14 @@ internal sealed class NhAssistantRunConfigurationValidator(
                 }
 
                 // An event that names its subject type up front fits only an agent that works on it.
-                return triggerEvent.SubjectType is { } subjectType && !options.WorksOn.Covers(subjectType)
-                    ? NhAssistantRunConfigurationProblems.NotWorkedOn
-                    : null;
+                if (triggerEvent.SubjectType is { } subjectType && !options.WorksOn.Covers(subjectType))
+                {
+                    return NhAssistantRunConfigurationProblems.NotWorkedOn;
+                }
+
+                return filters.All(name => triggerEvent.Filters.Any(filter => filter.Name == name))
+                    ? null
+                    : NhAssistantRunConfigurationProblems.UnknownFilter;
             case NhAssistantDataTriggerSources.Schedule:
                 if (trigger.SubjectSetName is { } setName && !registration.SubjectSets.ContainsKey(setName))
                 {
@@ -680,9 +761,17 @@ internal sealed class NhAssistantRunConfigurations(
         foreach (var row in stored.Triggers)
         {
             var problem = validator.ValidateTrigger(row, agentRuns);
-            if (problem is null && triggers.ContainsKey(row.Id))
+            if ((problem is null or NhAssistantRunConfigurationProblems.UnknownFilter) && triggers.ContainsKey(row.Id))
             {
                 problem = NhAssistantRunConfigurationProblems.ConflictsWithCode;
+            }
+            if (problem == NhAssistantRunConfigurationProblems.UnknownFilter)
+            {
+                // A filter that is gone fails closed: the trigger stays registered, so a published
+                // event gets a receipt that says why nothing started, and ignores every event.
+                problems.Add(new NhAssistantRunConfigurationProblem(row.AgentId, NhAssistantRunConfigurationProblems.TriggerKind, row.Id, problem));
+                triggers.Add(row.Id, ToTrigger(row));
+                continue;
             }
             if (problem is not null)
             {
@@ -812,6 +901,11 @@ internal sealed class NhAssistantRunConfigurations(
         if (row.Source == NhAssistantDataTriggerSources.Event)
         {
             var source = registration.TriggerEvents[row.EventName!];
+            var names = NhAssistantDataTriggerFilters.Read(row.FiltersJson)!;
+            var filters = names
+                .Select(name => source.Filters.FirstOrDefault(filter => filter.Name == name))
+                .OfType<NhAssistantTriggerFilterDefinition>()
+                .ToArray();
             return new NhAssistantTriggerDefinition
             {
                 Id = row.Id,
@@ -830,7 +924,9 @@ internal sealed class NhAssistantRunConfigurations(
                 SkillId = row.SkillId,
                 DataVersion = row.Version,
                 BlockName = row.EventName,
-                Shadow = row.Shadow
+                Shadow = row.Shadow,
+                Filters = filters,
+                MissingFilters = names.Where(name => filters.All(filter => filter.Name != name)).ToArray()
             };
         }
 
