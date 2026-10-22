@@ -469,3 +469,16 @@ uploads and messages with files with the server's checks and codes, reports prog
 | `MessagePart` includes `FilePart` (`type: 'file'`). | Code that switches over part types handles or skips `file`. |
 | New translation keys `nh-assistant.composer.attach`, `attach-hint`, `attachments`, `remove-attachment`, `uploading`, `uploading-hint` and `attachment-errors.*`, `nh-assistant.thread.files` and `file-meta`, `nh-assistant.queue.files`, and `nh-assistant.errors.assistant-file-upload-invalid`, `assistant-file-type-not-accepted`, `assistant-file-upload-refused` and `assistant-file-upload-failed`. | Applications with their own translation files add them. |
 | `NhAssistantIconName` includes `attach` and `file`. | Hosts that map every icon in `NH_ASSISTANT_ICONS` add classes for them. |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: concurrent joins of a conversation
+
+Fix. A join of a conversation (by link, invitation or a thread's subject) checked whether the person
+already took part, counted the participants and inserted the row without serializing with other
+joins. Parallel requests of one person, such as a page that opens an agent's thread with several
+requests at once, failed the insert on the primary key, which EF Core logged as an error
+(`Microsoft.EntityFrameworkCore.Update`) before the assistant answered that the person already took
+part; parallel joins of different people could pass `NhAssistantLimits.MaxParticipantsPerConversation`.
+Joins of one conversation now take turns under the platform's transaction lock (`sp_getapplock` on
+SQL Server, `pg_try_advisory_xact_lock` on PostgreSQL) and check, count and insert in one
+transaction. A join that waits more than five seconds for the lock continues without it as before and
+logs a warning. No migration and no action required.

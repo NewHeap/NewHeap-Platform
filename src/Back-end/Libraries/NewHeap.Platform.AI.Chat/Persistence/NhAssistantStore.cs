@@ -1,10 +1,22 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
 
 namespace NewHeap.Platform.AI.Chat.Persistence;
 
-internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactory) : INhAssistantStore
+internal sealed class NhAssistantStore(
+    NhAssistantDbContextFactory contextFactory,
+    ILogger<NhAssistantStore> logger) : INhAssistantStore
 {
+    /// <summary>
+    /// How long a join waits for the other joins of its conversation: the default
+    /// <c>TransactionLockTimeoutMilliseconds</c> of the platform's background operations. A join holds
+    /// the lock for a few short statements, so only a stalled database makes another join wait this long.
+    /// </summary>
+    internal static readonly TimeSpan DefaultParticipantLockTimeout = TimeSpan.FromSeconds(5);
+
+    internal TimeSpan ParticipantLockTimeout { get; init; } = DefaultParticipantLockTimeout;
+
     public async Task AddConversationAsync(
         AssistantConversation conversation,
         CancellationToken cancellationToken)
@@ -584,13 +596,65 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Joins of one conversation take turns under the platform's transaction lock, so the check, the
+    /// count and the insert of a join see every earlier join: a second join of the same actor finds
+    /// the row instead of failing on the primary key, and joins of different actors cannot pass the
+    /// limit together. When the lock stays taken past <see cref="ParticipantLockTimeout"/>, the join
+    /// continues without it, as before the lock, with the primary key against duplicates.
+    /// </summary>
     public async Task<NhAssistantParticipantAddResult> TryAddParticipantAsync(
         AssistantConversationParticipant participant,
         int maximumParticipants,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(participant);
+
+        var locked = await TryAddParticipantUnderLockAsync(participant, maximumParticipants, cancellationToken);
+        if (locked is not null)
+        {
+            return locked.Value;
+        }
+
+        logger.LogWarning(
+            "A join of assistant conversation {ConversationId} waited {LockTimeout} for the conversation's participant lock and continues without it; the participant limit is not guaranteed for this join.",
+            participant.ConversationId,
+            ParticipantLockTimeout);
         await using var context = contextFactory.CreateDbContext();
+        return await AddParticipantAsync(context, participant, maximumParticipants, cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds the participant in a transaction that holds the conversation's participant lock;
+    /// <see langword="null"/> when the lock could not be taken in time.
+    /// </summary>
+    private async Task<NhAssistantParticipantAddResult?> TryAddParticipantUnderLockAsync(
+        AssistantConversationParticipant participant,
+        int maximumParticipants,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        if (!await contextFactory.TransactionLocks.TryAcquireAsync(
+            context,
+            ParticipantLockResource(participant.ConversationId),
+            ParticipantLockTimeout,
+            cancellationToken))
+        {
+            return null;
+        }
+
+        var result = await AddParticipantAsync(context, participant, maximumParticipants, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    }
+
+    private static async Task<NhAssistantParticipantAddResult> AddParticipantAsync(
+        NhAssistantDbContext context,
+        AssistantConversationParticipant participant,
+        int maximumParticipants,
+        CancellationToken cancellationToken)
+    {
         var conversationId = participant.ConversationId;
         var actorId = participant.ActorId;
         if (await context.Participants.AnyAsync(
@@ -599,6 +663,7 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
         {
             return NhAssistantParticipantAddResult.AlreadyParticipant;
         }
+
         var count = await context.Participants.CountAsync(
             item => item.ConversationId == conversationId,
             cancellationToken);
@@ -615,16 +680,27 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
         }
         catch (DbUpdateException)
         {
-            // A concurrent join of the same actor won the insert; any other failure is rethrown.
-            await using var verification = contextFactory.CreateDbContext();
-            if (await verification.Participants.AnyAsync(
+            // A writer without the lock, such as an instance of an earlier version during a rolling
+            // deploy or a join that gave up waiting, inserted the same actor first. EF Core rolled the
+            // failed insert back to its savepoint, so the transaction can still read; any other
+            // failure is rethrown.
+            if (await context.Participants.AnyAsync(
                 item => item.ConversationId == conversationId && item.ActorId == actorId,
                 cancellationToken))
             {
                 return NhAssistantParticipantAddResult.AlreadyParticipant;
             }
+
             throw;
         }
+    }
+
+    /// <summary>
+    /// The transaction lock that joins of one conversation take.
+    /// </summary>
+    internal static string ParticipantLockResource(Guid conversationId)
+    {
+        return $"NhAssistant:ConversationParticipants:{conversationId:N}";
     }
 
     public async Task<bool> TryRemoveParticipantAsync(

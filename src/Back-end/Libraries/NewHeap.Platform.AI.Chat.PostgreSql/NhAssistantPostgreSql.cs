@@ -65,7 +65,8 @@ internal static class NhAssistantPostgreSqlStorage
                     postgreSql.MigrationsAssembly(typeof(NhAssistantPostgreSqlStorage).Assembly.FullName);
                     postgreSql.MigrationsHistoryTable("__EFMigrationsHistory", options.Schema);
                 });
-            });
+            },
+            new NhAssistantPostgreSqlTransactionLocks());
     }
 }
 

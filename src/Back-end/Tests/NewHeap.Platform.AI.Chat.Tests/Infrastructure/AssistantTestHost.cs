@@ -390,20 +390,30 @@ public sealed class CapturedBusinessAuditSinkAdapter(CapturedBusinessAuditSink s
     }
 }
 
+/// <summary>
+/// One captured log entry with its category and level.
+/// </summary>
+public sealed record CapturedLogEntry(string Category, LogLevel Level, EventId EventId, string Message);
+
 public sealed class CapturingLoggerProvider : ILoggerProvider
 {
     public ConcurrentQueue<string> Messages { get; } = new();
 
+    /// <summary>
+    /// The same entries as <see cref="Messages"/> with the logger's category and the level.
+    /// </summary>
+    public ConcurrentQueue<CapturedLogEntry> Entries { get; } = new();
+
     public ILogger CreateLogger(string categoryName)
     {
-        return new CapturingLogger(this);
+        return new CapturingLogger(this, categoryName);
     }
 
     public void Dispose()
     {
     }
 
-    private sealed class CapturingLogger(CapturingLoggerProvider provider) : ILogger
+    private sealed class CapturingLogger(CapturingLoggerProvider provider, string category) : ILogger
     {
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull
@@ -423,7 +433,9 @@ public sealed class CapturingLoggerProvider : ILoggerProvider
             Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
-            provider.Messages.Enqueue(formatter(state, exception) + (exception is null ? string.Empty : " " + exception));
+            var message = formatter(state, exception) + (exception is null ? string.Empty : " " + exception);
+            provider.Messages.Enqueue(message);
+            provider.Entries.Enqueue(new CapturedLogEntry(category, logLevel, eventId, message));
         }
     }
 }

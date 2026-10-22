@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
@@ -7,7 +9,7 @@ using Xunit;
 namespace NewHeap.Platform.AI.Chat.Tests;
 
 /// <summary>
-/// Sharing, read state and push subscriptions on both relational providers.
+/// Sharing, concurrent joins, read state and push subscriptions on both relational providers.
 /// </summary>
 public sealed class AssistantCollaborationPersistenceTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
@@ -129,6 +131,152 @@ public sealed class AssistantCollaborationPersistenceTests(AssistantDatabaseFixt
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Concurrent_joins_of_one_person_add_one_row_without_a_failed_insert(
+        AssistantTestProvider provider)
+    {
+        var logs = new CapturingLoggerProvider();
+        await using var services = await database.CreateStorageAsync(
+            provider,
+            configure: collection => collection.AddLogging(logging => logging.AddProvider(logs)));
+        var store = services.GetRequiredService<INhAssistantStore>();
+        var conversation = await AddConversationAsync(store, "owner-1", null, DateTimeOffset.UtcNow);
+
+        // A page that opens a thread with several parallel requests joins the same person at once.
+        var results = await JoinConcurrentlyAsync(
+            16,
+            _ => store.TryAddParticipantAsync(Participant(conversation.Id, "member-1", 0), 5, CancellationToken.None));
+
+        Assert.Equal(1, results.Count(result => result == NhAssistantParticipantAddResult.Added));
+        Assert.Equal(15, results.Count(result => result == NhAssistantParticipantAddResult.AlreadyParticipant));
+        Assert.Single(await store.GetParticipantsAsync(conversation.Id, CancellationToken.None));
+        AssertNoFailedInsertAndNoLockFallback(logs);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Concurrent_joins_of_different_people_never_pass_the_participant_limit(
+        AssistantTestProvider provider)
+    {
+        const int maximum = 3;
+        const int joins = 12;
+        var logs = new CapturingLoggerProvider();
+        await using var services = await database.CreateStorageAsync(
+            provider,
+            configure: collection => collection.AddLogging(logging => logging.AddProvider(logs)));
+        var store = services.GetRequiredService<INhAssistantStore>();
+        var conversation = await AddConversationAsync(store, "owner-1", null, DateTimeOffset.UtcNow);
+
+        var results = await JoinConcurrentlyAsync(
+            joins,
+            index => store.TryAddParticipantAsync(
+                Participant(conversation.Id, $"member-{index}", 0),
+                maximum,
+                CancellationToken.None));
+
+        Assert.Equal(maximum, results.Count(result => result == NhAssistantParticipantAddResult.Added));
+        Assert.Equal(joins - maximum, results.Count(result => result == NhAssistantParticipantAddResult.LimitReached));
+        Assert.Equal(maximum, (await store.GetParticipantsAsync(conversation.Id, CancellationToken.None)).Count);
+        AssertNoFailedInsertAndNoLockFallback(logs);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_join_waits_for_the_participant_lock_and_continues_without_it_after_the_timeout(
+        AssistantTestProvider provider)
+    {
+        var logs = new CapturingLoggerProvider();
+        await using var services = await database.CreateStorageAsync(
+            provider,
+            configure: collection => collection.AddLogging(logging => logging.AddProvider(logs)));
+        var store = services.GetRequiredService<INhAssistantStore>();
+        var contexts = services.GetRequiredService<NhAssistantDbContextFactory>();
+        var conversation = await AddConversationAsync(store, "owner-1", null, DateTimeOffset.UtcNow);
+        var resource = NhAssistantStore.ParticipantLockResource(conversation.Id);
+
+        await using (var holder = contexts.CreateDbContext())
+        {
+            await using var held = await holder.Database.BeginTransactionAsync();
+            Assert.True(await contexts.TransactionLocks.TryAcquireAsync(holder, resource, TimeSpan.Zero, CancellationToken.None));
+            await using (var other = contexts.CreateDbContext())
+            {
+                await using var otherTransaction = await other.Database.BeginTransactionAsync();
+                Assert.False(await contexts.TransactionLocks.TryAcquireAsync(
+                    other,
+                    resource,
+                    TimeSpan.FromMilliseconds(100),
+                    CancellationToken.None));
+            }
+
+            var waiting = store.TryAddParticipantAsync(Participant(conversation.Id, "member-1", 0), 5, CancellationToken.None);
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            Assert.False(waiting.IsCompleted);
+
+            // Ending the transaction releases the lock, and the waiting join goes ahead.
+            await held.CommitAsync();
+            Assert.Equal(NhAssistantParticipantAddResult.Added, await waiting);
+        }
+        Assert.DoesNotContain(logs.Entries, entry => entry.Category == typeof(NhAssistantStore).FullName);
+
+        // A join that waits past the timeout continues without the lock, with the primary key against duplicates.
+        var impatient = new NhAssistantStore(contexts, services.GetRequiredService<ILogger<NhAssistantStore>>())
+        {
+            ParticipantLockTimeout = TimeSpan.FromMilliseconds(200)
+        };
+        await using (var holder = contexts.CreateDbContext())
+        {
+            await using var held = await holder.Database.BeginTransactionAsync();
+            Assert.True(await contexts.TransactionLocks.TryAcquireAsync(holder, resource, TimeSpan.Zero, CancellationToken.None));
+
+            Assert.Equal(
+                NhAssistantParticipantAddResult.Added,
+                await impatient.TryAddParticipantAsync(Participant(conversation.Id, "member-2", 0), 5, CancellationToken.None));
+            Assert.Equal(
+                NhAssistantParticipantAddResult.AlreadyParticipant,
+                await impatient.TryAddParticipantAsync(Participant(conversation.Id, "member-1", 0), 5, CancellationToken.None));
+        }
+
+        var fallbacks = logs.Entries.Where(entry => entry.Category == typeof(NhAssistantStore).FullName).ToArray();
+        Assert.Equal(2, fallbacks.Length);
+        Assert.All(fallbacks, entry => Assert.Equal(LogLevel.Warning, entry.Level));
+        Assert.Equal(2, (await store.GetParticipantsAsync(conversation.Id, CancellationToken.None)).Count);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_join_that_meets_a_writer_without_the_lock_answers_already_participant(
+        AssistantTestProvider provider)
+    {
+        await using var services = await database.CreateStorageAsync(provider);
+        var store = services.GetRequiredService<INhAssistantStore>();
+        var contexts = services.GetRequiredService<NhAssistantDbContextFactory>();
+        var conversation = await AddConversationAsync(store, "owner-1", null, DateTimeOffset.UtcNow);
+
+        // An instance of an earlier version inserts the same person without the lock and commits
+        // while the join waits for that row. On PostgreSQL the join's insert fails on the primary key
+        // and the join reads the row in its own transaction; on SQL Server without read committed
+        // snapshot the join's check waits for the row. Both answer that the person already takes part.
+        Task<NhAssistantParticipantAddResult> join;
+        await using (var writer = contexts.CreateDbContext())
+        {
+            await using var unlocked = await writer.Database.BeginTransactionAsync();
+            writer.Participants.Add(Participant(conversation.Id, "member-1", 0));
+            await writer.SaveChangesAsync();
+
+            join = store.TryAddParticipantAsync(Participant(conversation.Id, "member-1", 0), 5, CancellationToken.None);
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            await unlocked.CommitAsync();
+        }
+
+        Assert.Equal(NhAssistantParticipantAddResult.AlreadyParticipant, await join);
+        Assert.Single(await store.GetParticipantsAsync(conversation.Id, CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Push_subscriptions_follow_the_signed_in_actor_the_limit_and_the_opt_out(
         AssistantTestProvider provider)
     {
@@ -199,6 +347,37 @@ public sealed class AssistantCollaborationPersistenceTests(AssistantDatabaseFixt
                 },
                 CancellationToken.None);
         }
+    }
+
+    /// <summary>
+    /// Starts every join on its own thread at the same moment.
+    /// </summary>
+    private static async Task<NhAssistantParticipantAddResult[]> JoinConcurrentlyAsync(
+        int count,
+        Func<int, Task<NhAssistantParticipantAddResult>> join)
+    {
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var joins = Enumerable.Range(0, count)
+            .Select(index => Task.Run(async () =>
+            {
+                await start.Task;
+                return await join(index);
+            }))
+            .ToArray();
+        start.SetResult();
+        return await Task.WhenAll(joins);
+    }
+
+    private static void AssertNoFailedInsertAndNoLockFallback(CapturingLoggerProvider logs)
+    {
+        // EF Core logs a failed SaveChanges as an error under Update before the store can handle it.
+        Assert.DoesNotContain(
+            logs.Entries,
+            entry => entry.Category == DbLoggerCategory.Update.Name && entry.Level >= LogLevel.Error);
+        Assert.DoesNotContain(
+            logs.Entries,
+            entry => entry.Category.StartsWith(DbLoggerCategory.Name, StringComparison.Ordinal) && entry.Level >= LogLevel.Error);
+        Assert.DoesNotContain(logs.Entries, entry => entry.Category == typeof(NhAssistantStore).FullName);
     }
 
     private static AssistantConversationParticipant Participant(Guid conversationId, string actorId, int lastRead)
