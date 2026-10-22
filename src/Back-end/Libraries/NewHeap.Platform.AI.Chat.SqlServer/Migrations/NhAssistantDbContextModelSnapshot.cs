@@ -352,6 +352,18 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<int>("MaxConcurrentRuns")
                         .HasColumnType("int");
 
+                    b.Property<int?>("MaxFileBytes")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxFilePages")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxFileTokensPerTurn")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxFilesPerTurn")
+                        .HasColumnType("int");
+
                     b.Property<int>("MaxRunsPerSubjectPerDay")
                         .HasColumnType("int");
 
@@ -441,6 +453,18 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<string>("InstructionsHash")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("MaxFileBytes")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxFilePages")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxFileTokensPerTurn")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxFilesPerTurn")
+                        .HasColumnType("int");
 
                     b.Property<long?>("MaxTokensPerRun")
                         .HasColumnType("bigint");
@@ -1153,6 +1177,44 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.HasIndex("ActorId");
 
                     b.ToTable("AssistantConversationParticipant", "nhai");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantFileReaderText", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("FileHash")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("ProtectedText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReaderId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("ConversationId", "FileHash", "ReaderId")
+                        .IsUnique();
+
+                    b.ToTable("AssistantFileReaderText", "nhai");
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantHandOff", b =>
@@ -2067,6 +2129,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("FilesJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("InitiatorActorId")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -2631,6 +2696,15 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                 {
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantConversation", null)
                         .WithMany("Participants")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantFileReaderText", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantConversation", null)
+                        .WithMany()
                         .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
