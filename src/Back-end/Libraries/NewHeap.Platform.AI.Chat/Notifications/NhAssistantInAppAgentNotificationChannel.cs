@@ -67,14 +67,15 @@ internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAge
                 context.SubjectDisplayName,
                 context.ProposalCount,
                 context.McpServerDisplayName,
-                context.FailureCode);
+                context.FailureCode,
+                context.ProposalStatus);
             try
             {
                 var result = await sink.SendAsync(
                     new NhUserNotificationRequest(userId, title, body)
                     {
                         Category = Category,
-                        Level = LevelFor(context.Kind),
+                        Level = LevelFor(context),
                         // One thread per agent thread, so repeated events of a subject stay together.
                         GroupKey = $"{Category}:{context.ConversationId:N}"
                     },
@@ -112,15 +113,18 @@ internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAge
         return known.ToDictionary(pair => pair.Key, pair => pair.Value.Culture);
     }
 
-    private static NhUserNotificationLevel LevelFor(NhAssistantAgentNotificationKind kind)
+    private static NhUserNotificationLevel LevelFor(NhAssistantAgentNotificationContext context)
     {
-        return kind switch
+        return context.Kind switch
         {
             NhAssistantAgentNotificationKind.RunFailed => NhUserNotificationLevel.Error,
             NhAssistantAgentNotificationKind.ExecutionUnknown => NhUserNotificationLevel.Warning,
             NhAssistantAgentNotificationKind.ProposalEscalated => NhUserNotificationLevel.Warning,
             NhAssistantAgentNotificationKind.McpConnectionMissing => NhUserNotificationLevel.Warning,
             NhAssistantAgentNotificationKind.RequestAnswered => NhUserNotificationLevel.Success,
+            NhAssistantAgentNotificationKind.ConsultationProposalDecided => context.ProposalStatus == NhAssistantApprovalStatuses.Executed
+                ? NhUserNotificationLevel.Success
+                : NhUserNotificationLevel.Information,
             _ => NhUserNotificationLevel.Information
         };
     }

@@ -350,7 +350,8 @@ internal sealed class NhAssistantToolCallInterceptor(
     NhAssistantProposalPlacement? placements = null,
     Live.NhAssistantAgentWorkUpdates? workUpdates = null,
     TimeProvider? applicationClock = null,
-    NhAssistantTurnFiles? turnFiles = null)
+    NhAssistantTurnFiles? turnFiles = null,
+    NhAssistantConsultationProposals? consultationProposals = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
     public const string ProposalRecordedCode = "assistant-proposal-recorded";
@@ -513,6 +514,11 @@ internal sealed class NhAssistantToolCallInterceptor(
                 return await NotPlacedAsync(descriptor, row, notPlaced, placed.Subject.Subject, cancellationToken);
             }
             _lastProposal = requested;
+            if (requested is { ConsultationRefusal: { } refusal })
+            {
+                // No route of the consultation applies; the consulted model describes the change.
+                return NhAssistantConsultationProposals.RefusalResult(refusal);
+            }
             if (requested is { Outcome: NhAssistantProposeOutcome.NotNeeded } notNeeded)
             {
                 // A guard found the work done or no longer applicable; nothing waits for people.
@@ -528,6 +534,11 @@ internal sealed class NhAssistantToolCallInterceptor(
                 // The proposal waits at the object for its approvers while the run continues.
                 return ProposalPlaced(placedProposal.ProposalId, placedSubject);
             }
+            if (requested is { ConsultationRoute: { } route } consulted)
+            {
+                // The consulted model goes on and tells the asker who decides.
+                return ConsultationProposalRecorded(consulted.ProposalId, route);
+            }
             if (requested is { Mode: NhAiApprovalMode.Inline } inline && !inline.Shadow)
             {
                 context.Terminate = true;
@@ -539,6 +550,15 @@ internal sealed class NhAssistantToolCallInterceptor(
                 // A deferred or shadow proposal waits for people while the model continues.
                 return ProposalRecorded(recorded.ProposalId);
             }
+        }
+
+        if (execution.Outcome.Kind == NhAssistantToolOutcomeKind.Succeeded
+            && execution.Call.AskerDecision is { } askerDecision
+            && state.Scope.Consultation is null)
+        {
+            // A consultation left a proposal this turn's person decides now: the turn waits for it.
+            context.Terminate = true;
+            return await AwaitAskerDecisionAsync(row, execution, askerDecision, cancellationToken);
         }
 
         var withFiles = await WithFilesAsync(descriptor, row, execution, cancellationToken);
@@ -1003,7 +1023,21 @@ internal sealed class NhAssistantToolCallInterceptor(
 
         var agentTurn = state.AgentTurn;
         var consultation = state.Scope.Consultation;
-        var policy = agentTurn is not null && approvalPolicies is not null
+        NhAssistantConsultationRoute? route = null;
+        if (consultation is not null && agentTurn is not null && consultationProposals is not null)
+        {
+            // A consultation's proposal takes the first route that applies (CP3): the asker decides
+            // it now, it waits at the subject, or it is refused and the model describes the change.
+            route = await consultationProposals.DecideAsync(consultation, agentTurn, state.EffectiveAgent, descriptor, cancellationToken);
+            if (route.Refused)
+            {
+                return await RefuseConsultationProposalAsync(descriptor, row, route.RefusalReason!, cancellationToken);
+            }
+        }
+
+        var policy = route is not null
+            ? route.Policy
+            : agentTurn is not null && approvalPolicies is not null
             ? consultation is null
                 ? approvalPolicies.Resolve(agentTurn.Thread.AgentId, descriptor.Id, agentTurn.TriggerId, agentTurn.RunId is not null, state.Skill?.Id)
                 // A consultation answers now and cannot wait: its proposals always wait for the
@@ -1048,7 +1082,8 @@ internal sealed class NhAssistantToolCallInterceptor(
             context.RunId,
             context.ActorKind,
             context.ActorId,
-            context.AccountableOwnerId,
+            // A proposal that executes with the agent's own rights answers to whom the agent answers.
+            route?.AccountableOwnerId ?? context.AccountableOwnerId,
             descriptor,
             call.CapturedArguments,
             targets,
@@ -1075,6 +1110,10 @@ internal sealed class NhAssistantToolCallInterceptor(
         // from being proposed at all.
         if (await CheckAtProposalAsync(home, descriptor.Id, proposal, now, cancellationToken) is { } stale)
         {
+            if (route?.Route == NhAssistantConsultationRoutes.AskerDecides)
+            {
+                NhAssistantConsultationProposals.ReleaseAskerDecision(consultation!);
+            }
             return await SkipNotNeededAsync(row, proposal.ProposalId, stale, mode, cancellationToken);
         }
 
@@ -1159,7 +1198,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             ParentDisplayName = parent?.DisplayName is { } parentName
                 ? NhAssistantContent.Bound(parentName, NhAiSubjectParent.MaxDisplayNameLength)
                 : null,
-            GrantSource = context.GrantSource,
+            GrantSource = route?.GrantSource ?? context.GrantSource,
             ConsultationId = consultation?.ConsultationId,
             NextReminderAt = policy is not null && mode == NhAiApprovalMode.Deferred && !shadow
                 ? NhAssistantApprovalReminders.Next(policy, proposedAt, 0, expiresAt)
@@ -1174,7 +1213,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             waitingCall.Status = NhAssistantToolCallStatuses.AwaitingApproval;
             waitingCall.ProposalId = proposal.ProposalId;
             waitingCall.ApprovalId = approval.Id;
-            waitingCall.GrantSource = context.GrantSource;
+            waitingCall.GrantSource = approval.GrantSource;
             await store.AddToolInvocationAsync(waitingCall, cancellationToken);
         }
 
@@ -1201,6 +1240,10 @@ internal sealed class NhAssistantToolCallInterceptor(
         }
 
         state.ProposalCount++;
+        if (route is not null)
+        {
+            consultation!.Outcome.Record(approval.Id, route.Route!);
+        }
         if (placed is not null)
         {
             return await CompletePlacedAsync(descriptor, row, approval, placed, superseded, mode, shadow, cancellationToken);
@@ -1209,7 +1252,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         row.Status = NhAssistantToolCallStatuses.AwaitingApproval;
         row.ProposalId = proposal.ProposalId;
         row.ApprovalId = approval.Id;
-        row.GrantSource = context.GrantSource;
+        row.GrantSource = approval.GrantSource;
         await store.UpdateToolInvocationAsync(row, cancellationToken);
 
         var view = new NhAssistantApprovalView(
@@ -1223,15 +1266,20 @@ internal sealed class NhAssistantToolCallInterceptor(
             targetLabels,
             approval.ExpiresAt,
             approval.Status);
-        if (mode == NhAiApprovalMode.Inline && !shadow)
+        if (consultation is null)
         {
-            state.PendingApproval = view;
-        }
-        state.AddPart(new NhAssistantStoredPart(NhAssistantStoredPart.ApprovalType, ApprovalId: approval.Id));
-        await FlushAsync(cancellationToken);
-        if (!shadow)
-        {
-            await state.EmitAsync(new NhAssistantApprovalRequiredEvent(view));
+            // A consult turn neither waits nor shows a card: the asking turn does, when the asker
+            // decides.
+            if (mode == NhAiApprovalMode.Inline && !shadow)
+            {
+                state.PendingApproval = view;
+            }
+            state.AddPart(new NhAssistantStoredPart(NhAssistantStoredPart.ApprovalType, ApprovalId: approval.Id));
+            await FlushAsync(cancellationToken);
+            if (!shadow)
+            {
+                await state.EmitAsync(new NhAssistantApprovalRequiredEvent(view));
+            }
         }
         await RecordBusinessEventAsync(
             new NhAssistantAuditEvent(
@@ -1249,12 +1297,16 @@ internal sealed class NhAssistantToolCallInterceptor(
                 ResultCode = NhAiToolFailureCodes.ApprovalRequired,
                 ApprovalId = approval.Id,
                 ProposalId = proposal.ProposalId,
-                StartedAt = row.StartedAt
+                StartedAt = row.StartedAt,
+                GrantSource = route is null ? NhAiGrantSource.None : approval.GrantSource,
+                ApprovalPolicyId = route is null ? null : approval.PolicyId,
+                ConsultationRoute = route?.Route
             },
             cancellationToken);
         return new NhAssistantRecordedProposal(approval.Id, proposal.ProposalId, mode, shadow)
         {
-            Superseded = superseded
+            Superseded = superseded,
+            ConsultationRoute = route?.Route
         };
     }
 
@@ -1578,6 +1630,115 @@ internal sealed class NhAssistantToolCallInterceptor(
     }
 
     /// <summary>
+    /// The result the consulted model receives for a proposal it recorded, which names who decides it.
+    /// </summary>
+    private static JsonElement ConsultationProposalRecorded(Guid proposalId, string route)
+    {
+        return JsonSerializer.SerializeToElement(
+            new Dictionary<string, object?>
+            {
+                ["success"] = false,
+                ["code"] = ProposalRecordedCode,
+                ["proposalId"] = proposalId,
+                ["route"] = route,
+                ["message"] = route switch
+                {
+                    NhAssistantConsultationRoutes.AskerDecides =>
+                        "The proposal was recorded and the person who asked decides it right away in their own conversation. The action has not happened. Do not retry it; finish your answer and say what you proposed.",
+                    NhAssistantConsultationRoutes.SubjectAgentRights =>
+                        "The proposal was recorded and waits for the subject's approvers other than the person who asked; after their approval it executes with your own rights. The action has not happened. Do not retry it; finish your answer and say who decides it.",
+                    _ =>
+                        "The proposal was recorded and waits for the subject's approvers. The action has not happened. Do not retry it; finish your answer and say who decides it."
+                }
+            },
+            NhAssistantContent.JsonOptions);
+    }
+
+    /// <summary>
+    /// Ends the consulted agent's call when no route of the consultation applies: nothing is recorded,
+    /// the audit names the reason, and the model describes the change instead.
+    /// </summary>
+    private async Task<NhAssistantRecordedProposal> RefuseConsultationProposalAsync(
+        NhAiToolDescriptor descriptor,
+        AssistantToolInvocation row,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        row.Status = NhAssistantToolCallStatuses.NotExecuted;
+        row.ResultCode = NhAssistantErrorCodes.ConsultProposalRefused;
+        row.CompletedAt = DateTimeOffset.UtcNow;
+        await RecordBusinessEventAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.ToolInvoked,
+                state.Conversation.Id,
+                state.Scope.TurnId,
+                state.Scope.OwnerActorId,
+                state.Scope.Agent.Id,
+                state.Scope.Agent.Version,
+                DateTimeOffset.UtcNow)
+            {
+                ToolId = descriptor.Id,
+                ToolVersion = descriptor.Version,
+                InvocationId = row.Id,
+                ResultCode = NhAssistantErrorCodes.ConsultProposalRefused,
+                ConsultationRefusalReason = reason,
+                StartedAt = row.StartedAt,
+                CompletedAt = row.CompletedAt
+            },
+            cancellationToken);
+        return new NhAssistantRecordedProposal(Guid.Empty, Guid.Empty, NhAiApprovalMode.Deferred, false)
+        {
+            Outcome = NhAssistantProposeOutcome.Refused,
+            ConsultationRefusal = reason
+        };
+    }
+
+    /// <summary>
+    /// Lets the turn wait for its person's decision of the proposal a consultation left (option A): the
+    /// consult call waits with the consultation's answer as its result, the message keeps an approval
+    /// part that names the consultation, and the stream asks for the decision as for the turn's own
+    /// inline proposal.
+    /// </summary>
+    private async Task<object?> AwaitAskerDecisionAsync(
+        AssistantToolInvocation row,
+        NhAssistantToolExecution execution,
+        NhAssistantAskerDecision decision,
+        CancellationToken cancellationToken)
+    {
+        var approval = await store.FindApprovalAsync(decision.ApprovalId, cancellationToken)
+            ?? throw new InvalidOperationException("The proposal a consultation left for its asker is missing.");
+        row.Status = NhAssistantToolCallStatuses.AwaitingApproval;
+        row.ResultCode = null;
+        row.ResultJson = NhAssistantContent.SerializeResult(execution.Result);
+        row.ProposalId = approval.ProposalId;
+        row.ApprovalId = approval.Id;
+        if (execution.Call.AuditRecords.Count > 0 && execution.Call.AuditRecords[^1].GrantSource != NhAiGrantSource.None)
+        {
+            row.GrantSource = execution.Call.AuditRecords[^1].GrantSource;
+        }
+        await store.UpdateToolInvocationAsync(row, cancellationToken);
+
+        var view = NhAssistantConversationReader.ToView(approval, _applicationClock.GetUtcNow()) with
+        {
+            Consultation = new NhAssistantApprovalConsultationView(
+                decision.ConsultationId,
+                decision.AgentId,
+                decision.Subject.Type,
+                decision.Subject.Id,
+                decision.SubjectDisplayName,
+                decision.LeaveRoute)
+            {
+                Answer = NhAssistantConversationReader.ConsultationAnswerOf(row)
+            }
+        };
+        state.PendingApproval = view;
+        state.AddPart(new NhAssistantStoredPart(NhAssistantStoredPart.ApprovalType, ApprovalId: approval.Id));
+        await FlushAsync(cancellationToken);
+        await state.EmitAsync(new NhAssistantApprovalRequiredEvent(view));
+        return execution.Result;
+    }
+
+    /// <summary>
     /// The result the model receives for a proposal placed at another object: it waits there for that
     /// object's approvers, the action has not happened, and the run continues.
     /// </summary>
@@ -1711,6 +1872,16 @@ internal sealed record NhAssistantRecordedProposal(
     /// The open or rejected proposal that made a new one unnecessary.
     /// </summary>
     public AssistantApproval? Existing { get; init; }
+
+    /// <summary>
+    /// The route of a proposal a consultation recorded, one of <see cref="NhAssistantConsultationRoutes"/>.
+    /// </summary>
+    public string? ConsultationRoute { get; init; }
+
+    /// <summary>
+    /// Why a consultation recorded nothing: one of <see cref="NhAssistantConsultationRefusalReasons"/>.
+    /// </summary>
+    public string? ConsultationRefusal { get; init; }
 
     /// <summary>
     /// The pending proposals a newly recorded one replaced.

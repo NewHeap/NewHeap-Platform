@@ -195,6 +195,16 @@ internal interface INhAssistantStore
         Guid conversationId,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Moves a conversation that waits for approval in <paramref name="turnId"/> back to idle, such as
+    /// when the asker's decision of a consultation proposal expired. Returns false when it does not
+    /// wait in that turn.
+    /// </summary>
+    Task<bool> TryReleaseWaitingTurnAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken);
+
     Task<int> GetToolCallsAsync(
         string actorId,
         DateOnly day,

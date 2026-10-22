@@ -343,6 +343,34 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
     }
 
     /// <summary>
+    /// Sets the routes an administrator switched for the agent's consultations without changing its
+    /// definition or version; a <see langword="null"/> route follows the code again. Returns
+    /// <see langword="false"/> when the agent does not exist.
+    /// </summary>
+    public async Task<bool> SetAgentConsultationRoutesAsync(
+        string id,
+        NhAssistantConsultationRouteOverrides routes,
+        string actorId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(routes);
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        return await context.Agents
+            .Where(agent => agent.Id == id)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(agent => agent.ConsultAskerDecides, routes.AskerDecides)
+                    .SetProperty(agent => agent.ConsultSubjectAgentRights, routes.SubjectAgentRights)
+                    .SetProperty(agent => agent.ConsultSubjectAskerRights, routes.SubjectAskerRights)
+                    .SetProperty(agent => agent.ConsultRoutesChangedAt, now)
+                    .SetProperty(agent => agent.ConsultRoutesChangedBy, actorId)
+                    .SetProperty(agent => agent.ConsultRoutesReason, reason),
+                cancellationToken) > 0;
+    }
+
+    /// <summary>
     /// Marks the threads of agents that work in shadow by their code as shadow threads: every thread
     /// of a shadow variant, and those of an agent with <c>Shadow()</c> in code whose shadow mode no
     /// administrator ever changed. Threads from before shadow threads existed then stay with

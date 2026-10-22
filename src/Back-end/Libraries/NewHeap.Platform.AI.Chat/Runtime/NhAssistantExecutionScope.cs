@@ -10,6 +10,7 @@ internal sealed class NhAssistantTurnScope
 {
     private int _toolCalls;
     private int _modelCalls;
+    private int _askerDecisionReserved;
 
     public required Guid ConversationId { get; init; }
 
@@ -131,6 +132,24 @@ internal sealed class NhAssistantTurnScope
     {
         return Interlocked.Increment(ref _toolCalls);
     }
+
+    /// <summary>
+    /// Reserves the one decision of the turn's person that a consultation of this turn may leave for
+    /// them (CP7): the first consultation proposal the person decides in their own conversation.
+    /// Returns <see langword="false"/> when one is reserved already.
+    /// </summary>
+    public bool TryReserveAskerDecision()
+    {
+        return Interlocked.Exchange(ref _askerDecisionReserved, 1) == 0;
+    }
+
+    /// <summary>
+    /// Releases a reservation that did not lead to a proposal.
+    /// </summary>
+    public void ReleaseAskerDecision()
+    {
+        Volatile.Write(ref _askerDecisionReserved, 0);
+    }
 }
 
 /// <summary>
@@ -160,6 +179,12 @@ internal sealed class NhAssistantToolCallScope
     /// The invocation context the invoker evaluated when it asked for approval evidence.
     /// </summary>
     public NhAiInvocationContext? CapturedContext { get; private set; }
+
+    /// <summary>
+    /// Set by a consultation this call ran when the consulted agent left a proposal that the turn's
+    /// person decides in their own conversation: the turn then waits for that decision.
+    /// </summary>
+    public Runs.NhAssistantAskerDecision? AskerDecision { get; set; }
 
     public IReadOnlyList<NhAiAuditRecord> AuditRecords
     {

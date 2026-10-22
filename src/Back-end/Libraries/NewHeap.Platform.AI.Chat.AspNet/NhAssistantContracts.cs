@@ -423,6 +423,11 @@ public sealed record NhAssistantClientEntityDto(
     string Id,
     string? Label);
 
+/// <param name="Decision">
+/// <c>approve</c> or <c>reject</c>; for a proposal of a consultation that the person who asked decides
+/// here also <c>leave</c>, which leaves it for the subject's approvers when a route at the subject
+/// applies (<c>consultation.leaveRoute</c> on the approval).
+/// </param>
 public sealed record NhAssistantDecideApprovalRequest(
     string? Decision,
     string? ExpectedProposalHash,

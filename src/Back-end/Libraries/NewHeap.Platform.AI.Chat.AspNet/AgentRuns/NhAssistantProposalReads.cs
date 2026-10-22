@@ -125,8 +125,11 @@ internal sealed class NhAssistantProposalReads(
         }
         if (approval.Mode == NhAssistantApprovalModes.Inline && approval.RunId is null)
         {
-            // A person's own turn in the thread decides its proposal in the conversation.
-            return (false, NhAssistantErrorCodes.ApprovalDecisionInvalid);
+            // A person's own turn in the thread decides its proposal in the conversation; a
+            // consultation's, the person who asked in their own conversation.
+            return (false, approval.ConsultationId is null
+                ? NhAssistantErrorCodes.ApprovalDecisionInvalid
+                : NhAssistantErrorCodes.ConsultAskerDecides);
         }
 
         if (!described.TryGetValue(access.Subject, out var resolved))

@@ -79,7 +79,10 @@ internal sealed class NhAssistantProposalFeedbackStore(NhAssistantDbContextFacto
             .Where(approval => approval.ConversationId == conversationId
                 && approval.Status == NhAssistantApprovalStatuses.Rejected
                 && approval.DecidedAt != null
-                && approval.DecidedAt >= since)
+                && approval.DecidedAt >= since
+                // A proposal the asker declined in their own conversation is no rejection of the
+                // agent's work by the subject's approvers.
+                && !(approval.ConsultationId != null && approval.Mode == NhAssistantApprovalModes.Inline))
             .OrderByDescending(approval => approval.DecidedAt)
             .ThenBy(approval => approval.Id)
             .Take(maximum)

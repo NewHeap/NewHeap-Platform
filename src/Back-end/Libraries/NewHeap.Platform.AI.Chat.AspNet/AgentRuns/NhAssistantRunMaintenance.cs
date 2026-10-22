@@ -147,7 +147,7 @@ internal sealed class NhAssistantRunMaintenance(
         // A proposal's expiry, reminders and decisions follow the application's clock; the board
         // visits below keep the system clock.
         var proposalTime = _applicationClock.GetUtcNow();
-        await ExpireAsync(runs, policies, notifier, workUpdates, proposalTime, cancellationToken);
+        await ExpireAsync(runs, policies, notifier, workUpdates, proposalTime, cancellationToken, services);
         if (services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<NhAssistantOptions>>().CurrentValue.Enabled)
         {
             // With the assistant disabled nobody is reminded and nothing is queued for execution.
@@ -205,7 +205,8 @@ internal sealed class NhAssistantRunMaintenance(
         NhAssistantAgentNotifier notifier,
         NhAssistantAgentWorkUpdates workUpdates,
         DateTimeOffset now,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IServiceProvider services)
     {
         foreach (var approval in await runs.GetPendingThreadApprovalsAsync(now, BatchSize, cancellationToken))
         {
@@ -265,6 +266,10 @@ internal sealed class NhAssistantRunMaintenance(
                     approval.Id,
                     approval.RunId,
                     cancellationToken);
+                if (approval.ConsultationId is not null)
+                {
+                    await ConsultationProposalExpiredAsync(runs, notifier, services, approval, cancellationToken);
+                }
             }
             // A run that waits inline for the proposal ends through its own operation, whose wait
             // expires at the same time on the same clock: it applies the policy's OnExpiry there,
@@ -283,6 +288,51 @@ internal sealed class NhAssistantRunMaintenance(
                     NhAssistantRunFailureClasses.Policy,
                     NhAssistantErrorCodes.ApprovalExpired);
             }
+        }
+    }
+
+    /// <summary>
+    /// Ends what waited for an expired consultation proposal (CP24): the audit records the expiry with
+    /// its route, a proposal the asker would have decided frees the asking conversation and ends its
+    /// consult call, and the asker of a proposal that executes with the agent's rights is told.
+    /// </summary>
+    private static async Task ConsultationProposalExpiredAsync(
+        NhAssistantRunStore runs,
+        NhAssistantAgentNotifier notifier,
+        IServiceProvider services,
+        AssistantApproval approval,
+        CancellationToken cancellationToken)
+    {
+        var thread = await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
+        var expired = await services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approval.Id, cancellationToken) ?? approval;
+        if (thread is not null)
+        {
+            await services.GetRequiredService<NhAssistantAgentEvents>().ProposalAsync(
+                NhAssistantAuditEventKind.ApprovalExpired,
+                thread,
+                expired,
+                NhAssistantAgentEvents.AgentActorPrefix + thread.AgentId,
+                NhAssistantErrorCodes.ApprovalExpired,
+                cancellationToken);
+            await notifier.ConsultationProposalEndedAsync(thread, expired, cancellationToken);
+        }
+
+        if (approval.Mode != NhAssistantApprovalModes.Inline
+            || await runs.FindConsultationAsync(approval.ConsultationId!.Value, cancellationToken) is not { AskingConversationId: { } askingConversationId } consultation)
+        {
+            return;
+        }
+
+        await runs.EndAskingCallAsync(
+            askingConversationId,
+            approval.Id,
+            NhAssistantToolCallStatuses.Failed,
+            NhAssistantErrorCodes.ApprovalExpired,
+            cancellationToken);
+        if (consultation.AskingTurnId is { } askingTurnId
+            && await services.GetRequiredService<INhAssistantStore>().TryReleaseWaitingTurnAsync(askingConversationId, askingTurnId, cancellationToken))
+        {
+            await services.GetRequiredService<NhAssistantLivePublisher>().PublishChangedAsync(askingConversationId, CancellationToken.None);
         }
     }
 

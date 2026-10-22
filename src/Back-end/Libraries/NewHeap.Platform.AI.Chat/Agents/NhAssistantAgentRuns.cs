@@ -357,18 +357,26 @@ public sealed class NhAssistantAgentRunOptions
     /// </summary>
     internal string? FindApprovalPolicy(string toolId)
     {
+        return FindToolApprovalPolicy(toolId) ?? ApprovalPolicyId;
+    }
+
+    /// <summary>
+    /// The policy of the tool itself, by its exact id or the longest prefix selector, without the
+    /// agent's own policy.
+    /// </summary>
+    internal string? FindToolApprovalPolicy(string toolId)
+    {
         if (_toolApprovalPolicies.TryGetValue(toolId, out var exact))
         {
             return exact;
         }
 
-        var prefix = _toolApprovalPolicies
+        return _toolApprovalPolicies
             .Where(item => item.Key.EndsWith(".*", StringComparison.Ordinal)
                            && toolId.StartsWith(item.Key[..^1], StringComparison.Ordinal))
             .OrderByDescending(item => item.Key.Length)
             .Select(item => item.Value)
             .FirstOrDefault();
-        return prefix ?? ApprovalPolicyId;
     }
 }
 

@@ -152,6 +152,94 @@ public static class NhAssistantConsultationStatuses
     public const string Failed = "failed";
 }
 
+/// <summary>
+/// How a proposal of a consultation is decided and whose rights execute it. The route is derived
+/// from the stored proposal: its consultation, its mode and its grant source.
+/// </summary>
+public static class NhAssistantConsultationRoutes
+{
+    /// <summary>
+    /// The person who asked decides it in their own conversation, and it executes in their own
+    /// request with their own rights (<c>AskerDecides()</c>).
+    /// </summary>
+    public const string AskerDecides = "asker-decides";
+
+    /// <summary>
+    /// The subject's approvers decide it, and it executes later with the asker's rights
+    /// (<c>AtSubject(NhAssistantConsultationRights.Asker)</c>, the route of <c>Proposals(true)</c>).
+    /// </summary>
+    public const string SubjectAskerRights = "subject-asker-rights";
+
+    /// <summary>
+    /// The subject's approvers other than the asker decide it, and it executes with the consulted
+    /// agent's own rights (<c>AtSubject(NhAssistantConsultationRights.Agent)</c>).
+    /// </summary>
+    public const string SubjectAgentRights = "subject-agent-rights";
+
+    /// <summary>
+    /// The route of a stored proposal, or <see langword="null"/> for a proposal that no consultation
+    /// left.
+    /// </summary>
+    public static string? Of(Guid? consultationId, string mode, NhAiGrantSource grantSource)
+    {
+        if (consultationId is null)
+        {
+            return null;
+        }
+        if (string.Equals(mode, NhAssistantApprovalModes.Inline, StringComparison.Ordinal))
+        {
+            return AskerDecides;
+        }
+
+        return grantSource is NhAiGrantSource.Agent or NhAiGrantSource.Accountable
+            ? SubjectAgentRights
+            : SubjectAskerRights;
+    }
+}
+
+/// <summary>
+/// Why a call of a consulted agent that changes something was not proposed, as the consulted model
+/// and the audit read it next to <see cref="NhAssistantErrorCodes.ConsultProposalRefused"/>.
+/// </summary>
+public static class NhAssistantConsultationRefusalReasons
+{
+    /// <summary>The consultation has no route that is configured and switched on.</summary>
+    public const string NoRoute = "no-route";
+
+    /// <summary>The approval policy keeps the person who caused it out (four-eyes).</summary>
+    public const string FourEyes = "four-eyes";
+
+    /// <summary>The asking person is no approver of the call under its approval policy.</summary>
+    public const string AskerNotApprover = "asker-not-approver";
+
+    /// <summary>
+    /// Nobody waits for a decision: the asking turn is no person's turn in their own request, such as
+    /// an MCP call, a headless agent run or a nested consultation.
+    /// </summary>
+    public const string AskerNotWaiting = "asker-not-waiting";
+
+    /// <summary>A decision of the asking person already waits in the asking turn or consultation.</summary>
+    public const string DecisionWaiting = "decision-waiting";
+
+    /// <summary>The consulted agent answers to the subject's responsible person.</summary>
+    public const string AgentAnswersToPerson = "agent-answers-to-person";
+
+    /// <summary>The subject is the whole application.</summary>
+    public const string WholeApplication = "whole-application";
+
+    /// <summary>The approval policy names no approver other than the person who caused it.</summary>
+    public const string NoApprover = "no-approver";
+
+    /// <summary>The consulted agent's own rights do not allow the call.</summary>
+    public const string AgentNotGranted = "agent-not-granted";
+
+    /// <summary>
+    /// The asking person already has <see cref="NhAssistantLimits.MaxOpenConsultationProposalsPerAsker"/>
+    /// open proposals at the subject that execute with the agent's rights.
+    /// </summary>
+    public const string OpenLimit = "open-limit";
+}
+
 public static class NhAssistantQueuedInputKinds
 {
     public const string Message = "message";
@@ -939,6 +1027,26 @@ public static class NhAssistantErrorCodes
     /// The consulted agent tried a tool that changes something while it may only read.
     /// </summary>
     public const string ConsultReadOnly = "assistant-consult-read-only";
+
+    /// <summary>
+    /// No route of the consultation applies to a call of the consulted agent that changes something,
+    /// so nothing was proposed; the result's <c>reason</c> is one of
+    /// <see cref="NhAssistantConsultationRefusalReasons"/>. A request to leave a proposal for the
+    /// subject's approvers fails with it when no route at the subject applies.
+    /// </summary>
+    public const string ConsultProposalRefused = "assistant-consult-proposal-refused";
+
+    /// <summary>
+    /// The person who asked decides this consultation proposal in their own conversation; nobody
+    /// else decides it, and it is not decided through <c>approvals/{id}/decisions</c>.
+    /// </summary>
+    public const string ConsultAskerDecides = "assistant-consult-asker-decides";
+
+    /// <summary>
+    /// The outcome of a proposal the person who asked left for the subject's approvers: it closed
+    /// and a new proposal at the subject replaced it.
+    /// </summary>
+    public const string ConsultProposalMoved = "assistant-consult-proposal-moved";
 
     /// <summary>
     /// A replay targets an agent that is not in shadow mode, or replays an agent into itself.

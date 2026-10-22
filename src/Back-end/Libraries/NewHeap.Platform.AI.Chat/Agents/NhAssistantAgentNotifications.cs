@@ -40,7 +40,15 @@ public enum NhAssistantAgentNotificationKind
     /// or connection is missing; the person can allow or connect it in the assistant's preferences.
     /// Sent at most once per person and server a day.
     /// </summary>
-    McpConnectionMissing = 6
+    McpConnectionMissing = 6,
+
+    /// <summary>
+    /// A proposal of a consultation that waited at the subject and executes with the consulted
+    /// agent's own rights ended: it was rejected, expired, closed or its execution ended. Only the
+    /// person who asked is told; <see cref="NhAssistantAgentNotificationContext.ProposalStatus"/> says
+    /// how it ended.
+    /// </summary>
+    ConsultationProposalDecided = 7
 }
 
 /// <summary>
@@ -85,6 +93,12 @@ public sealed record NhAssistantAgentNotificationContext(
     /// <see cref="NhAssistantAgentNotificationKind.McpConnectionMissing"/>.
     /// </summary>
     public string? McpConnectionPersonId { get; init; }
+
+    /// <summary>
+    /// How the proposal ended, one of <see cref="NhAssistantApprovalStatuses"/>, for
+    /// <see cref="NhAssistantAgentNotificationKind.ConsultationProposalDecided"/>.
+    /// </summary>
+    public string? ProposalStatus { get; init; }
 }
 
 /// <summary>
@@ -115,7 +129,8 @@ public interface INhAssistantAgentNotificationChannel
 
 /// <summary>
 /// The default recipients: the subject's approvers for proposals and uncertain executions, the
-/// approvers plus the initiator for a failed run, only the initiator for an answered request, and only
+/// approvers plus the initiator for a failed run, only the initiator for an answered request and for
+/// the end of a consultation proposal that executes with the agent's rights, and only
 /// the person whose consent or connection is missing for a left-out MCP server. Shadow runs never
 /// notify anyone.
 /// </summary>
@@ -134,7 +149,7 @@ public sealed class NhAssistantDefaultAgentNotificationPolicy : INhAssistantAgen
                 string.IsNullOrWhiteSpace(context.McpConnectionPersonId) ? [] : [context.McpConnectionPersonId]);
         }
 
-        if (context.Kind == NhAssistantAgentNotificationKind.RequestAnswered)
+        if (context.Kind is NhAssistantAgentNotificationKind.RequestAnswered or NhAssistantAgentNotificationKind.ConsultationProposalDecided)
         {
             return ValueTask.FromResult<IReadOnlyList<string>>(
                 string.IsNullOrWhiteSpace(context.InitiatorActorId) ? [] : [context.InitiatorActorId]);

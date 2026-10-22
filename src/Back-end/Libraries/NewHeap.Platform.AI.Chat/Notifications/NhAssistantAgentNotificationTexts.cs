@@ -11,7 +11,8 @@ internal static class NhAssistantAgentNotificationTexts
         string? subjectDisplayName,
         int proposalCount,
         string? mcpServerDisplayName = null,
-        string? code = null)
+        string? code = null,
+        string? proposalStatus = null)
     {
         var dutch = language.StartsWith("nl", StringComparison.OrdinalIgnoreCase);
         var title = string.IsNullOrWhiteSpace(subjectDisplayName) ? (dutch ? "Assistent" : "Assistant") : subjectDisplayName;
@@ -26,9 +27,32 @@ internal static class NhAssistantAgentNotificationTexts
             NhAssistantAgentNotificationKind.RunFailed => dutch ? "De agent kon zijn taak niet afronden." : "The agent could not complete its task.",
             NhAssistantAgentNotificationKind.RequestAnswered => dutch ? "De agent heeft je verzoek afgerond." : "The agent finished your request.",
             NhAssistantAgentNotificationKind.McpConnectionMissing => McpConnectionMissing(dutch, mcpServerDisplayName, code),
+            NhAssistantAgentNotificationKind.ConsultationProposalDecided => ConsultationProposalDecided(dutch, proposalStatus),
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
         return (title, body);
+    }
+
+    private static string ConsultationProposalDecided(bool dutch, string? status)
+    {
+        return status switch
+        {
+            NhAssistantApprovalStatuses.Executed => dutch
+                ? "Een voorstel uit je consultatie is uitgevoerd."
+                : "A proposal from your consultation was executed.",
+            NhAssistantApprovalStatuses.Rejected => dutch
+                ? "Een voorstel uit je consultatie is afgewezen."
+                : "A proposal from your consultation was rejected.",
+            NhAssistantApprovalStatuses.Expired => dutch
+                ? "Een voorstel uit je consultatie is verlopen zonder besluit."
+                : "A proposal from your consultation expired without a decision.",
+            NhAssistantApprovalStatuses.ExecutionFailed or NhAssistantApprovalStatuses.ExecutionUnknown => dutch
+                ? "Een voorstel uit je consultatie kon niet worden uitgevoerd."
+                : "A proposal from your consultation could not be executed.",
+            _ => dutch
+                ? "Een voorstel uit je consultatie is gesloten zonder uitvoering."
+                : "A proposal from your consultation was closed without being executed."
+        };
     }
 
     private static string McpConnectionMissing(bool dutch, string? serverDisplayName, string? code)

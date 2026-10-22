@@ -47,9 +47,11 @@ public sealed class NhAssistantConsultationOptions
     public NhAiSubjectRole MinimumRole { get; internal set; } = NhAiSubjectRole.Reader;
 
     /// <summary>
-    /// Whether the consulted agent may leave deferred proposals in its subject thread. On by default.
+    /// Whether the consulted agent may propose changes at all: <see cref="AskerDecides"/> or a route at
+    /// the subject (<see cref="AtSubjectRights"/>) is configured. On by default, with the route at the
+    /// subject that executes with the asker's rights.
     /// </summary>
-    public bool AllowProposals { get; internal set; } = true;
+    public bool AllowProposals => AskerDecides || AtSubjectRights is not null;
 
     /// <summary>
     /// The role the asking person needs before the consulted agent is offered tools that change
@@ -57,6 +59,53 @@ public sealed class NhAssistantConsultationOptions
     /// the thread.
     /// </summary>
     public NhAiSubjectRole ProposalRole { get; internal set; } = NhAiSubjectRole.Participant;
+
+    /// <summary>
+    /// The person who asked decides a proposal of the consulted agent in their own conversation, when
+    /// the approval policy lets them decide it and their turn can wait for them; it then executes in
+    /// their own request with their own rights. Off by default.
+    /// </summary>
+    public bool AskerDecides { get; internal set; }
+
+    /// <summary>
+    /// Whose rights execute a proposal that waits for the subject's approvers:
+    /// <see cref="NhAssistantConsultationRights.Asker"/> (the default, rebuilt for the asker after the
+    /// decision), <see cref="NhAssistantConsultationRights.Agent"/> (the consulted agent's own rights,
+    /// always decided by an approver other than the asker), or <see langword="null"/> when proposals
+    /// never wait at the subject.
+    /// </summary>
+    public NhAssistantConsultationRights? AtSubjectRights { get; internal set; } = NhAssistantConsultationRights.Asker;
+
+    /// <summary>
+    /// The approval policy of the consultation's proposals where the consulted agent has no policy
+    /// for the tool itself, instead of the agent's own policy; <see langword="null"/> uses the agent's
+    /// policy.
+    /// </summary>
+    public string? ProposalPolicyId { get; internal set; }
+
+    /// <summary>
+    /// The routes of a proposal this registration allows, as the administration may switch them:
+    /// one or more of <see cref="NhAssistantConsultationRoutes"/>.
+    /// </summary>
+    public IReadOnlyList<string> AllowedRoutes
+    {
+        get
+        {
+            var routes = new List<string>(2);
+            if (AskerDecides)
+            {
+                routes.Add(NhAssistantConsultationRoutes.AskerDecides);
+            }
+            if (AtSubjectRights is { } rights)
+            {
+                routes.Add(rights == NhAssistantConsultationRights.Agent
+                    ? NhAssistantConsultationRoutes.SubjectAgentRights
+                    : NhAssistantConsultationRoutes.SubjectAskerRights);
+            }
+
+            return routes;
+        }
+    }
 
     public int MaxToolCalls { get; internal set; } = 4;
 
@@ -162,8 +211,10 @@ public sealed class NhAssistantConsultationBuilder
     }
 
     /// <summary>
-    /// Whether the consulted agent may leave deferred proposals, and the role the asking person
-    /// needs for that.
+    /// Whether the consulted agent may leave deferred proposals for the subject's approvers, which
+    /// execute with the asker's rights, and the role the asking person needs for that. This is
+    /// <c>Proposals(p =&gt; p.MinimumRole(minimumRole).AtSubject(NhAssistantConsultationRights.Asker))</c>;
+    /// <c>Proposals(false)</c> lets the consulted agent only describe a change in its answer.
     /// </summary>
     public NhAssistantConsultationBuilder Proposals(bool allowed, NhAiSubjectRole minimumRole = NhAiSubjectRole.Participant)
     {
@@ -172,8 +223,34 @@ public sealed class NhAssistantConsultationBuilder
             throw new ArgumentOutOfRangeException(nameof(minimumRole), "Proposals need a subject role.");
         }
 
-        _options.AllowProposals = allowed;
+        _options.AskerDecides = false;
+        _options.AtSubjectRights = allowed ? NhAssistantConsultationRights.Asker : null;
+        _options.ProposalPolicyId = null;
         _options.ProposalRole = minimumRole;
+        return this;
+    }
+
+    /// <summary>
+    /// How the consulted agent's proposals are decided and executed: by the person who asked, in
+    /// their own conversation (<see cref="NhAssistantConsultationProposalBuilder.AskerDecides"/>),
+    /// and otherwise at the subject (<see cref="NhAssistantConsultationProposalBuilder.AtSubject"/>).
+    /// For each call that changes something the first route that applies is taken; when none applies
+    /// the call is refused and the consulted agent describes the change in its answer instead.
+    /// </summary>
+    public NhAssistantConsultationBuilder Proposals(Action<NhAssistantConsultationProposalBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        _options.AskerDecides = false;
+        _options.AtSubjectRights = null;
+        _options.ProposalPolicyId = null;
+        _options.ProposalRole = NhAiSubjectRole.Participant;
+        configure(new NhAssistantConsultationProposalBuilder(_options));
+        if (!_options.AllowProposals)
+        {
+            throw new InvalidOperationException(
+                $"The consultation of agent '{_options.AgentId}' about '{_options.SubjectType}' configures proposals without a route. Choose AskerDecides, AtSubject or both, or use Proposals(false).");
+        }
+
         return this;
     }
 
@@ -256,6 +333,97 @@ public sealed class NhAssistantConsultationBuilder
 }
 
 /// <summary>
+/// Whose rights execute a consultation proposal that waits for the subject's approvers.
+/// </summary>
+public enum NhAssistantConsultationRights
+{
+    /// <summary>
+    /// The asking person's rights. The proposal executes in the background after the decision, so the
+    /// application's <c>INhAiPrincipalFactory</c> rebuilds the asker's principal for it.
+    /// </summary>
+    Asker = 0,
+
+    /// <summary>
+    /// The consulted agent's own rights: its grants and, for an agent that acts with the rights of the
+    /// technical account it answers to, that account's rights. The call must also be one the asker
+    /// may make when it is proposed; an approver other than the asker always decides it, and no
+    /// person's principal is rebuilt.
+    /// </summary>
+    Agent = 1
+}
+
+/// <summary>
+/// Configures how the proposals of one consultation are decided; see
+/// <see cref="NhAssistantConsultationBuilder.Proposals(Action{NhAssistantConsultationProposalBuilder})"/>.
+/// </summary>
+public sealed class NhAssistantConsultationProposalBuilder
+{
+    private readonly NhAssistantConsultationOptions _options;
+
+    internal NhAssistantConsultationProposalBuilder(NhAssistantConsultationOptions options)
+    {
+        _options = options;
+    }
+
+    /// <summary>
+    /// The role the asking person needs on the subject before the consulted agent is offered tools
+    /// that change anything. The default is <see cref="NhAiSubjectRole.Participant"/>.
+    /// </summary>
+    public NhAssistantConsultationProposalBuilder MinimumRole(NhAiSubjectRole role)
+    {
+        if (role == NhAiSubjectRole.None)
+        {
+            throw new ArgumentOutOfRangeException(nameof(role), "Proposals need a subject role.");
+        }
+
+        _options.ProposalRole = role;
+        return this;
+    }
+
+    /// <summary>
+    /// The person who asked decides the proposal in their own conversation, right away: the approval
+    /// card shows in the asking chat, the asking turn waits, and an approved proposal executes in the
+    /// asker's own request with the asker's own rights. It applies to a call when the approval policy
+    /// lets the asker decide it (an approver rule the asker meets, no four-eyes, the tool's approve
+    /// policies) and the asking turn is the asker's own turn in their own request.
+    /// </summary>
+    public NhAssistantConsultationProposalBuilder AskerDecides(bool enabled = true)
+    {
+        _options.AskerDecides = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// The proposal waits at the subject for its approvers, in the consulted agent's thread, when the
+    /// asker does not decide it: with <see cref="NhAssistantConsultationRights.Asker"/> it executes
+    /// with the asker's rights, with <see cref="NhAssistantConsultationRights.Agent"/> with the agent's
+    /// own rights after an approver other than the asker decided it.
+    /// </summary>
+    public NhAssistantConsultationProposalBuilder AtSubject(NhAssistantConsultationRights rights)
+    {
+        if (!Enum.IsDefined(rights))
+        {
+            throw new ArgumentOutOfRangeException(nameof(rights));
+        }
+
+        _options.AtSubjectRights = rights;
+        return this;
+    }
+
+    /// <summary>
+    /// The approval policy of the consultation's proposals, registered with <c>AddApprovalPolicy</c>.
+    /// It applies where the consulted agent has no policy for the tool itself, instead of the agent's
+    /// own policy, which was written for its runs.
+    /// </summary>
+    public NhAssistantConsultationProposalBuilder Policy(string approvalPolicyId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(approvalPolicyId);
+        _options.ProposalPolicyId = approvalPolicyId.Trim();
+        return this;
+    }
+}
+
+/// <summary>
 /// The ids of the generated consultation tools. Select them in the asking agent's tool selectors,
 /// for example <c>assistant.consult.work-preparation.*</c>.
 /// </summary>
@@ -317,11 +485,113 @@ public static class NhAssistantConsultationTools
 /// </summary>
 /// <param name="ConsultationId">The consultation record in the agent's subject thread.</param>
 /// <param name="Answer">The agent's answer, bounded by the consultation's answer length.</param>
-/// <param name="ProposalCount">Proposals the agent left in its thread for the subject's approvers.</param>
-public sealed record NhAssistantConsultationAnswer(Guid ConsultationId, string Answer, int ProposalCount);
+/// <param name="ProposalCount">Proposals the agent left in its thread.</param>
+public sealed record NhAssistantConsultationAnswer(Guid ConsultationId, string Answer, int ProposalCount)
+{
+    /// <summary>
+    /// Who decides what the agent proposed: <c>asker</c> when the person who asked decides it now in
+    /// their own conversation, <c>subject</c> when it waits for the subject's approvers, or
+    /// <see langword="null"/> when the agent proposed nothing. See
+    /// <see cref="NhAssistantConsultationDecisions"/>.
+    /// </summary>
+    public string? Decision { get; init; }
+
+    /// <summary>
+    /// The proposals the agent left, the one the asker decides first.
+    /// </summary>
+    public IReadOnlyList<Guid> ApprovalIds { get; init; } = [];
+}
+
+/// <summary>
+/// The values of <see cref="NhAssistantConsultationAnswer.Decision"/>.
+/// </summary>
+public static class NhAssistantConsultationDecisions
+{
+    /// <summary>The person who asked decides the proposal now, in their own conversation.</summary>
+    public const string Asker = "asker";
+
+    /// <summary>The proposals wait for the subject's approvers.</summary>
+    public const string Subject = "subject";
+}
 
 /// <summary>
 /// The receipt of a request that started, queued or was refused for an agent run.
 /// </summary>
 /// <param name="Outcome">One of the trigger outcomes, for example <c>started</c> or <c>queued</c>.</param>
 public sealed record NhAssistantAgentRequestReceipt(string Outcome, Guid? RunId, Guid? ThreadId);
+
+/// <summary>
+/// The routes of an agent's consultations an administrator switched at runtime. Each
+/// <see langword="null"/> route follows the code; the code's consultation registrations are the
+/// ceiling, so switching on a route that no registration allows changes nothing.
+/// </summary>
+/// <param name="AskerDecides">The person who asked decides in their own conversation.</param>
+/// <param name="SubjectAgentRights">The subject's approvers decide; it executes with the agent's own rights.</param>
+/// <param name="SubjectAskerRights">The subject's approvers decide; it executes with the asker's rights.</param>
+public sealed record NhAssistantConsultationRouteOverrides(
+    bool? AskerDecides,
+    bool? SubjectAgentRights,
+    bool? SubjectAskerRights)
+{
+    /// <summary>Every route follows the code.</summary>
+    public static NhAssistantConsultationRouteOverrides None { get; } = new(null, null, null);
+
+    /// <summary>
+    /// Whether no route is switched at runtime.
+    /// </summary>
+    public bool FollowsCode => AskerDecides is null && SubjectAgentRights is null && SubjectAskerRights is null;
+
+    /// <summary>
+    /// The switch of one of <see cref="NhAssistantConsultationRoutes"/>; <see langword="null"/> follows
+    /// the code.
+    /// </summary>
+    public bool? Of(string route)
+    {
+        return route switch
+        {
+            NhAssistantConsultationRoutes.AskerDecides => AskerDecides,
+            NhAssistantConsultationRoutes.SubjectAgentRights => SubjectAgentRights,
+            NhAssistantConsultationRoutes.SubjectAskerRights => SubjectAskerRights,
+            _ => null
+        };
+    }
+}
+
+/// <summary>
+/// The routes of one consultation as they apply now: the code's registration within the switches
+/// an administrator set for the agent.
+/// </summary>
+internal sealed record NhAssistantConsultationRouting(bool AskerDecides, NhAssistantConsultationRights? AtSubjectRights)
+{
+    public static NhAssistantConsultationRouting Of(
+        NhAssistantConsultationOptions options,
+        NhAssistantConsultationRouteOverrides? overrides)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        overrides ??= NhAssistantConsultationRouteOverrides.None;
+        var askerDecides = options.AskerDecides && overrides.AskerDecides != false;
+        NhAssistantConsultationRights? atSubject = options.AtSubjectRights switch
+        {
+            NhAssistantConsultationRights.Agent when overrides.SubjectAgentRights != false => NhAssistantConsultationRights.Agent,
+            NhAssistantConsultationRights.Asker when overrides.SubjectAskerRights != false => NhAssistantConsultationRights.Asker,
+            _ => null
+        };
+        return new NhAssistantConsultationRouting(askerDecides, atSubject);
+    }
+
+    /// <summary>
+    /// Whether the consulted agent may propose at all.
+    /// </summary>
+    public bool AllowsProposals => AskerDecides || AtSubjectRights is not null;
+
+    /// <summary>
+    /// The route at the subject, one of <see cref="NhAssistantConsultationRoutes"/>, or
+    /// <see langword="null"/>.
+    /// </summary>
+    public string? AtSubjectRoute => AtSubjectRights switch
+    {
+        NhAssistantConsultationRights.Agent => NhAssistantConsultationRoutes.SubjectAgentRights,
+        NhAssistantConsultationRights.Asker => NhAssistantConsultationRoutes.SubjectAskerRights,
+        _ => null
+    };
+}

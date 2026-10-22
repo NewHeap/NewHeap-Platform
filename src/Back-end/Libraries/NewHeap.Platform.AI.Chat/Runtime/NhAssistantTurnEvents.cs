@@ -240,4 +240,39 @@ internal sealed record NhAssistantApprovalView(
     /// The newer proposal for the same objects that replaced this withdrawn one.
     /// </summary>
     public Guid? SupersededByApprovalId { get; init; }
+
+    /// <summary>
+    /// The consultation that proposed it, when another agent proposed it while the conversation's
+    /// assistant consulted it and the person who asked decides it here; <see langword="null"/> for the
+    /// conversation's own proposals.
+    /// </summary>
+    public NhAssistantApprovalConsultationView? Consultation { get; init; }
+}
+
+/// <summary>
+/// Where a proposal the person who asked decides in their own conversation comes from.
+/// </summary>
+/// <param name="AgentId">The consulted agent that proposed it.</param>
+/// <param name="LeaveRoute">
+/// The route at the subject the person may leave it for instead of deciding it, one of
+/// <see cref="NhAssistantConsultationRoutes"/>; <see langword="null"/> when none applies.
+/// </param>
+internal sealed record NhAssistantApprovalConsultationView(
+    Guid ConsultationId,
+    string AgentId,
+    string SubjectType,
+    string SubjectId,
+    string? SubjectDisplayName,
+    string? LeaveRoute)
+{
+    /// <summary>
+    /// The consulted agent's answer, bounded as a preview, when its classification allows a preview.
+    /// </summary>
+    public string? Answer { get; init; }
+
+    /// <summary>
+    /// The proposal that replaced this one at the subject after the person left it for the subject's
+    /// approvers.
+    /// </summary>
+    public Guid? MovedToApprovalId { get; init; }
 }

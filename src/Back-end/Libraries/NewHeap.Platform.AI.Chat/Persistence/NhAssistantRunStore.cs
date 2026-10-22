@@ -490,6 +490,138 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<AssistantConsultation?> FindConsultationAsync(Guid consultationId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Consultations
+            .AsNoTracking()
+            .SingleOrDefaultAsync(consultation => consultation.Id == consultationId, cancellationToken);
+    }
+
+    /// <summary>
+    /// How many proposals of consultations that execute with the agent's own rights wait in the thread
+    /// for a decision and were caused by <paramref name="askerActorId"/> (CP15).
+    /// </summary>
+    public async Task<int> CountOpenAgentRightsConsultationProposalsAsync(
+        Guid conversationId,
+        string askerActorId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Approvals
+            .CountAsync(
+                approval => approval.ConversationId == conversationId
+                    && approval.ConsultationId != null
+                    && approval.InitiatorActorId == askerActorId
+                    && approval.Status == NhAssistantApprovalStatuses.Pending
+                    && approval.Mode == NhAssistantApprovalModes.Deferred
+                    && (approval.GrantSource == NhAiGrantSource.Agent || approval.GrantSource == NhAiGrantSource.Accountable),
+                cancellationToken);
+    }
+
+    /// <summary>
+    /// The pending proposal of a consultation that the person of the asking turn decides in the asking
+    /// conversation, or <see langword="null"/>.
+    /// </summary>
+    public async Task<AssistantApproval?> FindPendingAskerDecisionAsync(
+        Guid askingConversationId,
+        Guid askingTurnId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await AskerDecisions(context, askingConversationId)
+            .Where(row => row.Consultation.AskingTurnId == askingTurnId
+                && row.Approval.Status == NhAssistantApprovalStatuses.Pending)
+            .Select(row => row.Approval)
+            .OrderByDescending(approval => approval.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The proposals of consultations that the asking conversation's people decide there, among
+    /// <paramref name="approvalIds"/>, with their consultation and the consulted agent's thread.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantAskerDecisionRow>> GetAskerDecisionsAsync(
+        Guid askingConversationId,
+        IReadOnlyCollection<Guid> approvalIds,
+        CancellationToken cancellationToken)
+    {
+        if (approvalIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = approvalIds.ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        var rows = await AskerDecisions(context, askingConversationId)
+            .Where(row => ids.Contains(row.Approval.Id))
+            .Join(
+                context.Threads,
+                row => row.Approval.ConversationId,
+                thread => thread.ConversationId,
+                (row, thread) => new { row.Approval, row.Consultation, Thread = thread })
+            .ToListAsync(cancellationToken);
+        return rows.Select(row => new NhAssistantAskerDecisionRow(row.Approval, row.Consultation, row.Thread)).ToArray();
+    }
+
+    /// <summary>
+    /// The tool call of the asking conversation that waits for, or waited for, the asker's decision of
+    /// a consultation proposal.
+    /// </summary>
+    public async Task<AssistantToolInvocation?> FindAskingCallAsync(
+        Guid askingConversationId,
+        Guid approvalId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.ToolInvocations
+            .AsNoTracking()
+            .Where(invocation => invocation.ConversationId == askingConversationId && invocation.ApprovalId == approvalId)
+            .OrderByDescending(invocation => invocation.StartedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Ends the asking conversation's call that waited for the asker's decision of a consultation
+    /// proposal, when it still waits, with the outcome as its result code.
+    /// </summary>
+    public async Task<bool> EndAskingCallAsync(
+        Guid askingConversationId,
+        Guid approvalId,
+        string callStatus,
+        string resultCode,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        return await context.ToolInvocations
+            .Where(invocation => invocation.ConversationId == askingConversationId
+                && invocation.ApprovalId == approvalId
+                && invocation.Status == NhAssistantToolCallStatuses.AwaitingApproval)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(invocation => invocation.Status, callStatus)
+                    .SetProperty(invocation => invocation.ResultCode, resultCode)
+                    .SetProperty(invocation => invocation.CompletedAt, now),
+                cancellationToken) > 0;
+    }
+
+    /// <summary>
+    /// The proposals the people of one asking conversation decide there: consultation proposals with
+    /// mode inline whose consultation names the conversation.
+    /// </summary>
+    private static IQueryable<NhAssistantAskerDecisionQueryRow> AskerDecisions(NhAssistantDbContext context, Guid askingConversationId)
+    {
+        return context.Approvals
+            .AsNoTracking()
+            .Where(approval => approval.ConsultationId != null && approval.Mode == NhAssistantApprovalModes.Inline)
+            .Join(
+                context.Consultations.Where(consultation => consultation.AskingConversationId == askingConversationId),
+                approval => approval.ConsultationId,
+                consultation => (Guid?)consultation.Id,
+                (approval, consultation) => new NhAssistantAskerDecisionQueryRow { Approval = approval, Consultation = consultation });
+    }
+
     public async Task<int> CountRunningRunsAsync(string agentId, Guid excludedRunId, CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
@@ -2119,7 +2251,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
-    /// Pending proposals of agent threads, oldest expiry first, for the maintenance job.
+    /// Pending proposals of agent runs and of consultations, oldest expiry first, for the maintenance
+    /// job (CP24). Proposals of a person's own turn wait in the conversation and are left out.
     /// </summary>
     public async Task<IReadOnlyList<AssistantApproval>> GetPendingThreadApprovalsAsync(
         DateTimeOffset expiringBefore,
@@ -2130,7 +2263,7 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         return await context.Approvals
             .AsNoTracking()
             .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending
-                && approval.RunId != null
+                && (approval.RunId != null || approval.ConsultationId != null)
                 && approval.ExpiresAt <= expiringBefore)
             .OrderBy(approval => approval.ExpiresAt)
             .Take(maximum)
@@ -2262,7 +2395,10 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         return await AgentProposals(context, scopeKey, agentId)
             .Where(approval => approval.ToolId == toolId
                 && approval.ArgumentsHash == argumentsHash
-                && OpenProposalStatuses.Contains(approval.Status))
+                && OpenProposalStatuses.Contains(approval.Status)
+                // A proposal the asker decides in their own conversation takes no part in duplicate
+                // detection.
+                && !(approval.ConsultationId != null && approval.Mode == NhAssistantApprovalModes.Inline))
             .OrderBy(approval => approval.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -2284,7 +2420,9 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .Where(approval => approval.ToolId == toolId
                 && approval.ArgumentsHash == argumentsHash
                 && approval.Status == NhAssistantApprovalStatuses.Rejected
-                && approval.DecidedAt >= since)
+                && approval.DecidedAt >= since
+                // The asker declining their own consultation's proposal is no rejection of the agent's work.
+                && !(approval.ConsultationId != null && approval.Mode == NhAssistantApprovalModes.Inline))
             .OrderByDescending(approval => approval.DecidedAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -2877,5 +3015,18 @@ internal sealed record NhAssistantRunFilter(
 internal sealed record NhAssistantRunRow(AssistantRun Run, AssistantThread Thread);
 
 internal sealed record NhAssistantOpenProposalRow(AssistantApproval Approval, AssistantThread Thread);
+
+/// <summary>
+/// A consultation proposal the asker decides in the asking conversation, with its consultation and
+/// the consulted agent's thread it waits in.
+/// </summary>
+internal sealed record NhAssistantAskerDecisionRow(AssistantApproval Approval, AssistantConsultation Consultation, AssistantThread Thread);
+
+internal sealed class NhAssistantAskerDecisionQueryRow
+{
+    public required AssistantApproval Approval { get; init; }
+
+    public required AssistantConsultation Consultation { get; init; }
+}
 
 internal sealed record NhAssistantSubjectSummaryRow(string SubjectId, int OpenProposals, int ProposalsToDecide, bool RunActive);

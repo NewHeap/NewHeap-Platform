@@ -445,7 +445,10 @@ internal sealed class NhAssistantStore(
         return await context.Approvals
             .AsNoTracking()
             .Where(approval => approval.ConversationId == conversationId
-                && approval.Status == NhAssistantApprovalStatuses.Pending)
+                && approval.Status == NhAssistantApprovalStatuses.Pending
+                // A consultation's proposal waits in the consulted agent's thread, never for the
+                // thread's own waiting turn.
+                && approval.ConsultationId == null)
             .OrderByDescending(approval => approval.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -503,6 +506,28 @@ internal sealed class NhAssistantStore(
             .Where(ledger => ledger.ActorId == actorId && ledger.Day == day)
             .Select(ledger => (int?)ledger.ToolCalls)
             .SingleOrDefaultAsync(cancellationToken) ?? 0;
+    }
+
+    public async Task<bool> TryReleaseWaitingTurnAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        var affected = await context.Conversations
+            .Where(conversation => conversation.Id == conversationId
+                && conversation.ActiveTurnId == turnId
+                && conversation.Status == NhAssistantConversationStatuses.WaitingForApproval)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(conversation => conversation.Status, NhAssistantConversationStatuses.Idle)
+                    .SetProperty(conversation => conversation.ActiveTurnId, (Guid?)null)
+                    .SetProperty(conversation => conversation.ActiveActorId, (string?)null)
+                    .SetProperty(conversation => conversation.UpdatedAt, now)
+                    .SetProperty(conversation => conversation.ConcurrencyStamp, Guid.NewGuid()),
+                cancellationToken);
+        return affected == 1;
     }
 
     public async Task<bool> TryReleaseWaitingConversationAsync(

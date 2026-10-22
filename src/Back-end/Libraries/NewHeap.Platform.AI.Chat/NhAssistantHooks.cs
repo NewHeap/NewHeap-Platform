@@ -413,6 +413,21 @@ public sealed record NhAssistantAuditEvent(
     public string? AskingAgentId { get; init; }
 
     /// <summary>
+    /// How a consultation proposal is decided and whose rights execute it, one of
+    /// <see cref="NhAssistantConsultationRoutes"/>, on the request, decision, expiry and execution
+    /// events of a proposal a consultation left; <see langword="null"/> for other events.
+    /// </summary>
+    public string? ConsultationRoute { get; init; }
+
+    /// <summary>
+    /// Why a call of a consulted agent that changes something was not proposed, one of
+    /// <see cref="NhAssistantConsultationRefusalReasons"/>, on its
+    /// <see cref="NhAssistantAuditEventKind.ToolInvoked"/> event with
+    /// <c>assistant-consult-proposal-refused</c>.
+    /// </summary>
+    public string? ConsultationRefusalReason { get; init; }
+
+    /// <summary>
     /// The run of the agent that handed work off.
     /// </summary>
     public Guid? SourceRunId { get; init; }

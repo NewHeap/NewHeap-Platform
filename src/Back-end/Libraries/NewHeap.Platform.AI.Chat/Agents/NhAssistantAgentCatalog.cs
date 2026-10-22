@@ -60,6 +60,18 @@ internal sealed record NhAssistantAgent(
     public string? ServiceAccountReason { get; init; }
 
     /// <summary>
+    /// The routes of the agent's consultations an administrator switched at runtime; each
+    /// <see langword="null"/> route follows the code.
+    /// </summary>
+    public NhAssistantConsultationRouteOverrides ConsultationRoutes { get; init; } = NhAssistantConsultationRouteOverrides.None;
+
+    public DateTimeOffset? ConsultationRoutesChangedAt { get; init; }
+
+    public string? ConsultationRoutesChangedBy { get; init; }
+
+    public string? ConsultationRoutesReason { get; init; }
+
+    /// <summary>
     /// Whether people can choose the agent in the chat; see <c>HideFromChat()</c>.
     /// </summary>
     public bool OfferedInChat { get; init; } = true;
@@ -187,6 +199,13 @@ internal sealed class NhAssistantAgentCatalog(
             ServiceAccountChangedAt = row.ServiceAccountChangedAt,
             ServiceAccountChangedBy = row.ServiceAccountChangedBy,
             ServiceAccountReason = row.ServiceAccountReason,
+            ConsultationRoutes = new NhAssistantConsultationRouteOverrides(
+                row.ConsultAskerDecides,
+                row.ConsultSubjectAgentRights,
+                row.ConsultSubjectAskerRights),
+            ConsultationRoutesChangedAt = row.ConsultRoutesChangedAt,
+            ConsultationRoutesChangedBy = row.ConsultRoutesChangedBy,
+            ConsultationRoutesReason = row.ConsultRoutesReason,
             OfferedInChat = row.Source == NhAssistantAgentSources.Code
                 ? !(registration.AgentRuns.TryGetValue(row.Id, out var runOptions) && runOptions.HiddenFromChat)
                 : !row.HiddenFromChat,

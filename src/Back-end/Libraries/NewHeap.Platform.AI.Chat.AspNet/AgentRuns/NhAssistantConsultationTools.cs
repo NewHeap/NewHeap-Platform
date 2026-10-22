@@ -9,6 +9,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.Common.Models;
@@ -174,11 +175,10 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
         var inputSchema = ObjectSchema(
             ("subjectId", StringSchema(NhAiSubjectRef.MaxIdLength, $"The id of the {consultation.SubjectType}, exactly as the application shows it.")),
             ("question", StringSchema(MaxQuestionChars, "A self-contained question for the agent.")));
-        var outputSchema = """{"type":"object","properties":{"consultationId":{"type":"string","format":"uuid"},"answer":{"type":"string"},"proposalCount":{"type":"integer"}},"required":["consultationId","answer","proposalCount"]}""";
+        var outputSchema = """{"type":"object","properties":{"consultationId":{"type":"string","format":"uuid"},"answer":{"type":"string"},"proposalCount":{"type":"integer"},"decision":{"type":["string","null"],"description":"asker when the person decides the proposal now in this conversation, subject when it waits for the subject approvers"},"approvalIds":{"type":"array","items":{"type":"string","format":"uuid"}}},"required":["consultationId","answer","proposalCount"]}""";
         var description = (consultation.Description is null ? string.Empty : consultation.Description + " ")
             + $"Ask the agent '{consultation.AgentId}' about one {consultation.SubjectType} and get its answer now. "
-            + "It changes nothing itself; what it would change becomes a proposal for the "
-            + consultation.SubjectType + "'s approvers.";
+            + ProposalsText(consultation);
         return CreateDescriptor(
             consultation.ConsultToolId,
             "consult_" + consultation.AgentId + "_" + consultation.SubjectType,
@@ -193,6 +193,26 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
             Timeout = consultation.Timeout + TimeSpan.FromSeconds(15),
             MaxResultBytes = Math.Max(65_536, (consultation.MaxAnswerChars * 4) + 1_024)
         };
+    }
+
+    /// <summary>
+    /// What the asking model reads about the consulted agent's proposals: who decides them.
+    /// </summary>
+    private static string ProposalsText(NhAssistantConsultationOptions consultation)
+    {
+        var approvers = consultation.SubjectType + "'s approvers";
+        if (!consultation.AllowProposals)
+        {
+            return "It changes nothing; it describes changes in its answer.";
+        }
+        if (consultation.AskerDecides)
+        {
+            return consultation.AtSubjectRights is null
+                ? "It changes nothing itself; what it would change becomes a proposal the person decides right away in this conversation, when they may."
+                : "It changes nothing itself; what it would change becomes a proposal the person decides right away in this conversation, when they may, or otherwise one for the " + approvers + ".";
+        }
+
+        return "It changes nothing itself; what it would change becomes a proposal for the " + approvers + ".";
     }
 
     private static NhAiToolDescriptor CreateRequestDescriptor(
@@ -587,6 +607,40 @@ internal sealed class NhAssistantConsultationViewer(
                   && await NhAssistantRestrictedResults.SatisfiesToolPoliciesAsync(services, _principal, _resource, toolId);
         _allowed[toolId] = may;
         return may;
+    }
+
+    /// <summary>
+    /// Whether the asker may decide a proposal of <paramref name="toolId"/> under <paramref name="policy"/>
+    /// in their own conversation (CP4): the same live check as any approver of the thread, with the
+    /// principal of the asker's own request. Without that request, or without a policy that names the
+    /// asker, nobody decides here.
+    /// </summary>
+    public async ValueTask<bool> MayDecideAsync(
+        NhAiApprovalPolicy policy,
+        AssistantThread thread,
+        string toolId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        ArgumentNullException.ThrowIfNull(thread);
+        if (requestPrincipal is null || policy.FourEyes)
+        {
+            return false;
+        }
+
+        var check = await services.GetRequiredService<NhAssistantApproverCheck>().CheckAsync(
+            new AssistantApproval
+            {
+                ConversationId = thread.ConversationId,
+                ToolId = toolId,
+                PolicyJson = NhAssistantApprovalPolicySnapshot.Serialize(policy),
+                InitiatorActorId = askerActorId
+            },
+            thread,
+            askerActorId,
+            requestPrincipal,
+            cancellationToken);
+        return check.Success;
     }
 
     private async Task ResolveAsync(CancellationToken cancellationToken)

@@ -890,8 +890,10 @@ internal sealed class NhAssistantProposalExecutor(
             FencingToken = fenced
                 ? context.FencingToken.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 : null,
-            // A consultation's proposal executes with its asker's rights, never the agent's grants.
-            DelegatedOnly = approval.ConsultationId is not null
+            // A consultation's proposal executes with its asker's rights, never the agent's grants, unless
+            // its route executes with the agent's own rights: then never with the asker's.
+            DelegatedOnly = approval.ConsultationId is not null && !AgentRights(approval),
+            AgentRightsOnly = AgentRights(approval)
         };
 
         var check = await CheckBeforeExecutionAsync(approval, proposal, agentTurn, cancellationToken);
@@ -936,6 +938,15 @@ internal sealed class NhAssistantProposalExecutor(
                 : NhAssistantApprovalStatuses.ExecutionFailed;
         await CloseAsync(approval, thread, status, execution.ResultCode);
         return TaskResult.Succeeded();
+    }
+
+    /// <summary>
+    /// Whether the proposal is a consultation's that executes with the agent's own rights (option B).
+    /// </summary>
+    private static bool AgentRights(AssistantApproval approval)
+    {
+        return NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource)
+            == NhAssistantConsultationRoutes.SubjectAgentRights;
     }
 
     /// <summary>
@@ -984,6 +995,10 @@ internal sealed class NhAssistantProposalExecutor(
             ExecutableStatuses,
             NhAssistantAgentEvents.AgentActorPrefix + thread.AgentId,
             CancellationToken.None);
+        if (closed is not null)
+        {
+            await notifier.ConsultationProposalEndedAsync(thread, closed, CancellationToken.None);
+        }
         var policy = closed?.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(closed.PolicyJson);
         if (policy?.StartFollowUpRun == true)
         {
@@ -1022,6 +1037,7 @@ internal sealed class NhAssistantProposalExecutor(
             NhAssistantAgentEvents.AgentActorPrefix + thread.AgentId,
             status,
             CancellationToken.None);
+        await notifier.ConsultationProposalEndedAsync(thread, current, CancellationToken.None);
         if (status == NhAssistantApprovalStatuses.ExecutionUnknown)
         {
             await notifier.NotifyAsync(

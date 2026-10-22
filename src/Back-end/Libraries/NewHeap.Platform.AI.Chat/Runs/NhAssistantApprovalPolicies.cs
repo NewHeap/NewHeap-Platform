@@ -36,6 +36,27 @@ internal sealed class NhAssistantApprovalPolicies(NhAssistantRegistrationState r
             : NhAiApprovalPolicy.ChatDefault(registration.Limits.ApprovalLifetime);
     }
 
+    /// <summary>
+    /// The policy of a consultation's proposal (CP5): the consulted agent's policy for the tool
+    /// itself, else the consultation's own policy, else the agent's policy, else the trigger default.
+    /// </summary>
+    public NhAiApprovalPolicy ResolveConsultation(string agentId, string toolId, string? consultationPolicyId)
+    {
+        registration.AgentRuns.TryGetValue(agentId, out var options);
+        if (options?.FindToolApprovalPolicy(toolId) is { } toolPolicy)
+        {
+            return Get(toolPolicy);
+        }
+        if (consultationPolicyId is not null)
+        {
+            return Get(consultationPolicyId);
+        }
+
+        return options?.ApprovalPolicyId is { } agentPolicy
+            ? Get(agentPolicy)
+            : NhAiApprovalPolicy.TriggerDefault;
+    }
+
     public NhAiApprovalPolicy? Find(string policyId)
     {
         return registration.ApprovalPolicies.TryGetValue(policyId, out var policy) ? policy : null;

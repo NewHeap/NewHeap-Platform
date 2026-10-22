@@ -39,6 +39,13 @@ internal static class NhAssistantThreadStanding
         var decisions = new List<NhAssistantThreadDecisionDto>(approvals.Count);
         foreach (var approval in approvals)
         {
+            if (approval.ConsultationId is not null && approval.Mode == NhAssistantApprovalModes.Inline)
+            {
+                // The person who asked decides it in their own conversation; nobody decides it here.
+                decisions.Add(new NhAssistantThreadDecisionDto(approval.Id, approval.RunId, false, NhAssistantErrorCodes.ConsultAskerDecides));
+                continue;
+            }
+
             // The same live check as the decision itself: policy approvers, four-eyes and the
             // tool's approve policy.
             var check = await approvers.CheckAsync(approval, thread, actorId, user, cancellationToken);
