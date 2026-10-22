@@ -1319,6 +1319,8 @@ internal sealed partial class NhAssistantTurnRunner(
             agentTurn.Thread.AgentId,
             agentTurn.RunId ?? Guid.Empty,
             agentTurn.TriggerId,
+            state.Skill,
+            state.Skill is { } skill && agentTurn.Options.IsCandidate(skill),
             agentTurn.Subject,
             agentTurn.InitiatorActorId,
             agentTurn.AccountableOwnerId,

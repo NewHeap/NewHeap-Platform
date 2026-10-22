@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "f414fd68b4fce17db3faf0157daebdc103ec15d1d6b60d5941091e7ead68df36",
-    "declarationCount": 9203,
+    "hash": "5d81b66168cd4c5362e21dd9c78633787a026e13744f1e88b0230900a4f239ae",
+    "declarationCount": 9206,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -10296,6 +10296,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
         "declaration": "public string TriggerId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
+        "declaration": "public string? SkillId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
+        "declaration": "public int? SkillVersion { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
+        "declaration": "public bool? SkillCandidate { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",

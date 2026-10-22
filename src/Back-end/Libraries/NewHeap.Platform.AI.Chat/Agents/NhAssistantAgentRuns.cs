@@ -229,6 +229,15 @@ public sealed class NhAssistantAgentRunOptions
     }
 
     /// <summary>
+    /// Whether <paramref name="skill"/> is the candidate version of its skill, as the options of a
+    /// candidate's run (<see cref="WithCandidate"/>) hold it in place of the live version.
+    /// </summary>
+    internal bool IsCandidate(NhAssistantSkillOptions skill)
+    {
+        return _candidates.TryGetValue(skill.Id, out var candidate) && ReferenceEquals(candidate, skill);
+    }
+
+    /// <summary>
     /// The approval policy of a tool in a skill: the skill's own, then the agent's.
     /// </summary>
     internal string? FindApprovalPolicy(string toolId, string? skillId)

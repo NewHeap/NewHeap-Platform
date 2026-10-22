@@ -235,6 +235,8 @@ public sealed class NhAssistantRuleContext
         string agentId,
         Guid runId,
         string triggerId,
+        NhAssistantSkillOptions? skill,
+        bool skillCandidate,
         NhAiSubjectInfo subject,
         string? initiatorActorId,
         string accountableOwnerId,
@@ -251,6 +253,9 @@ public sealed class NhAssistantRuleContext
         AgentId = agentId;
         RunId = runId;
         TriggerId = triggerId;
+        SkillId = skill?.Id;
+        SkillVersion = skill?.DataVersion;
+        SkillCandidate = skill is null ? null : skillCandidate;
         Subject = subject;
         InitiatorActorId = initiatorActorId;
         AccountableOwnerId = accountableOwnerId;
@@ -271,6 +276,26 @@ public sealed class NhAssistantRuleContext
 
     /// <summary>The trigger that started the run, such as an event trigger or <c>manual</c>.</summary>
     public string TriggerId { get; }
+
+    /// <summary>
+    /// The skill the run works in while these rules run; <see langword="null"/> for the agent's own
+    /// rules outside a skill. A handler registered once with <c>AddRuleHandler</c> and named by several
+    /// skills reads here which one it runs for.
+    /// </summary>
+    public string? SkillId { get; }
+
+    /// <summary>
+    /// The version of the skill defined as data in the administration; <see langword="null"/> for a
+    /// skill in code and outside a skill.
+    /// </summary>
+    public int? SkillVersion { get; }
+
+    /// <summary>
+    /// <see langword="true"/> when the run evaluates the candidate version of its skill in the shadow
+    /// thread, next to the live version's run on the same event; <see langword="false"/> for the
+    /// version in effect; <see langword="null"/> outside a skill.
+    /// </summary>
+    public bool? SkillCandidate { get; }
 
     /// <summary>The subject as its resolver describes it now.</summary>
     public NhAiSubjectInfo Subject { get; }

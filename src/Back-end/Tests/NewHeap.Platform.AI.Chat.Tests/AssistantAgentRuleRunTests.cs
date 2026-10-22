@@ -75,6 +75,8 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         var context = Assert.Single(script.Contexts);
         Assert.Equal(run.Thread.SubjectId, context.Subject.Subject.Id);
         Assert.Equal("project-created", context.TriggerId);
+        // The agent's own rules run outside a skill.
+        Assert.Equal((null, null, null), (context.SkillId, context.SkillVersion, context.SkillCandidate));
 
         // The proposal waits deferred like a model's, with the rule's reason in every culture.
         var approval = Assert.Single(await RunStore(host).GetRunApprovalsAsync(run.Run.Id, CancellationToken.None));

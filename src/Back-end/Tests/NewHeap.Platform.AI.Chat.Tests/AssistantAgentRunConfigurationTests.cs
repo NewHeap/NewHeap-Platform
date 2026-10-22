@@ -416,6 +416,35 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_rule_handler_shared_by_skills_reads_the_skill_version_and_candidate_it_runs_in(AssistantTestProvider provider)
+    {
+        // TestSkillRules runs the code skill review and, registered as project-follow-up, the data
+        // skill follow-up: live in version 1 and as the candidate version 2.
+        await using var host = await CreateHostAsync(provider);
+        var rules = host.Services.GetRequiredService<TestSkillRuleScript>();
+        await AddLiveFollowUpAsync(host);
+        Assert.True((await SaveSkillAsync(host, FollowUp, new NhAssistantDataSkillRequest(
+            "Follows up with a second look.", RuleHandler: "project-follow-up", ExpectedVersion: 1, Apply: NhAssistantSkillApplyModes.Shadow))).Success);
+
+        var project = Guid.NewGuid();
+        var live = Assert.Single(await PublishEventAsync(host, new ProjectChanged(Guid.NewGuid(), project, "data first")), item => item.TriggerId == DataTrigger);
+        var candidate = await LatestRunAsync(host, (await ShadowThreadAsync(host, project))!.ConversationId);
+        var review = Assert.Single(await PublishAsync(host, Guid.NewGuid(), "task done", "task-changed"));
+
+        var seen = new List<(string? SkillId, int? Version, bool? Candidate)>();
+        foreach (var runId in new[] { review.RunId!.Value, live.RunId!.Value, candidate.Id })
+        {
+            await ExecuteAsync(host, runId);
+            Assert.True(rules.Contexts.TryDequeue(out var context));
+            seen.Add((context.SkillId, context.SkillVersion, context.SkillCandidate));
+        }
+
+        Assert.Equal([(Review, null, false), (FollowUp, 1, false), (FollowUp, 2, true)], seen);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task A_discarded_candidate_stays_as_history_and_its_queued_run_ends(AssistantTestProvider provider)
     {
         await using var host = await CreateHostAsync(provider);

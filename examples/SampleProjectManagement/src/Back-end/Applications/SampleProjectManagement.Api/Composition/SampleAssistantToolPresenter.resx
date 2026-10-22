@@ -32,6 +32,7 @@
   <data name="PlannerAllDone" xml:space="preserve"><value>All {0} tasks are completed.</value></data>
   <data name="PlannerProgressNote" xml:space="preserve"><value>{0} of {1} tasks are completed.</value></data>
   <data name="PlannerProgressPercentage" xml:space="preserve"><value>{0}% of the tasks are completed.</value></data>
+  <data name="PlannerProgressNoteOfVersion" xml:space="preserve"><value>{0} of {1} tasks are completed; noted by version {2} of {3}.</value></data>
   <data name="StarterReason" xml:space="preserve"><value>The project was created as a draft; starting it lets the team plan its work.</value></data>
   <data name="StarterProposed" xml:space="preserve"><value>Proposed to start the project; a project approver decides.</value></data>
   <data name="StarterAlreadyOpen" xml:space="preserve"><value>The proposal to start the project already waits for an approver.</value></data>

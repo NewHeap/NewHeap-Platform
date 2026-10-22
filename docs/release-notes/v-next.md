@@ -42,3 +42,15 @@ which turns any failure into a code and translation key. `ɵtoNhAssistantError` 
 | Breaking change | Required action |
 |---|---|
 | None; the exports are added. | Import `toNhAssistantError` instead of `ɵtoNhAssistantError`. |
+
+## NewHeap.Platform.AI.Chat: the skill on the rule context
+
+A rule handler registered once with `AddRuleHandler<THandler>(name, description)` can be named by
+several data skills, or by the live and candidate versions of one, but could not tell which one it ran
+for. `NhAssistantRuleContext` now carries `SkillId`, `SkillVersion` (the version of a skill defined as
+data, `null` for a skill in code) and `SkillCandidate` (`true` in the run of a candidate version). All
+three are `null` for the agent's own rules outside a skill.
+
+| Breaking change | Required action |
+|---|---|
+| None; the properties are added. | Read the skill from the context instead of deriving it from the trigger or the inputs. |

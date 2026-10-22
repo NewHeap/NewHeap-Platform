@@ -947,6 +947,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var shadowNote = await WaitForRunWithTriggerAsync(administrator, shadowThread, SampleAgentConfigurationService.ProgressNoteTriggerId);
             Assert.Equal((NhAssistantRunStatuses.Completed, note, true, NhAssistantRunKinds.Rule), (shadowNote.Status, shadowNote.Skill, shadowNote.Shadow, shadowNote.Kind));
             Assert.Contains("1", shadowNote.Summary);
+            // The rules read from their context which skill version they run for; the note is written
+            // in the run's culture, here Dutch.
+            Assert.Contains($"genoteerd door versie {skill.Version} van {note}.", shadowNote.Summary);
 
             // The team agrees with the notes: the operator puts the trigger and the skill live, and
             // the next completed task gets its note in the live thread after the follow-up.

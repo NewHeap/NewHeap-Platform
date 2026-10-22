@@ -173,6 +173,8 @@ public static class SampleProjectPlannerComposition
 /// <summary>
 /// SPM-295: the rules of the progress note, a skill an administrator adds to the planner as data.
 /// They count the project's tasks and note how far it is; they propose nothing and call no model.
+/// They are registered once by name, so several data skills, or the versions of one, may name them:
+/// the context says which skill and version they run for, and the note says which version wrote it.
 /// </summary>
 public sealed class ProjectProgressNoteRules(
     SampleProjectManagementDbContext dbContext,
@@ -184,6 +186,11 @@ public sealed class ProjectProgressNoteRules(
         var tasks = dbContext.ProjectTasks.AsNoTracking().Where(task => task.ProjectId == projectId);
         var total = await tasks.CountAsync(cancellationToken);
         var completed = await tasks.CountAsync(task => task.IsCompleted, cancellationToken);
+        if (context.SkillVersion is { } version)
+        {
+            return NhAssistantRuleResult.Done(_ => localizer["PlannerProgressNoteOfVersion", completed, total, version, context.SkillId!].Value);
+        }
+
         return NhAssistantRuleResult.Done(_ => localizer["PlannerProgressNote", completed, total].Value);
     }
 }

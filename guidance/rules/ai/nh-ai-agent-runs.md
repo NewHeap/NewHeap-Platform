@@ -485,7 +485,10 @@ data trigger can start a skill on (its `Subject`, `Message`, `Initiator`, `Dedup
 `When` are what every trigger on it receives; one published event serves code and data triggers
 alike), `AddSubjectSet(name, description, subjects)` for the subjects a data schedule starts a
 skill for, and `AddRuleHandler<THandler>(name, description)` for rules a data skill works by.
-Approval policies, model profiles and subject types are named by their ids as in code.
+Several skills may name the same rule handler: it reads the skill it runs for from
+`NhAssistantRuleContext.SkillId`, `SkillVersion` (the data version, `null` for a skill in code) and
+`SkillCandidate` (`true` in the run of a candidate version); all three are `null` for the agent's own
+rules outside a skill. Approval policies, model profiles and subject types are named by their ids as in code.
 `INhAssistantAgentConfiguration`, or `PUT admin/agents/{id}/skills/{skillId}` and `PUT
 admin/agents/{id}/triggers/{triggerId}`, stores a data skill (description, instructions with their
 hash, tools within the agent's own selectors, profile, rule handler, ceiling, budget and approval

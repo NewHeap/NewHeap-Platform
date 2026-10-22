@@ -2451,6 +2451,7 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
