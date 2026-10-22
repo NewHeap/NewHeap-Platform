@@ -389,9 +389,15 @@ run `npm run test:affected`: it looks at the changes that are not committed yet
 (`--branch` covers everything since `origin/main`, `--base <ref>` everything since a
 ref), runs only the .NET test projects that depend on a changed project, runs PostgreSQL alone unless the change concerns persistence
 (migrations, EF models, contexts, stores, repositories, provider projects or provider
-tests), and runs the Angular libraries and sample checks that changed. With both
-providers it builds a test project once and runs its SQL Server variants in a second
-process alongside the other tests. Use
+tests), and runs the Angular libraries and sample checks that changed. It builds
+all affected test projects once, in one `dotnet build`, and stops if that build
+fails. Then it runs up to three test projects at a time, the slowest first; with
+both providers each project runs its SQL Server variants in a second process
+alongside its other tests. The Angular libraries, one at a time, and the sample
+checks need no build and run alongside from the start. Each job's output is printed
+in one block when it ends, and a summary lists every process with its duration and
+the failures. `--max-parallel <n>` changes the bound; `--max-parallel 1` runs one
+job after the other. Use
 `--dry-run` to see the plan, `--files a,b` to plan for files before changing them,
 `--all-providers` to add SQL Server and `--all` for everything. Do not rerun suites
 the change cannot reach. Before merging to `main` and before a release, run the

@@ -1,37 +1,57 @@
 // Runs the tests a change reaches instead of every suite: the .NET test projects that depend on a
 // changed project, one database provider unless the change concerns persistence, the Angular
-// libraries that changed and the sample checks when the sample changed. With both providers a test
-// project is built once and its SQL Server variants run in a second process next to the other tests.
+// libraries that changed and the sample checks when the sample changed. One build makes every
+// affected test project first; then up to three test projects run at a time, the slowest first.
+// The Angular libraries (one at a time) and the sample checks need no build and run alongside from
+// the start. With both providers a project's SQL Server variants run in a second process next to
+// its other tests. Each job's output is printed in one block when it ends, and a summary closes.
 //
 //   npm run test:affected                    uncommitted changes: what you are working on now
 //   npm run test:affected -- --branch        everything since the merge base with origin/main (a whole PR)
 //   npm run test:affected -- --base <ref>    everything since <ref>, uncommitted included
 //   npm run test:affected -- --all-providers run SQL Server and PostgreSQL variants, side by side
 //   npm run test:affected -- --all           every test project, provider and library
+//   npm run test:affected -- --max-parallel <n>  test projects at a time (default 3); 1 runs every job in turn
 //   npm run test:affected -- --dry-run       print the plan only
 //   npm run test:affected -- --files a,b     plan and run for these files instead of the git changes
-import { readdir, readFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   affectedFrontEndLibraries,
   affectedTestProjects,
-  angularTestArguments,
-  dotnetTestArguments,
+  frontEndRoot,
   isTestProject,
+  jobReport,
   needsAllProviders,
   normalizePath,
+  outcomeSummary,
+  parseMaxParallel,
   parseProjectReferences,
   providerRuns,
-  testableFrontEndLibraries
+  runJobs,
+  sampleRoot,
+  summaryLines,
+  testableFrontEndLibraries,
+  testPlan
 } from './affected-lib.mjs';
 
 const repositoryRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
 const projectRoots = ['src/Back-end', 'examples/SampleProjectManagement/src/Back-end'];
-const frontEndRoot = 'src/Front-end';
-const sampleRoot = 'examples/SampleProjectManagement';
 const skippedFolders = new Set(['bin', 'obj', 'node_modules', '.git', '.claude', '.angular', 'dist']);
+
+/**
+ * Files of this checkout kept outside the repository: the generated solution of the affected test
+ * projects and the durations of the last run, which order the next one.
+ */
+const stateFolder = join(
+  tmpdir(),
+  'newheap-test-affected',
+  createHash('sha256').update(repositoryRoot.toLowerCase()).digest('hex').slice(0, 12));
+const durationsFile = join(stateFolder, 'durations.json');
 
 const args = process.argv.slice(2);
 const option = name => args.includes(name);
@@ -122,19 +142,15 @@ async function frontEndLibraries() {
   return testableFrontEndLibraries(angular.projects, await findSpecFiles('projects'));
 }
 
-const windowsShell = process.platform === 'win32';
-
-/** Prints one line per process and, when it failed, the end of its output. */
-function report(label, started, status, output) {
-  const seconds = Math.round((Date.now() - started) / 1000);
-  const passed = status === 0;
-  const summary = output.split(/\r?\n/).reverse().find(line => /Passed!|Failed!|TOTAL:|Executed .* of/.test(line))?.trim();
-  console.log(`${passed ? 'PASS' : 'FAIL'} ${label} (${seconds}s)${summary ? ` - ${summary.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')}` : ''}`);
-  if (!passed) {
-    console.log(output.split(/\r?\n/).slice(-60).join('\n'));
+async function previousDurations() {
+  try {
+    return JSON.parse(await readFile(durationsFile, 'utf8'));
+  } catch {
+    return {};
   }
-  return passed;
 }
+
+const windowsShell = process.platform === 'win32';
 
 /**
  * The file, arguments and options that start a process. On Windows it starts through the shell as
@@ -148,15 +164,8 @@ function processStart(command, commandArgs, cwd) {
     : [command, commandArgs, options];
 }
 
-function run(label, command, commandArgs, cwd) {
-  const started = Date.now();
-  const [file, fileArgs, options] = processStart(command, commandArgs, cwd);
-  const result = spawnSync(file, fileArgs, { ...options, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
-  return report(label, started, result.status, `${result.stdout ?? ''}${result.stderr ?? ''}`);
-}
-
-/** Like `run` without blocking, so that processes run side by side; each reports when it ends. */
-function runAlongside(label, command, commandArgs, cwd) {
+/** Runs one process and keeps its output, so that it is printed in one block when its job ends. */
+function runProcess({ label, command, args: commandArgs, cwd }) {
   const started = Date.now();
   return new Promise(done => {
     const child = spawn(...processStart(command, commandArgs, cwd));
@@ -164,29 +173,26 @@ function runAlongside(label, command, commandArgs, cwd) {
     child.stdout.on('data', chunk => output.push(chunk));
     child.stderr.on('data', chunk => output.push(chunk));
     child.on('error', error => output.push(Buffer.from(String(error))));
-    child.on('close', status => done(report(label, started, status, Buffer.concat(output).toString('utf8'))));
+    child.on('close', status => {
+      const text = Buffer.concat(output).toString('utf8');
+      done({ label, passed: status === 0, seconds: Math.round((Date.now() - started) / 1000), summary: outcomeSummary(text), output: text });
+    });
   });
 }
 
-/**
- * Tests one project with one process per provider run. Several runs share one build, made first,
- * and run at the same time.
- */
-async function testProject(project, runs) {
-  if (runs.length === 1) {
-    return run(project, 'dotnet', dotnetTestArguments(project, runs[0].filter, { windowsShell }), '.');
-  }
-  if (!run(`${project} (build)`, 'dotnet', ['build', project, '-v', 'q', '-nologo'], '.')) {
-    return false;
-  }
-  const results = await Promise.all(runs.map(providerRun => runAlongside(
-    `${project} [${providerRun.label}]`,
-    'dotnet',
-    dotnetTestArguments(project, providerRun.filter, { noBuild: true, windowsShell }),
-    '.')));
-  return results.every(Boolean);
+/** Runs the processes of one job side by side and prints their results together when all have ended. */
+async function runJob(job) {
+  const started = Date.now();
+  const results = await Promise.all(job.processes.map(runProcess));
+  console.log(jobReport(results));
+  return { job, results, seconds: Math.round((Date.now() - started) / 1000) };
 }
 
+const maxParallel = parseMaxParallel(option('--max-parallel') ? valueOf('--max-parallel') ?? '' : undefined);
+if (maxParallel === null) {
+  console.error('--max-parallel needs a whole number of at least 1.');
+  process.exit(2);
+}
 const everything = option('--all');
 const explicitFiles = valueOf('--files')?.split(',').map(file => normalizePath(file.trim())).filter(Boolean);
 const base = everything || explicitFiles ? null : comparisonBase();
@@ -204,6 +210,19 @@ const allProviders = everything || option('--all-providers') || needsAllProvider
 const runs = providerRuns(allProviders);
 const angularLibraries = everything ? libraries : affectedFrontEndLibraries(files, libraries);
 const sampleChanged = everything || files.some(file => file.startsWith(`${sampleRoot}/`));
+const previousSeconds = await previousDurations();
+const plan = testPlan({
+  repositoryRoot,
+  testProjects,
+  runs,
+  angularLibraries,
+  sampleChecks: sampleChanged,
+  maxParallel,
+  solutionPath: join(stateFolder, 'affected-tests.slnx'),
+  previousSeconds,
+  windowsShell
+});
+const sequential = plan.limits.total === 1;
 
 console.log(everything
   ? 'Scope: everything (--all).'
@@ -213,33 +232,63 @@ console.log(everything
       ? `Scope: ${files.length} changed files since ${base.slice(0, 10)}.`
       : `Scope: ${files.length} uncommitted changed files (--branch covers everything since origin/main).`);
 console.log(allProviders
-  ? 'Database providers: SQL Server and PostgreSQL. Each project is built once, then two test processes run at the same time: '
+  ? 'Database providers: SQL Server and PostgreSQL. Each test project runs two test processes at the same time: '
     + runs.map(providerRun => `${providerRun.label} (--filter "${providerRun.filter}")`).join(' next to ') + '.'
   : `Database providers: PostgreSQL only (--filter "${runs[0].filter}"; no persistence change; --all-providers runs both).`);
-console.log(`.NET test projects: ${testProjects.length === 0 ? 'none' : ''}`);
-testProjects.forEach(project => console.log(`  ${project}`));
-console.log(`Angular libraries: ${angularLibraries.length === 0 ? 'none' : angularLibraries.join(', ')}`);
+console.log(plan.build
+  ? `Build, once before any .NET test runs: dotnet ${plan.build.processes[0].args.join(' ')}${plan.build.solution ? ' (a generated solution of the test projects below)' : ''}`
+  : 'Build: none');
+console.log(`.NET test projects: ${testProjects.length === 0
+  ? 'none'
+  : sequential
+    ? 'slowest first, one at a time (--max-parallel 1)'
+    : `slowest first, up to ${maxParallel} at a time (--max-parallel <n>)`}`);
+plan.jobs
+  .filter(job => job.lane === 'dotnet')
+  .forEach(job => console.log(`  ${job.name}${previousSeconds[job.name] === undefined ? '' : ` (last run ${previousSeconds[job.name]}s)`}`));
+console.log(`Angular libraries: ${angularLibraries.length === 0
+  ? 'none'
+  : `${angularLibraries.join(', ')}; one at a time, ${sequential ? 'after the .NET tests' : 'from the start, alongside the build and the .NET tests'}`}`);
 if (librariesWithoutSpecs.length > 0) {
   console.log(`Angular libraries without specs, not run: ${librariesWithoutSpecs.join(', ')}`);
 }
-console.log(`Sample checks: ${sampleChanged ? 'npm run verify:samples' : 'none'}`);
+console.log(`Sample checks: ${sampleChanged ? `npm run verify:samples; ${sequential ? 'last' : 'from the start, alongside the rest'}` : 'none'}`);
 
 if (option('--dry-run')) {
   process.exit(0);
 }
 
-let passed = true;
-for (const project of testProjects) {
-  passed = await testProject(project, runs) && passed;
-}
-for (const library of angularLibraries) {
-  passed = run(`ng test ${library}`, 'npx', angularTestArguments(library), frontEndRoot) && passed;
-}
-if (sampleChanged) {
-  passed = run('sample verify:samples', 'npm', ['run', 'verify:samples'], sampleRoot) && passed;
+/** Keeps how long each .NET test project took, so that the next run starts the slowest first. */
+async function keepDurations(jobResults) {
+  const durations = { ...previousSeconds };
+  jobResults
+    .filter(jobResult => jobResult?.job.lane === 'dotnet')
+    .forEach(jobResult => {
+      durations[jobResult.job.name] = jobResult.seconds;
+    });
+  try {
+    await mkdir(stateFolder, { recursive: true });
+    await writeFile(durationsFile, `${JSON.stringify(durations, null, 2)}\n`, 'utf8');
+  } catch {
+    // The durations only order the next run; without them it falls back to the typical durations.
+  }
 }
 
-console.log(passed
-  ? 'All affected tests passed. Run the validators AGENTS.md lists for the files you changed.'
-  : 'Affected tests failed.');
-process.exit(passed ? 0 : 1);
+const started = Date.now();
+if (plan.build?.solution) {
+  await mkdir(stateFolder, { recursive: true });
+  await writeFile(plan.build.solution.path, plan.build.solution.content, 'utf8');
+}
+const buildFailed = jobResult => jobResult.job === plan.build && !jobResult.results[0].passed;
+const jobResults = await runJobs(plan.jobs, plan.limits, runJob, { stopAfter: buildFailed });
+await keepDurations(jobResults);
+const results = jobResults.filter(Boolean).flatMap(jobResult => jobResult.results);
+summaryLines(results, Math.round((Date.now() - started) / 1000)).forEach(line => console.log(line));
+if (jobResults.some(jobResult => jobResult && buildFailed(jobResult))) {
+  const notRun = plan.jobs.filter((_, index) => !jobResults[index]).map(job => job.name);
+  console.log(`The build failed, so no .NET test ran; the run stopped. Run dotnet ${plan.build.processes[0].args.join(' ')} to see every error.`);
+  if (notRun.length > 0) {
+    console.log(`Not run: ${notRun.join(', ')}`);
+  }
+}
+process.exitCode = results.every(result => result.passed) ? 0 : 1;
