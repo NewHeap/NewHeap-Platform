@@ -4990,6 +4990,36 @@
         "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agent-editor.component.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
       ]
+    },
+    {
+      "id": "SPM-308",
+      "categoryId": "18",
+      "title": "The project planner is not started again by its own status change of a project, while its change made on another project and a person's change still start it",
+      "surface": "`NhAssistantTriggerEventBuilder.Filter(name, description, (evt, ctx) => ...)` with `NhAssistantTriggerFilterContext` (`AgentId`, `SkillId`, `TriggerId`, `AgentActorId`, `Subject`); `Filters` of `NhAssistantDataTriggerRequest` and `NhAssistantDataTriggerDto`; `Filters` of a trigger event's `NhAssistantRunBlockDto` in `GET admin/run-catalog`; `NhAssistantTriggerReasons.Filtered` and `FilterMissing`; `NhAssistantRunConfigurationProblems.UnknownFilter`; `assistant-trigger-filter-not-found`; `NhAssistantAgentConfigurationLimits.MaxTriggerFilters`; `NhAiInvocationContext.ActorId` and `NhAiAgentInvocationScopes.Current` in a tool handler; the TriggerEventFilters migrations for SQL Server and PostgreSQL; the filter check boxes of the data trigger form in `NhAssistantAgentRunConfigurationComponent`; `filters` of `RunBlock`, `DataTrigger` and `DataTriggerRequest` and of the mock admin API",
+      "outcome": "The planner's composition registers the status-changed event with the named filter `not-own-change`. The project service stamps the cause on every status event: the person who changed it, or the agent whose status tool changed it with the subject the agent worked in, which the tool reads from its invocation context and the ambient agent invocation scope. The application adds a status follow-up trigger to the planner that selects the filter. The filter runs after the event's subject function and skips the event only when the trigger's own agent changed the status on the subject the trigger fires for: the planner's own change of the project is ignored as `filtered`, not audited, while its change made while it worked on another project and a person's change start the follow-up. The run catalog lists the event's filter with its description, and the administration's trigger form offers it as a check box.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Events/ProjectEvents.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAgentCause.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022182415_TriggerEventFilters.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022182423_TriggerEventFilters.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerEventFilterTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-trigger-form.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-trigger-form.component.html",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-trigger-filters.spec.ts"
+      ]
     }
   ]
 }

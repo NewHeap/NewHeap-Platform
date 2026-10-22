@@ -234,7 +234,17 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       // to agents that work on projects.
       triggerEvents: [
         { name: 'project.task-completed', description: 'A task of a project was completed.', subjectType: 'project' },
-        { name: 'project.created', description: 'A project was created.', subjectType: 'project' }
+        { name: 'project.created', description: 'A project was created.', subjectType: 'project' },
+        // SPM-308: the status event offers a filter that a data trigger selects, so the planner does
+        // not start itself again on a project whose status it changed there.
+        {
+          name: 'project.status-changed',
+          description: 'The status of a project changed.',
+          subjectType: 'project',
+          filters: [
+            { name: 'not-own-change', description: 'Skips a status change the agent made itself while it worked on this project.' }
+          ]
+        }
       ],
       subjectSets: [{ name: 'active-projects-with-deadline-soon', description: 'Active projects with a deadline in the next two weeks.' }],
       ruleHandlers: [
