@@ -246,6 +246,16 @@ public sealed class NhBackgroundOperationRunner
         }
     }
 
+    /// <summary>
+    /// Refreshes the attempt's heartbeat and leases every <c>HeartbeatInterval</c>. The beat and the
+    /// attempt's own writes take the same operation lock; through the claim's write gate the beat
+    /// never waits for that lock behind one of those writes, so it stops the attempt as contention
+    /// only for another holder. A beat that falls due while an own write is in progress is skipped:
+    /// that write shows the attempt is alive. The next beat does not skip again but waits for the
+    /// writes in progress to end, so a steady stream of writes cannot starve the heartbeat. A skipped
+    /// or waiting beat refreshes nothing, so an own write that never ends lets the heartbeat go stale
+    /// and reconciliation recovers the attempt after <c>StaleAttemptTimeout</c>.
+    /// </summary>
     private async Task RunHeartbeatAsync(
         NhBackgroundOperationAttemptClaim claim,
         IReadOnlyList<INhBackgroundOperationLeaseHandle> leases,
@@ -253,11 +263,38 @@ public sealed class NhBackgroundOperationRunner
         NhBackgroundOperationExecutionStopState stopState)
     {
         using var timer = new PeriodicTimer(_options.HeartbeatInterval);
+        var writeGate = claim.WriteGate;
+        var skippedBeat = false;
         try
         {
             while (await timer.WaitForNextTickAsync(executionSource.Token))
             {
-                var heartbeatResult = await _persistence.HeartbeatAsync(claim, CancellationToken.None);
+                if (!writeGate.TryEnterBeat())
+                {
+                    if (!skippedBeat)
+                    {
+                        skippedBeat = true;
+                        _logger.LogDebug(
+                            "Skipped a heartbeat of background operation {OperationId} attempt {AttemptId} while the attempt's own write is in progress.",
+                            claim.OperationId,
+                            claim.AttemptId);
+                        continue;
+                    }
+
+                    await writeGate.EnterBeatAsync(executionSource.Token);
+                }
+
+                NhBackgroundOperationHeartbeatResult heartbeatResult;
+                try
+                {
+                    heartbeatResult = await _persistence.HeartbeatAsync(claim, CancellationToken.None);
+                }
+                finally
+                {
+                    writeGate.ExitBeat();
+                }
+
+                skippedBeat = false;
                 if (heartbeatResult == NhBackgroundOperationHeartbeatResult.CancellationRequested)
                 {
                     stopState.TrySet(NhBackgroundOperationExecutionStopReason.DurableCancellation);

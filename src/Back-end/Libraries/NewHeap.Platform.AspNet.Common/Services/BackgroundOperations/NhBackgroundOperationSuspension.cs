@@ -276,6 +276,7 @@ internal sealed partial class NhBackgroundOperationPersistence
                 "The background-operation signal contract exceeds the checkpoint limit.");
         }
 
+        using var ownWrite = await claim.WriteGate.EnterWriteAsync(cancellationToken);
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
