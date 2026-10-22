@@ -13,7 +13,8 @@ import { finalize } from 'rxjs/operators';
 import {
   ProjectApiService,
   ProjectCollectionRequestOptions,
-  ProjectViewModel
+  ProjectViewModel,
+  SampleAuthService
 } from 'sample-project-management-common';
 
 const projectIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,6 +27,11 @@ const projectIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
  * SPM-301: this page is where a project's agent work opens. The server names the project type and
  * links every project the assistant shows here, with `OpenAt("/management/intake-reviews?project={id}")`;
  * the page chooses the project of the link, also when a link in its own inbox is followed.
+ *
+ * SPM-310: the inbox is grouped. The project resolver names each project's division as its parent,
+ * which every proposal records, so the inbox shows a division with its projects' proposals, per
+ * project and run, says how many of a group it shows and selects only those with "Select group". It
+ * marks what came since the person's last visit, and can show only the active division's proposals.
  *
  * Rejecting a proposal in either view asks, optionally and after the decision, what was wrong.
  * Assistant administrators also see the reviewer's feedback report: the server reports
@@ -54,6 +60,10 @@ export class IntakeReviewsPageComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly agentId = 'sample-project-intake-reviewer';
+  /** SPM-310: the division the person works in now, for the inbox's division filter. */
+  readonly activeDivisionId = inject(SampleAuthService).getAuthorization()?.activeDivision?.id ?? null;
+  /** SPM-310: whether the inbox shows the active division's proposals only. */
+  readonly activeDivisionOnly = signal(false);
   readonly projects = signal<ProjectViewModel[]>([]);
   readonly projectId = signal<string | null>(null);
   readonly loading = signal(true);

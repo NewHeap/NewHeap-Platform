@@ -30,9 +30,24 @@ public static class ProjectSubjects
     /// </summary>
     public const string ViewEveryProjectPermission = "app.project.view";
 
+    /// <summary>
+    /// SPM-310: the kind of the parent every project names, its division. The sample's agents work on
+    /// projects, and a project belongs to one division, so the grouped approval inbox shows a division
+    /// with the proposals of its projects. The type needs no resolver of its own: a parent is a label.
+    /// </summary>
+    public const string DivisionParentType = "division";
+
     public static NhAiSubjectRef For(Guid projectId)
     {
         return new NhAiSubjectRef(Type, IdOf(projectId));
+    }
+
+    /// <summary>
+    /// SPM-310: the parent of a project in the given division.
+    /// </summary>
+    public static NhAiSubjectParent ParentOf(Guid divisionId, string divisionName)
+    {
+        return new NhAiSubjectParent(new NhAiSubjectRef(DivisionParentType, divisionId.ToString("D")), divisionName);
     }
 
     /// <summary>
@@ -52,7 +67,9 @@ public static class ProjectSubjects
 /// projects by key or name for people who choose a project, among the projects they own or are a
 /// member of; the assistant still checks every result with <see cref="ResolveAsync"/>. SPM-302:
 /// everyone else with the application-wide project view permission reads every project, as the
-/// application's own project pages let them.
+/// application's own project pages let them. SPM-310: every description names the project's division as
+/// its parent, which proposals record when they are made, so the grouped approval inbox groups them per
+/// division.
 /// </summary>
 public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContext dbContext, IServiceProvider services)
     : INhAiSubjectAccessResolver, INhAiSubjectSearch
@@ -75,6 +92,7 @@ public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContex
             {
                 project.Id,
                 project.DivisionId,
+                DivisionName = project.Division.Name,
                 project.Key,
                 project.Name,
                 project.OwnerUserId,
@@ -86,6 +104,7 @@ public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContex
             yield return Describe(
                 ProjectSubjects.For(project.Id),
                 project.DivisionId,
+                project.DivisionName,
                 project.Key,
                 project.Name,
                 project.OwnerUserId,
@@ -108,6 +127,7 @@ public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContex
             .Select(item => new
             {
                 item.DivisionId,
+                DivisionName = item.Division.Name,
                 item.Key,
                 item.Name,
                 item.OwnerUserId,
@@ -119,7 +139,7 @@ public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContex
             return null;
         }
 
-        return Describe(subject, project.DivisionId, project.Key, project.Name, project.OwnerUserId, project.LastModifiedDateTime);
+        return Describe(subject, project.DivisionId, project.DivisionName, project.Key, project.Name, project.OwnerUserId, project.LastModifiedDateTime);
     }
 
     /// <summary>
@@ -143,6 +163,7 @@ public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContex
     private static NhAiSubjectInfo Describe(
         NhAiSubjectRef subject,
         Guid divisionId,
+        string divisionName,
         string key,
         string name,
         Guid? ownerUserId,
@@ -155,7 +176,9 @@ public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContex
             // closes as stale instead of executing.
             Version = lastModified.UtcTicks.ToString(CultureInfo.InvariantCulture),
             DisplayName = key + " — " + name,
-            ResponsibleActorId = ownerUserId?.ToString("D")
+            ResponsibleActorId = ownerUserId?.ToString("D"),
+            // SPM-310: the project's division, under which the grouped inbox shows its proposals.
+            Parent = ProjectSubjects.ParentOf(divisionId, divisionName)
         };
     }
 

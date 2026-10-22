@@ -5033,6 +5033,33 @@
         "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-trigger-filters.spec.ts"
       ]
+    },
+    {
+      "id": "SPM-310",
+      "categoryId": "18",
+      "title": "The approval inbox in the management portal groups the intake reviewer's proposals per division, the parent every project names, and marks what came since the last visit",
+      "surface": "`NhAiSubjectInfo.Parent` with `NhAiSubjectParent` from `INhAiSubjectAccessResolver.DescribeAsync`, recorded on every proposal as `AssistantApproval.ParentSubjectType`, `ParentSubjectId` and `ParentDisplayName` by the ProposalParents migrations for SQL Server and PostgreSQL; `NhAssistantProposalDto.Parent` with `NhAssistantProposalParentDto`; `GET approvals/inbox` with `divisionId`, `runId` and `grouped=true`, `NhAssistantInboxDto.Groups` with `NhAssistantInboxGroupDto` and `NhAssistantInboxSubjectGroupDto`, `ScopeKey`, `LastVisitedAt` and `NewApprovalIds`; `POST approvals/inbox/visit` with `NhAssistantInboxVisitDto` and the reserved group id `nh-inbox` that `AddAgentGroup` refuses with every `nh-` id; the `divisionId`, `runId`, `grouped`, `groupByRun`, `markNew` and `recordVisit` inputs of `nh-assistant-agent-inbox`, the `groups`, `groupByRun` and `newIds` inputs of `nh-assistant-agent-proposals`, deciding a run's proposals together in `nh-assistant-run-result`; `NhAssistantAgentRunApiService.visitInbox` with `AgentInboxFilter.divisionId`, `runId` and `grouped`, `AgentInbox.groups`, `AgentInboxGroup`, `AgentInboxSubjectGroup`, `AgentInboxVisit` and `AgentProposalParent`; `parent`, `divisionId`, `createdAt` and `expiresAt` of `NhAssistantMockProposal` and the mock API's grouped inbox, visits and run proposals",
+      "outcome": "The project resolver names each project's division as its parent, and every proposal of the intake reviewer records it when it is made. The intake reviews page shows the inbox grouped: a division with its projects' proposals, per project and run, with how many of a group the page shows of its total and whether the group continues on another page; \"Select group\" selects only the shown pending proposals the person may decide, and the page can show only the active division's proposals. Proposals made since the person's last visit of the inbox in its scope are marked new, also those that arrive while it is shown, and showing the inbox records the visit once.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts",
+        "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunEndpoints.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInboxVisits.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInboxOverviewTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-inbox.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-result.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-overview.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-proposals.ts"
+      ]
     }
   ]
 }

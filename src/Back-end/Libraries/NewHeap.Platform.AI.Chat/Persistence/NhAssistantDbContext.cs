@@ -231,6 +231,9 @@ public sealed class NhAssistantDbContext : DbContext
             approval.Property(item => item.PolicyJson).HasMaxLength(4_000);
             approval.Property(item => item.InitiatorActorId).HasMaxLength(256);
             approval.Property(item => item.SubjectVersion).HasMaxLength(128);
+            approval.Property(item => item.ParentSubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength);
+            approval.Property(item => item.ParentSubjectId).HasMaxLength(NhAiSubjectRef.MaxIdLength);
+            approval.Property(item => item.ParentDisplayName).HasMaxLength(NhAiSubjectParent.MaxDisplayNameLength);
             approval.Property(item => item.GrantSource)
                 .HasConversion<string>()
                 .HasMaxLength(16)

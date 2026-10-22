@@ -559,3 +559,51 @@ pre {
   border-top: 1px solid var(--nha-border);
   padding-top: 8px;
 }
+
+// A proposal made since the person's last visit of the inbox.
+.card.new {
+  border-color: var(--nha-accent);
+}
+
+// A group of the grouped inbox: a parent subject with its own proposals and those of its children.
+.proposal-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  border-top: 1px solid var(--nha-border);
+  padding-top: 10px;
+}
+
+.proposal-group-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-width: 0;
+
+  h4 {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: 15px;
+    font-weight: 700;
+  }
+}
+
+.proposal-subject-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 4px 0 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.proposal-run-header {
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}

@@ -267,6 +267,34 @@ public sealed record NhAssistantProposalDto(
     /// a run for …" with a link to that run's thread.
     /// </summary>
     public NhAssistantProposalOriginDto? PlacedBy { get; init; }
+
+    /// <summary>
+    /// The subject the proposal's subject belonged to when the proposal was made, such as the project
+    /// of a task, as the application's subject access resolver described it; <see langword="null"/>
+    /// without one. The grouped inbox groups by it.
+    /// </summary>
+    public NhAssistantProposalParentDto? Parent { get; init; }
+}
+
+/// <summary>
+/// The subject a proposal's subject belonged to when the proposal was made. The name is the one
+/// recorded then; the type's name and the link follow the application's registration of the type,
+/// when it registered one.
+/// </summary>
+public sealed record NhAssistantProposalParentDto(
+    string SubjectType,
+    string SubjectId,
+    string? DisplayName)
+{
+    /// <summary>
+    /// The name of the parent's type in the caller's language, when the application named the type.
+    /// </summary>
+    public string? SubjectTypeName { get; init; }
+
+    /// <summary>
+    /// Where the application shows the parent; <see langword="null"/> without a link template.
+    /// </summary>
+    public string? SubjectLink { get; init; }
 }
 
 /// <summary>
@@ -773,9 +801,91 @@ public sealed record NhAssistantConsultationListDto(
     IReadOnlyList<NhAssistantConsultationDto> Items,
     int Total);
 
+/// <summary>
+/// One page of the approval inbox and how many proposals it has in total.
+/// </summary>
 public sealed record NhAssistantInboxDto(
     IReadOnlyList<NhAssistantProposalDto> Items,
-    int Total);
+    int Total)
+{
+    /// <summary>
+    /// The scope whose visits mark what is new: <c>global</c>, or <c>division:{id}</c> for an inbox
+    /// filtered on a division.
+    /// </summary>
+    public string ScopeKey { get; init; } = "global";
+
+    /// <summary>
+    /// When the caller last looked at the inbox in this scope (<c>POST approvals/inbox/visit</c>),
+    /// before this read; <see langword="null"/> before the first visit.
+    /// </summary>
+    public DateTimeOffset? LastVisitedAt { get; init; }
+
+    /// <summary>
+    /// The proposals on this page that were made after <see cref="LastVisitedAt"/>; before the first
+    /// visit every proposal on the page.
+    /// </summary>
+    public IReadOnlyList<Guid> NewApprovalIds { get; init; } = [];
+
+    /// <summary>
+    /// With <c>grouped=true</c>, the groups on this page in order, each with its subjects. The items
+    /// are contiguous per group and subject: the first <see cref="NhAssistantInboxGroupDto.Count"/>
+    /// items belong to the first group, and so on. <see langword="null"/> for the flat inbox.
+    /// </summary>
+    public IReadOnlyList<NhAssistantInboxGroupDto>? Groups { get; init; }
+}
+
+/// <summary>
+/// One group on a page of the grouped inbox: the parent its proposals recorded, or the subject of
+/// proposals without a parent, which holds that subject's own proposals and those of its children.
+/// </summary>
+/// <param name="SubjectType">The group's subject type, such as <c>project</c>.</param>
+/// <param name="SubjectId">The group's subject id.</param>
+/// <param name="DisplayName">The group's name: its subject's own name, or the name its proposals recorded for the parent.</param>
+/// <param name="Count">How many of the page's items belong to the group.</param>
+/// <param name="Total">How many proposals of the inbox, with its filters, belong to the group.</param>
+/// <param name="ContinuesFromPreviousPage">The group started on the page before.</param>
+/// <param name="ContinuesOnNextPage">The group goes on on the page after.</param>
+/// <param name="Subjects">The subjects of the group on this page, in order, the group's own subject first.</param>
+public sealed record NhAssistantInboxGroupDto(
+    string SubjectType,
+    string SubjectId,
+    string? DisplayName,
+    int Count,
+    int Total,
+    bool ContinuesFromPreviousPage,
+    bool ContinuesOnNextPage,
+    IReadOnlyList<NhAssistantInboxSubjectGroupDto> Subjects)
+{
+    /// <summary>
+    /// The name of the group's subject type in the caller's language, when the application named it.
+    /// </summary>
+    public string? SubjectTypeName { get; init; }
+
+    /// <summary>
+    /// Where the application shows the group's subject; <see langword="null"/> without a link template.
+    /// </summary>
+    public string? SubjectLink { get; init; }
+}
+
+/// <summary>
+/// One subject within a group on a page of the grouped inbox. Its name and link are those of its items.
+/// </summary>
+/// <param name="Count">How many of the page's items belong to the subject in this group.</param>
+/// <param name="Total">How many proposals of the inbox belong to the subject in this group.</param>
+public sealed record NhAssistantInboxSubjectGroupDto(
+    string SubjectType,
+    string SubjectId,
+    int Count,
+    int Total,
+    bool ContinuesFromPreviousPage,
+    bool ContinuesOnNextPage);
+
+/// <summary>
+/// A recorded visit of the approval inbox in one scope (<c>POST approvals/inbox/visit</c>).
+/// </summary>
+/// <param name="ScopeKey"><c>global</c>, or <c>division:{id}</c> for the inbox of one division.</param>
+/// <param name="VisitedAt">When the visit was recorded.</param>
+public sealed record NhAssistantInboxVisitDto(string ScopeKey, DateTimeOffset VisitedAt);
 
 /// <param name="Decision"><c>approve</c> or <c>reject</c>.</param>
 public sealed record NhAssistantProposalDecisionRequest(
@@ -834,6 +944,7 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantProposalDto))]
 [JsonSerializable(typeof(NhAssistantProposalDto[]))]
 [JsonSerializable(typeof(NhAssistantInboxDto))]
+[JsonSerializable(typeof(NhAssistantInboxVisitDto))]
 [JsonSerializable(typeof(NhAssistantProposalDecisionRequest))]
 [JsonSerializable(typeof(NhAssistantBulkDecisionRequest))]
 [JsonSerializable(typeof(NhAssistantBulkDecisionDto))]
@@ -947,6 +1058,10 @@ internal static class NhAssistantAgentRunDtoMapper
             // The run's subject follows in CompleteAsync.
             PlacedBy = approval.PlacedFromConversationId is { } origin
                 ? new NhAssistantProposalOriginDto(origin, approval.RunId, null)
+                : null,
+            // The type's name and link follow in CompleteAsync.
+            Parent = approval is { ParentSubjectType: { } parentType, ParentSubjectId: { } parentId }
+                ? new NhAssistantProposalParentDto(parentType, parentId, approval.ParentDisplayName)
                 : null
         };
     }
@@ -990,10 +1105,28 @@ internal static class NhAssistantAgentRunDtoMapper
                     SubjectDisplayName = DisplayNameOf(subjects, proposal.SubjectType, proposal.SubjectId, proposal.SubjectDisplayName),
                     SubjectTypeName = typeName,
                     SubjectLink = link,
-                    PlacedBy = proposal.PlacedBy is { } placedBy ? OriginOf(subjects, placedBy, origins) : null
+                    PlacedBy = proposal.PlacedBy is { } placedBy ? OriginOf(subjects, placedBy, origins) : null,
+                    Parent = proposal.Parent is { } parent ? ParentOf(subjects, parent) : null
                 };
             })
             .ToArray();
+    }
+
+    /// <summary>
+    /// The parent of a proposal's subject with the name of its type and its link, when the application
+    /// registered the type.
+    /// </summary>
+    private static NhAssistantProposalParentDto ParentOf(
+        NhAssistantSubjectAccessService subjects,
+        NhAssistantProposalParentDto parent)
+    {
+        var (typeName, link) = SubjectOf(subjects, parent.SubjectType, parent.SubjectId);
+        return parent with
+        {
+            DisplayName = DisplayNameOf(subjects, parent.SubjectType, parent.SubjectId, parent.DisplayName),
+            SubjectTypeName = typeName,
+            SubjectLink = link
+        };
     }
 
     /// <summary>

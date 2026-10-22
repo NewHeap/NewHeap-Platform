@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -16,6 +16,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { Observable, Subscription, forkJoin } from 'rxjs';
 import {
   AgentExecutionResolution,
+  AgentInboxGroup,
   AgentProposal,
   AgentProposalDecision,
   AgentProposalDecisionRight,
@@ -31,6 +32,48 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+
+/** The proposals of one run within a subject of a grouped list, in the order the list gave them. */
+interface NhAssistantRunSection {
+  key: string;
+  runId: string | null;
+  agentId: string;
+  /** When the run's first proposal on the page was made. */
+  proposedAt: string;
+  items: AgentProposal[];
+}
+
+/** One subject within a group of a grouped list. */
+interface NhAssistantSubjectSection {
+  key: string;
+  subjectType: string;
+  subjectId: string;
+  label: string;
+  typeName: string | null;
+  link: string | null;
+  /** The group's own subject, whose proposals stand directly under the group's header. */
+  own: boolean;
+  count: number;
+  total: number;
+  runs: NhAssistantRunSection[];
+}
+
+/** One group of a grouped list, such as a parent subject of the grouped inbox. */
+interface NhAssistantGroupSection {
+  key: string;
+  subjectType: string;
+  subjectId: string;
+  label: string;
+  typeName: string | null;
+  link: string | null;
+  count: number;
+  total: number;
+  continuesFromPreviousPage: boolean;
+  continuesOnNextPage: boolean;
+  subjects: NhAssistantSubjectSection[];
+  /** The group's pending proposals on this page that the caller may decide: what "Select group" selects. */
+  selectableIds: string[];
+}
 
 /** A feedback question: after a rejection above the list, or from a card's own action. */
 interface NhAssistantFeedbackRequest {
@@ -56,13 +99,17 @@ interface NhAssistantFeedbackRequest {
  * replaced, as a closed card when it closes while shown, or when an approval is refused because of
  * it, until the person dismisses it. It reads those proposals by id with one lookup, never through
  * their threads. A proposal that a run placed here from another subject, such as a run for the whole
- * application, says so and offers that run's conversation through `openConversation`.
+ * application, says so and offers that run's conversation through `openConversation`. With `groups`
+ * from the grouped inbox the list shows a header per group and per subject, optionally per run
+ * (`groupByRun`), and "Select group" selects only the group's pending proposals in this list that
+ * the caller may decide, never those on another page. `newIds` marks proposals as new.
  */
 @Component({
   selector: 'nh-assistant-agent-proposals',
   standalone: true,
   imports: [
     DatePipe,
+    NgTemplateOutlet,
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
@@ -94,6 +141,16 @@ export class NhAssistantAgentProposalsComponent {
    * it closes.
    */
   readonly holdClosedCards = input(false);
+  /**
+   * The groups of the grouped inbox (`AgentInbox.groups`) for `proposals` in the order the inbox gave
+   * them: the first `count` proposals belong to the first group, and so on. Without groups, or when
+   * they do not describe `proposals`, the list is flat.
+   */
+  readonly groups = input<readonly AgentInboxGroup[] | null>(null);
+  /** Shows a header per run within a subject of a grouped list. */
+  readonly groupByRun = input(false);
+  /** Proposals to mark as new, by approval id, for example those made since the last visit of the inbox. */
+  readonly newIds = input<ReadonlySet<string> | null>(null);
   /** Emits after a proposal or its feedback changed, so the host reloads its list. */
   readonly changed = output<void>();
   /**
@@ -122,6 +179,27 @@ export class NhAssistantAgentProposalsComponent {
     return [...held, ...this.proposals().filter(proposal => !heldIds.has(proposal.approvalId))];
   });
   private readonly lookups = new Subscription();
+  /**
+   * The grouped list: the held closed cards stay above it; `null` for a flat list, or when the groups
+   * do not describe the proposals.
+   */
+  readonly sections = computed<NhAssistantGroupSection[] | null>(() => {
+    const groups = this.groups();
+    const items = this.proposals();
+    if (!groups || groups.reduce((sum, group) => sum + group.count, 0) !== items.length) {
+      return null;
+    }
+
+    const heldIds = new Set(this.held().map(proposal => proposal.approvalId));
+    const sections: NhAssistantGroupSection[] = [];
+    let offset = 0;
+    for (const group of groups) {
+      const members = items.slice(offset, offset + group.count);
+      offset += group.count;
+      sections.push(this.groupSection(group, members, heldIds));
+    }
+    return sections;
+  });
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
@@ -158,6 +236,32 @@ export class NhAssistantAgentProposalsComponent {
     return origin.subjectTypeName
       ? { key: 'nh-assistant.agent-runs.proposal.placed-by.object-named', params: { type: origin.subjectTypeName } }
       : { key: 'nh-assistant.agent-runs.proposal.placed-by.object', params: {} };
+  }
+
+  /** Whether the proposal is marked as new. */
+  isNew(proposal: AgentProposal): boolean {
+    return this.newIds()?.has(proposal.approvalId) ?? false;
+  }
+
+  /** Whether every proposal "Select group" would select in the group is selected. */
+  groupSelected(group: NhAssistantGroupSection): boolean {
+    const selected = this.selected();
+    return group.selectableIds.length > 0 && group.selectableIds.every(id => selected.has(id));
+  }
+
+  /**
+   * Selects the group's pending proposals in this list that the caller may decide, or deselects them
+   * when all are selected. Proposals of the group on another page are never selected: an approver
+   * decides only what they see.
+   */
+  toggleGroup(group: NhAssistantGroupSection): void {
+    const next = new Set(this.selected());
+    if (this.groupSelected(group)) {
+      group.selectableIds.forEach(id => next.delete(id));
+    } else {
+      group.selectableIds.forEach(id => next.add(id));
+    }
+    this.selected.set(next);
   }
 
   /** True when the newer proposal that replaced this one is in the list. */
@@ -317,6 +421,50 @@ export class NhAssistantAgentProposalsComponent {
     }, { injector: this.injector });
   }
 
+  private groupSection(group: AgentInboxGroup, members: AgentProposal[], heldIds: ReadonlySet<string>): NhAssistantGroupSection {
+    const key = `${group.subjectType}|${group.subjectId}`;
+    const subjects: NhAssistantSubjectSection[] = [];
+    let offset = 0;
+    for (const subject of group.subjects) {
+      const items = members
+        .slice(offset, offset + subject.count)
+        .filter(proposal => !heldIds.has(proposal.approvalId)
+          && proposal.subjectType === subject.subjectType
+          && proposal.subjectId === subject.subjectId);
+      offset += subject.count;
+      const first = items[0];
+      subjects.push({
+        key: `${key}|${subject.subjectType}|${subject.subjectId}`,
+        subjectType: subject.subjectType,
+        subjectId: subject.subjectId,
+        label: first?.subjectDisplayName ?? subject.subjectId,
+        typeName: first?.subjectTypeName ?? null,
+        link: first?.subjectLink ?? null,
+        own: subject.subjectType === group.subjectType && subject.subjectId === group.subjectId,
+        count: subject.count,
+        total: subject.total,
+        runs: runsOf(items)
+      });
+    }
+
+    return {
+      key,
+      subjectType: group.subjectType,
+      subjectId: group.subjectId,
+      label: group.displayName ?? group.subjectId,
+      typeName: group.subjectTypeName ?? null,
+      link: group.subjectLink ?? null,
+      count: group.count,
+      total: group.total,
+      continuesFromPreviousPage: group.continuesFromPreviousPage,
+      continuesOnNextPage: group.continuesOnNextPage,
+      subjects,
+      selectableIds: members
+        .filter(proposal => !heldIds.has(proposal.approvalId) && proposal.status === 'pending' && this.mayDecide(proposal))
+        .map(proposal => proposal.approvalId)
+    };
+  }
+
   private ask(approvalIds: string[], summary: string | null): void {
     this.feedback.set({ approvalIds, initial: null, placement: 'prompt', summary, saved: false });
   }
@@ -387,6 +535,27 @@ const staleCode = 'assistant-proposal-stale';
 function summaryOf(proposal: AgentProposal): string {
   return proposal.presentation?.summary
     ?? `${proposal.subjectDisplayName ?? proposal.subjectId} · ${proposal.presentation?.toolDisplayName ?? proposal.toolId}`;
+}
+
+/** The proposals of each run in a row, in the order given. */
+function runsOf(items: readonly AgentProposal[]): NhAssistantRunSection[] {
+  const runs: NhAssistantRunSection[] = [];
+  for (const proposal of items) {
+    const last = runs.at(-1);
+    if (last && last.runId === proposal.runId) {
+      last.items.push(proposal);
+      continue;
+    }
+
+    runs.push({
+      key: `${proposal.runId ?? 'none'}|${proposal.approvalId}`,
+      runId: proposal.runId,
+      agentId: proposal.agentId,
+      proposedAt: proposal.createdAt,
+      items: [proposal]
+    });
+  }
+  return runs;
 }
 
 /** True for a proposal a newer proposal for the same objects replaced. */

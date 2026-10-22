@@ -12,10 +12,12 @@ import {
   untracked
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
-import { Subscription } from 'rxjs';
+import { Subscription, forkJoin } from 'rxjs';
 import {
   AgentArtifact,
+  AgentProposalDecisionRight,
   AgentRunResult,
+  NH_ASSISTANT_MAX_PROPOSAL_LOOKUP,
   NhAssistantAgentRunApiService,
   NhAssistantApiError,
   NhAssistantError,
@@ -47,6 +49,12 @@ interface RunDuration {
  * its object, for the whole application the agent's view policy, administrators every run. The
  * thread view's run timeline and the administration's runs view open it; an application may show
  * it anywhere with a run id. With live updates it reloads by itself while the run works.
+ *
+ * The run's pending proposals that the reader may decide, by the same live check as the inbox and the
+ * subject's work (`POST approvals/lookup`), can be decided in place, one by one or selected together
+ * with "Select all"; a pending proposal the reader may not decide says who does, and a reader who may
+ * decide none sees no selection. After a rejection the list asks, optionally, what was wrong, and a
+ * proposal refused because it no longer fits stays as a closed card with the reason until dismissed.
  */
 @Component({
   selector: 'nh-assistant-run-result',
@@ -68,6 +76,7 @@ export class NhAssistantRunResultComponent {
   private readonly api = inject(NhAssistantAgentRunApiService);
   private readonly document = inject(DOCUMENT);
   private subscription?: Subscription;
+  private rightsSubscription?: Subscription;
 
   /** The run to show. */
   readonly runId = input.required<string>();
@@ -96,6 +105,13 @@ export class NhAssistantRunResultComponent {
     return keys.length > 0 ? [...keys.slice(0, -1), 'nh-assistant.agent-runs.artifacts.download-failed'] : [];
   });
   readonly codeKeys = nhAssistantCodeKeys;
+  /**
+   * The reader's live right to decide each pending proposal of the run, by approval id; `null` until
+   * it is known, when nobody may decide.
+   */
+  readonly rights = signal<ReadonlyMap<string, AgentProposalDecisionRight> | null>(null);
+  /** Whether the reader may decide at least one of the run's proposals: only then can they select. */
+  readonly decidable = computed(() => [...(this.rights()?.values() ?? [])].some(right => right.canDecide));
   readonly duration = computed(() => {
     const run = this.detail()?.run;
     return run ? durationOf(run.startedAt, run.endedAt) : null;
@@ -106,7 +122,10 @@ export class NhAssistantRunResultComponent {
   });
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
+    inject(DestroyRef).onDestroy(() => {
+      this.subscription?.unsubscribe();
+      this.rightsSubscription?.unsubscribe();
+    });
     effect(() => {
       this.runId();
       untracked(() => this.fetch(false));
@@ -119,6 +138,11 @@ export class NhAssistantRunResultComponent {
 
   load(): void {
     this.fetch(false);
+  }
+
+  /** A proposal was decided or its feedback given: the run's proposals and the rights are read again. */
+  onProposalsChanged(): void {
+    this.fetch(true);
   }
 
   async download(artifact: AgentArtifact): Promise<void> {
@@ -140,6 +164,26 @@ export class NhAssistantRunResultComponent {
   }
 
   /**
+   * Reads the reader's live right to decide each pending proposal of the run, as the server checks it
+   * for every decision. Without an answer nobody may decide here; the server checks again anyway.
+   */
+  private readRights(detail: AgentRunResult): void {
+    this.rightsSubscription?.unsubscribe();
+    const batches = pendingBatches(detail);
+    if (batches.length === 0) {
+      this.rights.set(new Map());
+      return;
+    }
+
+    this.rightsSubscription = forkJoin(batches.map(batch => this.api.lookupProposals(batch))).subscribe({
+      next: lookups => this.rights.set(new Map(lookups
+        .flatMap(lookup => lookup.items)
+        .map(item => [item.proposal.approvalId, { canDecide: item.canDecide, reasonCode: item.reasonCode }] as const))),
+      error: () => this.rights.set(new Map())
+    });
+  }
+
+  /**
    * Reads the run. A quiet reload, after a live update, keeps what is shown when it fails and shows
    * no loading state.
    */
@@ -157,6 +201,7 @@ export class NhAssistantRunResultComponent {
         this.loading.set(false);
         this.loadFailed.set(false);
         this.notFound.set(false);
+        this.readRights(detail);
       },
       error: (failure: unknown) => {
         if (quiet && this.detail() !== null) {
@@ -170,6 +215,16 @@ export class NhAssistantRunResultComponent {
       }
     });
   }
+}
+
+/** The ids of the run's pending proposals in lookups of at most the lookup's limit each. */
+function pendingBatches(detail: AgentRunResult): string[][] {
+  const ids = detail.proposals.filter(proposal => proposal.status === 'pending').map(proposal => proposal.approvalId);
+  const batches: string[][] = [];
+  for (let start = 0; start < ids.length; start += NH_ASSISTANT_MAX_PROPOSAL_LOOKUP) {
+    batches.push(ids.slice(start, start + NH_ASSISTANT_MAX_PROPOSAL_LOOKUP));
+  }
+  return batches;
 }
 
 /** The time between a run's start and end, in seconds below two minutes and in minutes above. */

@@ -1,6 +1,7 @@
 import {
   AdminAgentInput,
   AgentProposalOrigin,
+  AgentProposalParent,
   AgentProposalStatus,
   AgentRunMcpSkip,
   McpCustomAuthMode,
@@ -525,6 +526,17 @@ export interface NhAssistantMockProposal {
   status?: AgentProposalStatus;
   rationale?: string | null;
   placedBy?: AgentProposalOrigin | null;
+  /**
+   * The subject the proposal's subject belonged to when it was made, such as the project of a task;
+   * the grouped inbox groups by it. Default none.
+   */
+  parent?: AgentProposalParent | null;
+  /** The division of the proposal's subject, which the inbox's `divisionId` filter matches. Default none. */
+  divisionId?: string | null;
+  /** When the proposal was made, an ISO date. Default when the mock started. */
+  createdAt?: string;
+  /** When the proposal expires, an ISO date. Default three days after it was made. */
+  expiresAt?: string;
   /**
    * Whether the signed-in user may decide it. Default `true`. A proposal of the whole application
    * (`nh-system`) exists only for its approvers who pass the agent's view policy, by default its

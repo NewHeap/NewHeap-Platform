@@ -237,6 +237,14 @@ public sealed record NhAiSubjectInfo(NhAiSubjectRef Subject, string ScopeKey)
     public string? ResponsibleActorId { get; init; }
 
     /// <summary>
+    /// The subject this subject belongs to, such as the project of a task, or
+    /// <see langword="null"/> when it belongs to none. A proposal records the parent when it is made,
+    /// so the approval inbox groups proposals by parent without asking a resolver per proposal. The
+    /// parent is a label: the platform never resolves it and grants no access through it.
+    /// </summary>
+    public NhAiSubjectParent? Parent { get; init; }
+
+    /// <summary>
     /// Creates the scope key for a tenant or division: <c>tenant:{id}</c> when the tenant
     /// is known, otherwise <c>division:{id}</c>, otherwise <c>global</c>.
     /// </summary>
@@ -254,6 +262,25 @@ public sealed record NhAiSubjectInfo(NhAiSubjectRef Subject, string ScopeKey)
 
         return "global";
     }
+}
+
+/// <summary>
+/// The subject another subject belongs to, as <see cref="INhAiSubjectAccessResolver.DescribeAsync"/>
+/// names it on <see cref="NhAiSubjectInfo.Parent"/>, for example the project of a task. Its type does
+/// not need a resolver of its own; when the application registered the type, people see its name and
+/// link. Everyone who sees a proposal on the subject sees the parent's display name, so give only a
+/// name the subject's readers may read.
+/// </summary>
+/// <param name="Subject">The parent; never the subject itself.</param>
+/// <param name="DisplayName">
+/// The parent's name people see, at most <see cref="MaxDisplayNameLength"/> characters are kept.
+/// </param>
+public sealed record NhAiSubjectParent(NhAiSubjectRef Subject, string? DisplayName = null)
+{
+    /// <summary>
+    /// The longest display name a proposal records; a longer name is shortened.
+    /// </summary>
+    public const int MaxDisplayNameLength = 200;
 }
 
 /// <summary>
@@ -299,8 +326,9 @@ public interface INhAiSubjectAccessResolver
     string SubjectType { get; }
 
     /// <summary>
-    /// Returns the subject's scope, version and responsible person, or
-    /// <see langword="null"/> when the subject does not exist.
+    /// Returns the subject's scope, version and responsible person, and optionally the subject it
+    /// belongs to (<see cref="NhAiSubjectInfo.Parent"/>), or <see langword="null"/> when the subject
+    /// does not exist.
     /// </summary>
     ValueTask<NhAiSubjectInfo?> DescribeAsync(
         NhAiSubjectRef subject,

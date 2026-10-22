@@ -101,6 +101,10 @@
       @if (current.proposals.length > 0) {
         <nh-assistant-agent-proposals
           [proposals]="current.proposals"
+          [decisionRights]="rights()"
+          [selectable]="decidable()"
+          [holdClosedCards]="true"
+          (changed)="onProposalsChanged()"
           (openConversation)="openConversation.emit($event)" />
       } @else if (current.hiddenProposals === 0) {
         <p class="muted">{{ 'nh-assistant.agent-runs.result.no-proposals' | translate }}</p>

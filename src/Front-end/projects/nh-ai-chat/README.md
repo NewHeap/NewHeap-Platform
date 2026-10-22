@@ -288,6 +288,19 @@ custom layouts. Opened in the panel, the thread offers its proposals to the same
 **Decided by** shows the name from the subject's member snapshot (`decidedByDisplayName`)
 and falls back to the actor id.
 
+The inbox also gives an overview. `divisionId` and `runId` filter it like `agentId` and
+`subjectType`; `[grouped]="true"` groups the proposals by the parent the server recorded for each
+proposal's subject (such as a project for its tasks) and by subject, `[groupByRun]="true"` also by
+run. A group says how many of its proposals the page shows and whether it continues on another page,
+and "Select group" selects only the shown proposals the person may decide. Proposals made since the
+person's last visit of the inbox are marked new, and showing the inbox records the visit (`markNew`
+and `recordVisit`, both on by default; turn `recordVisit` off for an inbox that shows only part of
+it). `nh-assistant-run-result` lets its reader decide the run's proposals together.
+
+```html
+<nh-assistant-agent-inbox [grouped]="true" [groupByRun]="true" [divisionId]="activeDivisionId" />
+```
+
 Subjects show the name of their type (`subjectTypeName`, such as "Project") and link to where
 the application shows them (`subjectLink`, from the server's `AddSubjectType(...).OpenAt(...)`).
 A link within the application navigates through the router; an `https` link leaves it. Replace

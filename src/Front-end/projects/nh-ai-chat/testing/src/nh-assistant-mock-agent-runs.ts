@@ -28,6 +28,8 @@ export interface NhAssistantMockAgentRunContext {
   administers(): boolean;
   /** The scenario's proposals in a thread; `null` when it lists none there. */
   threadProposals?(conversationId: string): AgentProposal[] | null;
+  /** The scenario's proposals of a run, also those it placed at other objects, oldest first. */
+  runProposals?(runId: string): AgentProposal[];
   /** Announces that an agent's work changed, as the server's live updates do. */
   workChanged?(change: LiveAgentWorkChanged, agentId: string): void;
 }
@@ -152,7 +154,7 @@ export class NhAssistantMockAgentRuns {
       result: this.answerOf(found.run.id, language),
       resultTruncated: this.truncated.has(found.run.id),
       summary: found.run.summary,
-      proposals: [],
+      proposals: this.context.runProposals?.(found.run.id) ?? [],
       hiddenProposals: 0,
       artifacts: [],
       canOpenConversation: this.mayView(found.thread, language)

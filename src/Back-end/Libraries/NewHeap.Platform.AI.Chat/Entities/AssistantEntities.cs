@@ -272,6 +272,23 @@ public sealed class AssistantApproval
 
     public string? SubjectVersion { get; set; }
 
+    /// <summary>
+    /// The type of the subject the proposal's subject belonged to when the proposal was made, such as
+    /// the project of a task, as the subject access resolver described it; <see langword="null"/>
+    /// without a parent. The inbox groups by it without asking a resolver per proposal.
+    /// </summary>
+    public string? ParentSubjectType { get; set; }
+
+    /// <summary>
+    /// The id of that parent; set together with <see cref="ParentSubjectType"/>.
+    /// </summary>
+    public string? ParentSubjectId { get; set; }
+
+    /// <summary>
+    /// The parent's name when the proposal was made.
+    /// </summary>
+    public string? ParentDisplayName { get; set; }
+
     public NhAiGrantSource GrantSource { get; set; }
 
     /// <summary>

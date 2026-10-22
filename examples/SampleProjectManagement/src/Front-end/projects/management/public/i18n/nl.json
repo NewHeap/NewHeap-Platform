@@ -652,7 +652,8 @@
     "no-projects": "Geen projecten in je divisie",
     "load-failed": "De projecten konden niet worden geladen. Start het sample via Aspire.",
     "report-label": "Feedbackrapport van de intake-reviewer",
-    "report-scope": "Alleen voor assistentbeheerders: wat mensen zeiden toen ze voorstellen van de intake-reviewer afwezen."
+    "report-scope": "Alleen voor assistentbeheerders: wat mensen zeiden toen ze voorstellen van de intake-reviewer afwezen.",
+    "active-division-only": "Alleen voorstellen van mijn actieve divisie"
   },
   "project-management-board": {
     "navigation": "Projectbeheer",

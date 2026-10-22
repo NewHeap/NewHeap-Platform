@@ -189,6 +189,94 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_grouped_inbox_shows_proposals_per_division_with_their_totals_and_marks_what_is_new()
+    {
+        // SPM-310: the project resolver names each project's division as its parent; every proposal
+        // records it when it is made, so the grouped inbox shows the proposals per division.
+        var approver = await host.CreatePersonAsync();
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            // The approver also works in the other division, where a project member must belong.
+            var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+            dbContext.Set<NhDivisionUser>().Add(new NhDivisionUser { Id = Guid.NewGuid(), UserId = approver, DivisionId = host.OtherDivisionId });
+            await dbContext.SaveChangesAsync();
+        }
+        using var client = host.CreateClient(approver.ToString());
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var empty = (await client.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox?grouped=true", Json))!;
+        Assert.Equal(("global", null, 0), (empty.ScopeKey, empty.LastVisitedAt, empty.Total));
+        Assert.Empty(empty.Groups!);
+
+        // In the order of their proposals' expiry: three projects in the sample division, one in the other.
+        var first = await ProposeIntakeAsync(owner, "GROUP-A", approver, host.DivisionId);
+        var second = await ProposeIntakeAsync(owner, "GROUP-B", approver, host.DivisionId);
+        var other = await ProposeIntakeAsync(owner, "GROUP-C", approver, host.OtherDivisionId);
+        var third = await ProposeIntakeAsync(owner, "GROUP-D", approver, host.DivisionId);
+
+        // The flat inbox keeps the expiry order and has no groups.
+        var flat = (await client.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox?itemsPerPage=10", Json))!;
+        Assert.Equal([first, second, other, third], flat.Items.Select(item => item.ApprovalId));
+        Assert.Null(flat.Groups);
+        var parent = Assert.IsType<NhAssistantProposalParentDto>(flat.Items[0].Parent);
+        Assert.Equal((ProjectSubjects.DivisionParentType, host.DivisionId.ToString("D"), "Assistant sample division"), (parent.SubjectType, parent.SubjectId, parent.DisplayName));
+
+        // Grouped and paged by two: the sample division's group goes on on the next page, with its total.
+        var page1 = (await client.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox?grouped=true&itemsPerPage=2", Json))!;
+        Assert.Equal([first, second], page1.Items.Select(item => item.ApprovalId));
+        var division = Assert.Single(page1.Groups!);
+        Assert.Equal(
+            (ProjectSubjects.DivisionParentType, host.DivisionId.ToString("D"), "Assistant sample division", 2, 3, false, true),
+            (division.SubjectType, division.SubjectId, division.DisplayName, division.Count, division.Total, division.ContinuesFromPreviousPage, division.ContinuesOnNextPage));
+        Assert.Equal([ProjectSubjects.Type, ProjectSubjects.Type], division.Subjects.Select(subject => subject.SubjectType));
+        var page2 = (await client.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox?grouped=true&itemsPerPage=2&page=2", Json))!;
+        Assert.Equal([third, other], page2.Items.Select(item => item.ApprovalId));
+        Assert.Equal(
+            [(host.DivisionId.ToString("D"), 1, 3, true, false), (host.OtherDivisionId.ToString("D"), 1, 1, false, false)],
+            page2.Groups!.Select(group => (group.SubjectId, group.Count, group.Total, group.ContinuesFromPreviousPage, group.ContinuesOnNextPage)));
+
+        // The division filter keeps that division's group, with the totals of what it shows.
+        var filtered = (await client.GetFromJsonAsync<NhAssistantInboxDto>($"/api/assistant/approvals/inbox?grouped=true&divisionId={host.OtherDivisionId}", Json))!;
+        Assert.Equal([other], filtered.Items.Select(item => item.ApprovalId));
+        Assert.Equal((host.OtherDivisionId.ToString("D"), 1), (Assert.Single(filtered.Groups!).SubjectId, filtered.Groups![0].Total));
+        Assert.Equal($"division:{host.OtherDivisionId:N}", filtered.ScopeKey);
+
+        // Before the first visit everything is new; a visit marks it as seen, and what comes later is new.
+        Assert.Equal(4, flat.NewApprovalIds.Count);
+        using (var visit = await client.PostAsync("/api/assistant/approvals/inbox/visit", null))
+        {
+            Assert.Equal(HttpStatusCode.OK, visit.StatusCode);
+        }
+        var seen = (await client.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox", Json))!;
+        Assert.NotNull(seen.LastVisitedAt);
+        Assert.Empty(seen.NewApprovalIds);
+        var later = await ProposeIntakeAsync(owner, "GROUP-E", approver, host.DivisionId);
+        Assert.Equal([later], (await client.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox", Json))!.NewApprovalIds);
+
+        // The inbox of a division keeps its own visits, for a division the person works in only.
+        using (var own = await client.PostAsync($"/api/assistant/approvals/inbox/visit?divisionId={host.DivisionId}", null))
+        {
+            Assert.Equal(HttpStatusCode.OK, own.StatusCode);
+        }
+        using (var refused = await client.PostAsync($"/api/assistant/approvals/inbox/visit?divisionId={Guid.NewGuid()}", null))
+        {
+            Assert.Equal(HttpStatusCode.NotFound, refused.StatusCode);
+        }
+        Assert.Empty((await client.GetFromJsonAsync<NhAssistantInboxDto>($"/api/assistant/approvals/inbox?divisionId={host.DivisionId}", Json))!.NewApprovalIds);
+    }
+
+    /// <summary>
+    /// SPM-310: creates a project in the division with <paramref name="approver"/> as its approver, lets the
+    /// intake reviewer propose to start it and returns that proposal.
+    /// </summary>
+    private async Task<Guid> ProposeIntakeAsync(HttpClient owner, string key, Guid approver, Guid divisionId)
+    {
+        var project = await host.CreateProjectAsync(key, ownerId: host.OwnerId, divisionId: divisionId);
+        await host.AddMemberAsync(project, approver, ProjectMemberRole.Approver);
+        var receipt = Assert.Single(await host.PublishProjectCreatedAsync(project, createdBy: host.OwnerId));
+        return (await WaitForProposalAsync(owner, receipt.ConversationId!.Value, NhAssistantApprovalStatuses.Pending)).ApprovalId;
+    }
+
+    [Fact]
     public async Task Project_roles_decide_what_members_may_do_and_a_removed_member_loses_access_at_once()
     {
         // SPM-270

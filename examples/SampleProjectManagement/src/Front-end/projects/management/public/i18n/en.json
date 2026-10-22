@@ -652,7 +652,8 @@
     "no-projects": "No projects in your division",
     "load-failed": "The projects could not be loaded. Start the sample through Aspire.",
     "report-label": "Intake reviewer feedback report",
-    "report-scope": "Assistant administrators only: what people said when they rejected the intake reviewer's proposals."
+    "report-scope": "Assistant administrators only: what people said when they rejected the intake reviewer's proposals.",
+    "active-division-only": "Only proposals of my active division"
   },
   "project-management-board": {
     "navigation": "Project management",

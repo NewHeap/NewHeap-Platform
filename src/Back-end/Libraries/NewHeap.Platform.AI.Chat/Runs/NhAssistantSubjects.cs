@@ -141,6 +141,13 @@ internal sealed class NhAssistantSubjectAccessService(
                 $"The subject access resolver for '{subject.Type}' returned an invalid description.");
         }
 
+        if (info.Parent is { } parent && (parent.Subject is null || parent.Subject == subject))
+        {
+            // A subject never belongs to itself: the inbox would show it under its own name twice.
+            throw new InvalidOperationException(
+                $"The subject access resolver for '{subject.Type}' returned an invalid parent.");
+        }
+
         return info;
     }
 

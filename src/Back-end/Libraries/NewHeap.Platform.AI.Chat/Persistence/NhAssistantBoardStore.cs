@@ -149,7 +149,9 @@ internal sealed class NhAssistantBoardStore(NhAssistantDbContextFactory contextF
     /// Removes the visits made before <paramref name="before"/> and, when the host registers groups,
     /// the visits of every group not among <paramref name="registeredGroupIds"/>; returns how many
     /// were removed. A host that registers no group removes no group's visits, so a host that runs
-    /// the maintenance without the groups of another host does not remove theirs.
+    /// the maintenance without the groups of another host does not remove theirs. The inbox's visits
+    /// (<see cref="NhAssistantAgentGroupDefinition.InboxVisitId"/>) belong to no group and are removed
+    /// by age only.
     /// </summary>
     public async Task<int> RemoveStaleVisitsAsync(
         DateTimeOffset before,
@@ -159,9 +161,11 @@ internal sealed class NhAssistantBoardStore(NhAssistantDbContextFactory contextF
         ArgumentNullException.ThrowIfNull(registeredGroupIds);
         var groups = registeredGroupIds.ToArray();
         var anyGroup = groups.Length > 0;
+        const string inbox = NhAssistantAgentGroupDefinition.InboxVisitId;
         await using var context = contextFactory.CreateDbContext();
         return await context.BoardVisits
-            .Where(item => item.VisitedAt < before || (anyGroup && !groups.Contains(item.GroupId)))
+            .Where(item => item.VisitedAt < before
+                || (anyGroup && item.GroupId != inbox && !groups.Contains(item.GroupId)))
             .ExecuteDeleteAsync(cancellationToken);
     }
 

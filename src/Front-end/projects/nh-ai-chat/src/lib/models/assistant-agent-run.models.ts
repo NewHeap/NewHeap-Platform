@@ -539,6 +539,26 @@ export interface AgentProposal {
    * application; `null` for a proposal made in this thread. Missing on older servers.
    */
   placedBy?: AgentProposalOrigin | null;
+  /**
+   * The subject the proposal's subject belonged to when the proposal was made, such as the project of
+   * a task, as the application described it; `null` without one. The grouped inbox groups by it.
+   * Missing on older servers.
+   */
+  parent?: AgentProposalParent | null;
+}
+
+/**
+ * The subject a proposal's subject belonged to when the proposal was made. The name is the one recorded
+ * then; the type's name and the link follow the application's registration of the type.
+ */
+export interface AgentProposalParent {
+  subjectType: string;
+  subjectId: string;
+  displayName: string | null;
+  /** The name of the parent's type in the caller's language, when the application named it. */
+  subjectTypeName?: string | null;
+  /** Where the application shows the parent; `null` without a link template. */
+  subjectLink?: string | null;
 }
 
 /**
@@ -665,15 +685,81 @@ export interface AgentConsultationList {
 export interface AgentInbox {
   items: AgentProposal[];
   total: number;
+  /**
+   * The scope whose visits mark what is new: `global`, or `division:{id}` for an inbox filtered on a
+   * division. Missing on older servers.
+   */
+  scopeKey?: string;
+  /**
+   * When the caller last looked at the inbox in this scope (`visitInbox`), before this read; `null`
+   * before the first visit. Missing on older servers.
+   */
+  lastVisitedAt?: string | null;
+  /**
+   * The proposals on this page made after `lastVisitedAt`; before the first visit all of them.
+   * Missing on older servers, which mark nothing as new.
+   */
+  newApprovalIds?: string[];
+  /**
+   * With `grouped: true`, the groups on this page in order. The items are contiguous per group and
+   * subject: the first `count` items belong to the first group, and so on. `null` or missing for the
+   * flat inbox.
+   */
+  groups?: AgentInboxGroup[] | null;
+}
+
+/**
+ * One group on a page of the grouped inbox: the parent its proposals recorded, or the subject of
+ * proposals without a parent, which holds that subject's own proposals and those of its children.
+ */
+export interface AgentInboxGroup {
+  subjectType: string;
+  subjectId: string;
+  /** The group's name: its subject's own name, or the name its proposals recorded for the parent. */
+  displayName: string | null;
+  /** The name of the group's type in the caller's language, when the application named it. */
+  subjectTypeName?: string | null;
+  /** Where the application shows the group's subject; `null` without a link template. */
+  subjectLink?: string | null;
+  /** How many of the page's items belong to the group. */
+  count: number;
+  /** How many proposals of the inbox, with its filters, belong to the group. */
+  total: number;
+  /** The group started on the page before. */
+  continuesFromPreviousPage: boolean;
+  /** The group goes on on the page after. */
+  continuesOnNextPage: boolean;
+  /** The group's subjects on this page in order, the group's own subject first. */
+  subjects: AgentInboxSubjectGroup[];
+}
+
+/** One subject within a group on a page of the grouped inbox; its name and link are those of its items. */
+export interface AgentInboxSubjectGroup {
+  subjectType: string;
+  subjectId: string;
+  count: number;
+  total: number;
+  continuesFromPreviousPage: boolean;
+  continuesOnNextPage: boolean;
 }
 
 export interface AgentInboxFilter {
   subjectType?: string;
   agentId?: string;
+  /** Only proposals on subjects of this division; the inbox's visits are then those of the division. */
   divisionId?: string;
   runId?: string;
+  /** Groups the proposals by parent and subject (`AgentInbox.groups`) instead of by expiry alone. */
+  grouped?: boolean;
   page?: number;
   itemsPerPage?: number;
+}
+
+/** A recorded visit of the inbox in one scope (`visitInbox`). */
+export interface AgentInboxVisit {
+  /** `global`, or `division:{id}` for the inbox of one division. */
+  scopeKey: string;
+  visitedAt: string;
 }
 
 export type AgentProposalDecision = 'approve' | 'reject';

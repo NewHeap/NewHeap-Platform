@@ -92,6 +92,40 @@ public sealed class AssistantAgentRunTests(AssistantDatabaseFixture database) : 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_proposal_records_the_parent_its_subject_belongs_to_when_it_is_made(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Active" } }, "call-status")
+            .RespondWithText("I proposed to activate the project.");
+        await using var host = await CreateHostAsync(provider, model, NhAiApprovalMode.Deferred);
+        var subjects = host.Services.GetRequiredService<TestSubjects>();
+        subjects.Parent = new NhAiSubjectParent(new NhAiSubjectRef("portfolio", "north"), "Portfolio " + new string('n', 250));
+        var run = await StartRunAsync(host, projectId);
+
+        await RunTurnAsync(host, run, "Project PRJ-1 was created.");
+        // The parent changes later; the proposal keeps what it recorded, so the inbox asks no resolver.
+        subjects.Parent = null;
+
+        var approval = Assert.Single(await RunStore(host).GetRunApprovalsAsync(run.Run.Id, CancellationToken.None));
+        Assert.Equal(("portfolio", "north"), (approval.ParentSubjectType, approval.ParentSubjectId));
+        Assert.Equal(NhAiSubjectParent.MaxDisplayNameLength, approval.ParentDisplayName!.Length);
+        Assert.StartsWith("Portfolio nnn", approval.ParentDisplayName);
+        Assert.Equal(
+            new NhAssistantProposalParentDto("portfolio", "north", approval.ParentDisplayName),
+            NhAssistantAgentRunDtoMapper.ToDto(approval, run.Thread).Parent);
+
+        // A subject never belongs to itself: such a description is refused.
+        subjects.Parent = new NhAiSubjectParent(Subject(projectId), "Itself");
+        await using var scope = host.Services.CreateAsyncScope();
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await scope.ServiceProvider.GetRequiredService<NhAssistantSubjectAccessService>().DescribeAsync(Subject(projectId), CancellationToken.None));
+        Assert.Contains("invalid parent", refused.Message);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task An_inline_approval_suspends_a_headless_turn_that_resumes_after_the_decision(AssistantTestProvider provider)
     {
         var projectId = Guid.NewGuid();
@@ -538,6 +572,11 @@ public sealed class TestSubjects
     });
 
     public string Version { get; set; } = "7";
+
+    /// <summary>
+    /// The subject every test project belongs to, when a test names one.
+    /// </summary>
+    public NhAiSubjectParent? Parent { get; set; }
 }
 
 public sealed class TestSubjectResolver(TestSubjects subjects) : INhAiSubjectAccessResolver
@@ -549,7 +588,8 @@ public sealed class TestSubjectResolver(TestSubjects subjects) : INhAiSubjectAcc
         return ValueTask.FromResult<NhAiSubjectInfo?>(new NhAiSubjectInfo(subject, NhAiSubjectInfo.CreateScopeKey(null, null))
         {
             Version = subjects.Version,
-            DisplayName = "Project " + subject.Id[..8]
+            DisplayName = "Project " + subject.Id[..8],
+            Parent = subjects.Parent
         });
     }
 
