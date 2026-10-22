@@ -871,7 +871,7 @@ consulted agent describes the change instead. Applications that never rebuild a 
 principal use `AskerDecides()` with `AtSubject(NhAssistantConsultationRights.Agent)` or either
 alone. Administrators switch each route on or off per agent within what code allows
 (`SetConsultationRoutesAsync`, `POST admin/agents/{id}/consultation-routes`), never beyond it. The
-asker of a proposal with the agent's rights is told how it ended
+asker of a proposal that waited at the subject is told how it ended, with either rights
 (`ConsultationProposalDecided`). The consult writes no message into the
 thread; `GET threads/{id}/consultations` lists who asked through which assistant, without
 the question or the answer. A request starts an ordinary run with the asker as initiator
