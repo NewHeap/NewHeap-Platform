@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
@@ -140,7 +141,8 @@ internal sealed class NhAssistantConversationAudience(NhAssistantDbContextFactor
             return cached.Audience;
         }
 
-        var actorIds = await new NhAssistantStore(contextFactory).GetAudienceAsync(conversationId, cancellationToken);
+        var actorIds = await new NhAssistantStore(contextFactory, NullLogger<NhAssistantStore>.Instance)
+            .GetAudienceAsync(conversationId, cancellationToken);
         await using var context = contextFactory.CreateDbContext();
         var system = await context.Threads
             .AsNoTracking()

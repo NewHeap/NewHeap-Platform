@@ -64,7 +64,8 @@ internal static class NhAssistantSqlServerStorage
                     sqlServer.MigrationsAssembly(typeof(NhAssistantSqlServerStorage).Assembly.FullName);
                     sqlServer.MigrationsHistoryTable("__EFMigrationsHistory", options.Schema);
                 });
-            });
+            },
+            new NhAssistantSqlServerTransactionLocks());
     }
 }
 

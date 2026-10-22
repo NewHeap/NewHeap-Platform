@@ -414,7 +414,10 @@ belongs to the owner's tenant and passes the agent's policy. Register
 directory searches people the caller may invite (`participant-candidates`) and
 resolves them again on `POST participants`; it never receives an id from the client
 it has not approved itself. `NhAssistantLimits.MaxParticipantsPerConversation`
-(20 by default) bounds a conversation. A participant leaves with `DELETE
+(20 by default) bounds a conversation. Joins of one conversation, by link, invitation
+or a thread's subject, take turns under the platform's transaction lock, so parallel
+requests of one person add one row without a failed insert and parallel joins never
+pass the limit. A participant leaves with `DELETE
 conversations/{id}`, the owner deletes it for everyone. Names come from
 `INhAssistantDisplayNameResolver` (default: the `name`, given and family name, name,
 `preferred_username` and e-mail claims) and are normalized before they are stored.
@@ -696,8 +699,9 @@ SPM-252 and SPM-254 are the executable references. SPM-249 is the end-to-end ref
 over the API bridge and curated tools, an administrator agent with an MCP tool, and a
 viewer who is offered no mutating tools.
 For sharing, assert on both providers that a participant of another tenant never
-reaches the conversation, read positions only move forward, concurrent joins add one
-row and the participant limit holds; over HTTP that a wrong or revoked token fails,
+reaches the conversation, read positions only move forward, concurrent joins of one
+person add one row without an EF Core error log and concurrent joins of different people
+stay within the participant limit; over HTTP that a wrong or revoked token fails,
 the model sees named user messages, the owner cannot decide a participant's approval,
 another participant cannot cancel, removal stops access and live updates, and the hub
 rejects anonymous connections (SPM-263). For push, check the RFC 8291 test vector,

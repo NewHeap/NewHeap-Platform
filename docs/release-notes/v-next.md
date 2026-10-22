@@ -414,3 +414,16 @@ application. `McpServer` gains `reader` (`McpReader`) and `McpServerInput` the o
 |---|---|
 | `McpServer` has the new required property `reader`. | Set `reader: null` where you construct an `McpServer`, such as in tests. |
 | New translation keys `nh-assistant.admin.server-editor.reader.*` and `nh-assistant.errors.assistant-file-reader-failed`. | Applications with their own translation files add them. |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: concurrent joins of a conversation
+
+Fix. A join of a conversation (by link, invitation or a thread's subject) checked whether the person
+already took part, counted the participants and inserted the row without serializing with other
+joins. Parallel requests of one person, such as a page that opens an agent's thread with several
+requests at once, failed the insert on the primary key, which EF Core logged as an error
+(`Microsoft.EntityFrameworkCore.Update`) before the assistant answered that the person already took
+part; parallel joins of different people could pass `NhAssistantLimits.MaxParticipantsPerConversation`.
+Joins of one conversation now take turns under the platform's transaction lock (`sp_getapplock` on
+SQL Server, `pg_try_advisory_xact_lock` on PostgreSQL) and check, count and insert in one
+transaction. A join that waits more than five seconds for the lock continues without it as before and
+logs a warning. No migration and no action required.

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "0ef660d29d71e7b453c229b281d1bf53bb7833663e1084fdb0fe62e9cecc5831",
-    "declarationCount": 9458,
+    "hash": "f2468e74d134dabe8b2cc806470718c2fb8918d895529a6128b573dcb3c994ef",
+    "declarationCount": 9465,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5574,6 +5574,10 @@
         "declaration": "public NhAssistantDbContext CreateDbContext(string[] args) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/NhAssistantPostgreSqlTransactionLocks.cs",
+        "declaration": "protected override async Task<bool> TryAcquireAsync( DbConnection connection, DbTransaction transaction, string resourceName, int timeoutMilliseconds, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20260918101314_Initial.Designer.cs",
         "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
       },
@@ -6132,6 +6136,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/NhAssistantSqlServer.cs",
         "declaration": "public NhAssistantDbContext CreateDbContext(string[] args) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/NhAssistantSqlServerTransactionLocks.cs",
+        "declaration": "protected override async Task<bool> TryAcquireAsync( DbConnection connection, DbTransaction transaction, string resourceName, int timeoutMilliseconds, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
@@ -14871,6 +14879,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStorage.cs",
+        "declaration": "public NhAssistantTransactionLocks TransactionLocks { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStorage.cs",
         "declaration": "public NhAssistantDbContext CreateDbContext() {"
       },
       {
@@ -14884,6 +14896,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStorage.cs",
         "declaration": "public Action<IServiceProvider, DbContextOptionsBuilder> ConfigureProvider { get; } = configureProvider;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStorage.cs",
+        "declaration": "public NhAssistantTransactionLocks TransactionLocks { get; } = transactionLocks;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStorage.cs",
@@ -15044,6 +15060,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
         "declaration": "public async Task<IReadOnlyList<string>> GetAudienceAsync( Guid conversationId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantTransactionLocks.cs",
+        "declaration": "public const int MaxResourceNameLength = 255;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantTransactionLocks.cs",
+        "declaration": "public Task<bool> TryAcquireAsync( DbContext context, string resourceName, TimeSpan timeout, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantTransactionLocks.cs",
+        "declaration": "protected abstract Task<bool> TryAcquireAsync( DbConnection connection, DbTransaction transaction, string resourceName, int timeoutMilliseconds, CancellationToken cancellationToken);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",

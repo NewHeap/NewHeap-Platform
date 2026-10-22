@@ -24,10 +24,16 @@ internal sealed class NhAssistantDbContextFactory
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(registration);
         _storageOptions = registration.StorageOptions;
+        TransactionLocks = registration.TransactionLocks;
         _options = new Lazy<DbContextOptions<NhAssistantDbContext>>(
             () => CreateOptions(services, registration),
             LazyThreadSafetyMode.ExecutionAndPublication);
     }
+
+    /// <summary>
+    /// The transaction lock of the registered provider, for a transaction on a context of this factory.
+    /// </summary>
+    public NhAssistantTransactionLocks TransactionLocks { get; }
 
     public NhAssistantDbContext CreateDbContext()
     {
@@ -65,13 +71,19 @@ internal sealed class NhAssistantDbContextFactory
 internal sealed class NhAssistantStorageRegistration(
     string providerName,
     NhAssistantDbContextOptions storageOptions,
-    Action<IServiceProvider, DbContextOptionsBuilder> configureProvider)
+    Action<IServiceProvider, DbContextOptionsBuilder> configureProvider,
+    NhAssistantTransactionLocks transactionLocks)
 {
     public string ProviderName { get; } = providerName;
 
     public NhAssistantDbContextOptions StorageOptions { get; } = storageOptions;
 
     public Action<IServiceProvider, DbContextOptionsBuilder> ConfigureProvider { get; } = configureProvider;
+
+    /// <summary>
+    /// The provider's transaction lock, which serializes writers that must see each other's rows.
+    /// </summary>
+    public NhAssistantTransactionLocks TransactionLocks { get; } = transactionLocks;
 }
 
 internal static class NhAssistantStorage
