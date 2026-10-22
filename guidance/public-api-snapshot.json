@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "852c86d5f1947f458b4e53f7f3665cf79e9b7125b2bb0d59c8bd01560c0a8154",
-    "declarationCount": 9221,
+    "hash": "69f60fa063dcab762e6685011bed8cccf60c3b2dd947b1537a495a6557202527",
+    "declarationCount": 9225,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -436,6 +436,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
         "declaration": "public static bool IsInternal(HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static Endpoint? Target(HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static async Task<AuthenticateResult> AuthenticateForTargetAsync( HttpContext httpContext, Endpoint target, string scheme) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
@@ -1096,6 +1104,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
         "declaration": "public bool IsReadEndpoint(Endpoint endpoint, string actionToolId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public int Order => int.MinValue;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public async Task OnAuthorizationAsync(AuthorizationFilterContext context) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",

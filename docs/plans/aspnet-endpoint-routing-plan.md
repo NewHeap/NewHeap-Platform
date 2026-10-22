@@ -67,11 +67,14 @@ check in the opt-in spike.
    caching, request timeouts and endpoint CORS metadata. The move makes those apply to
    controllers, which fixes some setups and changes others where such attributes were added
    without effect.
-3. **AI delegated reads.** `NhAiDelegatedReads` refuses a delegated read token when the request's
-   endpoint is unknown, by design. Under `UseMvc` a bridged controller `GET` has no endpoint, so a
-   host that uses `UseNewHeapPlatformAspNetCommon` likely refuses every delegated read. The
-   library and sample tests compose endpoint-routed hosts and do not cover this pipeline. Not
-   verified end-to-end; it should be checked regardless of this decision.
+3. **AI delegated reads (verified, fixed).** `NhAiDelegatedReads` refuses a delegated read token
+   when the request's target is unknown, by design. Under `UseMvc` a bridged controller `GET` has
+   no endpoint, so a host that used `UseNewHeapPlatformAspNetCommon` refused every delegated read
+   (`NhAiMvcBridgePlatformPipelineTests` reproduced it). Fixed independently of this decision: the
+   bridge's first MVC authorization filter authenticates the delegated read scheme with the action
+   that MVC executes as the target, in both routing modes. A scheme that middleware authenticates
+   before MVC, such as the default authentication scheme under `UseMvc`, still sees no target and
+   stays refused; routing before authentication resolves that.
 4. **Authorization filters.** With `EnableEndpointRouting = false`, MVC turns `[Authorize]` into an
    `AuthorizeFilter` and resolves the named policies when it builds the action descriptors
    (verified: an unknown policy name fails there for the whole application). With endpoint
@@ -129,4 +132,4 @@ CORS attributes, Razor Pages and generated links before the default changes.
 2. With B: the option's name and place (service registration or pipeline builder), and whether
    the sample's API opts in at once.
 3. Independently of the choice: whether to verify and fix delegated reads (item 3) in a host that
-   uses `UseNewHeapPlatformAspNetCommon` now.
+   uses `UseNewHeapPlatformAspNetCommon` now. Decided: verified and fixed.

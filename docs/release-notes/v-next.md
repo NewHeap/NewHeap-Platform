@@ -54,3 +54,20 @@ start. An invalid catalog fails the host's start with the same exception as befo
 | Breaking change | Required action |
 |---|---|
 | In a web host the AI tool catalog checks run while the web host service builds the pipeline instead of at their own place among the hosted services. A host that captures startup errors (`CaptureStartupErrors`, as under IIS) serves its startup error page for an invalid catalog instead of stopping. | None. Do not read the API bridge catalog or ApiExplorer from your own hosted services before the pipeline is built. |
+
+## NewHeap.Platform.AI.AspNet.Common and NewHeap.Platform.AI.AspNet.Mvc: delegated reads under UseMvc
+
+Fix. The delegated read restriction refuses a token whose target is unknown when it is
+authenticated. `UseNewHeapPlatformAspNetCommon` serves controllers through the old `UseMvc`
+routing, where a controller request has no endpoint, so in such a host every gateway read of a
+headless agent run was refused and returned `api-bridge-unauthenticated`. When the gateway is
+enabled, the API bridge now adds a global MVC authorization filter that runs first and
+authenticates the delegated read scheme with the action that MVC executes as the target, in both
+routing modes. A delegated read principal still reaches only the `GET` gateway action its token
+names, with its invocation header, and a request whose target is not known is still refused. A
+scheme that middleware authenticates before MVC, such as the default authentication scheme under
+`UseMvc`, stays refused there; such a host routes its controllers with endpoint routing.
+
+| Breaking change | Required action |
+|---|---|
+| With the gateway enabled, MVC authenticates the delegated read scheme before its other authorization filters for every `GET` request with the `X-NewHeap-AI-Invocation` header, and answers `401` when a delegated read principal reaches another action than the one its token names. | None. |

@@ -196,8 +196,14 @@ handlers, also before an overridden `TokenValidated`: a token with the marker cl
 only a `GET` request to the gateway action it is bound to, with the matching
 `X-NewHeap-AI-Invocation` header. Every other request with it fails authentication, including other
 gateway actions, writes, other controllers, the assistant's endpoints, `/mcp`, minimal APIs and a
-request whose endpoint is unknown at authentication time; tokens without the marker are not
-affected. Startup fails when the scheme is not a JWT bearer scheme, or when any JWT bearer scheme
+request whose target is unknown at authentication time; tokens without the marker are not
+affected. The target is the routed endpoint or, under the `UseMvc` routing of
+`UseNewHeapPlatformAspNetCommon`, where a controller request has no endpoint, the action that MVC
+executes: the bridge's first MVC authorization filter authenticates the scheme with that action
+before MVC's own authorization, and answers `401` when a delegated read principal reaches another
+action. Middleware before MVC sees no target, so a scheme that it authenticates first, such as the
+default authentication scheme under `UseMvc`, stays refused; route controllers with endpoint routing
+in such a host. Startup fails when the scheme is not a JWT bearer scheme, or when any JWT bearer scheme
 resolves its events from `EventsType` or replaced them afterwards. Discovery and the gateway's
 `search-resources`, `describe-resource`, map, `query` and `get` authorize with the person as the
 host's scheme authenticates a token, including claims transformation.
@@ -267,7 +273,9 @@ For the application map, assert that the gateway source lists exactly the resour
 For gateway reads in headless runs, assert that a delegated read token authenticates only its
 gateway action with its invocation header and fails for another action, without or with another
 header, as a write, outside the gateway, after it expired and in another JWT scheme, also one whose
-events override `TokenValidated`; that startup fails for a scheme with `EventsType`; that a run
+events override `TokenValidated`; that it does so in a host built with
+`UseNewHeapPlatformAspNetCommon`; that a delegated read principal authenticated earlier runs no
+other MVC action; that startup fails for a scheme with `EventsType`; that a run
 with both keys is offered the four gateway tools and no resource action and reads with the
 starter's or else the accountable person's rights; that an unbound or long-lived issued token, a
 locked-out person and a changed responsible person get `api-bridge-unauthenticated`; that dot
