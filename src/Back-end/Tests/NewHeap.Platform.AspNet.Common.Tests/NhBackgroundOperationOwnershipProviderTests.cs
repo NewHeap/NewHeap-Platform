@@ -50,8 +50,8 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
     {
         var database = await ProviderTestDatabase.CreateAsync(provider);
         var clock = new TestClock(new DateTimeOffset(2001, 2, 3, 4, 5, 0, TimeSpan.Zero));
-        var options = CreateClockedOptions();
-        var registry = CreateClockedRegistry(options);
+        var options = CreateOptions();
+        var registry = CreateRegistry(options);
         await using var serviceProvider = await CreateClockedServicesAsync(database, clock, options, registry);
 
         var start = clock.GetUtcNow();
@@ -66,8 +66,8 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
             var debounced = await service.EnqueueAsync(
                 new OwnershipSimpleRequest("debounced"),
                 new NhBackgroundOperationEnqueueOptions { OwnerAgentKey = AgentKey, NotBefore = start.AddSeconds(30) });
-            immediate.Success.Should().BeTrue();
-            debounced.Success.Should().BeTrue();
+            immediate.Success.Should().BeTrue(string.Join("; ", immediate.AllErrorMessages));
+            debounced.Success.Should().BeTrue(string.Join("; ", debounced.AllErrorMessages));
             immediateId = immediate.Data!.Id;
             debouncedId = debounced.Data!.Id;
         }
@@ -108,8 +108,8 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
     {
         var database = await ProviderTestDatabase.CreateAsync(provider);
         var clock = new TestClock(new DateTimeOffset(2001, 2, 3, 4, 5, 0, TimeSpan.Zero));
-        var options = CreateClockedOptions();
-        var registry = CreateClockedRegistry(options);
+        var options = CreateOptions();
+        var registry = CreateRegistry(options);
         await using var serviceProvider = await CreateClockedServicesAsync(database, clock, options, registry);
         var reconciler = serviceProvider.GetRequiredService<NhBackgroundOperationReconciliationService>();
 
@@ -119,7 +119,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
             var enqueued = await scope.ServiceProvider.GetRequiredService<NhBackgroundOperationService>().EnqueueAsync(
                 new OwnershipSimpleRequest("debounced"),
                 new NhBackgroundOperationEnqueueOptions { OwnerAgentKey = AgentKey, NotBefore = clock.GetUtcNow().AddSeconds(30) });
-            enqueued.Success.Should().BeTrue();
+            enqueued.Success.Should().BeTrue(string.Join("; ", enqueued.AllErrorMessages));
             operationId = enqueued.Data!.Id;
         }
 
@@ -169,8 +169,8 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
     {
         var database = await ProviderTestDatabase.CreateAsync(provider);
         var clock = new TestClock(new DateTimeOffset(2001, 2, 3, 4, 5, 0, TimeSpan.Zero));
-        var options = CreateClockedOptions();
-        var registry = CreateClockedRegistry(options);
+        var options = CreateOptions();
+        var registry = CreateRegistry(options);
         await using var serviceProvider = await CreateClockedServicesAsync(database, clock, options, registry);
         var reconciler = serviceProvider.GetRequiredService<NhBackgroundOperationReconciliationService>();
         var healthCheck = CreateHealthCheck(serviceProvider, options, clock);
@@ -181,7 +181,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
             var enqueued = await scope.ServiceProvider.GetRequiredService<NhBackgroundOperationService>().EnqueueAsync(
                 new OwnershipSimpleRequest("without-due-time"),
                 new NhBackgroundOperationEnqueueOptions { OwnerAgentKey = AgentKey });
-            enqueued.Success.Should().BeTrue();
+            enqueued.Success.Should().BeTrue(string.Join("; ", enqueued.AllErrorMessages));
             operationId = enqueued.Data!.Id;
             await scope.ServiceProvider.GetRequiredService<OwnershipDbContext>().BackgroundOperations
                 .Where(x => x.Id == operationId)
@@ -216,19 +216,23 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
             clock);
     }
 
-    private static NhBackgroundOperationsOptions CreateClockedOptions()
+    /// <summary>
+    /// Keeps the library's heartbeat interval, lease duration and lock timeout, as an application
+    /// runs with. These tests run a handler until it waits for a signal and assert that it waits:
+    /// a heartbeat every 100 ms would contend with that suspension for the operation lock, and a
+    /// lock timeout of 250 ms would turn a slow write on a loaded machine into a contention
+    /// reschedule, so the operation would retry instead of waiting.
+    /// </summary>
+    private static NhBackgroundOperationsOptions CreateOptions()
     {
         return new NhBackgroundOperationsOptions
         {
             UserNotificationProjectionEnabled = false,
-            LiveUpdatesEnabled = false,
-            HeartbeatInterval = TimeSpan.FromMilliseconds(100),
-            DefaultLeaseDuration = TimeSpan.FromSeconds(2),
-            TransactionLockTimeoutMilliseconds = 250
+            LiveUpdatesEnabled = false
         };
     }
 
-    private static NhBackgroundOperationRegistry CreateClockedRegistry(NhBackgroundOperationsOptions options)
+    private static NhBackgroundOperationRegistry CreateRegistry(NhBackgroundOperationsOptions options)
     {
         var registryBuilder = new NhBackgroundOperationBuilder(new ServiceCollection(), options);
         registryBuilder.Add<OwnershipSignalRequest, OwnershipSignalHandler>("ownership-signal");
@@ -323,7 +327,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
             var enqueued = await scope.ServiceProvider.GetRequiredService<NhBackgroundOperationService>().EnqueueAsync(
                 new OwnershipSignalRequest(expiresAt),
                 new NhBackgroundOperationEnqueueOptions { OwnerAgentKey = AgentKey });
-            enqueued.Success.Should().BeTrue();
+            enqueued.Success.Should().BeTrue(string.Join("; ", enqueued.AllErrorMessages));
             operationId = enqueued.Data!.Id;
         }
 
@@ -402,18 +406,8 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
             await context.SaveChangesAsync();
         }
 
-        var options = new NhBackgroundOperationsOptions
-        {
-            UserNotificationProjectionEnabled = false,
-            LiveUpdatesEnabled = false,
-            HeartbeatInterval = TimeSpan.FromMilliseconds(100),
-            DefaultLeaseDuration = TimeSpan.FromSeconds(2),
-            TransactionLockTimeoutMilliseconds = 250
-        };
-        var registryBuilder = new NhBackgroundOperationBuilder(new ServiceCollection(), options);
-        registryBuilder.Add<OwnershipSignalRequest, OwnershipSignalHandler>("ownership-signal");
-        registryBuilder.Add<OwnershipSimpleRequest, OwnershipSimpleHandler>("ownership-simple");
-        var registry = registryBuilder.Build();
+        var options = CreateOptions();
+        var registry = CreateRegistry(options);
         var accessPolicy = new MemberAccessPolicy(memberId);
 
         await VerifyOwnerValidationAsync(serviceProvider, registry, options, accessPolicy, memberId);
@@ -469,7 +463,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
                 ConcurrencyKey = concurrencyKey,
                 ConflictBehavior = NhBackgroundOperationConflictBehavior.ReturnExisting
             });
-        enqueued.Success.Should().BeTrue();
+        enqueued.Success.Should().BeTrue(string.Join("; ", enqueued.AllErrorMessages));
         var operationId = enqueued.Data!.Id;
         enqueued.Data.OwnerKind.Should().Be(NhBackgroundOperationOwnerKind.Agent);
         enqueued.Data.OwnerUserId.Should().BeNull();
@@ -485,7 +479,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
                 DomainObjectId = SubjectId,
                 IdempotencyKey = "trigger-event-1"
             });
-        duplicate.Success.Should().BeTrue();
+        duplicate.Success.Should().BeTrue(string.Join("; ", duplicate.AllErrorMessages));
         duplicate.Data!.Id.Should().Be(operationId);
 
         (await service.GetForUserAsync(operationId, memberId)).Should().NotBeNull();
@@ -503,7 +497,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
                 ConcurrencyKey = concurrencyKey,
                 ConflictBehavior = NhBackgroundOperationConflictBehavior.ReturnExisting
             });
-        memberConflict.Success.Should().BeTrue();
+        memberConflict.Success.Should().BeTrue(string.Join("; ", memberConflict.AllErrorMessages));
         memberConflict.Data!.Id.Should().Be(operationId);
         var outsiderConflict = await service.EnqueueAsync(
             new OwnershipSimpleRequest("outsider"),
@@ -520,7 +514,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
         var memberRetry = await service.RetryForUserAsync(operationId, memberId);
         memberRetry.Success.Should().BeFalse("the policy does not grant retry");
         var memberCancel = await service.RequestCancellationForUserAsync(operationId, memberId);
-        memberCancel.Success.Should().BeTrue();
+        memberCancel.Success.Should().BeTrue(string.Join("; ", memberCancel.AllErrorMessages));
         memberCancel.Data!.Status.Should().Be(NhBackgroundOperationStatus.CancelRequested);
     }
 
@@ -538,17 +532,18 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
             var enqueued = await service.EnqueueAsync(
                 new OwnershipSimpleRequest("delayed"),
                 new NhBackgroundOperationEnqueueOptions { OwnerAgentKey = AgentKey, NotBefore = notBefore });
-            enqueued.Success.Should().BeTrue();
+            enqueued.Success.Should().BeTrue(string.Join("; ", enqueued.AllErrorMessages));
             operationId = enqueued.Data!.Id;
         }
 
         var dispatcher = CreateDispatcher(serviceProvider, registry, options);
         await dispatcher.DispatchAvailableAsync(CancellationToken.None);
 
-        await using var verificationScope = serviceProvider.CreateAsyncScope();
-        var context = verificationScope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
-        var operation = await context.BackgroundOperations.AsNoTracking().SingleAsync(x => x.Id == operationId);
-        operation.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+        var operation = await ReadOperationAsync(serviceProvider, operationId);
+        operation.Status.Should().Be(
+            NhBackgroundOperationStatus.PendingDispatch,
+            "it is not due for an hour; the operation is {0}",
+            await DescribeOperationAsync(serviceProvider, operationId));
         operation.NextDispatchAt.Should().BeCloseTo(notBefore, TimeSpan.FromSeconds(1));
     }
 
@@ -569,7 +564,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
             var enqueued = await service.EnqueueAsync(
                 new OwnershipSimpleRequest("rolled-back"),
                 new NhBackgroundOperationEnqueueOptions { OwnerUserId = memberId });
-            enqueued.Success.Should().BeTrue();
+            enqueued.Success.Should().BeTrue(string.Join("; ", enqueued.AllErrorMessages));
             rolledBackOperationId = enqueued.Data!.Id;
             liveUpdates.Published.Should().BeEmpty("the caller's transaction has not committed yet");
             await transaction.RollbackAsync();
@@ -587,7 +582,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
             var enqueued = await service.EnqueueAsync(
                 new OwnershipSimpleRequest("committed"),
                 new NhBackgroundOperationEnqueueOptions { OwnerUserId = memberId });
-            enqueued.Success.Should().BeTrue();
+            enqueued.Success.Should().BeTrue(string.Join("; ", enqueued.AllErrorMessages));
             liveUpdates.Published.Should().ContainSingle().Which.Should().Be(enqueued.Data!.Id);
         }
     }
@@ -615,10 +610,11 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
         asMember.Success.Should().BeTrue(string.Join("; ", asMember.AllErrorMessages));
         asMember.Data!.Status.Should().Be(NhBackgroundOperationSignalWriteStatus.Accepted);
 
-        await using var verificationScope = serviceProvider.CreateAsyncScope();
-        var context = verificationScope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
-        var operation = await context.BackgroundOperations.AsNoTracking().SingleAsync(x => x.Id == operationId);
-        operation.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+        var operation = await ReadOperationAsync(serviceProvider, operationId);
+        operation.Status.Should().Be(
+            NhBackgroundOperationStatus.PendingDispatch,
+            "the accepted signal wakes the operation for a new attempt; the operation is {0}",
+            await DescribeOperationAsync(serviceProvider, operationId));
     }
 
     /// <summary>
@@ -642,10 +638,11 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
         var repeated = await ownerSignals.SignalAsync(operationId, "ownership-approval", new OwnershipApprovalSignal(false));
         repeated.Data!.Status.Should().Be(NhBackgroundOperationSignalWriteStatus.Duplicate);
 
-        await using var verificationScope = serviceProvider.CreateAsyncScope();
-        var context = verificationScope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
-        var operation = await context.BackgroundOperations.AsNoTracking().SingleAsync(x => x.Id == operationId);
-        operation.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+        var operation = await ReadOperationAsync(serviceProvider, operationId);
+        operation.Status.Should().Be(
+            NhBackgroundOperationStatus.PendingDispatch,
+            "the accepted signal wakes the operation for a new attempt; the operation is {0}",
+            await DescribeOperationAsync(serviceProvider, operationId));
     }
 
     /// <summary>
@@ -669,7 +666,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
                     DomainObjectType = SubjectType,
                     DomainObjectId = SubjectId
                 });
-            enqueued.Success.Should().BeTrue();
+            enqueued.Success.Should().BeTrue(string.Join("; ", enqueued.AllErrorMessages));
             operationId = enqueued.Data!.Id;
         }
 
@@ -699,14 +696,34 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
             options,
             NullLogger<NhBackgroundOperationRunner>.Instance);
         await runner.RunAsync(operationId, dispatchGeneration);
-        await using (var suspendedScope = serviceProvider.CreateAsyncScope())
-        {
-            var suspendedContext = suspendedScope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
-            var suspended = await suspendedContext.BackgroundOperations.AsNoTracking().SingleAsync(x => x.Id == operationId);
-            suspended.Status.Should().Be(NhBackgroundOperationStatus.WaitingForSignal);
-        }
+        var suspended = await ReadOperationAsync(serviceProvider, operationId);
+        suspended.Status.Should().Be(
+            NhBackgroundOperationStatus.WaitingForSignal,
+            "the handler of generation {0} waits for its approval signal; the operation is {1}",
+            dispatchGeneration,
+            await DescribeOperationAsync(serviceProvider, operationId));
 
         return (operationId, persistence);
+    }
+
+    /// <summary>
+    /// Describes the operation's state and each of its attempts, so that a failed assertion says
+    /// how the operation got there, such as an attempt abandoned for lock contention.
+    /// </summary>
+    private static async Task<string> DescribeOperationAsync(IServiceProvider serviceProvider, Guid operationId)
+    {
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
+        var operation = await context.BackgroundOperations
+            .AsNoTracking()
+            .Include(x => x.Attempts)
+            .SingleAsync(x => x.Id == operationId);
+        var attempts = operation.Attempts
+            .OrderBy(attempt => attempt.AttemptNumber)
+            .Select(attempt => $"#{attempt.AttemptNumber} {attempt.Status} ({attempt.FailureCode ?? "no failure code"})");
+        return $"{operation.Status} in generation {operation.DispatchGeneration}, "
+               + $"failure code {operation.FailureCode ?? "none"}, next dispatch at {operation.NextDispatchAt?.ToString("O") ?? "none"}, "
+               + $"attempts [{string.Join(", ", attempts)}]";
     }
 
     private static async Task<int> DispatchUntilQueuedAsync(
@@ -719,16 +736,16 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
         for (var round = 0; round < 20; round++)
         {
             await dispatcher.DispatchAvailableAsync(CancellationToken.None);
-            await using var scope = serviceProvider.CreateAsyncScope();
-            var context = scope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
-            var operation = await context.BackgroundOperations.AsNoTracking().SingleAsync(x => x.Id == operationId);
+            var operation = await ReadOperationAsync(serviceProvider, operationId);
             if (operation.Status == NhBackgroundOperationStatus.Queued)
             {
                 return operation.DispatchGeneration;
             }
         }
 
-        throw new InvalidOperationException($"Operation {operationId} was never dispatched.");
+        throw new InvalidOperationException(
+            $"Expected operation {operationId} to be queued within 20 dispatch rounds, but it is "
+            + $"{await DescribeOperationAsync(serviceProvider, operationId)}.");
     }
 
     private static NhBackgroundOperationService CreateService(
