@@ -207,6 +207,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.ConsultRouteNotAllowed,
             NhAssistantErrorCodes.ConsultProposalRefused,
             NhAssistantErrorCodes.ConsultAskerDecides,
+            NhAssistantErrorCodes.ConsultProposalMoved,
             NhAssistantErrorCodes.SkillInCode,
             NhAssistantErrorCodes.TriggerInCode,
             NhAssistantErrorCodes.SkillInUse,

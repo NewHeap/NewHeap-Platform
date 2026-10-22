@@ -231,6 +231,10 @@ public sealed class AssistantRegistrationTests
                     // the application. It is bounded, normalized and stripped of control and format
                     // characters (see the test below); no other free text is allowed.
                     or "FileName"
+                    // How a consultation proposal is decided and why a consulted agent's call was not
+                    // proposed: codes of NhAssistantConsultationRoutes and
+                    // NhAssistantConsultationRefusalReasons.
+                    or "ConsultationRoute" or "ConsultationRefusalReason"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }
