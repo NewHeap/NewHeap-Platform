@@ -283,3 +283,20 @@ offer.
 | Breaking change | Required action |
 |---|---|
 | New translation keys `nh-assistant.admin.agent-editor.profile`, `profile-default` and `profile-hint`. | Applications with their own translation files add them. |
+
+## NewHeap.Platform.AspNet.Common: a heartbeat no longer stops its attempt over the attempt's own write
+
+Fix. The heartbeat of a running background operation and the attempt's own writes (progress,
+messages, checkpoints, results, signal suspension, fan-out and completion) take the same
+per-operation transaction lock. A heartbeat that could not get that lock within
+`TransactionLockTimeoutMilliseconds` stopped the attempt and rescheduled it as contention, also
+when the holder was a slow write of that same attempt, for example one that compiled its first EF
+query under load. A beat that falls due while the attempt's own write is in progress is now
+skipped; the next beat waits for that write to end instead of skipping again. Contention with
+another holder still reschedules the attempt without spending a retry, and a lost fencing token
+still stops it. A skipped beat refreshes nothing, so an attempt whose own write never ends is
+recovered by reconciliation after `StaleAttemptTimeout`.
+
+| Breaking change | Required action |
+|---|---|
+| A heartbeat skips a beat while its attempt's own write holds the operation lock instead of rescheduling the attempt as contention. | None. |

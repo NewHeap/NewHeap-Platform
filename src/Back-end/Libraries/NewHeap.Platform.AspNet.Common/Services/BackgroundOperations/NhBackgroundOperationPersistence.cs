@@ -20,7 +20,15 @@ internal sealed record NhBackgroundOperationAttemptClaim(
     string PayloadJson,
     string Queue,
     string? ConcurrencyKey,
-    Guid? OwnerUserId);
+    Guid? OwnerUserId)
+{
+    /// <summary>
+    /// Coordinates this attempt's own writes with its heartbeat, so the heartbeat never waits for
+    /// the operation lock behind them. Every write made with this claim enters it; copies made with
+    /// <c>with</c> share it.
+    /// </summary>
+    internal NhBackgroundOperationAttemptWriteGate WriteGate { get; } = new();
+}
 
 internal enum NhBackgroundOperationHeartbeatResult
 {
@@ -209,6 +217,7 @@ internal sealed partial class NhBackgroundOperationPersistence
         CancellationToken cancellationToken,
         bool abandoned = false)
     {
+        using var ownWrite = await claim.WriteGate.EnterWriteAsync(cancellationToken);
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
@@ -376,6 +385,7 @@ internal sealed partial class NhBackgroundOperationPersistence
         IReadOnlyList<NhBackgroundOperationProgressPlanStep> plan,
         CancellationToken cancellationToken)
     {
+        using var ownWrite = await claim.WriteGate.EnterWriteAsync(cancellationToken);
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
@@ -459,6 +469,7 @@ internal sealed partial class NhBackgroundOperationPersistence
         {
             throw new ArgumentOutOfRangeException(nameof(weight));
         }
+        using var ownWrite = await claim.WriteGate.EnterWriteAsync(cancellationToken);
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
@@ -528,6 +539,7 @@ internal sealed partial class NhBackgroundOperationPersistence
         NhBackgroundOperationStepStatus status,
         CancellationToken cancellationToken)
     {
+        using var ownWrite = await claim.WriteGate.EnterWriteAsync(cancellationToken);
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
@@ -578,6 +590,7 @@ internal sealed partial class NhBackgroundOperationPersistence
         NhBackgroundOperationBatchSnapshot snapshot,
         CancellationToken cancellationToken)
     {
+        using var ownWrite = await claim.WriteGate.EnterWriteAsync(cancellationToken);
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
@@ -628,6 +641,7 @@ internal sealed partial class NhBackgroundOperationPersistence
             throw new InvalidOperationException("Message arguments exceed the configured size limit.");
         }
 
+        using var ownWrite = await claim.WriteGate.EnterWriteAsync(cancellationToken);
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
@@ -697,6 +711,7 @@ internal sealed partial class NhBackgroundOperationPersistence
                 "background-operation.checkpoint-value-too-large");
         }
 
+        using var ownWrite = await claim.WriteGate.EnterWriteAsync(cancellationToken);
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
@@ -771,6 +786,7 @@ internal sealed partial class NhBackgroundOperationPersistence
         {
             throw new ArgumentException("Result type and id are required.", nameof(result));
         }
+        using var ownWrite = await claim.WriteGate.EnterWriteAsync(cancellationToken);
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
@@ -824,6 +840,7 @@ internal sealed partial class NhBackgroundOperationPersistence
         {
             throw new InvalidOperationException("Progress message arguments exceed the configured size limit.");
         }
+        using var ownWrite = await claim.WriteGate.EnterWriteAsync(cancellationToken);
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);

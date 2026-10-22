@@ -110,6 +110,7 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
             throw new InvalidOperationException($"Fan-out '{fanOutKey}' contains duplicate item key '{duplicateKey}'.");
         }
 
+        using var ownWrite = await claim.WriteGate.EnterWriteAsync(cancellationToken);
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
