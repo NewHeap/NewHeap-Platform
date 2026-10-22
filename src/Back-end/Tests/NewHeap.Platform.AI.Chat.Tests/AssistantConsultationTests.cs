@@ -641,6 +641,11 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
         {
             return ValueTask.FromResult(true);
         }
+
+        public ValueTask<bool> MayDecideAsync(NhAiApprovalPolicy policy, AssistantThread thread, string toolId, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(true);
+        }
     }
 }
 

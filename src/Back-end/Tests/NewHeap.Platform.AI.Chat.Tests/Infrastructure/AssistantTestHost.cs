@@ -233,6 +233,29 @@ internal sealed class AssistantTestHost : IAsyncDisposable
             CancellationToken.None));
     }
 
+    /// <summary>
+    /// Leaves the proposal of a consultation the person decides here for the subject's approvers.
+    /// </summary>
+    public Task<TurnResult> LeaveForApproversAsync(
+        Guid conversationId,
+        NhAssistantApprovalView approval,
+        string? userId = null)
+    {
+        return RunAsync(userId, (runner, context) => runner.StartDecisionTurnAsync(
+            new NhAssistantDecisionTurnRequest(
+                conversationId,
+                context,
+                approval.ApprovalId,
+                false,
+                approval.ProposalHash,
+                null,
+                CancellationToken.None)
+            {
+                LeaveForApprovers = true
+            },
+            CancellationToken.None));
+    }
+
     public async Task<TurnResult> StartWithoutWaitingAsync(
         Guid conversationId,
         string text,
