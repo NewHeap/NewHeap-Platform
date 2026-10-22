@@ -28,6 +28,8 @@ public sealed class AssistantTriggerEventFilterTests(AssistantDatabaseFixture da
     private const string AgentId = "project-assistant";
     private const string TriggerId = "project-edited-check";
     private const string EventName = "project.edited";
+    private const string WorkEventName = "work.changed";
+    private const string WorkTriggerId = "work-changed-check";
     private const string NotOwnChange = "not-own-change";
     private const string NotBulk = "not-bulk";
     private const string Admin = "admin-1";
@@ -50,7 +52,7 @@ public sealed class AssistantTriggerEventFilterTests(AssistantDatabaseFixture da
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
-    public async Task A_selected_filter_skips_the_agents_own_change_and_a_persons_change_starts_it(AssistantTestProvider provider)
+    public async Task A_selected_filter_skips_the_agents_own_change_on_the_same_subject_and_nothing_else(AssistantTestProvider provider)
     {
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "edited" } }, "call-search")
@@ -60,30 +62,77 @@ public sealed class AssistantTriggerEventFilterTests(AssistantDatabaseFixture da
         Assert.True((await SaveTriggerAsync(host, [NotOwnChange])).Success);
         Assert.True((await ConfigureAsync(host, configuration => configuration.SetTriggerShadowAsync(AgentId, TriggerId, false, Admin))).Success);
 
-        // A person's change starts the agent; the filter learns which trigger it decides for.
+        // A person's change starts the agent; the filter learns which trigger and subject it decides for.
         var project = Guid.NewGuid();
+        var subject = new NhAiSubjectRef("project", project.ToString("N"));
         var started = await PublishAsync(host, new ProjectEdited(Guid.NewGuid(), project, Person));
         Assert.Equal(NhAssistantTriggerOutcomes.Started, started.Outcome);
         var context = Assert.Single(decisions.Contexts);
-        Assert.Equal(new NhAssistantTriggerFilterContext(AgentId, null, TriggerId, "assistant-agent:" + AgentId), context);
+        Assert.Equal(new NhAssistantTriggerFilterContext(AgentId, null, TriggerId, "assistant-agent:" + AgentId, subject), context);
 
-        // The actor the filter compares with is the one the agent's tool calls run as.
+        // A tool handler of the agent's run reads the cause it stamps on its events: the actor from its
+        // invocation context, and that actor and the subject from the ambient agent invocation scope.
         await ExecuteAsync(host, started.RunId!.Value);
         var toolCall = Assert.Single(host.Tools.Contexts);
-        Assert.Equal(context.AgentActorId, toolCall.ActorId);
-        Assert.Equal(NhAiActorKind.Agent, toolCall.ActorKind);
+        Assert.Equal((context.AgentActorId, NhAiActorKind.Agent), (toolCall.ActorId, toolCall.ActorKind));
+        var scope = Assert.Single(host.Tools.Scopes);
+        Assert.NotNull(scope);
+        Assert.Equal((context.AgentActorId, subject), (scope.AgentActorId, scope.Subject.Subject));
 
-        // A change the agent's tool made, stamped with that actor, starts nothing and is not audited.
+        // The agent's own change on the project starts nothing on that project and is not audited.
         var audited = TriggerAudits(host);
-        var own = await PublishAsync(host, new ProjectEdited(Guid.NewGuid(), project, toolCall.ActorId));
+        var own = await PublishAsync(host, new ProjectEdited(Guid.NewGuid(), project, toolCall.ActorId, scope.Subject.Subject));
         Assert.Equal((NhAssistantTriggerOutcomes.Ignored, NhAssistantTriggerReasons.Filtered, (Guid?)null), (own.Outcome, own.ReasonCode, own.RunId));
         Assert.Equal(audited, TriggerAudits(host));
+
+        // The same agent's change made while it worked on another subject still starts it here.
+        var elsewhere = await PublishAsync(host, new ProjectEdited(Guid.NewGuid(), project, toolCall.ActorId, new NhAiSubjectRef("project", Guid.NewGuid().ToString("N"))));
+        Assert.Equal(NhAssistantTriggerOutcomes.Started, elsewhere.Outcome);
 
         // The event's own When decides first: an event it refuses reaches no filter.
         var before = decisions.Contexts.Count;
         var draft = await PublishAsync(host, new ProjectEdited(Guid.NewGuid(), project, Person, Draft: true));
         Assert.Equal((NhAssistantTriggerOutcomes.Ignored, NhAssistantTriggerReasons.Filtered), (draft.Outcome, draft.ReasonCode));
         Assert.Equal(before, decisions.Contexts.Count);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_filter_runs_after_the_subject_function_and_before_the_message_and_dedupe_functions(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient());
+        var decisions = host.Services.GetRequiredService<FilterDecisions>();
+        Assert.True((await ConfigureAsync(host, configuration => configuration.SaveTriggerAsync(
+            AgentId,
+            WorkTriggerId,
+            new NhAssistantDataTriggerRequest(
+                NhAssistantDataTriggerSources.Event,
+                Event: WorkEventName,
+                Conflict: NhAssistantTriggerConflictNames.Queue,
+                DebounceSeconds: 0,
+                Filters: [NotOwnChange]),
+            Admin))).Success);
+        var project = Guid.NewGuid().ToString("N");
+        var subject = new NhAiSubjectRef("project", project);
+        const string agentActor = "assistant-agent:" + AgentId;
+
+        // The agent's own change on the subject: the subject function ran, the filter saw what it
+        // returned, and nothing after the filter ran.
+        var own = await PublishAsync(host, new WorkChanged(Guid.NewGuid(), "project", project, agentActor, subject), WorkTriggerId);
+        Assert.Equal((NhAssistantTriggerOutcomes.Ignored, NhAssistantTriggerReasons.Filtered), (own.Outcome, own.ReasonCode));
+        Assert.Equal(["subject", "filter"], decisions.Calls);
+        Assert.Equal(subject, Assert.Single(decisions.Contexts).Subject);
+
+        // A person's change: the subject function runs once, before the filter, and the fire uses it.
+        decisions.Calls.Clear();
+        var person = await PublishAsync(host, new WorkChanged(Guid.NewGuid(), "project", project, Person, subject), WorkTriggerId);
+        Assert.Equal(NhAssistantTriggerOutcomes.Started, person.Outcome);
+        Assert.Equal(["subject", "filter", "message", "dedupe"], decisions.Calls);
+        var runs = host.Services.GetRequiredService<NhAssistantRunStore>();
+        var run = (await runs.FindRunAsync(person.RunId!.Value, CancellationToken.None))!;
+        var thread = (await runs.FindThreadByConversationAsync(run.ConversationId, CancellationToken.None))!;
+        Assert.Equal((subject.Type, subject.Id), (thread.SubjectType, thread.SubjectId));
     }
 
     [Theory]
@@ -219,7 +268,7 @@ public sealed class AssistantTriggerEventFilterTests(AssistantDatabaseFixture da
         using var admin = app.CreateClient(admin: true);
 
         var catalog = await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/run-catalog"));
-        var edited = Assert.Single(catalog.GetProperty("triggerEvents").EnumerateArray());
+        var edited = Assert.Single(catalog.GetProperty("triggerEvents").EnumerateArray(), item => item.GetProperty("name").GetString() == EventName);
         Assert.Equal(
             [(NotOwnChange, "Skips changes the agent made itself."), (NotBulk, "Skips bulk imports.")],
             edited.GetProperty("filters").EnumerateArray().Select(filter => (filter.GetProperty("name").GetString(), filter.GetProperty("description").GetString())));
@@ -290,9 +339,33 @@ public sealed class AssistantTriggerEventFilterTests(AssistantDatabaseFixture da
                 .Filter(NotOwnChange, "Skips changes the agent made itself.", (edit, trigger) =>
                 {
                     decisions?.Contexts.Enqueue(trigger);
-                    return edit.EditedBy != trigger.AgentActorId;
+                    return !(edit.EditedBy == trigger.AgentActorId && edit.EditedIn == trigger.Subject);
                 })
                 .Filter(NotBulk, "Skips bulk imports.", (edit, _) => !edit.Bulk))
+            // Its subject type is known only when it fires; the filter still sees what Subject returns.
+            .AddTriggerEvent<WorkChanged>(WorkEventName, evt => evt
+                .Description("Some work changed.")
+                .Subject(change =>
+                {
+                    decisions?.Calls.Enqueue("subject");
+                    return new NhAiSubjectRef(change.Type, change.Id);
+                })
+                .Message(change =>
+                {
+                    decisions?.Calls.Enqueue("message");
+                    return "Work changed.";
+                })
+                .Dedupe(change =>
+                {
+                    decisions?.Calls.Enqueue("dedupe");
+                    return change.EventId.ToString("N");
+                })
+                .Filter(NotOwnChange, "Skips changes the agent made itself.", (change, trigger) =>
+                {
+                    decisions?.Calls.Enqueue("filter");
+                    decisions?.Contexts.Enqueue(trigger);
+                    return !(change.ChangedBy == trigger.AgentActorId && change.ChangedIn == trigger.Subject);
+                }))
             .AddSubjectSet("test-projects", "One test project", TestProjectsAsync)
             .ConfigureAgent(AgentId, agent => agent
                 .Grant("projects.*")
@@ -334,11 +407,12 @@ public sealed class AssistantTriggerEventFilterTests(AssistantDatabaseFixture da
     /// <summary>
     /// Publishes the event and returns the receipt of the data trigger.
     /// </summary>
-    private static async Task<NhAssistantTriggerReceipt> PublishAsync(AssistantTestHost host, ProjectEdited evt)
+    private static async Task<NhAssistantTriggerReceipt> PublishAsync<TEvent>(AssistantTestHost host, TEvent evt, string triggerId = TriggerId)
+        where TEvent : class
     {
         await using var scope = host.Services.CreateAsyncScope();
         var receipts = await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>().PublishAsync(evt);
-        return Assert.Single(receipts, receipt => receipt.TriggerId == TriggerId);
+        return Assert.Single(receipts, receipt => receipt.TriggerId == triggerId);
     }
 
     private static async Task ExecuteAsync(AssistantTestHost host, Guid runId)
@@ -386,7 +460,19 @@ public sealed class AssistantTriggerEventFilterTests(AssistantDatabaseFixture da
 /// A project was edited by <see cref="EditedBy"/>: a person, or the actor of an agent whose tool
 /// edited it.
 /// </summary>
-public sealed record ProjectEdited(Guid EventId, Guid ProjectId, string? EditedBy, bool Bulk = false, bool Draft = false);
+public sealed record ProjectEdited(
+    Guid EventId,
+    Guid ProjectId,
+    string? EditedBy,
+    NhAiSubjectRef? EditedIn = null,
+    bool Bulk = false,
+    bool Draft = false);
+
+/// <summary>
+/// Some work changed, a subject known only when the event is published, by <see cref="ChangedBy"/>
+/// while working in <see cref="ChangedIn"/>.
+/// </summary>
+public sealed record WorkChanged(Guid EventId, string Type, string Id, string? ChangedBy, NhAiSubjectRef? ChangedIn);
 
 /// <summary>
 /// What the own-change filter learned, in the order it decided.
@@ -394,4 +480,9 @@ public sealed record ProjectEdited(Guid EventId, Guid ProjectId, string? EditedB
 public sealed class FilterDecisions
 {
     public ConcurrentQueue<NhAssistantTriggerFilterContext> Contexts { get; } = new();
+
+    /// <summary>
+    /// The functions of the work event in the order they ran.
+    /// </summary>
+    public ConcurrentQueue<string> Calls { get; } = new();
 }

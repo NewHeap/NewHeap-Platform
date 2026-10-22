@@ -52,21 +52,23 @@ public sealed class NhAssistantTriggerEventBuilder<TEvent>
     /// <summary>
     /// Registers a named filter that a data trigger on the event may apply, such as
     /// <c>not-own-change</c>. Unlike <see cref="When"/>, which concerns every trigger on the event,
-    /// an administrator selects a filter per data trigger, and the filter learns which trigger, agent
-    /// and skill it decides for. A data trigger fires only when every filter it selected accepts the
-    /// event; <see cref="When"/> decides first, and a filter runs only while the agent and the
-    /// trigger's skill take triggers, before the subject, message and payload functions. An event a
-    /// filter refuses starts nothing, is not audited and gets a receipt with outcome <c>ignored</c>
-    /// and reason <c>filtered</c>. Keep the function cheap and free of I/O: it runs for every
-    /// published event and every data trigger that selected it.
+    /// an administrator selects a filter per data trigger, and the filter learns which trigger, agent,
+    /// skill and subject it decides for. A data trigger fires only when every filter it selected
+    /// accepts the event. The order is: the agent's and skill's state (an agent or skill that is off
+    /// ignores the event), <see cref="When"/>, the event's subject function, the selected filters,
+    /// and only then the message, dedupe and payload functions. An event a filter refuses starts
+    /// nothing, is not audited and gets a receipt with outcome <c>ignored</c> and reason
+    /// <c>filtered</c>. Keep the function cheap and free of I/O: it runs for every published event
+    /// and every data trigger that selected it.
     /// </summary>
     /// <param name="name">Lowercase dash-case, at most 64 characters, unique per event; data
     /// triggers store it.</param>
     /// <param name="description">What the filter skips, at most 300 characters; the administration
     /// shows it.</param>
     /// <param name="filter">Whether the event concerns the trigger that <see cref="NhAssistantTriggerFilterContext"/>
-    /// describes. Compare <see cref="NhAssistantTriggerFilterContext.AgentActorId"/> with an actor the
-    /// event names to skip a change the agent made itself.</param>
+    /// describes. Compare <see cref="NhAssistantTriggerFilterContext.AgentActorId"/> and
+    /// <see cref="NhAssistantTriggerFilterContext.Subject"/> with the actor and subject the event names
+    /// as its cause to skip a change the agent made itself on the same subject.</param>
     public NhAssistantTriggerEventBuilder<TEvent> Filter(
         string name,
         string description,
@@ -195,15 +197,26 @@ public sealed class NhAssistantTriggerEventBuilder<TEvent>
 /// triage choose.</param>
 /// <param name="TriggerId">The data trigger.</param>
 /// <param name="AgentActorId">The actor the agent acts as in its runs: the
-/// <see cref="NhAiInvocationContext.ActorId"/> of every tool call in the agent's runs and the
-/// <see cref="NhAssistantAgentDefinition.ActorId"/> of the agent. An application that stamps the
-/// invocation context's actor on the events its tools cause can skip the agent's own changes by
-/// comparing the two.</param>
+/// <see cref="NhAiInvocationContext.ActorId"/> of every tool call in the agent's runs, the
+/// <see cref="NhAiAgentInvocationScope.AgentActorId"/> of <see cref="NhAiAgentInvocationScopes.Current"/>
+/// there and the <see cref="NhAssistantAgentDefinition.ActorId"/> of the agent.</param>
+/// <param name="Subject">The subject the trigger fires for, as the event's <c>Subject</c> function
+/// returned it; the filters run after that function.</param>
+/// <remarks>
+/// An application skips an agent's own change by stamping its cause on the event where its tool
+/// handler makes the change: the handler's <see cref="NhAiInvocationContext.ActorId"/> (with
+/// <see cref="NhAiInvocationContext.ActorKind"/> <see cref="NhAiActorKind.Agent"/>) and the subject
+/// the agent works in, <c>NhAiAgentInvocationScopes.Current?.Subject.Subject</c>. A filter that skips
+/// the event only when both equal <see cref="AgentActorId"/> and <see cref="Subject"/> stops the agent
+/// from starting itself again on the subject it changed, while its change on one subject still
+/// starts it on another, such as a task's change on its project.
+/// </remarks>
 public sealed record NhAssistantTriggerFilterContext(
     string AgentId,
     string? SkillId,
     string TriggerId,
-    string AgentActorId);
+    string AgentActorId,
+    NhAiSubjectRef Subject);
 
 /// <summary>
 /// A named filter of a trigger event that data triggers on the event may select.

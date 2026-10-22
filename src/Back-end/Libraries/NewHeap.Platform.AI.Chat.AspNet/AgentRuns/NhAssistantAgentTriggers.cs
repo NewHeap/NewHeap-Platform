@@ -36,8 +36,8 @@ public interface INhAssistantAgentTriggers
     /// agent; an agent that is off, or a skill the trigger names that is off, ignores them without
     /// an audit (<see cref="NhAssistantTriggerReasons.AgentOff"/>,
     /// <see cref="NhAssistantTriggerReasons.SkillOff"/>); a trigger's <c>When</c> filter decides
-    /// next, and then the named filters of its trigger event that a data trigger selected
-    /// (<see cref="NhAssistantTriggerReasons.Filtered"/>,
+    /// next, and then, after the subject function, the named filters of its trigger event that a data
+    /// trigger selected (<see cref="NhAssistantTriggerReasons.Filtered"/>,
     /// <see cref="NhAssistantTriggerReasons.FilterMissing"/>). A paused agent's events wait in their thread
     /// (<see cref="NhAssistantTriggerOutcomes.Waiting"/>) until it resumes.
     /// </para>
@@ -281,7 +281,7 @@ internal sealed class NhAssistantAgentTriggers(
                 receipts.Add(live);
                 continue;
             }
-            if (FilterRefusal(trigger, evt) is { } filtered)
+            if (FilterRefusal(trigger, evt, out var subject) is { } filtered)
             {
                 receipts.Add(live ?? Ignored(trigger.Id, filtered));
                 continue;
@@ -290,7 +290,7 @@ internal sealed class NhAssistantAgentTriggers(
             var fire = new NhAssistantTriggerFire(
                 trigger.Id,
                 trigger.AgentId,
-                trigger.Subject(evt),
+                subject ?? trigger.Subject(evt),
                 trigger.Initiator(evt),
                 trigger.Message(evt),
                 trigger.Dedupe(evt),
@@ -397,15 +397,18 @@ internal sealed class NhAssistantAgentTriggers(
     }
 
     /// <summary>
-    /// Why the trigger takes no interest in the event, before its subject, message or payload
+    /// Why the trigger takes no interest in the event, before its message, dedupe or payload
     /// functions run: its <c>When</c> refuses it, a named filter its data trigger selected refuses it
     /// (<see cref="NhAssistantTriggerReasons.Filtered"/>), or its event no longer registers such a
     /// filter (<see cref="NhAssistantTriggerReasons.FilterMissing"/>). <see langword="null"/> when
-    /// the event concerns the trigger. The filters decide for the trigger's own agent; its shadow
-    /// variants receive what that agent receives.
+    /// the event concerns the trigger. The filters run after the subject function and learn the
+    /// subject; <paramref name="subject"/> is that subject when the filters read it, so the fire does
+    /// not ask for it again. The filters decide for the trigger's own agent; its shadow variants
+    /// receive what that agent receives.
     /// </summary>
-    private string? FilterRefusal(NhAssistantTriggerDefinition trigger, object evt)
+    private string? FilterRefusal(NhAssistantTriggerDefinition trigger, object evt, out NhAiSubjectRef? subject)
     {
+        subject = null;
         if (trigger.When is { } when && !when(evt))
         {
             return NhAssistantTriggerReasons.Filtered;
@@ -425,11 +428,13 @@ internal sealed class NhAssistantAgentTriggers(
             return null;
         }
 
+        subject = trigger.Subject(evt);
         var context = new NhAssistantTriggerFilterContext(
             trigger.AgentId,
             trigger.SkillId,
             trigger.Id,
-            NhAssistantAgentEvents.AgentActorPrefix + trigger.AgentId);
+            NhAssistantAgentEvents.AgentActorPrefix + trigger.AgentId,
+            subject);
         foreach (var filter in trigger.Filters)
         {
             if (!filter.Accepts(evt, context))
@@ -620,7 +625,7 @@ internal sealed class NhAssistantAgentTriggers(
             return refused;
         }
 
-        return FilterRefusal(trigger, evt) is { } filtered ? Ignored(trigger.Id, filtered) : null;
+        return FilterRefusal(trigger, evt, out _) is { } filtered ? Ignored(trigger.Id, filtered) : null;
     }
 
     /// <summary>
