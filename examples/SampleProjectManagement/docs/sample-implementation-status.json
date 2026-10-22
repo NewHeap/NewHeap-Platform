@@ -2729,6 +2729,9 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantFileTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantFileReaderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantUploadEndpointTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpFileReader.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-server-editor.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-readers.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-uploads.spec.ts"
     ],
