@@ -13,8 +13,12 @@ files, native reading per profile, the limits, the classification, audit and ret
 opt-in per agent and skill in code and in the administration, with the `AcceptsFiles` migration for
 SQL Server and PostgreSQL. The details it settled are in
 [F-1 implementation decisions](#f-1-implementation-decisions), for Lars to review; the contracts
-F-2 and F-3 build on are in [Contracts for F-2 and F-3](#contracts-for-f-2-and-f-3). F-2, F-3 and
-F-4 are not implemented.
+F-2 and F-3 build on are in [Contracts for F-2 and F-3](#contracts-for-f-2-and-f-3). F-3 is
+implemented on `feat/ai-files-f3-uploads` (2026-10-22): the upload endpoint with its checks and the
+default classification, `files` on the message, file parts in the conversation view, the composer's
+attach control with progress and errors at the control, and the mock API, without a migration. Its
+details are in [F-3 implementation decisions](#f-3-implementation-decisions), for Lars to review; what
+F-4 builds on is in [Contracts for F-4](#contracts-for-f-4). F-2 and F-4 are not implemented.
 
 ## Problem
 
@@ -132,7 +136,7 @@ F-4 are not implemented.
 |---|---|
 | F-1 | File references, the hook, tool results with files, native reading per profile, limits, classification, audit, accepting files per agent and skill. Library tests on SQL Server and PostgreSQL. |
 | F-2 | Reading tools: local tool declarations and the MCP reader setting in the administration, with classification and consent checks. |
-| F-3 | Chat attachments: upload endpoint, Angular composer control, mock API. |
+| F-3 | Chat attachments: upload endpoint, Angular composer control, mock API. Implemented; see [F-3 implementation decisions](#f-3-implementation-decisions). |
 | F-4 | Sample case on the media library (upload a project document and ask about it; an agent skill that reads a document through a tool), the example Word and Excel reading tool, an evaluation case with a malicious document, guidance and release notes. |
 
 ## F-1 implementation decisions
@@ -184,6 +188,44 @@ Each line: the decision, why, and its status.
   SHA-256) that the conversation reader does not show yet; F-3 adds the part to the message view,
   the upload endpoint that calls `StoreUploadAsync` after the per-file limits and media types, the
   composer control and the mock API.
+
+## F-3 implementation decisions
+
+Each line: the decision, why, and its status.
+
+| # | Decision | Reason | Status |
+|---|---|---|---|
+| A1 | The endpoint is `POST {prefix}/conversations/{id}/files`, one file part named `file` per request, answering the `NhAiFileReference` with `200`. | One file per request gives one progress bar and one refusal per file; the reference is what the message carries. | For Lars to review |
+| A2 | An upload needs the header `X-NH-Assistant-Upload` and reads the form itself, without antiforgery metadata or `DisableAntiforgery()`. | A cross-site form cannot send the header, so the endpoint keeps the posture of the JSON endpoints, which a cross-site form cannot call either; binding `IFormFile` would make an application's `UseAntiforgery()` refuse the client's uploads. | For Lars to review |
+| A3 | Checks in this order: conversation and agent policy (as for a message, also the participant role in an agent thread), file source (`assistant-files-unavailable`), agent accepts files (`assistant-files-not-accepted`), upload header and one named file part (`assistant-file-upload-invalid`), accepted media type (`assistant-file-type-not-accepted`), the agent's `MaxFileBytes` (`assistant-file-too-large`), content signature, then `StoreUploadAsync`. The request body is bounded to `MaxFileBytes` plus 16 KB. | Cheap refusals first and nothing reaches the application's storage that the turn would refuse; a large body never reaches the server's form reader. | For Lars to review |
+| A4 | The accepted media types are the application's (`ConfigureUploads(...).AcceptMediaTypes`, by default F9's PDF, PNG, JPEG, Word and Excel), not derived from the agent's profile or reading tools. | Predictable for the composer before a conversation exists; whether a model or a reading tool reads the type is decided per turn (F2), which refuses a type nothing reads. | For Lars to review |
+| A5 | The content must start as files of the declared type do for the platform's types (`%PDF-` within the first kilobyte, the PNG and JPEG signatures, the ZIP signature for Word and Excel); other types are the application's to check. Refused as `assistant-file-type-not-accepted`. | The declared type comes from the person's device; a mislabelled file must not reach a model as a PDF. | For Lars to review |
+| A6 | Four new codes: `assistant-file-upload-invalid` (400), `assistant-file-type-not-accepted` (415), `assistant-file-upload-refused` (422) and `assistant-file-upload-failed` (503); too large reuses `assistant-file-too-large`. | `assistant-file-type-not-supported` says a model cannot read a type, which is a different reason than the application not taking uploads of it. | For Lars to review |
+| A7 | A source refusal passes on as `assistant-file-too-large`, `assistant-file-type-not-accepted` or `assistant-files-unavailable`; every other code becomes `assistant-file-upload-refused`, an exception or an invalid reference `assistant-file-upload-failed`, logging only the exception type. | As D9: only registered codes reach the front end, and an exception may carry the file's name. | For Lars to review |
+| A8 | `NhAssistantFileUpload.Classification` carries the default (F5), configured with `ConfigureUploads(...).DefaultClassification`, `Confidential` unless the application chooses another; the application stores it and reports it from `OpenAsync`. | The upload has no classification of its own until the application stores it; the turn reads the classification from the source as for every file. | For Lars to review |
+| A9 | `GET status` and `GET agents` give each agent `uploads` (accepted types, largest file, most files of one message) or `null`, computed from the agent's limits without a skill; no separate status field. | The composer checks type, size and number before it uploads, also for a new chat; a person's turn starts without a skill. | For Lars to review |
+| A10 | The view shows a person's attachments as `file` parts with name, media type and size; no id, hash or content. Files a tool returned are not shown as parts; they stay named in the call's result. | The application's id is not needed to show a file; the shielding of restricted results then needs no second path. | For Lars to review |
+| A11 | Attaching in a new chat creates the conversation first; uploads start at once with progress through `NH_ASSISTANT_UPLOAD` (`XMLHttpRequest` by default). | An upload belongs to a conversation; `fetch` reports no upload progress, and a token lets the mock API replace the transport as it replaces `fetch`. | For Lars to review |
+| A12 | The store checks files before upload with the server's codes and keeps a refused file as a failed attachment with its reason; failed attachments do not block sending and leave with the next message; sending waits while a file uploads. A message still needs text. | Errors at the control without a dialog; the runtime's message rule stays as it is. | For Lars to review |
+| A13 | A message with attachments in a busy agent thread is refused with `assistant-conversation-busy` instead of being queued for the next run. | The queued trigger carries text only; dropping the files silently is worse than asking to send again. | For Lars to review |
+| A14 | No audit event for an upload and no migration: `StoreUploadAsync` stores it under the application's own audit and retention, and the turn that reads it records `FileRead`. | F6: the platform keeps no copies; this lane may not add a migration. | For Lars to review |
+
+## Contracts for F-4
+
+- **Server:** register the media library's file source with `UseFileSource<T>()`; `StoreUploadAsync`
+  receives the checked upload with `Classification` and the actor (the person, the agent and the
+  conversation, `Origin = attachment`) and returns the media library's reference. `ConfigureUploads`
+  sets the types and the default classification. The chat assistant takes uploads at once; an agent
+  with run settings needs `AcceptsFiles()`. The sample's chat profile must permit `Confidential`
+  (directly or through a fallback) and declare the types it reads (`AcceptMediaTypes`).
+- **Client:** the panel needs no host code: the attach button appears for an agent whose summary has
+  `uploads`. A custom layout binds the composer's `uploads`, `attachments`, `attach` and
+  `removeAttachment` to `NhAssistantStore`, and sends with `submit(text, attachedFiles())`.
+- **Mock:** give a scenario agent `uploads`; `refuseUpload` simulates a scan; `uploads` lists what it
+  stored; a message's unknown file is refused with `assistant-file-not-found` after `turn.started`.
+- **Evidence F-4 can reuse:** `AssistantUploadEndpointTests` (HTTP, both providers) and
+  `TestUploadFileSource`; the specs `nh-assistant-composer.component.spec.ts` and
+  `nh-assistant-uploads.spec.ts`.
 
 ## Open questions
 
