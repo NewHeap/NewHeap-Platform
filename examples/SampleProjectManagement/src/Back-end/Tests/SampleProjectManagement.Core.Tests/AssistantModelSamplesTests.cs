@@ -124,6 +124,41 @@ public sealed class AssistantModelSamplesTests
         Assert.DoesNotContain(TestApiKey, model.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task SPM_305_confidential_files_go_to_the_fallback_profile_and_only_declared_types_reach_the_model_as_files()
+    {
+        using var deterministic = Compose(new Dictionary<string, string?>(), Environments.Development);
+        var withoutTypes = ModelSettings("https://models.example.test/v1");
+        using var realWithoutTypes = Compose(withoutTypes, Environments.Development);
+        var withTypes = ModelSettings("https://models.example.test/v1");
+        withTypes[$"{Section}:MediaTypes"] = "application/pdf, Image/PNG";
+        using var realWithTypes = Compose(withTypes, Environments.Development);
+        var invalidTypes = ModelSettings("https://models.example.test/v1");
+        invalidTypes[$"{Section}:MediaTypes"] = "pdf";
+
+        // The chat profile keeps internal data; uploads are confidential and move a model call to its
+        // fallback, which reads the same types.
+        var chat = GetProfile(deterministic, SampleAssistantComposition.ProfileName);
+        var confidential = GetProfile(deterministic, SampleAssistantComposition.ConfidentialProfileName);
+        Assert.Contains(NhAiDataClassification.Internal, chat.PermittedDataClassifications);
+        Assert.DoesNotContain(NhAiDataClassification.Confidential, chat.PermittedDataClassifications);
+        Assert.Equal([SampleAssistantComposition.ConfidentialProfileName], chat.FallbackProfileNames);
+        Assert.Contains(NhAiDataClassification.Confidential, confidential.PermittedDataClassifications);
+        var resolved = await ResolveAsync(deterministic, "local", NhAiDataClassification.Confidential);
+        Assert.True(resolved.Success);
+        Assert.Equal(SampleAssistantComposition.ConfidentialProfileName, resolved.Data.Profile.Name);
+        // The deterministic model takes PDFs and images; a real model only the types its settings name.
+        string[] files = [NhAiMediaTypes.Pdf, NhAiMediaTypes.Jpeg, NhAiMediaTypes.Png];
+        Assert.Equal(files, chat.AcceptedMediaTypes.Order(StringComparer.Ordinal));
+        Assert.Equal(files, confidential.AcceptedMediaTypes.Order(StringComparer.Ordinal));
+        Assert.Empty(GetProfile(realWithoutTypes, SampleAssistantComposition.ProfileName).AcceptedMediaTypes);
+        Assert.Equal(
+            [NhAiMediaTypes.Pdf, NhAiMediaTypes.Png],
+            GetProfile(realWithTypes, SampleAssistantComposition.ConfidentialProfileName).AcceptedMediaTypes.Order(StringComparer.Ordinal));
+        var failure = Assert.Throws<InvalidOperationException>(() => Compose(invalidTypes, Environments.Development));
+        Assert.StartsWith("SampleProjectManagement:Assistant:Model:MediaTypes must", failure.Message, StringComparison.Ordinal);
+    }
+
     private static Dictionary<string, string?> ModelSettings(string endpoint)
     {
         return new Dictionary<string, string?>
@@ -164,7 +199,8 @@ public sealed class AssistantModelSamplesTests
 
     private static async Task<TaskResult<NhAiResolvedChatProfile>> ResolveAsync(
         ServiceProvider provider,
-        string region)
+        string region,
+        NhAiDataClassification classification = NhAiDataClassification.Internal)
     {
         await using var scope = provider.CreateAsyncScope();
         return await scope.ServiceProvider
@@ -173,7 +209,7 @@ public sealed class AssistantModelSamplesTests
                 new NhAiModelResolutionRequest(
                     SampleAssistantComposition.ProfileName,
                     NhAiModelCapability.FunctionCalling | NhAiModelCapability.Streaming,
-                    NhAiDataClassification.Internal,
+                    classification,
                     "project-assistance",
                     region),
                 TestContext.Current.CancellationToken);

@@ -1,6 +1,7 @@
 using System.ClientModel;
 using System.Globalization;
 using Microsoft.Extensions.AI;
+using NewHeap.Platform.AI;
 using NewHeap.Platform.Common;
 using OpenAI;
 
@@ -29,6 +30,12 @@ public sealed class SampleAssistantModel
 
     private readonly string _apiKey;
 
+    /// <summary>
+    /// The media types the deterministic model takes as files: it names what it received.
+    /// </summary>
+    public static IReadOnlyList<string> DeterministicMediaTypes { get; } =
+        [NhAiMediaTypes.Pdf, NhAiMediaTypes.Png, NhAiMediaTypes.Jpeg];
+
     private SampleAssistantModel(
         string model,
         string apiKey,
@@ -36,7 +43,8 @@ public sealed class SampleAssistantModel
         string region,
         int maxInputTokens,
         int maxOutputTokens,
-        TimeSpan timeout)
+        TimeSpan timeout,
+        IReadOnlyList<string> mediaTypes)
     {
         Model = model;
         _apiKey = apiKey;
@@ -45,6 +53,7 @@ public sealed class SampleAssistantModel
         MaxInputTokens = maxInputTokens;
         MaxOutputTokens = maxOutputTokens;
         Timeout = timeout;
+        MediaTypes = mediaTypes;
     }
 
     /// <summary>The model or deployment name the endpoint serves.</summary>
@@ -65,6 +74,13 @@ public sealed class SampleAssistantModel
     public int MaxOutputTokens { get; }
 
     public TimeSpan Timeout { get; }
+
+    /// <summary>
+    /// SPM-305: the media types of files the real model reads itself, such as PDFs and images; none
+    /// unless <c>MediaTypes</c> names them, because not every OpenAI-compatible model reads files.
+    /// Word and Excel documents reach it as text through the sample's reading tool either way.
+    /// </summary>
+    public IReadOnlyList<string> MediaTypes { get; }
 
     /// <summary>
     /// Reads and validates the real model. Returns <see langword="null"/> when no provider is
@@ -103,6 +119,7 @@ public sealed class SampleAssistantModel
         var maxInputTokens = ReadNumber(configuration, "MaxInputTokens", 32_000, 1, 1_000_000);
         var maxOutputTokens = ReadNumber(configuration, "MaxOutputTokens", 2_000, 1, 100_000);
         var timeoutSeconds = ReadNumber(configuration, "TimeoutSeconds", 60, 1, 900);
+        var mediaTypes = ReadMediaTypes(configuration);
 
         return new SampleAssistantModel(
             model,
@@ -111,7 +128,8 @@ public sealed class SampleAssistantModel
             region,
             maxInputTokens,
             maxOutputTokens,
-            TimeSpan.FromSeconds(timeoutSeconds));
+            TimeSpan.FromSeconds(timeoutSeconds),
+            mediaTypes);
     }
 
     /// <summary>
@@ -188,6 +206,29 @@ public sealed class SampleAssistantModel
         }
 
         return number;
+    }
+
+    /// <summary>
+    /// The media types in <c>MediaTypes</c>, separated by commas, such as
+    /// <c>application/pdf,image/png,image/jpeg</c>.
+    /// </summary>
+    private static IReadOnlyList<string> ReadMediaTypes(IConfiguration configuration)
+    {
+        var value = Read(configuration, "MediaTypes");
+        if (value is null)
+        {
+            return [];
+        }
+
+        var mediaTypes = new List<string>();
+        foreach (var item in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var mediaType = NhAiMediaTypes.Normalize(item)
+                ?? throw Invalid($"{SectionName}:MediaTypes must list media types separated by commas, such as application/pdf,image/png.");
+            mediaTypes.Add(mediaType);
+        }
+
+        return mediaTypes.Distinct(StringComparer.Ordinal).ToArray();
     }
 
     private static InvalidOperationException Invalid(string message)

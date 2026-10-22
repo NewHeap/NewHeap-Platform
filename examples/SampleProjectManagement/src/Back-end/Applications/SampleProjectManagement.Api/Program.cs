@@ -332,6 +332,10 @@ builder.Services.AddSampleProjectCloser(builder.Configuration[SampleProjectClose
 builder.Services.AddSampleProjectPlanner();
 builder.Services.AddSampleProjectPlannerVariant();
 builder.Services.AddSampleProjectStarterBlocks();
+// SPM-305: assistant turns read files of the media library: chat uploads and project documents.
+builder.Services.AddSampleAssistantFiles();
+// SPM-306: the document reader reads a project's documents when one is added; it opts in to files.
+builder.Services.AddSampleProjectDocumentReader();
 if (builder.Environment.IsDevelopment())
 {
     // After the assistant's own start-up work: its schema exists when the project starter is created.
@@ -360,6 +364,8 @@ builder.Services.AddNhMedia(media =>
     media.AddAuthentication<ProjectMediaAuthorizationModule>();
     media.AddThumbnailService<ProjectMediaThumbnailService>();
     media.AddEventHandler<ProjectMediaEventHandler>();
+    // SPM-306: a document added to a project's documents folder starts the document reader.
+    media.AddEventHandler<ProjectDocumentEventHandler>();
 });
 builder.Services.AddScoped<ProjectMediaSampleService>();
 builder.Services.AddScoped<AccountSampleService>();
