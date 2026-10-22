@@ -18,7 +18,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// <remarks>
 /// xUnit creates the fixture once for the test assembly and passes it to every test class and class
 /// fixture that asks for it in its constructor. The container starts when a test first creates a
-/// database, so a run without database tests starts none, and stops when the run ends.
+/// database, so a run without database tests starts none, and stops when the run ends. SPM-309
+/// shows that the copies arrive migrated and do not share rows.
 /// </remarks>
 public sealed class SamplePostgreSqlServer : IAsyncDisposable
 {
