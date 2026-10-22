@@ -94,9 +94,16 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapGet("approvals/inbox", GetInboxAsync)
             .WithName("NhAssistantGetApprovalInbox")
             .WithSummary("List the proposals the caller may decide")
-            .WithDescription("Returns pending agent proposals across threads that the caller may decide, sorted by expiry and paged: proposals on subjects the caller approves according to the member snapshot, proposals of runs the caller started made in the run's own thread, and proposals of the whole application (nh-system) where the caller's live role is approver or the caller started the run, both only when the caller passes the agent's view policy (by default its required policy). A proposal a run placed at another object waits for that object's approvers only; its placedBy names the run. Each decision is checked live again; a proposal of the whole application the caller may not see answers 404 like an unknown one.")
+            .WithDescription("Returns pending agent proposals across threads that the caller may decide, sorted by expiry and paged: proposals on subjects the caller approves according to the member snapshot, proposals of runs the caller started made in the run's own thread, and proposals of the whole application (nh-system) where the caller's live role is approver or the caller started the run, both only when the caller passes the agent's view policy (by default its required policy). A proposal a run placed at another object waits for that object's approvers only; its placedBy names the run. Each decision is checked live again; a proposal of the whole application the caller may not see answers 404 like an unknown one. subjectType, agentId, divisionId and runId filter the proposals. grouped=true groups them by the parent each proposal recorded from the subject access resolver when it was made, or by its own subject without one: groups come by their first expiry, a group's own subject first, then its other subjects by their first expiry, a run's proposals together; groups lists per group on the page its subjects, how many proposals it has on the page and in total, and whether it continues on the page before or after. newApprovalIds names the proposals on the page made after the caller's last visit of the inbox in its scope (global, or the division of divisionId), lastVisitedAt; before the first visit every proposal is new.")
             .Produces<NhAssistantInboxDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
+        group.MapPost("approvals/inbox/visit", VisitInboxAsync)
+            .WithName("NhAssistantVisitApprovalInbox")
+            .WithSummary("Record a visit of the inbox")
+            .WithDescription("Records that the caller looked at the approval inbox in its scope now, so the inbox marks the proposals made after this visit as new. divisionId (optional) records the visit of the inbox of one division the caller may work in; without it the visit of the whole inbox (global). Only the person, the scope and the time are stored. A division the caller may not work in, or an unknown one, answers 404 assistant-subject-not-found.")
+            .Produces<NhAssistantInboxVisitDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         group.MapGet("approvals/{approvalId:guid}", GetProposalAsync)
             .WithName("NhAssistantGetProposal")
             .WithSummary("Read one agent proposal")
@@ -546,12 +553,14 @@ internal static class NhAssistantAgentRunEndpoints
         NhAssistantRunStore runs,
         NhAssistantSubjectAccessService subjects,
         NhAssistantSystemApprovers systemApprovers,
+        NhAssistantInboxVisits visits,
         string? subjectType,
         string? agentId,
         Guid? divisionId,
         Guid? runId,
         int? page,
-        int? itemsPerPage)
+        int? itemsPerPage,
+        bool? grouped)
     {
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
         if (!caller.Success)
@@ -570,21 +579,78 @@ internal static class NhAssistantAgentRunEndpoints
         var system = subjectType is null || subjectType == NhAiSubjectRef.SystemType
             ? await systemApprovers.InboxAsync(caller.Data!.ActorId, caller.Data.TenantId, httpContext.RequestAborted)
             : NhAssistantSystemInbox.None;
-        var (items, total) = await runs.ListInboxAsync(
+        var inbox = await runs.ListInboxAsync(
             caller.Data!.ActorId,
             new NhAssistantInboxFilter(subjectType, agentId, divisionId, runId),
             pageNumber,
             size,
             httpContext.RequestAborted,
-            system);
+            system,
+            grouped ?? false);
         var proposals = await NhAssistantAgentRunDtoMapper.CompleteAsync(
-            items.Select(row => NhAssistantAgentRunDtoMapper.ToDto(row.Approval, row.Thread)).ToArray(),
+            inbox.Items.Select(row => NhAssistantAgentRunDtoMapper.ToDto(row.Approval, row.Thread)).ToArray(),
             runs,
             subjects,
             httpContext.RequestAborted);
+
+        // What is new follows the caller's last visit of the inbox in its scope, as on boards.
+        var scopeKey = NhAssistantInboxVisits.ScopeKeyOf(divisionId);
+        var lastVisit = await visits.LastVisitAsync(caller.Data.ActorId, scopeKey, httpContext.RequestAborted);
         return TypedResults.Json(
-            new NhAssistantInboxDto(proposals, total),
+            new NhAssistantInboxDto(proposals, inbox.Total)
+            {
+                ScopeKey = scopeKey,
+                LastVisitedAt = lastVisit,
+                NewApprovalIds = inbox.Items
+                    .Where(row => NhAssistantInboxVisits.IsNew(row.Approval.CreatedAt, lastVisit))
+                    .Select(row => row.Approval.Id)
+                    .ToArray(),
+                Groups = inbox.Groups?.Select(group => ToGroupDto(group, subjects)).ToArray()
+            },
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantInboxDto);
+    }
+
+    private static NhAssistantInboxGroupDto ToGroupDto(NhAssistantInboxGroupRow group, NhAssistantSubjectAccessService subjects)
+    {
+        var (typeName, link) = NhAssistantAgentRunDtoMapper.SubjectOf(subjects, group.SubjectType, group.SubjectId);
+        return new NhAssistantInboxGroupDto(
+            group.SubjectType,
+            group.SubjectId,
+            NhAssistantAgentRunDtoMapper.DisplayNameOf(subjects, group.SubjectType, group.SubjectId, group.DisplayName),
+            group.Count,
+            group.Total,
+            group.ContinuesFromPreviousPage,
+            group.ContinuesOnNextPage,
+            group.Subjects
+                .Select(subject => new NhAssistantInboxSubjectGroupDto(
+                    subject.SubjectType,
+                    subject.SubjectId,
+                    subject.Count,
+                    subject.Total,
+                    subject.ContinuesFromPreviousPage,
+                    subject.ContinuesOnNextPage))
+                .ToArray())
+        {
+            SubjectTypeName = typeName,
+            SubjectLink = link
+        };
+    }
+
+    private static async Task<IResult> VisitInboxAsync(
+        HttpContext httpContext,
+        NhAssistantInboxVisits visits,
+        Guid? divisionId)
+    {
+        var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
+        }
+
+        var visit = await visits.VisitAsync(caller.Data!.ActorId, caller.Data.TenantId, divisionId, httpContext.RequestAborted);
+        return visit.Success
+            ? TypedResults.Json(visit.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantInboxVisitDto)
+            : NhAssistantHttpErrors.Failure(visit);
     }
 
     private static async Task<IResult> GetProposalAsync(

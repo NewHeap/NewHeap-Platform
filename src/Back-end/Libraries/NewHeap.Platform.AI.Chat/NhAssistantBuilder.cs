@@ -304,8 +304,10 @@ public sealed class NhAssistantBuilder
     /// <c>nh-assistant-agent-board</c> component. Agents join it in code with
     /// <see cref="NhAssistantAgentRunBuilder.InGroup"/>; administrators add any agent to a group or
     /// remove it, and their choice wins over code. Groups exist only in code. The id is dash-case,
-    /// at most 64 characters; a group needs a name. Registering the same group again, for example from
-    /// every composition whose agents join it, keeps it; another group with the same id is refused.
+    /// at most 64 characters; ids that start with <c>nh-</c> belong to the platform, which records the
+    /// approval inbox's visits under <c>nh-inbox</c>. A group needs a name. Registering the same group
+    /// again, for example from every composition whose agents join it, keeps it; another group with
+    /// the same id is refused.
     /// </summary>
     public NhAssistantBuilder AddAgentGroup(string groupId, Action<NhAssistantAgentGroupBuilder> configure)
     {
@@ -313,6 +315,12 @@ public sealed class NhAssistantBuilder
         {
             throw new ArgumentException(
                 $"An agent group id is a dash-case identifier of at most {NhAssistantAgentGroupDefinition.MaxIdLength} characters.",
+                nameof(groupId));
+        }
+        if (NhAssistantAgentGroupDefinition.IsReservedId(groupId))
+        {
+            throw new ArgumentException(
+                $"Agent group ids starting with '{NhAssistantAgentGroupDefinition.ReservedIdPrefix}' are reserved for the platform. Rename the group.",
                 nameof(groupId));
         }
 

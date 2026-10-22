@@ -2501,13 +2501,23 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     /// <paramref name="systemApproverSubjectIds"/>, where the caller's live role is approver, count as
     /// well. Each decision is checked live again.
     /// </summary>
-    public async Task<(IReadOnlyList<NhAssistantInboxRow> Items, int Total)> ListInboxAsync(
+    /// <remarks>
+    /// Flat, the page lists the proposals that expire first. With <paramref name="grouped"/> the
+    /// proposals are grouped by the parent each recorded when it was made, and a proposal without a
+    /// parent by its own subject, so a parent's own proposals and those of its children form one
+    /// group. Groups come in the order of their first expiry, a group's own subject first and then its
+    /// other subjects by their first expiry, the proposals of one run together, and within that by
+    /// expiry. Each group and subject is contiguous across pages; the page tells per group and subject
+    /// how many proposals it has in total and whether it continues on the page before or after.
+    /// </remarks>
+    public async Task<NhAssistantInboxPage> ListInboxAsync(
         string actorId,
         NhAssistantInboxFilter filter,
         int page,
         int itemsPerPage,
         CancellationToken cancellationToken,
-        NhAssistantSystemInbox? system = null)
+        NhAssistantSystemInbox? system = null,
+        bool grouped = false)
     {
         await using var context = contextFactory.CreateDbContext();
         // A proposal expires on the application's clock.
@@ -2553,13 +2563,200 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         }
 
         var total = await query.CountAsync(cancellationToken);
-        var rows = await query
-            .OrderBy(row => row.approval.ExpiresAt)
-            .ThenBy(row => row.approval.Id)
-            .Skip((page - 1) * itemsPerPage)
-            .Take(itemsPerPage)
+        if (!grouped)
+        {
+            var rows = await query
+                .OrderBy(row => row.approval.ExpiresAt)
+                .ThenBy(row => row.approval.Id)
+                .Skip((page - 1) * itemsPerPage)
+                .Take(itemsPerPage)
+                .ToListAsync(cancellationToken);
+            return new NhAssistantInboxPage(rows.Select(row => new NhAssistantInboxRow(row.approval, row.thread)).ToList(), total);
+        }
+
+        // A proposal without a parent groups by its own subject. Scope keys keep equal ids of
+        // different tenants or divisions apart.
+        var keyed =
+            from row in query
+            select new
+            {
+                row.approval,
+                row.thread,
+                GroupType = row.approval.ParentSubjectType ?? row.thread.SubjectType,
+                GroupId = row.approval.ParentSubjectId ?? row.thread.SubjectId
+            };
+        var groups =
+            from row in keyed
+            group row by new { row.thread.ScopeKey, row.GroupType, row.GroupId } into grouping
+            select new
+            {
+                grouping.Key.ScopeKey,
+                grouping.Key.GroupType,
+                grouping.Key.GroupId,
+                Total = grouping.Count(),
+                FirstExpiry = grouping.Min(item => item.approval.ExpiresAt)
+            };
+        var subjects =
+            from row in keyed
+            group row by new { row.thread.ScopeKey, row.GroupType, row.GroupId, row.thread.SubjectType, row.thread.SubjectId } into grouping
+            select new
+            {
+                grouping.Key.ScopeKey,
+                grouping.Key.GroupType,
+                grouping.Key.GroupId,
+                grouping.Key.SubjectType,
+                grouping.Key.SubjectId,
+                Total = grouping.Count(),
+                FirstExpiry = grouping.Min(item => item.approval.ExpiresAt)
+            };
+        // Every tie is broken explicitly, and runs without an id come last on both providers, so a
+        // group, a subject and a run stay contiguous across pages.
+        var ordered =
+            from row in keyed
+            join groupOf in groups
+                on new { row.thread.ScopeKey, row.GroupType, row.GroupId }
+                equals new { groupOf.ScopeKey, groupOf.GroupType, groupOf.GroupId }
+            join subjectOf in subjects
+                on new { row.thread.ScopeKey, row.GroupType, row.GroupId, row.thread.SubjectType, row.thread.SubjectId }
+                equals new { subjectOf.ScopeKey, subjectOf.GroupType, subjectOf.GroupId, subjectOf.SubjectType, subjectOf.SubjectId }
+            orderby groupOf.FirstExpiry,
+                groupOf.ScopeKey,
+                groupOf.GroupType,
+                groupOf.GroupId,
+                row.approval.ParentSubjectType == null ? 0 : 1,
+                subjectOf.FirstExpiry,
+                row.thread.SubjectType,
+                row.thread.SubjectId,
+                row.approval.RunId == null ? 1 : 0,
+                row.approval.RunId,
+                row.approval.ExpiresAt,
+                row.approval.Id
+            select new { row.approval, row.thread, GroupTotal = groupOf.Total, SubjectTotal = subjectOf.Total };
+
+        // One proposal before and after the page tell whether its first group continues from the page
+        // before and its last group on the page after.
+        var offset = (page - 1) * itemsPerPage;
+        var lead = offset > 0 ? 1 : 0;
+        var window = await ordered
+            .Skip(offset - lead)
+            .Take(itemsPerPage + lead + 1)
             .ToListAsync(cancellationToken);
-        return (rows.Select(row => new NhAssistantInboxRow(row.approval, row.thread)).ToList(), total);
+        var pageRows = window
+            .Skip(lead)
+            .Take(itemsPerPage)
+            .Select(row => new NhAssistantGroupedInboxRow(new NhAssistantInboxRow(row.approval, row.thread), row.GroupTotal, row.SubjectTotal))
+            .ToList();
+        var previous = lead == 1 && window.Count > 0 ? new NhAssistantInboxRow(window[0].approval, window[0].thread) : null;
+        var next = window.Count > lead + itemsPerPage
+            ? new NhAssistantInboxRow(window[lead + itemsPerPage].approval, window[lead + itemsPerPage].thread)
+            : null;
+        return new NhAssistantInboxPage(pageRows.Select(row => row.Row).ToList(), total)
+        {
+            Groups = NhAssistantInboxGrouping.GroupsOf(pageRows, previous, next)
+        };
+    }
+}
+
+/// <summary>
+/// Builds the groups of one page of the grouped inbox from its proposals, which the query returned
+/// contiguous per group, subject and run.
+/// </summary>
+internal static class NhAssistantInboxGrouping
+{
+    public static IReadOnlyList<NhAssistantInboxGroupRow> GroupsOf(
+        IReadOnlyList<NhAssistantGroupedInboxRow> rows,
+        NhAssistantInboxRow? previous,
+        NhAssistantInboxRow? next)
+    {
+        var groups = new List<NhAssistantInboxGroupRow>();
+        var index = 0;
+        while (index < rows.Count)
+        {
+            var key = GroupKeyOf(rows[index].Row);
+            var end = index;
+            while (end < rows.Count && GroupKeyOf(rows[end].Row) == key)
+            {
+                end++;
+            }
+
+            var members = rows.Skip(index).Take(end - index).ToList();
+            groups.Add(new NhAssistantInboxGroupRow(
+                key.ScopeKey,
+                key.Type,
+                key.Id,
+                DisplayNameOf(members),
+                members.Count,
+                members[0].GroupTotal,
+                index == 0 && previous is not null && GroupKeyOf(previous) == key,
+                end == rows.Count && next is not null && GroupKeyOf(next) == key,
+                SubjectsOf(members, index == 0 ? previous : null, end == rows.Count ? next : null)));
+            index = end;
+        }
+
+        return groups;
+    }
+
+    private static IReadOnlyList<NhAssistantInboxSubjectRow> SubjectsOf(
+        IReadOnlyList<NhAssistantGroupedInboxRow> rows,
+        NhAssistantInboxRow? previous,
+        NhAssistantInboxRow? next)
+    {
+        var subjects = new List<NhAssistantInboxSubjectRow>();
+        var index = 0;
+        while (index < rows.Count)
+        {
+            var key = SubjectKeyOf(rows[index].Row);
+            var end = index;
+            while (end < rows.Count && SubjectKeyOf(rows[end].Row) == key)
+            {
+                end++;
+            }
+
+            subjects.Add(new NhAssistantInboxSubjectRow(
+                rows[index].Row.Thread.SubjectType,
+                rows[index].Row.Thread.SubjectId,
+                end - index,
+                rows[index].SubjectTotal,
+                index == 0 && previous is not null && SubjectKeyOf(previous) == key,
+                end == rows.Count && next is not null && SubjectKeyOf(next) == key));
+            index = end;
+        }
+
+        return subjects;
+    }
+
+    /// <summary>
+    /// The group's name: its own subject's name when it has proposals in the group, otherwise the name
+    /// the newest proposal recorded for the parent.
+    /// </summary>
+    private static string? DisplayNameOf(IReadOnlyList<NhAssistantGroupedInboxRow> rows)
+    {
+        var own = rows.FirstOrDefault(row => row.Row.Approval.ParentSubjectType is null);
+        if (own is not null)
+        {
+            return own.Row.Thread.SubjectDisplayName;
+        }
+
+        return rows
+            .Select(row => row.Row.Approval)
+            .Where(approval => approval.ParentDisplayName is not null)
+            .OrderByDescending(approval => approval.CreatedAt)
+            .Select(approval => approval.ParentDisplayName)
+            .FirstOrDefault();
+    }
+
+    private static (string ScopeKey, string Type, string Id) GroupKeyOf(NhAssistantInboxRow row)
+    {
+        return (
+            row.Thread.ScopeKey,
+            row.Approval.ParentSubjectType ?? row.Thread.SubjectType,
+            row.Approval.ParentSubjectId ?? row.Thread.SubjectId);
+    }
+
+    private static (string ScopeKey, string Type, string Id, string SubjectType, string SubjectId) SubjectKeyOf(NhAssistantInboxRow row)
+    {
+        var group = GroupKeyOf(row);
+        return (group.ScopeKey, group.Type, group.Id, row.Thread.SubjectType, row.Thread.SubjectId);
     }
 }
 
@@ -2624,6 +2821,46 @@ internal sealed record NhAssistantInboxFilter(
     Guid? RunId);
 
 internal sealed record NhAssistantInboxRow(AssistantApproval Approval, AssistantThread Thread);
+
+/// <summary>
+/// One page of the inbox and how many proposals the inbox has in total. <see cref="Groups"/> is set
+/// for a grouped inbox only.
+/// </summary>
+internal sealed record NhAssistantInboxPage(IReadOnlyList<NhAssistantInboxRow> Items, int Total)
+{
+    public IReadOnlyList<NhAssistantInboxGroupRow>? Groups { get; init; }
+}
+
+/// <summary>
+/// A proposal of the grouped inbox with the totals of its group and of its subject in that group.
+/// </summary>
+internal sealed record NhAssistantGroupedInboxRow(NhAssistantInboxRow Row, int GroupTotal, int SubjectTotal);
+
+/// <summary>
+/// One group on a page of the grouped inbox: a parent, or a subject whose proposals record none, with
+/// its proposals on the page (<see cref="Count"/>) and in the whole inbox (<see cref="Total"/>).
+/// </summary>
+internal sealed record NhAssistantInboxGroupRow(
+    string ScopeKey,
+    string SubjectType,
+    string SubjectId,
+    string? DisplayName,
+    int Count,
+    int Total,
+    bool ContinuesFromPreviousPage,
+    bool ContinuesOnNextPage,
+    IReadOnlyList<NhAssistantInboxSubjectRow> Subjects);
+
+/// <summary>
+/// One subject within a group on a page of the grouped inbox.
+/// </summary>
+internal sealed record NhAssistantInboxSubjectRow(
+    string SubjectType,
+    string SubjectId,
+    int Count,
+    int Total,
+    bool ContinuesFromPreviousPage,
+    bool ContinuesOnNextPage);
 
 /// <summary>
 /// Which runs a run history lists: of an agent, on a subject type or one subject, in a status, created

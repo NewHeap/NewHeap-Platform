@@ -1107,6 +1107,9 @@ internal sealed class NhAssistantToolCallInterceptor(
         // A placed proposal executes from its own copy of the call in the thread at the object, so
         // the run's thread keeps its call as it ended here.
         var waitingCall = placed is null ? row : CopyForPlacement(row, placed.Thread.ConversationId);
+        // The subject the proposal waits at belongs to its parent as the resolver described it now;
+        // the inbox groups by this snapshot.
+        var parent = placed is null ? agentTurn?.Subject.Parent : placed.Subject.Parent;
         var approval = new AssistantApproval
         {
             Id = approvalId,
@@ -1133,6 +1136,11 @@ internal sealed class NhAssistantToolCallInterceptor(
             InitiatorActorId = agentTurn is null ? state.Scope.OwnerActorId : agentTurn.InitiatorActorId,
             // The precondition compares the version of the object the proposal waits at.
             SubjectVersion = placed?.Subject.Version ?? agentTurn?.Subject.Version,
+            ParentSubjectType = parent?.Subject.Type,
+            ParentSubjectId = parent?.Subject.Id,
+            ParentDisplayName = parent?.DisplayName is { } parentName
+                ? NhAssistantContent.Bound(parentName, NhAiSubjectParent.MaxDisplayNameLength)
+                : null,
             GrantSource = context.GrantSource,
             ConsultationId = consultation?.ConsultationId,
             NextReminderAt = policy is not null && mode == NhAiApprovalMode.Deferred && !shadow

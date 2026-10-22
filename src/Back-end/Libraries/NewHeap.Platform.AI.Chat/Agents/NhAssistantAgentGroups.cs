@@ -78,6 +78,17 @@ internal sealed class NhAssistantAgentGroupDefinition(string id)
     /// </summary>
     public const int MaxGroups = 100;
 
+    /// <summary>
+    /// Group ids that start with this prefix belong to the platform: <c>AddAgentGroup</c> refuses them.
+    /// </summary>
+    public const string ReservedIdPrefix = "nh-";
+
+    /// <summary>
+    /// The platform's id under which the approval inbox records a person's visits per scope, next to
+    /// the visits of boards.
+    /// </summary>
+    public const string InboxVisitId = "nh-inbox";
+
     public string Id { get; } = id;
 
     public IReadOnlyDictionary<string, string>? Names { get; set; }
@@ -93,6 +104,14 @@ internal sealed class NhAssistantAgentGroupDefinition(string id)
     public static bool IsValidId(string? groupId)
     {
         return groupId is { Length: <= MaxIdLength } && NhAiSubjectRef.IsValidType(groupId);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="groupId"/> starts with <see cref="ReservedIdPrefix"/>.
+    /// </summary>
+    public static bool IsReservedId(string? groupId)
+    {
+        return groupId is not null && groupId.StartsWith(ReservedIdPrefix, StringComparison.Ordinal);
     }
 
     /// <summary>
