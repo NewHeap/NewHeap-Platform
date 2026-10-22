@@ -61,22 +61,43 @@ internal static class NhAiModelFiles
     }
 
     /// <summary>
-    /// The estimated tokens of the annotated file content in <paramref name="messages"/>.
+    /// The estimated tokens of the annotated file content in <paramref name="messages"/>, as the caller
+    /// built them, that the caller's estimate of the text does not hold: all content a tool result
+    /// carries, and the files directly in a message. Text a reading tool made of a file directly in a
+    /// message is part of the message's text, which <see cref="NhAiChatRequest.EstimatedInputTokens"/>
+    /// already counts.
     /// </summary>
     public static long EstimatedTokens(IEnumerable<ChatMessage> messages)
     {
         long total = 0;
-        foreach (var content in FileContents(messages))
+        foreach (var message in messages)
         {
-            if (content.AdditionalProperties?.TryGetValue(EstimatedTokensProperty, out var value) == true
-                && value is string text
-                && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var tokens))
+            foreach (var content in message.Contents)
             {
-                total += tokens;
+                if (content is FunctionResultContent { Result: NhAiToolResultWithContent carried })
+                {
+                    foreach (var inner in carried.Contents.Where(IsFile))
+                    {
+                        total += TokensOf(inner);
+                    }
+                }
+                else if (IsFile(content) && content is not TextContent)
+                {
+                    total += TokensOf(content);
+                }
             }
         }
 
         return total;
+    }
+
+    private static int TokensOf(AIContent content)
+    {
+        return content.AdditionalProperties?.TryGetValue(EstimatedTokensProperty, out var value) == true
+            && value is string text
+            && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var tokens)
+                ? tokens
+                : 0;
     }
 
     /// <summary>
