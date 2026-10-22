@@ -61,6 +61,22 @@ internal sealed class NhAssistantTurnScope
     public Runs.NhAssistantConsultationScope? Consultation { get; init; }
 
     /// <summary>
+    /// What the turn's model and tool calls are for, one of <see cref="NhAiBudgetPurposes"/>; budget
+    /// requests carry it.
+    /// </summary>
+    public string BudgetPurpose { get; init; } = NhAiBudgetPurposes.Chat;
+
+    /// <summary>
+    /// The agent run the turn belongs to; <see langword="null"/> for a turn in a conversation.
+    /// </summary>
+    public Guid? RunId { get; init; }
+
+    /// <summary>
+    /// The skill the turn works in; <see langword="null"/> while it works with the agent's own tools.
+    /// </summary>
+    public string? SkillId { get; set; }
+
+    /// <summary>
     /// Whose credential the tools of each loaded MCP server carry, for the audit of their calls.
     /// </summary>
     public IReadOnlyDictionary<string, string>? McpConnectionOwners { get; set; }

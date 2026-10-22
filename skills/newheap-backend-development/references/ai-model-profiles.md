@@ -39,6 +39,12 @@ and explicitly accepted process-local deployments. Configure call, token, cost,
 window and actor-ledger ceilings. It charges the authenticated actor or accountable
 owner, returns stable failure keys and resets on process restart. Use a durable
 `INhAiBudgetManager` when enforcement must survive restarts or span instances.
+A budget manager reads whose work a reservation is from `NhAiBudgetRequest`: `AgentId`,
+`SkillId` and `RunId` where known, and `Purpose`, one of `NhAiBudgetPurposes`: `chat` (a
+person's turn in an assistant conversation), `agent-run`, `consultation`,
+`proposal-execution`, `mcp` (a tool call of an MCP client through the MCP export),
+`ingestion` and `application` (the application's own calls for no agent). Treat a purpose
+it does not know as `application`.
 
 Keep provider packages, endpoints, credentials, and concrete model names in the
 consumer. Use `NhAiDeterministicChatClient` and

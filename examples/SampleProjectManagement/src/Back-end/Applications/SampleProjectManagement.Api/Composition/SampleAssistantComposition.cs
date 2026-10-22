@@ -118,6 +118,10 @@ public static class SampleAssistantComposition
             .UseAccessPolicy(AccessPolicy)
             .UseAdminPolicy(AdminPolicy)
             .UseDefaultApplicationContext(DefaultApplicationContext)
+            // SPM-247: the application's budget manager also reserves the calls of assistant turns
+            // and reads whose work they are: a person's chat, an agent's run, a consultation or a
+            // proposal that executes, with the agent, skill and run.
+            .UseApplicationBudgetInTurns()
             // SPM-251: an administrator may name a secret instead of storing it: config:<name> reads
             // NewHeap:AI:Assistant:Mcp:Secrets:<name>, and secret-file:<name> a mounted secret file.
             .AddMcpSecretResolver<SampleMountedSecretResolver>(SampleMountedSecretResolver.Prefix)

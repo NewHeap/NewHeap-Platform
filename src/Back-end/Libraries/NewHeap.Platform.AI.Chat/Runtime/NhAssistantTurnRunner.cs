@@ -695,7 +695,10 @@ internal sealed partial class NhAssistantTurnRunner(
                 PromptVersion = proposal.PromptVersion ?? string.Empty,
                 PromptHash = proposal.PromptHash ?? string.Empty,
                 Deadline = DateTimeOffset.UtcNow.Add(registration.Limits.TurnTimeout),
-                Limits = registration.Limits
+                Limits = registration.Limits,
+                BudgetPurpose = NhAiBudgetPurposes.ProposalExecution,
+                RunId = approval.RunId,
+                SkillId = request.AgentTurn?.SkillId
             },
             Conversation = conversation,
             EffectiveAgent = effectiveAgent,
@@ -2613,7 +2616,9 @@ internal sealed partial class NhAssistantTurnRunner(
                 PromptHash = prompt.PromptHash,
                 Prompt = prompt,
                 Deadline = DateTimeOffset.UtcNow.Add(limits.TurnTimeout),
-                Limits = limits
+                Limits = limits,
+                BudgetPurpose = agentTurn is null ? NhAiBudgetPurposes.Chat : NhAiBudgetPurposes.AgentRun,
+                RunId = agentTurn?.RunId
             },
             Conversation = conversation,
             EffectiveAgent = effectiveAgent,
@@ -2673,7 +2678,9 @@ internal sealed partial class NhAssistantTurnRunner(
                 Prompt = prompt,
                 Deadline = DateTimeOffset.UtcNow.Add(request.Timeout),
                 Limits = limits,
-                Consultation = consultation
+                Consultation = consultation,
+                BudgetPurpose = NhAiBudgetPurposes.Consultation,
+                RunId = request.AgentTurn.RunId
             },
             Conversation = conversation,
             EffectiveAgent = effectiveAgent,

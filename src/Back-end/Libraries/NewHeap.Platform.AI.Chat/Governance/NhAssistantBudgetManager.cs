@@ -11,11 +11,15 @@ namespace NewHeap.Platform.AI.Chat.Governance;
 /// Durable per-actor, per-UTC-day budget on <c>AssistantBudgetLedger</c>. Inside an assistant turn
 /// every reservation is booked atomically against the accountable human: tool calls against
 /// <see cref="NhAssistantLimits.DailyToolCallBudgetPerActor"/> and model calls against the optional
-/// <see cref="NhAssistantLimits.DailyModelCallBudgetPerActor"/>. Outside an assistant turn the request
-/// is delegated to the budget manager that was registered before the assistant.
+/// <see cref="NhAssistantLimits.DailyModelCallBudgetPerActor"/>. With
+/// <see cref="NhAssistantBuilder.UseApplicationBudgetInTurns"/> a booked reservation is then also
+/// reserved with the budget manager that was registered before the assistant, naming the turn's
+/// agent, skill, run and purpose. Outside an assistant turn the request is delegated to that manager
+/// as it is.
 /// </summary>
 internal sealed class NhAssistantBudgetManager(
     NhAssistantDbContextFactory contextFactory,
+    NhAssistantRegistrationState registration,
     [FromKeyedServices(NhAssistantFallbacks.ServiceKey)] INhAiBudgetManager fallback) : INhAiBudgetManager
 {
     public const string ExhaustedCode = NhAssistantErrorCodes.BudgetExhausted;
@@ -53,6 +57,17 @@ internal sealed class NhAssistantBudgetManager(
                 "The daily assistant budget of the accountable actor is exhausted.");
         }
 
+        if (registration.ApplicationBudgetInTurns)
+        {
+            // The application's own manager decides as well, and learns whose work the call is.
+            var application = await fallback.ReserveAsync(Describe(request, turn), cancellationToken);
+            if (!application.Success)
+            {
+                turn.MarkBudgetExhausted();
+                return TaskResult<NhAiBudgetReservation>.Failed(application);
+            }
+        }
+
         if (!isToolCall)
         {
             turn.AddModelCalls(request.RequestedCalls);
@@ -63,6 +78,21 @@ internal sealed class NhAssistantBudgetManager(
             Guid.NewGuid().ToString("N"),
             new NhAiModelBudget(int.MaxValue, int.MaxValue, remainingCalls, null),
             new DateTimeOffset(day.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)));
+    }
+
+    /// <summary>
+    /// The request as the turn knows it: the agent the turn works for, its skill and run, and whether
+    /// it is a person's chat, an agent's run, a consultation or a proposal that executes.
+    /// </summary>
+    internal static NhAiBudgetRequest Describe(NhAiBudgetRequest request, NhAssistantTurnScope turn)
+    {
+        return request with
+        {
+            AgentId = turn.Agent.Id,
+            SkillId = turn.SkillId,
+            RunId = turn.RunId?.ToString(),
+            Purpose = turn.BudgetPurpose
+        };
     }
 
     /// <summary>

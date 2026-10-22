@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "5d81b66168cd4c5362e21dd9c78633787a026e13744f1e88b0230900a4f239ae",
-    "declarationCount": 9206,
+    "hash": "7d2b52e58c12394dba305b023787b4844c42c1bc4a7ae5b7d8c7c342b4b0a4bf",
+    "declarationCount": 9226,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -10519,6 +10519,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseApplicationBudgetInTurns() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder UseInAppAgentNotifications() {"
       },
       {
@@ -10576,6 +10580,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantLimits Limits { get; set; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public bool ApplicationBudgetInTurns { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -15507,6 +15515,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public string BudgetPurpose { get; init; } = NhAiBudgetPurposes.Chat;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public Guid? RunId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public string? SkillId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
         "declaration": "public IReadOnlyDictionary<string, string>? McpConnectionOwners { get; set; }"
       },
       {
@@ -17988,6 +18008,66 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
         "declaration": "public string? ActorId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? AgentId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? SkillId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? RunId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? Purpose { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public static class NhAiBudgetPurposes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public const string Chat = \"chat\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public const string AgentRun = \"agent-run\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public const string Consultation = \"consultation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public const string ProposalExecution = \"proposal-execution\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public const string Mcp = \"mcp\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public const string Ingestion = \"ingestion\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public const string Application = \"application\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public static string? Current => CurrentPurpose.Value;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public static IDisposable Begin(string purpose) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
@@ -40677,6 +40757,7 @@
     ],
     "nh-ai-assistant": [
       "AddNewHeapAssistant",
+      "UseApplicationBudgetInTurns",
       "INhAssistantMcpCredentialProvider",
       "AddMcpCredentialProvider",
       "NhAssistantMcpCredentialProviders",
@@ -40828,6 +40909,7 @@
       "INhAiModelProfileResolver",
       "INhAiBudgetManager",
       "NhAiBudgetRequest",
+      "NhAiBudgetPurposes",
       "NhAiBudgetReservation",
       "NhAiInMemoryBudgetManager",
       "NhAiInMemoryBudgetOptions",

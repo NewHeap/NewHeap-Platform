@@ -9,6 +9,7 @@ using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Governance;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
@@ -87,6 +88,34 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
         var briefing = Assert.Single(request.Messages, message => message.Text.Contains("<subject-briefing>", StringComparison.Ordinal)).Text;
         Assert.Contains("You work in skill 'risk'", briefing);
         Assert.Contains("The deadline is in two days.", briefing);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_applications_budget_manager_reads_whose_work_a_turn_reserves_for(AssistantTestProvider provider)
+    {
+        var models = new SkillModels();
+        models.Default.RespondWithText("Hello.");
+        models.Skill.RespondWithText("The deadline is at risk.");
+        var budget = new NhAiTestBudgetManager();
+        await using var host = await CreateHostAsync(provider, models, applicationBudget: budget);
+        host.Services.GetRequiredService<TestRuleScript>().Run = (_, _) =>
+            Task.FromResult(NhAssistantRuleResult.UseSkill(Risk, "The deadline is in two days."));
+
+        // A person's chat with the agent: no skill and no run.
+        var conversation = await host.CreateConversationAsync(agentId: AgentId);
+        Assert.True((await host.SendAsync(conversation.Id, "Hello")).Start.Success);
+        var chat = Assert.Single(budget.Requests);
+
+        // A run the rules route to a model skill.
+        var receipt = Assert.Single(await PublishAsync(host, "rule check"));
+        await ExecuteAsync(host, receipt.RunId!.Value);
+        var run = Assert.Single(budget.Requests.Skip(1));
+
+        Assert.Equal((NhAiBudgetPurposes.Chat, AgentId, null, null), (chat.Purpose, chat.AgentId, chat.SkillId, chat.RunId));
+        Assert.Equal((NhAiBudgetPurposes.AgentRun, AgentId, Risk, receipt.RunId.Value.ToString()), (run.Purpose, run.AgentId, run.SkillId, run.RunId));
+        Assert.Equal(AssistantTestHost.UserId, chat.ActorId);
     }
 
     [Theory]
@@ -485,7 +514,14 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
         return (NhAssistantRegistrationState)services.Single(descriptor => descriptor.ServiceType == typeof(NhAssistantRegistrationState)).ImplementationInstance!;
     }
 
-    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, SkillModels models, TimeProvider? clock = null)
+    /// <param name="applicationBudget">
+    /// The application's budget manager, which then also reserves the calls of assistant turns.
+    /// </param>
+    private async Task<AssistantTestHost> CreateHostAsync(
+        AssistantTestProvider provider,
+        SkillModels models,
+        TimeProvider? clock = null,
+        NhAiTestBudgetManager? applicationBudget = null)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -496,6 +532,10 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
                 if (clock is not null)
                 {
                     services.AddSingleton(clock);
+                }
+                if (applicationBudget is not null)
+                {
+                    services.AddKeyedSingleton<INhAiBudgetManager>(NhAssistantFallbacks.ServiceKey, applicationBudget);
                 }
                 services.AddSingleton(new TestSubjects());
                 services.AddSingleton<TestRuleScript>();
@@ -523,66 +563,79 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
                         .WithBudget(maxInputTokens: 8_192, maxOutputTokens: 256, maxCalls: 2));
                 });
             },
-            assistantBuilder: assistant => assistant
-                .AddSubjectType<TestSubjectResolver>()
-                .AddApprovalPolicy("project-review", policy => policy
-                    .Mode(NhAiApprovalMode.Deferred)
-                    .Lifetime(TimeSpan.FromDays(3))
-                    .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
-                    .StartFollowUpRun())
-                .ConfigureAgent(AgentId, agent => agent
-                    .Grant("projects.*")
-                    .UseApprovalPolicy("project-review")
-                    .UseRuleHandler<TestRules>()
-                    .Triage(triage => triage.UseProfile("triage-chat"))
-                    .Skill(FollowUp, skill => skill
-                        .Description("Follows up completed tasks by rule.")
-                        .UseRuleHandler<TestSkillRules>()
-                        .Instructions(FollowUpInstructions)
-                        .Tools("projects.search"))
-                    .Skill(Intake, skill => skill
-                        .Description("Takes in orders by rule and asks its model when in doubt.")
-                        .UseRuleHandler<TestIntakeRules>()
-                        .UseProfile("skill-chat")
-                        .Instructions(IntakeInstructions)
-                        .Tools("projects.change-status")
-                        .MaxTokensPerRun(1))
-                    .Skill(Risk, skill => skill
-                        .Description("Judges deadline risks and proposes a status change.")
-                        .UseProfile("skill-chat")
-                        .Instructions(RiskInstructions)
-                        .Tools("projects.change-status")
-                        .Budget(NhAssistantAgentBudget.PerDay(toolCalls: 1, tokens: 1_000_000)))
-                    .Skill(Notes, skill => skill
-                        .Description("Writes notes about the project.")
-                        .Tools("projects.search")))
-                .AddTrigger<ProjectChanged>("task-changed", trigger => trigger
-                    .StartAgent(AgentId)
-                    .When(evt => evt.Change.StartsWith("task", StringComparison.Ordinal))
-                    .Skill(FollowUp)
-                    .Subject(evt => new NhAiSubjectRef("project", evt.ProjectId.ToString("N")))
-                    .Message(evt => evt.Change)
-                    .OnBusy(NhAssistantTriggerConflict.Queue))
-                .AddTrigger<ProjectChanged>("intake-changed", trigger => trigger
-                    .StartAgent(AgentId)
-                    .When(evt => evt.Change.StartsWith("intake", StringComparison.Ordinal))
-                    .Skill(Intake)
-                    .Subject(evt => new NhAiSubjectRef("project", evt.ProjectId.ToString("N")))
-                    .Message(evt => evt.Change)
-                    .OnBusy(NhAssistantTriggerConflict.Queue))
-                .AddTrigger<ProjectChanged>("rule-changed", trigger => trigger
-                    .StartAgent(AgentId)
-                    .When(evt => evt.Change.StartsWith("rule", StringComparison.Ordinal))
-                    .Subject(evt => new NhAiSubjectRef("project", evt.ProjectId.ToString("N")))
-                    .Message(evt => evt.Change)
-                    .OnBusy(NhAssistantTriggerConflict.Queue))
-                .AddTrigger<ProjectChanged>("triage-changed", trigger => trigger
-                    .StartAgent(AgentId)
-                    .When(evt => evt.Change.StartsWith("triage", StringComparison.Ordinal))
-                    .UseModel()
-                    .Subject(evt => new NhAiSubjectRef("project", evt.ProjectId.ToString("N")))
-                    .Message(evt => evt.Change)
-                    .OnBusy(NhAssistantTriggerConflict.Queue)));
+            assistantBuilder: assistant =>
+            {
+                if (applicationBudget is not null)
+                {
+                    assistant.UseApplicationBudgetInTurns();
+                }
+
+                ConfigureAssistant(assistant);
+            });
+    }
+
+    private static void ConfigureAssistant(NhAssistantBuilder assistant)
+    {
+        assistant
+            .AddSubjectType<TestSubjectResolver>()
+            .AddApprovalPolicy("project-review", policy => policy
+                .Mode(NhAiApprovalMode.Deferred)
+                .Lifetime(TimeSpan.FromDays(3))
+                .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
+                .StartFollowUpRun())
+            .ConfigureAgent(AgentId, agent => agent
+                .Grant("projects.*")
+                .UseApprovalPolicy("project-review")
+                .UseRuleHandler<TestRules>()
+                .Triage(triage => triage.UseProfile("triage-chat"))
+                .Skill(FollowUp, skill => skill
+                    .Description("Follows up completed tasks by rule.")
+                    .UseRuleHandler<TestSkillRules>()
+                    .Instructions(FollowUpInstructions)
+                    .Tools("projects.search"))
+                .Skill(Intake, skill => skill
+                    .Description("Takes in orders by rule and asks its model when in doubt.")
+                    .UseRuleHandler<TestIntakeRules>()
+                    .UseProfile("skill-chat")
+                    .Instructions(IntakeInstructions)
+                    .Tools("projects.change-status")
+                    .MaxTokensPerRun(1))
+                .Skill(Risk, skill => skill
+                    .Description("Judges deadline risks and proposes a status change.")
+                    .UseProfile("skill-chat")
+                    .Instructions(RiskInstructions)
+                    .Tools("projects.change-status")
+                    .Budget(NhAssistantAgentBudget.PerDay(toolCalls: 1, tokens: 1_000_000)))
+                .Skill(Notes, skill => skill
+                    .Description("Writes notes about the project.")
+                    .Tools("projects.search")))
+            .AddTrigger<ProjectChanged>("task-changed", trigger => trigger
+                .StartAgent(AgentId)
+                .When(evt => evt.Change.StartsWith("task", StringComparison.Ordinal))
+                .Skill(FollowUp)
+                .Subject(evt => new NhAiSubjectRef("project", evt.ProjectId.ToString("N")))
+                .Message(evt => evt.Change)
+                .OnBusy(NhAssistantTriggerConflict.Queue))
+            .AddTrigger<ProjectChanged>("intake-changed", trigger => trigger
+                .StartAgent(AgentId)
+                .When(evt => evt.Change.StartsWith("intake", StringComparison.Ordinal))
+                .Skill(Intake)
+                .Subject(evt => new NhAiSubjectRef("project", evt.ProjectId.ToString("N")))
+                .Message(evt => evt.Change)
+                .OnBusy(NhAssistantTriggerConflict.Queue))
+            .AddTrigger<ProjectChanged>("rule-changed", trigger => trigger
+                .StartAgent(AgentId)
+                .When(evt => evt.Change.StartsWith("rule", StringComparison.Ordinal))
+                .Subject(evt => new NhAiSubjectRef("project", evt.ProjectId.ToString("N")))
+                .Message(evt => evt.Change)
+                .OnBusy(NhAssistantTriggerConflict.Queue))
+            .AddTrigger<ProjectChanged>("triage-changed", trigger => trigger
+                .StartAgent(AgentId)
+                .When(evt => evt.Change.StartsWith("triage", StringComparison.Ordinal))
+                .UseModel()
+                .Subject(evt => new NhAiSubjectRef("project", evt.ProjectId.ToString("N")))
+                .Message(evt => evt.Change)
+                .OnBusy(NhAssistantTriggerConflict.Queue));
     }
 
     /// <summary>

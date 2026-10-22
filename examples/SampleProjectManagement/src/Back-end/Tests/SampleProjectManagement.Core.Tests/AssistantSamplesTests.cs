@@ -17,6 +17,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.Common.Models;
@@ -156,11 +157,19 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
                 "projects_change_status_v1",
                 new { input = new { projectId, status = (int)ProjectStatus.OnHold } })
             .RespondWithText("The project is on hold."));
+        var usage = host.Services.GetRequiredService<ProjectAiBudgetUsage>();
+        var chatCalls = usage.Calls(NhAiBudgetPurposes.Chat, SampleAssistantComposition.AgentId);
+        var agentCalls = usage.Calls(NhAiBudgetPurposes.AgentRun);
         using var client = host.CreateClient(user);
         var conversationId = await host.CreateConversationAsync(client);
         var paused = await host.SendAsync(client, conversationId, "Put the backlog project on hold.");
         var approval = paused.Single(evt => evt.Name == "approval.required").Data;
         await host.DecideAsync(client, conversationId, approval, "approve");
+
+        // The application's budget manager reserved the chat's three model and two tool calls as a
+        // person's chat with the assistant, not as an agent's work.
+        Assert.Equal(5, usage.Calls(NhAiBudgetPurposes.Chat, SampleAssistantComposition.AgentId) - chatCalls);
+        Assert.Equal(agentCalls, usage.Calls(NhAiBudgetPurposes.AgentRun));
 
         await using var connection = new NpgsqlConnection(host.ConnectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);

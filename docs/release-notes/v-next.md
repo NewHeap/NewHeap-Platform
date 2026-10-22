@@ -54,3 +54,23 @@ three are `null` for the agent's own rules outside a skill.
 | Breaking change | Required action |
 |---|---|
 | None; the properties are added. | Read the skill from the context instead of deriving it from the trigger or the inputs. |
+
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Mcp and NewHeap.Platform.AI.Chat: whose work a budget reservation is
+
+An application's budget manager could not tell an agent's work from a person's chat or an MCP
+client's call. `NhAiBudgetRequest` now carries `AgentId`, `SkillId` and `RunId` where known, and
+`Purpose`, one of `NhAiBudgetPurposes`: `chat`, `agent-run`, `consultation`, `proposal-execution`,
+`mcp`, `ingestion` and `application`. The chat executor and the tool invoker fill them from the
+invocation context (`agent-run` for a call that names an agent, `application` otherwise), ingestion
+reserves as `ingestion`, and a call through the MCP export reserves as `mcp`.
+
+The assistant still books the calls of its turns on its own daily ledger and gives the application's
+manager only the calls outside turns. `NhAssistantBuilder.UseApplicationBudgetInTurns()` also
+reserves every accepted call of a turn with the application's manager, with the turn's agent, skill,
+run and purpose: `chat` for a person's turn, `agent-run` for a turn of an agent run,
+`consultation` and `proposal-execution`. A refusal there ends the call as
+`assistant-budget-exhausted`.
+
+| Breaking change | Required action |
+|---|---|
+| Budget requests from the chat executor, the tool invoker, ingestion and the MCP export carry the new properties, so two requests that were equal records before may differ now. | None, unless a budget manager compares whole requests; compare the counts and ids it needs. |

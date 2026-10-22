@@ -581,6 +581,20 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Also reserves the model and tool calls of assistant turns (a person's chat, agent runs,
+    /// consultations and approved proposals that execute) with the budget manager the application
+    /// registered before <c>AddNewHeapAssistant</c>, once the assistant's own daily budget accepted
+    /// them. The request names the agent, skill, run and purpose (<see cref="NhAiBudgetPurposes"/>);
+    /// a refusal ends the call as an exhausted budget. Off by default: the application's manager then
+    /// sees only calls outside assistant turns.
+    /// </summary>
+    public NhAssistantBuilder UseApplicationBudgetInTurns()
+    {
+        _state.ApplicationBudgetInTurns = true;
+        return this;
+    }
+
+    /// <summary>
     /// Also delivers agent notifications as in-app messages through the platform's
     /// <see cref="NewHeap.Platform.Common.Actors.INhUserNotificationSink"/>, such as NewHeap user
     /// notifications. Off by default, so existing hosts get no new messages.
@@ -725,6 +739,12 @@ internal sealed class NhAssistantRegistrationState
     public NhAiTextAsset? DefaultApplicationContext { get; set; }
 
     public NhAssistantLimits Limits { get; set; } = new();
+
+    /// <summary>
+    /// Reservations inside assistant turns also go to the application's budget manager; see
+    /// <see cref="NhAssistantBuilder.UseApplicationBudgetInTurns"/>.
+    /// </summary>
+    public bool ApplicationBudgetInTurns { get; set; }
 
     public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Utc;
 

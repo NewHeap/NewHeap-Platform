@@ -1776,7 +1776,11 @@
     "SPM-247": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantBudgetManager.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentSkillTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantIdempotencyManager.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/NhAssistantSqlServer.cs",
