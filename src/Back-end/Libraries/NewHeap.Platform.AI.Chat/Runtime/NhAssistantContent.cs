@@ -98,6 +98,32 @@ internal static class NhAssistantContent
         }
     }
 
+    /// <summary>
+    /// The references a queued message carries, as its input stores them (A13); <see langword="null"/>
+    /// without files.
+    /// </summary>
+    public static string? SerializeFiles(IReadOnlyList<NhAiFileReference> files)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        return files.Count == 0 ? null : JsonSerializer.Serialize(files.ToArray(), PartOptions);
+    }
+
+    public static IReadOnlyList<NhAiFileReference> DeserializeFiles(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+        try
+        {
+            return JsonSerializer.Deserialize<NhAiFileReference[]>(json, PartOptions) ?? [];
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidOperationException("The stored files of a queued input are corrupt.", exception);
+        }
+    }
+
     public static string TextOf(IEnumerable<NhAssistantStoredPart> parts)
     {
         return string.Concat(parts

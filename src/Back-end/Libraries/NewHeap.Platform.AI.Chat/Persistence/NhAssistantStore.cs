@@ -185,7 +185,17 @@ internal sealed class NhAssistantStore(
                     .SetProperty(conversation => conversation.UpdatedAt, now)
                     .SetProperty(conversation => conversation.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
-        return affected == 1;
+        if (affected != 1)
+        {
+            return false;
+        }
+
+        // The texts reading tools made of the conversation's files go with it (D32); a deleted thread
+        // takes them along by cascade.
+        await context.FileReaderTexts
+            .Where(text => text.ConversationId == conversationId)
+            .ExecuteDeleteAsync(cancellationToken);
+        return true;
     }
 
     public async Task<bool> TryBeginTurnAsync(

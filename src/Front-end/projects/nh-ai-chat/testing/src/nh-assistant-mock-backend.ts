@@ -138,7 +138,7 @@ export class NhAssistantMockBackend {
   private readonly shareTokens = new Map<string, string>();
   private readonly activeActors = new Map<string, string>();
   private readonly liveSubject = new Subject<NhAssistantMockLiveMessage>();
-  private readonly files = new NhAssistantMockFiles(this.scenario.refuseUpload);
+  private readonly files = new NhAssistantMockFiles(this.scenario.refuseUpload, this.scenario.scanUpload);
   private pushEnabled = true;
   private sequence = 0;
 

@@ -249,6 +249,26 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(unchanged.acceptsFiles).toBeFalse();
   });
 
+  it('stores lower file limits of an agent and a data skill only within the application\'s and next to accepting files, as the server does', async () => {
+    await firstValueFrom(admin.createAgent({ ...newAgent, id: 'reader-agent' }));
+    const catalog = await firstValueFrom(admin.getRunCatalog());
+    const above = await failure(firstValueFrom(admin.saveRunSettings('reader-agent', {
+      accountability: 'agent', acceptsFiles: true, maxFileBytes: 20 * 1024 * 1024 + 1, maxFilePages: 0, maxFilesPerTurn: 6, maxFileTokensPerTurn: 100_001
+    })));
+    const withoutFiles = await failure(firstValueFrom(admin.saveDataSkill('projects', 'audit', { description: 'Audits.', maxFilesPerTurn: 1 })));
+    const saved = await firstValueFrom(admin.saveRunSettings('reader-agent', { accountability: 'agent', acceptsFiles: true, maxFileBytes: 1_024, maxFilesPerTurn: 2 }));
+    const skill = await firstValueFrom(admin.saveDataSkill('projects', 'audit', { description: 'Audits.', acceptsFiles: true, maxFilePages: 10 }));
+
+    expect(catalog.fileLimits).toEqual({ maxFileBytes: 20 * 1024 * 1024, maxFilePages: 100, maxFilesPerTurn: 5, maxFileTokensPerTurn: 100_000 });
+    expect(above.code).toBe('assistant-validation');
+    expect(above.fieldErrors).toEqual({
+      maxFileBytes: ['invalid'], maxFilePages: ['invalid'], maxFilesPerTurn: ['invalid'], maxFileTokensPerTurn: ['invalid']
+    });
+    expect(withoutFiles.fieldErrors).toEqual({ maxFilesPerTurn: ['invalid'] });
+    expect([saved.maxFileBytes, saved.maxFilePages, saved.maxFilesPerTurn, saved.maxFileTokensPerTurn]).toEqual([1_024, null, 2, null]);
+    expect([skill.maxFilePages, skill.maxFileBytes]).toEqual([10, null]);
+  });
+
   it('rejects invalid agents', async () => {
     const invalid = [
       { ...newAgent, id: 'Not Dash Case' },

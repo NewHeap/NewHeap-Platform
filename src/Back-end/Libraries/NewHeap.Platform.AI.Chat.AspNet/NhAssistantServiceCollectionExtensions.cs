@@ -85,6 +85,10 @@ public static class NhAssistantServiceCollectionExtensions
             services.AddSignalR();
             services.Replace(ServiceDescriptor.Singleton<INhAssistantLiveUpdateTransport, NhAssistantSignalRLiveUpdateTransport>());
             services.TryAddSingleton<INhAssistantShareTokenProtector, NhAssistantShareTokenProtector>();
+            // The text a reading tool made of a file is kept per conversation, protected with Data
+            // Protection, and removed once it expired (D32).
+            services.TryAddSingleton<INhAssistantReaderTextProtector, NhAssistantReaderTextProtector>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantReaderTextMaintenance>());
             services.Replace(ServiceDescriptor.Scoped<INhAssistantNotifier, NhAssistantWebPushNotifier>());
             services.AddHttpClient(NhAssistantWebPushNotifier.HttpClientName)
                 .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler

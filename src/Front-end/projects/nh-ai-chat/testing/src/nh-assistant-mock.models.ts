@@ -495,6 +495,13 @@ export interface NhAssistantMockScenario {
    * no files for the assistant. Default: every upload is stored.
    */
   refuseUpload?: (upload: NhAssistantMockUpload) => string | null;
+  /**
+   * The application's upload scanner (`INhAssistantUploadScanner`), which the server runs after the
+   * checks of type, size and signature and before the file source: `'refused'` refuses the upload with
+   * `assistant-file-scan-refused`, `'failed'` with `assistant-file-upload-failed`, `null` lets it pass.
+   * Default: no scanner, as on a server without one.
+   */
+  scanUpload?: (upload: NhAssistantMockUpload) => 'refused' | 'failed' | null;
 }
 
 /**

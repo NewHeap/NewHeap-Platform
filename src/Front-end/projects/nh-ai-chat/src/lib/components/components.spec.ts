@@ -834,6 +834,35 @@ describe('NhAssistantPanelComponent', () => {
     expect(overlay.textContent).not.toContain('Sending is temporarily unavailable');
   });
 
+  it('keeps the files of a queued message, names them in the queue and sends them with it', async () => {
+    await open();
+    const store = TestBed.inject(NhAssistantStore);
+    const plan = { id: 'plan', name: 'Launch plan with a very long name for a narrow screen.pdf', mediaType: 'application/pdf', size: 120, hash: null };
+    const budget = { id: 'budget', name: 'Budget.xlsx', mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', size: 80, hash: null };
+    const sent = store.submit('First');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    await sent;
+
+    // The turn is busy: the message waits in the queue with its files.
+    expect(await store.submit('Read these files.', [plan, budget])).toBeTrue();
+    fixture.detectChanges();
+    expect(store.queuedMessages()[0].files).toEqual([plan, budget]);
+    const files = overlay.querySelector('.queue-item [data-queue-files]') as HTMLElement;
+    expect(files.textContent).toContain('Files (2): Launch plan with a very long name for a narrow screen.pdf, Budget.xlsx');
+
+    api.sendMessage.and.returnValue(new Subject<NhAssistantSseEvent>());
+    stream.next({ type: 'turn.completed', data: { turnId: 't1', status: 'completed', usage: { inputTokens: 0, outputTokens: 0, toolCalls: 0 }, errorCode: null } });
+    stream.complete();
+    await flush();
+    await flush();
+    fixture.detectChanges();
+
+    // When it is its turn, the message goes with its files.
+    expect(api.sendMessage).toHaveBeenCalledTimes(2);
+    expect(api.sendMessage.calls.mostRecent().args[1]).toEqual(jasmine.objectContaining({ text: 'Read these files.', files: [plan, budget] }));
+  });
+
   it('hides the picker for one assistant and sends with the automatically selected agent', async () => {
     await open();
 

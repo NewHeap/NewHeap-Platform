@@ -2714,6 +2714,7 @@
     "SPM-305": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OfficeDocumentReader.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/EicarUploadScanner.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantFilesComposition.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantModel.cs",

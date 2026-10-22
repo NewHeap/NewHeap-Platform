@@ -25,9 +25,11 @@ internal sealed record NhAssistantUploadInput(
 
 /// <summary>
 /// Accepts a person's upload to a conversation (F-3): the media type must be accepted and match the
-/// content, the file must fit the agent's limits, and only then does the application's
-/// <see cref="INhAssistantFileSource.StoreUploadAsync"/> store it with the default classification
-/// (F5). The source's refusals pass through as the upload codes; nothing here logs names or content.
+/// content, the file must fit the agent's limits, the application's
+/// <see cref="INhAssistantUploadScanner"/>, when it registered one, must let it pass (A5), and only then
+/// does the application's <see cref="INhAssistantFileSource.StoreUploadAsync"/> store it with the
+/// default classification (F5). The refusals of the scanner and the source pass through as the upload
+/// codes; nothing here logs names or content.
 /// </summary>
 internal sealed class NhAssistantUploads(
     IServiceProvider services,
@@ -102,6 +104,13 @@ internal sealed class NhAssistantUploads(
             }
         }
 
+        // The application's scanner, when it registered one, sees the content before its file source
+        // stores anything (A5).
+        if (await ScanAsync(conversationId, name, mediaType, input, actor, cancellationToken) is { } scanRefusal)
+        {
+            return scanRefusal;
+        }
+
         await using var content = input.OpenContent();
         var upload = new NhAssistantFileUpload(conversationId, name, mediaType, input.Length, content)
         {
@@ -144,6 +153,63 @@ internal sealed class NhAssistantUploads(
         }
 
         return TaskResult<NhAiFileReference>.Succeeded(stored.Data);
+    }
+
+    /// <summary>
+    /// Has the application's <see cref="INhAssistantUploadScanner"/> scan the upload, when it registered
+    /// one; <see langword="null"/> when the upload may be stored. A refusal is
+    /// <see cref="NhAssistantErrorCodes.FileScanRefused"/>; a scan that could not run, reported as
+    /// <see cref="NhAssistantErrorCodes.FileUploadFailed"/> or thrown, is
+    /// <see cref="NhAssistantErrorCodes.FileUploadFailed"/>. The scanner's messages are neither logged
+    /// nor shown, because they may name the file or quote its content.
+    /// </summary>
+    private async Task<TaskResult<NhAiFileReference>?> ScanAsync(
+        Guid conversationId,
+        string name,
+        string mediaType,
+        NhAssistantUploadInput input,
+        NhAssistantFileActor actor,
+        CancellationToken cancellationToken)
+    {
+        if (registration.Uploads.ScannerType is not { } scannerType)
+        {
+            return null;
+        }
+
+        var scanner = (INhAssistantUploadScanner)services.GetRequiredService(scannerType);
+        TaskResult scanned;
+        await using (var content = input.OpenContent())
+        {
+            var upload = new NhAssistantFileUpload(conversationId, name, mediaType, input.Length, content)
+            {
+                Classification = registration.Uploads.DefaultClassification
+            };
+            try
+            {
+                scanned = await scanner.ScanAsync(upload, actor, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+            {
+                logger.LogWarning(
+                    "The upload scanner failed on an upload to conversation {ConversationId} with {ExceptionType}.",
+                    conversationId,
+                    exception.GetType().Name);
+                return Failed(NhAssistantErrorCodes.FileUploadFailed, "The upload could not be scanned.");
+            }
+        }
+
+        if (scanned.Success)
+        {
+            return null;
+        }
+        if (NhAssistantResults.CodeOf(scanned) == NhAssistantErrorCodes.FileUploadFailed)
+        {
+            logger.LogWarning("The upload scanner could not scan an upload to conversation {ConversationId}.", conversationId);
+            return Failed(NhAssistantErrorCodes.FileUploadFailed, "The upload could not be scanned.");
+        }
+
+        logger.LogInformation("The upload scanner refused an upload to conversation {ConversationId}.", conversationId);
+        return Failed(NhAssistantErrorCodes.FileScanRefused, "The upload did not pass the scan.");
     }
 
     /// <summary>

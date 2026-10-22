@@ -98,6 +98,9 @@ internal static class NhAssistantServiceRegistration
         // integration supplies.
         services.TryAddScoped<Runtime.NhAssistantFileReaders>();
         services.TryAddScoped<Runtime.INhAssistantMcpFileReader, Runtime.NhAssistantNoMcpFileReader>();
+        // The texts readers made, kept per conversation while a protector exists; the ASP.NET
+        // integration registers one on ASP.NET Data Protection.
+        services.TryAddScoped<Runtime.NhAssistantReaderTexts>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAiContextTraceSink, Runtime.NhAssistantContextTraceSink>());
         services.TryAddScoped<NhAssistantSubjectAccessService>();
         services.TryAddScoped<INhAiSubjectAccess>(provider => provider.GetRequiredService<NhAssistantSubjectAccessService>());

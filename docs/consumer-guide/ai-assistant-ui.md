@@ -178,17 +178,29 @@ and uploads with progress (`NhAssistantApiService.uploadFile`, `multipart/form-d
 `uploaded` with the stored `FileReference`, or `failed` with the code; the composer shows each at the
 control, with its remove button, and keeps sending disabled while a file uploads. Send with
 `submit(text, attachedFiles())`: the message carries the references in `files`, a queued message
-keeps them, and once the message is accepted its attachments, and the failed ones, leave the
+keeps them and the panel's queue names them, and once the message is accepted its attachments, and the failed ones, leave the
 composer. `removeAttachment` stops an upload in progress. In a custom layout, bind the composer's
 `uploads` and `attachments` inputs and its `attach` and `removeAttachment` outputs to the store. The
 thread shows a person's files by name, type and size (`FilePart`), never their content. Uploads
 use `NH_ASSISTANT_UPLOAD`, `XMLHttpRequest` by default because `fetch` reports no upload progress;
 the mock API replaces it, answers with the server's checks and codes, and refuses an upload with
-`refuseUpload` of the scenario. Give an agent of the scenario `uploads` to offer attachments.
+`refuseUpload` of the scenario. Give an agent of the scenario `uploads` to offer attachments. A file the
+application's upload scanner refuses fails at the control with `assistant-file-scan-refused`, one it
+could not scan with `assistant-file-upload-failed`; the scenario's `scanUpload` simulates the scanner.
+A message with files to an agent's thread whose run works waits for the next run on the server too,
+with its files; the run's thread then shows them as file parts of that message.
 SampleProjectManagement's panel needs no code for it (SPM-305): against the API it shows the attach
 button for the project assistant and the document reader, whose summaries list `uploads`, and none
 for the agents that never opted in; the management playground gives its project assistant
 `uploads` in the mock scenario.
+
+The run settings form of an agent created in the administration and the skill form show "Lower file
+limits" once "Accepts files" is on: the largest file in MB, the most pages of one file, and the most
+files and file tokens of one turn (`LowerFileLimits` on `AgentRunSettings(Request)` and
+`DataSkill(Request)`). Each field names the application's limit from `RunCatalog.fileLimits`
+(`FileLimits`) and is checked against it before sending; an empty field keeps the application's
+limit, for a skill the agent's, and the server's field errors appear at the field. The mock API
+validates and stores them as the server does.
 
 A turn that fails leaves the conversation open, as the server does: the error bar keeps the
 translated failure, the composer stays available and the next message starts a new turn in
@@ -890,8 +902,8 @@ executable references.
 - SPM-305 — A person uploads a project document in the chat and asks about it; the model reads a PDF itself and a Word or Excel document as the text of the example reader
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/OfficeDocumentReader.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/OfficeDocumentReader.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/EicarUploadScanner.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/EicarUploadScanner.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantFilesComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantFilesComposition.cs)
-  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
 - SPM-307 — A skill classified as confidential and an agent created in the administration with its profile and classification move their model calls to the chat profile's fallback that permits them
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDocumentReaderComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDocumentReaderComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)

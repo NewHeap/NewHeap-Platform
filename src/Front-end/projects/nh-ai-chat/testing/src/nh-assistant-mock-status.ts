@@ -138,7 +138,8 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-file-type-not-accepted'
   ],
   422: [
-    'assistant-file-upload-refused'
+    'assistant-file-upload-refused',
+    'assistant-file-scan-refused'
   ],
   429: [
     'assistant-mcp-too-many-authorizations'

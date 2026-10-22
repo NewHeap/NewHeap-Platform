@@ -173,6 +173,12 @@ internal sealed record NhAssistantAgentTurnInput(
     public string? PayloadJson { get; init; }
 
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// The files a person's message carried when it waited for the run (A13). The turn opens them as
+    /// attachments, with <see cref="AuthorActorId"/> as actor.
+    /// </summary>
+    public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];
 }
 
 internal sealed record NhAssistantAgentTurnRequest(

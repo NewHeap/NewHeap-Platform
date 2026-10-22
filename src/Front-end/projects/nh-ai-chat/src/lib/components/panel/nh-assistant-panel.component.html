@@ -236,7 +236,7 @@
                     <div class="queue-message">
                       <p [title]="item.text">{{ item.text }}</p>
                       @if (item.files?.length) {
-                        <span class="queue-state">{{ 'nh-assistant.queue.files' | translate: { count: item.files!.length } }}</span>
+                        <span class="queue-state queue-files" data-queue-files>{{ 'nh-assistant.queue.files' | translate: { count: item.files!.length, names: fileNames(item.files!) } }}</span>
                       }
                       @if (item.state !== 'queued') {
                         <span class="queue-state">{{ 'nh-assistant.queue.state.' + item.state | translate }}</span>

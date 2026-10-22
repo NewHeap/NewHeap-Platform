@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
+using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
@@ -145,6 +146,12 @@ internal sealed record NhAssistantTriggerFire(
     /// The payload the trigger stores with the event for the agent's rule handler, as JSON.
     /// </summary>
     public string? PayloadJson { get; init; }
+
+    /// <summary>
+    /// The files a person's message carries that waits for the next run (A13); the input keeps their
+    /// references, and the run opens them as attachments with the person as actor.
+    /// </summary>
+    public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];
 
     /// <summary>
     /// The id of the input this fire writes. A deferred fire carries it, so a retried operation
@@ -1538,6 +1545,8 @@ internal sealed class NhAssistantAgentTriggers(
             InitiatorActorId = fire.InitiatorActorId,
             SkillId = fire.SkillId,
             SkillCandidate = fire.SkillCandidate,
+            // Only a person's message carries files: the run opens them with that person as actor.
+            FilesJson = personal && fire.InitiatorActorId is not null ? NhAssistantContent.SerializeFiles(fire.Files) : null,
             CreatedAt = DateTimeOffset.UtcNow
         };
     }

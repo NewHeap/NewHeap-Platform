@@ -519,8 +519,8 @@ the file's `NhAiFileReference`, which the message carries in the new `files` of
 - The conversation shows a person's attachments as the new message part `file`
   (`NhAssistantFilePartDto`: name, media type and size), also in the live `message.created` event;
   never content, the application's id or a hash.
-- A message with attachments in a busy agent thread is refused with `assistant-conversation-busy`
-  instead of waiting for the next run.
+- A message with attachments in a busy agent thread waits for the next run with its files; see the
+  review of files in model turns below.
 - New error codes `assistant-file-upload-invalid` (400), `assistant-file-type-not-accepted` (415),
   `assistant-file-upload-refused` (422) and `assistant-file-upload-failed` (503).
 
@@ -566,3 +566,68 @@ Joins of one conversation now take turns under the platform's transaction lock (
 SQL Server, `pg_try_advisory_xact_lock` on PostgreSQL) and check, count and insert in one
 transaction. A join that waits more than five seconds for the lock continues without it as before and
 logs a warning. No migration and no action required.
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: review of files in model turns
+
+- Lower file limits in the administration. The run settings of an agent created in the
+  administration and a data skill take `maxFileBytes`, `maxFilePages`, `maxFilesPerTurn` and
+  `maxFileTokensPerTurn` next to `acceptsFiles` (`NhAssistantAgentRunSettingsRequest`,
+  `NhAssistantDataSkillRequest`, shown on `NhAssistantAgentRunSettingsDto` and
+  `NhAssistantDataSkillDto`): each from 1 to the application's `NhAssistantLimits`, and only with
+  `acceptsFiles`, refused otherwise with the field error `invalid`. The run catalog shows the
+  application's limits (`NhAssistantRunCatalogDto.FileLimits`, `NhAssistantFileLimitsDto`). A turn
+  takes the lowest of the application's, the agent's and the skill's, and `uploads` of `GET status`
+  and `GET agents` follows the agent's.
+- Kept reader texts. A conversation keeps the text a reading tool made of a file, keyed by the
+  SHA-256 of the content the reader received and the reader, protected with ASP.NET Data Protection,
+  for the new `NhAssistantLimits.ReaderTextRetention` (24 hours by default, at most 30 days;
+  `TimeSpan.Zero` keeps none) and removed with its conversation; expired texts are removed by a
+  maintenance job. A later turn still opens the file through the file source with its own actor and
+  chooses its reader as before; when that reader may receive the file and kept a text of the same
+  content, the turn reads the text instead of calling the reader. `NhAssistantAuditEvent.FileTextCached`
+  says so on `FileRead`.
+- The file's name in the audit. `FileRead` and `FileRefused` carry `NhAssistantAuditEvent.FileName`:
+  the reference's name, at most 256 characters (`MaxFileNameLength`), without control, format or
+  separator characters and in Unicode normalization form C. It stays out of the logs.
+- An optional upload scanner. `ConfigureUploads(uploads => uploads.UseScanner<T>())` registers the
+  new `INhAssistantUploadScanner`, which sees every upload after the checks of type, size and
+  signature and before `StoreUploadAsync`. A refusal answers the new code
+  `assistant-file-scan-refused` (422); a scan that could not run, reported as
+  `assistant-file-upload-failed` or thrown, answers `assistant-file-upload-failed` (503). Without a
+  scanner nothing is scanned.
+- Files of a message that waits for a run. A message with attachments to a busy agent thread waits
+  for the next run with its file references (`202` with the trigger receipt, now documented on
+  `POST conversations/{id}/messages`) instead of `assistant-conversation-busy`; the run opens them as
+  attachments with the message's author as actor and names a file it cannot open to the model with its
+  code.
+
+Apply the `FileLimitsQueuedFilesReaderTexts` migration of `NewHeap.Platform.AI.Chat.SqlServer` or
+`NewHeap.Platform.AI.Chat.PostgreSql`: it adds the nullable file limit columns to
+`AssistantAgentRunConfiguration` and `AssistantAgentSkillDefinition`, the nullable `FilesJson` column
+to `AssistantQueuedInput` and the `AssistantFileReaderText` table.
+
+| Breaking change | Required action |
+|---|---|
+| Database schema change. | Apply the `FileLimitsQueuedFilesReaderTexts` migration. |
+| `NhAssistantAgentRunSettingsRequest` and `NhAssistantDataSkillRequest` have new optional last parameters `MaxFileBytes`, `MaxFilePages`, `MaxFilesPerTurn` and `MaxFileTokensPerTurn`. | Recompile callers that construct them positionally. |
+| The business audit names files: `FileRead` and `FileRefused` carry `FileName`. | An audit sink that may not store file names drops `FileName`. |
+| A conversation keeps the protected text a reading tool made of a file for 24 hours. | Share the Data Protection key ring between instances; set `NhAssistantLimits.ReaderTextRetention` to `TimeSpan.Zero` to keep none. |
+
+## @newheap/platform-ai-chat: lower file limits and the upload scan
+
+The run settings form of an agent created in the administration and the skill form show "Lower file
+limits" (Dutch: "Lagere bestandslimieten") once "Accepts files" is on: the largest file in MB, the
+most pages of one file and the most files and file tokens of one turn, each naming the application's
+limit from `RunCatalog.fileLimits` (`FileLimits`) and checked against it before sending; an empty
+field keeps the application's limit, for a skill the agent's. `AgentRunSettings`,
+`AgentRunSettingsRequest`, `DataSkill` and `DataSkillRequest` extend `LowerFileLimits`.
+`NH_ASSISTANT_SERVER_ERROR_CODES` lists `assistant-file-scan-refused`, with English and Dutch texts, and
+the panel's queue names the files a queued message carries. The mock backend of
+`@newheap/platform-ai-chat/testing` validates and stores the lower limits as the server does, reports
+the application's limits in the run catalog and runs the scenario's new `scanUpload` before
+`refuseUpload`.
+
+| Breaking change | Required action |
+|---|---|
+| New translation keys `nh-assistant.admin.run-config.files.limits-title`, `agent-limits-hint`, `skill-limits-hint`, `max-file-megabytes`, `max-file-pages`, `max-files-per-turn`, `max-file-tokens-per-turn` and `application-limit`, `nh-assistant.admin.run-config.field-errors.megabytes-up-to` and `megabytes-positive`, and `nh-assistant.errors.assistant-file-scan-refused`. | Applications with their own translation files add them. |
+| `nh-assistant.queue.files` takes `names` next to `count`; `nh-assistant.errors.assistant-file-upload-refused` no longer mentions a virus scan. | Applications with their own translation files update them. |

@@ -237,6 +237,11 @@ h2 {
 
 .queue-state { color: var(--nha-text-muted); font-size: 11px; }
 
+.queue-files {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
 .queue-buttons {
   display: flex;
   flex-shrink: 0;

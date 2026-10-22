@@ -210,6 +210,179 @@ public sealed class AssistantFileReaderTests(AssistantDatabaseFixture database) 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_later_turn_reads_the_kept_text_of_the_same_content_without_calling_the_reader_again(AssistantTestProvider provider)
+    {
+        var models = new ReaderModels();
+        models.Default
+            .RespondWithFunctionCall(OpenTool, new { input = new { ids = new[] { "budget" } } }, "call-1")
+            .RespondWithText("The budget is 1.2 million.")
+            .RespondWithText("Still 1.2 million.")
+            .RespondWithText("Now 1.5 million.");
+        await using var harness = await CreateAsync(provider, models);
+        harness.Files.Add("budget", "Budget.xlsx", NhAiMediaTypes.Xlsx, "XLSX bytes of the budget");
+        harness.Readers.Text = request => "Budget: " + Encoding.UTF8.GetString(request.Content.Span);
+        var conversation = await harness.Host.CreateConversationAsync(agentId: ChatAgent);
+
+        await harness.Host.SendAsync(conversation.Id, "What does the budget say?");
+        await harness.Host.SendAsync(conversation.Id, "Is that still the budget?");
+        // A changed file has another hash: its kept text no longer applies.
+        harness.Files.Add("budget", "Budget.xlsx", NhAiMediaTypes.Xlsx, "XLSX bytes of the new budget");
+        await harness.Host.SendAsync(conversation.Id, "And now?");
+
+        // The reader received the first and the changed content, never the same content twice.
+        Assert.Equal(
+            ["XLSX bytes of the budget", "XLSX bytes of the new budget"],
+            harness.Readers.Requests.Select(request => Encoding.UTF8.GetString(request.Content)).ToArray());
+        // Every turn opened the file through the source for its own person, so access was checked again.
+        Assert.Equal(
+            [NhAssistantFileOrigins.ToolResult, NhAssistantFileOrigins.EarlierTurn, NhAssistantFileOrigins.EarlierTurn],
+            harness.Files.Opened.Select(item => item.Actor.Origin).ToArray());
+        Assert.All(harness.Files.Opened, item => Assert.Equal(AssistantTestHost.UserId, item.Actor.ActorId));
+        // The second turn's model read the kept text as untrusted external data.
+        var kept = models.Default.Requests[2].Messages.SelectMany(message => message.Contents).OfType<TextContent>()
+            .Single(content => content.Text == "Budget: XLSX bytes of the budget");
+        Assert.Equal("untrusted-retrieved", kept.AdditionalProperties!["newheap.trust"]);
+        Assert.Contains(
+            models.Default.Requests[3].Messages.SelectMany(message => message.Contents).OfType<TextContent>(),
+            content => content.Text == "Budget: XLSX bytes of the new budget");
+        // The audit says where the text came from and names the file.
+        var reads = harness.Host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.FileRead).ToArray();
+        Assert.Equal(
+            [(false, SpreadsheetReader, "Budget.xlsx"), (true, SpreadsheetReader, "Budget.xlsx"), (false, SpreadsheetReader, "Budget.xlsx")],
+            reads.Select(evt => (evt.FileTextCached ?? false, evt.FileReaderId, evt.FileName)).ToArray());
+        Assert.All(reads, evt => Assert.NotNull(evt.FileTextCached));
+        // The conversation keeps one protected text per content and reader, never in plain text.
+        var texts = await ReaderTextsAsync(harness.Host, conversation.Id);
+        string[] hashes = [Sha256(Encoding.UTF8.GetBytes("XLSX bytes of the budget")), Sha256(Encoding.UTF8.GetBytes("XLSX bytes of the new budget"))];
+        Assert.Equal(hashes.Order(StringComparer.Ordinal), texts.Select(text => text.FileHash).Order(StringComparer.Ordinal));
+        Assert.All(texts, text =>
+        {
+            Assert.Equal(SpreadsheetReader, text.ReaderId);
+            Assert.DoesNotContain("Budget", text.ProtectedText, StringComparison.Ordinal);
+            Assert.True(text.ExpiresAt > DateTimeOffset.UtcNow.AddHours(23));
+        });
+        AssertNoContent(harness, "XLSX bytes", "Budget:");
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_kept_text_reaches_no_actor_who_may_no_longer_read_the_file_and_goes_with_its_conversation(AssistantTestProvider provider)
+    {
+        var models = new ReaderModels();
+        models.Default
+            .RespondWithFunctionCall(OpenTool, new { input = new { ids = new[] { "budget" } } }, "call-1")
+            .RespondWithText("The budget is 1.2 million.")
+            .RespondWithText("I can no longer read the budget.");
+        await using var harness = await CreateAsync(provider, models);
+        var budget = harness.Files.Add("budget", "Budget.xlsx", NhAiMediaTypes.Xlsx, "XLSX bytes of the budget");
+        var conversation = await harness.Host.CreateConversationAsync(agentId: ChatAgent);
+        await harness.Host.SendAsync(conversation.Id, "What does the budget say?");
+        budget.ForbiddenActors[AssistantTestHost.UserId] = true;
+
+        await harness.Host.SendAsync(conversation.Id, "And the budget?");
+
+        Assert.Single(harness.Readers.Requests);
+        Assert.DoesNotContain(
+            models.Default.Requests[2].Messages.SelectMany(message => message.Contents).OfType<TextContent>(),
+            content => content.Text.StartsWith("Text of Budget.xlsx", StringComparison.Ordinal));
+        var refused = Assert.Single(harness.Host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.FileRefused);
+        Assert.Equal((NhAssistantErrorCodes.FileForbidden, "Budget.xlsx"), (refused.ResultCode, refused.FileName));
+        Assert.Single(await ReaderTextsAsync(harness.Host, conversation.Id));
+
+        // The owner deletes the conversation: its kept texts go with it.
+        await using (var scope = harness.Host.Services.CreateAsyncScope())
+        {
+            var access = await harness.Host.FindAccessAsync(conversation.Id);
+            Assert.True((await scope.ServiceProvider.GetRequiredService<NewHeap.Platform.AI.Chat.Collaboration.NhAssistantCollaboration>()
+                .DeleteAsync(access, CancellationToken.None)).Success);
+        }
+
+        Assert.Empty(await ReaderTextsAsync(harness.Host, conversation.Id));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_expired_text_is_read_again_and_removed_and_a_retention_of_zero_keeps_none(AssistantTestProvider provider)
+    {
+        var models = new ReaderModels();
+        models.Default
+            .RespondWithFunctionCall(OpenTool, new { input = new { ids = new[] { "budget" } } }, "call-1")
+            .RespondWithText("The budget is 1.2 million.")
+            .RespondWithText("Still 1.2 million.");
+        await using (var harness = await CreateAsync(provider, models))
+        {
+            harness.Files.Add("budget", "Budget.xlsx", NhAiMediaTypes.Xlsx, "XLSX bytes of the budget");
+            var conversation = await harness.Host.CreateConversationAsync(agentId: ChatAgent);
+            await harness.Host.SendAsync(conversation.Id, "What does the budget say?");
+            await ExpireReaderTextsAsync(harness.Host, conversation.Id);
+
+            var removed = await ActivatorUtilities.CreateInstance<NewHeap.Platform.AI.Chat.AspNet.NhAssistantReaderTextMaintenance>(harness.Host.Services)
+                .RunOnceAsync(DateTimeOffset.UtcNow, CancellationToken.None);
+            await harness.Host.SendAsync(conversation.Id, "Is that still the budget?");
+
+            Assert.Equal(1, removed);
+            // Without a kept text the reader reads the file again, and its new text is kept.
+            Assert.Equal(2, harness.Readers.Requests.Count);
+            Assert.Single(await ReaderTextsAsync(harness.Host, conversation.Id));
+        }
+
+        var uncached = new ReaderModels();
+        uncached.Default
+            .RespondWithFunctionCall(OpenTool, new { input = new { ids = new[] { "budget" } } }, "call-1")
+            .RespondWithText("The budget is 1.2 million.")
+            .RespondWithText("Still 1.2 million.");
+        await using (var harness = await CreateAsync(provider, uncached, limits => limits.ReaderTextRetention = TimeSpan.Zero))
+        {
+            harness.Files.Add("budget", "Budget.xlsx", NhAiMediaTypes.Xlsx, "XLSX bytes of the budget");
+            var conversation = await harness.Host.CreateConversationAsync(agentId: ChatAgent);
+
+            await harness.Host.SendAsync(conversation.Id, "What does the budget say?");
+            await harness.Host.SendAsync(conversation.Id, "Is that still the budget?");
+
+            Assert.Equal(2, harness.Readers.Requests.Count);
+            Assert.Empty(await ReaderTextsAsync(harness.Host, conversation.Id));
+            Assert.All(
+                harness.Host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.FileRead),
+                evt => Assert.False(evt.FileTextCached));
+        }
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_mcp_reader_that_may_receive_the_file_is_not_called_again_for_a_text_it_made_earlier(AssistantTestProvider provider)
+    {
+        var models = new ReaderModels();
+        models.Default
+            .RespondWithFunctionCall(OpenTool, new { input = new { ids = new[] { "brief" } } }, "call-1")
+            .RespondWithText("The brief ships in May.")
+            .RespondWithText("Still May.");
+        await using var harness = await CreateAsync(provider, models);
+        await SetUpReaderAsync(harness, "documents", [NhAiMediaTypes.Docx], "confidential");
+        harness.Files.Add("brief", "Brief.docx", NhAiMediaTypes.Docx, "DOCX bytes of the brief");
+        var conversation = await harness.Host.CreateConversationAsync(agentId: ChatAgent);
+
+        await harness.Host.SendAsync(conversation.Id, "What does the brief say?");
+        var connections = harness.Servers.Connections.Count;
+        await harness.Host.SendAsync(conversation.Id, "When does it ship?");
+
+        // The server received the brief once; the second turn neither connected nor called it.
+        Assert.Single(harness.Mcp.Calls);
+        Assert.Equal(connections, harness.Servers.Connections.Count);
+        Assert.Contains(
+            models.Default.Requests[2].Messages.SelectMany(message => message.Contents).OfType<TextContent>(),
+            content => content.Text == "Read by documents: DOCX bytes of the brief");
+        var reads = harness.Host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.FileRead).ToArray();
+        Assert.Equal(
+            [("mcp.documents", false, (string?)NhAssistantMcpConnectionOwners.None), ("mcp.documents", true, null)],
+            reads.Select(evt => (evt.FileReaderId, evt.FileTextCached ?? false, evt.McpConnectionOwner)).ToArray());
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task A_reader_that_fails_refuses_its_file_and_no_other_reader_receives_it(AssistantTestProvider provider)
     {
         var models = new ReaderModels();
@@ -762,6 +935,21 @@ public sealed class AssistantFileReaderTests(AssistantDatabaseFixture database) 
         {
             Assert.All(stored, value => Assert.DoesNotContain(content, value, StringComparison.Ordinal));
         }
+    }
+
+    private static async Task<IReadOnlyList<AssistantFileReaderText>> ReaderTextsAsync(AssistantTestHost host, Guid conversationId)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        return await context.FileReaderTexts.AsNoTracking().Where(text => text.ConversationId == conversationId).ToListAsync();
+    }
+
+    private static async Task ExpireReaderTextsAsync(AssistantTestHost host, Guid conversationId)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        var expired = DateTimeOffset.UtcNow.AddMinutes(-1);
+        await context.FileReaderTexts
+            .Where(text => text.ConversationId == conversationId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(text => text.ExpiresAt, expired));
     }
 
     private sealed record ReaderHarness(

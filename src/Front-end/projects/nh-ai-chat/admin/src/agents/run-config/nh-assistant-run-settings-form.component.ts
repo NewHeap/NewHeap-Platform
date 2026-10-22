@@ -12,6 +12,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountPickerComponent } from './nh-assistant-account-picker.component';
+import { NhAssistantFileLimitsFieldsComponent } from './nh-assistant-file-limits-fields.component';
 import { RunConfigForm } from './run-config-form';
 import {
   RunConfigErrors,
@@ -19,6 +20,7 @@ import {
   checkBudget,
   checkWhole,
   describePolicy,
+  FileLimitsDraft,
   numberText,
   policyOptions,
   profileOptions,
@@ -40,7 +42,14 @@ const defaults = { retries: '3', concurrent: '4', perSubject: '10' };
 @Component({
   selector: 'nh-assistant-run-settings-form',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPickerComponent, NhAssistantAccountPickerComponent],
+  imports: [
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantPickerComponent,
+    NhAssistantAccountPickerComponent,
+    NhAssistantFileLimitsFieldsComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-run-settings-form.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
@@ -62,7 +71,7 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
   protected readonly fields = [
     'accountability', 'serviceAccountActorId', 'ruleHandler', 'approvalPolicy', 'triageProfile', 'retryCount',
     'maxConcurrentRuns', 'maxRunsPerSubjectPerDay', 'maxTokensPerRun', 'dailyToolCalls', 'dailyTokens',
-    'elevatedReads', 'allowGatewayReads', 'reason'
+    'elevatedReads', 'allowGatewayReads', 'reason', 'maxFileBytes', 'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn'
   ];
 
   readonly accountability = signal<AgentAccountability>('service-account');
@@ -80,6 +89,8 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
   readonly delegateFromInitiator = signal(false);
   /** Whether people's messages and the agent's tools may give it files; off for a new agent. */
   readonly acceptsFiles = signal(false);
+  /** The agent's lower file limits, next to accepting files; empty keeps the application's. */
+  readonly fileLimits = new FileLimitsDraft();
   readonly elevatedReads = signal<AgentElevatedReads>('restricted');
   readonly reason = signal('');
   readonly advancedOpen = signal(false);
@@ -122,6 +133,7 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
     this.allowGatewayReads.set(settings?.allowGatewayReads ?? false);
     this.delegateFromInitiator.set(settings?.delegateFromInitiator ?? false);
     this.acceptsFiles.set(settings?.acceptsFiles ?? false);
+    this.fileLimits.load(settings);
     this.elevatedReads.set(settings?.elevatedReads ?? 'restricted');
     this.advancedOpen.set(this.advancedInUse());
   }
@@ -142,6 +154,9 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
     checkWhole(errors, 'maxRunsPerSubjectPerDay', this.maxRunsPerSubjectPerDay(), ...runConfigLimits.perSubject, true);
     checkWhole(errors, 'maxTokensPerRun', this.maxTokensPerRun(), 1);
     checkBudget(errors, this.dailyToolCalls(), this.dailyTokens());
+    if (this.acceptsFiles()) {
+      this.fileLimits.check(errors, this.catalog()?.fileLimits);
+    }
 
     const request: AgentRunSettingsRequest = {
       accountability: this.accountability(),
@@ -160,7 +175,8 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
       ruleHandler: blank(this.ruleHandler()),
       expectedVersion: this.settings()?.version ?? null,
       reason: blank(this.reason()),
-      acceptsFiles: this.acceptsFiles()
+      acceptsFiles: this.acceptsFiles(),
+      ...this.fileLimits.toRequest(this.acceptsFiles())
     };
     this.submit(errors, () => this.admin.saveRunSettings(this.agentId(), request), settings => this.saved.emit(settings));
   }

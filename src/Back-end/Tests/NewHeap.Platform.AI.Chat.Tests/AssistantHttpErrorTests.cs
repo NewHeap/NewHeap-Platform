@@ -43,6 +43,7 @@ public sealed class AssistantHttpErrorTests
     [InlineData(NhAssistantErrorCodes.FileUploadInvalid, StatusCodes.Status400BadRequest)]
     [InlineData(NhAssistantErrorCodes.FileTypeNotAccepted, StatusCodes.Status415UnsupportedMediaType)]
     [InlineData(NhAssistantErrorCodes.FileUploadRefused, StatusCodes.Status422UnprocessableEntity)]
+    [InlineData(NhAssistantErrorCodes.FileScanRefused, StatusCodes.Status422UnprocessableEntity)]
     [InlineData(NhAssistantErrorCodes.FileUploadFailed, StatusCodes.Status503ServiceUnavailable)]
     [InlineData(NhAssistantTriggerReasons.RateLimited, StatusCodes.Status409Conflict)]
     [InlineData(NhAssistantRunStore.OrphanedRunCode, StatusCodes.Status503ServiceUnavailable)]

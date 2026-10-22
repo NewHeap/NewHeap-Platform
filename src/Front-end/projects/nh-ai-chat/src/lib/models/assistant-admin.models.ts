@@ -906,6 +906,33 @@ export interface RunCatalog {
    * language: what an administrator may put an agent in; missing on older servers.
    */
   agentGroups?: AgentGroup[];
+  /**
+   * The application's file limits: the run settings of an agent created here and a skill defined here
+   * can only lower them; missing on older servers.
+   */
+  fileLimits?: FileLimits | null;
+}
+
+/**
+ * File limits: the largest file in bytes, the most pages of one file, the most files of one turn and
+ * the most estimated file tokens of one turn.
+ */
+export interface FileLimits {
+  maxFileBytes: number;
+  maxFilePages: number;
+  maxFilesPerTurn: number;
+  maxFileTokensPerTurn: number;
+}
+
+/**
+ * Lower file limits of an agent or a skill that accepts files; `null` or missing keeps the
+ * application's (for a skill: the agent's). Each is at most the application's limit.
+ */
+export interface LowerFileLimits {
+  maxFileBytes?: number | null;
+  maxFilePages?: number | null;
+  maxFilesPerTurn?: number | null;
+  maxFileTokensPerTurn?: number | null;
 }
 
 /** A group of agents the application registers in code, as people see it. */
@@ -999,7 +1026,7 @@ export type AgentElevatedReads = 'restricted' | 'deny';
  * The run settings of an agent created in the administration. Grants are never data: in headless
  * runs the agent acts with the rights of the account it answers to, within its tool selectors.
  */
-export interface AgentRunSettings {
+export interface AgentRunSettings extends LowerFileLimits {
   version: number;
   accountability: AgentAccountability;
   serviceAccountActorId: string | null;
@@ -1028,7 +1055,7 @@ export interface AgentRunSettings {
 }
 
 /** Body of `PUT admin/agents/{id}/run-settings`. */
-export interface AgentRunSettingsRequest {
+export interface AgentRunSettingsRequest extends LowerFileLimits {
   accountability: AgentAccountability;
   /** For `service-account` only: an account that exists and may sign in. */
   serviceAccountActorId?: string | null;
@@ -1120,7 +1147,7 @@ export type AssistantDataClassification = 'public' | 'internal' | 'confidential'
 export type AssistantConfigurationWarning = 'classification-not-permitted' | (string & {});
 
 /** One version of a skill defined as data. */
-export interface DataSkill {
+export interface DataSkill extends LowerFileLimits {
   skillId: string;
   version: number;
   description: string;
@@ -1163,7 +1190,7 @@ export interface DataSkill {
 export type SkillApplyMode = 'live' | 'shadow';
 
 /** Body of `PUT admin/agents/{id}/skills/{skillId}`. */
-export interface DataSkillRequest {
+export interface DataSkillRequest extends LowerFileLimits {
   /** At most 300 characters; triage and `use_skill` choose by it. */
   description: string;
   /** At most 20,000 characters. */

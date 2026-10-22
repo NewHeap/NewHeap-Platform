@@ -691,7 +691,21 @@ value above the application's stops the host. A run opens files through the appl
 takes the highest classification of its files, agent and skill, and refuses files it may not take
 with `assistant-files-not-accepted`; `use_skill` refuses a skill that cannot take the files the turn
 already reads. In the administration an agent's run settings and a data skill store
-`acceptsFiles`, off for a new one; the nh-ai-assistant rule covers the file source and its limits.
+`acceptsFiles`, off for a new one, and next to it lower limits: `maxFileBytes`, `maxFilePages`,
+`maxFilesPerTurn` and `maxFileTokensPerTurn` (`null` keeps the application's, for a skill the
+agent's). Each is a whole number from 1 to the application's limit, which the run catalog shows as
+`fileLimits` (`NhAssistantFileLimitsDto`), and only next to `acceptsFiles`; otherwise the save fails
+with field errors `invalid`. A turn takes the lowest of the application's, the agent's and the
+skill's, also when the application later lowered its own, and `uploads` of `GET status` and
+`GET agents` follows the agent's. The nh-ai-assistant rule covers the file source and its limits.
+
+A person's message to an agent's thread while a run works waits for the next run, and so do its
+files: the queued input keeps their references (`AssistantQueuedInput.FilesJson`, never content), and
+the run's turn opens them as attachments with the person who wrote the message as actor, even when
+another person started the run, within the limits of the skill the run works in. A file it cannot
+open, may not read or that does not fit is named to the model with its code instead, the run goes on,
+and the message in the thread keeps only the files the model read. A run that works by rules opens
+none; a later model turn opens them as files of an earlier turn.
 SampleProjectManagement's document reader (SPM-306) shows it: a document added to a project's folder
 starts its `read-documents` skill through a trigger that names the skill, both the agent and the
 skill call `AcceptsFiles()`, and the skill's tool names the project's documents in its result

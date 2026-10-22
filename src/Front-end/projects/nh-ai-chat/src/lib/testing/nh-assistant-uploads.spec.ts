@@ -204,6 +204,29 @@ describe('Chat attachments', () => {
     expect((refused as NhAssistantApiError).code).toBe('assistant-file-type-not-accepted');
   });
 
+  it('shows a file the upload scanner refused or could not scan at the control with its own code', async () => {
+    await setup(scenario({
+      scanUpload: upload => upload.name.startsWith('Eicar') ? 'refused' : upload.name.startsWith('Offline') ? 'failed' : null
+    }));
+
+    await store.attach([pdf('Eicar.pdf'), pdf('Offline.pdf')]);
+    await until(() => !store.uploading());
+    await store.attach([pdf('Plan.pdf')]);
+    await until(() => !store.uploading());
+
+    expect(store.attachments().map(item => [item.name, item.state, item.error?.code ?? null])).toEqual([
+      ['Eicar.pdf', 'failed', 'assistant-file-scan-refused'],
+      ['Offline.pdf', 'failed', 'assistant-file-upload-failed'],
+      ['Plan.pdf', 'uploaded', null]
+    ]);
+    // Only the file the scanner let pass reached the application's storage.
+    expect(backend.uploads.map(item => item.name)).toEqual(['Plan.pdf']);
+    const response = await upload(store.activeConversation()!.id, pdf('Eicar.pdf'), 'Eicar.pdf');
+    expect(response).toEqual({ status: 422, code: 'assistant-file-scan-refused' });
+    expect(TestBed.inject(TranslateService).instant(store.attachments()[0].error!.messageKey))
+      .toBe('The file did not pass the scan for harmful content and was not stored.');
+  });
+
   it('refuses a message whose files it cannot take, as the server does', async () => {
     await setup();
     const id = (await firstValueFrom(api.createConversation({ agentId: 'documents' }))).id;

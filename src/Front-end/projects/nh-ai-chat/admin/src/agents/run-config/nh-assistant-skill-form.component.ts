@@ -12,6 +12,7 @@ import {
   ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
+import { NhAssistantFileLimitsFieldsComponent } from './nh-assistant-file-limits-fields.component';
 import { RunConfigForm } from './run-config-form';
 import {
   RunConfigErrors,
@@ -21,6 +22,7 @@ import {
   dashCase,
   dataClassifications,
   describePolicy,
+  FileLimitsDraft,
   numberText,
   policyOptions,
   profileOptions,
@@ -51,7 +53,7 @@ export interface SkillFormSaved {
 @Component({
   selector: 'nh-assistant-skill-form',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPickerComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPickerComponent, NhAssistantFileLimitsFieldsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-skill-form.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
@@ -79,7 +81,8 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly maxInstructions = runConfigLimits.instructions;
   protected readonly fields = [
     'skillId', 'description', 'instructions', 'tools', 'ruleHandler', 'profile', 'dataClassification', 'approvalPolicy',
-    'maxTokensPerRun', 'dailyToolCalls', 'dailyTokens', 'apply', 'startsOff', 'reason'
+    'maxTokensPerRun', 'dailyToolCalls', 'dailyTokens', 'apply', 'startsOff', 'reason',
+    'maxFileBytes', 'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn'
   ];
 
   readonly skillId = signal('');
@@ -91,6 +94,8 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly dataClassification = signal('');
   /** Whether a run in the skill reads files when the agent accepts them too; off for a new skill. */
   readonly acceptsFiles = signal(false);
+  /** The skill's lower file limits, next to accepting files; empty keeps the agent's. */
+  readonly fileLimits = new FileLimitsDraft();
   readonly ruleHandler = signal('');
   readonly approvalPolicy = signal('');
   readonly maxTokens = signal('');
@@ -129,6 +134,7 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
     this.profile.set(skill?.profile ?? '');
     this.dataClassification.set(skill?.dataClassification ?? '');
     this.acceptsFiles.set(skill?.acceptsFiles ?? false);
+    this.fileLimits.load(skill);
     this.ruleHandler.set(skill?.ruleHandler ?? '');
     this.approvalPolicy.set(skill?.approvalPolicy ?? '');
     this.maxTokens.set(numberText(skill?.maxTokensPerRun));
@@ -164,6 +170,9 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
     }
     checkWhole(errors, 'maxTokensPerRun', this.maxTokens(), 1);
     checkBudget(errors, this.dailyToolCalls(), this.dailyTokens());
+    if (this.acceptsFiles()) {
+      this.fileLimits.check(errors, this.catalog()?.fileLimits);
+    }
 
     const request: DataSkillRequest = {
       description: this.description().trim(),
@@ -172,6 +181,7 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
       profile: blank(this.profile()),
       dataClassification: (blank(this.dataClassification()) as AssistantDataClassification | null),
       acceptsFiles: this.acceptsFiles(),
+      ...this.fileLimits.toRequest(this.acceptsFiles()),
       ruleHandler: blank(this.ruleHandler()),
       approvalPolicy: blank(this.approvalPolicy()),
       maxTokensPerRun: toNumber(this.maxTokens()),

@@ -338,6 +338,166 @@ public sealed class AssistantFileTests(AssistantDatabaseFixture database) : ICla
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_administration_lowers_the_file_limits_of_agents_and_skills_within_the_applications(AssistantTestProvider provider)
+    {
+        var models = new FileModels();
+        models.Default
+            .RespondWithFunctionCall(OpenTool, new { input = new { ids = new[] { "plan", "large" } } }, "call-1")
+            .RespondWithText("Read the plan.");
+        await using var host = await CreateHostAsync(provider, models);
+        var files = host.Services.GetRequiredService<TestFiles>();
+        files.Add("plan", "Plan.pdf", NhAiMediaTypes.Pdf, "The plan.");
+        files.Add("large", "Large.pdf", NhAiMediaTypes.Pdf, new string('x', 2_048));
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var created = await scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>().CreateAsync(
+                new NhAssistantAgentInput(
+                    "document-follower",
+                    "Document follower",
+                    "Follows up project documents.",
+                    "Follow up the documents.",
+                    ["documents.*"],
+                    [],
+                    null,
+                    NhAiAutonomyLevel.Observe,
+                    ProfileName: DocumentProfile),
+                "admin-1",
+                CancellationToken.None);
+            Assert.True(created.Success);
+        }
+        var application = host.Services.GetRequiredService<NhAssistantRegistrationState>().Limits;
+
+        // Above the application's limits, not positive, or without accepting files: field errors.
+        var above = await ConfigureAsync(host, configuration => configuration.SaveRunSettingsAsync(
+            "document-follower",
+            new NhAssistantAgentRunSettingsRequest(
+                NhAssistantAccountabilities.Agent,
+                AcceptsFiles: true,
+                MaxFileBytes: application.MaxFileBytes + 1,
+                MaxFilePages: 0,
+                MaxFilesPerTurn: application.MaxFilesPerTurn + 1,
+                MaxFileTokensPerTurn: application.MaxFileTokensPerTurn + 1),
+            "admin-1"));
+        var withoutFiles = await ConfigureAsync(host, configuration => configuration.SaveRunSettingsAsync(
+            "document-follower",
+            new NhAssistantAgentRunSettingsRequest(NhAssistantAccountabilities.Agent, MaxFilesPerTurn: 1),
+            "admin-1"));
+        var saved = await ConfigureAsync(host, configuration => configuration.SaveRunSettingsAsync(
+            "document-follower",
+            new NhAssistantAgentRunSettingsRequest(
+                NhAssistantAccountabilities.Agent,
+                AcceptsFiles: true,
+                MaxFileBytes: 1_024,
+                MaxFilePages: 10,
+                MaxFilesPerTurn: 2,
+                MaxFileTokensPerTurn: application.MaxFileTokensPerTurn),
+            "admin-1"));
+        var skillAbove = await ConfigureAsync(host, configuration => configuration.SaveSkillAsync(
+            Reader,
+            "audit",
+            new NhAssistantDataSkillRequest("Audits the project documents.", AcceptsFiles: true, MaxFileBytes: application.MaxFileBytes + 1),
+            "admin-1"));
+        var skill = await ConfigureAsync(host, configuration => configuration.SaveSkillAsync(
+            Reader,
+            "audit",
+            new NhAssistantDataSkillRequest("Audits the project documents.", AcceptsFiles: true, MaxFilesPerTurn: 1),
+            "admin-1"));
+        var conversation = await host.CreateConversationAsync(agentId: "document-follower");
+        await host.SendAsync(conversation.Id, "Read the plan and the large file.");
+
+        Assert.Equal(
+            ["maxFileBytes", "maxFilePages", "maxFileTokensPerTurn", "maxFilesPerTurn"],
+            NhAssistantResults.FieldErrorsOf(above).Keys.Order(StringComparer.Ordinal).ToArray());
+        Assert.All(NhAssistantResults.FieldErrorsOf(above).Values, codes => Assert.Equal([NhAssistantFieldErrors.Invalid], codes));
+        Assert.Equal(["maxFilesPerTurn"], NhAssistantResults.FieldErrorsOf(withoutFiles).Keys.ToArray());
+        Assert.Equal(["maxFileBytes"], NhAssistantResults.FieldErrorsOf(skillAbove).Keys.ToArray());
+        Assert.Equal(
+            ((int?)1_024, (int?)10, (int?)2, (int?)application.MaxFileTokensPerTurn),
+            (saved.Data!.MaxFileBytes, saved.Data.MaxFilePages, saved.Data.MaxFilesPerTurn, saved.Data.MaxFileTokensPerTurn));
+        Assert.Equal(((int?)1, (int?)null), (skill.Data!.MaxFilesPerTurn, skill.Data.MaxFileBytes));
+        // The run catalog names the application's limits, which the administration may only lower.
+        var catalog = (await ConfigureAsync(host, configuration => Task.FromResult(configuration.GetCatalog()))).FileLimits!;
+        Assert.Equal(
+            (application.MaxFileBytes, application.MaxFilePages, application.MaxFilesPerTurn, application.MaxFileTokensPerTurn),
+            (catalog.MaxFileBytes, catalog.MaxFilePages, catalog.MaxFilesPerTurn, catalog.MaxFileTokensPerTurn));
+        var stored = (await ConfigureAsync(host, configuration => configuration.GetAsync("document-follower")))!;
+        Assert.Equal((int?)1_024, stored.RunSettings!.MaxFileBytes);
+        var options = host.Services.GetRequiredService<NhAssistantRegistrationState>().AgentRuns;
+        Assert.Equal((int?)2, options["document-follower"].FileLimits!.MaxFilesPerTurn);
+        Assert.Equal((int?)1, options[Reader].Skills["audit"].FileLimits!.MaxFilesPerTurn);
+        // What people may attach to the agent follows its lower limits.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var rules = scope.ServiceProvider.GetRequiredService<NhAssistantUploads>().RulesOf("document-follower")!;
+            Assert.Equal((1_024, 2), (rules.MaxFileBytes, rules.MaxFiles));
+        }
+        // A turn of the agent refuses a file above its own largest file.
+        var named = ResultFiles(Assert.Single(models.Default.FunctionResults)).ToArray();
+        Assert.Equal(
+            [("plan", (string?)null), ("large", NhAssistantErrorCodes.FileTooLarge)],
+            named.Select(file => (file.GetProperty("id").GetString(), Code(file))).ToArray());
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_message_that_waits_for_a_run_keeps_its_files_and_the_run_opens_them_for_their_author(AssistantTestProvider provider)
+    {
+        var models = new FileModels();
+        models.Default.RespondWithText("The plan moves the launch to May.");
+        await using var host = await CreateHostAsync(provider, models);
+        var files = host.Services.GetRequiredService<TestFiles>();
+        var plan = files.Add("plan", "Launch plan.pdf", NhAiMediaTypes.Pdf, PlanText);
+        var salaries = files.Add("salaries", "Salaries.pdf", NhAiMediaTypes.Pdf, "The salaries.");
+        salaries.ForbiddenActors["member-2"] = true;
+        var subject = new NhAiSubjectRef("project", Guid.NewGuid().ToString("N"));
+
+        // One person's message starts the run; another's, with files, waits for it.
+        var first = await FireQueuedMessageAsync(host, subject, "member-1", "What changed in the project?", []);
+        var second = await FireQueuedMessageAsync(host, subject, "member-2", "Please read the attached plan.", [plan.Reference, salaries.Reference]);
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            var waiting = await context.QueuedInputs.AsNoTracking().Where(input => input.ConversationId == second.ConversationId).ToListAsync();
+            var withFiles = Assert.Single(waiting, input => input.FilesJson is not null);
+            Assert.Equal("member-2", withFiles.AuthorActorId);
+            Assert.Contains("plan", withFiles.FilesJson, StringComparison.Ordinal);
+            Assert.DoesNotContain("Launch plan: the launch", withFiles.FilesJson, StringComparison.Ordinal);
+        }
+        var run = await ExecuteRunAsync(host, first.RunId!.Value);
+
+        Assert.Equal(NhAssistantTriggerOutcomes.Started, first.Outcome);
+        Assert.Equal((NhAssistantTriggerOutcomes.Coalesced, first.RunId), (second.Outcome, second.RunId));
+        Assert.Equal(NhAssistantRunStatuses.Completed, run.Status);
+        // The run, started by the first person, opened the files as attachments for their author.
+        Assert.Equal(
+            [("plan", "member-2", NhAiActorKind.Human, NhAssistantFileOrigins.Attachment), ("salaries", "member-2", NhAiActorKind.Human, NhAssistantFileOrigins.Attachment)],
+            files.Opened.Select(item => (item.Reference.Id, item.Actor.ActorId, item.Actor.ActorKind, item.Actor.Origin)).ToArray());
+        // The model read the plan with the waiting message, and a note about the file it may not read.
+        var message = models.Default.Requests[0].Messages.Single(item => item.Contents.OfType<DataContent>().Any());
+        Assert.Equal(ChatRole.User, message.Role);
+        Assert.Contains("Please read the attached plan.", message.Contents.OfType<TextContent>().First().Text, StringComparison.Ordinal);
+        Assert.Equal(PlanText, Encoding.UTF8.GetString(message.Contents.OfType<DataContent>().Single().Data.Span));
+        Assert.Contains(
+            message.Contents.OfType<TextContent>(),
+            content => content.Text.Contains("Salaries.pdf", StringComparison.Ordinal)
+                && content.Text.Contains(NhAssistantErrorCodes.FileForbidden, StringComparison.Ordinal));
+        // The thread keeps only the file the model read, with its hash; the audit names both.
+        var part = Assert.Single(await FilePartsAsync(host, run.ConversationId));
+        Assert.Equal(("plan", NhAssistantFileOrigins.Attachment, Sha256(PlanText)), (part.Id, part.Origin, part.Sha256));
+        var audit = host.Business.Events.Where(evt => evt.Kind is NhAssistantAuditEventKind.FileRead or NhAssistantAuditEventKind.FileRefused).ToArray();
+        Assert.Equal(
+            [
+                (NhAssistantAuditEventKind.FileRead, "plan", "Launch plan.pdf", (string?)"read"),
+                (NhAssistantAuditEventKind.FileRefused, "salaries", "Salaries.pdf", NhAssistantErrorCodes.FileForbidden)
+            ],
+            audit.Select(evt => (evt.Kind, evt.FileId, evt.FileName, evt.ResultCode)).ToArray());
+        Assert.All(audit, evt => Assert.Equal(NhAssistantFileOrigins.Attachment, evt.ObjectId));
+        await AssertNoContentAsync(host, run.ConversationId, PlanText);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task A_later_turn_opens_a_file_again_with_its_own_actor(AssistantTestProvider provider)
     {
         var models = new FileModels();
@@ -520,15 +680,51 @@ public sealed class AssistantFileTests(AssistantDatabaseFixture database) : ICla
             receipt = Assert.Single(receipts, item => item.TriggerId == triggerId);
         }
 
+        return await ExecuteRunAsync(host, receipt.RunId!.Value);
+    }
+
+    /// <summary>
+    /// Executes the run's operation once and returns the run as it ended.
+    /// </summary>
+    private static async Task<AssistantRun> ExecuteRunAsync(AssistantTestHost host, Guid runId)
+    {
         await using (var scope = host.Services.CreateAsyncScope())
         {
             var operation = ActivatorUtilities.CreateInstance<NhAssistantAgentRunOperation>(scope.ServiceProvider);
             var context = Substitute.For<INhBackgroundOperationContext>();
             context.AttemptNumber.Returns(1);
-            await operation.ExecuteAsync(new NhAssistantAgentRunRequest(receipt.RunId!.Value), context, CancellationToken.None);
+            await operation.ExecuteAsync(new NhAssistantAgentRunRequest(runId), context, CancellationToken.None);
         }
 
-        return (await host.Services.GetRequiredService<NhAssistantRunStore>().FindRunAsync(receipt.RunId.Value, CancellationToken.None))!;
+        return (await host.Services.GetRequiredService<NhAssistantRunStore>().FindRunAsync(runId, CancellationToken.None))!;
+    }
+
+    /// <summary>
+    /// A person's message to the document reader's thread of <paramref name="subject"/> while its run
+    /// works, as the message endpoint fires it: it waits for the run with its files.
+    /// </summary>
+    private static async Task<NhAssistantTriggerReceipt> FireQueuedMessageAsync(
+        AssistantTestHost host,
+        NhAiSubjectRef subject,
+        string actorId,
+        string text,
+        IReadOnlyList<NhAiFileReference> files)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<NhAssistantAgentTriggers>().FireAsync(
+            new NhAssistantTriggerFire(
+                NhAssistantTriggerIds.QueuedMessage,
+                Reader,
+                subject,
+                actorId,
+                text,
+                null,
+                NhAssistantTriggerConflict.Coalesce,
+                TimeSpan.Zero)
+            {
+                Files = files
+            },
+            CancellationToken.None);
     }
 
     private static async Task<T> ConfigureAsync<T>(AssistantTestHost host, Func<INhAssistantAgentConfiguration, Task<T>> action)

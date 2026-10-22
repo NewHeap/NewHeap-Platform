@@ -583,14 +583,21 @@ public static class NhAssistantErrorCodes
     public const string FileTypeNotAccepted = "assistant-file-type-not-accepted";
 
     /// <summary>
-    /// The application's file source refused to store an upload, for example after a virus scan.
+    /// The application's file source refused to store an upload.
     /// </summary>
     public const string FileUploadRefused = "assistant-file-upload-refused";
 
     /// <summary>
-    /// The application's file source could not store an upload right now.
+    /// The application's file source could not store an upload right now, or its upload scanner
+    /// (<see cref="INhAssistantUploadScanner"/>) could not scan it.
     /// </summary>
     public const string FileUploadFailed = "assistant-file-upload-failed";
+
+    /// <summary>
+    /// The application's upload scanner (<see cref="INhAssistantUploadScanner"/>) refused the upload,
+    /// for example because it found malware. Nothing was stored.
+    /// </summary>
+    public const string FileScanRefused = "assistant-file-scan-refused";
 
     public const string TurnFailed = "assistant-turn-failed";
     public const string ContextUnavailable = "assistant-context-unavailable";
