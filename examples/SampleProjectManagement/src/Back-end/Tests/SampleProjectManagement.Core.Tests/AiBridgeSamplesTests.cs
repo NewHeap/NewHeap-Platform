@@ -519,6 +519,7 @@ public sealed class AiBridgeSamplesTests
             Guid divisionId,
             Guid projectId,
             ProjectStatus status,
+            ProjectAgentCause? agentCause,
             CancellationToken cancellationToken = default)
         {
             return Task.FromResult(TaskResult<ProjectAiStatusChangeReport>.Failed("not-used", "Not used by the bridge sample."));

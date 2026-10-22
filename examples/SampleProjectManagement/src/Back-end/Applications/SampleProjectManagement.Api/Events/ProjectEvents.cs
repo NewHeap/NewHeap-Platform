@@ -53,14 +53,19 @@ public sealed class ProjectTaskEventConsumer(INhAssistantAgentTriggers agentTrig
 /// SPM-282: the explicit form. After a project's status changed, the application revalidates the
 /// open agent proposals about the project itself; a proposal to set the status it already has closes
 /// as already done.
+/// SPM-308: the change then reaches the agent triggers on the status-changed event, whose filter skips
+/// an agent's own change on the project.
 /// </summary>
 [NhMessageProcessing(MessageProcessingType.PerApplication)]
-public sealed class ProjectStatusEventConsumer(INhAssistantProposalRevalidation revalidation)
+public sealed class ProjectStatusEventConsumer(
+    INhAssistantProposalRevalidation revalidation,
+    INhAssistantAgentTriggers agentTriggers)
     : INhEventConsumer<ProjectStatusChangedEvent>
 {
     public async Task HandleAsync(ProjectStatusChangedEvent @event, CancellationToken cancellationToken)
     {
         await revalidation.RevalidateSubjectAsync(ProjectSubjects.For(@event.ProjectId), cancellationToken);
+        await agentTriggers.PublishAsync(@event, cancellationToken);
     }
 }
 
