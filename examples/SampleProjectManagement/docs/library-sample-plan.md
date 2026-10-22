@@ -160,7 +160,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-094 | Module translations | browser translate loader | project.<dash-case-key> resolves correctly. |
 | SPM-095 | Language and culture | language map/globalization util | nl selects nl-NL consistently. |
 | SPM-096 | Common options and configuration overrides | common/aspnet builders and configuration providers | The app and automation use the same appsettings with host-specific environment and CLI overrides. |
-| SPM-097 | Startup order | configurators/app builder | The minimum registration starts correctly. |
+| SPM-097 | Startup order | configurators/app builder; `NewHeapAspNetCommonOptionsBuilder.UseEndpointRoutingOnly` with `UseNewHeapPlatformAspNetCommon` | The minimum registration starts correctly, and the API routes its controllers with endpoint routing only, so they share one route table and their endpoint metadata with every other endpoint. |
 | SPM-098 | Trace identifier | trace middleware/extensions | The response, log, and event share a trace ID. |
 | SPM-099 | No-follow | no-follow middleware | The expected robot header is present. |
 | SPM-100 | Exception handling | handler + bad-request model | A safe response includes a trace ID. |

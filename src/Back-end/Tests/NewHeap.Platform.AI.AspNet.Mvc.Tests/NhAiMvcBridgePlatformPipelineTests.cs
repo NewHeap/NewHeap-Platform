@@ -32,17 +32,26 @@ namespace NewHeap.Platform.AI.AspNet.Mvc.Tests;
 /// Delegated reads in a host composed as a consumer composes it: <c>AddNewHeapPlatformAspNetCommon</c>
 /// with <c>WithIdentity</c>, so the Identity cookie is the default authentication scheme, the bridged
 /// controllers authorize with the JWT bearer scheme as <c>NhBaseController</c> does, and
-/// <c>UseNewHeapPlatformAspNetCommon</c> builds the pipeline.
+/// <c>UseNewHeapPlatformAspNetCommon</c> builds the pipeline, with the old <c>UseMvc</c> routing or
+/// with <c>UseEndpointRoutingOnly</c>.
 /// </summary>
 public sealed class NhAiMvcBridgePlatformPipelineTests
 {
     private const string Audience = "platform-pipeline-tests";
     private const string ListAction = "test-api.order.get";
 
-    [Fact]
-    public async Task A_delegated_read_reaches_its_gateway_action_and_nothing_else_under_UseMvc()
+    public enum ControllerRouting
     {
-        await using var app = await StartAsync();
+        UseMvc,
+        EndpointRoutingOnly
+    }
+
+    [Theory]
+    [InlineData(ControllerRouting.UseMvc)]
+    [InlineData(ControllerRouting.EndpointRoutingOnly)]
+    public async Task A_delegated_read_reaches_its_gateway_action_and_nothing_else(ControllerRouting routing)
+    {
+        await using var app = await StartAsync(routing);
         using var client = app.GetTestClient();
         var invocation = Guid.NewGuid();
         var list = CreateToken(invocation, ListAction);
@@ -61,7 +70,7 @@ public sealed class NhAiMvcBridgePlatformPipelineTests
     [Fact]
     public async Task A_delegated_read_principal_from_an_earlier_authentication_runs_no_other_action()
     {
-        await using var app = await StartAsync();
+        await using var app = await StartAsync(ControllerRouting.UseMvc);
         await using var scope = app.Services.CreateAsyncScope();
         var actions = app.Services.GetRequiredService<IActionDescriptorCollectionProvider>().ActionDescriptors.Items
             .OfType<ControllerActionDescriptor>()
@@ -116,7 +125,7 @@ public sealed class NhAiMvcBridgePlatformPipelineTests
         return response.StatusCode;
     }
 
-    private static async Task<WebApplication> StartAsync()
+    private static async Task<WebApplication> StartAsync(ControllerRouting routing)
     {
         // Production, as deployed: the host does not validate services it never resolves, such as the
         // database-backed Identity services that no request here reaches.
@@ -132,6 +141,7 @@ public sealed class NhAiMvcBridgePlatformPipelineTests
         // The test controllers name their policies; the policies use the bearer scheme as
         // NhBaseController does, because WithIdentity makes the Identity cookie the default scheme.
         var platformOptions = NewHeapAspNetCommonOptions.Builder(builder.Configuration)
+            .UseEndpointRoutingOnly(routing == ControllerRouting.EndpointRoutingOnly)
             .ConfigureAuthorization(options =>
             {
                 options.AddPolicy(TestPolicies.OrderView, policy => policy

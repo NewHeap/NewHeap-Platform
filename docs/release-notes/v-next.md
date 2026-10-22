@@ -66,8 +66,23 @@ authenticates the delegated read scheme with the action that MVC executes as the
 routing modes. A delegated read principal still reaches only the `GET` gateway action its token
 names, with its invocation header, and a request whose target is not known is still refused. A
 scheme that middleware authenticates before MVC, such as the default authentication scheme under
-`UseMvc`, stays refused there; such a host routes its controllers with endpoint routing.
+`UseMvc`, stays refused there; such a host routes its controllers with `UseEndpointRoutingOnly()`.
 
 | Breaking change | Required action |
 |---|---|
 | With the gateway enabled, MVC authenticates the delegated read scheme before its other authorization filters for every `GET` request with the `X-NewHeap-AI-Invocation` header, and answers `401` when a delegated read principal reaches another action than the one its token names. | None. |
+
+## NewHeap.Platform.AspNet.Common: controllers with endpoint routing only
+
+New option, no breaking change. `NewHeapAspNetCommonOptionsBuilder.UseEndpointRoutingOnly()`
+(`NewHeapAspNetCommonOptions.UseEndpointRoutingOnly`) routes controllers with endpoint routing only:
+MVC keeps `EnableEndpointRouting` on, and `UseNewHeapPlatformAspNetCommon` routes before CORS and
+authentication, maps controllers with `MapControllers` and no longer adds `UseMvc`. Controller
+requests then carry endpoint metadata, so the authorization middleware, `[EnableCors]` and
+`[DisableCors]` and other endpoint-metadata middleware apply to controllers, and the host builds one
+route table instead of two. Map conventional routes in the `UseEndpoints` callback with
+`MapControllerRoute`; combining the option with `UseMvc(Action<IRouteBuilder>)`, or turning
+`EnableEndpointRouting` off in `ConfigureMvc`, fails at startup. The default is unchanged. New
+applications opt in; an existing application first checks authorization handlers that read
+`AuthorizationFilterContext`, filter-based authorization checks, generated links, Razor Pages and URL
+rewriting in `UseMiddlewares` (guidance rule `nh-backend-platform-pipeline`).

@@ -110,6 +110,10 @@ Source release: `newheap-platform-plugin-v1.13.76`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.76/docs/consumer-guide/backend-partial-update.md)
 
+## Backend Platform Pipeline
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.76/docs/consumer-guide/backend-platform-pipeline.md)
+
 ## Backend Project Foundation
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.76/docs/consumer-guide/backend-project-foundation.md)

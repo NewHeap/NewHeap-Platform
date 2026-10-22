@@ -1409,13 +1409,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-097",
     "title": "Startup order",
     "category": "Localization, configuration, and HTTP infrastructure",
-    "surface": "configurators/app builder",
-    "outcome": "The minimum registration starts correctly.",
+    "surface": "configurators/app builder; NewHeapAspNetCommonOptionsBuilder.UseEndpointRoutingOnly with UseNewHeapPlatformAspNetCommon",
+    "outcome": "The minimum registration starts correctly, and the API routes its controllers with endpoint routing only, so they share one route table and their endpoint metadata with every other endpoint.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
-      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeapPlatformAspNetCommonApplicationBuilder.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/PlatformPipelineRoutingTests.cs"
     ]
   },
   {

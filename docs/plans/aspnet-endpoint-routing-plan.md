@@ -3,11 +3,37 @@
 This note prepares a decision: should `UseNewHeapPlatformAspNetCommon` stop combining the old
 `UseMvc` routing with `MapControllers` and route controllers through endpoint routing only? It
 records a startup measurement, the consumer impact of the move and the options. Nothing in the
-platform changed for this note. It was checked against `main` at `6c152e0b` on 2026-10-21.
+platform changed for this note. It was checked against `main` at `6c152e0b` on 2026-10-21; the
+[status](#status) records what was implemented afterwards.
 
 ## Status
 
-Decision pending. The recommendation is [option B](#options).
+Decision: B, implemented. `NewHeapAspNetCommonOptionsBuilder.UseEndpointRoutingOnly()`
+(`NewHeapAspNetCommonOptions.UseEndpointRoutingOnly`, a registration option because MVC reads
+`EnableEndpointRouting` when the services are registered) keeps `EnableEndpointRouting` on, and
+`UseNewHeapPlatformAspNetCommon` then builds:
+
+```text
+UseRouting → UseCors → UseAuthentication → … → AddMiddlewaresAction → UseAuthorization
+  → UseEndpoints(MapControllers, background-operation hub, EndpointRouteConfigureAction)
+```
+
+Routing runs first, so CORS (item 5), authentication and `AddMiddlewaresAction` (item 11) see the
+endpoint. Conventional routes go in the `UseEndpoints` callback with `MapControllerRoute`; the
+platform itself registers none through `UseMvc`. The option fails at startup with
+`UseMvc(Action<IRouteBuilder>)` or with `EnableEndpointRouting` turned off in `ConfigureMvc`. The
+default is unchanged. The sample's API opts in, `PlatformPipelineRoutingTests` covers both modes and
+the guidance rule `nh-backend-platform-pipeline` recommends the opt-in for new applications.
+
+Left for a later default switch (option C):
+
+- obsolete `UseMvc(Action<IRouteBuilder>)` and `MvcConfigureRoutesAction`, then remove them;
+- make endpoint routing the default and remove `UseMvc` from the pipeline, keeping
+  `UseEndpointRoutingOnly` as an obsolete no-op for one major;
+- publish a migration table for items 1–8 and 11, in particular authorization handlers that read
+  `AuthorizationFilterContext`, filter-based authorization checks, Razor Pages and URL rewriting in
+  `AddMiddlewaresAction`;
+- collect feedback from applications that opted in before the breaking release.
 
 ## Current pipeline
 
@@ -109,9 +135,10 @@ check in the opt-in spike.
     descriptors, and OpenAPI reads the same; neither depends on the routing mode. Its self-HTTP
     hop is routed by whichever pipeline the host has. Only delegated reads (item 3) depend on the
     endpoint.
-11. **Middleware placement.** `AddMiddlewaresAction` runs before routing and sees no endpoint,
-    today and after the move. Middleware added after `UseNewHeapPlatformAspNetCommon` runs after
-    the terminal endpoints in both modes.
+11. **Middleware placement.** `AddMiddlewaresAction` runs before routing and sees no endpoint
+    today; with `UseEndpointRoutingOnly` it runs after routing and sees the endpoint, so URL
+    rewriting belongs before `UseNewHeapPlatformAspNetCommon`. Middleware added after
+    `UseNewHeapPlatformAspNetCommon` runs after the terminal endpoints in both modes.
 
 ## Options
 
@@ -128,8 +155,9 @@ CORS attributes, Razor Pages and generated links before the default changes.
 
 ## Decisions for Lars
 
-1. Choose A, B or C.
+1. Choose A, B or C. Decided: B, implemented (see [Status](#status)).
 2. With B: the option's name and place (service registration or pipeline builder), and whether
-   the sample's API opts in at once.
+   the sample's API opts in at once. Decided: `UseEndpointRoutingOnly()` on the registration
+   options; the sample's API opts in.
 3. Independently of the choice: whether to verify and fix delegated reads (item 3) in a host that
    uses `UseNewHeapPlatformAspNetCommon` now. Decided: verified and fixed.

@@ -204,8 +204,9 @@ affected. The target is the routed endpoint or, under the `UseMvc` routing of
 executes: the bridge's first MVC authorization filter authenticates the scheme with that action
 before MVC's own authorization, and answers `401` when a delegated read principal reaches another
 action. Middleware before MVC sees no target, so a scheme that it authenticates first, such as the
-default authentication scheme under `UseMvc`, stays refused; route controllers with endpoint routing
-in such a host. Startup fails when the scheme is not a JWT bearer scheme, or when any JWT bearer scheme
+default authentication scheme under `UseMvc`, stays refused; such a host routes its controllers with
+`UseEndpointRoutingOnly()` (see `nh-backend-platform-pipeline`), where routing precedes
+authentication. Startup fails when the scheme is not a JWT bearer scheme, or when any JWT bearer scheme
 resolves its events from `EventsType` or replaced them afterwards. Discovery and the gateway's
 `search-resources`, `describe-resource`, map, `query` and `get` authorize with the person as the
 host's scheme authenticates a token, including claims transformation.
