@@ -81,6 +81,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.ToolCallLimitReached,
             NhAssistantErrorCodes.TurnTimeout,
             NhAssistantErrorCodes.ModelUnavailable,
+            NhAssistantErrorCodes.ClassificationNotPermitted,
             NhAssistantErrorCodes.TurnFailed,
             NhAssistantErrorCodes.PushSubscriptionInvalid,
             NhAssistantErrorCodes.SubjectInvalid,

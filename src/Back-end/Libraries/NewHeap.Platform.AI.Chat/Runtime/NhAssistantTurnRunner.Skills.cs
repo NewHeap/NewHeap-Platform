@@ -83,6 +83,40 @@ internal sealed partial class NhAssistantTurnRunner
     }
 
     /// <summary>
+    /// Whether <paramref name="profile"/> or one of its fallbacks permits
+    /// <paramref name="classification"/>, as the profile resolution checks it. When none does, the
+    /// resolution refuses every attempt, so the turn fails at once instead of as an unavailable model.
+    /// </summary>
+    private bool PermitsClassification(NhAiModelProfile profile, NhAiDataClassification classification)
+    {
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var candidates = new Queue<NhAiModelProfile>();
+        candidates.Enqueue(profile);
+        while (candidates.Count > 0)
+        {
+            var candidate = candidates.Dequeue();
+            if (!visited.Add(candidate.Name))
+            {
+                continue;
+            }
+            if (candidate.PermittedDataClassifications.Contains(classification))
+            {
+                return true;
+            }
+
+            foreach (var fallbackName in candidate.FallbackProfileNames)
+            {
+                if (profiles.TryGet(fallbackName, out var fallback))
+                {
+                    candidates.Enqueue(fallback);
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Whether the turn belongs to a headless run, whose skill, budget and ceiling are recorded.
     /// </summary>
     private static bool IsRun(NhAssistantTurnState state)

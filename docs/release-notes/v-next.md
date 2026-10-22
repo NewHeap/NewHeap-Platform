@@ -91,8 +91,10 @@ calls, which were always `Internal` before. The most specific one wins: the skil
 agent's, then `Internal`. It applies to the model calls of the agent's runs, people's turns in its
 threads and its consultations, and the agent's own one to its triage; it also classifies a skill's
 instructions and the run's hand-off calls. The profile resolution applies its existing check: a
-profile that does not permit the classification is skipped for its fallbacks, and the call is
-refused as `assistant-model-unavailable` when none permits it. A data skill stores its own
+profile that does not permit the classification is skipped for its fallbacks. When neither the
+profile nor any of its fallbacks permits it, the turn fails at once with the new, non-transient code
+`assistant-classification-not-permitted` (failure class `policy`, HTTP 400): a run is not retried,
+because every attempt would be refused the same way. A data skill stores its own
 (`dataClassification` on `NhAssistantDataSkillRequest` and `NhAssistantDataSkillDto`, one of
 `NhAssistantDataClassificationNames`: `public`, `internal`, `confidential` or `restricted`; another
 value is the field error `dataClassification: invalid`).
@@ -116,7 +118,7 @@ shows the server's `dataClassification` field error. `DataSkill` and `DataSkillR
 
 | Breaking change | Required action |
 |---|---|
-| New translation keys `nh-assistant.admin.run-config.skills.classification.*`. | Applications with their own translation files add them. |
+| New translation keys `nh-assistant.admin.run-config.skills.classification.*` and `nh-assistant.errors.assistant-classification-not-permitted`. | Applications with their own translation files add them. |
 
 ## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: model profile of an agent created in the administration
 

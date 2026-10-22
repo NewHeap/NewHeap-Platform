@@ -167,6 +167,12 @@ internal sealed class NhAssistantTurnState
     public bool InstructionsTooLong { get; set; }
 
     /// <summary>
+    /// No profile of the turn's model call permits its data classification; the turn fails with
+    /// <see cref="NhAssistantErrorCodes.ClassificationNotPermitted"/>.
+    /// </summary>
+    public bool ClassificationNotPermitted { get; set; }
+
+    /// <summary>
     /// Set after a rejected approval and before the closing answer after a tool limit: the model may
     /// give one closing message but call no more tools.
     /// </summary>

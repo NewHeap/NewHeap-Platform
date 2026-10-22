@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "473b87cc6875cd08022cbda2c18e611d91a2eb5e33e4a2ecf6bc181e53147bbc",
-    "declarationCount": 9241,
+    "hash": "6ba8e733ac1899804470e8cf5a6dccf2ad0f158ac59e8e63b54f5e06563acf6d",
+    "declarationCount": 9243,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -11443,6 +11443,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ClassificationNotPermitted = \"assistant-classification-not-permitted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string TurnFailed = \"assistant-turn-failed\";"
       },
       {
@@ -15908,6 +15912,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public bool InstructionsTooLong { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public bool ClassificationNotPermitted { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",

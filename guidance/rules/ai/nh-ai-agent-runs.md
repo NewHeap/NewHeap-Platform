@@ -653,9 +653,10 @@ most specific one wins: the skill's, then the agent's, then `NhAiDataClassificat
 applies to every model call of the agent's runs, people's turns in its threads and its
 consultations, and the agent's own one to triage; it also classifies the skill's instructions and
 the run's hand-off calls. The model profile of each call must permit it
-(`PermitDataClassifications`): otherwise its fallbacks are tried and the call is refused as
-`assistant-model-unavailable`, exactly as for every other model call, so give such an agent or skill
-a profile that permits its classification (`UseProfile`). A data skill stores it as
+(`PermitDataClassifications`): otherwise its fallbacks are tried, and when none permits it the
+turn fails at once with `assistant-classification-not-permitted` (failure class `policy`), which a
+run does not retry, so give such an agent or skill a profile that permits its classification
+(`UseProfile`). A data skill stores it as
 `dataClassification` (`public`, `internal`, `confidential` or `restricted`, see
 `NhAssistantDataClassificationNames`); an unknown name is a field error. A consultation's own
 `DataClassification(...)` keeps classifying its answers in the asking conversation.
@@ -1068,7 +1069,7 @@ end and switching on starts no run; that a skill that is off ignores its trigger
 and that rules and triage do not route to it; and that `StartsOff()` applies only at the first
 start, also after a new host start and a deploy, on both providers. Assert that a skill's
 classification, or else its agent's, reaches the model call, that a profile that does not permit it
-refuses the call, and that a data skill stores its classification and refuses an unknown one, on
+refuses the call with `assistant-classification-not-permitted` without a retry, and that a data skill stores its classification and refuses an unknown one, on
 both providers. Assert that an agent created in the administration keeps the profile it chose, uses
 the chat profile without one and refuses a profile that the run catalog does not offer, on both
 providers. Assert that a headless run, a consultation and a person's

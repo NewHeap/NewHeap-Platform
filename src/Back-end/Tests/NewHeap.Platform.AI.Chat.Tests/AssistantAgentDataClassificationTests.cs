@@ -45,14 +45,18 @@ public sealed class AssistantAgentDataClassificationTests(AssistantDatabaseFixtu
         // Without a skill the agent's Confidential applies; its profile permits Internal only.
         var refused = await RunAsync(host, "plain-changed");
 
+        var options = host.Services.GetRequiredService<NhAssistantRegistrationState>().AgentRuns[AgentId];
         Assert.Equal(NhAssistantRunStatuses.Completed, secure.Status);
         Assert.Single(models.Confidential.Requests);
         Assert.Equal(NhAssistantRunStatuses.Completed, notes.Status);
         Assert.Single(models.Default.Requests);
+        // The refusal is no transient failure: the run fails at its first attempt, without a retry,
+        // although the agent retries transient failures.
         Assert.Equal(NhAssistantRunStatuses.Failed, refused.Status);
-        Assert.Equal(NhAssistantErrorCodes.ModelUnavailable, refused.FailureCode);
+        Assert.Equal(NhAssistantErrorCodes.ClassificationNotPermitted, refused.FailureCode);
+        Assert.Equal(NhAssistantRunFailureClasses.Policy, refused.FailureClass);
+        Assert.Equal(3, options.RetryCount);
         Assert.Single(models.Default.Requests);
-        var options = host.Services.GetRequiredService<NhAssistantRegistrationState>().AgentRuns[AgentId];
         Assert.Equal(NhAiDataClassification.Confidential, options.DataClassification);
         Assert.Equal(NhAiDataClassification.Internal, options.Skills[Notes].DataClassification);
         Assert.Null(options.Skills[Secure].DataClassification);
@@ -95,7 +99,7 @@ public sealed class AssistantAgentDataClassificationTests(AssistantDatabaseFixtu
         Assert.True(saved.Success);
         Assert.Equal("restricted", saved.Data!.DataClassification);
         Assert.True(trigger.Success);
-        Assert.Equal((NhAssistantRunStatuses.Failed, NhAssistantErrorCodes.ModelUnavailable), (restricted.Status, restricted.FailureCode));
+        Assert.Equal((NhAssistantRunStatuses.Failed, NhAssistantErrorCodes.ClassificationNotPermitted), (restricted.Status, restricted.FailureCode));
         Assert.True(changed.Success);
         Assert.Equal(NhAssistantRunStatuses.Completed, confidential.Status);
         Assert.Single(models.Confidential.Requests);
@@ -133,8 +137,6 @@ public sealed class AssistantAgentDataClassificationTests(AssistantDatabaseFixtu
                     .Message(change => change.Change))
                 .ConfigureAgent(AgentId, agent => agent
                     .Grant("projects.*")
-                    // A refused model call is transient: without retries the run fails at once.
-                    .Retry(0)
                     .DataClassification(NhAiDataClassification.Confidential)
                     .Skill(Secure, skill => skill
                         .Description("Reviews the confidential figures of the project.")

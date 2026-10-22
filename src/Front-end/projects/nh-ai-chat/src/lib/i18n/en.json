@@ -294,6 +294,7 @@
       "assistant-message-invalid": "The message is empty or not valid. Write a question and send it again.",
       "assistant-message-too-long": "The message is too long. Shorten it and send it again.",
       "assistant-model-unavailable": "The language model is temporarily unavailable. Try again in a moment.",
+      "assistant-classification-not-permitted": "The model this agent uses may not receive data of the agent's classification. Ask an administrator to choose a model profile that permits it.",
       "assistant-proposal-hash-mismatch": "The proposed change was modified in the meantime, so nothing was changed. Reload the conversation and decide again.",
       "assistant-title-invalid": "The conversation title is not valid. Use a shorter title.",
       "assistant-tool-call-limit-reached": "The assistant reached the maximum number of steps for one answer. Ask a narrower question.",

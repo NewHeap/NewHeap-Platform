@@ -880,7 +880,9 @@ internal sealed partial class NhAssistantTurnRunner(
             var agent = await CreateAgentAsync(state, callerContext, interceptor, timeout.Token);
             if (agent is null)
             {
-                return (NhAssistantTurnStatuses.Failed, NhAssistantErrorCodes.ModelUnavailable);
+                return (NhAssistantTurnStatuses.Failed, state.ClassificationNotPermitted
+                    ? NhAssistantErrorCodes.ClassificationNotPermitted
+                    : NhAssistantErrorCodes.ModelUnavailable);
             }
 
             var updates = new List<AgentResponseUpdate>();
@@ -1965,7 +1967,9 @@ internal sealed partial class NhAssistantTurnRunner(
                 outcomeStatus = NhAssistantTurnStatuses.Failed;
                 errorCode = state.InstructionsTooLong
                     ? NhAssistantAdminErrorCodes.InstructionsTooLong
-                    : NhAssistantErrorCodes.ModelUnavailable;
+                    : state.ClassificationNotPermitted
+                        ? NhAssistantErrorCodes.ClassificationNotPermitted
+                        : NhAssistantErrorCodes.ModelUnavailable;
             }
             else
             {
@@ -2329,6 +2333,18 @@ internal sealed partial class NhAssistantTurnRunner(
         var agent = state.Scope.Agent;
         if (!profiles.TryGet(agent.ProfileName, out var profile))
         {
+            return null;
+        }
+        if (!PermitsClassification(profile, ClassificationOf(state)))
+        {
+            // No profile of the chain may take the data: no retry would change that.
+            state.ClassificationNotPermitted = true;
+            logger.LogWarning(
+                "Agent {AgentId} cannot call its model in turn {TurnId}: no profile of {ProfileName} permits classification {Classification}.",
+                agent.Id,
+                state.Scope.TurnId,
+                profile.Name,
+                ClassificationOf(state));
             return null;
         }
 

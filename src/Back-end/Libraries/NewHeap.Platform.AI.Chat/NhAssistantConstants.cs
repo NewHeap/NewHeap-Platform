@@ -495,6 +495,14 @@ public static class NhAssistantErrorCodes
     public const string ToolCallLimitReached = "assistant-tool-call-limit-reached";
     public const string TurnTimeout = "assistant-turn-timeout";
     public const string ModelUnavailable = "assistant-model-unavailable";
+
+    /// <summary>
+    /// Neither the turn's model profile nor any of its fallbacks permits the data classification of
+    /// the agent or its skill (<c>DataClassification(...)</c>). The turn fails at once, and a run is
+    /// not retried: another attempt would be refused the same way.
+    /// </summary>
+    public const string ClassificationNotPermitted = "assistant-classification-not-permitted";
+
     public const string TurnFailed = "assistant-turn-failed";
     public const string ContextUnavailable = "assistant-context-unavailable";
 

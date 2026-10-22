@@ -294,6 +294,7 @@
       "assistant-message-invalid": "Het bericht is leeg of ongeldig. Schrijf een vraag en verstuur hem opnieuw.",
       "assistant-message-too-long": "Het bericht is te lang. Maak het korter en verstuur het opnieuw.",
       "assistant-model-unavailable": "Het taalmodel is tijdelijk niet beschikbaar. Probeer het zo opnieuw.",
+      "assistant-classification-not-permitted": "Het model dat deze agent gebruikt mag geen gegevens met de classificatie van de agent ontvangen. Vraag een beheerder een modelprofiel te kiezen dat dit toestaat.",
       "assistant-proposal-hash-mismatch": "De voorgestelde wijziging is intussen veranderd, er is niets gewijzigd. Laad het gesprek opnieuw en besluit opnieuw.",
       "assistant-title-invalid": "De titel van het gesprek is ongeldig. Gebruik een kortere titel.",
       "assistant-tool-call-limit-reached": "De assistent heeft het maximale aantal stappen voor één antwoord bereikt. Stel een gerichtere vraag.",

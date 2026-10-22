@@ -29,6 +29,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-tools-disabled',
   'assistant-turn-timeout',
   'assistant-model-unavailable',
+  'assistant-classification-not-permitted',
   'assistant-turn-failed',
   'assistant-context-unavailable',
   'assistant-actor-mismatch',
