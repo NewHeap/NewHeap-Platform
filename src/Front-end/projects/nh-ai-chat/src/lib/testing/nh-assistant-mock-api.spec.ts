@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import {
   NhAssistantApiService,
-  NhAssistantSseEvent,
+  NhAssistantMessageEvent,
   NhAssistantStore,
   provideNhAssistant
 } from '@newheap/platform-ai-chat';
@@ -9,7 +9,7 @@ import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMock
 import { firstValueFrom, toArray } from 'rxjs';
 
 /** The data fields of every event as contract section 6 defines them. */
-const contractFields: Record<NhAssistantSseEvent['type'], string[]> = {
+const contractFields: Record<NhAssistantMessageEvent['type'], string[]> = {
   'turn.started': ['assistantMessageId', 'turnId', 'userMessageId'],
   'message.delta': ['messageId', 'text'],
   'tool.started': ['argumentsPreview', 'displayName', 'invocationId', 'toolId', 'toolVersion'],
@@ -17,7 +17,9 @@ const contractFields: Record<NhAssistantSseEvent['type'], string[]> = {
   'approval.required': ['approvalId', 'argumentsPreview', 'expiresAt', 'proposalHash', 'proposalId', 'status', 'summary', 'targets', 'toolId', 'type'],
   'connection.required': ['displayName', 'reason', 'serverId'],
   'turn.completed': ['errorCode', 'status', 'turnId', 'usage'],
-  'error': ['code', 'messageKey']
+  'error': ['code', 'messageKey'],
+  // The trigger receipt of a 202 answer, when the message waits for the agent's next run.
+  'message.queued': ['conversationId', 'outcome', 'reasonCode', 'runId', 'triggerId']
 };
 
 const scenario: NhAssistantMockScenario = {
@@ -74,7 +76,7 @@ describe('provideNhAssistantMockApi', () => {
     return (await firstValueFrom(api.createConversation({ agentId: 'projects' }))).id;
   }
 
-  function expectContractShape(events: NhAssistantSseEvent[]): void {
+  function expectContractShape(events: NhAssistantMessageEvent[]): void {
     for (const event of events) {
       expect(Object.keys(event.data).sort()).withContext(event.type).toEqual(contractFields[event.type]);
     }

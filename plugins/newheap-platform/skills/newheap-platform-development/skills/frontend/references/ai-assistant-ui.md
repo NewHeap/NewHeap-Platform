@@ -187,8 +187,11 @@ the mock API replaces it, answers with the server's checks and codes, and refuse
 `refuseUpload` of the scenario. Give an agent of the scenario `uploads` to offer attachments. A file the
 application's upload scanner refuses fails at the control with `assistant-file-scan-refused`, one it
 could not scan with `assistant-file-upload-failed`; the scenario's `scanUpload` simulates the scanner.
-A message with files to an agent's thread whose run works waits for the next run on the server too,
-with its files; the run's thread then shows them as file parts of that message.
+A message to an agent's thread whose run works waits on the server for the next run, with its files:
+the server answers `202` with the trigger receipt, `NhAssistantApiService.sendMessage` emits it as
+`message.queued` (`NhAssistantMessageEvent`, `MessageQueuedEvent`), and the store keeps the message out
+of the thread and shows the notice `assistant-message-queued` (`NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE`)
+until the run adds it with its files. A receipt that refused the message becomes an error with its code.
 SampleProjectManagement's panel needs no code for it (SPM-305): against the API it shows the attach
 button for the project assistant and the document reader, whose summaries list `uploads`, and none
 for the agents that never opted in; the management playground gives its project assistant

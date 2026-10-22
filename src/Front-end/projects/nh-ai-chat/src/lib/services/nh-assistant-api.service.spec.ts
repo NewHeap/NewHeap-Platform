@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom, toArray } from 'rxjs';
+import { AgentTriggerReceipt } from '../models/assistant-agent-run.models';
 import { NhAssistantSseEvent } from '../models/assistant-sse.models';
 import { NH_ASSISTANT_FETCH, NhAssistantFetch } from '../nh-assistant.config';
 import { provideNhAssistant } from '../provide-nh-assistant';
@@ -163,6 +164,28 @@ describe('NhAssistantApiService', () => {
       type: 'error',
       data: { code: 'assistant-conversation-busy', messageKey: 'nh-assistant.errors.assistant-conversation-busy' }
     }]);
+  });
+
+  it('turns a 202 receipt into a queued message and a receipt that refused the message into its error', async () => {
+    const receipt: AgentTriggerReceipt = { triggerId: 'queued-message', outcome: 'coalesced', runId: 'r1', conversationId: 'c1', reasonCode: null };
+    fetchSpy.and.returnValues(
+      Promise.resolve(jsonResponse(receipt, 202)),
+      Promise.resolve(jsonResponse({ ...receipt, outcome: 'ignored', runId: null, reasonCode: 'assistant-agent-stopped' }, 202)),
+      Promise.resolve(new Response('not json', { status: 202 })));
+    const service = setup();
+    const files = [{ id: 'plan', name: 'Plan.pdf', mediaType: 'application/pdf', size: 10, hash: null }];
+
+    const queued = await firstValueFrom(service.sendMessage('c1', { text: 'Read this.', clientMessageId: 'x', files }).pipe(toArray()));
+    const refused = await firstValueFrom(service.sendMessage('c1', { text: 'Read this.', clientMessageId: 'y' }).pipe(toArray()));
+    const invalid = await firstValueFrom(service.sendMessage('c1', { text: 'Read this.', clientMessageId: 'z' }).pipe(toArray()));
+
+    expect(queued).toEqual([{ type: 'message.queued', data: receipt }]);
+    expect(JSON.parse(fetchSpy.calls.first().args[1].body as string).files).toEqual(files);
+    expect(refused).toEqual([{
+      type: 'error',
+      data: { code: 'assistant-agent-stopped', messageKey: 'nh-assistant.errors.assistant-agent-stopped' }
+    }]);
+    expect(invalid.map(event => event.type === 'error' ? event.data.code : event.type)).toEqual(['assistant-invalid-response']);
   });
 
   it('turns a network failure into a network error event', async () => {

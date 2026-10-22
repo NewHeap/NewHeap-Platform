@@ -37,7 +37,7 @@ import {
   LiveConversationRead,
   LiveConversationRemoved
 } from '../models/assistant-live.models';
-import { NhAssistantClientErrorCodes, NhAssistantSseEvent, TurnUsage } from '../models/assistant-sse.models';
+import { NhAssistantClientErrorCodes, NhAssistantMessageEvent, NhAssistantSseEvent, TurnUsage } from '../models/assistant-sse.models';
 import { NH_ASSISTANT_ACCESS_POLICY, NH_ASSISTANT_CONFIG } from '../nh-assistant.config';
 import { NhAssistantAgentRunApiService } from './nh-assistant-agent-run-api.service';
 import { NhAssistantApiError, NhAssistantApiService, nhAssistantErrorMessageKey } from './nh-assistant-api.service';
@@ -105,6 +105,12 @@ interface QueuedMessage extends NhAssistantQueuedMessage {
 
 /** Notice code for a completed turn that produced no answer text and no server code. */
 export const NH_ASSISTANT_NO_ANSWER_NOTICE_CODE = 'assistant-no-answer';
+
+/**
+ * Notice code for a message that waits for the next run of the agent working in its thread: the
+ * server answered `202` with the trigger receipt, and the run adds the message, with its files.
+ */
+export const NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE = 'assistant-message-queued';
 
 /**
  * Who decides an approval the current user cannot decide: `turn`, the person whose turn created
@@ -848,6 +854,7 @@ export class NhAssistantStore {
       this.pendingSendResolves.set(conversationId, resolve);
       let started = false;
       let failedAfterStart = false;
+      let waitsForRun = false;
 
       this.runStream(conversationId, this.api.sendMessage(conversationId, {
         text: trimmed,
@@ -856,6 +863,16 @@ export class NhAssistantStore {
         ...(files.length > 0 ? { files: [...files] } : {})
       }), {
         next: event => {
+          if (event.type === 'message.queued') {
+            // An agent's run works in the thread: the message, with its files, waits for the next run,
+            // which adds it to the thread. Until then the notice says so.
+            waitsForRun = true;
+            this.removeMessage(conversationId, clientMessageId, previousStatus);
+            this.releaseAttachments(conversationId, files);
+            this.patchSession(conversationId, session => ({ ...session, notice: messageQueuedNotice(files.length) }));
+            resolve(true);
+            return;
+          }
           if (event.type === 'error' && !started) {
             this.removeMessage(conversationId, clientMessageId, previousStatus);
             if (!queued && this.activeIdState() === conversationId) {
@@ -880,8 +897,9 @@ export class NhAssistantStore {
         },
         complete: () => {
           this.pendingSendResolves.delete(conversationId);
-          resolve(started);
-          this.afterTurn(conversationId, failedAfterStart);
+          resolve(started || waitsForRun);
+          // A waiting message started no turn here: the thread's own state comes from the server.
+          this.afterTurn(conversationId, failedAfterStart || waitsForRun);
         }
       });
       this.sendingState.set(null);
@@ -1539,10 +1557,10 @@ export class NhAssistantStore {
     }
   }
 
-  private runStream(
+  private runStream<TEvent extends NhAssistantMessageEvent>(
     conversationId: string,
-    stream: Observable<NhAssistantSseEvent>,
-    handlers: { next: (event: NhAssistantSseEvent) => void; complete: () => void }
+    stream: Observable<TEvent>,
+    handlers: { next: (event: TEvent) => void; complete: () => void }
   ): void {
     this.streams.get(conversationId)?.unsubscribe();
     this.patchSession(conversationId, session => ({ ...session, streaming: true }));
@@ -1910,6 +1928,17 @@ export class NhAssistantStore {
 
 function clientError(code: string): NhAssistantError {
   return { code, messageKey: nhAssistantErrorMessageKey(code) };
+}
+
+/**
+ * The notice of a message that waits for the next run of the agent working in the thread, with its
+ * files when it carries any; the run adds the message to the thread when it takes it.
+ */
+function messageQueuedNotice(fileCount: number): NhAssistantNotice {
+  return {
+    code: NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE,
+    messageKey: fileCount > 0 ? 'nh-assistant.notices.message-queued-with-files' : 'nh-assistant.notices.message-queued'
+  };
 }
 
 /** A completed turn with a server code, or without any answer text, explains itself with a notice. */

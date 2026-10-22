@@ -1,3 +1,4 @@
+import { AgentTriggerReceipt } from './assistant-agent-run.models';
 import { ApprovalPart, ConnectionRequiredReason } from './assistant-api.models';
 
 /*
@@ -62,6 +63,13 @@ export interface AssistantErrorEvent {
   messageKey: string;
 }
 
+/**
+ * The server accepted a message for the next run of the agent that works in the thread, with its
+ * files, instead of starting a turn: it answered `202` with the trigger receipt. The client emits it
+ * in place of a stream, which then ends; a server never streams it.
+ */
+export type MessageQueuedEvent = AgentTriggerReceipt;
+
 /** Map from SSE event name to its data payload. */
 export interface NhAssistantSseEventMap {
   'turn.started': TurnStartedEvent;
@@ -80,6 +88,12 @@ export type NhAssistantSseEventType = keyof NhAssistantSseEventMap;
 export type NhAssistantSseEvent = {
   [K in NhAssistantSseEventType]: { type: K; data: NhAssistantSseEventMap[K] };
 }[NhAssistantSseEventType];
+
+/**
+ * What `NhAssistantApiService.sendMessage` emits: the events of the turn it started, or, when the
+ * message waits for the next run of the agent working in the thread, one `message.queued` event.
+ */
+export type NhAssistantMessageEvent = NhAssistantSseEvent | { type: 'message.queued'; data: MessageQueuedEvent };
 
 export const NH_ASSISTANT_SSE_EVENT_TYPES: readonly NhAssistantSseEventType[] = [
   'turn.started',

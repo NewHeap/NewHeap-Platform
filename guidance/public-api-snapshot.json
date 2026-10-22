@@ -42891,7 +42891,10 @@
       "NH_ASSISTANT_UPLOAD_HEADER",
       "NhAssistantMockUpload",
       "FileLimits",
-      "LowerFileLimits"
+      "LowerFileLimits",
+      "NhAssistantMessageEvent",
+      "MessageQueuedEvent",
+      "NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",
