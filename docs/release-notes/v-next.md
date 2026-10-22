@@ -631,3 +631,18 @@ the application's limits in the run catalog and runs the scenario's new `scanUpl
 |---|---|
 | New translation keys `nh-assistant.admin.run-config.files.limits-title`, `agent-limits-hint`, `skill-limits-hint`, `max-file-megabytes`, `max-file-pages`, `max-files-per-turn`, `max-file-tokens-per-turn` and `application-limit`, `nh-assistant.admin.run-config.field-errors.megabytes-up-to` and `megabytes-positive`, and `nh-assistant.errors.assistant-file-scan-refused`. | Applications with their own translation files add them. |
 | `nh-assistant.queue.files` takes `names` next to `count`; `nh-assistant.errors.assistant-file-upload-refused` no longer mentions a virus scan. | Applications with their own translation files update them. |
+
+## @newheap/platform-ai-chat: a message that waits for an agent's run
+
+A message to an agent's thread whose run works waits on the server for the next run, with its files,
+and the server answers `202` with the trigger receipt. The client no longer reports that answer as
+`assistant-invalid-response`: `NhAssistantApiService.sendMessage` emits it as the new
+`message.queued` event (`MessageQueuedEvent`, the receipt), and a receipt that refused the message as
+an `error` with its code. `NhAssistantStore` keeps such a message out of the thread, releases its
+attachments and shows the notice `assistant-message-queued` (`NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE`)
+until the run adds the message with its files.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantApiService.sendMessage` returns `Observable<NhAssistantMessageEvent>`: the turn's `NhAssistantSseEvent`s or `message.queued`. | Code that types its events as `NhAssistantSseEvent` handles or skips `message.queued`. |
+| New translation keys `nh-assistant.notices.message-queued` and `message-queued-with-files`. | Applications with their own translation files add them. |

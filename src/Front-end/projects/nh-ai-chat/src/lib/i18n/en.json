@@ -448,7 +448,9 @@
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",
-      "conversation-removed": "This conversation is no longer available to you."
+      "conversation-removed": "This conversation is no longer available to you.",
+      "message-queued": "The agent is working in this conversation. Your message waits for its next run, which adds it here.",
+      "message-queued-with-files": "The agent is working in this conversation. Your message and its files wait for its next run, which adds them here."
     },
     "preferences": {
       "title": "Your preferences",

@@ -9,6 +9,7 @@ import {
   McpConnection,
   UpdateMcpConnectionRequest
 } from '../models/assistant-admin.models';
+import { AgentTriggerOutcome, AgentTriggerReceipt } from '../models/assistant-agent-run.models';
 import {
   AgentSummary,
   AssistantStatus,
@@ -26,11 +27,12 @@ import {
 import {
   NH_ASSISTANT_SSE_EVENT_TYPES,
   NhAssistantClientErrorCodes,
+  NhAssistantMessageEvent,
   NhAssistantSseEvent,
   NhAssistantSseEventType
 } from '../models/assistant-sse.models';
 import { NhAssistantSseParser } from './nh-assistant-sse-parser';
-import { NhAssistantTransport, nhAssistantErrorMessageKey } from './nh-assistant-transport';
+import { NhAssistantTransport, nhAssistantErrorMessageKey, nhAssistantIsSafeCode } from './nh-assistant-transport';
 
 export {
   NH_ASSISTANT_UPLOAD_HEADER,
@@ -40,6 +42,9 @@ export {
 } from './nh-assistant-transport';
 
 const knownEventTypes = new Set<string>(NH_ASSISTANT_SSE_EVENT_TYPES);
+
+/** The outcomes of a trigger receipt with which the next run takes a waiting message. */
+const queuedOutcomes = new Set<string>(['started', 'queued', 'coalesced', 'superseded', 'waiting', 'deferred'] satisfies AgentTriggerOutcome[]);
 
 /** The progress of one upload, then the file the application stored. */
 export type NhAssistantUploadEvent =
@@ -81,8 +86,8 @@ export class NhAssistantApiService {
     return this.transport.json<void>('DELETE', `conversations/${encodeURIComponent(conversationId)}`);
   }
 
-  sendMessage(conversationId: string, request: SendMessageRequest): Observable<NhAssistantSseEvent> {
-    return this.requestStream(`conversations/${encodeURIComponent(conversationId)}/messages`, request);
+  sendMessage(conversationId: string, request: SendMessageRequest): Observable<NhAssistantMessageEvent> {
+    return this.requestStream(`conversations/${encodeURIComponent(conversationId)}/messages`, request, true);
   }
 
   /**
@@ -120,7 +125,7 @@ export class NhAssistantApiService {
 
   decideApproval(conversationId: string, approvalId: string, request: DecideApprovalRequest): Observable<NhAssistantSseEvent> {
     const path = `conversations/${encodeURIComponent(conversationId)}/approvals/${encodeURIComponent(approvalId)}/decide`;
-    return this.requestStream(path, request);
+    return this.requestStream(path, request, false);
   }
 
   cancel(conversationId: string): Observable<void> {
@@ -226,11 +231,17 @@ export class NhAssistantApiService {
     return this.transport.json<McpCompletion>('POST', 'mcp-connections/complete', request);
   }
 
-  private requestStream(path: string, body: unknown): Observable<NhAssistantSseEvent> {
-    return new Observable<NhAssistantSseEvent>(subscriber => {
+  /**
+   * Streams a turn. With `queuedReceipt` a `202` answer with a trigger receipt becomes
+   * `message.queued`; without it, a stream is required.
+   */
+  private requestStream(path: string, body: unknown, queuedReceipt: true): Observable<NhAssistantMessageEvent>;
+  private requestStream(path: string, body: unknown, queuedReceipt: false): Observable<NhAssistantSseEvent>;
+  private requestStream(path: string, body: unknown, queuedReceipt: boolean): Observable<NhAssistantMessageEvent> {
+    return new Observable<NhAssistantMessageEvent>(subscriber => {
       const abort = new AbortController();
 
-      void this.executeStream(path, body, abort.signal, subscriber);
+      void this.executeStream(path, body, queuedReceipt, abort.signal, subscriber);
 
       return () => abort.abort();
     });
@@ -239,8 +250,9 @@ export class NhAssistantApiService {
   private async executeStream(
     path: string,
     body: unknown,
+    queuedReceipt: boolean,
     signal: AbortSignal,
-    subscriber: Subscriber<NhAssistantSseEvent>
+    subscriber: Subscriber<NhAssistantMessageEvent>
   ): Promise<void> {
     let response: Response;
     try {
@@ -254,6 +266,10 @@ export class NhAssistantApiService {
       this.emitClientError(subscriber, signal, await this.transport.failureCode(response));
       return;
     }
+    if (queuedReceipt && response.status === 202) {
+      await this.readQueuedReceipt(response, signal, subscriber);
+      return;
+    }
 
     const contentType = response.headers.get('content-type') ?? '';
     if (!response.body || !contentType.toLowerCase().startsWith('text/event-stream')) {
@@ -264,10 +280,45 @@ export class NhAssistantApiService {
     await this.readStream(response.body, signal, subscriber);
   }
 
+  /**
+   * A message to an agent's thread whose run works waits for the next run: the server answers `202`
+   * with the trigger receipt instead of a stream. A receipt the run takes the message with becomes
+   * `message.queued`; one that refused it becomes an `error` with its code.
+   */
+  private async readQueuedReceipt(
+    response: Response,
+    signal: AbortSignal,
+    subscriber: Subscriber<NhAssistantMessageEvent>
+  ): Promise<void> {
+    let receipt: AgentTriggerReceipt | null;
+    try {
+      receipt = JSON.parse(await response.text()) as AgentTriggerReceipt | null;
+    } catch {
+      receipt = null;
+    }
+    if (signal.aborted || subscriber.closed) {
+      return;
+    }
+    if (!receipt || typeof receipt.outcome !== 'string') {
+      this.emitClientError(subscriber, signal, NhAssistantClientErrorCodes.invalidResponse);
+      return;
+    }
+    if (!queuedOutcomes.has(receipt.outcome)) {
+      this.emitClientError(
+        subscriber,
+        signal,
+        nhAssistantIsSafeCode(receipt.reasonCode) ? receipt.reasonCode : NhAssistantClientErrorCodes.conversationBusy);
+      return;
+    }
+
+    subscriber.next({ type: 'message.queued', data: receipt });
+    subscriber.complete();
+  }
+
   private async readStream(
     body: ReadableStream<Uint8Array>,
     signal: AbortSignal,
-    subscriber: Subscriber<NhAssistantSseEvent>
+    subscriber: Subscriber<NhAssistantMessageEvent>
   ): Promise<void> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
@@ -314,7 +365,7 @@ export class NhAssistantApiService {
     }
   }
 
-  private emitClientError(subscriber: Subscriber<NhAssistantSseEvent>, signal: AbortSignal, code: string): void {
+  private emitClientError(subscriber: Subscriber<NhAssistantMessageEvent>, signal: AbortSignal, code: string): void {
     if (signal.aborted || subscriber.closed) {
       return;
     }

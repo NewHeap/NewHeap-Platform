@@ -448,7 +448,9 @@
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
-      "conversation-removed": "Dit gesprek is niet meer voor je beschikbaar."
+      "conversation-removed": "Dit gesprek is niet meer voor je beschikbaar.",
+      "message-queued": "De agent werkt in dit gesprek. Je bericht wacht op zijn volgende run, die het hier toevoegt.",
+      "message-queued-with-files": "De agent werkt in dit gesprek. Je bericht en de bestanden wachten op zijn volgende run, die ze hier toevoegt."
     },
     "preferences": {
       "title": "Je voorkeuren",

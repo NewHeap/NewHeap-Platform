@@ -4,13 +4,13 @@ import { BehaviorSubject, NEVER, Observable, Subject, of, throwError } from 'rxj
 import { AgentProposal } from '../models/assistant-agent-run.models';
 import { ApprovalPart, AssistantStatus, Conversation, ConversationThreadDecision, ToolCallPart } from '../models/assistant-api.models';
 import { LiveAgentWorkChanged } from '../models/assistant-live.models';
-import { NhAssistantSseEvent } from '../models/assistant-sse.models';
+import { NhAssistantMessageEvent, NhAssistantSseEvent } from '../models/assistant-sse.models';
 import { NhAssistantAccessPolicy } from '../nh-assistant.config';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAgentRunApiService } from './nh-assistant-agent-run-api.service';
 import { NhAssistantApiError, NhAssistantApiService } from './nh-assistant-api.service';
 import { NhAssistantLiveService, NhAssistantLiveState } from './nh-assistant-live.service';
-import { NhAssistantStore } from './nh-assistant.store';
+import { NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE, NhAssistantStore } from './nh-assistant.store';
 
 const status: AssistantStatus = {
   enabled: true,
@@ -195,6 +195,34 @@ describe('NhAssistantStore', () => {
     await processQueue();
     expect(api.sendMessage.calls.mostRecent().args[1].text).toBe('Third');
     expect(api.sendMessage).toHaveBeenCalledTimes(3);
+  });
+
+  it('shows a message that waits for the next run of the agent, with its files, as queued', async () => {
+    const store = setup();
+    await store.initialize();
+    const files = [{ id: 'plan', name: 'Plan.pdf', mediaType: 'application/pdf', size: 10, hash: null }];
+    // A run of the agent works in the thread: the server reads the thread as running.
+    api.getConversation.and.returnValue(of({ ...conversation(), status: 'running' }));
+    const answer = new Subject<NhAssistantMessageEvent>();
+    api.sendMessage.and.returnValue(answer);
+
+    const sent = store.send('Read the plan.', files);
+    await flush();
+    expect(store.activeConversation()!.messages.length).toBe(1);
+    answer.next({ type: 'message.queued', data: { triggerId: 'queued-message', outcome: 'coalesced', runId: 'r1', conversationId: 'c1', reasonCode: null } });
+    answer.complete();
+
+    expect(await sent).toBeTrue();
+    await flush();
+    await flush();
+    // The message waits on the server with its files; the run adds it to the thread, so it is not
+    // shown twice. The notice says it waits, and the thread follows the server's state.
+    expect(api.sendMessage.calls.mostRecent().args[1].files).toEqual(files);
+    expect(store.notice()).toEqual({ code: NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE, messageKey: 'nh-assistant.notices.message-queued-with-files' });
+    expect(store.error()).toBeNull();
+    expect(store.activeConversation()!.messages).toEqual([]);
+    expect(store.activeConversation()!.status).toBe('running');
+    expect(store.queuedMessages()).toEqual([]);
   });
 
   it('keeps the original conversation and captured page context when the user switches away', async () => {
