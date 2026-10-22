@@ -38,6 +38,26 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<bool?>("ConsultAskerDecides")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("ConsultRoutesChangedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ConsultRoutesChangedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("ConsultRoutesReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool?>("ConsultSubjectAgentRights")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("ConsultSubjectAskerRights")
+                        .HasColumnType("bit");
+
                     b.Property<string>("DataClassification")
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");

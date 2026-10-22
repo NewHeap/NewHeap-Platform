@@ -38,6 +38,26 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<bool?>("ConsultAskerDecides")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("ConsultRoutesChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ConsultRoutesChangedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ConsultRoutesReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool?>("ConsultSubjectAgentRights")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool?>("ConsultSubjectAskerRights")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("DataClassification")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");

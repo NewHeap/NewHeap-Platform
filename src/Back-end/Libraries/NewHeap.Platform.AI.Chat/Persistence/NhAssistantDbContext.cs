@@ -547,6 +547,8 @@ public sealed class NhAssistantDbContext : DbContext
             agent.Property(item => item.ServiceAccountActorId).HasMaxLength(256);
             agent.Property(item => item.ServiceAccountChangedBy).HasMaxLength(256);
             agent.Property(item => item.ServiceAccountReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            agent.Property(item => item.ConsultRoutesChangedBy).HasMaxLength(256);
+            agent.Property(item => item.ConsultRoutesReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
             agent.Property(item => item.WorksOnSubjectTypesJson)
                 .HasMaxLength(NhAssistantAgentWorksOn.MaxStoredSubjectTypeCharacters)
                 .IsRequired()
