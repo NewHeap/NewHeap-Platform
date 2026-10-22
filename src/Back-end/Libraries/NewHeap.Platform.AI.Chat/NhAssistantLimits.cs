@@ -252,6 +252,17 @@ public sealed class NhAssistantLimits
     /// </summary>
     public int MaxFileTokensPerTurn { get; set; } = 100_000;
 
+    /// <summary>
+    /// How long a conversation keeps the text a reading tool made of a file: 24 hours by default, at
+    /// most 30 days; <see cref="TimeSpan.Zero"/> keeps none. Within it a later turn that opens the same
+    /// content again (the same SHA-256) and would choose the same reader gives the model the kept text
+    /// instead of sending the file to the reader once more; the file is still opened through the file
+    /// source with that turn's actor, so access and classification are checked again. The text is
+    /// protected with the host's data protection and removed with its conversation; without data
+    /// protection nothing is kept.
+    /// </summary>
+    public TimeSpan ReaderTextRetention { get; set; } = TimeSpan.FromHours(24);
+
     internal void Validate()
     {
         if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
@@ -294,7 +305,9 @@ public sealed class NhAssistantLimits
             || MaxFileBytes is < 1 or > 100 * 1024 * 1024
             || MaxFilePages is < 1 or > 10_000
             || MaxFilesPerTurn is < 1 or > 50
-            || MaxFileTokensPerTurn is < 1_000 or > 2_000_000)
+            || MaxFileTokensPerTurn is < 1_000 or > 2_000_000
+            || ReaderTextRetention < TimeSpan.Zero
+            || ReaderTextRetention > TimeSpan.FromDays(30))
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }

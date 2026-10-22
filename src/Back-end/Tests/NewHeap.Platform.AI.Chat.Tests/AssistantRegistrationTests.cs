@@ -224,10 +224,42 @@ public sealed class AssistantRegistrationTests
                     or "InstructionsHash" or "PreferencesHash" or "TriggerId" or "SubjectType" or "SubjectId"
                     or "InitiatorActorId" or "ApprovalPolicyId" or "AskingAgentId" or "SkillId" or "ApplicationMapHash" or "RetrievedContextHash" or "McpConnectionOwner"
                     // A file is named by the application's id, its normalized media type (a code), the
-                    // SHA-256 of what the model or reader read and the reader's id; never by its name or content.
+                    // SHA-256 of what the model or reader read and the reader's id; never by its content.
                     or "FileId" or "FileMediaType" or "FileHash" or "FileReaderId"
+                    // Decided in the review of files in model turns (D35): the file's name is the one
+                    // free text the event carries, so an audit reader recognises a file without asking
+                    // the application. It is bounded, normalized and stripped of control and format
+                    // characters (see the test below); no other free text is allowed.
+                    or "FileName"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
+    }
+
+    [Theory]
+    [InlineData("Launch plan.pdf", "Launch plan.pdf")]
+    [InlineData("  Launch\tplan \r\n v2.pdf  ", "Launch plan v2.pdf")]
+    [InlineData("Plan\u0000\u0007.pdf", "Plan.pdf")]
+    [InlineData("Invoice\u202Efdp.exe", "Invoicefdp.exe")]
+    [InlineData("Cafe\u0301.pdf", "Caf\u00E9.pdf")]
+    [InlineData("\u200B\u2028", null)]
+    [InlineData("", null)]
+    [InlineData(null, null)]
+    public void The_audit_names_a_file_with_its_normalized_name(string? name, string? expected)
+    {
+        Assert.Equal(expected, Runtime.NhAssistantTurnFiles.AuditNameOf(name));
+    }
+
+    [Fact]
+    public void The_audit_bounds_a_file_name_without_splitting_a_character()
+    {
+        var name = new string('a', NhAssistantAuditEvent.MaxFileNameLength - 1) + "\U0001F4C4" + "b";
+
+        var audited = Runtime.NhAssistantTurnFiles.AuditNameOf(name)!;
+
+        Assert.Equal(new string('a', NhAssistantAuditEvent.MaxFileNameLength - 1), audited);
+        Assert.Equal(
+            NhAssistantAuditEvent.MaxFileNameLength,
+            Runtime.NhAssistantTurnFiles.AuditNameOf(new string('x', 1_000))!.Length);
     }
 
     private sealed class ReservedSubjectResolver : INhAiSubjectAccessResolver

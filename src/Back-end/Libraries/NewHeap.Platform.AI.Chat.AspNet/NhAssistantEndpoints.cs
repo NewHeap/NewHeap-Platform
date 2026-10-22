@@ -95,8 +95,9 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         enabled.MapPost("conversations/{id:guid}/messages", SendMessageAsync)
             .WithName("NhAssistantSendMessage")
             .WithSummary("Send a message")
-            .WithDescription("Starts a turn as the caller and streams it as server-sent events. `files` attaches files that `POST conversations/{id}/files` returned. Returns 409 when the conversation is not idle.")
+            .WithDescription("Starts a turn as the caller and streams it as server-sent events. `files` attaches files that `POST conversations/{id}/files` returned. Returns 409 when the conversation is not idle. In an agent's thread whose run is working, the message and its files wait for the next run instead and the answer is 202 with the trigger receipt; the run opens the files with the caller's rights.")
             .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")
+            .Produces<NhAssistantTriggerReceiptDto>(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -391,11 +392,16 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         if (!started.Success
             && agentTurn is not null
             && started.GetResultItems().Any(item => item.Name == NhAssistantErrorCodes.ConversationBusy)
-            && !string.IsNullOrWhiteSpace(text)
-            && files.Count == 0)
+            && !string.IsNullOrWhiteSpace(text))
         {
-            // A run owns the thread; the message waits and the agent reads it in its next turn. A
-            // message with attachments does not wait: the queued trigger carries text only.
+            // A run owns the thread; the message waits and the agent reads it in its next turn, with
+            // its attachments (A13). The turn already checked the references; an agent that takes no
+            // files, or fewer, refuses them now rather than in the run.
+            if (files.Count > 0 && QueuedFilesRefusal(httpContext, agentTurn.Thread.AgentId, files.Count) is { } filesCode)
+            {
+                return Error(filesCode);
+            }
+
             var triggers = httpContext.RequestServices.GetRequiredService<NhAssistantAgentTriggers>();
             var receipt = await triggers.FireAsync(
                 new NhAssistantTriggerFire(
@@ -406,7 +412,10 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                     text.Trim(),
                     null,
                     NhAssistantTriggerConflict.Coalesce,
-                    TimeSpan.Zero),
+                    TimeSpan.Zero)
+                {
+                    Files = files
+                },
                 httpContext.RequestAborted);
             return TypedResults.Json(
                 new NhAssistantTriggerReceiptDto(receipt.TriggerId, receipt.Outcome, receipt.RunId, receipt.ConversationId, receipt.ReasonCode),
@@ -417,6 +426,22 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)
             : FromFailure(started);
+    }
+
+    /// <summary>
+    /// Why a message to a busy agent thread may not wait with <paramref name="count"/> files: the agent
+    /// takes no files, or fewer in one message. <see langword="null"/> when they may wait; the run opens
+    /// them with the limits of the skill it works in.
+    /// </summary>
+    private static string? QueuedFilesRefusal(HttpContext httpContext, string agentId, int count)
+    {
+        var limits = httpContext.RequestServices.GetRequiredService<NhAssistantTurnFiles>().LimitsOfAgent(agentId);
+        if (limits is null)
+        {
+            return NhAssistantErrorCodes.FilesNotAccepted;
+        }
+
+        return count > limits.MaxFilesPerTurn ? NhAssistantErrorCodes.FileCountLimit : null;
     }
 
     private static async Task<IResult> DecideAsync(

@@ -443,6 +443,12 @@ public sealed class AssistantQueuedInput
 
     public string? ClientMessageId { get; set; }
 
+    /// <summary>
+    /// The files a person's queued message carries, as a JSON array of references (A13); never their
+    /// content. The run that claims the input opens them as attachments, with its author as actor.
+    /// </summary>
+    public string? FilesJson { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? ConsumedByRunId { get; set; }

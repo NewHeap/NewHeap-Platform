@@ -17,13 +17,28 @@ internal sealed record NhAssistantFileReading(string? ReaderId, string? Text, st
 
     /// <summary>
     /// Whether a reader received the file: it read it or failed. A reader passed over before it
-    /// received the file, for its classification, consent or connection, did not.
+    /// received the file, for its classification, consent or connection, did not; neither did a reader
+    /// whose kept text this turn reads (<see cref="TextCached"/>).
     /// </summary>
     public bool Received { get; init; }
+
+    /// <summary>
+    /// The text is the one the reader made of the same content earlier in the conversation, kept by
+    /// <see cref="NhAssistantReaderTexts"/>; the reader was not called.
+    /// </summary>
+    public bool TextCached { get; init; }
 
     public static NhAssistantFileReading Read(string readerId, string text, string? connectionOwner = null)
     {
         return new NhAssistantFileReading(readerId, text, null) { Received = true, ConnectionOwner = connectionOwner };
+    }
+
+    /// <summary>
+    /// The text <paramref name="readerId"/> made of the same content earlier in the conversation.
+    /// </summary>
+    public static NhAssistantFileReading Kept(string readerId, string text)
+    {
+        return new NhAssistantFileReading(readerId, text, null) { TextCached = true };
     }
 
     public static NhAssistantFileReading Failed(string readerId, string? connectionOwner = null)
@@ -38,10 +53,23 @@ internal sealed record NhAssistantFileReading(string? ReaderId, string? Text, st
 }
 
 /// <summary>
+/// The text a reader made of the content of one file earlier in the conversation, while it is kept;
+/// <see langword="null"/> otherwise.
+/// </summary>
+internal delegate Task<string?> NhAssistantKeptReaderText(string readerId, CancellationToken cancellationToken);
+
+/// <summary>
 /// A file and the turn an MCP server set up as reader would read it for: whose request the turn
 /// serves decides the credential and, in a headless turn, the consent it needs.
 /// </summary>
-internal sealed record NhAssistantMcpFileReadRequest(NhAssistantFileReadRequest File, NhAssistantMcpToolRequest Turn);
+internal sealed record NhAssistantMcpFileReadRequest(NhAssistantFileReadRequest File, NhAssistantMcpToolRequest Turn)
+{
+    /// <summary>
+    /// The text a server made of the same content earlier in the conversation (D32). A server that may
+    /// receive the file in this turn and kept a text is not called; its text is read instead.
+    /// </summary>
+    public NhAssistantKeptReaderText? KeptText { get; init; }
+}
 
 /// <summary>
 /// The MCP servers an administrator set up as readers. The ASP.NET integration supplies them; the
@@ -81,12 +109,15 @@ internal sealed class NhAssistantNoMcpFileReader : INhAssistantMcpFileReader
 /// reader that received the file and failed ends it with
 /// <see cref="NhAssistantErrorCodes.FileReaderFailed"/>; the file is never sent to a second reader. When
 /// no reader may read it, the refusal of the first reader that declares the type applies, and
-/// <see cref="NhAssistantErrorCodes.FileTypeNotSupported"/> when none declares it.
+/// <see cref="NhAssistantErrorCodes.FileTypeNotSupported"/> when none declares it. A reader the turn
+/// chooses that made a text of the same content earlier in the conversation is not called: the turn
+/// reads the kept text (<see cref="NhAssistantReaderTexts"/>), and a text a reader makes now is kept.
 /// </summary>
 internal sealed class NhAssistantFileReaders(
     IServiceProvider services,
     NhAssistantRegistrationState registration,
     INhAssistantMcpFileReader mcp,
+    NhAssistantReaderTexts texts,
     ILogger<NhAssistantFileReaders> logger)
 {
     /// <summary>
@@ -98,11 +129,19 @@ internal sealed class NhAssistantFileReaders(
             || await mcp.DeclaresAsync(mediaType, cancellationToken);
     }
 
+    /// <summary>
+    /// Turns the file of <paramref name="request"/> into text with the reader the turn chooses.
+    /// <paramref name="sha256"/> is the SHA-256 of the content (<c>sha256:&lt;hex&gt;</c>), by which a text
+    /// the same reader made earlier in the conversation is found.
+    /// </summary>
     public async Task<NhAssistantFileReading> ReadAsync(
         NhAssistantFileReadRequest request,
         NhAssistantMcpToolRequest turn,
+        string sha256,
         CancellationToken cancellationToken)
     {
+        var conversationId = request.Actor.ConversationId;
+        NhAssistantKeptReaderText keptText = (readerId, token) => texts.FindAsync(conversationId, sha256, readerId, token);
         NhAssistantFileReading? passedOver = null;
         foreach (var reader in registration.FileReaders)
         {
@@ -116,13 +155,22 @@ internal sealed class NhAssistantFileReaders(
                 continue;
             }
 
-            return await ReadLocalAsync(reader, request, cancellationToken);
+            if (await keptText(reader.Id, cancellationToken) is { } kept)
+            {
+                return NhAssistantFileReading.Kept(reader.Id, kept);
+            }
+
+            return await KeepAsync(await ReadLocalAsync(reader, request, cancellationToken), conversationId, sha256, cancellationToken);
         }
 
-        var remote = await mcp.ReadAsync(new NhAssistantMcpFileReadRequest(request, turn), cancellationToken);
+        var remote = await mcp.ReadAsync(new NhAssistantMcpFileReadRequest(request, turn) { KeptText = keptText }, cancellationToken);
         if (remote is null)
         {
             return passedOver ?? new NhAssistantFileReading(null, null, NhAssistantErrorCodes.FileTypeNotSupported);
+        }
+        if (remote.Text is not null && !remote.TextCached)
+        {
+            return await KeepAsync(remote, conversationId, sha256, cancellationToken);
         }
         if (remote.Text is not null || remote.Received)
         {
@@ -160,5 +208,22 @@ internal sealed class NhAssistantFileReaders(
         }
 
         return NhAssistantFileReading.Read(reader.Id, read.Data);
+    }
+
+    /// <summary>
+    /// Keeps the text a reader made now for later turns of the conversation, and returns the reading.
+    /// </summary>
+    private async Task<NhAssistantFileReading> KeepAsync(
+        NhAssistantFileReading reading,
+        Guid conversationId,
+        string sha256,
+        CancellationToken cancellationToken)
+    {
+        if (reading is { Text: { } text, ReaderId: { } readerId, TextCached: false })
+        {
+            await texts.KeepAsync(conversationId, sha256, readerId, text, cancellationToken);
+        }
+
+        return reading;
     }
 }

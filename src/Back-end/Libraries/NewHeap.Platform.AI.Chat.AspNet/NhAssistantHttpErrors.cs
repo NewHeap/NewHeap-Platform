@@ -236,9 +236,10 @@ internal static class NhAssistantHttpErrors
         Add(statuses, StatusCodes.Status415UnsupportedMediaType,
             NhAssistantErrorCodes.FileTypeNotSupported,
             NhAssistantErrorCodes.FileTypeNotAccepted);
-        // The application's file source refused an upload it could read, for example after a scan.
+        // The application's upload scanner or file source refused an upload it could read.
         Add(statuses, StatusCodes.Status422UnprocessableEntity,
-            NhAssistantErrorCodes.FileUploadRefused);
+            NhAssistantErrorCodes.FileUploadRefused,
+            NhAssistantErrorCodes.FileScanRefused);
         Add(statuses, StatusCodes.Status429TooManyRequests,
             NhAssistantAdminErrorCodes.McpTooManyAuthorizations);
         // Failures of a remote MCP or OAuth server.

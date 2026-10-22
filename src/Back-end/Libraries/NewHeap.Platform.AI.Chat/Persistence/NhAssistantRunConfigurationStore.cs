@@ -150,6 +150,10 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             existing.TriageProfileName = settings.TriageProfileName;
             existing.RuleHandlerName = settings.RuleHandlerName;
             existing.AcceptsFiles = settings.AcceptsFiles;
+            existing.MaxFileBytes = settings.MaxFileBytes;
+            existing.MaxFilePages = settings.MaxFilePages;
+            existing.MaxFilesPerTurn = settings.MaxFilesPerTurn;
+            existing.MaxFileTokensPerTurn = settings.MaxFileTokensPerTurn;
             existing.Version++;
             existing.UpdatedAt = settings.UpdatedAt;
             existing.UpdatedBy = settings.UpdatedBy;

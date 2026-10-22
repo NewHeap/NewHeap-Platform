@@ -232,7 +232,23 @@ public sealed record NhAssistantRunCatalogDto(
     /// in.
     /// </summary>
     public IReadOnlyList<NhAssistantAgentGroupDto> AgentGroups { get; init; } = [];
+
+    /// <summary>
+    /// The application's file limits (<see cref="NhAssistantLimits"/>): the run settings of an agent
+    /// created in the administration and a data skill can only lower them.
+    /// </summary>
+    public NhAssistantFileLimitsDto? FileLimits { get; init; }
 }
+
+/// <summary>
+/// File limits: the largest file in bytes, the most pages of one file, the most files of one turn and
+/// the most estimated file tokens of one turn.
+/// </summary>
+public sealed record NhAssistantFileLimitsDto(
+    int MaxFileBytes,
+    int MaxFilePages,
+    int MaxFilesPerTurn,
+    int MaxFileTokensPerTurn);
 
 /// <summary>
 /// A subject type as people see it.
@@ -433,6 +449,26 @@ public sealed record NhAssistantAgentRunSettingsDto(
     /// Whether people's messages and the agent's tools may give it files.
     /// </summary>
     public bool AcceptsFiles { get; init; }
+
+    /// <summary>
+    /// The largest file in bytes the agent reads; <see langword="null"/> keeps the application's.
+    /// </summary>
+    public int? MaxFileBytes { get; init; }
+
+    /// <summary>
+    /// The most pages of one file; <see langword="null"/> keeps the application's.
+    /// </summary>
+    public int? MaxFilePages { get; init; }
+
+    /// <summary>
+    /// The most files of one turn; <see langword="null"/> keeps the application's.
+    /// </summary>
+    public int? MaxFilesPerTurn { get; init; }
+
+    /// <summary>
+    /// The most estimated file tokens of one turn; <see langword="null"/> keeps the application's.
+    /// </summary>
+    public int? MaxFileTokensPerTurn { get; init; }
 }
 
 /// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or <c>service-account</c>.
@@ -461,6 +497,13 @@ public sealed record NhAssistantAgentRunSettingsDto(
 /// <param name="Reason">At most 500 characters.</param>
 /// <param name="AcceptsFiles">People's messages and the agent's tools may give it files, within the
 /// application's limits; <see langword="false"/> (default) refuses them.</param>
+/// <param name="MaxFileBytes">With <paramref name="AcceptsFiles"/>: the largest file in bytes, from 1 to
+/// the application's <see cref="NhAssistantLimits.MaxFileBytes"/>; <see langword="null"/> keeps the
+/// application's. The other file limits follow the same rule.</param>
+/// <param name="MaxFilePages">The most pages of one file, at most the application's.</param>
+/// <param name="MaxFilesPerTurn">The most files of one turn, at most the application's.</param>
+/// <param name="MaxFileTokensPerTurn">The most estimated file tokens of one turn, at most the
+/// application's.</param>
 public sealed record NhAssistantAgentRunSettingsRequest(
     string? Accountability,
     string? ServiceAccountActorId = null,
@@ -478,7 +521,11 @@ public sealed record NhAssistantAgentRunSettingsRequest(
     string? RuleHandler = null,
     int? ExpectedVersion = null,
     string? Reason = null,
-    bool AcceptsFiles = false);
+    bool AcceptsFiles = false,
+    int? MaxFileBytes = null,
+    int? MaxFilePages = null,
+    int? MaxFilesPerTurn = null,
+    int? MaxFileTokensPerTurn = null);
 
 public sealed record NhAssistantCodeSkillDto(string SkillId, string Description)
 {
@@ -552,6 +599,26 @@ public sealed record NhAssistantDataSkillDto(
     /// else its agent's. Empty without warnings. A warning never refuses a save.
     /// </summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    /// <summary>
+    /// The largest file in bytes a run in the skill reads; <see langword="null"/> keeps the agent's.
+    /// </summary>
+    public int? MaxFileBytes { get; init; }
+
+    /// <summary>
+    /// The most pages of one file; <see langword="null"/> keeps the agent's.
+    /// </summary>
+    public int? MaxFilePages { get; init; }
+
+    /// <summary>
+    /// The most files of one turn; <see langword="null"/> keeps the agent's.
+    /// </summary>
+    public int? MaxFilesPerTurn { get; init; }
+
+    /// <summary>
+    /// The most estimated file tokens of one turn; <see langword="null"/> keeps the agent's.
+    /// </summary>
+    public int? MaxFileTokensPerTurn { get; init; }
 }
 
 /// <param name="Version">The candidate version the change is for.</param>
@@ -642,6 +709,14 @@ public sealed record NhAssistantDataTriggerDto(
 /// <c>classification-not-permitted</c>.</param>
 /// <param name="AcceptsFiles">A run in the skill reads files, when its agent accepts them too;
 /// <see langword="false"/> (default) refuses them.</param>
+/// <param name="MaxFileBytes">With <paramref name="AcceptsFiles"/>: the largest file in bytes, from 1 to
+/// the application's <see cref="NhAssistantLimits.MaxFileBytes"/>; <see langword="null"/> keeps the
+/// agent's. A turn in the skill takes the lowest of the application's, the agent's and the skill's. The
+/// other file limits follow the same rule.</param>
+/// <param name="MaxFilePages">The most pages of one file, at most the application's.</param>
+/// <param name="MaxFilesPerTurn">The most files of one turn, at most the application's.</param>
+/// <param name="MaxFileTokensPerTurn">The most estimated file tokens of one turn, at most the
+/// application's.</param>
 public sealed record NhAssistantDataSkillRequest(
     string? Description,
     string? Instructions = null,
@@ -657,7 +732,11 @@ public sealed record NhAssistantDataSkillRequest(
     string? Apply = null,
     bool StartsOff = false,
     string? DataClassification = null,
-    bool AcceptsFiles = false);
+    bool AcceptsFiles = false,
+    int? MaxFileBytes = null,
+    int? MaxFilePages = null,
+    int? MaxFilesPerTurn = null,
+    int? MaxFileTokensPerTurn = null);
 
 /// <summary>
 /// How a change of a data skill takes effect.
@@ -756,7 +835,12 @@ internal sealed class NhAssistantAgentConfiguration(
                 .Select(item => new NhAssistantRunBlockDto(item.Name, item.Description))
                 .ToArray(),
             Divisions = services.GetRequiredService<NhAssistantWorksOnRule>().DivisionsListed,
-            AgentGroups = services.GetRequiredService<INhAssistantAgentGroups>().ListGroups()
+            AgentGroups = services.GetRequiredService<INhAssistantAgentGroups>().ListGroups(),
+            FileLimits = new NhAssistantFileLimitsDto(
+                registration.Limits.MaxFileBytes,
+                registration.Limits.MaxFilePages,
+                registration.Limits.MaxFilesPerTurn,
+                registration.Limits.MaxFileTokensPerTurn)
         };
     }
 
@@ -938,6 +1022,7 @@ internal sealed class NhAssistantAgentConfiguration(
             .Require(request.MaxConcurrentRuns is null or >= 1 and <= NhAssistantAgentConfigurationLimits.MaxConcurrentRuns, "maxConcurrentRuns", NhAssistantFieldErrors.Invalid)
             .Require(request.MaxRunsPerSubjectPerDay is null or >= 1 and <= NhAssistantAgentConfigurationLimits.MaxRunsPerSubjectPerDay, "maxRunsPerSubjectPerDay", NhAssistantFieldErrors.Invalid)
             .Require(request.MaxTokensPerRun is null or >= 1, "maxTokensPerRun", NhAssistantFieldErrors.Invalid);
+        RequireFileLimits(errors, request.AcceptsFiles, request.MaxFileBytes, request.MaxFilePages, request.MaxFilesPerTurn, request.MaxFileTokensPerTurn);
         if (request.AllowGatewayReads)
         {
             // Gateway reads need the host to issue a person's delegated read credential, as in code.
@@ -969,6 +1054,10 @@ internal sealed class NhAssistantAgentConfiguration(
             TriageProfileName = Blank(request.TriageProfile),
             RuleHandlerName = Blank(request.RuleHandler),
             AcceptsFiles = request.AcceptsFiles,
+            MaxFileBytes = request.MaxFileBytes,
+            MaxFilePages = request.MaxFilePages,
+            MaxFilesPerTurn = request.MaxFilesPerTurn,
+            MaxFileTokensPerTurn = request.MaxFileTokensPerTurn,
             UpdatedAt = DateTimeOffset.UtcNow,
             UpdatedBy = actorId,
             Reason = reason
@@ -1097,6 +1186,7 @@ internal sealed class NhAssistantAgentConfiguration(
                     || NhAssistantDataClassificationNames.TryParse(classificationName, out _),
                 "dataClassification",
                 NhAssistantFieldErrors.Invalid);
+        RequireFileLimits(errors, request.AcceptsFiles, request.MaxFileBytes, request.MaxFilePages, request.MaxFilesPerTurn, request.MaxFileTokensPerTurn);
         if (!errors.IsEmpty)
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(errors.ToResult());
@@ -1114,6 +1204,10 @@ internal sealed class NhAssistantAgentConfiguration(
             ProfileName = Blank(request.Profile),
             DataClassification = Blank(request.DataClassification),
             AcceptsFiles = request.AcceptsFiles,
+            MaxFileBytes = request.MaxFileBytes,
+            MaxFilePages = request.MaxFilePages,
+            MaxFilesPerTurn = request.MaxFilesPerTurn,
+            MaxFileTokensPerTurn = request.MaxFileTokensPerTurn,
             RuleHandlerName = Blank(request.RuleHandler),
             MaxTokensPerRun = request.MaxTokensPerRun,
             DailyToolCalls = request.DailyToolCalls,
@@ -1613,6 +1707,35 @@ internal sealed class NhAssistantAgentConfiguration(
             : null;
     }
 
+    /// <summary>
+    /// The lower file limits of an agent or a skill (D11): each from 1 to the application's limit, and
+    /// only next to <c>acceptsFiles</c>, because an agent or skill that accepts no files has none.
+    /// </summary>
+    private void RequireFileLimits(
+        NhAssistantValidationErrors errors,
+        bool acceptsFiles,
+        int? maxFileBytes,
+        int? maxFilePages,
+        int? maxFilesPerTurn,
+        int? maxFileTokensPerTurn)
+    {
+        var limits = registration.Limits;
+        RequireFileLimit(errors, "maxFileBytes", acceptsFiles, maxFileBytes, limits.MaxFileBytes);
+        RequireFileLimit(errors, "maxFilePages", acceptsFiles, maxFilePages, limits.MaxFilePages);
+        RequireFileLimit(errors, "maxFilesPerTurn", acceptsFiles, maxFilesPerTurn, limits.MaxFilesPerTurn);
+        RequireFileLimit(errors, "maxFileTokensPerTurn", acceptsFiles, maxFileTokensPerTurn, limits.MaxFileTokensPerTurn);
+    }
+
+    private static void RequireFileLimit(NhAssistantValidationErrors errors, string field, bool acceptsFiles, int? value, int applicationLimit)
+    {
+        if (value is not { } limit)
+        {
+            return;
+        }
+
+        errors.Require(acceptsFiles && limit >= 1 && limit <= applicationLimit, field, NhAssistantFieldErrors.Invalid);
+    }
+
     private static TaskResult SkillFieldError(string problem)
     {
         return problem switch
@@ -1685,7 +1808,11 @@ internal sealed class NhAssistantAgentConfiguration(
             problem is null,
             problem)
         {
-            AcceptsFiles = item.AcceptsFiles
+            AcceptsFiles = item.AcceptsFiles,
+            MaxFileBytes = item.MaxFileBytes,
+            MaxFilePages = item.MaxFilePages,
+            MaxFilesPerTurn = item.MaxFilesPerTurn,
+            MaxFileTokensPerTurn = item.MaxFileTokensPerTurn
         };
     }
 
@@ -1717,7 +1844,11 @@ internal sealed class NhAssistantAgentConfiguration(
             problem)
         {
             DataClassification = item.DataClassification,
-            AcceptsFiles = item.AcceptsFiles
+            AcceptsFiles = item.AcceptsFiles,
+            MaxFileBytes = item.MaxFileBytes,
+            MaxFilePages = item.MaxFilePages,
+            MaxFilesPerTurn = item.MaxFilesPerTurn,
+            MaxFileTokensPerTurn = item.MaxFileTokensPerTurn
         };
     }
 

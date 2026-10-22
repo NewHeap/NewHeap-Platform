@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -34,6 +35,12 @@ internal sealed record NhAssistantTurnFile(
     /// Whose credential an MCP reader's request carried.
     /// </summary>
     public string? McpConnectionOwner { get; init; }
+
+    /// <summary>
+    /// For a file a reading tool turned into text: whether the text came from the conversation's cache
+    /// of reader texts (D32), so the reader received nothing in this turn.
+    /// </summary>
+    public bool TextCached { get; init; }
 }
 
 /// <summary>
@@ -79,8 +86,9 @@ internal sealed record NhAssistantTurnFileLimits(
 /// model profile permits (F5), and given to the model as file content marked as untrusted external
 /// data (F7), when the profile that serves the turn reads its type. Otherwise a reading tool turns it
 /// into text (F3, <see cref="NhAssistantFileReaders"/>), which the model reads as untrusted external
-/// data as well. The turn keeps references and hashes only (F6); nothing here logs content, names or
-/// ids.
+/// data as well. The turn keeps references and hashes only (F6), except the protected text a reading
+/// tool made, which <see cref="NhAssistantReaderTexts"/> keeps for a limited time (D32); nothing here
+/// logs content, names or ids.
 /// </summary>
 internal sealed class NhAssistantTurnFiles(
     IServiceProvider services,
@@ -186,14 +194,17 @@ internal sealed class NhAssistantTurnFiles(
     /// <summary>
     /// Opens the files a tool result or a message names, as new files of the turn. The files of one
     /// result or message count together: when they would exceed the turn's number of files, all are
-    /// refused. Every other refusal concerns its own file.
+    /// refused. Every other refusal concerns its own file. <paramref name="authorActorId"/> opens the
+    /// attachments of a person's message that waited for a run with that person's rights instead of
+    /// the turn's actor (A13).
     /// </summary>
     public async Task<IReadOnlyList<NhAssistantFileOutcome>> OpenAsync(
         NhAssistantTurnState state,
         IReadOnlyList<NhAiFileReference> references,
         string origin,
         string? toolId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? authorActorId = null)
     {
         ArgumentNullException.ThrowIfNull(references);
         if (references.Count == 0)
@@ -217,7 +228,7 @@ internal sealed class NhAssistantTurnFiles(
         var outcomes = new List<NhAssistantFileOutcome>(references.Count);
         foreach (var reference in references)
         {
-            outcomes.Add(await OpenOneAsync(state, reference, origin, toolId, limits!, state.Files, cancellationToken));
+            outcomes.Add(await OpenOneAsync(state, reference, origin, toolId, limits!, state.Files, cancellationToken, authorActorId));
         }
 
         return outcomes;
@@ -367,11 +378,74 @@ internal sealed class NhAssistantTurnFiles(
             ObjectId = outcome.Origin,
             SkillId = state.Skill?.Id,
             FileId = NhAssistantContent.Bound(outcome.Reference.Id, NhAiFileReference.MaxIdLength),
+            FileName = AuditNameOf(outcome.Reference.Name),
             FileMediaType = outcome.File?.MediaType ?? outcome.MediaType ?? NhAiMediaTypes.Normalize(outcome.Reference.MediaType),
             FileHash = outcome.File?.Sha256,
             FileReaderId = outcome.File?.ReaderId ?? outcome.ReaderId,
-            McpConnectionOwner = outcome.File?.McpConnectionOwner ?? outcome.McpConnectionOwner
+            McpConnectionOwner = outcome.File?.McpConnectionOwner ?? outcome.McpConnectionOwner,
+            FileTextCached = outcome.File is { Native: false } read ? read.TextCached : null
         };
+    }
+
+    /// <summary>
+    /// The file's name as the audit records it (D35): in Unicode normalization form C, without control,
+    /// format, separator, surrogate or private-use characters, with every run of white space as one
+    /// space, trimmed and bounded to <see cref="NhAssistantAuditEvent.MaxFileNameLength"/> characters
+    /// without splitting a character. <see langword="null"/> when nothing is left.
+    /// </summary>
+    internal static string? AuditNameOf(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        string normalized;
+        try
+        {
+            normalized = name.Normalize(NormalizationForm.FormC);
+        }
+        catch (ArgumentException)
+        {
+            // A lone surrogate cannot be normalized; the runes below replace it.
+            normalized = name;
+        }
+
+        var text = new StringBuilder(Math.Min(normalized.Length, NhAssistantAuditEvent.MaxFileNameLength));
+        var pendingSpace = false;
+        foreach (var rune in normalized.EnumerateRunes())
+        {
+            if (Rune.IsWhiteSpace(rune))
+            {
+                pendingSpace = text.Length > 0;
+                continue;
+            }
+            if (rune == Rune.ReplacementChar
+                || Rune.GetUnicodeCategory(rune) is UnicodeCategory.Control
+                    or UnicodeCategory.Format
+                    or UnicodeCategory.LineSeparator
+                    or UnicodeCategory.ParagraphSeparator
+                    or UnicodeCategory.Surrogate
+                    or UnicodeCategory.PrivateUse
+                    or UnicodeCategory.OtherNotAssigned)
+            {
+                continue;
+            }
+
+            var needed = rune.Utf16SequenceLength + (pendingSpace ? 1 : 0);
+            if (text.Length + needed > NhAssistantAuditEvent.MaxFileNameLength)
+            {
+                break;
+            }
+            if (pendingSpace)
+            {
+                text.Append(' ');
+                pendingSpace = false;
+            }
+            text.Append(rune.ToString());
+        }
+
+        return text.Length == 0 ? null : text.ToString();
     }
 
     /// <summary>
@@ -386,6 +460,18 @@ internal sealed class NhAssistantTurnFiles(
             : $"[The file \"{name}\" from an earlier turn is not included again in this turn ({outcome.Code}). Ask the person to share it again if you need it.]";
     }
 
+    /// <summary>
+    /// The text the model reads instead of a file a person attached to a message that waited for the
+    /// run, when the run cannot read it (A13).
+    /// </summary>
+    public static string AttachmentNoteOf(NhAssistantFileOutcome outcome, string language)
+    {
+        var name = Neutralize(outcome.Reference.Name);
+        return NhAssistantPromptComposer.IsDutch(language)
+            ? $"[Het bestand \"{name}\" dat de persoon bij het bericht voegde, kon in deze beurt niet worden gelezen ({outcome.Code}). Zeg de persoon dat het bestand niet gelezen is als het voor je antwoord uitmaakt.]"
+            : $"[The file \"{name}\" the person attached to the message could not be read in this turn ({outcome.Code}). Tell the person that it was not read if it matters for your answer.]";
+    }
+
     private async Task<NhAssistantFileOutcome> OpenOneAsync(
         NhAssistantTurnState state,
         NhAiFileReference reference,
@@ -393,14 +479,15 @@ internal sealed class NhAssistantTurnFiles(
         string? toolId,
         NhAssistantTurnFileLimits limits,
         List<NhAssistantTurnFile> bound,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? authorActorId = null)
     {
         if (!NhAiFileReference.IsValid(reference))
         {
             return Refused(reference, origin, toolId, NhAssistantErrorCodes.FileReferenceInvalid);
         }
 
-        var actor = ActorOf(state, origin, toolId);
+        var actor = ActorOf(state, origin, toolId, authorActorId);
         var source = services.GetRequiredService<INhAssistantFileSource>();
         TaskResult<NhAssistantFile> opened;
         try
@@ -503,10 +590,12 @@ internal sealed class NhAssistantTurnFiles(
         else
         {
             // A reading tool turns the file into text, which the model reads as untrusted data; the
-            // limits count the tokens of that text.
+            // limits count the tokens of that text. A text the chosen reader made of this content
+            // earlier in the conversation is read without calling the reader again (D32).
             reading = await readers.ReadAsync(
                 new NhAssistantFileReadRequest(reference, mediaType, content, file.Classification, actor),
                 NhAssistantTurnRunner.CreateMcpToolRequest(state),
+                sha256,
                 cancellationToken);
             if (reading.Text is not { } text)
             {
@@ -529,7 +618,8 @@ internal sealed class NhAssistantTurnFiles(
         var turnFile = new NhAssistantTurnFile(reference, mediaType, file.Classification, sha256, tokens, origin, native)
         {
             ReaderId = reading?.ReaderId,
-            McpConnectionOwner = reading?.ConnectionOwner
+            McpConnectionOwner = reading?.ConnectionOwner,
+            TextCached = reading?.TextCached == true
         };
         bound.Add(turnFile);
         return new NhAssistantFileOutcome(reference, origin, toolId, turnFile, [marker, body], null, null, mediaType);
@@ -579,12 +669,13 @@ internal sealed class NhAssistantTurnFiles(
     }
 
     /// <summary>
-    /// The actor the file source opens a file for: the actor of the turn as tools see it.
+    /// The actor the file source opens a file for: the actor of the turn as tools see it, or the person
+    /// whose waiting message carried the file (<paramref name="authorActorId"/>).
     /// </summary>
-    private static NhAssistantFileActor ActorOf(NhAssistantTurnState state, string origin, string? toolId)
+    private static NhAssistantFileActor ActorOf(NhAssistantTurnState state, string origin, string? toolId, string? authorActorId = null)
     {
-        var actorId = state.Scope.OwnerActorId;
-        var kind = string.Equals(actorId, state.EffectiveAgent.Definition.ActorId, StringComparison.Ordinal)
+        var actorId = authorActorId ?? state.Scope.OwnerActorId;
+        var kind = authorActorId is null && string.Equals(actorId, state.EffectiveAgent.Definition.ActorId, StringComparison.Ordinal)
             ? NhAiActorKind.Agent
             : NhAiActorKind.Human;
         return new NhAssistantFileActor(actorId, kind, state.EffectiveAgent.Id, state.Conversation.Id)

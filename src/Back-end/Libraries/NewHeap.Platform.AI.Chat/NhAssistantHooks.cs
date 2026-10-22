@@ -265,10 +265,14 @@ public enum NhAssistantAuditEventKind
 
     /// <summary>
     /// A turn gave a file to the model. <see cref="NhAssistantAuditEvent.FileId"/>,
-    /// <see cref="NhAssistantAuditEvent.FileMediaType"/> and <see cref="NhAssistantAuditEvent.FileHash"/>
-    /// name it, <see cref="NhAssistantAuditEvent.ObjectId"/> is how it reached the turn (one of
+    /// <see cref="NhAssistantAuditEvent.FileName"/>, <see cref="NhAssistantAuditEvent.FileMediaType"/>
+    /// and <see cref="NhAssistantAuditEvent.FileHash"/> name it,
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> is how it reached the turn (one of
     /// <see cref="NhAssistantFileOrigins"/>) and, for a tool result, <c>ToolId</c> and
-    /// <c>InvocationId</c> name the call. Never its content.
+    /// <c>InvocationId</c> name the call. For a file a reading tool turned into text,
+    /// <see cref="NhAssistantAuditEvent.FileReaderId"/> names the reader and
+    /// <see cref="NhAssistantAuditEvent.FileTextCached"/> says whether the text came from the
+    /// conversation's cache. Never its content.
     /// </summary>
     FileRead = 63,
 
@@ -282,8 +286,9 @@ public enum NhAssistantAuditEventKind
 }
 
 /// <summary>
-/// A content-free assistant audit event. It carries identifiers, versions, codes and timestamps
-/// only: never prompts, messages, tool arguments or tool results.
+/// A content-free assistant audit event. It carries identifiers, versions, codes and timestamps,
+/// and for a file its bounded, normalized name (<see cref="FileName"/>): never prompts, messages,
+/// tool arguments, tool results or file content.
 /// </summary>
 public sealed record NhAssistantAuditEvent(
     NhAssistantAuditEventKind Kind,
@@ -438,11 +443,25 @@ public sealed record NhAssistantAuditEvent(
     public string? McpConnectionOwner { get; init; }
 
     /// <summary>
+    /// The most characters of <see cref="FileName"/>.
+    /// </summary>
+    public const int MaxFileNameLength = 256;
+
+    /// <summary>
     /// The application's id of the file a <see cref="NhAssistantAuditEventKind.FileRead"/> or
-    /// <see cref="NhAssistantAuditEventKind.FileRefused"/> event concerns: an identifier, never the
-    /// file's name.
+    /// <see cref="NhAssistantAuditEventKind.FileRefused"/> event concerns: an identifier.
     /// </summary>
     public string? FileId { get; init; }
+
+    /// <summary>
+    /// The name of the file a <see cref="NhAssistantAuditEventKind.FileRead"/> or
+    /// <see cref="NhAssistantAuditEventKind.FileRefused"/> event concerns, as the application reports it
+    /// in the file's reference: at most <see cref="MaxFileNameLength"/> characters, without control,
+    /// format or separator characters, with white space as single spaces and in Unicode normalization
+    /// form C. It is the only free text of the event, so an audit reader recognises a file without asking
+    /// the application; never the content.
+    /// </summary>
+    public string? FileName { get; init; }
 
     /// <summary>
     /// The file's media type as a code, lowercase without parameters, such as <c>application/pdf</c>.
@@ -462,6 +481,14 @@ public sealed record NhAssistantAuditEvent(
     /// read the file itself.
     /// </summary>
     public string? FileReaderId { get; init; }
+
+    /// <summary>
+    /// For a <see cref="NhAssistantAuditEventKind.FileRead"/> of a file a reading tool turned into text:
+    /// <see langword="true"/> when the text came from the conversation's cache of reader texts, so the
+    /// reader of <see cref="FileReaderId"/> received nothing in this turn; <see langword="false"/> when
+    /// the reader made it now. Null when the model read the file itself and for a refusal.
+    /// </summary>
+    public bool? FileTextCached { get; init; }
 }
 
 /// <summary>

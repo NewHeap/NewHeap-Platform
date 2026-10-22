@@ -48,6 +48,27 @@ public sealed class AssistantAgentSkillDefinition
     public bool AcceptsFiles { get; set; }
 
     /// <summary>
+    /// The largest file in bytes a run in the skill reads, at most the application's
+    /// <see cref="NhAssistantLimits.MaxFileBytes"/>; <see langword="null"/> keeps the agent's.
+    /// </summary>
+    public int? MaxFileBytes { get; set; }
+
+    /// <summary>
+    /// The most pages of one file; <see langword="null"/> keeps the agent's.
+    /// </summary>
+    public int? MaxFilePages { get; set; }
+
+    /// <summary>
+    /// The most files of one turn; <see langword="null"/> keeps the agent's.
+    /// </summary>
+    public int? MaxFilesPerTurn { get; set; }
+
+    /// <summary>
+    /// The most estimated file tokens of one turn; <see langword="null"/> keeps the agent's.
+    /// </summary>
+    public int? MaxFileTokensPerTurn { get; set; }
+
+    /// <summary>
     /// The name of a rule handler registered with <c>AddRuleHandler</c>.
     /// </summary>
     public string? RuleHandlerName { get; set; }
@@ -186,6 +207,27 @@ public sealed class AssistantAgentRunConfiguration
     /// an administrator switches it on.
     /// </summary>
     public bool AcceptsFiles { get; set; }
+
+    /// <summary>
+    /// The largest file in bytes the agent reads, at most the application's
+    /// <see cref="NhAssistantLimits.MaxFileBytes"/>; <see langword="null"/> keeps the application's.
+    /// </summary>
+    public int? MaxFileBytes { get; set; }
+
+    /// <summary>
+    /// The most pages of one file; <see langword="null"/> keeps the application's.
+    /// </summary>
+    public int? MaxFilePages { get; set; }
+
+    /// <summary>
+    /// The most files of one turn; <see langword="null"/> keeps the application's.
+    /// </summary>
+    public int? MaxFilesPerTurn { get; set; }
+
+    /// <summary>
+    /// The most estimated file tokens of one turn; <see langword="null"/> keeps the application's.
+    /// </summary>
+    public int? MaxFileTokensPerTurn { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

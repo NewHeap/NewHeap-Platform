@@ -73,6 +73,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantArtifact> Artifacts => Set<AssistantArtifact>();
 
+    public DbSet<AssistantFileReaderText> FileReaderTexts => Set<AssistantFileReaderText>();
+
     public DbSet<AssistantConsultation> Consultations => Set<AssistantConsultation>();
 
     public DbSet<AssistantHandOff> HandOffs => Set<AssistantHandOff>();
@@ -362,6 +364,22 @@ public sealed class NhAssistantDbContext : DbContext
             artifact.Property(item => item.Content).IsRequired();
             artifact.HasIndex(item => new { item.ConversationId, item.Name, item.Version }).IsUnique();
             artifact.HasOne<AssistantConversation>()
+                .WithMany()
+                .HasForeignKey(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantFileReaderText>(text =>
+        {
+            text.ToTable("AssistantFileReaderText");
+            text.HasKey(item => item.Id);
+            text.Property(item => item.Id).ValueGeneratedNever();
+            text.Property(item => item.FileHash).HasMaxLength(80).IsRequired();
+            text.Property(item => item.ReaderId).HasMaxLength(128).IsRequired();
+            text.Property(item => item.ProtectedText).IsRequired();
+            text.HasIndex(item => new { item.ConversationId, item.FileHash, item.ReaderId }).IsUnique();
+            text.HasIndex(item => item.ExpiresAt);
+            text.HasOne<AssistantConversation>()
                 .WithMany()
                 .HasForeignKey(item => item.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);

@@ -34,6 +34,16 @@ public sealed class TestUploads
     /// </summary>
     public bool Fail { get; set; }
 
+    /// <summary>
+    /// What the upload scanner does with the next uploads: <see cref="TestScanOutcome.Pass"/> by default.
+    /// </summary>
+    public TestScanOutcome ScanOutcome { get; set; }
+
+    /// <summary>
+    /// The uploads the scanner saw: their name, media type, content and the actor of the upload.
+    /// </summary>
+    public ConcurrentQueue<(string Name, string MediaType, byte[] Content, string ActorId)> Scanned { get; } = new();
+
     internal string NextId()
     {
         return "upload-" + Interlocked.Increment(ref _next);
@@ -86,5 +96,40 @@ public sealed class TestUploadFileSource(TestUploads uploads) : INhAssistantFile
         var reference = new NhAiFileReference(uploads.NextId(), upload.Name, upload.MediaType, upload.Length, "app-hash");
         uploads.Stored[reference.Id] = new TestUpload(reference, upload with { Content = Stream.Null }, buffer.ToArray(), actor);
         return TaskResult<NhAiFileReference>.Succeeded(reference);
+    }
+}
+
+/// <summary>
+/// What <see cref="TestUploadScanner"/> does with an upload.
+/// </summary>
+public enum TestScanOutcome
+{
+    Pass,
+    Refuse,
+    Fail,
+    Throw
+}
+
+/// <summary>
+/// The test application's upload scanner: it records every upload it sees and passes, refuses, fails
+/// or throws as <see cref="TestUploads.ScanOutcome"/> says, with the file's name in its messages.
+/// </summary>
+public sealed class TestUploadScanner(TestUploads uploads) : INhAssistantUploadScanner
+{
+    public async Task<TaskResult> ScanAsync(
+        NhAssistantFileUpload upload,
+        NhAssistantFileActor actor,
+        CancellationToken cancellationToken)
+    {
+        using var buffer = new MemoryStream();
+        await upload.Content.CopyToAsync(buffer, cancellationToken);
+        uploads.Scanned.Enqueue((upload.Name, upload.MediaType, buffer.ToArray(), actor.ActorId));
+        return uploads.ScanOutcome switch
+        {
+            TestScanOutcome.Refuse => TaskResult.Failed("eicar-found", $"The EICAR test file was found in {upload.Name}."),
+            TestScanOutcome.Fail => TaskResult.Failed(NhAssistantErrorCodes.FileUploadFailed, $"The scanner was down while scanning {upload.Name}."),
+            TestScanOutcome.Throw => throw new IOException($"The scanner crashed on {upload.Name}."),
+            _ => TaskResult.Succeeded()
+        };
     }
 }

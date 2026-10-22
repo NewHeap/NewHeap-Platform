@@ -227,6 +227,23 @@ public sealed class NhAssistantUploadOptions
         return this;
     }
 
+    /// <summary>
+    /// Scans every upload with <typeparamref name="TScanner"/>, registered as a scoped service, before
+    /// the file source stores it: after the checks of the type, the size and the content's signature.
+    /// Without a scanner nothing is scanned. A later call replaces the scanner.
+    /// </summary>
+    public NhAssistantUploadOptions UseScanner<TScanner>()
+        where TScanner : class, INhAssistantUploadScanner
+    {
+        ScannerType = typeof(TScanner);
+        return this;
+    }
+
+    /// <summary>
+    /// The scanner of <see cref="UseScanner{TScanner}"/>; <see langword="null"/> scans nothing.
+    /// </summary>
+    internal Type? ScannerType { get; private set; }
+
     internal NhAssistantUploadOptions Clone()
     {
         return (NhAssistantUploadOptions)MemberwiseClone();
@@ -242,6 +259,30 @@ public sealed class NhAssistantUploadOptions
             throw new InvalidOperationException("The default classification of uploads must be a defined NhAiDataClassification.");
         }
     }
+}
+
+/// <summary>
+/// Scans a file a person uploads before the application's file source stores it, for example with a
+/// virus scanner. Register it with <c>ConfigureUploads(uploads =&gt; uploads.UseScanner&lt;T&gt;())</c>. It
+/// runs as a fixed step of every upload, after the checks of the media type, the size and the content's
+/// signature and before <see cref="INhAssistantFileSource.StoreUploadAsync"/>; a file it refuses is never
+/// stored. Without a scanner nothing is scanned.
+/// </summary>
+public interface INhAssistantUploadScanner
+{
+    /// <summary>
+    /// Scans <paramref name="upload"/> for <paramref name="actor"/>. Return a succeeded result to let the
+    /// file source store it, and a failed result to refuse it: the upload is refused with
+    /// <see cref="NhAssistantErrorCodes.FileScanRefused"/>. Return a failed result with
+    /// <see cref="NhAssistantErrorCodes.FileUploadFailed"/> when the scan could not run, for example
+    /// because the scanning service is unreachable; the upload then fails with that code and the person
+    /// may try again. An exception counts as such a failure. The assistant never shows or logs the
+    /// scanner's messages, and disposes the content after the scan.
+    /// </summary>
+    Task<TaskResult> ScanAsync(
+        NhAssistantFileUpload upload,
+        NhAssistantFileActor actor,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>

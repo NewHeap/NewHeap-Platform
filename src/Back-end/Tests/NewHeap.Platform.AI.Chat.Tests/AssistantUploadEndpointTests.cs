@@ -249,6 +249,68 @@ public sealed class AssistantUploadEndpointTests(AssistantDatabaseFixture databa
         Assert.Equal([NhAiMediaTypes.Png], MediaTypesOf(agent.GetProperty("uploads")));
     }
 
+    [Fact]
+    public async Task The_upload_scanner_runs_after_the_signature_check_before_the_source_and_its_outcomes_keep_stable_codes()
+    {
+        await using var app = await StartAsync(configureUploads: uploads => uploads.UseScanner<TestUploadScanner>());
+        using var client = app.CreateClient();
+        var id = await CreateConversationAsync(client, FileAgent);
+        var store = app.Services.GetRequiredService<TestUploads>();
+
+        using var passed = await UploadAsync(client, id, "Plan.pdf", NhAiMediaTypes.Pdf, PlanPdf);
+        // Content of another type is refused before the scanner sees it.
+        await AssertRefusedAsync(
+            await UploadAsync(client, id, "Fake.pdf", NhAiMediaTypes.Pdf, Png),
+            HttpStatusCode.UnsupportedMediaType,
+            NhAssistantErrorCodes.FileTypeNotAccepted);
+        store.ScanOutcome = TestScanOutcome.Refuse;
+        using var refused = await UploadAsync(client, id, "Infected.pdf", NhAiMediaTypes.Pdf, PlanPdf);
+        var refusal = await refused.Content.ReadAsStringAsync();
+        store.ScanOutcome = TestScanOutcome.Fail;
+        await AssertRefusedAsync(
+            await UploadAsync(client, id, "Plan.pdf", NhAiMediaTypes.Pdf, PlanPdf),
+            HttpStatusCode.ServiceUnavailable,
+            NhAssistantErrorCodes.FileUploadFailed);
+        store.ScanOutcome = TestScanOutcome.Throw;
+        await AssertRefusedAsync(
+            await UploadAsync(client, id, "Plan.pdf", NhAiMediaTypes.Pdf, PlanPdf),
+            HttpStatusCode.ServiceUnavailable,
+            NhAssistantErrorCodes.FileUploadFailed);
+
+        Assert.Equal(HttpStatusCode.OK, passed.StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, refused.StatusCode);
+        using (var document = JsonDocument.Parse(refusal))
+        {
+            Assert.Equal(NhAssistantErrorCodes.FileScanRefused, document.RootElement.GetProperty("code").GetString());
+        }
+        // The scanner saw the content of every upload that passed the checks, for the person.
+        Assert.Equal(
+            [("Plan.pdf", "user-1"), ("Infected.pdf", "user-1"), ("Plan.pdf", "user-1"), ("Plan.pdf", "user-1")],
+            store.Scanned.Select(item => (item.Name, item.ActorId)).ToArray());
+        Assert.All(store.Scanned, item => Assert.Equal(PlanPdf, item.Content));
+        // Only the file it let pass reached the application's storage.
+        Assert.Equal(["Plan.pdf"], store.Stored.Values.Select(item => item.Upload.Name).ToArray());
+        // The scanner's message, which names the file, never reaches the response.
+        Assert.DoesNotContain("EICAR", refusal, StringComparison.Ordinal);
+        Assert.DoesNotContain("Infected.pdf", refusal, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Without_a_scanner_nothing_is_scanned()
+    {
+        await using var app = await StartAsync();
+        using var client = app.CreateClient();
+        var id = await CreateConversationAsync(client, FileAgent);
+        var store = app.Services.GetRequiredService<TestUploads>();
+        store.ScanOutcome = TestScanOutcome.Refuse;
+
+        using var uploaded = await UploadAsync(client, id, "Plan.pdf", NhAiMediaTypes.Pdf, PlanPdf);
+
+        Assert.Equal(HttpStatusCode.OK, uploaded.StatusCode);
+        Assert.Empty(store.Scanned);
+        Assert.Single(store.Stored);
+    }
+
     private static string[] MediaTypesOf(JsonElement uploads)
     {
         return uploads.GetProperty("acceptedMediaTypes").EnumerateArray().Select(item => item.GetString()!).ToArray();

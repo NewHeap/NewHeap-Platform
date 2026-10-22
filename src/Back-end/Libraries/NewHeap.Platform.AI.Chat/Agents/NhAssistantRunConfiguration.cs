@@ -737,8 +737,26 @@ internal sealed class NhAssistantRunConfigurations(
             DataClassification = NhAssistantDataClassificationNames.TryParse(agent.DataClassification, out var classification)
                 ? classification
                 : null,
-            // Switched on in the administration, the agent reads files within the application's limits.
-            FileLimits = settings.AcceptsFiles ? new NhAssistantFileLimits() : null
+            // Switched on in the administration, the agent reads files within the application's limits
+            // and the lower ones stored with it; a turn takes the lowest of them.
+            FileLimits = settings.AcceptsFiles
+                ? FileLimitsOf(settings.MaxFileBytes, settings.MaxFilePages, settings.MaxFilesPerTurn, settings.MaxFileTokensPerTurn)
+                : null
+        };
+    }
+
+    /// <summary>
+    /// The lower file limits stored for an agent or a skill (D11). A stored value above the
+    /// application's, after the application lowered its own, has no effect: a turn takes the lowest.
+    /// </summary>
+    private static NhAssistantFileLimits FileLimitsOf(int? maxFileBytes, int? maxFilePages, int? maxFilesPerTurn, int? maxFileTokensPerTurn)
+    {
+        return new NhAssistantFileLimits
+        {
+            MaxFileBytes = maxFileBytes,
+            MaxFilePages = maxFilePages,
+            MaxFilesPerTurn = maxFilesPerTurn,
+            MaxFileTokensPerTurn = maxFileTokensPerTurn
         };
     }
 
@@ -757,7 +775,9 @@ internal sealed class NhAssistantRunConfigurations(
             DataClassification = NhAssistantDataClassificationNames.TryParse(definition.DataClassification, out var classification)
                 ? classification
                 : null,
-            FileLimits = definition.AcceptsFiles ? new NhAssistantFileLimits() : null,
+            FileLimits = definition.AcceptsFiles
+                ? FileLimitsOf(definition.MaxFileBytes, definition.MaxFilePages, definition.MaxFilesPerTurn, definition.MaxFileTokensPerTurn)
+                : null,
             // A data skill starts in shadow; an administrator puts it live like any skill.
             Shadow = true,
             DataVersion = definition.Version

@@ -799,7 +799,8 @@ internal sealed class NhAssistantAgentRunOperation(
         return new NhAssistantAgentTurnInput(input.Id, input.AuthorActorId, input.TriggerId, input.Text)
         {
             PayloadJson = input.PayloadJson,
-            CreatedAt = input.CreatedAt
+            CreatedAt = input.CreatedAt,
+            Files = NhAssistantContent.DeserializeFiles(input.FilesJson)
         };
     }
 

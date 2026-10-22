@@ -60,7 +60,7 @@ internal sealed partial class NhAssistantMcpFileReader(
 
             declared = true;
             var reading = await ReadWithAsync(server, request, cancellationToken);
-            if (reading.Received)
+            if (reading.Received || reading.TextCached)
             {
                 return reading;
             }
@@ -81,6 +81,13 @@ internal sealed partial class NhAssistantMcpFileReader(
         if (await RefusalAsync(server, request, cancellationToken) is { } refusal)
         {
             return NhAssistantFileReading.PassedOver(readerId, refusal);
+        }
+
+        // A server that may receive the file and made a text of the same content earlier in the
+        // conversation is not called again; the turn reads its kept text (D32).
+        if (request.KeptText is { } keptText && await keptText(readerId, cancellationToken) is { } kept)
+        {
+            return NhAssistantFileReading.Kept(readerId, kept);
         }
 
         try

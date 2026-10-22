@@ -38,7 +38,7 @@ internal static class NhAssistantUploadEndpoints
         group.MapPost("conversations/{id:guid}/files", UploadAsync)
             .WithName("NhAssistantUploadFile")
             .WithSummary("Upload a file to a conversation")
-            .WithDescription("Stores one file the caller attaches to a later message, through the application's file source, and returns its reference for the message's `files`. Send `multipart/form-data` with one file part named `file` and the header X-NH-Assistant-Upload: 1. The agent must accept files, the media type must be one the application accepts and match the content, and the file must fit the agent's MaxFileBytes. An upload gets the application's default classification, Confidential unless it configured another.")
+            .WithDescription("Stores one file the caller attaches to a later message, through the application's file source, and returns its reference for the message's `files`. Send `multipart/form-data` with one file part named `file` and the header X-NH-Assistant-Upload: 1. The agent must accept files, the media type must be one the application accepts and match the content, and the file must fit the agent's MaxFileBytes. The application's upload scanner, when it registered one, scans the file before it is stored; a file it refuses answers 422 assistant-file-scan-refused. An upload gets the application's default classification, Confidential unless it configured another.")
             .Produces<NhAiFileReference>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
