@@ -18,6 +18,7 @@ public sealed class NhAssistantTriggerEventBuilder<TEvent>
     private Func<TEvent, string?> _dedupe = _ => null;
     private Func<TEvent, bool>? _when;
     private Func<TEvent, object?>? _payload;
+    private readonly List<NhAssistantTriggerFilterDefinition> _filters = [];
 
     internal NhAssistantTriggerEventBuilder()
     {
@@ -45,6 +46,48 @@ public sealed class NhAssistantTriggerEventBuilder<TEvent>
     public NhAssistantTriggerEventBuilder<TEvent> When(Func<TEvent, bool> filter)
     {
         _when = filter ?? throw new ArgumentNullException(nameof(filter));
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a named filter that a data trigger on the event may apply, such as
+    /// <c>not-own-change</c>. Unlike <see cref="When"/>, which concerns every trigger on the event,
+    /// an administrator selects a filter per data trigger, and the filter learns which trigger, agent
+    /// and skill it decides for. A data trigger fires only when every filter it selected accepts the
+    /// event; <see cref="When"/> decides first, and a filter runs only while the agent and the
+    /// trigger's skill take triggers, before the subject, message and payload functions. An event a
+    /// filter refuses starts nothing, is not audited and gets a receipt with outcome <c>ignored</c>
+    /// and reason <c>filtered</c>. Keep the function cheap and free of I/O: it runs for every
+    /// published event and every data trigger that selected it.
+    /// </summary>
+    /// <param name="name">Lowercase dash-case, at most 64 characters, unique per event; data
+    /// triggers store it.</param>
+    /// <param name="description">What the filter skips, at most 300 characters; the administration
+    /// shows it.</param>
+    /// <param name="filter">Whether the event concerns the trigger that <see cref="NhAssistantTriggerFilterContext"/>
+    /// describes. Compare <see cref="NhAssistantTriggerFilterContext.AgentActorId"/> with an actor the
+    /// event names to skip a change the agent made itself.</param>
+    public NhAssistantTriggerEventBuilder<TEvent> Filter(
+        string name,
+        string description,
+        Func<TEvent, NhAssistantTriggerFilterContext, bool> filter)
+    {
+        NhAssistantTriggerFilterNames.Validate(name, nameof(name));
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        if (description.Length > NhAssistantSkillBuilder.MaxDescriptionLength)
+        {
+            throw new ArgumentOutOfRangeException(nameof(description));
+        }
+        ArgumentNullException.ThrowIfNull(filter);
+        if (_filters.Any(item => item.Name == name))
+        {
+            throw new ArgumentException($"The trigger event already has a filter named '{name}'.", nameof(name));
+        }
+
+        _filters.Add(new NhAssistantTriggerFilterDefinition(
+            name,
+            description.Trim(),
+            (evt, context) => filter((TEvent)evt, context)));
         return this;
     }
 
@@ -137,10 +180,38 @@ public sealed class NhAssistantTriggerEventBuilder<TEvent>
             evt => dedupe((TEvent)evt),
             payload is null ? null : evt => payload((TEvent)evt))
         {
-            SubjectType = _subjectType
+            SubjectType = _subjectType,
+            Filters = _filters.ToArray()
         };
     }
 }
+
+/// <summary>
+/// What a named filter of a trigger event learns about the data trigger it decides for; see
+/// <see cref="NhAssistantTriggerEventBuilder{TEvent}.Filter"/>.
+/// </summary>
+/// <param name="AgentId">The agent the trigger starts.</param>
+/// <param name="SkillId">The skill the trigger names; <see langword="null"/> when the agent's rules or
+/// triage choose.</param>
+/// <param name="TriggerId">The data trigger.</param>
+/// <param name="AgentActorId">The actor the agent acts as in its runs: the
+/// <see cref="NhAiInvocationContext.ActorId"/> of every tool call in the agent's runs and the
+/// <see cref="NhAssistantAgentDefinition.ActorId"/> of the agent. An application that stamps the
+/// invocation context's actor on the events its tools cause can skip the agent's own changes by
+/// comparing the two.</param>
+public sealed record NhAssistantTriggerFilterContext(
+    string AgentId,
+    string? SkillId,
+    string TriggerId,
+    string AgentActorId);
+
+/// <summary>
+/// A named filter of a trigger event that data triggers on the event may select.
+/// </summary>
+internal sealed record NhAssistantTriggerFilterDefinition(
+    string Name,
+    string Description,
+    Func<object, NhAssistantTriggerFilterContext, bool> Accepts);
 
 /// <summary>
 /// An application event that data-defined triggers name, with what every trigger on it receives.
@@ -161,6 +232,38 @@ internal sealed record NhAssistantTriggerEventDefinition(
     /// trigger on it fires.
     /// </summary>
     public string? SubjectType { get; init; }
+
+    /// <summary>
+    /// The named filters a data trigger on the event may select, in the order of registration.
+    /// </summary>
+    public IReadOnlyList<NhAssistantTriggerFilterDefinition> Filters { get; init; } = [];
+}
+
+/// <summary>
+/// Names of the filters of a trigger event: lowercase dash-case, at most 64 characters, such as
+/// <c>not-own-change</c>.
+/// </summary>
+internal static partial class NhAssistantTriggerFilterNames
+{
+    public const int MaxLength = 64;
+
+    public static bool IsValid(string? name)
+    {
+        return name is { Length: > 0 and <= MaxLength } && Pattern().IsMatch(name);
+    }
+
+    public static void Validate(string name, string parameterName)
+    {
+        if (!IsValid(name))
+        {
+            throw new ArgumentException(
+                "A filter name is lowercase dash-case, at most 64 characters.",
+                parameterName);
+        }
+    }
+
+    [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]
+    private static partial Regex Pattern();
 }
 
 /// <summary>

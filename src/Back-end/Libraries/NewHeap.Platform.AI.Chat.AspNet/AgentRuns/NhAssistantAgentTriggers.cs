@@ -36,7 +36,9 @@ public interface INhAssistantAgentTriggers
     /// agent; an agent that is off, or a skill the trigger names that is off, ignores them without
     /// an audit (<see cref="NhAssistantTriggerReasons.AgentOff"/>,
     /// <see cref="NhAssistantTriggerReasons.SkillOff"/>); a trigger's <c>When</c> filter decides
-    /// next. A paused agent's events wait in their thread
+    /// next, and then the named filters of its trigger event that a data trigger selected
+    /// (<see cref="NhAssistantTriggerReasons.Filtered"/>,
+    /// <see cref="NhAssistantTriggerReasons.FilterMissing"/>). A paused agent's events wait in their thread
     /// (<see cref="NhAssistantTriggerOutcomes.Waiting"/>) until it resumes.
     /// </para>
     /// <para>
@@ -113,10 +115,20 @@ public static class NhAssistantTriggerReasons
     public const string Deduplicated = "deduplicated";
 
     /// <summary>
-    /// The trigger's <c>When</c> filter refused the event; the outcome is
-    /// <see cref="NhAssistantTriggerOutcomes.Ignored"/> and nothing is audited.
+    /// The trigger's <c>When</c> filter, or a named filter of its trigger event that a data trigger
+    /// selected, refused the event; the outcome is <see cref="NhAssistantTriggerOutcomes.Ignored"/>
+    /// and nothing is audited.
     /// </summary>
     public const string Filtered = "filtered";
+
+    /// <summary>
+    /// A data trigger selected a filter that its trigger event no longer registers, for example after
+    /// a deploy removed it. The trigger fails closed: every event is
+    /// <see cref="NhAssistantTriggerOutcomes.Ignored"/> without an audit, and a warning is logged,
+    /// until the filter is removed from the trigger or registered again. The run configuration lists
+    /// the trigger with the problem <c>unknown-filter</c>.
+    /// </summary>
+    public const string FilterMissing = "filter-missing";
 
     /// <summary>
     /// The agent is switched off (<see cref="NhAssistantAgentRunStates.Off"/>): the outcome is
@@ -269,9 +281,9 @@ internal sealed class NhAssistantAgentTriggers(
                 receipts.Add(live);
                 continue;
             }
-            if (trigger.When is { } when && !when(evt))
+            if (FilterRefusal(trigger, evt) is { } filtered)
             {
-                receipts.Add(live ?? Filtered(trigger));
+                receipts.Add(live ?? Ignored(trigger.Id, filtered));
                 continue;
             }
 
@@ -384,14 +396,49 @@ internal sealed class NhAssistantAgentTriggers(
         return accepting;
     }
 
-    private static NhAssistantTriggerReceipt Filtered(NhAssistantTriggerDefinition trigger)
+    /// <summary>
+    /// Why the trigger takes no interest in the event, before its subject, message or payload
+    /// functions run: its <c>When</c> refuses it, a named filter its data trigger selected refuses it
+    /// (<see cref="NhAssistantTriggerReasons.Filtered"/>), or its event no longer registers such a
+    /// filter (<see cref="NhAssistantTriggerReasons.FilterMissing"/>). <see langword="null"/> when
+    /// the event concerns the trigger. The filters decide for the trigger's own agent; its shadow
+    /// variants receive what that agent receives.
+    /// </summary>
+    private string? FilterRefusal(NhAssistantTriggerDefinition trigger, object evt)
     {
-        return new NhAssistantTriggerReceipt(
+        if (trigger.When is { } when && !when(evt))
+        {
+            return NhAssistantTriggerReasons.Filtered;
+        }
+        if (trigger.MissingFilters.Count > 0)
+        {
+            // Fail closed: without the filter nobody knows what it would have skipped.
+            logger.LogWarning(
+                "Data trigger {TriggerId} of agent {AgentId} ignored an event because its event no longer registers the filters {Filters}.",
+                trigger.Id,
+                trigger.AgentId,
+                string.Join(", ", trigger.MissingFilters));
+            return NhAssistantTriggerReasons.FilterMissing;
+        }
+        if (trigger.Filters.Count == 0)
+        {
+            return null;
+        }
+
+        var context = new NhAssistantTriggerFilterContext(
+            trigger.AgentId,
+            trigger.SkillId,
             trigger.Id,
-            NhAssistantTriggerOutcomes.Ignored,
-            null,
-            null,
-            NhAssistantTriggerReasons.Filtered);
+            NhAssistantAgentEvents.AgentActorPrefix + trigger.AgentId);
+        foreach (var filter in trigger.Filters)
+        {
+            if (!filter.Accepts(evt, context))
+            {
+                return NhAssistantTriggerReasons.Filtered;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -559,8 +606,8 @@ internal sealed class NhAssistantAgentTriggers(
     /// <summary>
     /// The receipt of a trigger that ends before its subject, message or payload lambdas run: its
     /// agent takes no triggers, audited once per agent in <paramref name="refusals"/>, or its
-    /// <c>When</c> filter refuses the event, which is not audited. <see langword="null"/> when the
-    /// trigger fires.
+    /// <c>When</c> filter or a named filter refuses the event, which is not audited.
+    /// <see langword="null"/> when the trigger fires.
     /// </summary>
     internal async Task<NhAssistantTriggerReceipt?> RefuseEarlyAsync(
         NhAssistantTriggerDefinition trigger,
@@ -568,8 +615,12 @@ internal sealed class NhAssistantAgentTriggers(
         Dictionary<string, string?>? refusals,
         CancellationToken cancellationToken)
     {
-        return await RefuseAgentAsync(trigger, trigger.AgentId, trigger.SkillId, refusals, cancellationToken)
-            ?? (trigger.When is { } when && !when(evt) ? Filtered(trigger) : null);
+        if (await RefuseAgentAsync(trigger, trigger.AgentId, trigger.SkillId, refusals, cancellationToken) is { } refused)
+        {
+            return refused;
+        }
+
+        return FilterRefusal(trigger, evt) is { } filtered ? Ignored(trigger.Id, filtered) : null;
     }
 
     /// <summary>

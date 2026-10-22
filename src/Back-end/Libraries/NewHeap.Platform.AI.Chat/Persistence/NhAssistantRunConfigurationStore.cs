@@ -488,6 +488,7 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             existing.SkillId = trigger.SkillId;
             existing.Source = trigger.Source;
             existing.EventName = trigger.EventName;
+            existing.FiltersJson = trigger.FiltersJson;
             existing.Cron = trigger.Cron;
             existing.TimeZone = trigger.TimeZone;
             existing.SubjectSetName = trigger.SubjectSetName;

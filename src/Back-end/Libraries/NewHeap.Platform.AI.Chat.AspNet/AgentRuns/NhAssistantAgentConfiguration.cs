@@ -151,7 +151,9 @@ public interface INhAssistantAgentConfiguration
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Adds a data trigger, which starts in shadow, or changes one in the mode it has.
+    /// Adds a data trigger, which starts in shadow, or changes one in the mode it has. An event
+    /// trigger may select named filters of its event (<see cref="NhAssistantDataTriggerRequest.Filters"/>);
+    /// a name the event does not register fails with <c>assistant-trigger-filter-not-found</c>.
     /// </summary>
     Task<TaskResult<NhAssistantDataTriggerDto>> SaveTriggerAsync(
         string agentId,
@@ -360,6 +362,13 @@ public sealed record NhAssistantRunBlockDto(string Name, string Description)
     /// only agents that work on it. <see langword="null"/> when the type is known only when it fires.
     /// </summary>
     public string? SubjectType { get; init; }
+
+    /// <summary>
+    /// For a trigger event: the named filters a data trigger on it may select, each with its name and
+    /// description, in the order the application registered them; empty when it has none.
+    /// <see langword="null"/> for the other building blocks.
+    /// </summary>
+    public IReadOnlyList<NhAssistantRunBlockDto>? Filters { get; init; }
 }
 
 /// <param name="ToolSelectors">The agent's own tool selectors; a data skill's tools stay within
@@ -684,7 +693,15 @@ public sealed record NhAssistantDataTriggerDto(
     string ChangedBy,
     string? Reason,
     bool InEffect,
-    string? Problem);
+    string? Problem)
+{
+    /// <summary>
+    /// For an event trigger: the names of the event's filters it applies, in their order; every one
+    /// must accept an event. A name the event no longer registers keeps the trigger from firing and
+    /// gives it the problem <c>unknown-filter</c>.
+    /// </summary>
+    public IReadOnlyList<string> Filters { get; init; } = [];
+}
 
 /// <param name="Description">What the skill is for, at most 300 characters; triage and
 /// <c>use_skill</c> choose by it.</param>
@@ -770,6 +787,11 @@ public static class NhAssistantSkillApplyModes
 /// <param name="ExpectedVersion">The trigger's version the change was made on;
 /// <see langword="null"/> for a new trigger.</param>
 /// <param name="Reason">At most 500 characters.</param>
+/// <param name="Filters">For an event trigger: names of the event's filters, as the run catalog lists
+/// them, that must all accept an event, at most 10; empty or <see langword="null"/> applies none. A
+/// name given twice counts once. A name the event does not register fails with
+/// <c>assistant-trigger-filter-not-found</c>; a schedule takes none (<c>filters: invalid</c>).
+/// Changing them is a change of the trigger: its next version, audited.</param>
 public sealed record NhAssistantDataTriggerRequest(
     string? Source,
     string? Skill = null,
@@ -781,7 +803,8 @@ public sealed record NhAssistantDataTriggerRequest(
     string? Conflict = null,
     int? DebounceSeconds = null,
     int? ExpectedVersion = null,
-    string? Reason = null);
+    string? Reason = null,
+    IReadOnlyList<string>? Filters = null);
 
 internal sealed class NhAssistantAgentConfiguration(
     NhAssistantRegistrationState registration,
@@ -810,7 +833,11 @@ internal sealed class NhAssistantAgentConfiguration(
         return new NhAssistantRunCatalogDto(
             registration.TriggerEvents.Values
                 .OrderBy(item => item.Name, StringComparer.Ordinal)
-                .Select(item => new NhAssistantRunBlockDto(item.Name, item.Description) { SubjectType = item.SubjectType })
+                .Select(item => new NhAssistantRunBlockDto(item.Name, item.Description)
+                {
+                    SubjectType = item.SubjectType,
+                    Filters = item.Filters.Select(filter => new NhAssistantRunBlockDto(filter.Name, filter.Description)).ToArray()
+                })
                 .ToArray(),
             registration.SubjectSets.Values.OrderBy(item => item.Name, StringComparer.Ordinal).Select(item => new NhAssistantRunBlockDto(item.Name, item.Description)).ToArray(),
             registration.RuleHandlers.Values.OrderBy(item => item.Name, StringComparer.Ordinal).Select(item => new NhAssistantRunBlockDto(item.Name, item.Description)).ToArray(),
@@ -1470,11 +1497,22 @@ internal sealed class NhAssistantAgentConfiguration(
 
         var schedule = request.Source == NhAssistantDataTriggerSources.Schedule;
         var conflict = Blank(request.Conflict) ?? (schedule ? NhAssistantTriggerConflictNames.Ignore : NhAssistantTriggerConflictNames.Coalesce);
+        // The filters in the order chosen, each once.
+        var filters = (request.Filters ?? [])
+            .Select(name => name?.Trim() ?? string.Empty)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
         var errors = new NhAssistantValidationErrors()
             .Require(NhAiSubjectRef.IsValidType(triggerId) && !NhAssistantTriggerIds.IsReserved(triggerId), "triggerId", NhAssistantFieldErrors.Invalid)
             .Require(request.Source is NhAssistantDataTriggerSources.Event or NhAssistantDataTriggerSources.Schedule, "source", request.Source is null ? NhAssistantFieldErrors.Required : NhAssistantFieldErrors.Invalid)
             .Require(NhAssistantTriggerConflictNames.TryParse(conflict, out _), "conflict", NhAssistantFieldErrors.Invalid)
-            .Require(request.DebounceSeconds is null or >= 0 and <= NhAssistantAgentConfigurationLimits.MaxDebounceSeconds, "debounceSeconds", NhAssistantFieldErrors.Invalid);
+            .Require(request.DebounceSeconds is null or >= 0 and <= NhAssistantAgentConfigurationLimits.MaxDebounceSeconds, "debounceSeconds", NhAssistantFieldErrors.Invalid)
+            .Require(
+                filters.Length <= NhAssistantAgentConfigurationLimits.MaxTriggerFilters
+                && filters.All(NhAssistantTriggerFilterNames.IsValid)
+                && (filters.Length == 0 || !schedule),
+                "filters",
+                NhAssistantFieldErrors.Invalid);
         if (request.Source == NhAssistantDataTriggerSources.Event)
         {
             errors.Require(!string.IsNullOrWhiteSpace(request.Event), "event", NhAssistantFieldErrors.Required);
@@ -1501,6 +1539,7 @@ internal sealed class NhAssistantAgentConfiguration(
             SkillId = Blank(request.Skill),
             Source = request.Source!,
             EventName = schedule ? null : Blank(request.Event),
+            FiltersJson = NhAssistantDataTriggerFilters.Write(filters),
             Cron = schedule ? Blank(request.Cron) : null,
             TimeZone = schedule ? Blank(request.TimeZone) : null,
             SubjectSetName = schedule ? Blank(request.SubjectSet) : null,
@@ -1761,6 +1800,10 @@ internal sealed class NhAssistantAgentConfiguration(
             NhAssistantRunConfigurationProblems.NotWorkedOn => NhAssistantValidationErrors.Failed("event", NhAssistantFieldErrors.Invalid),
             NhAssistantRunConfigurationProblems.UnknownSubjectSet => NhAssistantValidationErrors.Failed("subjectSet", NhAssistantFieldErrors.NotFound),
             NhAssistantRunConfigurationProblems.InvalidSchedule => NhAssistantValidationErrors.Failed("cron", NhAssistantFieldErrors.Invalid),
+            // A filter the event does not register: its own code, so an import can tell it apart.
+            NhAssistantRunConfigurationProblems.UnknownFilter => new NhAssistantValidationErrors()
+                .Add("filters", NhAssistantFieldErrors.NotFound)
+                .ToResult(NhAssistantErrorCodes.TriggerFilterNotFound, "The trigger event has no such filter."),
             _ => NhAssistantValidationErrors.Failed("triggerId", NhAssistantFieldErrors.Invalid)
         };
     }
@@ -1876,6 +1919,9 @@ internal sealed class NhAssistantAgentConfiguration(
             item.UpdatedBy,
             item.Reason,
             problem is null,
-            problem);
+            problem)
+        {
+            Filters = NhAssistantDataTriggerFilters.Read(item.FiltersJson) ?? []
+        };
     }
 }
