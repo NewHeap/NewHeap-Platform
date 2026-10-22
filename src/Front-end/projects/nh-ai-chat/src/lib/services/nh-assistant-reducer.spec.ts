@@ -164,6 +164,26 @@ describe('applyNhAssistantApprovalDecision', () => {
     expect(decided.pendingApproval).toBeNull();
     expect(decided.status).toBe('running');
   });
+
+  it('leaves a consulted agent\'s proposal: closed here, no longer to leave, and the waiting tool call goes on', () => {
+    const consulted: ApprovalPart = {
+      ...approval,
+      consultation: {
+        consultationId: 'consultation-1', agentId: 'planner', subjectType: 'project', subjectId: 'p1', subjectDisplayName: 'Alpha',
+        leaveRoute: 'subject-agent-rights', answer: 'Alpha can go on hold.', movedToApprovalId: null
+      }
+    };
+    const waiting = replay(emptyConversation(), mutatingTurn.map(event =>
+      event.type === 'approval.required' ? { ...event, data: consulted } : event), 'client-1');
+
+    const decided = applyNhAssistantApprovalDecision(waiting, 'approval-1', 'leave');
+
+    const parts = decided.messages[1].parts;
+    expect((parts[2] as ToolCallPart).status).toBe('running');
+    expect((parts[3] as ApprovalPart).status).toBe('rejected');
+    expect((parts[3] as ApprovalPart).consultation).toEqual({ ...consulted.consultation!, leaveRoute: null });
+    expect(decided.pendingApproval).toBeNull();
+  });
 });
 
 describe('nhAssistantLatestTurnHasText', () => {

@@ -1,5 +1,6 @@
 import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import {
+  AgentConsultationList,
   AgentUploads,
   ApprovalPart,
   ClientContext,
@@ -71,6 +72,9 @@ interface PendingApproval {
   step: NhAssistantMockApprovalStep['approval'];
 }
 
+/** When the scenario's consultations started, when they name no time. */
+const consultationStart = new Date().toISOString();
+
 interface ActiveRun {
   cancelled: boolean;
   aborted: boolean;
@@ -122,6 +126,7 @@ export class NhAssistantMockBackend {
       agents: () => this.admin.allAgents(),
       administers: () => this.admin.administers,
       threadProposals: conversationId => this.proposals.ofThread(conversationId),
+      threadConsultations: conversationId => this.consultationsOf(conversationId),
       runProposals: runId => this.proposals.ofRun(runId),
       workChanged: (change, agentId) => this.publishAgentWork(change, agentId)
     },
@@ -540,6 +545,12 @@ export class NhAssistantMockBackend {
     });
   }
 
+  /**
+   * `POST conversations/{id}/approvals/{approvalId}/decide`: approves or rejects the approval the
+   * turn waits for, or leaves a consulted agent's proposal with a `leaveRoute` for the subject's
+   * approvers (`leave`). Leaving closes it here, names the proposal that now waits at the subject
+   * (`consultation.movedToApprovalId`) and resumes the turn with the step's `left` steps.
+   */
   private decide(conversation: Conversation, approvalId: string, request: DecideApprovalRequest): Response {
     const pending = this.pendingApprovals.get(conversation.id);
     if (!pending || pending.approval.approvalId !== approvalId) {
@@ -549,7 +560,17 @@ export class NhAssistantMockBackend {
     if (decider && decider !== this.currentUser.actorId) {
       return this.error('assistant-approval-forbidden');
     }
-    if (request?.expectedProposalHash !== pending.approval.proposalHash) {
+    const decision = request?.decision;
+    if (decision !== 'approve' && decision !== 'reject' && decision !== 'leave') {
+      return this.error('assistant-approval-decision-invalid');
+    }
+    if (decision === 'leave' && !pending.approval.consultation) {
+      return this.error('assistant-approval-decision-invalid');
+    }
+    if (decision === 'leave' && !pending.approval.consultation?.leaveRoute) {
+      return this.error('assistant-consult-proposal-refused');
+    }
+    if (request.expectedProposalHash !== pending.approval.proposalHash) {
       return this.empty(409);
     }
     if (Date.parse(pending.approval.expiresAt) <= Date.now()) {
@@ -557,9 +578,12 @@ export class NhAssistantMockBackend {
     }
 
     this.pendingApprovals.delete(conversation.id);
-    const decision = request.decision;
     const lastUser = [...conversation.messages].reverse().find(message => message.role === 'user');
     this.update(conversation.id, current => applyNhAssistantApprovalDecision(current, approvalId, decision));
+    if (decision === 'leave') {
+      const movedToApprovalId = this.nextId();
+      this.update(conversation.id, current => withMovedApproval(current, approvalId, movedToApprovalId));
+    }
 
     return this.stream(conversation.id, async emit => {
       await emit({
@@ -573,6 +597,13 @@ export class NhAssistantMockBackend {
           data: { invocationId: pending.invocationId, status: 'succeeded', resultCode: null, resultPreview: pending.step.resultPreview ?? null }
         });
         await this.playSteps(conversation.id, pending.assistantMessageId, pending.step.approved, emit);
+      } else if (decision === 'leave') {
+        // The consult call ends: its proposal now waits for the subject's approvers.
+        await emit({
+          type: 'tool.completed',
+          data: { invocationId: pending.invocationId, status: 'succeeded', resultCode: 'assistant-consult-proposal-moved', resultPreview: null }
+        });
+        await this.playSteps(conversation.id, pending.assistantMessageId, pending.step.left ?? [], emit);
       } else {
         await this.playSteps(conversation.id, pending.assistantMessageId, pending.step.rejected, emit);
       }
@@ -691,7 +722,21 @@ export class NhAssistantMockBackend {
       argumentsPreview: step.argumentsPreview,
       targets: step.targets,
       expiresAt: new Date(Date.now() + (step.expiresInSeconds ?? 300) * 1000).toISOString(),
-      status: 'pending'
+      status: 'pending',
+      ...(step.consultation
+        ? {
+          consultation: {
+            consultationId: step.consultation.consultationId ?? this.nextId(),
+            agentId: step.consultation.agentId,
+            subjectType: step.consultation.subjectType,
+            subjectId: step.consultation.subjectId,
+            subjectDisplayName: step.consultation.subjectDisplayName ?? null,
+            leaveRoute: step.consultation.leaveRoute ?? null,
+            answer: step.consultation.answer ?? null,
+            movedToApprovalId: null
+          }
+        }
+        : {})
     };
     this.pendingApprovals.set(conversationId, { approval, invocationId, assistantMessageId, step });
     await emit({ type: 'approval.required', data: approval });
@@ -975,6 +1020,42 @@ export class NhAssistantMockBackend {
     return policy === null || (this.scenario.callerPolicies?.includes(policy) ?? true);
   }
 
+  /**
+   * The scenario's consultations of a thread's agent, newest first, each with the proposals of the
+   * scenario that name it, counted per route; `null` when the scenario lists none there.
+   */
+  private consultationsOf(conversationId: string): AgentConsultationList | null {
+    const listed = (this.scenario.consultations ?? []).filter(item => item.conversationId === conversationId);
+    if (listed.length === 0) {
+      return null;
+    }
+
+    const items = listed
+      .map(item => {
+        const proposals = this.proposals.consultationCounts(item.id);
+        const createdAt = item.createdAt ?? consultationStart;
+        const status = item.status ?? 'completed';
+        return {
+          id: item.id,
+          askerActorId: item.askerActorId,
+          askerDisplayName: item.askerDisplayName ?? null,
+          askingAgentId: item.askingAgentId ?? null,
+          depth: 1,
+          status,
+          failureCode: status === 'failed' ? 'assistant-consult-failed' : null,
+          toolCalls: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          proposalCount: proposals.total,
+          createdAt,
+          endedAt: status === 'running' ? null : createdAt,
+          proposalsByRoute: proposals.byRoute
+        };
+      })
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    return { items, total: items.length };
+  }
+
   private nextId(): string {
     this.sequence++;
     const suffix = this.sequence.toString(16).padStart(12, '0');
@@ -1017,6 +1098,21 @@ function languageOf(headers: RequestInit['headers']): string | null {
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+/**
+ * A consulted agent's proposal the person left for the subject's approvers, as the server reads it
+ * afterwards: closed here and naming the proposal that waits at the subject.
+ */
+function withMovedApproval(conversation: Conversation, approvalId: string, movedToApprovalId: string): Conversation {
+  const moved = (part: MessagePart): MessagePart =>
+    part.type === 'approval' && part.approvalId === approvalId && part.consultation
+      ? { ...part, status: 'rejected', consultation: { ...part.consultation, leaveRoute: null, movedToApprovalId } }
+      : part;
+  return {
+    ...conversation,
+    messages: conversation.messages.map(message => ({ ...message, parts: message.parts.map(moved) }))
+  };
 }
 
 /** Like the server: a new message starts in an idle conversation or after a failed turn. */

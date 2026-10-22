@@ -36,6 +36,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountLabelComponent, NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 import { codeTextKeys, readableId, skillDescriptionKeys, skillNameKeys, warningKeys } from './agent-texts';
+import { NhAssistantAgentConsultationRoutesComponent } from './nh-assistant-agent-consultation-routes.component';
 import { AgentFlowEntry } from './run-config/agent-flow';
 import { NhAssistantAgentFlowComponent } from './run-config/nh-assistant-agent-flow.component';
 import { NhAssistantAgentWorkSetupComponent } from './run-config/nh-assistant-agent-work-setup.component';
@@ -66,7 +67,9 @@ interface Confirmation {
  * they compare with the live version and promote or discard; they add data triggers on the
  * application's events or on a schedule and put them live; a schedule without a subject set runs for
  * the whole application, or for every division of an agent that works per division. New skills and
- * triggers start in shadow; `changed` tells the agents page to reload the agent's skill states.
+ * triggers start in shadow; `changed` tells the agents page to reload the agent's skill states. An
+ * agent in code that other assistants can consult also shows the routes of its consultations, which
+ * administrators switch within what code allows.
  */
 @Component({
   selector: 'nh-assistant-agent-run-configuration',
@@ -83,7 +86,8 @@ interface Confirmation {
     NhAssistantSkillFormComponent,
     NhAssistantTriggerFormComponent,
     NhAssistantAccountNamesErrorComponent,
-    NhAssistantAccountLabelComponent
+    NhAssistantAccountLabelComponent,
+    NhAssistantAgentConsultationRoutesComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-run-configuration.component.html',

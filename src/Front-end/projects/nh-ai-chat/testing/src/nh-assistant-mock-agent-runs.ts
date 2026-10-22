@@ -1,5 +1,6 @@
 import {
   AdminAgent,
+  AgentConsultationList,
   AgentLatestRun,
   AgentProposal,
   AgentObjectAgent,
@@ -28,6 +29,8 @@ export interface NhAssistantMockAgentRunContext {
   administers(): boolean;
   /** The scenario's proposals in a thread; `null` when it lists none there. */
   threadProposals?(conversationId: string): AgentProposal[] | null;
+  /** The scenario's consultations of a thread's agent; `null` when it lists none there. */
+  threadConsultations?(conversationId: string): AgentConsultationList | null;
   /** The scenario's proposals of a run, also those it placed at other objects, oldest first. */
   runProposals?(runId: string): AgentProposal[];
   /** Announces that an agent's work changed, as the server's live updates do. */
@@ -195,7 +198,9 @@ export class NhAssistantMockAgentRuns {
       return method === 'GET' ? this.lookup(query, language) : { status: 405 };
     }
     if (segments.length === 3 && method === 'GET') {
-      const listed = segments[2] === 'proposals' ? this.context.threadProposals?.(segments[1]) ?? null : null;
+      const listed = segments[2] === 'proposals'
+        ? this.context.threadProposals?.(segments[1]) ?? null
+        : segments[2] === 'consultations' ? this.context.threadConsultations?.(segments[1]) ?? null : null;
       if (listed) {
         return { status: 200, body: listed };
       }

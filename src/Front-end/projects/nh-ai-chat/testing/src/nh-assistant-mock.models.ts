@@ -1,5 +1,7 @@
 import {
   AdminAgentInput,
+  AgentConsultationStatus,
+  AgentGrantSource,
   AgentProposalOrigin,
   AgentProposalParent,
   AgentProposalStatus,
@@ -21,6 +23,8 @@ import {
   McpServerInput,
   AssistantAccount,
   ApprovalPresentation,
+  NhAssistantConsultationLeaveRoute,
+  NhAssistantConsultationRoute,
   RunCatalog,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
@@ -49,7 +53,10 @@ export interface NhAssistantMockToolStep {
 /**
  * Pauses the turn for approval: `tool.started`, `approval.required` and
  * `turn.completed` with status `waiting-for-approval`. The decision resumes the turn with
- * the `approved` or `rejected` steps.
+ * the `approved` or `rejected` steps. With `consultation` the approval is a consulted agent's
+ * proposal that the person who asked decides in their own chat (`asker-decides`); with its
+ * `leaveRoute` the decision `leave` leaves it for the subject's approvers and resumes the turn with
+ * the `left` steps.
  */
 export interface NhAssistantMockApprovalStep {
   approval: {
@@ -71,7 +78,26 @@ export interface NhAssistantMockApprovalStep {
     resultPreview?: string | null;
     approved: NhAssistantMockStep[];
     rejected: NhAssistantMockStep[];
+    /** The consultation that proposed it; without it the approval is the conversation's own. */
+    consultation?: NhAssistantMockApprovalConsultation;
+    /** The steps after the person left the proposal for the subject's approvers. Default none. */
+    left?: NhAssistantMockStep[];
   };
+}
+
+/** Where a consulted agent's proposal of a mock turn comes from. */
+export interface NhAssistantMockApprovalConsultation {
+  /** Default a generated id. */
+  consultationId?: string;
+  /** The consulted agent that proposed it. */
+  agentId: string;
+  subjectType: string;
+  subjectId: string;
+  subjectDisplayName?: string | null;
+  /** The route at the subject the person may leave it for; default none, so they only approve or reject it. */
+  leaveRoute?: NhAssistantConsultationLeaveRoute | null;
+  /** The consulted agent's answer. Default none. */
+  answer?: string | null;
 }
 
 /** Ends the stream with an `error` event. */
@@ -161,6 +187,13 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
   shadow?: boolean;
   /** The technical account in code, as with `ServiceAccount(actorId)`. */
   serviceAccount?: string;
+  /**
+   * The routes that the consultations of a code agent allow, with the subject types whose
+   * consultation allows each, as `AllowConsultation` in code, such as
+   * `{ 'asker-decides': ['project'], 'subject-asker-rights': ['project'] }`; a route without types is
+   * not allowed. Without it nobody can consult the agent and its state has no `consultationRoutes`.
+   */
+  consultations?: Partial<Record<NhAssistantConsultationRoute, string[]>>;
   /**
    * Whether a code agent says what it works on, as with `WorksOn`; by default it does when the
    * scenario gives `worksOnSubjectTypes`, `worksOnAllSubjects` or `worksOnApplication`.
@@ -489,6 +522,12 @@ export interface NhAssistantMockScenario {
    */
   proposals?: NhAssistantMockProposal[];
   /**
+   * Consultations of agents by other assistants, as the consulted agent's thread lists them
+   * (`GET threads/{id}/consultations`), newest first. Their proposals are those of `proposals` that
+   * name them (`consultationId`), counted per route.
+   */
+  consultations?: NhAssistantMockConsultation[];
+  /**
    * The application's own answer to an upload that passed the assistant's checks: `null` stores it,
    * a code refuses it as the server passes the file source's refusal on, for example
    * `'application-virus-found'` as `assistant-file-upload-refused`. People attach files to messages for
@@ -505,9 +544,28 @@ export interface NhAssistantMockScenario {
   scanUpload?: (upload: NhAssistantMockUpload) => 'refused' | 'failed' | null;
 }
 
+/** A consultation of an agent by another assistant, as the consulted agent's thread lists it. */
+export interface NhAssistantMockConsultation {
+  id: string;
+  /** The consulted agent's thread. */
+  conversationId: string;
+  askerActorId: string;
+  askerDisplayName?: string | null;
+  askingAgentId?: string | null;
+  /** Default `completed`. */
+  status?: AgentConsultationStatus;
+  /** When it started, an ISO date. Default when the mock started. */
+  createdAt?: string;
+}
+
 /**
  * A proposal an agent left, as the mock serves it; the mock fills what it leaves out. With
  * `placedBy` a run placed it here from another subject, such as a run for the whole application.
+ * With `consultationId` another assistant consulted the agent for `initiatorActorId`, and
+ * `consultationRoute` says who decides it: an `asker-decides` proposal waits inline for the person who
+ * asked and nobody decides it here (`assistant-consult-asker-decides`); a `subject-agent-rights`
+ * proposal runs with the agent's own rights and its asker may not decide it
+ * (`assistant-four-eyes-required`).
  */
 export interface NhAssistantMockProposal {
   approvalId: string;
@@ -545,6 +603,17 @@ export interface NhAssistantMockProposal {
   canDecide?: boolean;
   /** Why not, when `canDecide` is `false`. Default `assistant-approval-policy-denied`. */
   reasonCode?: string | null;
+  /** The consultation that proposed it. Default none. */
+  consultationId?: string | null;
+  /** Who decides a consultation's proposal and whose rights run it. Default none. */
+  consultationRoute?: NhAssistantConsultationRoute | null;
+  /** The person who asked through the consultation, or who started the run. Default none. */
+  initiatorActorId?: string | null;
+  /**
+   * Whose rights execute it. Default `agent`, and `delegated` for a consultation's proposal that runs
+   * with the asker's rights.
+   */
+  grantSource?: AgentGrantSource;
 }
 
 /** One request the mock API received, for assertions in tests. */

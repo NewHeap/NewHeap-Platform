@@ -503,6 +503,59 @@ describe('agent-run components', () => {
       expect(cards[0].textContent).not.toContain('proposal.give-feedback');
       expect(cards[1].textContent).toContain('proposal.give-feedback');
     });
+
+    it('waits for the person who asked to decide a consultation\'s proposal in their own chat, without actions here', () => {
+      fixture.componentInstance.proposals.set([
+        {
+          ...proposal('pending'), mode: 'inline', grantSource: 'none', runId: null,
+          consultationId: 'consultation-1', consultationRoute: 'asker-decides', initiatorActorId: 'user-7'
+        },
+        { ...proposal('executed', 'approval-2'), consultationId: 'consultation-1', consultationRoute: 'asker-decides', initiatorActorId: 'user-7' }
+      ]);
+      fixture.componentInstance.canDecide.set(true);
+      fixture.componentInstance.selectable.set(true);
+      fixture.detectChanges();
+
+      const [waiting, done] = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('li.card'));
+      // The badge stays; a line names who asked and the route.
+      expect(waiting.querySelector('.card-header')!.textContent).toContain('proposal.from-consultation');
+      const route = waiting.querySelector('[data-consultation-route]')!;
+      expect(route.getAttribute('data-route')).toBe('asker-decides');
+      expect(route.textContent).toContain('proposal.consultation.asked-by');
+      expect(route.textContent).toContain('proposal.consultation.route.asker-decides');
+      expect(waiting.querySelector('[data-waiting-for-asker]')!.textContent).toContain('proposal.consultation.waiting-for-asker');
+      expect(waiting.textContent).not.toContain('proposal.approve');
+      expect(waiting.querySelector('input[type="checkbox"]')).toBeNull();
+      // Nothing to select: nobody decides it here.
+      expect((fixture.nativeElement as HTMLElement).querySelector('.toolbar')).toBeNull();
+      // Once decided it no longer waits.
+      expect(done.querySelector('[data-waiting-for-asker]')).toBeNull();
+      expect(done.querySelector('[data-consultation-route]')).not.toBeNull();
+    });
+
+    it('says that a consultation\'s proposal runs with the agent\'s own rights or those of its technical account', () => {
+      fixture.componentInstance.proposals.set([
+        { ...proposal('pending'), consultationId: 'consultation-1', consultationRoute: 'subject-agent-rights', initiatorActorId: 'user-7' },
+        {
+          ...proposal('pending', 'approval-2'), grantSource: 'accountable',
+          consultationId: 'consultation-1', consultationRoute: 'subject-agent-rights', initiatorActorId: 'user-7'
+        },
+        { ...proposal('pending', 'approval-3'), grantSource: 'delegated', consultationId: 'consultation-2', consultationRoute: 'subject-asker-rights' }
+      ]);
+      fixture.componentInstance.canDecide.set(true);
+      fixture.detectChanges();
+
+      const [agent, account, asker] = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('li.card'));
+      expect(agent.querySelector('[data-consultation-rights]')!.textContent).toContain('proposal.consultation.runs-with.agent');
+      expect(agent.querySelector('.card-header')!.textContent).not.toContain('tool-call.grant-source.agent');
+      expect(account.querySelector('[data-consultation-rights]')!.textContent).toContain('proposal.consultation.runs-with.accountable');
+      expect(asker.querySelector('[data-consultation-rights]')).toBeNull();
+      expect(asker.querySelector('.card-header')!.textContent).toContain('tool-call.grant-source.delegated');
+      expect(asker.querySelector('[data-consultation-route]')!.textContent).toContain('proposal.consultation.route.subject-asker-rights');
+      expect(asker.querySelector('[data-consultation-asker]')).toBeNull();
+      // Approvers decide them here.
+      expect(agent.textContent).toContain('proposal.approve');
+    });
   });
 
   describe('nh-assistant-agent-inbox', () => {
@@ -782,6 +835,26 @@ describe('agent-run components', () => {
       expect(askers[1].hasAttribute('title')).toBeFalse();
     });
 
+    it('counts the proposals a consultation left per route next to its proposal count', () => {
+      api.getConsultations.and.returnValue(of({
+        items: [
+          { ...consultation('completed', 'Pat Planner'), proposalCount: 3, proposalsByRoute: { 'subject-asker-rights': 1, 'asker-decides': 2 } },
+          consultation('failed', null)
+        ],
+        total: 2
+      }));
+      const fixture = TestBed.createComponent(ConsultationsHostComponent);
+      fixture.detectChanges();
+
+      const [counted, none] = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li.card'));
+      const routes = Array.from(counted.querySelectorAll<HTMLElement>('[data-consultation-routes] [data-route]'));
+      expect(routes.map(route => route.dataset['route'])).toEqual(['asker-decides', 'subject-asker-rights']);
+      expect(routes[0].textContent).toContain('consultation.routes.asker-decides');
+      expect(routes[0].getAttribute('title')).toBe('nh-assistant.agent-runs.proposal.consultation.route.asker-decides');
+      // Routes without proposals, and servers without counts, show none.
+      expect(none.querySelector('[data-consultation-routes]')).toBeNull();
+    });
+
     it('explains that nobody consulted the agent yet', () => {
       api.getConsultations.and.returnValue(of({ items: [], total: 0 }));
       const fixture = TestBed.createComponent(ConsultationsHostComponent);
@@ -1016,6 +1089,34 @@ describe('agent-run components', () => {
       const agents = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li.subject-agent'));
       expect(agents.map(agent => agent.querySelector('strong')?.textContent?.trim())).toEqual(['intake', 'advisor']);
       expect(agents[1].textContent).toContain('thread.no-thread');
+    });
+
+    it('gives the person who asked the four-eyes reason instead of actions for a proposal with the agent\'s rights', () => {
+      const consulted = (id: string): AgentProposal => ({
+        ...proposal('pending', id), consultationId: 'consultation-1', consultationRoute: 'subject-agent-rights', initiatorActorId: 'user-7'
+      });
+      api.getSubjectWork.and.returnValue(of(subjectWork({
+        openProposals: [
+          { proposal: consulted('approval-1'), canDecide: false, reasonCode: 'assistant-four-eyes-required' },
+          { proposal: consulted('approval-2'), canDecide: true, reasonCode: null },
+          {
+            proposal: { ...proposal('pending', 'approval-3'), mode: 'inline', consultationId: 'consultation-2', consultationRoute: 'asker-decides' },
+            canDecide: false,
+            reasonCode: 'assistant-consult-asker-decides'
+          }
+        ]
+      })));
+      const fixture = TestBed.createComponent(SuggestionsHostComponent);
+      fixture.detectChanges();
+
+      const [asker, other, waiting] = cards(fixture);
+      expect(asker.textContent).not.toContain('proposal.approve');
+      expect(asker.querySelector('.waiting-for')?.textContent).toContain('proposal.consultation.four-eyes');
+      expect(other.textContent).toContain('proposal.approve');
+      expect(other.querySelector('.waiting-for')).toBeNull();
+      expect(waiting.textContent).not.toContain('proposal.approve');
+      expect(waiting.querySelector('[data-waiting-for-asker]')?.textContent).toContain('proposal.consultation.waiting-for-asker');
+      expect(waiting.querySelectorAll('.waiting-for').length).toBe(1);
     });
 
     it('names agents kept out of the chat by the name their work gives, translated for agents in code', () => {

@@ -99,6 +99,55 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+// Who proposes it: another agent the assistant consulted, about one subject.
+.consultation-origin,
+.consultation-moved {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  color: var(--nha-text-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.consultation-moved {
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--nha-text);
+  background: var(--nha-surface-strong);
+}
+
+.consultation-answer {
+  margin-top: 8px;
+  font-size: 13px;
+
+  summary {
+    cursor: pointer;
+    color: var(--nha-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    @include tokens.focus-ring;
+  }
+
+  p {
+    max-height: 200px;
+    margin: 6px 0 0;
+    overflow: auto;
+    border-radius: 8px;
+    padding: 8px;
+    background: var(--nha-surface);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+.consultation-rights {
+  margin: 10px 0 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
+
 // The rule's reason sits with the proposal it explains.
 .rationale {
   margin: 8px 0 0;
@@ -188,7 +237,25 @@ button {
   }
 }
 
-.reject {
+// Leaving the proposal for the subject's approvers is a calm alternative to deciding it here.
+.leave-for-approvers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.leave-explanation {
+  flex: 1 1 200px;
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
+
+.reject,
+.leave {
   color: var(--nha-text);
   background: transparent;
 

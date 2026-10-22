@@ -1,13 +1,15 @@
 import {
   AdminAgent,
   AdminAgentInput,
+  AgentConsultationRoutesState,
   AgentReplay,
   AgentShadowState,
   AgentSkillState,
   AgentState,
   AgentSummary,
   AssistantAutonomy,
-  AssistantDataClassification
+  AssistantDataClassification,
+  NhAssistantConsultationRoute
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminAgent, NhAssistantMockScenario } from './nh-assistant-mock.models';
 import {
@@ -26,7 +28,27 @@ interface StoredAgent {
   agent: AdminAgent;
   /** The definition in code, for `reset`; null for admin agents. */
   codeDefinition: AdminAgentInput | null;
+  /** The routes of the agent's consultations; `null` for an agent nobody can consult. */
+  consultations: StoredConsultationRoutes | null;
 }
+
+/** The routes code allows for an agent's consultations and the switches administrators set. */
+interface StoredConsultationRoutes {
+  /** The subject types whose consultation in code allows each route. */
+  allowed: Partial<Record<NhAssistantConsultationRoute, string[]>>;
+  /** The switch per route: `true` on, `false` off; a missing route follows the code. */
+  overrides: Partial<Record<NhAssistantConsultationRoute, boolean>>;
+  changedAt: string | null;
+  changedBy: string | null;
+  reason: string | null;
+}
+
+/** The routes in the order the server lists them, with the field of the request that switches each. */
+const consultationRoutes: readonly [NhAssistantConsultationRoute, 'askerDecides' | 'subjectAgentRights' | 'subjectAskerRights'][] = [
+  ['asker-decides', 'askerDecides'],
+  ['subject-agent-rights', 'subjectAgentRights'],
+  ['subject-asker-rights', 'subjectAskerRights']
+];
 
 /** What the agents read of the other areas of the mock administration. */
 export interface NhAssistantMockAgentRules {
@@ -64,7 +86,7 @@ export class NhAssistantMockAdminAgents {
     const agents: NhAssistantMockAdminAgent[] = admin.agents
       ?? scenario.agents.map(agent => ({ ...codeAgentFromSummary(agent), source: 'code' as const }));
     // How an agent runs, in code or as data, belongs to its run configuration, not to the agent.
-    for (const { source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, codeRunSettings: _, runConfiguration: __, ...input } of agents) {
+    for (const { source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, consultations, codeRunSettings: _, runConfiguration: __, ...input } of agents) {
       const agentShadow = shadowOf !== undefined || shadow === true;
       const initial = this.toAgent(input, source, 1, false);
       this.agents.set(input.id, {
@@ -95,7 +117,11 @@ export class NhAssistantMockAdminAgents {
             shadow: shadowState(agentShadow || skill.shadow === true, skill.shadow === true, null, shadowOf !== undefined)
           }))
         },
-        codeDefinition: source === 'code' ? structuredClone(input) : null
+        codeDefinition: source === 'code' ? structuredClone(input) : null,
+        // Only code consults agents: an agent created as data never has consultations.
+        consultations: source === 'code' && consultations !== undefined
+          ? { allowed: structuredClone(consultations), overrides: {}, changedAt: null, changedBy: null, reason: null }
+          : null
       });
     }
   }
@@ -143,7 +169,10 @@ export class NhAssistantMockAdminAgents {
     return result;
   }
 
-  /** `admin/agents`, `admin/agents/{id}` and their `reset`, `state`, `shadow`, `service-account` and `kill-switch`. */
+  /**
+   * `admin/agents`, `admin/agents/{id}` and their `reset`, `state`, `shadow`, `service-account`,
+   * `consultation-routes` and `kill-switch`.
+   */
   agentsEndpoint(method: string, id: string | undefined, action: string | undefined, body: unknown, length: number): NhAssistantMockResult {
     if (id === undefined) {
       if (method === 'GET') {
@@ -163,7 +192,7 @@ export class NhAssistantMockAdminAgents {
       }
 
       const agent = this.toAgent(input, 'admin', 1, false);
-      this.agents.set(agent.id, { agent, codeDefinition: null });
+      this.agents.set(agent.id, { agent, codeDefinition: null, consultations: null });
       return { status: 201, body: agent };
     }
 
@@ -187,6 +216,9 @@ export class NhAssistantMockAdminAgents {
     }
     if (length === 4 && action === 'service-account' && method === 'POST') {
       return this.serviceAccountEndpoint(stored, body);
+    }
+    if (length === 4 && action === 'consultation-routes' && method === 'POST') {
+      return this.consultationRoutesEndpoint(stored, body);
     }
     if (length === 4 && action === 'kill-switch' && method === 'POST') {
       const engaged = (body as { engaged?: unknown } | undefined)?.engaged;
@@ -475,7 +507,7 @@ export class NhAssistantMockAdminAgents {
         skills: (stored.agent.skills ?? []).map(skill => ({ ...skill, shadow: withAgentShadow(skill.shadow, shadow) }))
       };
     }
-    return { status: 200, body: toAgentState(stored.agent) };
+    return { status: 200, body: toAgentState(stored) };
   }
 
   /**
@@ -514,7 +546,53 @@ export class NhAssistantMockAdminAgents {
         }
       };
     }
-    return { status: 200, body: toAgentState(stored.agent) };
+    return { status: 200, body: toAgentState(stored) };
+  }
+
+  /**
+   * `POST admin/agents/{id}/consultation-routes`: each route on, off or back to the code; a route left
+   * out keeps its switch. Code is the ceiling, as on the server: switching on a route that no
+   * consultation in code allows, or switching an agent nobody can consult, answers
+   * `409 assistant-consult-route-not-allowed`.
+   */
+  private consultationRoutesEndpoint(stored: StoredAgent, body: unknown): NhAssistantMockResult {
+    const request = body as Record<string, unknown> | undefined;
+    if (!request || typeof request !== 'object') {
+      return validationFailure();
+    }
+    for (const [, field] of consultationRoutes) {
+      const value = request[field];
+      if (value !== undefined && value !== null && value !== 'on' && value !== 'off' && value !== 'code') {
+        return validationFailure(field);
+      }
+    }
+    const reason = typeof request['reason'] === 'string' && request['reason'].trim().length > 0 ? request['reason'].trim() : null;
+    if ((request['reason'] !== undefined && request['reason'] !== null && typeof request['reason'] !== 'string')
+      || (reason !== null && reason.length > maxStateReason)) {
+      return validationFailure('reason');
+    }
+
+    const current = stored.consultations;
+    if (!current
+      || !consultationRoutes.some(([route]) => isAllowed(current, route))
+      || consultationRoutes.some(([route, field]) => request[field] === 'on' && !isAllowed(current, route))) {
+      return failure('assistant-consult-route-not-allowed');
+    }
+
+    const overrides = { ...current.overrides };
+    for (const [route, field] of consultationRoutes) {
+      const value = request[field];
+      if (value === 'on' || value === 'off') {
+        overrides[route] = value === 'on';
+      } else if (value === 'code') {
+        delete overrides[route];
+      }
+    }
+    const changed = consultationRoutes.some(([route]) => overrides[route] !== current.overrides[route]);
+    if (changed) {
+      stored.consultations = { ...current, overrides, changedAt: this.now(), changedBy: 'current-user', reason };
+    }
+    return { status: 200, body: toAgentState(stored) };
   }
 
   /**
@@ -524,7 +602,7 @@ export class NhAssistantMockAdminAgents {
    */
   private agentStateEndpoint(stored: StoredAgent, method: string, body: unknown): NhAssistantMockResult {
     if (method === 'GET') {
-      return { status: 200, body: toAgentState(stored.agent) };
+      return { status: 200, body: toAgentState(stored) };
     }
     if (method !== 'POST') {
       return { status: 405 };
@@ -544,7 +622,7 @@ export class NhAssistantMockAdminAgents {
     if (stored.agent.runState === 'configured-off') {
       return request.state === 'active'
         ? failure('assistant-agent-configured-off')
-        : { status: 200, body: toAgentState(stored.agent) };
+        : { status: 200, body: toAgentState(stored) };
     }
     if (stored.agent.runState !== request.state) {
       stored.agent = {
@@ -558,7 +636,7 @@ export class NhAssistantMockAdminAgents {
         stateReason: reason
       };
     }
-    return { status: 200, body: toAgentState(stored.agent) };
+    return { status: 200, body: toAgentState(stored) };
   }
 
   /**
@@ -693,7 +771,8 @@ function codeAgentFromSummary(agent: AgentSummary): AdminAgentInput {
   };
 }
 
-function toAgentState(agent: AdminAgent): AgentState {
+function toAgentState(stored: StoredAgent): AgentState {
+  const agent = stored.agent;
   return {
     agentId: agent.id,
     runState: agent.runState,
@@ -708,7 +787,37 @@ function toAgentState(agent: AdminAgent): AgentState {
     shadowOf: agent.shadowOf ?? null,
     shadow: agent.shadow ?? shadowState(false, false, null, false),
     serviceAccount: agent.serviceAccount ?? null,
-    offBeforeStop: agent.runState === 'stopped' && agent.offBeforeStop === true
+    offBeforeStop: agent.runState === 'stopped' && agent.offBeforeStop === true,
+    consultationRoutes: consultationRoutesState(stored.consultations)
+  };
+}
+
+/** Whether a consultation in code allows the route: at least one subject type does. */
+function isAllowed(stored: StoredConsultationRoutes, route: NhAssistantConsultationRoute): boolean {
+  return (stored.allowed[route]?.length ?? 0) > 0;
+}
+
+/** The routes of an agent's consultations as the server reports them; `null` for an agent nobody can consult. */
+function consultationRoutesState(stored: StoredConsultationRoutes | null): AgentConsultationRoutesState | null {
+  if (!stored) {
+    return null;
+  }
+
+  return {
+    routes: consultationRoutes.map(([route]) => {
+      const allowed = isAllowed(stored, route);
+      const override = stored.overrides[route] ?? null;
+      return {
+        route,
+        allowed,
+        override,
+        on: allowed && override !== false,
+        subjectTypes: [...(stored.allowed[route] ?? [])]
+      };
+    }),
+    changedAt: stored.changedAt,
+    changedBy: stored.changedBy,
+    reason: stored.reason
   };
 }
 

@@ -192,6 +192,7 @@
       "waiting-for-participant": "Wacht op de beslissing van de deelnemer die deze taak startte.",
       "waiting-for-approver": "Wacht tot een beslisser hierover beslist.",
       "waiting-for-other-approver": "Jij startte dit werk, dus een andere beslisser beslist hierover.",
+      "waiting-for-asker": "Wacht tot degene die het vroeg, beslist in de eigen chat.",
       "give-feedback": "Wat klopte er niet?",
       "stale-kind": {
         "already-done": "Al gedaan",
@@ -199,7 +200,20 @@
         "not-applicable": "Niet meer nodig"
       },
       "rationale": "Waarom: {{rationale}}",
-      "superseded": "Vervangen door een nieuwer voorstel"
+      "superseded": "Vervangen door een nieuwer voorstel",
+      "consultation": {
+        "origin": "{{agent}} stelt dit voor, over {{subject}}",
+        "answer": "Antwoord van {{agent}}",
+        "own-rights": "Goedkeuren voert het meteen uit met je eigen rechten.",
+        "leave": "Aan goedkeurders laten",
+        "leave-label": "Aan goedkeurders laten: {{summary}}",
+        "leave-explain": {
+          "subject-agent-rights": "De goedkeurders van {{subject}} beslissen; daarna loopt het met de eigen rechten van de agent.",
+          "subject-asker-rights": "De goedkeurders van {{subject}} beslissen; daarna loopt het met jouw rechten."
+        },
+        "moved-status": "Aan goedkeurders gelaten",
+        "moved": "Het wacht nu op de goedkeurders van {{subject}}."
+      }
     },
     "proposal-feedback": {
       "legend": "Wat klopte er niet? (optioneel)",
@@ -407,6 +421,10 @@
       "assistant-consult-timeout": "De agent antwoordde niet op tijd.",
       "assistant-consult-failed": "De agent kon niet antwoorden.",
       "assistant-consult-read-only": "Een raadpleging kan niets wijzigen.",
+      "assistant-consult-proposal-refused": "Geen route bij het onderwerp neemt dit voorstel nog aan. Keur het hier goed of af.",
+      "assistant-consult-asker-decides": "Degene die het vroeg, beslist over dit voorstel in de eigen chat.",
+      "assistant-consult-route-not-allowed": "De raadplegingen van de agent in code staan deze route niet toe, dus die kan niet aan.",
+      "assistant-consult-proposal-moved": "Het voorstel is aan de goedkeurders van het onderwerp gelaten.",
       "assistant-moved-to-shadow": "Het werk is naar de schaduwthread van de agent gegaan, waar een run in schaduw het oppakt.",
       "assistant-shadow-variant": "Een schaduwvariant werkt altijd in schaduw.",
       "assistant-service-account-not-used": "Deze agent werkt niet onder een technisch account.",
@@ -691,6 +709,44 @@
             "code": "Bevestigen"
           },
           "input-label-search": "Account"
+        },
+        "consultation-routes": {
+          "title": "Routes van raadplegingen",
+          "description": "Wanneer een andere assistent deze agent raadpleegt en de agent een wijziging voorstelt, bepaalt een route wie erover beslist en met wiens rechten het loopt.",
+          "load-failed": "De routes van raadplegingen konden niet worden gelezen.",
+          "route": {
+            "asker-decides": "Degene die het vroeg, beslist",
+            "subject-agent-rights": "Goedkeurders beslissen, rechten van de agent",
+            "subject-asker-rights": "Goedkeurders beslissen, rechten van de vrager"
+          },
+          "explain": {
+            "asker-decides": "Degene die het vroeg, beslist in de eigen chat; het loopt met diens eigen rechten.",
+            "subject-agent-rights": "De goedkeurders van het onderwerp, behalve degene die het vroeg, beslissen; het loopt met de eigen rechten van de agent.",
+            "subject-asker-rights": "De goedkeurders van het onderwerp beslissen; het loopt later met de rechten van degene die het vroeg."
+          },
+          "on": "Aan",
+          "off": "Uit",
+          "code": "Ingesteld in code",
+          "overridden": "Overschreven",
+          "not-allowed": "Niet toegestaan in code",
+          "not-allowed-hint": "Geen raadpleging in code staat deze route toe, dus die blijft uit en kan niet aan.",
+          "subject-types": "Voor: {{types}}",
+          "action": {
+            "on": "Aanzetten",
+            "off": "Uitzetten",
+            "code": "Terug naar de instelling in code"
+          },
+          "explain-change": {
+            "on": "Raadplegingen gebruiken deze route weer voor nieuwe voorstellen. Voorstellen die er al zijn, houden hun route.",
+            "off": "Raadplegingen gebruiken deze route niet meer voor nieuwe voorstellen; met alle routes uit lezen de raadplegingen van de agent alleen. Voorstellen die er al zijn, houden hun route.",
+            "code-on": "De instelling in code beslist weer: code staat deze route toe, dus die staat aan.",
+            "code-off": "De instelling in code beslist weer: code staat deze route niet toe, dus die blijft uit."
+          },
+          "confirm": {
+            "on": "Aanzetten bevestigen",
+            "off": "Uitzetten bevestigen",
+            "code": "Bevestigen"
+          }
         },
         "run-config": "Runconfiguratie",
         "run-now": "Nu uitvoeren",
@@ -1831,7 +1887,22 @@
           "shadow": "Schaduw"
         },
         "from-consultation": "Uit een raadpleging",
-        "from-consultation-hint": "Een andere assistent raadpleegde de agent voor deze persoon; het voorstel draait alleen met de rechten van die persoon.",
+        "from-consultation-hint": "Een andere assistent raadpleegde de agent voor iemand, en de agent stelde dit voor.",
+        "consultation": {
+          "asked-by": "Gevraagd door {{name}}",
+          "the-asker": "degene die het vroeg",
+          "route": {
+            "asker-decides": "Degene die het vroeg, beslist in de eigen chat; het loopt met diens eigen rechten.",
+            "subject-agent-rights": "De goedkeurders van het onderwerp, behalve degene die het vroeg, beslissen; het loopt met de eigen rechten van de agent.",
+            "subject-asker-rights": "De goedkeurders van het onderwerp beslissen; het loopt met de rechten van degene die het vroeg."
+          },
+          "waiting-for-asker": "Wacht tot {{name}} beslist in de eigen chat.",
+          "four-eyes": "Jij vroeg hierom, dus een andere goedkeurder beslist; het loopt met de eigen rechten van de agent.",
+          "runs-with": {
+            "agent": "Loopt met de rechten van de agent",
+            "accountable": "Loopt met de rechten van het technische account"
+          }
+        },
         "give-feedback": "Feedback geven",
         "change-feedback": "Feedback wijzigen",
         "your-feedback": "Jouw feedback: {{category}}",
@@ -1910,6 +1981,11 @@
           "running": "Bezig",
           "completed": "Beantwoord",
           "failed": "Niet beantwoord"
+        },
+        "routes": {
+          "asker-decides": "Vrager beslist: {{count}}",
+          "subject-agent-rights": "Goedkeurders, rechten van de agent: {{count}}",
+          "subject-asker-rights": "Goedkeurders, rechten van de vrager: {{count}}"
         }
       },
       "object-agents": {

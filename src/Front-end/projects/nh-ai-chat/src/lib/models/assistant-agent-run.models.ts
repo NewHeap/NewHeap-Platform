@@ -1,4 +1,4 @@
-import { ApprovalPresentation, StaleKind } from './assistant-api.models';
+import { ApprovalPresentation, NhAssistantConsultationRoute, StaleKind } from './assistant-api.models';
 
 /**
  * Contracts of the agent-run endpoints of `NewHeap.Platform.AI.Chat.AspNet`: threads about a
@@ -122,8 +122,9 @@ export interface AgentThreadLookup {
 export interface AgentProposalDecisionRight {
   canDecide: boolean;
   /**
-   * Why the caller may not decide, for example `assistant-four-eyes-required` or
-   * `assistant-approval-policy-denied`; `null` when they may.
+   * Why the caller may not decide, for example `assistant-four-eyes-required`,
+   * `assistant-approval-policy-denied` or `assistant-consult-asker-decides` for a consultation's
+   * proposal that the person who asked decides in their own chat; `null` when they may.
    */
   reasonCode: string | null;
 }
@@ -492,9 +493,17 @@ export interface AgentProposal {
   executedAt: string | null;
   /**
    * The consultation that proposed it, when another assistant consulted the agent for
-   * `initiatorActorId`; it executes with that person's rights only.
+   * `initiatorActorId`; `consultationRoute` says who decides it and whose rights execute it.
    */
   consultationId?: string | null;
+  /**
+   * How a consultation's proposal is decided and whose rights execute it: `asker-decides`, the person
+   * who asked (`initiatorActorId`) decides it in their own chat, nobody decides it here;
+   * `subject-asker-rights`, the subject's approvers decide it and it runs with the asker's rights;
+   * `subject-agent-rights`, the subject's approvers other than the asker decide it and it runs with the
+   * agent's own rights (`grantSource`). `null` for a run's proposal; missing on older servers.
+   */
+  consultationRoute?: NhAssistantConsultationRoute | null;
   /** The caller's own feedback on the proposal; `null` when they gave none. Missing on older servers. */
   feedback?: AgentProposalFeedback | null;
   /**
@@ -675,6 +684,11 @@ export interface AgentConsultation {
   proposalCount: number;
   createdAt: string;
   endedAt: string | null;
+  /**
+   * The proposals the consultation left per route, such as `{ 'asker-decides': 1 }`; routes without
+   * proposals are left out. Missing on older servers.
+   */
+  proposalsByRoute?: Partial<Record<NhAssistantConsultationRoute, number>>;
 }
 
 export interface AgentConsultationList {

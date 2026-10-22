@@ -5,7 +5,7 @@
  * field names identical to the JSON the server returns.
  */
 import { AgentProposalFeedbackCategory, AgentProposalFeedbackGroup, AgentProposalStatus } from './assistant-agent-run.models';
-import { ApprovalPresentation, StaleKind } from './assistant-api.models';
+import { ApprovalPresentation, NhAssistantConsultationRoute, StaleKind } from './assistant-api.models';
 
 export type AssistantStyle = 'default' | 'direct' | 'personal' | 'detailed';
 
@@ -325,6 +325,52 @@ export interface AgentState {
   /** `null` for an agent without runs, which only chats. */
   shadow?: AgentShadowState | null;
   serviceAccount?: AgentServiceAccountState | null;
+  /**
+   * The routes of the agent's consultations, as code allows them and an administrator switched them;
+   * `null` when nobody can consult the agent: it has no consultation in code, as every agent created
+   * in the administration. Missing on older servers.
+   */
+  consultationRoutes?: AgentConsultationRoutesState | null;
+}
+
+/**
+ * The routes of an agent's consultations: one entry per route, and the last change at runtime. Code
+ * is the ceiling: a route no consultation in code allows can never be switched on.
+ */
+export interface AgentConsultationRoutesState {
+  routes: AgentConsultationRouteState[];
+  /** When the routes last changed at runtime; `null` while they follow the code. */
+  changedAt: string | null;
+  changedBy: string | null;
+  reason: string | null;
+}
+
+/** One route of an agent's consultations. */
+export interface AgentConsultationRouteState {
+  route: NhAssistantConsultationRoute;
+  /** Whether a consultation in code allows the route: the ceiling. */
+  allowed: boolean;
+  /** The switch an administrator set: `true` on, `false` off, `null` following the code. */
+  override: boolean | null;
+  /** Whether consultations use the route now: allowed and not switched off. */
+  on: boolean;
+  /** The subject types whose consultation in code allows the route. */
+  subjectTypes: string[];
+}
+
+/** A switch of a consultation route: on, off, or back to the setting in code. */
+export type AgentConsultationRouteSwitch = 'on' | 'off' | 'code';
+
+/**
+ * Body of `POST admin/agents/{id}/consultation-routes`. A route left out keeps its switch; switching
+ * on a route that code does not allow fails with `409 assistant-consult-route-not-allowed`.
+ */
+export interface SetAgentConsultationRoutesRequest {
+  askerDecides?: AgentConsultationRouteSwitch;
+  subjectAgentRights?: AgentConsultationRouteSwitch;
+  subjectAskerRights?: AgentConsultationRouteSwitch;
+  /** Optional, at most 500 characters. */
+  reason?: string | null;
 }
 
 /** Body of `POST admin/agents/{id}/shadow` and `POST admin/agents/{id}/skills/{skillId}/shadow`. */

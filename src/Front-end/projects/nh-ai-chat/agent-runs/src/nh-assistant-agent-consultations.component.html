@@ -37,6 +37,19 @@
           <span>{{ 'nh-assistant.agent-runs.run.tool-calls' | translate: { count: consultation.toolCalls } }}</span>
           <span>{{ 'nh-assistant.agent-runs.run.tokens' | translate: { count: consultation.inputTokens + consultation.outputTokens } }}</span>
           <span>{{ 'nh-assistant.agent-runs.run.proposals' | translate: { count: consultation.proposalCount } }}</span>
+          @let counts = routeCounts(consultation);
+          @if (counts.length > 0) {
+            <span class="consultation-routes" data-consultation-routes>
+              @for (item of counts; track item.route) {
+                <span
+                  class="badge"
+                  [attr.data-route]="item.route"
+                  [attr.title]="'nh-assistant.agent-runs.proposal.consultation.route.' + item.route | translate">
+                  {{ 'nh-assistant.agent-runs.consultation.routes.' + item.route | translate: { count: item.count } }}
+                </span>
+              }
+            </span>
+          }
           @if (consultation.failureCode; as code) {
             <span><nh-assistant-icon name="warning" />{{ codeKeys(code) | nhAssistantTranslate: code }}</span>
           }

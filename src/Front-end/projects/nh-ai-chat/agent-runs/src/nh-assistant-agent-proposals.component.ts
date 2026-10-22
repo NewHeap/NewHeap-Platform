@@ -102,7 +102,10 @@ interface NhAssistantFeedbackRequest {
  * application, says so and offers that run's conversation through `openConversation`. With `groups`
  * from the grouped inbox the list shows a header per group and per subject, optionally per run
  * (`groupByRun`), and "Select group" selects only the group's pending proposals in this list that
- * the caller may decide, never those on another page. `newIds` marks proposals as new.
+ * the caller may decide, never those on another page. `newIds` marks proposals as new. A proposal of
+ * a consultation names who asked and its route: one the person who asked decides in their own chat
+ * (`asker-decides`) waits for them without actions here; one that runs with the agent's own rights
+ * (`subject-agent-rights`) says so, and the person who asked reads why another approver decides.
  */
 @Component({
   selector: 'nh-assistant-agent-proposals',
@@ -297,25 +300,65 @@ export class NhAssistantAgentProposalsComponent {
     this.holdStale(previous.filter(proposal => proposal.status === 'pending' && !nextIds.has(proposal.approvalId)));
   }
 
-  /** Whether the caller may decide this proposal: its own right when one was given, otherwise `canDecide`. */
+  /**
+   * Whether the caller may decide this proposal: its own right when one was given, otherwise
+   * `canDecide`. Nobody decides a proposal here that the person who asked decides in their own chat.
+   */
   mayDecide(proposal: AgentProposal): boolean {
+    if (this.waitsForAsker(proposal)) {
+      return false;
+    }
+
     const right = this.decisionRights()?.get(proposal.approvalId);
     return right ? right.canDecide : this.canDecide();
   }
 
   /**
+   * Whether a pending proposal of a consultation waits for the person who asked, who decides it in
+   * their own chat: its route says so, or the server's reason for the caller's right.
+   */
+  waitsForAsker(proposal: AgentProposal): boolean {
+    if (proposal.status !== 'pending') {
+      return false;
+    }
+
+    return proposal.consultationRoute === 'asker-decides'
+      || this.decisionRights()?.get(proposal.approvalId)?.reasonCode === askerDecidesCode;
+  }
+
+  /**
    * Who decides a pending proposal that has a right the caller lacks: another approver when
-   * four-eyes keeps out the person who started the work, otherwise an approver.
+   * four-eyes keeps out the person who started the work, which for a consultation's proposal that
+   * runs with the agent's own rights is the person who asked, otherwise an approver. A proposal that
+   * waits for the person who asked says so on its own (`waitsForAsker`).
    */
   waitingForKey(proposal: AgentProposal): string | null {
     const right = this.decisionRights()?.get(proposal.approvalId);
-    if (!right || right.canDecide || proposal.status !== 'pending') {
+    if (!right || right.canDecide || proposal.status !== 'pending' || this.waitsForAsker(proposal)) {
       return null;
     }
 
-    return right.reasonCode === 'assistant-four-eyes-required'
-      ? 'nh-assistant.approval.waiting-for-other-approver'
-      : 'nh-assistant.approval.waiting-for-approver';
+    if (right.reasonCode !== fourEyesCode) {
+      return 'nh-assistant.approval.waiting-for-approver';
+    }
+
+    return proposal.consultationRoute === 'subject-agent-rights'
+      ? 'nh-assistant.agent-runs.proposal.consultation.four-eyes'
+      : 'nh-assistant.approval.waiting-for-other-approver';
+  }
+
+  /**
+   * The badge of a consultation's proposal that runs with the agent's own rights: those of a technical
+   * account when the agent answers to one, otherwise the agent's own; `null` for other proposals.
+   */
+  agentRightsKey(proposal: AgentProposal): string | null {
+    if (proposal.consultationRoute !== 'subject-agent-rights') {
+      return null;
+    }
+
+    return proposal.grantSource === 'accountable'
+      ? 'nh-assistant.agent-runs.proposal.consultation.runs-with.accountable'
+      : 'nh-assistant.agent-runs.proposal.consultation.runs-with.agent';
   }
 
   toggle(proposal: AgentProposal): void {
@@ -530,6 +573,12 @@ export class NhAssistantAgentProposalsComponent {
 
 /** The refusal of an approval because the proposal no longer fits. */
 const staleCode = 'assistant-proposal-stale';
+
+/** Someone other than the person who started the work decides the proposal. */
+const fourEyesCode = 'assistant-four-eyes-required';
+
+/** The person who asked decides a consultation's proposal in their own chat; nobody decides it here. */
+const askerDecidesCode = 'assistant-consult-asker-decides';
 
 /** The application's words for a proposal, falling back to its subject and tool. */
 function summaryOf(proposal: AgentProposal): string {

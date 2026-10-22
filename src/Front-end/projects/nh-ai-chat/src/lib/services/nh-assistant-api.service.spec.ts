@@ -188,6 +188,22 @@ describe('NhAssistantApiService', () => {
     expect(invalid.map(event => event.type === 'error' ? event.data.code : event.type)).toEqual(['assistant-invalid-response']);
   });
 
+  it('leaves a consulted agent\'s proposal for the approvers and streams the resumed turn', async () => {
+    fetchSpy.and.returnValue(Promise.resolve(sseResponse([
+      'event: turn.started\ndata: {"turnId":"t2","userMessageId":"u1","assistantMessageId":"a1"}\n\n',
+      'event: turn.completed\ndata: {"turnId":"t2","status":"completed","usage":{"inputTokens":1,"outputTokens":1,"toolCalls":0},"errorCode":null}\n\n'
+    ])));
+    const service = setup();
+
+    const events = await firstValueFrom(service.decideApproval('c1', 'a 1', { decision: 'leave', expectedProposalHash: 'hash' }).pipe(toArray()));
+
+    const [url, init] = fetchSpy.calls.mostRecent().args;
+    expect(url).toBe('/api/assistant/conversations/c1/approvals/a%201/decide');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(init?.body as string)).toEqual({ decision: 'leave', expectedProposalHash: 'hash' });
+    expect(events.map(event => event.type)).toEqual(['turn.started', 'turn.completed']);
+  });
+
   it('turns a network failure into a network error event', async () => {
     fetchSpy.and.returnValue(Promise.reject(new TypeError('Failed to fetch')));
     const service = setup();
