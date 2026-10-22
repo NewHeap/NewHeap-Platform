@@ -101,6 +101,31 @@ describe('Downloads of the assistant API', () => {
     expect(failure.code).toBe('assistant-validation');
     expect(failure.fieldErrors).toEqual({ ids: ['invalid'] });
   });
+
+  it('keep the field errors of a list item by its index and drop field names that are not safe', async () => {
+    const admin = TestBed.inject(NhAssistantAdminApiService);
+    fetchSpy.and.callFake(async () => new Response(JSON.stringify({
+      code: 'assistant-validation',
+      errors: {
+        'readers[0].toolName': ['not-found'],
+        'readers[12]': ['invalid'],
+        'oauth.scopes': ['invalid'],
+        'readers[x].toolName': ['invalid'],
+        'readers[0].<b>': ['invalid'],
+        '[0].toolName': ['invalid']
+      }
+    }), { status: 400 }));
+
+    const failure = await rejection(firstValueFrom(admin.updateMcpServer('files', {
+      id: 'files', displayName: 'Files', url: 'https://files.example.com/mcp', authMode: 'none', headerName: null, requiredPolicy: null, isEnabled: true
+    }))) as NhAssistantApiError;
+
+    expect(failure.fieldErrors).toEqual({
+      'readers[0].toolName': ['not-found'],
+      'readers[12]': ['invalid'],
+      'oauth.scopes': ['invalid']
+    });
+  });
 });
 
 describe('The safe code check of the assistant', () => {

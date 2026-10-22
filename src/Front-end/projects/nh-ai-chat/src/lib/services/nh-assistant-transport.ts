@@ -63,6 +63,8 @@ export type NhAssistantStatusCodes = Partial<Record<number, string>>;
 
 const safeCode = /^[a-z0-9][a-z0-9.-]{0,79}$/;
 const safeField = /^[a-zA-Z][a-zA-Z0-9.]{0,63}$/;
+/** A field of one item of a list, such as `readers[0].toolName`. */
+const safeItemField = /^[a-zA-Z][a-zA-Z0-9]{0,31}\[\d{1,4}\](\.[a-zA-Z][a-zA-Z0-9]{0,31})?$/;
 
 /**
  * Whether a value the server or a callback page sent is a code the library may show: lowercase
@@ -183,7 +185,7 @@ export class NhAssistantTransport {
       if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
         for (const [field, values] of Object.entries(errors as Record<string, unknown>)) {
           const safe = Array.isArray(values) ? values.filter(nhAssistantIsSafeCode) : [];
-          if (safeField.test(field) && safe.length > 0) {
+          if ((safeField.test(field) || safeItemField.test(field)) && safe.length > 0) {
             fieldErrors[field] = safe;
           }
         }
