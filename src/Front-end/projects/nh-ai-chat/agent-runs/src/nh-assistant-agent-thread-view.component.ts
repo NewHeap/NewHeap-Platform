@@ -12,12 +12,14 @@ import {
   viewChild
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
-import { Subscription } from 'rxjs';
+import { Subscription, forkJoin } from 'rxjs';
 import {
   AgentProposal,
+  AgentProposalDecisionRight,
   AgentThreadLookup,
   AgentTriggerReceipt,
   LiveAgentWorkChanged,
+  NH_ASSISTANT_MAX_PROPOSAL_LOOKUP,
   NhAssistantAgentRunApiService,
   NhAssistantError,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
@@ -67,6 +69,7 @@ export class NhAssistantAgentThreadViewComponent {
   private readonly proposalList = viewChild(NhAssistantAgentProposalsComponent);
   private subscription?: Subscription;
   private proposalSubscription?: Subscription;
+  private rightsSubscription?: Subscription;
   private startSubscription?: Subscription;
 
   readonly agentId = input.required<string>();
@@ -83,6 +86,13 @@ export class NhAssistantAgentThreadViewComponent {
   readonly loadFailed = signal(false);
   readonly lookup = signal<AgentThreadLookup | null>(null);
   readonly proposals = signal<AgentProposal[]>([]);
+  /**
+   * The caller's live right to decide each pending proposal, as the server checks it for the decision:
+   * four-eyes keeps the person who asked for a consultation's proposal out, also as an approver, and
+   * nobody decides here what the asker decides in their own chat. Without an answer the caller's role
+   * decides what is offered; the server checks every decision again.
+   */
+  readonly rights = signal<ReadonlyMap<string, AgentProposalDecisionRight> | null>(null);
   readonly message = signal('');
   readonly starting = signal(false);
   readonly receipt = signal<AgentTriggerReceipt | null>(null);
@@ -96,6 +106,7 @@ export class NhAssistantAgentThreadViewComponent {
     inject(DestroyRef).onDestroy(() => {
       this.subscription?.unsubscribe();
       this.proposalSubscription?.unsubscribe();
+      this.rightsSubscription?.unsubscribe();
       this.startSubscription?.unsubscribe();
     });
     effect(() => {
@@ -201,16 +212,45 @@ export class NhAssistantAgentThreadViewComponent {
     this.proposalSubscription?.unsubscribe();
     if (!thread) {
       this.proposals.set([]);
+      this.rights.set(null);
       return;
     }
 
     this.proposalSubscription = this.api.getProposals(thread.conversationId).subscribe({
-      next: proposals => this.proposals.set(proposals),
+      next: proposals => {
+        this.proposals.set(proposals);
+        this.readRights(proposals);
+      },
       error: () => {
         if (!quiet) {
           this.proposals.set([]);
+          this.rights.set(null);
         }
       }
+    });
+  }
+
+  /**
+   * Reads the caller's live right to decide each pending proposal, in batches of
+   * `NH_ASSISTANT_MAX_PROPOSAL_LOOKUP`, as the run result and the subject's work do.
+   */
+  private readRights(proposals: readonly AgentProposal[]): void {
+    this.rightsSubscription?.unsubscribe();
+    const ids = [...new Set(proposals.filter(proposal => proposal.status === 'pending').map(proposal => proposal.approvalId))];
+    if (ids.length === 0) {
+      this.rights.set(null);
+      return;
+    }
+
+    const batches: string[][] = [];
+    for (let start = 0; start < ids.length; start += NH_ASSISTANT_MAX_PROPOSAL_LOOKUP) {
+      batches.push(ids.slice(start, start + NH_ASSISTANT_MAX_PROPOSAL_LOOKUP));
+    }
+    this.rightsSubscription = forkJoin(batches.map(batch => this.api.lookupProposals(batch))).subscribe({
+      next: lookups => this.rights.set(new Map(lookups
+        .flatMap(lookup => lookup.items)
+        .map(item => [item.proposal.approvalId, { canDecide: item.canDecide, reasonCode: item.reasonCode }] as const))),
+      error: () => this.rights.set(null)
     });
   }
 }

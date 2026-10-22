@@ -90,6 +90,7 @@
               <nh-assistant-agent-proposals
                 [proposals]="proposals()"
                 [canDecide]="role() === 'approver'"
+                [decisionRights]="rights()"
                 (changed)="loadProposals()"
                 (openConversation)="openConversation.emit($event)" />
             }

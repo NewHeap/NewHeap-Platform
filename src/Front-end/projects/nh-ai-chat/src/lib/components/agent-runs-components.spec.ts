@@ -869,6 +869,50 @@ describe('agent-run components', () => {
       return { thread: thread(activeRun), canStart: true, role: 'approver' };
     }
 
+    beforeEach(() => {
+      // Without a right of its own, a proposal follows the caller's role.
+      api.lookupProposals.and.returnValue(of({ items: [] }));
+    });
+
+    it('decides by each pending proposal\'s live right, so an approver who asked sees the four-eyes reason', () => {
+      const asked: AgentProposal = {
+        ...proposal('pending', 'approval-1'),
+        runId: null,
+        consultationId: 'consultation-1',
+        consultationRoute: 'subject-agent-rights',
+        initiatorActorId: 'me'
+      };
+      const run = proposal('pending', 'approval-2');
+      const closed = proposal('executed', 'approval-3');
+      api.getThread.and.returnValue(of(lookup(null)));
+      api.getProposals.and.returnValue(of([asked, run, closed]));
+      api.lookupProposals.and.returnValue(of({
+        items: [
+          { proposal: asked, canDecide: false, reasonCode: 'assistant-four-eyes-required' },
+          { proposal: run, canDecide: true, reasonCode: null }
+        ]
+      }));
+      const fixture = TestBed.createComponent(ThreadHostComponent);
+      fixture.detectChanges();
+
+      // Only pending proposals are looked up.
+      expect(api.lookupProposals).toHaveBeenCalledOnceWith(['approval-1', 'approval-2']);
+      const [own, other] = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('li.card'));
+      expect(own.textContent).not.toContain('proposal.approve');
+      expect(own.querySelector('.waiting-for')?.textContent).toContain('proposal.consultation.four-eyes');
+      expect(other.textContent).toContain('proposal.approve');
+    });
+
+    it('falls back to the caller\'s role when the rights cannot be read', () => {
+      api.getThread.and.returnValue(of(lookup(null)));
+      api.getProposals.and.returnValue(of([proposal('pending')]));
+      api.lookupProposals.and.returnValue(throwError(() => new Error('offline')));
+      const fixture = TestBed.createComponent(ThreadHostComponent);
+      fixture.detectChanges();
+
+      expect(button(fixture, 'proposal.approve')).toBeDefined();
+    });
+
     it('starts the agent with the trimmed message and opens the conversation', () => {
       api.getThread.and.returnValue(of(lookup(null)));
       api.getProposals.and.returnValue(of([]));
