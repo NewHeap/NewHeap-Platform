@@ -179,9 +179,9 @@ public sealed class AssistantAgentBriefingTests(AssistantDatabaseFixture databas
                 "- tasks.complete at project-task task-7: recorded there; it waits for that object's approvers.",
                 "- projects.change-status on this subject: not recorded again; the same proposal already waits for a decision or its execution.",
                 "- projects.change-status on this subject: not recorded; people rejected the same proposal recently (2026-10-20).",
-                "- tasks.complete on this subject: not needed (already-done, task-completed); nothing was recorded. The application explains: \"Completed by 'Henk' <b>on 14 Oct</b>.\"",
-                "- tasks.assign on this subject: not placed at its object (no-access); nothing was recorded.",
-                "- projects.archive on this subject: refused (assistant-proposal-refused); nothing was recorded.",
+                "- tasks.complete: not needed (already-done, task-completed); nothing was recorded. The application explains: \"Completed by 'Henk' <b>on 14 Oct</b>.\"",
+                "- tasks.assign: not placed at its object (no-access); nothing was recorded.",
+                "- projects.archive: refused (assistant-proposal-refused); nothing was recorded.",
                 "Recent decisions on earlier proposals of this subject that the rules saw, newest first (the agent continuity block has the details):",
                 "- 2026-10-21 tasks.complete: closed without a decision as already-done",
                 "- 2026-10-20 projects.change-status: rejected by people"

@@ -201,9 +201,15 @@ internal sealed class NhAssistantBriefingService(
     private static string ProposalLine(NhAssistantRuleProposalNote note)
     {
         var proposal = note.Proposal;
+        // The object is known for a proposal placed at another object and for one that was
+        // recorded, or found recorded, in the run's own thread; a refused or not needed one names none.
         var where = proposal.PlacedAt is { } placedAt
             ? " at " + Inline(placedAt.Type, 64) + " " + Inline(placedAt.Id, 128)
-            : " on this subject";
+            : proposal.Outcome is NhAssistantProposeOutcome.Created
+                or NhAssistantProposeOutcome.AlreadyOpen
+                or NhAssistantProposeOutcome.RecentlyRejected
+                ? " on this subject"
+                : string.Empty;
         var outcome = proposal.Outcome switch
         {
             NhAssistantProposeOutcome.Created when proposal.PlacedAt is not null =>
