@@ -266,8 +266,9 @@ and mutate models where applicable.
   tests as theories over `RelationalTestProvider`, so `test:affected` can run the
   SQL Server cases in a process of their own. The sample's tests share one
   PostgreSQL container through the `SamplePostgreSqlServer` assembly fixture; a
-  sample host leases a migrated database from its `MigratedDatabases` pool, and a
-  test that proves migrations creates an empty database of its own.
+  sample host gets a copy of a template database that is migrated once per run
+  (`CreateMigratedDatabaseAsync`), and a test that proves migrations creates an
+  empty database of its own.
 - `test:affected` runs a test in its SQL Server process when the display name
   (class, method and arguments) contains `SqlServer` in any casing. Let only SQL
   Server cases say so: pass the provider as `RelationalTestProvider` (in the

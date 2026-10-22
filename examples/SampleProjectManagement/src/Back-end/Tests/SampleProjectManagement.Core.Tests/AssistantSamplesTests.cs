@@ -205,10 +205,10 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
 }
 
 /// <summary>
-/// One Kestrel host with the sample assistant composition over a migrated sample database that it
-/// leases from the shared <see cref="SamplePostgreSqlServer"/> and uses alone. Project data is served
-/// by an in-memory fake so the evidence focuses on the assistant. Derived hosts add compositions
-/// (such as the API bridge) through the protected hooks.
+/// One Kestrel host with the sample assistant composition over a migrated sample database of its own
+/// on the shared <see cref="SamplePostgreSqlServer"/>. Project data is served by an in-memory fake so
+/// the evidence focuses on the assistant. Derived hosts add compositions (such as the API bridge)
+/// through the protected hooks.
 /// </summary>
 public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLifetime
 {
@@ -218,7 +218,6 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
     public const string OAuthRedirectUri = "https://sample-project-management-api.dev.localhost:5281/api/assistant/mcp/oauth/callback";
 
     private string? _connectionString;
-    private SampleDatabaseLease? _database;
     private WebApplication? _app;
     private Uri? _baseAddress;
 
@@ -235,16 +234,9 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
 
     public virtual async ValueTask InitializeAsync()
     {
-        if (CreatesOwnSchema)
-        {
-            _connectionString = await postgreSql.CreateDatabaseAsync("assistant_sample");
-        }
-        else
-        {
-            // Disposing the host returns the database to the pool, which empties it for the next host.
-            _database = await postgreSql.MigratedDatabases.LeaseAsync();
-            _connectionString = _database.ConnectionString;
-        }
+        _connectionString = CreatesOwnSchema
+            ? await postgreSql.CreateDatabaseAsync("assistant_sample")
+            : await postgreSql.CreateMigratedDatabaseAsync("assistant_sample");
 
         await OnDatabaseCreatedAsync();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
@@ -376,11 +368,6 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
         {
             await _app.StopAsync();
             await _app.DisposeAsync();
-        }
-
-        if (_database is not null)
-        {
-            await _database.DisposeAsync();
         }
     }
 
