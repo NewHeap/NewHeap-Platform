@@ -82,9 +82,9 @@ internal sealed class NhAssistantPostgreSqlMigrationsSqlGenerator(
         MigrationsSqlGenerationOptions options = MigrationsSqlGenerationOptions.Default)
     {
         // Checked-in migrations target the default schema; route them without rewriting history.
-        NhAssistantMigrationSchema.Apply(
-            operations,
-            NhAssistantMigrationSchema.GetConfiguredSchema(Dependencies.CurrentContext.Context));
+        var schema = NhAssistantMigrationSchema.GetConfiguredSchema(Dependencies.CurrentContext.Context);
+        NhAssistantMigrationSchema.Apply(operations, schema);
+        NhAssistantMigrationSchema.ApplyToSql(operations, Dependencies.SqlGenerationHelper.DelimitIdentifier(schema));
         return base.Generate(operations, model, options);
     }
 }

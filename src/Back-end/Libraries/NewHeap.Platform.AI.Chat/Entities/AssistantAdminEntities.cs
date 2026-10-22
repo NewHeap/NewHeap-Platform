@@ -285,28 +285,50 @@ public sealed class AssistantMcpServer
     /// <summary>The administrator who confirmed them.</summary>
     public string? AuthorizationConfirmedBy { get; set; }
 
-    /// <summary>
-    /// The media types the server reads as a reading tool, lowercase and separated by spaces; null
-    /// when the server is not set up as reader (<see cref="NhAssistantMcpReaders"/>).
-    /// </summary>
-    public string? ReaderMediaTypes { get; set; }
-
-    /// <summary>
-    /// The remote name of the tool that turns a file into text; set with <see cref="ReaderMediaTypes"/>.
-    /// </summary>
-    public string? ReaderToolName { get; set; }
-
-    /// <summary>
-    /// The highest classification of a file that may be sent to the reader, one of
-    /// <see cref="NhAssistantDataClassificationNames"/>; set with <see cref="ReaderMediaTypes"/>.
-    /// </summary>
-    public string? ReaderMaxClassification { get; set; }
-
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
 
     public List<AssistantMcpTool> Tools { get; set; } = [];
+
+    /// <summary>
+    /// The reading tools of the server (<see cref="NhAssistantMcpReaders"/>); empty when the server
+    /// reads no files.
+    /// </summary>
+    public List<AssistantMcpReader> Readers { get; set; } = [];
+}
+
+/// <summary>
+/// One reading tool of an MCP server (<see cref="NhAssistantMcpReaders"/>): a tool synced from the
+/// server that turns files of its media types into text for models that do not read them. A server
+/// has at most one reader per tool. The assistant asks the readers of the application first, then the
+/// MCP readers by <see cref="Priority"/>, highest first, then by server id and tool name.
+/// </summary>
+public sealed class AssistantMcpReader
+{
+    public string ServerId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The remote name of the tool that turns a file into text.
+    /// </summary>
+    public string ToolName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The media types the tool reads, lowercase, without parameters and separated by spaces.
+    /// </summary>
+    public string MediaTypes { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The highest classification of a file that may be sent to the tool, one of
+    /// <see cref="NhAssistantDataClassificationNames"/>.
+    /// </summary>
+    public string MaxClassification { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The order among the MCP readers of every server: a higher priority is asked first, from
+    /// <see cref="NhAssistantMcpReaders.MinPriority"/> to <see cref="NhAssistantMcpReaders.MaxPriority"/>.
+    /// </summary>
+    public int Priority { get; set; }
 }
 
 /// <summary>

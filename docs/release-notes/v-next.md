@@ -405,17 +405,18 @@ needs to be refused: a reading tool turns it into text, which the model reads be
 untrusted external data. The application registers its own with the new
 `AddFileReader<T>(readerId, reader => reader.AcceptMediaTypes(...).PermitDataClassifications(...))`
 (`INhAssistantFileReader`, `NhAssistantFileReadRequest`, `NhAssistantFileReaderBuilder`); an
-administrator sets an MCP server up as reader with the new `reader` setting (`mediaTypes`, the synced
-`toolName` that receives `name`, `mediaType` and the base64 `content` of a file, and
-`maxClassification`; `NhAssistantMcpReaders`, `NhAssistantMcpReaderInputDto` and
-`NhAssistantMcpReaderDto` on `NhAssistantMcpServerInputDto` and `NhAssistantMcpServerDto`).
+administrator gives an MCP server readers with the new `readers` (per reader the synced `toolName`
+that receives `name`, `mediaType` and the base64 `content` of a file, `mediaTypes`,
+`maxClassification` and `priority`; `NhAssistantMcpReaders`, `NhAssistantMcpReaderInputDto` and
+`NhAssistantMcpReaderDto` on `NhAssistantMcpServerInputDto` and `NhAssistantMcpServerDto`; see
+"several readers per MCP server" below).
 
-- The readers of the application come first, in registration order, then the MCP servers by id; the
-  first that accepts the type and permits the file's classification reads it. A file above an MCP
-  server's `maxClassification`, and a file for a server the turn may not use (its policy, headless use,
-  a person's consent for `personal` or the initiator rule), is never sent; the code of the first reader
-  that declares the type applies. Without a reader the file is still refused with
-  `assistant-file-type-not-supported`.
+- The readers of the application come first, in registration order, then the MCP readers by priority,
+  highest first, then by server id and tool name; the first that accepts the type and permits the
+  file's classification reads it. A file above an MCP reader's `maxClassification`, and a file for a
+  server the turn may not use (its policy, headless use, a person's consent for `personal` or the
+  initiator rule), is never sent; the code of the first reader that declares the type applies. Without
+  a reader the file is still refused with `assistant-file-type-not-supported`.
 - A reader that received the file and failed refuses it with the new code
   `assistant-file-reader-failed` (`502`), per file; no second reader receives it.
 - The file and turn limits count the tokens of the text (one per four characters) instead of the
@@ -424,29 +425,79 @@ administrator sets an MCP server up as reader with the new `reader` setting (`me
   (`mcp.<server>` with `McpConnectionOwner` for a server); `FileHash` is then the hash of the content
   the reader received.
 
-Apply the `McpServerReaders` migration of `NewHeap.Platform.AI.Chat.SqlServer` or
-`NewHeap.Platform.AI.Chat.PostgreSql`: it adds the nullable `ReaderMediaTypes`, `ReaderToolName` and
-`ReaderMaxClassification` columns to `AssistantMcpServer`.
+Apply the `McpServerReaders` and `McpReaders` migrations of `NewHeap.Platform.AI.Chat.SqlServer` or
+`NewHeap.Platform.AI.Chat.PostgreSql`: together they add the `AssistantMcpReader` table.
 
 | Breaking change | Required action |
 |---|---|
-| Database schema change. | Apply the `McpServerReaders` migration. |
-| `NhAssistantMcpServerDto` has the new property `reader`. | Update a client or test that compares the server's properties exactly. |
+| Database schema change. | Apply the `McpServerReaders` and `McpReaders` migrations. |
+| `NhAssistantMcpServerDto` has the new property `readers`. | Update a client or test that compares the server's properties exactly. |
 
 ## @newheap/platform-ai-chat: MCP servers as readers of documents
 
-The MCP server editor of a synced server offers "Reading documents" (Dutch: "Documenten lezen"): the
-media types the server turns into text, the reading tool chosen from its synced tools and the highest
-classification that may be sent to it, with a note that a file sent to the server leaves the
-application. `McpServer` gains `reader` (`McpReader`) and `McpServerInput` the optional `reader`
-(`McpReaderInput`); an empty `mediaTypes` removes the setting. The mock backend of
-`@newheap/platform-ai-chat/testing` validates and stores it as the server does.
+The MCP server editor of an existing server offers "Reading documents" (Dutch: "Documenten lezen"):
+its readers, each with the tool chosen from the server's synced tools, the media types it turns into
+text, the highest classification that may be sent to it and its priority, with a note that a file sent
+to the server leaves the application. `McpServer` gains `readers` (`McpReader[]`) and `McpServerInput`
+the optional `readers` (`McpReaderInput[]`); see "readers of an MCP server in the editor" below. The
+mock backend of `@newheap/platform-ai-chat/testing` validates and stores them as the server does.
 `NH_ASSISTANT_SERVER_ERROR_CODES` lists `assistant-file-reader-failed`, with English and Dutch texts.
 
 | Breaking change | Required action |
 |---|---|
-| `McpServer` has the new required property `reader`. | Set `reader: null` where you construct an `McpServer`, such as in tests. |
+| `McpServer` has the new required property `readers`. | Set `readers: []` where you construct an `McpServer`, such as in tests. |
 | New translation keys `nh-assistant.admin.server-editor.reader.*` and `nh-assistant.errors.assistant-file-reader-failed`. | Applications with their own translation files add them. |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: several readers per MCP server
+
+An MCP server can now have several readers, one per synced tool, each with its own media types,
+classification bound and priority, in the new `AssistantMcpReader` table. The `reader` setting of the
+preview packages is replaced:
+
+- `NhAssistantMcpServerInputDto.Readers` (`readers`, at most 16) replaces `Reader`: omitted or `null`
+  keeps the stored readers, `[]` removes them all. `NhAssistantMcpReaderInputDto` gains `Priority`
+  (-1000 to 1000, omitted 0), and an empty `mediaTypes` is now refused instead of removing the setting.
+- `NhAssistantMcpServerDto.Readers` (`readers`, by priority, highest first) replaces `Reader`;
+  `NhAssistantMcpReaderDto` gains `Priority`.
+- Field errors name the reader by its index: `readers[0].mediaTypes` (`required`, `invalid`,
+  `too-long`), `readers[0].toolName` (`required`, `invalid` also for a second reader of the same tool,
+  `not-found`), `readers[0].maxClassification` (`required`, `invalid`), `readers[0].priority`
+  (`invalid`), and `readers` (`too-long`).
+- The assistant asks the MCP readers after the application's own by priority, highest first, then by
+  server id and tool name, instead of by server id.
+- `AssistantMcpServer.ReaderMediaTypes`, `ReaderToolName` and `ReaderMaxClassification` are gone;
+  `AssistantMcpServer.Readers` lists the server's `AssistantMcpReader`s and
+  `NhAssistantMcpReaders` gains `MaxReaders`, `MinPriority` and `MaxPriority`.
+- A personal OAuth server the person of a request turn has not connected, or must connect again, is
+  passed over as reader as before, and now shows that person the same `connection-required` card as
+  its tools; an attachment it refused stays in the message without a hash, so asking again after
+  connecting reads it. Headless runs are unchanged.
+
+The `McpReaders` migration creates `AssistantMcpReader`, moves the reader setting of every server into
+a reader at priority 0 and drops the three columns; migrating down keeps the reader asked first.
+
+| Breaking change | Required action |
+|---|---|
+| The admin API's `reader` of an MCP server is replaced by the list `readers`. | Send `readers: [{ toolName, mediaTypes, maxClassification, priority }]` instead of `reader`, `[]` instead of an empty `mediaTypes`, and read `readers` instead of `reader`. |
+| Reader field errors are named per reader, such as `readers[0].toolName` instead of `reader.toolName`. | Map the indexed field names in a client of your own. |
+| `AssistantMcpServer.ReaderMediaTypes`, `ReaderToolName` and `ReaderMaxClassification` are removed. | Read `AssistantMcpServer.Readers` instead. |
+| MCP readers are asked by priority, then by server id and tool name. | Give the reader that should read first the highest priority. |
+| Database schema change. | Apply the `McpReaders` migration. |
+
+## @newheap/platform-ai-chat: readers of an MCP server in the editor
+
+"Reading documents" in the MCP server editor lists the server's readers: each with its tool, media
+types, highest classification and priority (Dutch: "Prioriteit"), to add (up to 16, once the tools are
+synced) and remove ("Add reader", "Remove"). The focus moves to a new reader's tool and, after a
+removal, to "Add reader". A second reader of the same tool is refused before saving, and each field
+error of a reader shows at that reader. The transport now keeps field names with an index, such as
+`readers[0].toolName`, in `NhAssistantApiError.fieldErrors`.
+
+| Breaking change | Required action |
+|---|---|
+| `McpServer.reader` and `McpServerInput.reader` are replaced by `readers` (`McpReader[]`, `McpReaderInput[]`); `McpReader` and `McpReaderInput` gain `priority`. | Use `readers`, and `readers: []` where you construct an `McpServer`. |
+| New translation keys under `nh-assistant.admin.server-editor.reader` (`empty`, `item`, `add`, `add-hint`, `limit`, `remove`, `remove-label`, `tool-duplicate`, `priority`, `priority-hint`, `priority-invalid`). | Applications with their own translation files add them. |
+| The mock's scenario servers take `readers` instead of `reader`. | Rename `reader` to `readers: [...]` in a scenario. |
 
 ## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: chat attachments
 

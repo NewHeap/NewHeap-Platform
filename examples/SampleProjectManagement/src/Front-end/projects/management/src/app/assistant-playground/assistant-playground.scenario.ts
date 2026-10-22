@@ -4,6 +4,9 @@ import { NhAssistantMockPerson, NhAssistantMockRemoteTool, NhAssistantMockScenar
 export const PROJECT_ASSISTANT_ID = 'sample-project-assistant';
 export const ASSISTANT_PLAYGROUND_ADMIN_ROUTE = '/management/assistant/admin';
 export const PLAYGROUND_MCP_SERVER_ID = 'sample-documents';
+/** The Word and Excel media types the playground's MCP readers turn into text (SPM-305). */
+const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 /** Remote tools of the simulated MCP server; the second list simulates a changed input schema. */
 export const PLAYGROUND_REMOTE_TOOLS: NhAssistantMockRemoteTool[] = [
@@ -385,7 +388,9 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         headerName: null,
         requiredPolicy: null,
         isEnabled: true,
-        remoteTools: PLAYGROUND_REMOTE_TOOLS
+        remoteTools: PLAYGROUND_REMOTE_TOOLS,
+        // SPM-305: a second reader of Word documents, asked after the one of Project documents.
+        readers: [{ toolName: 'readDocument', mediaTypes: [DOCX], maxClassification: 'internal', priority: 0 }]
       },
       {
         id: PLAYGROUND_MCP_SERVER_ID,
@@ -398,7 +403,10 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         isEnabled: true,
         // SPM-251: background runs may use the server's own key; the editor shows the choice.
         headlessUse: 'organization',
-        remoteTools: PLAYGROUND_REMOTE_TOOLS
+        remoteTools: PLAYGROUND_REMOTE_TOOLS,
+        // SPM-305: its reading tool turns Word and Excel documents into text for models that do not
+        // read them; the administration lists it under "Reading documents", asked first for its priority.
+        readers: [{ toolName: 'readDocument', mediaTypes: [DOCX, XLSX], maxClassification: 'internal', priority: 10 }]
       },
       {
         id: 'team-calendar',

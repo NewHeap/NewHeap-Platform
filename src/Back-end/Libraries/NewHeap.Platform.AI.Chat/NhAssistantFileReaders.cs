@@ -114,15 +114,22 @@ public sealed class NhAssistantFileReaderBuilder
 }
 
 /// <summary>
-/// The reader setting of an MCP server in the administration: the media types the server reads, the
-/// tool that turns a file into text and the highest classification that may be sent to it. Sending a
-/// file to an MCP server is data leaving the platform, so a file above that classification never
-/// reaches the server.
+/// The readers of an MCP server in the administration: per reader, the synced tool that turns a file
+/// into text, the media types it reads, the highest classification that may be sent to it and its
+/// priority. Sending a file to an MCP server is data leaving the platform, so a file above a reader's
+/// classification never reaches it. The assistant asks the readers of the application first, in
+/// registration order, then the MCP readers by priority, highest first, then by server id and tool
+/// name.
 /// </summary>
 public static class NhAssistantMcpReaders
 {
     /// <summary>
-    /// The most media types one server reads.
+    /// The most readers one server has.
+    /// </summary>
+    public const int MaxReaders = 16;
+
+    /// <summary>
+    /// The most media types one reader reads.
     /// </summary>
     public const int MaxMediaTypes = 16;
 
@@ -130,6 +137,16 @@ public static class NhAssistantMcpReaders
     /// The longest remote tool name of a reader.
     /// </summary>
     public const int MaxToolNameLength = 128;
+
+    /// <summary>
+    /// The lowest priority of a reader.
+    /// </summary>
+    public const int MinPriority = -1_000;
+
+    /// <summary>
+    /// The highest priority of a reader.
+    /// </summary>
+    public const int MaxPriority = 1_000;
 
     /// <summary>
     /// The longest stored list of media types: <see cref="MaxMediaTypes"/> types of at most

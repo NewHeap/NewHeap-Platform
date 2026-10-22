@@ -61,6 +61,12 @@ internal sealed record NhAssistantFileOutcome(
     /// Whose credential the request of an MCP reader that failed the file carried.
     /// </summary>
     public string? McpConnectionOwner { get; init; }
+
+    /// <summary>
+    /// The server the person of a request turn has to connect before its reader can read the refused
+    /// file; the turn shows its connection card (D33).
+    /// </summary>
+    public NhAssistantMcpConnectionNeeded? ConnectionNeeded { get; init; }
 }
 
 /// <summary>
@@ -348,6 +354,19 @@ internal sealed class NhAssistantTurnFiles(
     }
 
     /// <summary>
+    /// The servers the person has to connect before their readers can read the refused files of
+    /// <paramref name="outcomes"/>, each once.
+    /// </summary>
+    public static IReadOnlyList<NhAssistantMcpConnectionNeeded> ConnectionsNeededOf(IEnumerable<NhAssistantFileOutcome> outcomes)
+    {
+        return outcomes
+            .Select(outcome => outcome.ConnectionNeeded)
+            .OfType<NhAssistantMcpConnectionNeeded>()
+            .DistinctBy(needed => needed.ServerId, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    /// <summary>
     /// The content-free audit event of <paramref name="outcome"/>.
     /// </summary>
     public static NhAssistantAuditEvent AuditEventOf(NhAssistantTurnState state, NhAssistantFileOutcome outcome, Guid? invocationId)
@@ -381,7 +400,17 @@ internal sealed class NhAssistantTurnFiles(
     public static string NoteOf(NhAssistantFileOutcome outcome, string language)
     {
         var name = Neutralize(outcome.Reference.Name);
-        return NhAssistantPromptComposer.IsDutch(language)
+        var dutch = NhAssistantPromptComposer.IsDutch(language);
+        if (outcome.ConnectionNeeded is { } needed)
+        {
+            // The person can connect the server whose reader reads it, with the card in the chat.
+            var service = Neutralize(needed.DisplayName);
+            return dutch
+                ? $"[Het bestand \"{name}\" uit een eerdere beurt is in deze beurt niet opnieuw meegegeven ({outcome.Code}): {service} leest het pas als de persoon zijn account koppelt. Zeg dat dat kan met de kaart in het gesprek.]"
+                : $"[The file \"{name}\" from an earlier turn is not included again in this turn ({outcome.Code}): {service} reads it once the person connects their account. Say that they can do so with the card in the chat.]";
+        }
+
+        return dutch
             ? $"[Het bestand \"{name}\" uit een eerdere beurt is in deze beurt niet opnieuw meegegeven ({outcome.Code}). Vraag de persoon het opnieuw te delen als je het nodig hebt.]"
             : $"[The file \"{name}\" from an earlier turn is not included again in this turn ({outcome.Code}). Ask the person to share it again if you need it.]";
     }
@@ -510,10 +539,14 @@ internal sealed class NhAssistantTurnFiles(
                 cancellationToken);
             if (reading.Text is not { } text)
             {
-                return Refused(reference, origin, toolId, reading.Code ?? NhAssistantErrorCodes.FileReaderFailed, mediaType) with
+                var refused = Refused(reference, origin, toolId, reading.Code ?? NhAssistantErrorCodes.FileReaderFailed, mediaType);
+                return refused with
                 {
+                    // A server the person can connect: the model tells them about the card in the chat.
+                    Message = reading.ConnectionNeeded is { } needed ? ConnectionMessageOf(needed) : refused.Message,
                     ReaderId = reading.ReaderId,
-                    McpConnectionOwner = reading.ConnectionOwner
+                    McpConnectionOwner = reading.ConnectionOwner,
+                    ConnectionNeeded = reading.ConnectionNeeded
                 };
             }
 
@@ -708,6 +741,15 @@ internal sealed class NhAssistantTurnFiles(
                 => "The reading tool for this type may not be used in this turn. Do not retry; say that the file could not be read.",
             _ => "The file could not be read. Do not retry; continue without it."
         };
+    }
+
+    /// <summary>
+    /// What the model reads about a file a reader of a server the person has not connected could read:
+    /// the display name only, no tokens or scopes.
+    /// </summary>
+    private static string ConnectionMessageOf(NhAssistantMcpConnectionNeeded needed)
+    {
+        return $"The service that reads files of this type, {Neutralize(needed.DisplayName)}, needs this person to connect their account first. Do not retry; say that the person can connect it with the card in the chat and ask again.";
     }
 
     private static string Neutralize(string value)

@@ -85,9 +85,14 @@ const maxUserName = 256;
 const maxPolicy = 256;
 const maxClientId = 512;
 const maxAccountLabel = 200;
-/** The reader setting of a server: at most 16 media types and a tool name of at most 128 characters. */
+/**
+ * The readers of a server: at most 16, each with at most 16 media types, a tool name of at most 128
+ * characters and a priority from -1000 to 1000.
+ */
+const maxReaders = 16;
 const maxReaderMediaTypes = 16;
 const maxReaderToolName = 128;
+const readerPriority = { min: -1000, max: 1000 } as const;
 const classifications: AssistantDataClassification[] = ['public', 'internal', 'confidential', 'restricted'];
 const mediaTypePattern = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/;
 const controlCharacters = /[\u0000-\u001f\u007f]/;
@@ -142,11 +147,11 @@ export class NhAssistantMockAdminMcp {
         remoteTools: remoteTools ?? [],
         tools: new Map()
       };
-      const reader = readerAfter(input, null);
-      if (reader) {
-        // A preconfigured reader was set up after a sync of the server's tools.
+      const readers = readersAfter(input, []);
+      if (readers.length > 0) {
+        // Preconfigured readers were set up after a sync of the server's tools.
         this.sync(stored);
-        stored.server.reader = reader;
+        stored.server.readers = readers;
       }
       if (oauthModes.includes(input.authMode)) {
         // A preconfigured OAuth server was confirmed by an administrator before.
@@ -423,7 +428,7 @@ export class NhAssistantMockAdminMcp {
           ...oauthFields(input, stored.server, oauth.authorization),
           headlessUse,
           transport: input.transport ?? stored.server.transport,
-          reader: readerAfter(input, stored.server.reader)
+          readers: readersAfter(input, stored.server.readers)
         };
         if (!oauthModes.includes(input.authMode)) {
           stored.oauthSecret = null;
@@ -630,7 +635,7 @@ export class NhAssistantMockAdminMcp {
     checkServerFields(input, stored, this.scenario.admin?.policies, add, this.scenario.admin?.mcpAuthModes ?? []);
     this.checkCredential(input, stored, add);
     this.checkOAuth(input, stored, add);
-    checkReader(input, stored, add);
+    checkReaders(input, stored, add);
     return errors;
   }
 
@@ -1139,7 +1144,7 @@ function consentFingerprint(stored: StoredServer): string {
 }
 
 /** The state of a server that was just added: never in headless runs unless the input says so. */
-function newServerState(input: McpServerInput): Pick<McpServer, 'lastSyncAt' | 'lastSyncStatus' | 'headlessUse' | 'lastConnectAt' | 'lastConnectCode' | 'transport' | 'reader'> {
+function newServerState(input: McpServerInput): Pick<McpServer, 'lastSyncAt' | 'lastSyncStatus' | 'headlessUse' | 'lastConnectAt' | 'lastConnectCode' | 'transport' | 'readers'> {
   return {
     lastSyncAt: null,
     lastSyncStatus: null,
@@ -1147,8 +1152,8 @@ function newServerState(input: McpServerInput): Pick<McpServer, 'lastSyncAt' | '
     lastConnectAt: null,
     lastConnectCode: null,
     transport: input.transport ?? 'streamable-http',
-    // A new server has no synced tools, so it gets its reader after a sync.
-    reader: null
+    // A new server has no synced tools, so it gets its readers after a sync.
+    readers: []
   };
 }
 
@@ -1162,56 +1167,83 @@ function normalizeMediaType(value: unknown): string | null {
 }
 
 /**
- * The reader setting after an input, as on the server: an omitted or null setting keeps the stored
- * one, no media types removes it, and the media types are stored normalized and once each.
+ * The readers after a valid input, as on the server: omitted or null readers keep the stored ones,
+ * an empty list removes them all, and the media types are stored normalized and once each. The
+ * server returns them by priority, highest first, then by tool name.
  */
-function readerAfter(input: McpServerInput, stored: McpReader | null): McpReader | null {
-  const reader = input.reader;
-  if (reader === undefined || reader === null) {
+function readersAfter(input: McpServerInput, stored: McpReader[]): McpReader[] {
+  const readers = input.readers;
+  if (readers === undefined || readers === null) {
     return stored;
   }
-  const mediaTypes = [...new Set((Array.isArray(reader.mediaTypes) ? reader.mediaTypes : [])
-    .map(normalizeMediaType)
-    .filter((mediaType): mediaType is string => mediaType !== null))];
-  if (mediaTypes.length === 0 || reader.toolName === null || reader.maxClassification === null) {
-    return null;
-  }
-  return { mediaTypes, toolName: reader.toolName, maxClassification: reader.maxClassification };
+  return readers
+    .map(reader => ({
+      mediaTypes: [...new Set(reader.mediaTypes.map(normalizeMediaType).filter((mediaType): mediaType is string => mediaType !== null))],
+      toolName: reader.toolName ?? '',
+      maxClassification: reader.maxClassification ?? 'restricted',
+      priority: reader.priority ?? 0
+    }))
+    .sort((left, right) => right.priority - left.priority || compareOrdinal(left.toolName, right.toolName));
 }
 
 /**
- * The field errors of the reader setting, as the server reports them: `reader.mediaTypes` (invalid,
- * too-long for more than 16), `reader.toolName` (required, invalid, not-found when the server has
- * not synced that tool) and `reader.maxClassification` (required, invalid).
+ * The field errors of the readers, as the server reports them: `readers` (too-long for more than
+ * 16) and per reader, with its index: `readers[0].mediaTypes` (required, invalid, too-long for more
+ * than 16), `readers[0].toolName` (required, invalid also for a second reader of the same tool,
+ * not-found when the server has not synced that tool), `readers[0].maxClassification` (required,
+ * invalid) and `readers[0].priority` (invalid outside -1000 to 1000).
  */
-function checkReader(input: McpServerInput, stored: StoredServer | null, add: AddFieldError): void {
-  const reader = input.reader;
-  if (!reader || !Array.isArray(reader.mediaTypes) || reader.mediaTypes.length === 0) {
+function checkReaders(input: McpServerInput, stored: StoredServer | null, add: AddFieldError): void {
+  const readers = input.readers;
+  if (!Array.isArray(readers) || readers.length === 0) {
+    return;
+  }
+  if (readers.length > maxReaders) {
+    add('readers', 'too-long');
     return;
   }
 
-  const mediaTypes = reader.mediaTypes.map(normalizeMediaType);
-  if (mediaTypes.some(mediaType => mediaType === null)) {
-    add('reader.mediaTypes', 'invalid');
-  } else if (new Set(mediaTypes).size > maxReaderMediaTypes) {
-    add('reader.mediaTypes', 'too-long');
-  }
+  const readTools = new Set<string>();
+  readers.forEach((reader, index) => {
+    const field = (name: string) => `readers[${index}].${name}`;
+    const mediaTypes = Array.isArray(reader?.mediaTypes) ? reader.mediaTypes.map(normalizeMediaType) : [];
+    if (mediaTypes.length === 0) {
+      add(field('mediaTypes'), 'required');
+    } else if (mediaTypes.some(mediaType => mediaType === null)) {
+      add(field('mediaTypes'), 'invalid');
+    } else if (new Set(mediaTypes).size > maxReaderMediaTypes) {
+      add(field('mediaTypes'), 'too-long');
+    }
 
-  const toolName = reader.toolName;
-  if (typeof toolName !== 'string' || toolName.trim().length === 0) {
-    add('reader.toolName', 'required');
-  } else if (toolName.length > maxReaderToolName || controlCharacters.test(toolName)) {
-    add('reader.toolName', 'invalid');
-  } else if (!stored?.tools.has(toolName)) {
-    add('reader.toolName', 'not-found');
-  }
+    const toolName = reader?.toolName;
+    if (typeof toolName !== 'string' || toolName.trim().length === 0) {
+      add(field('toolName'), 'required');
+    } else if (toolName.length > maxReaderToolName || controlCharacters.test(toolName) || readTools.has(toolName)) {
+      add(field('toolName'), 'invalid');
+    } else if (!stored?.tools.has(toolName)) {
+      add(field('toolName'), 'not-found');
+    }
+    if (typeof toolName === 'string') {
+      readTools.add(toolName);
+    }
 
-  const classification = reader.maxClassification;
-  if (classification === null || classification === undefined) {
-    add('reader.maxClassification', 'required');
-  } else if (!classifications.includes(classification)) {
-    add('reader.maxClassification', 'invalid');
-  }
+    const classification = reader?.maxClassification;
+    if (classification === null || classification === undefined) {
+      add(field('maxClassification'), 'required');
+    } else if (!classifications.includes(classification)) {
+      add(field('maxClassification'), 'invalid');
+    }
+
+    const priority = reader?.priority ?? 0;
+    if (!Number.isInteger(priority) || priority < readerPriority.min || priority > readerPriority.max) {
+      add(field('priority'), 'invalid');
+    }
+  });
+}
+
+/** Compares two names by their characters, as the server orders them. */
+function compareOrdinal(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 /**

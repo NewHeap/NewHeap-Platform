@@ -103,14 +103,19 @@ popup by default, or with `mcpConnectMode: 'redirect'` by leaving the page and c
 (`mcpConnectReturnUrl`, an origin in `ReturnOrigins`). The mock's `connectionRequired` step and
 `personalConnected` play it without a server.
 
-The server editor of a synced server also sets it up as a reader of documents ("Reading
-documents"): the media types it turns into text, the reading tool chosen from the server's synced
-tools and the highest classification that may be sent to it, saved as `reader` (`McpReaderInput`,
-returned as `McpReader` on `McpServer`). Every save of an existing server sends the setting as
-shown; no media types removes it. The editor states that a file sent to the server leaves the
-application, and shows `reader.mediaTypes`, `reader.toolName` and `reader.maxClassification` field
-errors at their fields. The mock API validates and stores the setting as the server does; a
-scenario server with `reader` starts with its tools synced.
+The server editor of an existing server lists its readers of documents ("Reading documents"):
+per reader the tool chosen from the server's synced tools, the media types it turns into text, the
+highest classification that may be sent to it and its priority, a higher one asked first. The
+administrator adds a reader (up to 16, once the tools are synced) and removes one; the focus moves to
+the new reader's tool, and after a removal to the add button. Saved as `readers` (`McpReaderInput[]`,
+returned by priority as `McpReader[]` on `McpServer`); every save of an existing server sends the
+readers as shown, so none removes them all. The editor states that a file sent to the server leaves
+the application, refuses a second reader of the same tool before it saves, and shows each server field
+error of a reader at that reader (`readers[0].toolName`, `readers[0].priority`, ...); the transport keeps
+field names with an index in `NhAssistantApiError.fieldErrors`. The mock API validates and stores the
+readers as the server does; a scenario server with `readers` starts with its tools synced. A personal
+OAuth reader the person has not connected shows the same connection card in the chat as the server's
+tools; after connecting, "Ask again" reads an attachment it refused, because the message kept it.
 
 Route to `NhAssistantAdminComponent` from `@newheap/platform-ai-chat/admin` with a
 lazy route guarded by the host's admin permission (for example

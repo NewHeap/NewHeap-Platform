@@ -41,20 +41,21 @@ internal sealed record NhAssistantMcpServerInput(
     /// <summary>The OAuth settings of <c>oauth</c> and <c>oauth-client-credentials</c>; null keeps them.</summary>
     public NhAssistantMcpOAuthInput? OAuth { get; init; }
 
-    /// <summary>The reader setting; null keeps it, no media types removes it.</summary>
-    public NhAssistantMcpReaderInput? Reader { get; init; }
+    /// <summary>The readers of the server; null keeps them, an empty list removes them all.</summary>
+    public IReadOnlyList<NhAssistantMcpReaderInput>? Readers { get; init; }
 }
 
 /// <summary>
-/// The reader setting of a server (<see cref="NhAssistantMcpReaders"/>): the media types it reads, the
-/// remote name of a synced tool that turns a file into text and the highest classification, one of
-/// <see cref="NhAssistantDataClassificationNames"/>, that may be sent to it. No media types removes the
-/// setting.
+/// One reader of a server (<see cref="NhAssistantMcpReaders"/>): the media types it reads, the remote
+/// name of a synced tool that turns a file into text, the highest classification, one of
+/// <see cref="NhAssistantDataClassificationNames"/>, that may be sent to it, and its priority among the
+/// MCP readers, higher first.
 /// </summary>
 internal sealed record NhAssistantMcpReaderInput(
     IReadOnlyList<string> MediaTypes,
     string? ToolName,
-    string? MaxClassification);
+    string? MaxClassification,
+    int Priority = 0);
 
 /// <summary>
 /// OAuth settings of a server. <see cref="ClientId"/>, <see cref="ClientSecret"/>,
@@ -453,7 +454,7 @@ internal sealed partial class NhAssistantMcpAdministration(
                     || modes.FitsHeadlessUse(headlessUse, input.AuthMode, connectionScope),
                 "headlessUse",
                 NhAssistantFieldErrors.Invalid);
-        await ValidateReaderAsync(input.Reader, existing, errors, cancellationToken);
+        await ValidateReadersAsync(input.Readers, existing, errors, cancellationToken);
         if (!errors.IsEmpty)
         {
             return errors.ToResult();
@@ -522,56 +523,89 @@ internal sealed partial class NhAssistantMcpAdministration(
     }
 
     /// <summary>
-    /// The reader setting: valid media types, at most <see cref="NhAssistantMcpReaders.MaxMediaTypes"/>;
-    /// a tool the administrator synced from the server, so a new server, which has no tools yet, gets
-    /// its reader after a sync; and a known classification.
+    /// The readers: at most <see cref="NhAssistantMcpReaders.MaxReaders"/> (<c>readers</c>,
+    /// <c>too-long</c>), and per reader, named with its index such as <c>readers[0].toolName</c>: one
+    /// to <see cref="NhAssistantMcpReaders.MaxMediaTypes"/> valid media types; a tool the
+    /// administrator synced from the server, so a new server, which has no tools yet, gets its readers
+    /// after a sync, and one reader per tool; a known classification; and a priority from
+    /// <see cref="NhAssistantMcpReaders.MinPriority"/> to <see cref="NhAssistantMcpReaders.MaxPriority"/>.
     /// </summary>
-    private async Task ValidateReaderAsync(
-        NhAssistantMcpReaderInput? reader,
+    private async Task ValidateReadersAsync(
+        IReadOnlyList<NhAssistantMcpReaderInput>? readers,
         AssistantMcpServer? existing,
         NhAssistantValidationErrors errors,
         CancellationToken cancellationToken)
     {
-        if (reader is null || reader.MediaTypes.Count == 0)
+        if (readers is null || readers.Count == 0)
         {
             return;
         }
+        if (readers.Count > NhAssistantMcpReaders.MaxReaders)
+        {
+            errors.Add("readers", NhAssistantFieldErrors.TooLong);
+            return;
+        }
 
+        IReadOnlySet<string> synced = existing is null
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : (await store.ListMcpToolsAsync(existing.Id, cancellationToken))
+                .Select(tool => tool.RemoteName)
+                .ToHashSet(StringComparer.Ordinal);
+        var readTools = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < readers.Count; index++)
+        {
+            ValidateReader(readers[index], $"readers[{index}].", synced, readTools, errors);
+        }
+    }
+
+    private static void ValidateReader(
+        NhAssistantMcpReaderInput reader,
+        string prefix,
+        IReadOnlySet<string> synced,
+        HashSet<string> readTools,
+        NhAssistantValidationErrors errors)
+    {
         var mediaTypes = reader.MediaTypes.Select(NhAiMediaTypes.Normalize).ToArray();
         var toolName = reader.ToolName;
+        var toolNameValid = !string.IsNullOrWhiteSpace(toolName)
+            && toolName.Length <= NhAssistantMcpReaders.MaxToolNameLength
+            && !toolName.Any(char.IsControl);
         errors
-            .Require(mediaTypes.All(mediaType => mediaType is not null), "reader.mediaTypes", NhAssistantFieldErrors.Invalid)
-            .Require(mediaTypes.Distinct(StringComparer.Ordinal).Count() <= NhAssistantMcpReaders.MaxMediaTypes, "reader.mediaTypes", NhAssistantFieldErrors.TooLong)
-            .Require(!string.IsNullOrWhiteSpace(toolName), "reader.toolName", NhAssistantFieldErrors.Required)
-            .Require(
-                string.IsNullOrWhiteSpace(toolName)
-                    || (toolName.Length <= NhAssistantMcpReaders.MaxToolNameLength && !toolName.Any(char.IsControl)),
-                "reader.toolName",
-                NhAssistantFieldErrors.Invalid)
-            .Require(reader.MaxClassification is not null, "reader.maxClassification", NhAssistantFieldErrors.Required)
+            .Require(mediaTypes.Length > 0, prefix + "mediaTypes", NhAssistantFieldErrors.Required)
+            .Require(mediaTypes.All(mediaType => mediaType is not null), prefix + "mediaTypes", NhAssistantFieldErrors.Invalid)
+            .Require(mediaTypes.Distinct(StringComparer.Ordinal).Count() <= NhAssistantMcpReaders.MaxMediaTypes, prefix + "mediaTypes", NhAssistantFieldErrors.TooLong)
+            .Require(!string.IsNullOrWhiteSpace(toolName), prefix + "toolName", NhAssistantFieldErrors.Required)
+            .Require(string.IsNullOrWhiteSpace(toolName) || toolNameValid, prefix + "toolName", NhAssistantFieldErrors.Invalid)
+            .Require(reader.MaxClassification is not null, prefix + "maxClassification", NhAssistantFieldErrors.Required)
             .Require(
                 reader.MaxClassification is null || NhAssistantDataClassificationNames.TryParse(reader.MaxClassification, out _),
-                "reader.maxClassification",
+                prefix + "maxClassification",
+                NhAssistantFieldErrors.Invalid)
+            .Require(
+                reader.Priority is >= NhAssistantMcpReaders.MinPriority and <= NhAssistantMcpReaders.MaxPriority,
+                prefix + "priority",
                 NhAssistantFieldErrors.Invalid);
-        if (string.IsNullOrWhiteSpace(toolName) || toolName.Length > NhAssistantMcpReaders.MaxToolNameLength)
+        if (!toolNameValid)
         {
             return;
         }
 
-        var synced = existing is null
-            ? []
-            : await store.ListMcpToolsAsync(existing.Id, cancellationToken);
-        if (!synced.Any(tool => string.Equals(tool.RemoteName, toolName, StringComparison.Ordinal)))
+        if (!readTools.Add(toolName!))
         {
-            errors.Add("reader.toolName", NhAssistantFieldErrors.NotFound);
+            // A second reader of the same tool.
+            errors.Add(prefix + "toolName", NhAssistantFieldErrors.Invalid);
+        }
+        else if (!synced.Contains(toolName!))
+        {
+            errors.Add(prefix + "toolName", NhAssistantFieldErrors.NotFound);
         }
     }
 
     private void Apply(AssistantMcpServer server, NhAssistantMcpServerInput input)
     {
-        if (input.Reader is { } reader)
+        if (input.Readers is { } readers)
         {
-            ApplyReader(server, reader);
+            ApplyReaders(server, readers);
         }
         server.DisplayName = input.DisplayName.Trim();
         server.Url = input.Url.Trim();
@@ -620,26 +654,29 @@ internal sealed partial class NhAssistantMcpAdministration(
     }
 
     /// <summary>
-    /// Stores the reader setting with its media types normalized; no media types removes it.
+    /// Replaces the server's readers with the validated input, their media types normalized and each
+    /// once. The reader of a tool that stays is changed in place; an empty input removes every reader.
     /// </summary>
-    private static void ApplyReader(AssistantMcpServer server, NhAssistantMcpReaderInput reader)
+    private static void ApplyReaders(AssistantMcpServer server, IReadOnlyList<NhAssistantMcpReaderInput> readers)
     {
-        var mediaTypes = reader.MediaTypes
-            .Select(NhAiMediaTypes.Normalize)
-            .OfType<string>()
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        if (mediaTypes.Length == 0)
+        var tools = readers.Select(reader => reader.ToolName!).ToHashSet(StringComparer.Ordinal);
+        server.Readers.RemoveAll(reader => !tools.Contains(reader.ToolName));
+        foreach (var input in readers)
         {
-            server.ReaderMediaTypes = null;
-            server.ReaderToolName = null;
-            server.ReaderMaxClassification = null;
-            return;
-        }
+            var reader = server.Readers.FirstOrDefault(item => string.Equals(item.ToolName, input.ToolName, StringComparison.Ordinal));
+            if (reader is null)
+            {
+                reader = new AssistantMcpReader { ServerId = server.Id, ToolName = input.ToolName! };
+                server.Readers.Add(reader);
+            }
 
-        server.ReaderMediaTypes = string.Join(' ', mediaTypes);
-        server.ReaderToolName = reader.ToolName;
-        server.ReaderMaxClassification = reader.MaxClassification;
+            reader.MediaTypes = string.Join(' ', input.MediaTypes
+                .Select(NhAiMediaTypes.Normalize)
+                .OfType<string>()
+                .Distinct(StringComparer.Ordinal));
+            reader.MaxClassification = input.MaxClassification!;
+            reader.Priority = input.Priority;
+        }
     }
 
     /// <summary>
