@@ -152,6 +152,20 @@ internal static class NhAssistantDtoMapper
             agent.CanMutate);
     }
 
+    /// <summary>
+    /// The agent with what people may attach to a message to it, read from <paramref name="uploads"/>.
+    /// </summary>
+    public static NhAssistantAgentSummaryDto ToDto(NhAssistantAgentDefinition agent, NhAssistantUploads uploads)
+    {
+        var rules = uploads.RulesOf(agent.Id);
+        return ToDto(agent) with
+        {
+            Uploads = rules is null
+                ? null
+                : new NhAssistantAgentUploadsDto(rules.AcceptedMediaTypes, rules.MaxFileBytes, rules.MaxFiles)
+        };
+    }
+
     public static NhAssistantConversationSummaryDto ToSummary(Persistence.NhAssistantConversationListItem item)
     {
         var conversation = item.Conversation;
@@ -227,6 +241,7 @@ internal static class NhAssistantDtoMapper
                 connection.ServerId,
                 connection.DisplayName,
                 connection.Reason),
+            NhAssistantFilePartView file => new NhAssistantFilePartDto(file.Name, file.MediaType, file.Size),
             NhAssistantToolCallPartView tool => new NhAssistantToolCallPartDto(
                 tool.InvocationId,
                 tool.ToolId,

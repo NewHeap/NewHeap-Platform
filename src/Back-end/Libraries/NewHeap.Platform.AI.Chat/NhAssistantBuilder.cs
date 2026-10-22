@@ -645,6 +645,24 @@ public sealed class NhAssistantBuilder
         return this;
     }
 
+    /// <summary>
+    /// Configures how people upload files to a conversation with
+    /// <c>POST {prefix}/conversations/{id}/files</c>: the media types they may upload (PDF, PNG,
+    /// JPEG, Word and Excel by default) and the classification an upload gets (<c>Confidential</c> by
+    /// default). Uploads need a file source (<see cref="UseFileSource{TSource}"/>) and an agent that
+    /// accepts files; <see cref="NhAssistantLimits.MaxFileBytes"/> and the agent's lower limits bound
+    /// every upload.
+    /// </summary>
+    public NhAssistantBuilder ConfigureUploads(Action<NhAssistantUploadOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var uploads = _state.Uploads.Clone();
+        configure(uploads);
+        uploads.Validate();
+        _state.Uploads = uploads;
+        return this;
+    }
+
     private static void ValidateTriggerId(string triggerId)
     {
         if (!NhAiSubjectRef.IsValidType(triggerId))
@@ -758,6 +776,11 @@ internal sealed class NhAssistantRegistrationState
     public NhAiTextAsset? DefaultApplicationContext { get; set; }
 
     public NhAssistantLimits Limits { get; set; } = new();
+
+    /// <summary>
+    /// How people upload files to a conversation; see <see cref="NhAssistantBuilder.ConfigureUploads"/>.
+    /// </summary>
+    public NhAssistantUploadOptions Uploads { get; set; } = new();
 
     /// <summary>
     /// Reservations inside assistant turns also go to the application's budget manager; see

@@ -95,12 +95,13 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         enabled.MapPost("conversations/{id:guid}/messages", SendMessageAsync)
             .WithName("NhAssistantSendMessage")
             .WithSummary("Send a message")
-            .WithDescription("Starts a turn as the caller and streams it as server-sent events. Returns 409 when the conversation is not idle.")
+            .WithDescription("Starts a turn as the caller and streams it as server-sent events. `files` attaches files that `POST conversations/{id}/files` returned. Returns 409 when the conversation is not idle.")
             .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        NhAssistantUploadEndpoints.Map(enabled);
         enabled.MapPost("conversations/{id:guid}/approvals/{approvalId:guid}/decide", DecideAsync)
             .WithName("NhAssistantDecideApproval")
             .WithSummary("Decide an approval")
@@ -161,7 +162,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         HttpContext httpContext,
         IOptionsMonitor<NhAssistantOptions> options,
         NhAssistantRegistrationState state,
-        NhAssistantAgentAccess access)
+        NhAssistantAgentAccess access,
+        NhAssistantUploads uploads)
     {
         var limits = new NhAssistantLimitsDto(state.Limits.MaxMessageChars, state.Limits.MaxToolCallsPerTurn);
         var current = options.CurrentValue;
@@ -180,15 +182,23 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             current.Push.IsConfigured,
             state.Limits.MaxParticipantsPerConversation);
         return Json(
-            new NhAssistantStatusDto(true, agents.Select(NhAssistantDtoMapper.ToDto).ToArray(), limits, canAdminister, collaboration),
+            new NhAssistantStatusDto(
+                true,
+                agents.Select(agent => NhAssistantDtoMapper.ToDto(agent, uploads)).ToArray(),
+                limits,
+                canAdminister,
+                collaboration),
             NhAssistantJsonSerializerContext.Default.NhAssistantStatusDto);
     }
 
-    private static async Task<IResult> GetAgentsAsync(HttpContext httpContext, NhAssistantAgentAccess access)
+    private static async Task<IResult> GetAgentsAsync(
+        HttpContext httpContext,
+        NhAssistantAgentAccess access,
+        NhAssistantUploads uploads)
     {
         var agents = await access.GetVisibleAgentsAsync(httpContext.User, httpContext.RequestAborted);
         return Json(
-            agents.Select(NhAssistantDtoMapper.ToDto).ToArray(),
+            agents.Select(agent => NhAssistantDtoMapper.ToDto(agent, uploads)).ToArray(),
             NhAssistantJsonSerializerContext.Default.NhAssistantAgentSummaryDtoArray);
     }
 
@@ -363,6 +373,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         }
 
         var text = request.Text ?? string.Empty;
+        var files = request.Files ?? [];
         var started = await runner.StartMessageTurnAsync(
             new NhAssistantMessageTurnRequest(
                 id,
@@ -373,15 +384,18 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 RequestLanguage(httpContext),
                 NhAssistantClientContext.From(request.ClientContext))
             {
-                AgentTurn = agentTurn
+                AgentTurn = agentTurn,
+                Files = files
             },
             httpContext.RequestAborted);
         if (!started.Success
             && agentTurn is not null
             && started.GetResultItems().Any(item => item.Name == NhAssistantErrorCodes.ConversationBusy)
-            && !string.IsNullOrWhiteSpace(text))
+            && !string.IsNullOrWhiteSpace(text)
+            && files.Count == 0)
         {
-            // A run owns the thread; the message waits and the agent reads it in its next turn.
+            // A run owns the thread; the message waits and the agent reads it in its next turn. A
+            // message with attachments does not wait: the queued trigger carries text only.
             var triggers = httpContext.RequestServices.GetRequiredService<NhAssistantAgentTriggers>();
             var receipt = await triggers.FireAsync(
                 new NhAssistantTriggerFire(

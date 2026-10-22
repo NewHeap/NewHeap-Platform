@@ -564,6 +564,28 @@ public static class NhAssistantErrorCodes
     /// </summary>
     public const string FileTypeNotSupported = "assistant-file-type-not-supported";
 
+    /// <summary>
+    /// An upload is not one file part named <c>file</c> with a name and content, or lacks the upload
+    /// request header.
+    /// </summary>
+    public const string FileUploadInvalid = "assistant-file-upload-invalid";
+
+    /// <summary>
+    /// People may not upload files of this media type (<see cref="NhAssistantUploadOptions.AcceptedMediaTypes"/>),
+    /// or the content does not match the media type the upload declares.
+    /// </summary>
+    public const string FileTypeNotAccepted = "assistant-file-type-not-accepted";
+
+    /// <summary>
+    /// The application's file source refused to store an upload, for example after a virus scan.
+    /// </summary>
+    public const string FileUploadRefused = "assistant-file-upload-refused";
+
+    /// <summary>
+    /// The application's file source could not store an upload right now.
+    /// </summary>
+    public const string FileUploadFailed = "assistant-file-upload-failed";
+
     public const string TurnFailed = "assistant-turn-failed";
     public const string ContextUnavailable = "assistant-context-unavailable";
 

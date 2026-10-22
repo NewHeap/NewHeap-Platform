@@ -112,9 +112,27 @@ internal sealed class NhAssistantTurnFiles(
     /// </summary>
     public NhAssistantTurnFileLimits? LimitsOf(NhAssistantTurnState state, NhAssistantSkillOptions? skill)
     {
-        var application = state.Scope.Limits;
         var options = state.AgentTurn?.Options
             ?? (registration.AgentRuns.TryGetValue(state.EffectiveAgent.Id, out var configured) ? configured : null);
+        return LimitsOf(state.Scope.Limits, options, skill);
+    }
+
+    /// <summary>
+    /// The file limits of a person's message to <paramref name="agentId"/>, which starts without a
+    /// skill, or <see langword="null"/> when the agent takes no files.
+    /// </summary>
+    public NhAssistantTurnFileLimits? LimitsOfAgent(string agentId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        var options = registration.AgentRuns.TryGetValue(agentId, out var configured) ? configured : null;
+        return LimitsOf(registration.Limits, options, null);
+    }
+
+    private static NhAssistantTurnFileLimits? LimitsOf(
+        NhAssistantLimits application,
+        NhAssistantAgentRunOptions? options,
+        NhAssistantSkillOptions? skill)
+    {
         if (options is null)
         {
             return new NhAssistantTurnFileLimits(

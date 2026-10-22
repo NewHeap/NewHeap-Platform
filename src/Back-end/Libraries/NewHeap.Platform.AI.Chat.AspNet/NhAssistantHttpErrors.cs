@@ -83,6 +83,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.ModelUnavailable,
             NhAssistantErrorCodes.ClassificationNotPermitted,
             NhAssistantErrorCodes.FileReferenceInvalid,
+            NhAssistantErrorCodes.FileUploadInvalid,
             NhAssistantErrorCodes.FileTooManyPages,
             NhAssistantErrorCodes.FileCountLimit,
             NhAssistantErrorCodes.FileTokenLimit,
@@ -233,7 +234,11 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.WebhookPayloadTooLarge,
             NhAssistantErrorCodes.FileTooLarge);
         Add(statuses, StatusCodes.Status415UnsupportedMediaType,
-            NhAssistantErrorCodes.FileTypeNotSupported);
+            NhAssistantErrorCodes.FileTypeNotSupported,
+            NhAssistantErrorCodes.FileTypeNotAccepted);
+        // The application's file source refused an upload it could read, for example after a scan.
+        Add(statuses, StatusCodes.Status422UnprocessableEntity,
+            NhAssistantErrorCodes.FileUploadRefused);
         Add(statuses, StatusCodes.Status429TooManyRequests,
             NhAssistantAdminErrorCodes.McpTooManyAuthorizations);
         // Failures of a remote MCP or OAuth server.
@@ -247,6 +252,7 @@ internal static class NhAssistantHttpErrors
         Add(statuses, StatusCodes.Status503ServiceUnavailable,
             NhAssistantErrorCodes.ProposalCheckFailed,
             NhAssistantErrorCodes.FileUnavailable,
+            NhAssistantErrorCodes.FileUploadFailed,
             NhAssistantRunStore.OrphanedRunCode,
             NhAssistantAdminErrorCodes.McpSecretUnavailable);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);

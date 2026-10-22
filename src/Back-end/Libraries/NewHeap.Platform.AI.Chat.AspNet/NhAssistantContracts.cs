@@ -33,7 +33,27 @@ public sealed record NhAssistantAgentSummaryDto(
     int Version,
     string DisplayNameKey,
     string DescriptionKey,
-    bool CanMutate);
+    bool CanMutate)
+{
+    /// <summary>
+    /// What people may attach to a message to this agent; <see langword="null"/> when they can attach
+    /// nothing: the application registered no file source, accepts no media types for uploads, or the
+    /// agent accepts no files.
+    /// </summary>
+    public NhAssistantAgentUploadsDto? Uploads { get; init; }
+}
+
+/// <summary>
+/// What people may upload with <c>POST conversations/{id}/files</c> and attach to one message to an
+/// agent.
+/// </summary>
+/// <param name="AcceptedMediaTypes">The media types people may upload, lowercase.</param>
+/// <param name="MaxFileBytes">The largest file in bytes: the application's limit or the agent's lower one.</param>
+/// <param name="MaxFiles">The most files of one message.</param>
+public sealed record NhAssistantAgentUploadsDto(
+    IReadOnlyList<string> AcceptedMediaTypes,
+    int MaxFileBytes,
+    int MaxFiles);
 
 /// <param name="Role">The caller's relation: <c>owner</c> or <c>participant</c>.</param>
 /// <param name="ParticipantCount">People the owner shared the conversation with.</param>
@@ -263,7 +283,14 @@ public sealed record NhAssistantLiveEventDto(
 [JsonDerivedType(typeof(NhAssistantToolCallPartDto), "tool-call")]
 [JsonDerivedType(typeof(NhAssistantApprovalPartDto), "approval")]
 [JsonDerivedType(typeof(NhAssistantConnectionRequiredPartDto), "connection-required")]
+[JsonDerivedType(typeof(NhAssistantFilePartDto), "file")]
 public abstract record NhAssistantMessagePartDto;
+
+/// <summary>
+/// A file a person attached to the message: its name, media type and size in bytes, never its
+/// content. The application keeps the file; a later turn opens it again with the rights of that turn.
+/// </summary>
+public sealed record NhAssistantFilePartDto(string Name, string MediaType, long Size) : NhAssistantMessagePartDto;
 
 /// <summary>
 /// The person had to connect an MCP server, which each person connects to with OAuth, before the
@@ -368,10 +395,16 @@ public sealed record NhAssistantCreateConversationRequest(
 /// Optional page context (<see cref="NhAssistantClientContextDto"/>). It is read leniently: a value of
 /// the wrong shape is ignored instead of rejecting the message.
 /// </param>
+/// <param name="Files">
+/// The files the person attaches, as <c>POST conversations/{id}/files</c> returned them, at most the
+/// agent's <see cref="NhAssistantAgentUploadsDto.MaxFiles"/>. The turn opens each through the
+/// application's file source with the sender's rights and ends with the code of the first refusal.
+/// </param>
 public sealed record NhAssistantSendMessageRequest(
     string? Text,
     string? ClientMessageId,
-    JsonElement? ClientContext = null);
+    JsonElement? ClientContext = null,
+    IReadOnlyList<NhAiFileReference>? Files = null);
 
 /// <summary>
 /// What the user has open: route (max 200), title (max 120) and at most 5 entities. Untrusted data
@@ -498,6 +531,7 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))]
 [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))]
 [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))]
+[JsonSerializable(typeof(NhAiFileReference))]
 public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;
 
 public sealed record NhAssistantPreferencesDto(

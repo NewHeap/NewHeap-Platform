@@ -1451,7 +1451,7 @@ internal sealed partial class NhAssistantTurnRunner(
             CreatedAt = DateTimeOffset.UtcNow
         };
         await store.AddMessageAsync(userMessage, CancellationToken.None);
-        await AnnounceUserMessageAsync(access, userMessage, text);
+        await AnnounceUserMessageAsync(access, userMessage, text, request.Files);
         if (history.All(message => message.Role != NhAssistantMessageRoles.User))
         {
             await GenerateTitleAsync(conversation, agent, text);
@@ -2236,12 +2236,14 @@ internal sealed partial class NhAssistantTurnRunner(
     }
 
     /// <summary>
-    /// Marks the sender's own message as read and shows it to the other people in the conversation.
+    /// Marks the sender's own message as read and shows it to the other people in the conversation,
+    /// with the names, types and sizes of its attachments.
     /// </summary>
     private async Task AnnounceUserMessageAsync(
         NhAssistantConversationAccess access,
         AssistantMessage message,
-        string text)
+        string text,
+        IReadOnlyList<NhAiFileReference> files)
     {
         var conversationId = access.Conversation.Id;
         var read = await store.MarkReadAsync(access, message.Sequence, CancellationToken.None);
@@ -2256,7 +2258,7 @@ internal sealed partial class NhAssistantTurnRunner(
             message.Id,
             message.Role,
             message.CreatedAt,
-            [new NhAssistantTextPartView(text)])
+            [new NhAssistantTextPartView(text), .. files.Select(NhAssistantFilePartView.From)])
         {
             Sequence = message.Sequence,
             AuthorActorId = access.ActorId

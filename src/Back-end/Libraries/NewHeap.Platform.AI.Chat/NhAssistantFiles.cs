@@ -133,11 +133,13 @@ public sealed record NhAssistantFileActor(
 }
 
 /// <summary>
-/// A file a person uploads to a conversation, before the application stores it.
+/// A file a person uploads to a conversation, before the application stores it. The upload endpoint
+/// has checked it against <see cref="NhAssistantUploadOptions"/> and the file limits of the
+/// conversation's agent before the file source receives it.
 /// </summary>
 /// <param name="ConversationId">The conversation the file is for.</param>
-/// <param name="Name">The file name the person's device gave it.</param>
-/// <param name="MediaType">The media type the upload declares.</param>
+/// <param name="Name">The file name the person's device gave it, without a path.</param>
+/// <param name="MediaType">The media type the upload declares, lowercase and without parameters.</param>
 /// <param name="Length">The length of the content in bytes.</param>
 /// <param name="Content">The content; the caller disposes it.</param>
 public sealed record NhAssistantFileUpload(
@@ -145,7 +147,102 @@ public sealed record NhAssistantFileUpload(
     string Name,
     string MediaType,
     long Length,
-    Stream Content);
+    Stream Content)
+{
+    /// <summary>
+    /// The classification the assistant gives the upload:
+    /// <see cref="NhAssistantUploadOptions.DefaultClassification"/>, <c>Confidential</c> unless the
+    /// application configured another. Store it with the file and report it from
+    /// <see cref="INhAssistantFileSource.OpenAsync"/>; the application may raise it, for example after
+    /// it inspected the content.
+    /// </summary>
+    public NhAiDataClassification Classification { get; init; } = NhAiDataClassification.Confidential;
+}
+
+/// <summary>
+/// How people upload files to a conversation, configured with
+/// <see cref="NhAssistantBuilder.ConfigureUploads"/>. The upload endpoint accepts a file only when the
+/// application registered a file source, the conversation's agent accepts files and the file is of an
+/// accepted media type within the agent's <see cref="NhAssistantLimits.MaxFileBytes"/>; then the file
+/// source stores it.
+/// </summary>
+public sealed class NhAssistantUploadOptions
+{
+    /// <summary>
+    /// The most media types an application accepts for uploads.
+    /// </summary>
+    public const int MaxAcceptedMediaTypes = 50;
+
+    private IReadOnlyList<string> _mediaTypes = DefaultMediaTypes;
+
+    private static readonly string[] DefaultMediaTypes =
+    [
+        NhAiMediaTypes.Pdf,
+        NhAiMediaTypes.Png,
+        NhAiMediaTypes.Jpeg,
+        NhAiMediaTypes.Docx,
+        NhAiMediaTypes.Xlsx
+    ];
+
+    /// <summary>
+    /// The classification an upload gets (<see cref="NhAssistantFileUpload.Classification"/>):
+    /// <c>Confidential</c> by default. A turn takes the highest classification of its files, so its
+    /// model profile, or a fallback, must permit it.
+    /// </summary>
+    public NhAiDataClassification DefaultClassification { get; set; } = NhAiDataClassification.Confidential;
+
+    /// <summary>
+    /// The media types people may upload, lowercase and without parameters: PDF, PNG, JPEG, Word
+    /// (<c>.docx</c>) and Excel (<c>.xlsx</c>) by default. Whether a model reads a type itself or a
+    /// reading tool turns it into text is decided per turn; a type nothing reads is refused there with
+    /// <see cref="NhAssistantErrorCodes.FileTypeNotSupported"/>. Without types people upload nothing,
+    /// while tools can still name files.
+    /// </summary>
+    public IReadOnlyList<string> AcceptedMediaTypes => _mediaTypes;
+
+    /// <summary>
+    /// Replaces the media types people may upload.
+    /// </summary>
+    public NhAssistantUploadOptions AcceptMediaTypes(params string[] mediaTypes)
+    {
+        ArgumentNullException.ThrowIfNull(mediaTypes);
+        var normalized = new List<string>(mediaTypes.Length);
+        foreach (var mediaType in mediaTypes)
+        {
+            var essence = NhAiMediaTypes.Normalize(mediaType)
+                ?? throw new ArgumentException($"'{mediaType}' is not a media type.", nameof(mediaTypes));
+            if (!normalized.Contains(essence, StringComparer.Ordinal))
+            {
+                normalized.Add(essence);
+            }
+        }
+        if (normalized.Count > MaxAcceptedMediaTypes)
+        {
+            throw new ArgumentException(
+                $"An application accepts at most {MaxAcceptedMediaTypes} media types for uploads.",
+                nameof(mediaTypes));
+        }
+
+        _mediaTypes = normalized.ToArray();
+        return this;
+    }
+
+    internal NhAssistantUploadOptions Clone()
+    {
+        return (NhAssistantUploadOptions)MemberwiseClone();
+    }
+
+    /// <summary>
+    /// Throws when the default classification is not a classification.
+    /// </summary>
+    internal void Validate()
+    {
+        if (!Enum.IsDefined(DefaultClassification))
+        {
+            throw new InvalidOperationException("The default classification of uploads must be a defined NhAiDataClassification.");
+        }
+    }
+}
 
 /// <summary>
 /// How a file reached a turn.

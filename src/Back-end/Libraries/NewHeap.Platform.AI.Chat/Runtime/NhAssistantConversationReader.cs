@@ -95,6 +95,13 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store, Tim
                         when part is { ServerId: { } serverId, DisplayName: { } serverName, Reason: { } reason }:
                         parts.Add(new NhAssistantConnectionRequiredPartView(serverId, serverName, reason));
                         break;
+                    // A person's attachments show by name, type and size; the files a tool returned
+                    // stay named in that call's result, which follows the viewer's rights to it.
+                    case NhAssistantStoredPart.FileType
+                        when part.File is { Origin: NhAssistantFileOrigins.Attachment } file
+                            && message.Role == NhAssistantMessageRoles.User:
+                        parts.Add(NhAssistantFilePartView.From(file));
+                        break;
                 }
             }
             messageViews.Add(new NhAssistantMessageView(message.Id, message.Role, message.CreatedAt, parts)

@@ -157,6 +157,31 @@ internal sealed record NhAssistantTextPartView(string Text) : NhAssistantPartVie
 /// <summary>A server the turn's person had to connect before the agent could use it.</summary>
 internal sealed record NhAssistantConnectionRequiredPartView(string ServerId, string DisplayName, string Reason) : NhAssistantPartView;
 
+/// <summary>
+/// A file a person attached to a message: what people see of it, never its content, the
+/// application's id or a hash.
+/// </summary>
+internal sealed record NhAssistantFilePartView(string Name, string MediaType, long Size) : NhAssistantPartView
+{
+    /// <summary>
+    /// The view of an attachment as its message stores it.
+    /// </summary>
+    public static NhAssistantFilePartView From(NhAssistantStoredFile file)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        return new NhAssistantFilePartView(file.Name, NhAiMediaTypes.Normalize(file.MediaType) ?? file.MediaType, file.Size);
+    }
+
+    /// <summary>
+    /// The view of an attachment as the message names it.
+    /// </summary>
+    public static NhAssistantFilePartView From(NhAiFileReference file)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        return new NhAssistantFilePartView(file.Name, NhAiMediaTypes.Normalize(file.MediaType) ?? file.MediaType, file.Size);
+    }
+}
+
 internal sealed record NhAssistantToolCallPartView(
     Guid InvocationId,
     string ToolId,
