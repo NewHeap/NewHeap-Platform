@@ -74,6 +74,10 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantMcpConnectionPlanner>();
             services.TryAddScoped<NhAssistantMcpAdministration>();
             services.Replace(ServiceDescriptor.Scoped<INhAssistantMcpToolSource, NhAssistantMcpToolSource>());
+            // MCP servers set up as readers turn files into text with the same consent and credential
+            // rules as the turn's MCP tools.
+            services.TryAddScoped<NhAssistantMcpToolSource>();
+            services.Replace(ServiceDescriptor.Scoped<INhAssistantMcpFileReader, NhAssistantMcpFileReader>());
 
             // Live updates through a SignalR hub, invitation links protected with Data Protection and
             // Web Push sent directly after a turn; the core library keeps no-op defaults.

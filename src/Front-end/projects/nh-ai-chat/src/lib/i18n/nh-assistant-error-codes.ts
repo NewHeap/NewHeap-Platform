@@ -36,6 +36,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-file-not-found',
   'assistant-file-forbidden',
   'assistant-file-unavailable',
+  'assistant-file-reader-failed',
   'assistant-file-too-large',
   'assistant-file-too-many-pages',
   'assistant-file-count-limit',

@@ -562,6 +562,23 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
             .ToArray();
     }
 
+    /// <summary>
+    /// The enabled servers set up as readers, ordered by id: the order in which the assistant asks
+    /// them to read a file.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantMcpServer>> ListMcpReaderServersAsync(CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var readers = await context.McpServers
+            .AsNoTracking()
+            .Where(server => server.IsEnabled && server.ReaderToolName != null && server.ReaderMediaTypes != null)
+            .ToListAsync(cancellationToken);
+
+        // Ordinal, so both providers ask the same server first whatever their collation; the set of
+        // servers is small.
+        return readers.OrderBy(server => server.Id, StringComparer.Ordinal).ToArray();
+    }
+
     public async Task<AssistantMcpServer?> FindMcpServerAsync(string id, CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();

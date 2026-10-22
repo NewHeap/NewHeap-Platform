@@ -1700,6 +1700,18 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
+                    b.Property<string>("ReaderMaxClassification")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("ReaderMediaTypes")
+                        .HasMaxLength(2064)
+                        .HasColumnType("nvarchar(2064)");
+
+                    b.Property<string>("ReaderToolName")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
                     b.Property<string>("RequiredPolicy")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");

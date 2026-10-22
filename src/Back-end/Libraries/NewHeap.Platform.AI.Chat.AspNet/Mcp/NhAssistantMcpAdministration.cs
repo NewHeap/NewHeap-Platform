@@ -40,7 +40,21 @@ internal sealed record NhAssistantMcpServerInput(
 
     /// <summary>The OAuth settings of <c>oauth</c> and <c>oauth-client-credentials</c>; null keeps them.</summary>
     public NhAssistantMcpOAuthInput? OAuth { get; init; }
+
+    /// <summary>The reader setting; null keeps it, no media types removes it.</summary>
+    public NhAssistantMcpReaderInput? Reader { get; init; }
 }
+
+/// <summary>
+/// The reader setting of a server (<see cref="NhAssistantMcpReaders"/>): the media types it reads, the
+/// remote name of a synced tool that turns a file into text and the highest classification, one of
+/// <see cref="NhAssistantDataClassificationNames"/>, that may be sent to it. No media types removes the
+/// setting.
+/// </summary>
+internal sealed record NhAssistantMcpReaderInput(
+    IReadOnlyList<string> MediaTypes,
+    string? ToolName,
+    string? MaxClassification);
 
 /// <summary>
 /// OAuth settings of a server. <see cref="ClientId"/>, <see cref="ClientSecret"/>,
@@ -439,6 +453,7 @@ internal sealed partial class NhAssistantMcpAdministration(
                     || modes.FitsHeadlessUse(headlessUse, input.AuthMode, connectionScope),
                 "headlessUse",
                 NhAssistantFieldErrors.Invalid);
+        await ValidateReaderAsync(input.Reader, existing, errors, cancellationToken);
         if (!errors.IsEmpty)
         {
             return errors.ToResult();
@@ -506,8 +521,58 @@ internal sealed partial class NhAssistantMcpAdministration(
         return TaskResult.Succeeded();
     }
 
+    /// <summary>
+    /// The reader setting: valid media types, at most <see cref="NhAssistantMcpReaders.MaxMediaTypes"/>;
+    /// a tool the administrator synced from the server, so a new server, which has no tools yet, gets
+    /// its reader after a sync; and a known classification.
+    /// </summary>
+    private async Task ValidateReaderAsync(
+        NhAssistantMcpReaderInput? reader,
+        AssistantMcpServer? existing,
+        NhAssistantValidationErrors errors,
+        CancellationToken cancellationToken)
+    {
+        if (reader is null || reader.MediaTypes.Count == 0)
+        {
+            return;
+        }
+
+        var mediaTypes = reader.MediaTypes.Select(NhAiMediaTypes.Normalize).ToArray();
+        var toolName = reader.ToolName;
+        errors
+            .Require(mediaTypes.All(mediaType => mediaType is not null), "reader.mediaTypes", NhAssistantFieldErrors.Invalid)
+            .Require(mediaTypes.Distinct(StringComparer.Ordinal).Count() <= NhAssistantMcpReaders.MaxMediaTypes, "reader.mediaTypes", NhAssistantFieldErrors.TooLong)
+            .Require(!string.IsNullOrWhiteSpace(toolName), "reader.toolName", NhAssistantFieldErrors.Required)
+            .Require(
+                string.IsNullOrWhiteSpace(toolName)
+                    || (toolName.Length <= NhAssistantMcpReaders.MaxToolNameLength && !toolName.Any(char.IsControl)),
+                "reader.toolName",
+                NhAssistantFieldErrors.Invalid)
+            .Require(reader.MaxClassification is not null, "reader.maxClassification", NhAssistantFieldErrors.Required)
+            .Require(
+                reader.MaxClassification is null || NhAssistantDataClassificationNames.TryParse(reader.MaxClassification, out _),
+                "reader.maxClassification",
+                NhAssistantFieldErrors.Invalid);
+        if (string.IsNullOrWhiteSpace(toolName) || toolName.Length > NhAssistantMcpReaders.MaxToolNameLength)
+        {
+            return;
+        }
+
+        var synced = existing is null
+            ? []
+            : await store.ListMcpToolsAsync(existing.Id, cancellationToken);
+        if (!synced.Any(tool => string.Equals(tool.RemoteName, toolName, StringComparison.Ordinal)))
+        {
+            errors.Add("reader.toolName", NhAssistantFieldErrors.NotFound);
+        }
+    }
+
     private void Apply(AssistantMcpServer server, NhAssistantMcpServerInput input)
     {
+        if (input.Reader is { } reader)
+        {
+            ApplyReader(server, reader);
+        }
         server.DisplayName = input.DisplayName.Trim();
         server.Url = input.Url.Trim();
         server.AuthMode = input.AuthMode;
@@ -552,6 +617,29 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             server.SecretReference = null;
         }
+    }
+
+    /// <summary>
+    /// Stores the reader setting with its media types normalized; no media types removes it.
+    /// </summary>
+    private static void ApplyReader(AssistantMcpServer server, NhAssistantMcpReaderInput reader)
+    {
+        var mediaTypes = reader.MediaTypes
+            .Select(NhAiMediaTypes.Normalize)
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (mediaTypes.Length == 0)
+        {
+            server.ReaderMediaTypes = null;
+            server.ReaderToolName = null;
+            server.ReaderMaxClassification = null;
+            return;
+        }
+
+        server.ReaderMediaTypes = string.Join(' ', mediaTypes);
+        server.ReaderToolName = reader.ToolName;
+        server.ReaderMaxClassification = reader.MaxClassification;
     }
 
     /// <summary>

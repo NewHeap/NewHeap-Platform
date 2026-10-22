@@ -1002,6 +1002,9 @@ internal static class NhAssistantAdminEndpoints
                     oauth.Scopes,
                     oauth.OrganizationAccountLabel,
                     oauth.ConfirmAuthorization == true)
+                : null,
+            Reader = body.Reader is { } reader
+                ? new NhAssistantMcpReaderInput(reader.MediaTypes ?? [], reader.ToolName, reader.MaxClassification)
                 : null
         }, errors);
     }
@@ -1138,6 +1141,9 @@ internal static class NhAssistantAdminEndpoints
                 : null,
             OrganizationConnection = NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope) && NhAssistantMcpAuthModes.IsOAuth(server.AuthMode)
                 ? ToDto(organizationConnection)
+                : null,
+            Reader = server.ReaderToolName is { } toolName && server.ReaderMaxClassification is { } maxClassification
+                ? new NhAssistantMcpReaderDto(NhAssistantMcpReaders.Split(server.ReaderMediaTypes), toolName, maxClassification)
                 : null
         };
     }

@@ -13,8 +13,13 @@ files, native reading per profile, the limits, the classification, audit and ret
 opt-in per agent and skill in code and in the administration, with the `AcceptsFiles` migration for
 SQL Server and PostgreSQL. The details it settled are in
 [F-1 implementation decisions](#f-1-implementation-decisions), for Lars to review; the contracts
-F-2 and F-3 build on are in [Contracts for F-2 and F-3](#contracts-for-f-2-and-f-3). F-2, F-3 and
-F-4 are not implemented.
+F-2 and F-3 build on are in [Contracts for F-2 and F-3](#contracts-for-f-2-and-f-3). F-2 is
+implemented on `feat/ai-files-f2-readers` (2026-10-22): reading tools of the application
+(`AddFileReader<T>()`), MCP servers set up as readers in the administration with their
+classification bound and the consent rules, the reader choice, the text limits, the audit of the
+reader and the `McpServerReaders` migration for SQL Server and PostgreSQL. Its details are in
+[F-2 implementation decisions](#f-2-implementation-decisions), for Lars to review; what F-4 builds on
+is in [Contracts for F-4](#contracts-for-f-4). F-3 and F-4 are not implemented.
 
 ## Problem
 
@@ -159,7 +164,7 @@ Each line: the decision, why, and its status.
 | D16 | HTTP statuses: `files-unavailable` and `file-not-found` 404, `file-forbidden` 403, `file-too-large` 413, `file-type-not-supported` 415, `files-not-accepted` 409, `file-unavailable` 503, the other file codes 400. | One status per code in the shared table, as for every assistant code. | For Lars to review |
 | D17 | The audit events are `FileRead` and `FileRefused`, with `FileId`, `FileMediaType`, `FileHash` and the origin (`NhAssistantFileOrigins`) as `ObjectId`. | Content-free, and the existing event shape names the tool and invocation. | For Lars to review |
 | D18 | An approved call that returns files gives them to the model as any tool call does. | Same rules for every tool result that reaches the model. | For Lars to review |
-| D19 | In the business audit event `FileId` and `FileHash` count as identifiers and `FileMediaType` as a code; the test that allows only identifiers, codes and timestamps names exactly these three, and the file's name never enters the event. | The application's id, a normalized media type and `sha256:<hex>` carry no free text or content, as `SubjectId` and the other hashes do not. | For Lars to review |
+| D35 | In the business audit event `FileId` and `FileHash` count as identifiers and `FileMediaType` as a code, and `FileReaderId` (F-2) is an identifier too; the test that allows only identifiers, codes and timestamps names exactly these four, and the file's name never enters the event. | The application's id, a normalized media type and `sha256:<hex>` carry no free text or content, as `SubjectId` and the other hashes do not. | For Lars to review |
 
 ## Contracts for F-2 and F-3
 
@@ -178,13 +183,56 @@ Each line: the decision, why, and its status.
   `assistant-file-type-not-supported`. The text reaches the model as untrusted external data with
   the same marker and annotations, and `NhAssistantTurnFile.Native` is false. F-2 registers the
   reader that chooses local reading tools first, then MCP servers set up as readers, and checks
-  their classification and consent.
+  their classification and consent. *F-2 replaced the internal seam with the internal
+  `NhAssistantFileReaders` and made the request public (`NhAssistantFileReadRequest`) for the public
+  `INhAssistantFileReader`; see [F-2 implementation decisions](#f-2-implementation-decisions).*
 - **F-3 seam:** `NhAssistantMessageTurnRequest.Files` takes the references a message carries; the
   turn checks them before it claims the conversation and opens them with the person's rights. A
   person's message stores them as `file` parts (`NhAssistantStoredPart.FileType`, reference and
   SHA-256) that the conversation reader does not show yet; F-3 adds the part to the message view,
   the upload endpoint that calls `StoreUploadAsync` after the per-file limits and media types, the
   composer control and the mock API.
+
+## F-2 implementation decisions
+
+Each line: the decision, why, and its status.
+
+| # | Decision | Reason | Status |
+|---|---|---|---|
+| D19 | An application registers a reader with `AddFileReader<TReader>(readerId, reader => reader.AcceptMediaTypes(...).PermitDataClassifications(...))`; `INhAssistantFileReader.ReadAsync(NhAssistantFileReadRequest)` returns `TaskResult<string>`. The declaration lives at registration, and "returns text" is the contract of the interface, not a flag. | Like a model profile, the application decides at composition what a reader may receive; one class can serve several declarations; F-2 has text output only. | For Lars to review |
+| D20 | A reader of the application permits `Public` and the classifications it declares, nothing more by default, as a model profile does. | One meaning for "permits" in the platform; uploads default to `Confidential`, so a reader of uploads is an explicit decision. | For Lars to review |
+| D21 | An MCP server set up as reader serves the turns of every agent without being assigned to it, and its reading tool need not be enabled for agents; the server must be enabled, and its required policy, headless use, the person's consent (Q3) and the initiator rule (I18, I21) apply as for its tools. | The runtime calls the reader, not the model; enabling the tool would offer it to the model, and assigning a document reader to every agent is administration without a safety gain over the classification bound. | For Lars to review |
+| D22 | The reading tool must be one the administrator synced: saving validates `reader.toolName` against the synced catalog (`not-found`), so a new server gets its reader after a sync. At runtime a tool the server no longer lists, or whose input schema differs from the synced one, passes the server over (`assistant-mcp-tool-not-found`, `assistant-mcp-schema-changed`). | The review rule of synced MCP tools also holds for the tool that receives documents. | For Lars to review |
+| D23 | The runtime calls the reading tool with `name`, `mediaType` and the base64 `content` of the file and gives the model the text blocks of the result, joined by new lines; `isError` or no text block is a failure. | MCP has no standard for reading a file (F3); this is the smallest contract a document-reading MCP server can offer. | For Lars to review |
+| D24 | Readers of the application are asked in registration order, MCP servers by id, ordinal; the order of servers is not configurable. | Deterministic and the same on both providers; a reader setting per media type keeps overlaps rare. | For Lars to review |
+| D25 | A reader that may not receive the file (classification, policy, headless use, consent, initiator, a connection that cannot be planned or reached, a missing or changed tool, a request refused before it left the host) is passed over and the next one is asked. A reader that received the file and failed ends it; the file never goes to a second reader. When every reader that declares the type passed over, the code of the first applies, such as `assistant-classification-not-permitted` or `assistant-mcp-consent-required`. | A document leaves the platform at most once and only to a reader that may have it; the code says what would change the outcome. | For Lars to review |
+| D26 | Every failure of a reader (a failed result whatever its code, an exception, an MCP error result, no text) is `assistant-file-reader-failed`, HTTP 502, per file as in D8; the reader's messages are neither logged nor shown. | Only registered codes reach the front end (D9), and a reader's message may quote the document. | For Lars to review |
+| D27 | The limits count a reader's text, one token per started four characters as retrieved context does, against `MaxFileTokensPerTurn` and the profile's input budget, instead of the page estimate (D6); a file is sent to a reader only while at least one token still fits. `MaxFileBytes` and `MaxFilePages` still apply to the file. | F-2 asks to count the returned text; a turn without room never sends a document out. | For Lars to review |
+| D28 | `NhAssistantAuditEvent.FileReaderId` names the reader of `FileRead` and `FileRefused`: the reader id, or `mcp.<server>` with `McpConnectionOwner`; for a file a reader read, `FileHash` (and the thread's hash) is the SHA-256 of the file content the reader received, not of the text. | The audit proves which document left the platform and through which reader; a reader's text may differ per call. | For Lars to review |
+| D29 | `INhAiChatExecutor` no longer adds the annotated tokens of reader text that sits directly in a message, which the caller already counts as message text; text carried in a tool result still counts. | An attachment a reader read was otherwise counted twice against the profile's input budget. | For Lars to review |
+| D30 | The setting is stored on `AssistantMcpServer` in three nullable columns: the normalized media types separated by spaces (at most 16), the tool name (at most 128) and the classification name. Input `reader: null` keeps it, an empty `mediaTypes` removes it; field errors are `reader.mediaTypes` (`invalid`, `too-long`), `reader.toolName` (`required`, `invalid`, `not-found`) and `reader.maxClassification` (`required`, `invalid`) under `assistant-validation`. | Follows the server's other settings and the field-error conventions of the administration. | For Lars to review |
+| D31 | The editor shows "Reading documents" only for a server that exists, chooses the tool from its synced tools and sends the setting with every save; the classification names reuse the skill classification texts. | A new server has no synced tools yet; one set of classification texts. | For Lars to review |
+| D32 | A file a reader read is read again when a later turn opens it again (D12); an MCP reader receives it again. | The platform keeps no copies, also not of a reader's text (F6). | For Lars to review |
+| D33 | A person's turn does not show a connection card for a personal OAuth reader; the file is refused with the code of the connection, such as `assistant-mcp-connection-required`. | Keeps F-2 to the reader; connecting stays in the preferences and the tool path. | For Lars to review |
+| D34 | The marker before a reader's text says that a reading tool made the text of the file. | The model knows it reads an extraction, not the layout. | For Lars to review |
+
+## Contracts for F-4
+
+- **Reader of the sample:** implement `INhAssistantFileReader` in the sample for Word and Excel
+  (`NhAiMediaTypes.Docx`, `NhAiMediaTypes.Xlsx`) with its own document library, and register it with
+  `AddFileReader<T>("office-documents", reader => reader.AcceptMediaTypes(...).PermitDataClassifications(...))`
+  next to the media-library file source; the platform packages stay free of document libraries
+  (F10). The reader gets the file's bytes in `NhAssistantFileReadRequest.Content` and returns text or
+  a failed result, which the turn reports as `assistant-file-reader-failed`.
+- **MCP reader:** a document-reading MCP server offers one tool that takes `name`, `mediaType` and the
+  base64 `content` and returns text blocks; an administrator syncs the server and sets `reader` with
+  its media types and classification bound. NewHeap's own document reader server can follow this
+  contract later.
+- **Malicious document evaluation:** a reader's text reaches the model behind the external-file marker
+  as untrusted retrieved data (`newheap.trust` `untrusted-retrieved`), never changes the tools the
+  turn offers and is never logged or audited; the evaluation case can assert this on the model
+  request, the tool list and `FileRead` with `FileReaderId` and `FileHash`, as
+  `AssistantFileReaderTests` does with an instruction in the reader's text.
 
 ## Open questions
 

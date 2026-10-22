@@ -796,7 +796,7 @@ internal sealed partial class NhAssistantMcpToolSource(
     }
 
     /// <summary>Whose credential the tools of a server carry in this turn, for the audit.</summary>
-    private string OwnerOf(AssistantMcpServer server, NhAssistantMcpToolRequest request)
+    internal string OwnerOf(AssistantMcpServer server, NhAssistantMcpToolRequest request)
     {
         if (server.AuthMode == NhAssistantMcpAuthModes.None)
         {
@@ -823,7 +823,7 @@ internal sealed partial class NhAssistantMcpToolSource(
     /// credential when an administrator allowed that and the person the run acts for consented to
     /// background use of the server as it is configured now.
     /// </summary>
-    private async Task<string?> HeadlessRefusalAsync(
+    internal async Task<string?> HeadlessRefusalAsync(
         AssistantMcpServer server,
         NhAssistantMcpToolRequest request,
         CancellationToken cancellationToken)
@@ -852,7 +852,7 @@ internal sealed partial class NhAssistantMcpToolSource(
         return NhAssistantMcpConsent.Allows(connection, server) ? null : NhAssistantAdminErrorCodes.McpConsentRequired;
     }
 
-    private static NhAssistantMcpCredentialSubject SubjectOf(NhAssistantMcpToolRequest request)
+    internal static NhAssistantMcpCredentialSubject SubjectOf(NhAssistantMcpToolRequest request)
     {
         return request.IsHeadless
             ? new NhAssistantMcpCredentialSubject(true, request.PersonActorId, request.PersonGrantSource, request.Subject?.TenantId)
@@ -970,7 +970,7 @@ internal sealed partial class NhAssistantMcpToolSource(
     /// person whose rights a headless turn uses otherwise. A headless turn of an agent that acts for
     /// itself may only use servers without a required policy.
     /// </summary>
-    private async Task<bool> CanUseAsync(
+    internal async Task<bool> CanUseAsync(
         AssistantMcpServer server,
         NhAssistantMcpToolRequest request,
         CancellationToken cancellationToken)
