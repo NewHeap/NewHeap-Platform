@@ -423,7 +423,8 @@ internal sealed class NhAssistantRunConfigurations(
     IServiceProvider services,
     ILogger<NhAssistantRunConfigurations> logger)
 {
-    private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(1);
+    private readonly TimeSpan _checkInterval =
+        (services.GetService<NhAssistantTiming>() ?? NhAssistantTiming.Default).RunConfigurationCheckInterval;
 
     private readonly SemaphoreSlim _gate = new(1, 1);
     private long _checkedAt = long.MinValue;
@@ -508,7 +509,7 @@ internal sealed class NhAssistantRunConfigurations(
         var checkedAt = Volatile.Read(ref _checkedAt);
         return registration.Snapshot is null
                || checkedAt == long.MinValue
-               || Environment.TickCount64 - checkedAt >= (long)CheckInterval.TotalMilliseconds;
+               || Environment.TickCount64 - checkedAt >= (long)_checkInterval.TotalMilliseconds;
     }
 
     private async Task LoadCoreAsync(CancellationToken cancellationToken)

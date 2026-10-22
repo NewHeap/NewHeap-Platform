@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -53,8 +54,11 @@ public static class NhAiMvcBridgeServiceCollectionExtensions
         services.Replace(ServiceDescriptor.Scoped<INhAiToolDiscoveryPolicy, NhAiMvcBridgeDiscoveryPolicy>());
         if (options.Gateway is not null)
         {
-            // Headless runs may read through the gateway with a delegated read credential.
+            // Headless runs may read through the gateway with a delegated read credential. The filter
+            // identifies the executing action as its target, also under UseMvc, where a controller
+            // request has no endpoint.
             services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiDelegatedReadSurface, NhAiMvcBridgeReadSurface>());
+            services.Configure<MvcOptions>(mvc => mvc.Filters.Add(new NhAiMvcBridgeDelegatedReadFilter()));
         }
         services.TryAddScoped<INhAiMvcBridgeExecutor, NhAiMvcBridgeExecutor>();
         services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)

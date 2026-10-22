@@ -6,6 +6,7 @@ using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
+using NewHeap.Platform.AspNet.Common.Utilities;
 
 namespace NewHeap.Platform.AspNet.Common.Builders;
 
@@ -279,6 +280,8 @@ public class NhAuthenticationConfigurationBuilder<
     {
         app.UseEndpoints(endpoints =>
         {
+            // The endpoints join the application's endpoints at the end, built once for every reader.
+            var builtOnce = new NhEndpointsBuiltOnce(endpoints);
             foreach (var type in _diEndpoints)
             {
                 var endpoint = (IAuthenticationEndpoint?)services.GetService(type);
@@ -289,13 +292,15 @@ public class NhAuthenticationConfigurationBuilder<
                         "AddAuthentication(...) before mapping its endpoints in UseNhAuthentication(...).");
                 }
 
-                ConfigureEndpoint(endpoint, endpoints);
+                ConfigureEndpoint(endpoint, builtOnce);
             }
 
             foreach (var endpoint in _endpoints)
             {
-                ConfigureEndpoint(endpoint, endpoints);
+                ConfigureEndpoint(endpoint, builtOnce);
             }
+
+            builtOnce.AddTo(endpoints);
         });
         return;
 

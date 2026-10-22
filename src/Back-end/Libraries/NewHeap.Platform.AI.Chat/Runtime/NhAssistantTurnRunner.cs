@@ -79,9 +79,9 @@ internal sealed partial class NhAssistantTurnRunner(
     };
 
     /// <summary>
-    /// The wait before the one retry of a model call that failed transiently before it produced anything.
+    /// The turn's fixed waits; a test host registers shorter ones.
     /// </summary>
-    private static readonly TimeSpan TransientProviderRetryDelay = TimeSpan.FromSeconds(2);
+    private readonly NhAssistantTiming _timing = services.GetService<NhAssistantTiming>() ?? NhAssistantTiming.Default;
 
     /// <summary>
     /// A tool selector that matches no tool, for a consultation that may use none.
@@ -2203,7 +2203,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 "Assistant turn {TurnId} of agent {AgentId} calls the model once more after a transient provider error.",
                 state.Scope.TurnId,
                 state.Scope.Agent.Id);
-            await Task.Delay(TransientProviderRetryDelay, cancellationToken);
+            await Task.Delay(_timing.TransientProviderRetryDelay, cancellationToken);
             attempt = await StreamModelAttemptAsync(state, agent, messages, options, updates, mayRetry: false, cancellationToken);
         }
 

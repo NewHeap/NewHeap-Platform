@@ -180,7 +180,8 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
     [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Another_host_follows_a_change_through_the_stamp_and_data_that_no_longer_fits_is_reported(AssistantTestProvider provider)
     {
-        await using var host = await CreateHostAsync(provider);
+        // The host reads the stamp at every check instead of once a second, so the test need not wait.
+        await using var host = await CreateHostAsync(provider, new NhAssistantTiming { RunConfigurationCheckInterval = TimeSpan.Zero });
         var configurations = host.Services.GetRequiredService<NhAssistantRunConfigurations>();
         await configurations.EnsureCurrentAsync(CancellationToken.None);
         Assert.NotNull(State(host).Snapshot);
@@ -205,7 +206,6 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
         Assert.True(stored.Succeeded);
         Assert.False(State(host).AgentRuns[AgentId].Skills.ContainsKey(FollowUp));
 
-        await Task.Delay(TimeSpan.FromMilliseconds(1_100));
         await configurations.EnsureCurrentAsync(CancellationToken.None);
 
         Assert.True(State(host).AgentRuns[AgentId].Skills.ContainsKey(FollowUp));
@@ -585,7 +585,7 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
         return await context.Approvals.AsNoTracking().Where(approval => approval.ConversationId == conversationId).ToListAsync();
     }
 
-    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider)
+    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, NhAssistantTiming? timing = null)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -593,6 +593,11 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
             new NhAiScriptedChatClient(),
             configure: services =>
             {
+                if (timing is not null)
+                {
+                    services.AddSingleton(timing);
+                }
+
                 services.AddSingleton(new TestSubjects());
                 services.AddSingleton<TestRuleScript>();
                 services.AddSingleton<TestSkillRuleScript>();

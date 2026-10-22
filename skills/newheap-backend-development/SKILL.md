@@ -11,6 +11,7 @@ Read only the reference needed for the current backend task:
 
 - [project foundation](references/backend-project-foundation.md) for solutions, projects and central build/package policy;
 - [module composition](references/backend-module-composition.md) for entities, relationships, repositories and registration;
+- [platform pipeline](references/backend-platform-pipeline.md) for `AddNewHeapPlatformAspNetCommon`, `UseNewHeapPlatformAspNetCommon` and controller routing;
 - [models and localization](references/backend-models-localization.md) for view/mutate contracts and mappings;
 - [controller contracts](references/backend-controller-contracts.md) for controllers and Scalar/OpenAPI;
 - [partial updates](references/backend-partial-update.md) for top-level JSON patch behavior;

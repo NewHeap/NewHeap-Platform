@@ -116,7 +116,9 @@ public static class NhProxyApiEndpoints
             api.UseAuthorization();
             api.UseEndpoints(endpoints =>
             {
-                var group = endpoints.MapGroup(NhProxyOptions.ApiPath).WithTags("NewHeap Proxy")
+                // The group joins the branch's endpoints at the end, built once for every reader.
+                var builtOnce = new NhEndpointsBuiltOnce(endpoints);
+                var group = builtOnce.MapGroup(NhProxyOptions.ApiPath).WithTags("NewHeap Proxy")
                     .RequireAuthorization(NhProxyOptions.ApiPolicy);
                 group.WithMetadata(new ProducesResponseTypeMetadata(StatusCodes.Status401Unauthorized, typeof(void)),
                     new ProducesResponseTypeMetadata(StatusCodes.Status403Forbidden, typeof(void)),
@@ -191,6 +193,8 @@ public static class NhProxyApiEndpoints
                         .Produces<NhProxyApiResult<NhProxyEngineStatus>>(StatusCodes.Status409Conflict)
                         .Produces<NhProxyApiResult<NhProxyEngineStatus>>(StatusCodes.Status503ServiceUnavailable);
                 }
+
+                builtOnce.AddTo(endpoints);
             });
             api.Run(context =>
             {

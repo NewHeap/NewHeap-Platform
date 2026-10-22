@@ -14,6 +14,7 @@ using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
+using NewHeap.Platform.AspNet.Common.Utilities;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI.Chat.AspNet;
@@ -41,7 +42,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         var accessPolicy = NhAssistantEndpointOptions.ResolveAccessPolicy(state, options);
 
         // The groups join the application's endpoints at the end, each built once for every reader.
-        var groups = new NhAssistantEndpointGroups(endpoints);
+        var groups = new NhEndpointsBuiltOnce(endpoints);
         var group = groups.MapGroup(prefix)
             .RequireAuthorization(accessPolicy)
             .WithTags("Assistant")

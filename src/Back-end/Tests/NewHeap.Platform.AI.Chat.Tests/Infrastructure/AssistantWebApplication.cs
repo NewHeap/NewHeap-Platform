@@ -268,9 +268,11 @@ internal static class ServerSentEventReader
 {
     public sealed record ServerSentEvent(string Name, JsonElement Data);
 
+    /// <param name="firstComment">Completed when the first comment, such as a keep-alive, arrives.</param>
     public static async Task<(IReadOnlyList<ServerSentEvent> Events, IReadOnlyList<string> Comments)> ReadAllAsync(
         HttpResponseMessage response,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TaskCompletionSource? firstComment = null)
     {
         var events = new List<ServerSentEvent>();
         var comments = new List<string>();
@@ -294,6 +296,7 @@ internal static class ServerSentEventReader
             if (line.StartsWith(':'))
             {
                 comments.Add(line);
+                firstComment?.TrySetResult();
             }
             else if (line.StartsWith("event: ", StringComparison.Ordinal))
             {

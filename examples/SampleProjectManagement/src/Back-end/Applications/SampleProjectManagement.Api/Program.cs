@@ -82,6 +82,9 @@ var mediaStoragePath = Path.Combine(
 
 var platformOptions = NewHeapAspNetCommonOptions
     .Builder(builder.Configuration)
+    // SPM-097: controllers share the one endpoint-routing table with every other endpoint, so their
+    // authorization, CORS and other endpoint metadata apply as for minimal APIs.
+    .UseEndpointRoutingOnly()
     .ConfigureAutoMapper(options => options.AddMaps(typeof(AutomapperProfileConfiguration).Assembly))
     .ConfigureAuthorization(options =>
     {

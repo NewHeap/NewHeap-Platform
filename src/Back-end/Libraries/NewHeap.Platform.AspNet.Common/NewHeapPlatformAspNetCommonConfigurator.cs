@@ -159,7 +159,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
 
         _serviceCollection.AddMvc(options =>
             {
-                options.EnableEndpointRouting = false;
+                options.EnableEndpointRouting = _options.UseEndpointRoutingOnly;
                 options.ValueProviderFactories.Insert(0, new InvariantFormValueProviderFactory());
                 _options.MvcOptionsAction?.Invoke(options);
             })

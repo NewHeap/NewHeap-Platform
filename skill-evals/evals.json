@@ -191,6 +191,15 @@
       "expectedOutcome": "Service-owned transaction, atomic outbox and scoped/idempotent processing."
     },
     {
+      "id": "consumer-platform-pipeline",
+      "skill": "newheap-backend-development",
+      "prompt": "Set up the ASP.NET composition of a new NewHeap API so that its controllers get endpoint metadata such as authorization and CORS attributes, and add a conventional route for an MVC area.",
+      "expectedRules": [
+        "nh-backend-platform-pipeline"
+      ],
+      "expectedOutcome": "The API registers the platform with AddNewHeapPlatformAspNetCommon, calls UseEndpointRoutingOnly() on NewHeapAspNetCommonOptionsBuilder and builds the pipeline once with UseNewHeapPlatformAspNetCommon; it maps the area route with MapAreaControllerRoute in the UseEndpoints callback instead of UseMvc(Action<IRouteBuilder>), and neither turns EnableEndpointRouting off nor adds UseRouting, UseAuthentication or UseAuthorization around the platform pipeline."
+    },
+    {
       "id": "consumer-partial-update",
       "skill": "newheap-backend-development",
       "prompt": "Expose a PATCH endpoint that updates only the supplied top-level JSON properties while preserving omitted values and the normal service update pipeline, then call it from an Angular API service without sending a complete mutate model.",

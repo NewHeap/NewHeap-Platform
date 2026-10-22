@@ -216,9 +216,11 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
             Content = Json(new { text = "Take your time.", clientMessageId = "slow" })
         };
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-        var reading = ReadAllAsync(response);
+        var keptAlive = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reading = ReadAllAsync(response, firstComment: keptAlive);
         await model.Started.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        await Task.Delay(600);
+        // The model blocks, so the stream stays silent until a keep-alive comment arrives.
+        await keptAlive.Task.WaitAsync(TimeSpan.FromSeconds(30));
         using var cancel = await client.PostAsync($"/api/assistant/conversations/{id}/cancel", null);
         var (events, comments) = await reading.WaitAsync(TimeSpan.FromSeconds(30));
 

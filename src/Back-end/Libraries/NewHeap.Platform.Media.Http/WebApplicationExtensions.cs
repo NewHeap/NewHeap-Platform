@@ -64,7 +64,9 @@ public static class WebApplicationExtensions
         {
             context.Values[NhMediaHttpConstants.API_PREFIX_CONTEXT_KEY] = prefix;
         }
-        var group = app.MapGroup(prefix);
+        // The group joins the application's endpoints at the end, built once for every reader.
+        var builtOnce = new NhEndpointsBuiltOnce(app);
+        var group = builtOnce.MapGroup(prefix);
         group.AddEndpointFilter<MediaContextEndpointFilter>();
 
         var options = new MediaLibraryRouteBuilder();
@@ -114,6 +116,7 @@ public static class WebApplicationExtensions
         options.AllRoutesAction?.Invoke(deleteFile);
         options.DeleteFileAction?.Invoke(deleteFile);
 
+        builtOnce.AddTo(app);
         return group;
     }
 

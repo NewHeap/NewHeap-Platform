@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL;
@@ -57,7 +58,37 @@ public sealed class AuthenticationEndpointRouteTests
         Assert.Equal("account", routes["Account information"]);
     }
 
+    [Fact]
+    public void RoutingAndTheApplicationWideEndpointsShareTheEndpointsBuiltOnce()
+    {
+        using var application = BuildWithUserNamePasswordEndpoints(options => options.EnableImpersonate = true);
+
+        // The authorization middleware's policy cache reads the application-wide endpoints while the
+        // pipeline is built; the routing middleware reads a composite of its own on the first request.
+        var applicationWide = application.Services.GetRequiredService<EndpointDataSource>();
+        using var routing = new CompositeEndpointDataSource(((IEndpointRouteBuilder)application).DataSources);
+
+        Assert.Same(FindEndpoint(applicationWide, "Login"), FindEndpoint(routing, "Login"));
+        Assert.Same(FindEndpoint(applicationWide, "Refresh token"), FindEndpoint(routing, "Refresh token"));
+    }
+
     private static Dictionary<string, string> MapUserNamePasswordEndpoints(
+        Action<NhAuthenticationBuilder<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole,
+            NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel,
+            NhClaimViewModel>.UserNamePasswordOptions> configure)
+    {
+        using var application = BuildWithUserNamePasswordEndpoints(configure);
+
+        return ((IEndpointRouteBuilder)application).DataSources
+            .SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => endpoint.Metadata.GetMetadata<IEndpointNameMetadata>() != null)
+            .ToDictionary(
+                endpoint => endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()!.EndpointName,
+                endpoint => endpoint.RoutePattern.RawText!.TrimStart('/'));
+    }
+
+    private static WebApplication BuildWithUserNamePasswordEndpoints(
         Action<NhAuthenticationBuilder<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole,
             NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel,
             NhClaimViewModel>.UserNamePasswordOptions> configure)
@@ -98,7 +129,7 @@ public sealed class AuthenticationEndpointRouteTests
             .WithIdentity()
             .WithDbLogService(_ => { });
 
-        using var application = builder.Build();
+        var application = builder.Build();
         application.UseRouting();
 
         new NhAuthenticationConfigurationBuilder<NhUser, NhDivision, NhDivisionUser, NhDivisionRole,
@@ -107,13 +138,13 @@ public sealed class AuthenticationEndpointRouteTests
             .AddUserNamePasswordEndpoint(enableRefreshToken: true, enableImpersonate: true)
             .Build(application, application.Services);
 
-        return ((IEndpointRouteBuilder)application).DataSources
-            .SelectMany(source => source.Endpoints)
-            .OfType<RouteEndpoint>()
-            .Where(endpoint => endpoint.Metadata.GetMetadata<IEndpointNameMetadata>() != null)
-            .ToDictionary(
-                endpoint => endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()!.EndpointName,
-                endpoint => endpoint.RoutePattern.RawText!.TrimStart('/'));
+        return application;
+    }
+
+    private static Endpoint FindEndpoint(EndpointDataSource source, string name)
+    {
+        return source.Endpoints.Single(endpoint =>
+            endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == name);
     }
 
     private sealed class RouteTestDbContext(DbContextOptions<RouteTestDbContext> options)
