@@ -13,8 +13,10 @@ it, executes with the agent's own rights, as the agent's runs do. It builds on t
 
 ## Status
 
-Draft for Lars, 2026-10-22. Lars decided to plan both options first and decide later, one by one.
-Every decision below (CP1 to CP24) is **Open**; nothing is implemented.
+Decided by Lars, 2026-10-22: every decision from CP1 to CP24 is **Decided** (see the decision record).
+Lars followed the recommendation except for three decisions: CP20 (b) adds "leave for approvers" to
+the A card, CP21 (c) lets administrators switch the routes within a ceiling set in code, and CP23 (c)
+delivers A and B together. Implementation is in progress on `feature/consultation-proposals`.
 
 The plan assumes the parallel fix that makes the platform recognise the asker of a consultation in the
 current request by actor id, so that the consult turn, the consultation viewer and the invocation gate
@@ -199,6 +201,25 @@ Read from `NhAssistantConsultationService`, `NhAssistantConsultationToolHandler`
   conversation (today the job handles only proposals of a run; see CP24); deciding after expiry answers
   `assistant-approval-expired`, as today. Nothing moves to the subject's approvers.
 
+### Leave for approvers (CP20 (b))
+
+- Next to Approve and Reject, the A card offers "Leave for approvers" when an at-subject route (B, or
+  today's route) applies to that call: the route the consultation's configuration and the
+  administration allow, checked again at the moment the asker leaves it (for B: the agent's own rights,
+  the open cap of CP15, not `nh-system`, an approver other than the initiator).
+- Leaving closes the A row (status `rejected`, outcome `moved`, decided by the asker) and records a new
+  deferred approval at the subject under that route's rules: for B four-eyes (the asker can never
+  approve it), the agent's grant source, the thread's accountable owner and the cap; for today's route
+  the asker's rights. The new approval keeps the consultation id, the stored call and the policy, and
+  starts its own lifetime.
+- The asking turn continues as if the asker declined to decide inline: the asking model reads that the
+  proposal now waits for the subject's approvers (`decision: "subject"` with the new approval id) and
+  finishes its answer. Nothing executes in the asker's request.
+- Both steps are audited: `ApprovalRejected` with outcome `moved` on the A row and `ApprovalRequested`
+  with the new route on the new row; both carry the consultation id.
+- When no at-subject route applies, the card does not offer it and the endpoint refuses it with
+  `assistant-consult-proposal-refused`.
+
 ### Other rules
 
 - Only the asker decides an A proposal, also when the asking turn is a request turn in another agent's
@@ -330,12 +351,30 @@ flowchart TD
   for B.
 - `NhAssistantLimits.MaxOpenConsultationProposalsPerAsker` (CP15).
 
-### Administration
+### Administration (CP21 (c))
 
-Consultations are code-only, and agents created in the administration cannot be consulted. Nothing to
-configure there (CP21). What the administration already changes still applies: the technical account
-override (B proposals keep the account they were recorded with), switching off, pausing and stopping
-(approved B proposals of a stopped agent wait, as run proposals do), and shadow (no consultations).
+Consultations stay registered in code, but administrators can switch the routes of an agent's
+consultations within a ceiling that code sets:
+
+- **Ceiling (code).** The consultation registration says which routes are allowed: A
+  (`AskerDecides()`), B (`AtSubject(Agent)`) or today's route (`AtSubject(Asker)`). The administration
+  can never switch on a route the code does not allow.
+- **Switches (administration).** Per agent, an administrator switches each allowed route on or off. For
+  a code agent the switch is an override with "back to the code setting"; for an agent created in the
+  administration the switch is the setting itself. Every switch is stored with the agent's run
+  configuration in the administration data and applies to every consultation of that agent.
+- **Effect.** The routes that apply to a call are the code's routes minus the switched-off ones; CP3
+  then picks per call. With every route off, the consultation is read-only for that agent, as
+  `Proposals(false)`.
+- **Editor.** The agent editor shows the routes with an explanation of each (A: the asker decides in
+  their own chat; B: the subject's approvers decide and it executes with the agent's rights; today's
+  route: it executes with the asker's rights later) and their state (code, overridden, not allowed),
+  in every shipped language.
+- **Audit.** A change is audited like other changes of an agent's run configuration.
+
+What the administration already changes still applies: the technical account override (B proposals
+keep the account they were recorded with), switching off, pausing and stopping (approved B proposals of
+a stopped agent wait, as run proposals do), and shadow (no consultations).
 
 ## API and contract changes
 
@@ -470,27 +509,27 @@ Each line: the question, the options, the recommendation and the status.
 
 | # | Question | Options | Recommendation | Status |
 |---|---|---|---|---|
-| CP1 | Which routes does the platform offer? | (a) A only; (b) B only; (c) A and B as opt-ins next to today's route; (d) A and B replace today's route. | (c): applications that rebuild principals keep today's route, the others choose A, B or both; no behaviour changes on upgrade. | Open |
-| CP2 | How is it configured? | (a) a proposals builder `Proposals(p => p.MinimumRole(...).AskerDecides().AtSubject(rights).Policy(id))`, keeping `Proposals(bool, role)` as today's route; (b) one enum of modes. | (a): A and the at-subject route are independent, and five enum values would be harder to read than two settings. | Open |
-| CP3 | Which route applies when several are configured? | (a) per call: A when it applies, else the configured at-subject route when it applies, else refused; (b) at-subject first, A as fallback; (c) the asker chooses on a card. | (a): A uses the asker's own rights and needs nobody else; one predictable rule the model and the audit can name. | Open |
-| CP4 | Who may decide an A proposal? | (a) only when the policy for the call lets the asker decide: an approver rule the asker meets (the initiator rule included), not four-eyes, and the tool's approve policies, checked with the live principal at proposal and at decision; (b) the asker always, as for their own chat proposals. | (a): the policy says who may let the agent's work happen on the subject; A changes where and with whose principal it is decided, not who may decide. | Open |
-| CP5 | Which approval policy does a consultation proposal follow? | (a) as today: the agent's tool policy, its agent policy, else `TriggerDefault`; (b) a consultation may name its own policy, used where the agent has no tool-specific policy; (c) a consultation policy overrides every agent policy. | (b): the agent's policy was written for its runs; the application can say what consultations need without weakening a tool-specific rule. | Open |
-| CP6 | Where is an A proposal stored? | (a) in the consulted agent's thread, as consultation proposals are today, with the asking call linked to it; (b) in the asking conversation. | (a): one place for consultation proposals, so the thread shows what happened, and retention, guards and revalidation keep working. | Open |
-| CP7 | How many A decisions can wait? | (a) one per consultation and per asking turn; further calls take the at-subject route or are refused; (b) several, decided one after another; (c) one card for all. | (a): matches the one waiting inline proposal per turn; more is rare and can wait at the subject. | Open |
-| CP8 | What are the lifetime and the end of an A proposal? | (a) `min(policy lifetime, ApprovalLifetime)`, the card survives reloads, cancel rejects, the maintenance job expires it and frees the conversation, nothing moves on; (b) the policy's lifetime; (c) on expiry it moves to B. | (a): the conversation is blocked while it waits; moving it on would make others decide what the asker left. | Open |
-| CP9 | Which asking turns can wait for an A decision? | (a) a person's chat turn and request turn in a thread, in the asker's request; not MCP calls, headless agent turns or nested consultations; (b) also headless turns, decided through a notification. | (a): only these have a person and a stream in the request; (b) would need the rebuilt principal again. | Open |
-| CP10 | Which agents can use B? | (a) only agents that answer to a technical account; (b) also agents that answer for themselves, with their code grants; (c) every agent. | (b): the rule is "no person answers for, or lends rights to, work another person caused"; an agent that answers for itself executes its runs with its grants already. Stricter reading of the brief: (a). | Open |
-| CP11 | Whose rights bound what a B consultation may propose? | (a) both: the asker's live rights in the consult turn (as today) and the agent's own rights, checked at proposal and at execution; (b) the agent's own rights only, reads still the asker's. | (a): keeps the consultation plan's promise that a consultation cannot launder the agent's rights, needs no change in the consult turn's authorization; (b) can follow as an opt-in if needed, and requests already offer it. | Open |
-| CP12 | How is four-eyes enforced in B? | (a) always: the stored snapshot gets `FourEyes = true`, and B is refused when no approver rule other than the initiator remains; (b) B only with a policy that sets `FourEyes()` itself. | (a) with the startup check: the platform guarantees it, and `TriggerDefault` and most run policies work unchanged. | Open |
-| CP13 | Do `TriggerOnly` grants count for a B execution? | (a) yes: the execution is headless and decided by another person, as a requested run; (b) no: a person steered the consultation. | (a), given CP11 (a); with CP11 (b) choose (b). | Open |
-| CP14 | What about the whole application (`nh-system`)? | (a) refuse B, allow A; (b) refuse both; (c) allow B. | (a): app-wide work caused by any asker is too broad for B; A stays within the asker's own rights. | Open |
-| CP15 | Is the number of open B proposals per asker capped? | (a) `NhAssistantLimits.MaxOpenConsultationProposalsPerAsker` per subject, default 5; (b) existing limits only. | (a): existing limits allow up to about 200 proposals a day per asker; a cap keeps approvers' inboxes usable. | Open |
-| CP16 | Is the asker told what became of a B proposal? | (a) a new notification kind `ConsultationProposalDecided` to the asker when it is rejected, expires or its execution ended; (b) nothing beyond the thread. | (a): the asker caused it and otherwise never hears of it; the default policy sends it in-app only. | Open |
-| CP17 | How does the audit show the route? | (a) a `ConsultationRoute` field on the approval and execution events plus the refusal reason on the inner call; (b) new event kinds per route. | (a): the existing events stay the timeline; one field tells which path without joining tables. | Open |
-| CP18 | Is a migration needed? | (a) no: the route is derived from consultation id, mode and grant source, and the asking call links through its approval id; (b) an explicit route column on `AssistantApproval` (SQL Server and PostgreSQL). | (a): every fact is already stored; no downstream migration. | Open |
-| CP19 | How does the consult tool's contract change? | (a) additive optional `decision` and `approvalIds`, version 1; (b) version 2 with new export names. | (a): additive for models and MCP clients; the contract hash changes anyway. | Open |
-| CP20 | What does the UI offer? | (a) A card in the chat, read-only A in the thread, B like run proposals with "requested by" and the four-eyes reason, no "leave for approvers" on the A card; (b) also "leave for approvers", which moves an A proposal to B. | (a): (b) needs a second approval row and a second rule; add it when people ask for it. | Open |
-| CP21 | What can administrators configure? | (a) nothing new, consultations stay code-only; (b) show the routes read-only in the run catalog; (c) let administrators switch routes. | (a) now, (b) later when the run catalog shows consultations at all. | Open |
-| CP22 | Which sample evidence? | (a) extend SPM-278 with A (intake reviewer) and B (project closer, technical account), with a principal factory that refuses people; (b) a new case. | (a): AGENTS.md asks to extend the existing case; SPM-278 is the consultation case. | Open |
-| CP23 | In which order is it delivered? | (a) B first (server side, reuses run execution), then A (chat flow and card); (b) A first; (c) together. | (a): B gives these applications proposals at all with the smallest change; A adds the immediate path. | Open |
-| CP24 | Does the maintenance job expire and escalate consultation proposals? | (a) every consultation proposal, today's route included, with a release note (an escalating policy then escalates them); (b) only A and B proposals; (c) as today, lazily at the next decision. | (a): the policy's `OnExpiry` should mean the same for every proposal, and A needs the job to free the asking conversation anyway. | Open |
+| CP1 | Which routes does the platform offer? | (a) A only; (b) B only; (c) A and B as opt-ins next to today's route; (d) A and B replace today's route. | (c): applications that rebuild principals keep today's route, the others choose A, B or both; no behaviour changes on upgrade. | Decided: (c). |
+| CP2 | How is it configured? | (a) a proposals builder `Proposals(p => p.MinimumRole(...).AskerDecides().AtSubject(rights).Policy(id))`, keeping `Proposals(bool, role)` as today's route; (b) one enum of modes. | (a): A and the at-subject route are independent, and five enum values would be harder to read than two settings. | Decided: (a). |
+| CP3 | Which route applies when several are configured? | (a) per call: A when it applies, else the configured at-subject route when it applies, else refused; (b) at-subject first, A as fallback; (c) the asker chooses on a card. | (a): A uses the asker's own rights and needs nobody else; one predictable rule the model and the audit can name. | Decided: (a). |
+| CP4 | Who may decide an A proposal? | (a) only when the policy for the call lets the asker decide: an approver rule the asker meets (the initiator rule included), not four-eyes, and the tool's approve policies, checked with the live principal at proposal and at decision; (b) the asker always, as for their own chat proposals. | (a): the policy says who may let the agent's work happen on the subject; A changes where and with whose principal it is decided, not who may decide. | Decided: (a). |
+| CP5 | Which approval policy does a consultation proposal follow? | (a) as today: the agent's tool policy, its agent policy, else `TriggerDefault`; (b) a consultation may name its own policy, used where the agent has no tool-specific policy; (c) a consultation policy overrides every agent policy. | (b): the agent's policy was written for its runs; the application can say what consultations need without weakening a tool-specific rule. | Decided: (b). |
+| CP6 | Where is an A proposal stored? | (a) in the consulted agent's thread, as consultation proposals are today, with the asking call linked to it; (b) in the asking conversation. | (a): one place for consultation proposals, so the thread shows what happened, and retention, guards and revalidation keep working. | Decided: (a). |
+| CP7 | How many A decisions can wait? | (a) one per consultation and per asking turn; further calls take the at-subject route or are refused; (b) several, decided one after another; (c) one card for all. | (a): matches the one waiting inline proposal per turn; more is rare and can wait at the subject. | Decided: (a). |
+| CP8 | What are the lifetime and the end of an A proposal? | (a) `min(policy lifetime, ApprovalLifetime)`, the card survives reloads, cancel rejects, the maintenance job expires it and frees the conversation, nothing moves on; (b) the policy's lifetime; (c) on expiry it moves to B. | (a): the conversation is blocked while it waits; moving it on would make others decide what the asker left. | Decided: (a). |
+| CP9 | Which asking turns can wait for an A decision? | (a) a person's chat turn and request turn in a thread, in the asker's request; not MCP calls, headless agent turns or nested consultations; (b) also headless turns, decided through a notification. | (a): only these have a person and a stream in the request; (b) would need the rebuilt principal again. | Decided: (a). |
+| CP10 | Which agents can use B? | (a) only agents that answer to a technical account; (b) also agents that answer for themselves, with their code grants; (c) every agent. | (b): the rule is "no person answers for, or lends rights to, work another person caused"; an agent that answers for itself executes its runs with its grants already. Stricter reading of the brief: (a). | Decided: (b), a technical account or an agent that answers for itself. |
+| CP11 | Whose rights bound what a B consultation may propose? | (a) both: the asker's live rights in the consult turn (as today) and the agent's own rights, checked at proposal and at execution; (b) the agent's own rights only, reads still the asker's. | (a): keeps the consultation plan's promise that a consultation cannot launder the agent's rights, needs no change in the consult turn's authorization; (b) can follow as an opt-in if needed, and requests already offer it. | Decided: (a), both the asker's live rights and the agent's rights. |
+| CP12 | How is four-eyes enforced in B? | (a) always: the stored snapshot gets `FourEyes = true`, and B is refused when no approver rule other than the initiator remains; (b) B only with a policy that sets `FourEyes()` itself. | (a) with the startup check: the platform guarantees it, and `TriggerDefault` and most run policies work unchanged. | Decided: (a), always four-eyes with a startup check. |
+| CP13 | Do `TriggerOnly` grants count for a B execution? | (a) yes: the execution is headless and decided by another person, as a requested run; (b) no: a person steered the consultation. | (a), given CP11 (a); with CP11 (b) choose (b). | Decided: (a). |
+| CP14 | What about the whole application (`nh-system`)? | (a) refuse B, allow A; (b) refuse both; (c) allow B. | (a): app-wide work caused by any asker is too broad for B; A stays within the asker's own rights. | Decided: (a), refuse B, allow A for `nh-system`. |
+| CP15 | Is the number of open B proposals per asker capped? | (a) `NhAssistantLimits.MaxOpenConsultationProposalsPerAsker` per subject, default 5; (b) existing limits only. | (a): existing limits allow up to about 200 proposals a day per asker; a cap keeps approvers' inboxes usable. | Decided: (a), per asker per subject, default 5. |
+| CP16 | Is the asker told what became of a B proposal? | (a) a new notification kind `ConsultationProposalDecided` to the asker when it is rejected, expires or its execution ended; (b) nothing beyond the thread. | (a): the asker caused it and otherwise never hears of it; the default policy sends it in-app only. | Decided: (a), `ConsultationProposalDecided`. |
+| CP17 | How does the audit show the route? | (a) a `ConsultationRoute` field on the approval and execution events plus the refusal reason on the inner call; (b) new event kinds per route. | (a): the existing events stay the timeline; one field tells which path without joining tables. | Decided: (a). |
+| CP18 | Is a migration needed? | (a) no: the route is derived from consultation id, mode and grant source, and the asking call links through its approval id; (b) an explicit route column on `AssistantApproval` (SQL Server and PostgreSQL). | (a): every fact is already stored; no downstream migration. | Decided: (a), no migration for the route on approvals. |
+| CP19 | How does the consult tool's contract change? | (a) additive optional `decision` and `approvalIds`, version 1; (b) version 2 with new export names. | (a): additive for models and MCP clients; the contract hash changes anyway. | Decided: (a), additive, version 1. |
+| CP20 | What does the UI offer? | (a) A card in the chat, read-only A in the thread, B like run proposals with "requested by" and the four-eyes reason, no "leave for approvers" on the A card; (b) also "leave for approvers", which moves an A proposal to B. | (a): (b) needs a second approval row and a second rule; add it when people ask for it. | Decided by Lars: (b), deviating from the recommendation; see "Leave for approvers". |
+| CP21 | What can administrators configure? | (a) nothing new, consultations stay code-only; (b) show the routes read-only in the run catalog; (c) let administrators switch routes. | (a) now, (b) later when the run catalog shows consultations at all. | Decided by Lars: (c), deviating from the recommendation; see "Administration". |
+| CP22 | Which sample evidence? | (a) extend SPM-278 with A (intake reviewer) and B (project closer, technical account), with a principal factory that refuses people; (b) a new case. | (a): AGENTS.md asks to extend the existing case; SPM-278 is the consultation case. | Decided: (a), extend SPM-278. |
+| CP23 | In which order is it delivered? | (a) B first (server side, reuses run execution), then A (chat flow and card); (b) A first; (c) together. | (a): B gives these applications proposals at all with the smallest change; A adds the immediate path. | Decided by Lars: (c), deviating from the recommendation: A and B in one delivery. |
+| CP24 | Does the maintenance job expire and escalate consultation proposals? | (a) every consultation proposal, today's route included, with a release note (an escalating policy then escalates them); (b) only A and B proposals; (c) as today, lazily at the next decision. | (a): the policy's `OnExpiry` should mean the same for every proposal, and A needs the job to free the asking conversation anyway. | Decided: (a), with a release note. |
