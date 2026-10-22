@@ -2961,14 +2961,17 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     [Fact]
     public async Task The_participant_decides_the_intake_reviewers_proposal_in_their_own_chat_with_their_own_rights()
     {
-        // SPM-278, option A: the asker decides inline and no person's principal is rebuilt.
+        // SPM-278, option A: the asker decides inline and no person's principal is rebuilt. The test
+        // has people of its own, so the watch sees only what their work asks for.
         const string consultTool = "consult_sample-project-intake-reviewer_project_v1";
+        var participantId = await host.CreatePersonAsync();
+        var readerId = await host.CreatePersonAsync();
         var project = await host.CreateProjectAsync("ASKER", ownerId: host.OwnerId);
-        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
-        await host.AddMemberAsync(project, host.ReaderId, ProjectMemberRole.Reader);
+        await host.AddMemberAsync(project, participantId, ProjectMemberRole.Participant);
+        await host.AddMemberAsync(project, readerId, ProjectMemberRole.Reader);
         using var owner = host.CreateClient(host.OwnerId.ToString());
-        using var participant = host.CreateClient(host.ParticipantId.ToString());
-        using var reader = host.CreateClient(host.ReaderId.ToString());
+        using var participant = host.CreateClient(participantId.ToString());
+        using var reader = host.CreateClient(readerId.ToString());
         var reviewer = new NhAiScriptedChatClient()
             .RespondWithFunctionCall("projects_request_review_v1", new { input = new { projectId = project } }, "call-review")
             .RespondWithText("The intake is complete. I proposed to request a review, which you decide now.")
@@ -2986,7 +2989,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             ((messages, options) => RoutingChatClient.Mentions(messages, options, assistantInstructions), assistant),
             ((messages, options) => RoutingChatClient.Mentions(messages, options, projectText)
                 || RoutingChatClient.Mentions(messages, options, "You are being consulted"), reviewer)));
-        host.PrincipalWatch.RefusePeople = true;
+        var watched = new[] { participantId.ToString(), readerId.ToString() };
+        host.PrincipalWatch.Refuse(watched);
         try
         {
             // The participant asks; the reviewer's proposal becomes a card in the participant's chat.
@@ -3008,7 +3012,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var thread = await WaitForThreadAsync(owner, project, SampleIntakeReviewerComposition.AgentId);
             var executed = await WaitForProposalAsync(owner, thread, NhAssistantApprovalStatuses.Executed);
             Assert.Equal(NhAssistantConsultationRoutes.AskerDecides, executed.ConsultationRoute);
-            Assert.Equal(host.ParticipantId.ToString(), executed.DecidedByActorId);
+            Assert.Equal(participantId.ToString(), executed.DecidedByActorId);
 
             // A reader may consult but not propose: the reviewer is offered no tool that changes
             // anything, no card appears and it describes the step instead.
@@ -3018,11 +3022,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Equal(1, host.Reviews.Attempts(project));
 
             // Nothing asked for a person's principal outside that person's request.
-            Assert.DoesNotContain(host.PrincipalWatch.Asked, actor => actor == host.ParticipantId.ToString() || actor == host.ReaderId.ToString());
+            Assert.DoesNotContain(host.PrincipalWatch.Asked, actor => watched.Contains(actor));
         }
         finally
         {
-            host.PrincipalWatch.RefusePeople = false;
+            host.PrincipalWatch.Allow(watched);
             host.Model.Use(new SampleAssistantChatClient());
         }
     }
@@ -3032,12 +3036,14 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     {
         // SPM-278, option B: four-eyes at the project, the agent's own rights, no person's principal.
         const string consultTool = "consult_sample-project-closer_project_v1";
+        var participantId = await host.CreatePersonAsync();
+        var colleagueId = await host.CreatePersonAsync();
         var project = await host.CreateProjectAsync("COMPLETE", ownerId: host.OwnerId, status: ProjectStatus.Active);
         // The participant approves the project's work too, yet never their own consultation's proposal.
-        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Approver);
-        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
-        using var participant = host.CreateClient(host.ParticipantId.ToString());
-        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        await host.AddMemberAsync(project, participantId, ProjectMemberRole.Approver);
+        await host.AddMemberAsync(project, colleagueId, ProjectMemberRole.Approver);
+        using var participant = host.CreateClient(participantId.ToString());
+        using var colleague = host.CreateClient(colleagueId.ToString());
         var closer = new NhAiScriptedChatClient()
             .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = project, status = "Completed" } }, "call-complete")
             .RespondWithText("All tasks are completed. I proposed to complete the project; another approver decides it.");
@@ -3050,7 +3056,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             new SampleAssistantChatClient(),
             ((messages, options) => RoutingChatClient.Mentions(messages, options, closerInstructions), closer),
             ((messages, options) => RoutingChatClient.Mentions(messages, options, assistantInstructions), assistant)));
-        host.PrincipalWatch.RefusePeople = true;
+        var watched = new[] { participantId.ToString(), colleagueId.ToString() };
+        host.PrincipalWatch.Refuse(watched);
         try
         {
             var chat = await host.CreateConversationAsync(participant);
@@ -3063,7 +3070,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var proposal = await WaitForProposalAsync(colleague, thread, NhAssistantApprovalStatuses.Pending, ProjectAiTools.ChangeStatusToolId);
             Assert.Equal(NhAssistantConsultationRoutes.SubjectAgentRights, proposal.ConsultationRoute);
             Assert.Equal("agent", proposal.GrantSource);
-            Assert.Equal(host.ParticipantId.ToString(), proposal.InitiatorActorId);
+            Assert.Equal(participantId.ToString(), proposal.InitiatorActorId);
 
             // The participant may not approve it; the colleague does, and it runs as the closer.
             var own = await DecideAsync(participant, proposal, "approve");
@@ -3071,11 +3078,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, proposal, "approve")).StatusCode);
             await WaitForProposalAsync(colleague, thread, NhAssistantApprovalStatuses.Executed, ProjectAiTools.ChangeStatusToolId);
             Assert.Contains(host.Projects.StatusChanges, change => change.ProjectId == project && change.Status == ProjectStatus.Completed);
-            Assert.DoesNotContain(host.PrincipalWatch.Asked, actor => actor == host.ParticipantId.ToString() || actor == host.ColleagueId.ToString());
+            Assert.DoesNotContain(host.PrincipalWatch.Asked, actor => watched.Contains(actor));
         }
         finally
         {
-            host.PrincipalWatch.RefusePeople = false;
+            host.PrincipalWatch.Allow(watched);
             host.Model.Use(new SampleAssistantChatClient());
         }
     }
@@ -4338,8 +4345,6 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         services.AddSampleProjectStarterBlocks();
         // SPM-278: every principal anything asks for is counted, and people are refused while a test
         // proves that consultations never rebuild a person's principal.
-        PrincipalWatch.TechnicalAccounts[TechnicalAccountId.ToString()] = 0;
-        PrincipalWatch.TechnicalAccounts[OperationsAccountId.ToString()] = 0;
         SamplePrincipalWatch.Install(services, PrincipalWatch);
     }
 
@@ -4809,17 +4814,32 @@ public sealed class RoutingChatClient(
 /// board would: the call throws, so nobody knows whether the request arrived.
 /// </summary>
 /// <summary>
-/// SPM-278: wraps the application's principal factory. It records whose principal is asked for and,
-/// with <see cref="RefusePeople"/>, refuses everyone but the technical accounts, as an application that
-/// never rebuilds a person's principal outside that person's own request would.
+/// SPM-278: wraps the application's principal factory. It records whose principal is asked for and
+/// refuses the people a test names with <see cref="Refuse"/>, as an application that never rebuilds a
+/// person's principal outside that person's own request would. Other tests on the same host keep the
+/// application's factory, so a test watches people of its own.
 /// </summary>
 public sealed class SamplePrincipalWatch
 {
+    private readonly ConcurrentDictionary<string, byte> _refused = new(StringComparer.Ordinal);
+
     public ConcurrentQueue<string> Asked { get; } = new();
 
-    public ConcurrentDictionary<string, byte> TechnicalAccounts { get; } = new(StringComparer.Ordinal);
+    public void Refuse(IEnumerable<string> actorIds)
+    {
+        foreach (var actorId in actorIds)
+        {
+            _refused[actorId] = 0;
+        }
+    }
 
-    public volatile bool RefusePeople;
+    public void Allow(IEnumerable<string> actorIds)
+    {
+        foreach (var actorId in actorIds)
+        {
+            _refused.TryRemove(actorId, out _);
+        }
+    }
 
     public static void Install(IServiceCollection services, SamplePrincipalWatch watch)
     {
@@ -4843,7 +4863,7 @@ public sealed class SamplePrincipalWatch
         public ValueTask<ClaimsPrincipal?> CreateAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken = default)
         {
             watch.Asked.Enqueue(actorId);
-            return watch.RefusePeople && !watch.TechnicalAccounts.ContainsKey(actorId)
+            return watch._refused.ContainsKey(actorId)
                 ? ValueTask.FromResult<ClaimsPrincipal?>(null)
                 : inner.CreateAsync(actorId, subject, cancellationToken);
         }

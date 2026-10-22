@@ -254,6 +254,55 @@ public sealed class AssistantConsultationProposalTests(AssistantDatabaseFixture 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_asker_of_todays_route_hears_how_its_proposals_ended(AssistantTestProvider provider)
+    {
+        // CP28 (b): today's route tells its asker too, as the route with the agent's rights does.
+        var projectId = Guid.NewGuid();
+        var target = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatus, new { input = new { projectId, status = "active" } }, "c-1")
+            .RespondWithFunctionCall(ChangeStatus, new { input = new { projectId, status = "on-hold" } }, "c-2")
+            .RespondWithText("Proposed both for the approvers.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Change it." } }, "call-1")
+            .RespondWithText("The approvers decide.");
+        var channel = new RecordingChannel();
+        await using var host = await CreateHostAsync(
+            provider,
+            target,
+            asker,
+            proposals => proposals.AtSubject(NhAssistantConsultationRights.Asker),
+            channel: channel);
+        var conversation = await host.CreateConversationAsync(Member, AskingAgentId);
+        await host.SendAsync(conversation.Id, "Change the project.", Member);
+        var approvals = await host.Services.GetRequiredService<NhAssistantRunStore>()
+            .GetConsultationApprovalsAsync((await SingleConsultationAsync(host)).Id, CancellationToken.None);
+        Assert.Equal(2, approvals.Count);
+        Assert.All(approvals, approval => Assert.Equal(NhAiGrantSource.Delegated, approval.GrantSource));
+
+        // An approver rejects the first.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var rejected = await scope.ServiceProvider.GetRequiredService<NhAssistantProposalDecisions>()
+                .DecideAsync(approvals[0].Id, Approver, Principal(Approver), false, null, "Not now.", CancellationToken.None);
+            Assert.True(rejected.Success);
+        }
+
+        // The second is approved, but this application rebuilds nobody's principal, so it fails.
+        await ApproveAndExecuteAsync(host, approvals[1], Approver);
+
+        var told = channel.Deliveries
+            .Where(delivery => delivery.Context.Kind == NhAssistantAgentNotificationKind.ConsultationProposalDecided)
+            .ToArray();
+        Assert.Equal(2, told.Length);
+        Assert.All(told, delivery => Assert.Equal([Member], delivery.Recipients));
+        Assert.Equal(
+            [NhAssistantApprovalStatuses.ExecutionFailed, NhAssistantApprovalStatuses.Rejected],
+            told.Select(delivery => delivery.Context.ProposalStatus).Order(StringComparer.Ordinal).ToArray());
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Each_call_takes_the_first_route_that_applies_or_is_refused_with_a_reason(AssistantTestProvider provider)
     {
         var projectId = Guid.NewGuid();

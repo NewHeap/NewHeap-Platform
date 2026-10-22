@@ -105,6 +105,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-consult-route-not-allowed',
     'assistant-consult-proposal-refused',
     'assistant-consult-asker-decides',
+    'assistant-consult-proposal-moved',
     'assistant-skill-in-code',
     'assistant-trigger-in-code',
     'assistant-skill-in-use',

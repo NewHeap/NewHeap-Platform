@@ -65,15 +65,18 @@ what code allows (`INhAssistantAgentControl.SetConsultationRoutesAsync`,
 | The maintenance job now expires and escalates every pending proposal of a consultation, today's route included; before, such a proposal stayed pending after its expiry until someone tried to decide it. After the upgrade, consultation proposals past their expiry close as `expired` on the next round, and policies with `OnExpiry(Escalate)` escalate them. | Check the expiry and escalation of the approval policies your consultations use; nothing to do when they should expire. |
 | The `AgentConsultationRoutes` migrations add six nullable columns to `AssistantAgent` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
 | `INhAssistantAgentControl` has the new member `SetConsultationRoutesAsync`. | Implement it in a class of your own that implements the interface; callers need nothing. |
-| `NhAssistantAgentNotificationKind` has the new value `ConsultationProposalDecided`, sent only to the asker of a proposal that executes with the agent's rights. | Let a custom notification policy or channel handle it or ignore kinds it does not know. |
+| `NhAssistantAgentNotificationKind` has the new value `ConsultationProposalDecided`, sent only to the asker of a consultation proposal that waited at the subject, today's route included, when it is rejected, expires, closes or its execution ends. Askers of today's consultation proposals now get this notification through the application's agent notification channels. | Let a custom notification policy or channel handle it or ignore kinds it does not know; filter it out in a policy when askers should not hear of it. |
 | The generated consult tool's output schema gains the optional `decision` and `approvalIds`; its version and export name stay, its contract and attestation hash change. | Refresh pinned MCP tool attestations of consult tools. |
 
 ## @newheap/platform-ai-chat: proposals of consultations
 
 The approval card shows a consultation's proposal that the person decides in their own chat with the
 consulted agent, the subject and its answer, and offers Leave for approvers when a route at the subject
-applies; proposal views show who asked and the route; the run configuration of agents in code switches
-the consultation routes; the mock API serves both routes. Texts are in English and Dutch.
+applies; proposal views show who asked and the route; the agent thread view reads each pending
+proposal's live decision right (`lookupProposals`), as the run result and the subject's work do, so the
+person who asked sees the four-eyes reason instead of Approve and Reject, also as an approver; the run
+configuration of agents in code switches the consultation routes; the mock API serves both routes.
+Texts are in English and Dutch.
 
 | Breaking change | Required action |
 |---|---|

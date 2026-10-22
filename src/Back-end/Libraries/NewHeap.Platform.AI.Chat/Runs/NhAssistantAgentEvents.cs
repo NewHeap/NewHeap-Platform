@@ -22,9 +22,9 @@ internal sealed class NhAssistantAgentNotifier(
     private readonly IReadOnlyList<INhAssistantAgentNotificationChannel> _channels = channels.ToArray();
 
     /// <summary>
-    /// Tells the person who asked how a consultation proposal that executes with the agent's own
-    /// rights ended (CP16): rejected, expired, closed or executed. Proposals of other routes and of
-    /// runs notify nobody here.
+    /// Tells the person who asked how a consultation proposal that waited at the subject ended (CP16,
+    /// CP28): rejected, expired, closed or executed, with the asker's or the agent's rights. A proposal
+    /// the asker decided in their own chat and proposals of runs notify nobody here.
     /// </summary>
     public Task ConsultationProposalEndedAsync(
         AssistantThread thread,
@@ -34,7 +34,7 @@ internal sealed class NhAssistantAgentNotifier(
         ArgumentNullException.ThrowIfNull(thread);
         ArgumentNullException.ThrowIfNull(approval);
         var route = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource);
-        if (route != NhAssistantConsultationRoutes.SubjectAgentRights
+        if (route is not (NhAssistantConsultationRoutes.SubjectAgentRights or NhAssistantConsultationRoutes.SubjectAskerRights)
             || string.IsNullOrWhiteSpace(approval.InitiatorActorId)
             || !NhAssistantApprovalStatuses.IsClosed(approval.Status))
         {
