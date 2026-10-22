@@ -32,6 +32,12 @@ public static class SampleIntakeReviewerComposition
     public const string AgentId = "sample-project-intake-reviewer";
     public const string TriggerId = "project-created-intake";
     public const string ApprovalPolicyId = "project-intake";
+
+    /// <summary>
+    /// SPM-278: the policy of what the reviewer proposes while the project assistant consults it: the
+    /// person who asked decides it in their own chat.
+    /// </summary>
+    public const string ConsultationPolicyId = "project-intake-consultation";
     public const string ReviewBoardTriggerId = "review-board-feedback";
     public const string DeadlineReviewTriggerId = "weekly-deadline-review";
 
@@ -90,6 +96,13 @@ public static class SampleIntakeReviewerComposition
                 // An edit after the proposal closes it as stale instead of executing it.
                 .RequireUnchangedSubject()
                 .BindTo(NhAiApprovalBinding.ToolContract))
+            // SPM-278: what the reviewer proposes in a consultation is the asker's to decide, right
+            // away in their own chat. Its own policy above is four-eyes and keeps the asker out, so
+            // the consultation names this one; a policy for one tool would still win.
+            .AddApprovalPolicy(ConsultationPolicyId, policy => policy
+                .Approvers(NhAiApprovers.Initiator)
+                .Lifetime(TimeSpan.FromMinutes(15))
+                .BindTo(NhAiApprovalBinding.ToolContract))
             // SPM-279: approvers may say why they rejected a proposal. The next run on the project
             // starts from those rejections, administrators read the report, and this sink forwards
             // each feedback to the application's own analytics.
@@ -129,13 +142,19 @@ public static class SampleIntakeReviewerComposition
                 .MaxTokensPerRun(60_000)
                 // SPM-278: the project assistant may consult the reviewer about a project. A
                 // consultation uses the asking person's rights, never the grants above; project
-                // readers get an answer, participants may also leave proposals for the approvers.
-                // Consultations spend the same daily budget. MCP clients would need Exposure(... | Mcp).
+                // readers get an answer, participants may also propose. A participant decides what
+                // the reviewer proposes in their own chat, and it executes in their own request with
+                // their own rights, so no person's principal is rebuilt (AskerDecides). Consultations
+                // spend the same daily budget. MCP clients would need Exposure(... | Mcp).
                 .AllowConsultation(ProjectSubjects.Type, consultation => consultation
                     .Description("Knows the intake review of a project: the checks done, the last verdict and what is still missing.")
                     .Policy(SampleAssistantComposition.AccessPolicy)
                     .Instructions(ProjectAiAssets.ProjectIntakeReviewerConsultationInstructions)
                     .Limits(maxToolCalls: 2, timeout: TimeSpan.FromSeconds(45), maxAnswerChars: 2_000)
+                    .Proposals(proposals => proposals
+                        .MinimumRole(NhAiSubjectRole.Participant)
+                        .AskerDecides()
+                        .Policy(ConsultationPolicyId))
                     // Participants may also ask the reviewer to review the project again in a run
                     // of its own; they are notified when it ends.
                     .AllowRequests()))

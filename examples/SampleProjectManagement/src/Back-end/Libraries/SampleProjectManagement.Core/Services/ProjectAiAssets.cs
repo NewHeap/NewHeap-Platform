@@ -73,6 +73,28 @@ public static class ProjectAiAssets
             "sample-project-intake-reviewer-v1");
 
     /// <summary>
+    /// SPM-278: what the project closer follows when the project assistant consults it.
+    /// </summary>
+    public static NhAiTextAsset ProjectCloserConsultationInstructions { get; } =
+        NhAiTextAssetFactory.Create(
+            "project-closer-consultation-instructions",
+            1,
+            """
+            Answer whether the one project you are asked about can be completed.
+            When it is active and all its tasks are completed, propose to complete it.
+            Say that a project approver other than the person who asked decides it.
+            """,
+            "embedded:SampleProjectManagement.Core/ProjectAiAssets",
+            NhAiAssetRole.SystemInstructions,
+            NhAiContextTrust.TrustedApplication,
+            NhAiModelCapability.FunctionCalling,
+            [],
+            "project-closer-v1",
+            NhAiDataClassification.Internal,
+            NhAiRetentionCategory.Evaluation,
+            "sample-project-closer-v1");
+
+    /// <summary>
     /// Instructions of the project closer's model (SPM-283). Its rules make the proposals; the model
     /// only answers people who ask about them in the project's thread.
     /// </summary>
