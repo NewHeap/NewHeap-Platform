@@ -733,6 +733,16 @@ either decision endpoint, also for a person's own chat proposal, and right befor
 to `RequireUnchangedSubject`. Limit an expensive guard to `Decision | Execution`, knowing it then
 never closes an open proposal by itself.
 
+Keep work that is already done from being proposed at all. Add `NhAiProposalGuardStages.Proposal`
+to a guard's stages (`AddProposalGuard<TGuard>(selectors, NhAiProposalGuardStages.All |
+NhAiProposalGuardStages.Proposal)`; `All` leaves it out): its `CheckAsync` then also runs when a
+rule (`NhAssistantRuleContext.ProposeAsync`) or the model proposes, before anything is recorded.
+A stale result records no proposal, no approval and no `ApprovalRequested` audit event. Rules get
+`NhAssistantProposeOutcome.NotNeeded` with the guard's reason code as `Code` and its explanation in
+the run's culture as `Explanation`; the model gets `assistant-proposal-not-needed` with `reason`,
+`kind` and `explanation` as its tool result, and the tool call reads `not-executed`. A guard that
+throws at proposal time lets the proposal be recorded; the decision and the execution check again.
+
 Revalidate after the change committed. Call `INhAssistantProposalRevalidation`
 `RevalidateSubjectAsync(subject)` or `RevalidateKeysAsync(keys, scopeKey)` from the outbox
 consumer or after the commit (without a scope key it uses `global`), or declare it with

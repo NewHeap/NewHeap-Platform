@@ -516,7 +516,10 @@ public sealed class NhAssistantBuilder
     /// <summary>
     /// Registers an application guard that runs only at <paramref name="stages"/>. A guard without
     /// <see cref="NhAiProposalGuardStages.Revalidation"/> never closes open proposals by itself; the
-    /// decision or the execution does.
+    /// decision or the execution does. A guard with <see cref="NhAiProposalGuardStages.Proposal"/> also
+    /// checks a proposal before it is recorded, so work that is already done or no longer applies is
+    /// never proposed; pass it with the other stages, such as
+    /// <c>NhAiProposalGuardStages.All | NhAiProposalGuardStages.Proposal</c>.
     /// </summary>
     public NhAssistantBuilder AddProposalGuard<TGuard>(
         IReadOnlyCollection<string> toolSelectors,
@@ -530,7 +533,8 @@ public sealed class NhAssistantBuilder
                 "A proposal guard needs one or more tool ids or prefix.* selectors.",
                 nameof(toolSelectors));
         }
-        if (stages == NhAiProposalGuardStages.None || (stages & ~NhAiProposalGuardStages.All) != 0)
+        if (stages == NhAiProposalGuardStages.None
+            || (stages & ~(NhAiProposalGuardStages.All | NhAiProposalGuardStages.Proposal)) != 0)
         {
             throw new ArgumentOutOfRangeException(nameof(stages));
         }

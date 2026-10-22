@@ -45,7 +45,15 @@ public enum NhAiProposalGuardStages
     /// <summary>Right before an approved proposal executes.</summary>
     Execution = 4,
 
-    All = Revalidation | Decision | Execution
+    /// <summary>The stages after a proposal was made. <see cref="Proposal"/> is declared on its own.</summary>
+    All = Revalidation | Decision | Execution,
+
+    /// <summary>
+    /// When a rule or the model proposes, before the platform records the proposal. A stale result,
+    /// such as <see cref="NhAiPreconditionResult.AlreadyDone"/>, records no proposal: the rule or the
+    /// model learns why from the guard's explanation.
+    /// </summary>
+    Proposal = 8
 }
 
 /// <summary>The facts a proposal guard works with.</summary>
@@ -86,8 +94,9 @@ public interface INhAiProposalGuard
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Whether the proposal still fits. Return <see cref="NhAiPreconditionResult.Satisfied"/>, or a
-    /// stale result such as <see cref="NhAiPreconditionResult.AlreadyDone"/> with an explanation.
+    /// Whether the proposal still fits, or, at <see cref="NhAiProposalGuardStages.Proposal"/>, whether
+    /// it is needed at all. Return <see cref="NhAiPreconditionResult.Satisfied"/>, or a stale result
+    /// such as <see cref="NhAiPreconditionResult.AlreadyDone"/> with an explanation.
     /// </summary>
     ValueTask<NhAiPreconditionResult> CheckAsync(
         NhAiProposalGuardContext context,

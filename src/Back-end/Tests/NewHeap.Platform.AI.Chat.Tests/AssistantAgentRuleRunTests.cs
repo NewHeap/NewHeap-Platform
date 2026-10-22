@@ -210,6 +210,84 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_guard_that_checks_at_proposal_time_keeps_work_already_done_from_being_proposed(AssistantTestProvider provider)
+    {
+        var previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en");
+        try
+        {
+            var projectId = Guid.NewGuid();
+            var model = new NhAiScriptedChatClient()
+                .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Active" } }, "call-1")
+                .RespondWithText("The project is already active.");
+            await using var host = await CreateHostAsync(
+                provider,
+                model,
+                guardStages: NhAiProposalGuardStages.All | NhAiProposalGuardStages.Proposal);
+            host.Services.GetRequiredService<TestProjectStates>().Statuses[projectId] = "Active";
+            var script = Script(host);
+            script.Run = async (context, cancellationToken) =>
+            {
+                script.Proposals.Enqueue(await context.ProposeAsync(ChangeStatusTool, new ProjectStatusInput(projectId, "Active"), null, cancellationToken));
+                return NhAssistantRuleResult.Done("Checked the project.");
+            };
+
+            // The rules learn that the work is done, with the guard's reason and explanation.
+            var ruleRun = await StartRunAsync(host, projectId);
+            var ruleResult = await RunTurnAsync(host, ruleRun, "Daily round.");
+            var proposed = Assert.Single(script.Proposals);
+            Assert.Equal(
+                (NhAssistantProposeOutcome.NotNeeded, (Guid?)null, ProjectStatusGuard.ReasonCode, "Already set to Active by Henk."),
+                (proposed.Outcome, proposed.ApprovalId, proposed.Code, proposed.Explanation));
+            Assert.Equal(0, ruleResult.ProposalCount);
+
+            // The model reads the same as its tool result and continues.
+            var modelRun = await StartRunAsync(host, projectId, triggerId: ModelTriggerId);
+            var modelResult = await RunTurnAsync(host, modelRun, "Look at the project.");
+            Assert.Equal(NhAssistantTurnStatuses.Completed, modelResult.Outcome);
+            Assert.Equal(0, modelResult.ProposalCount);
+            var toolResult = JsonSerializer.Serialize(Assert.Single(model.FunctionResults).Result);
+            Assert.Contains(NhAssistantErrorCodes.ProposalNotNeeded, toolResult);
+            Assert.Contains("Already set to Active by Henk.", toolResult);
+
+            // Nothing waits for people and no proposal is audited.
+            await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+            Assert.False(await context.Approvals.AnyAsync(item => item.ConversationId == ruleRun.Thread.ConversationId));
+            Assert.DoesNotContain(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ApprovalRequested);
+            var call = await context.ToolInvocations.SingleAsync(item => item.TurnId == modelResult.TurnId);
+            Assert.Equal((NhAssistantToolCallStatuses.NotExecuted, NhAssistantErrorCodes.ProposalNotNeeded), (call.Status, call.ResultCode));
+            Assert.Empty(host.Tools.StatusChanges);
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_guard_without_the_proposal_stage_does_not_check_when_rules_propose(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient());
+        host.Services.GetRequiredService<TestProjectStates>().Statuses[projectId] = "Active";
+        var script = Script(host);
+        script.Run = async (context, cancellationToken) =>
+        {
+            script.Proposals.Enqueue(await context.ProposeAsync(ChangeStatusTool, new ProjectStatusInput(projectId, "Active"), null, cancellationToken));
+            return NhAssistantRuleResult.Done("Checked the project.");
+        };
+
+        await RunTurnAsync(host, await StartRunAsync(host, projectId), "Daily round.");
+
+        // The guard knows the work is done, but checks only at revalidation, decision and execution.
+        Assert.Equal(NhAssistantProposeOutcome.Created, Assert.Single(script.Proposals).Outcome);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task A_newer_proposal_for_the_same_objects_replaces_the_pending_one_but_never_an_approved_one(AssistantTestProvider provider)
     {
         var projectId = Guid.NewGuid();
@@ -428,7 +506,8 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         NhAiScriptedChatClient model,
         Action<NhAiApprovalPolicyBuilder>? policy = null,
         bool shadow = false,
-        bool recordRuns = false)
+        bool recordRuns = false,
+        NhAiProposalGuardStages guardStages = NhAiProposalGuardStages.All)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -459,7 +538,7 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
             },
             assistantBuilder: assistant => assistant
                 .AddSubjectType<TestSubjectResolver>()
-                .AddProposalGuard<ProjectStatusGuard>(ChangeStatusTool)
+                .AddProposalGuard<ProjectStatusGuard>([ChangeStatusTool], guardStages)
                 .AddApprovalPolicy("project-review", builder =>
                 {
                     builder

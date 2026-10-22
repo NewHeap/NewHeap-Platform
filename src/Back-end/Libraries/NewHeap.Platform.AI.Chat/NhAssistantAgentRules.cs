@@ -171,7 +171,10 @@ public sealed record NhAssistantRuleDecision(
 /// <param name="ApprovalId">The recorded proposal, or the open or rejected one that made it unnecessary.</param>
 /// <param name="Superseded">Pending proposals for the same objects that the new one replaced.</param>
 /// <param name="RejectedAt">When people rejected the same proposal, for <see cref="NhAssistantProposeOutcome.RecentlyRejected"/>.</param>
-/// <param name="Code">Why a proposal was refused.</param>
+/// <param name="Code">
+/// Why a proposal was refused, or, for <see cref="NhAssistantProposeOutcome.NotNeeded"/>, the reason
+/// code of the guard that found it not needed.
+/// </param>
 public sealed record NhAssistantRuleProposal(
     NhAssistantProposeOutcome Outcome,
     Guid? ApprovalId,
@@ -191,6 +194,13 @@ public sealed record NhAssistantRuleProposal(
     /// <c>assistant-proposal-not-placed</c>.
     /// </summary>
     public string? PlacementReason { get; init; }
+
+    /// <summary>
+    /// For <see cref="NhAssistantProposeOutcome.NotNeeded"/>, the guard's explanation in the culture the
+    /// run works in, such as "Office task completed by Henk on 14 Oct"; <see langword="null"/> when the
+    /// guard gives none.
+    /// </summary>
+    public string? Explanation { get; init; }
 
     internal static NhAssistantRuleProposal Refused(string code)
     {
@@ -218,7 +228,14 @@ public enum NhAssistantProposeOutcome
     /// The tool may not be proposed this way: the agent may not use it, it needs no approval or the
     /// arguments do not fit.
     /// </summary>
-    Refused = 3
+    Refused = 3,
+
+    /// <summary>
+    /// A proposal guard that checks at proposal time (<see cref="NhAiProposalGuardStages.Proposal"/>)
+    /// found the proposal not needed, for example because the work is already done. Nothing was
+    /// recorded; <see cref="NhAssistantRuleProposal.Explanation"/> says why.
+    /// </summary>
+    NotNeeded = 4
 }
 
 /// <summary>

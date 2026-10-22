@@ -369,6 +369,8 @@ run's conversation: `nh-assistant-agent-proposals`, `nh-assistant-agent-inbox` a
 a host in a dialog makes room for the panel as after `conversationOpened`. The server checks the
 reader's access to that conversation; the card never assumes it. The tool-call card of the run reads
 `assistant-proposal-placed`, or `assistant-proposal-not-placed` when the object refused the proposal.
+A call that a proposal guard found not needed reads `assistant-proposal-not-needed`: nothing was
+proposed because the work is already done or no longer applies.
 
 Let people run an agent now where they work. On an object's page, load `nh-assistant-object-agents`
 (`NhAssistantObjectAgentsComponent`, `subjectType`, `subjectId`) from

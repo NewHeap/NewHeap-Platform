@@ -361,6 +361,34 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_reviewer_proposes_nothing_for_a_task_that_is_already_ticked_off()
+    {
+        // SPM-282: the task guard also checks when the reviewer proposes.
+        var project = await host.CreateProjectAsync("ALREADY-TICKED", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var taskId = await host.CreateTaskAsync(project, "Sign the charter");
+        await host.CompleteTaskByHandAsync(taskId, host.ColleagueId);
+        NhAssistantTriggerReceipt started;
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            started = await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>().StartAsync(
+                SampleIntakeReviewerComposition.AgentId,
+                ProjectSubjects.For(project),
+                host.OwnerId.ToString("D"),
+                $"Complete task {taskId:D} of project {project:D}.");
+        }
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+
+        // The reviewer reads why instead of proposing, and nothing waits for the approver.
+        var run = await WaitForRunWithTriggerAsync(colleague, started.ConversationId!.Value, started.TriggerId);
+        Assert.Equal(NhAssistantRunStatuses.Completed, run.Status);
+        Assert.Contains("Nothing to propose", run.Summary);
+        Assert.Contains("colleague@sample.localhost", run.Summary);
+        var proposals = await colleague.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{started.ConversationId}/proposals", Json);
+        Assert.DoesNotContain(proposals!, proposal => proposal.ToolId == ProjectTaskAiTools.CompleteToolId);
+    }
+
+    [Fact]
     public async Task A_run_waiting_for_a_proposal_that_a_person_overtook_continues_without_it()
     {
         // SPM-282: the status advisor's run waits for the participant's inline approval. Nobody

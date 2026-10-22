@@ -489,6 +489,19 @@ public sealed partial class SampleAssistantChatClient : IChatClient
 
         if (result is not null)
         {
+            // SPM-282: a guard found the work already done; the reviewer says why instead of proposing.
+            if (result.Result is JsonElement { ValueKind: JsonValueKind.Object } notNeeded
+                && notNeeded.TryGetProperty("code", out var notNeededCode)
+                && notNeededCode.GetString() == "assistant-proposal-not-needed")
+            {
+                var explanation = notNeeded.TryGetProperty("explanation", out var why) && why.ValueKind == JsonValueKind.String
+                    ? why.GetString()
+                    : null;
+                return new ChatMessage(
+                    ChatRole.Assistant,
+                    "Nothing to propose: " + (explanation ?? "the work is already done."));
+            }
+
             // A deferred proposal returns a "recorded" result: nothing happened yet.
             if (result.Result is JsonElement { ValueKind: JsonValueKind.Object } recorded
                 && recorded.TryGetProperty("code", out var code)

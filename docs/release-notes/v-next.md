@@ -74,3 +74,34 @@ run and purpose: `chat` for a person's turn, `agent-run` for a turn of an agent 
 | Breaking change | Required action |
 |---|---|
 | Budget requests from the chat executor, the tool invoker, ingestion and the MCP export carry the new properties, so two requests that were equal records before may differ now. | None, unless a budget manager compares whole requests; compare the counts and ids it needs. |
+
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: proposal guards at proposal time
+
+Proposal guards checked a proposal only at revalidation, decision and execution, so rules and the
+model proposed work that was already done, and those proposals waited until a later event or
+decision closed them. `NhAiProposalGuardStages.Proposal` lets a guard check when a rule
+(`NhAssistantRuleContext.ProposeAsync`) or the model proposes, before anything is recorded. Declare
+it next to the other stages, for example
+`AddProposalGuard<TGuard>(selectors, NhAiProposalGuardStages.All | NhAiProposalGuardStages.Proposal)`.
+A stale result (`AlreadyDone`, `NotApplicable` or `Stale`) records no proposal, approval or
+`ApprovalRequested` audit event: rules get `NhAssistantProposeOutcome.NotNeeded` with the guard's
+reason code as `Code` and its explanation as the new `NhAssistantRuleProposal.Explanation`; the model
+gets `assistant-proposal-not-needed` with `reason`, `kind` and `explanation` as its tool result, and
+the tool call reads `not-executed`. A guard that throws at proposal time lets the proposal be
+recorded, as a failing guard never closes one at the other stages. `GetKeysAsync` runs for every
+guard of a tool, whatever its stages.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantProposeOutcome` gains `NotNeeded`, and `NhAssistantErrorCodes` gains `ProposalNotNeeded` (`assistant-proposal-not-needed`, 400). | Handle `NotNeeded` where rules switch over the outcome; translate the code where the application shows assistant codes itself. |
+| `AddProposalGuard` accepts `NhAiProposalGuardStages.Proposal`; `All` does not include it. | None for existing guards; add `Proposal` to the guards that should keep done work from being proposed. |
+
+## @newheap/platform-ai-chat: proposals a guard found not needed
+
+A tool call whose proposal a proposal guard found not needed reads `assistant-proposal-not-needed`.
+`NH_ASSISTANT_SERVER_ERROR_CODES` includes it, and the bundled English and Dutch texts name it under
+`nh-assistant.result-codes` and `nh-assistant.errors`.
+
+| Breaking change | Required action |
+|---|---|
+| A new error code with texts under `nh-assistant.result-codes` and `nh-assistant.errors`. | Add both keys to translations a host provides itself (`translations: 'host'`). |
