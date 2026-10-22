@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, and group agents on boards that show their latest results and what is new.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
 
 ## Preferred approach
 
@@ -149,12 +149,17 @@ which names the subject.
 
 Describe each kind of subject with one `INhAiSubjectAccessResolver` registered
 through `AddSubjectType`. `DescribeAsync` returns the scope key, division,
-version and responsible person; `ResolveAsync` returns the live role of one
+version and responsible person, and optionally `Parent`, the subject it belongs to
+(`NhAiSubjectParent`: a `NhAiSubjectRef` and a display name), such as the project of a
+task; `ResolveAsync` returns the live role of one
 person and is called on every request; `ListMembersAsync` feeds the member
 snapshot that listings, notifications and live updates use. Both also run inside
 background operations, for notifications and live updates, so keep them free of
 request-only state. Call `INhAiSubjectAccess.RefreshAsync` after the people on a
-subject change.
+subject change. A parent is a label for grouping: the platform never resolves it or grants access
+through it, its type needs no resolver (a registered type adds its name and link), and everyone who sees
+the subject's proposals reads its name, so give only a name the subject's readers may read. A subject is
+never its own parent; the platform refuses such a description.
 
 Describe the subject type for people in the same registration:
 `AddSubjectType<TResolver>(type => type.Named(new() { ["en"] = "Project", ["nl"] = "Project" }, fallbackLanguage: "en").NamedPlural(...).ForEntity<Project>().OpenAt("/projects/{id}"))`.
@@ -388,6 +393,27 @@ threads of at most two subjects, their latest runs, their open proposals and the
 query. The run maintenance removes visits older than `NhAssistantLimits.BoardVisitRetention` (default
 180 days) and visits of groups the host no longer registers, once an hour; a host that registers no
 group removes none. The migration `AgentBoards` adds both tables.
+
+Give approvers an overview of their inbox (SPM-310). Every proposal records the parent its subject's
+resolver names when the proposal is made (`ParentSubjectType`, `ParentSubjectId` and
+`ParentDisplayName` on `AssistantApproval`, the migration `ProposalParents`), so listing the inbox
+never asks a resolver per proposal; `NhAssistantProposalDto.Parent` (`NhAssistantProposalParentDto`)
+carries it with the type's name and link. `GET approvals/inbox` filters by `subjectType`, `agentId`,
+`divisionId` and `runId`; `grouped=true` groups the proposals by their parent, or by their own subject
+without one, so a parent's own proposals and those of its children form one group. Groups come by their
+first expiry, a group's own subject first and then its other subjects by their first expiry, the
+proposals of one run together and then by expiry, every tie broken on both providers in the same way;
+each group, subject and run is contiguous across pages. The page is still paged by proposals, and
+`Groups` (`NhAssistantInboxGroupDto` with `NhAssistantInboxSubjectGroupDto`) gives per group and
+subject on the page its `Count` there, its `Total` in the inbox and whether it continues from the
+page before or on the page after. Without `grouped` the inbox keeps its expiry order and `Groups` is
+`null`. The inbox also marks what is new like a board: `NewApprovalIds` names the proposals on the
+page made after the caller's `LastVisitedAt` in the inbox's `ScopeKey` (`global`, or the division of
+`divisionId`), every one before the first visit, and `POST approvals/inbox/visit` (optional
+`divisionId` of a division the caller works in, otherwise `404 assistant-subject-not-found`) records
+`NhAssistantInboxVisitDto`. The visits live with the board visits under the platform's reserved id
+`nh-inbox`; `AddAgentGroup` therefore refuses every group id that starts with `nh-`, and the run
+maintenance removes inbox visits by age only.
 
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
@@ -1075,8 +1101,22 @@ profile and instructions that answer questions about the rules' proposals from t
   `nh-assistant-agent-board`, which follows the view policies and records the visits.
 - Registering one group id with different names in two compositions; register the same group, for
   example through one shared helper.
+- Grouping or naming inbox proposals by calling a subject resolver per proposal, or sorting a page of
+  the inbox on the client; name the parent in `DescribeAsync` and ask the server for `grouped=true`.
+- Selecting or deciding the proposals of a group on pages the approver has not seen; a group's total
+  may span pages, and only the proposals shown may be selected.
+- Registering a group id that starts with `nh-`; the platform reserves those ids.
 
 ## Verification
+
+For the inbox overview, on both providers, assert the flat expiry order without `Groups`, the grouped
+order (groups by first expiry, a group's own subject first, runs together) with each group's `Count`
+and `Total` and its continuation on the pages before and after, that the division and run filters
+group what they keep with their own totals, that a proposal records the parent its resolver named when it
+was made and keeps it when the parent changes later, that a subject named as its own parent is refused,
+that `NewApprovalIds` follows the last visit per person and scope (all before the first visit),
+that a visit of a division the caller does not work in answers `404` and stores nothing, that the run
+maintenance keeps recent inbox visits, and that `AddAgentGroup` refuses `nh-` ids.
 
 For trigger event filters, publish the agent's own change on the trigger's subject and assert
 `ignored` with `filtered` and no audit, publish the same agent's change made on another subject and a
@@ -1315,8 +1355,8 @@ run placed at objects, and that a board of another division or an unknown group 
 type of a tool with `[NhAiSubject]` and `null` for one without and for MCP tools, that a schedule in
 code without subjects reports `nh-system` and an untyped trigger `null`, and that an agent in code
 reports its accountability, approval policy and rules while an agent created as data reports none.
-SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297 and SPM-301 to SPM-304 are the executable
-references.
+SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304 and SPM-310 are the
+executable references.
 
 ## Optional source evidence
 
