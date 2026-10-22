@@ -81,6 +81,16 @@ internal sealed class NhAssistantBudgetManager(
     }
 
     /// <summary>
+    /// Whether <paramref name="manager"/>, the budget manager registered before the assistant, is the
+    /// application's own and not the default that refuses every reservation.
+    /// </summary>
+    internal static bool IsApplicationManager(INhAiBudgetManager manager)
+    {
+        ArgumentNullException.ThrowIfNull(manager);
+        return manager is not NhAiDenyBudgetManager;
+    }
+
+    /// <summary>
     /// The request as the turn knows it: the agent the turn works for, its skill and run, and whether
     /// it is a person's chat, an agent's run, a consultation or a proposal that executes.
     /// </summary>

@@ -85,6 +85,16 @@ public sealed class AssistantRegistrationTests
     }
 
     [Fact]
+    public async Task Startup_fails_when_turns_use_the_application_budget_but_the_application_registered_none()
+    {
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync(
+            builder => AddAssistant(builder.Services, assistant => assistant.UseApplicationBudgetInTurns()),
+            applicationBudget: false));
+
+        Assert.Contains("UseApplicationBudgetInTurns needs a budget manager of the application", exception.Message);
+    }
+
+    [Fact]
     public async Task Startup_fails_when_the_access_policy_is_unknown()
     {
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync(builder =>
@@ -257,7 +267,8 @@ public sealed class AssistantRegistrationTests
     private static async Task<WebApplication> StartAsync(
         Action<WebApplicationBuilder> configure,
         bool addAspNet = true,
-        IDictionary<string, string?>? configuration = null)
+        IDictionary<string, string?>? configuration = null,
+        bool applicationBudget = true)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -279,7 +290,10 @@ public sealed class AssistantRegistrationTests
                 .WithStreaming(NhAiStreamingPolicy.Allowed)
                 .PermitDataClassifications(NhAiDataClassification.Internal)
                 .PermitExecutionRegions("local"));
-            ai.UseBudgetManager<NhAiTestBudgetManager>();
+            if (applicationBudget)
+            {
+                ai.UseBudgetManager<NhAiTestBudgetManager>();
+            }
         });
         if (addAspNet)
         {

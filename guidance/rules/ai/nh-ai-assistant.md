@@ -104,7 +104,9 @@ implementations registered before `AddNewHeapAssistant`. Call
 model and tool calls of assistant turns: once the assistant's daily budget accepted a call, the
 application's manager receives it with the agent, skill, run and purpose (`chat`, `agent-run`,
 `consultation` or `proposal-execution`), and its refusal ends the call as
-`assistant-budget-exhausted`.
+`assistant-budget-exhausted`. Register that manager before `AddNewHeapAssistant`
+(`UseBudgetManager<TManager>()` or `UseInMemoryBudget`); with only the default manager, which
+refuses every reservation, host start fails.
 
 ## Administration and personalization
 

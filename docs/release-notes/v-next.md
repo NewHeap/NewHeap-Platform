@@ -69,7 +69,8 @@ manager only the calls outside turns. `NhAssistantBuilder.UseApplicationBudgetIn
 reserves every accepted call of a turn with the application's manager, with the turn's agent, skill,
 run and purpose: `chat` for a person's turn, `agent-run` for a turn of an agent run,
 `consultation` and `proposal-execution`. A refusal there ends the call as
-`assistant-budget-exhausted`.
+`assistant-budget-exhausted`. Host start fails when a host calls it without a budget manager of its
+own registered before `AddNewHeapAssistant`, because the default manager refuses every reservation.
 
 | Breaking change | Required action |
 |---|---|
