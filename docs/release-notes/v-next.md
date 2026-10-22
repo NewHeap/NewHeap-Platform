@@ -72,8 +72,11 @@ what code allows (`INhAssistantAgentControl.SetConsultationRoutesAsync`,
 
 The approval card shows a consultation's proposal that the person decides in their own chat with the
 consulted agent, the subject and its answer, and offers Leave for approvers when a route at the subject
-applies; proposal views show who asked and the route; the run configuration of agents in code switches
-the consultation routes; the mock API serves both routes. Texts are in English and Dutch.
+applies; proposal views show who asked and the route; the agent thread view reads each pending
+proposal's live decision right (`lookupProposals`), as the run result and the subject's work do, so the
+person who asked sees the four-eyes reason instead of Approve and Reject, also as an approver; the run
+configuration of agents in code switches the consultation routes; the mock API serves both routes.
+Texts are in English and Dutch.
 
 | Breaking change | Required action |
 |---|---|
