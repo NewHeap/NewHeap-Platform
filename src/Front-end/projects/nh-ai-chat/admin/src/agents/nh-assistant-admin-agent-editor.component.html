@@ -307,6 +307,32 @@
         }
       </div>
     }
+
+    @if (choosesUse()) {
+      <div class="field" data-agent-classification>
+        <label [for]="id + '-classification'">{{ 'nh-assistant.admin.agent-editor.classification' | translate }}</label>
+        <select
+          [id]="id + '-classification'"
+          [attr.aria-describedby]="id + '-classification-hint' + (fieldError('dataClassification') ? ' ' + id + '-classification-error' : '')"
+          [attr.aria-invalid]="fieldError('dataClassification') ? true : null"
+          (change)="dataClassification.set($any(value($event)))">
+          @for (classification of classifications; track classification) {
+            <option [value]="classification" [selected]="dataClassification() === classification">
+              {{ 'nh-assistant.admin.run-config.skills.classification.' + classification | translate }}
+            </option>
+          }
+        </select>
+        <p class="hint" [id]="id + '-classification-hint'">{{ 'nh-assistant.admin.agent-editor.classification-hint' | translate }}</p>
+        @for (warning of warnings(); track warning) {
+          <p class="message warning" [attr.data-agent-editor-warning]="warning">
+            <nh-assistant-icon name="warning" />{{ warningKeys('agent', warning) | nhAssistantTranslate: warning }}
+          </p>
+        }
+        @if (fieldError('dataClassification'); as key) {
+          <p class="hint" [id]="id + '-classification-error'"><span class="error-text">{{ key | translate }}</span></p>
+        }
+      </div>
+    }
   </div>
 
   <p class="hint">{{ 'nh-assistant.admin.agent-editor.state-hint' | translate }}</p>

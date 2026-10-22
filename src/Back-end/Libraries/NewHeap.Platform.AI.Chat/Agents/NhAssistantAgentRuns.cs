@@ -150,7 +150,8 @@ public sealed class NhAssistantAgentRunOptions
 
     /// <summary>
     /// The classification of the data the model calls of the agent's runs, people's turns in its
-    /// threads, its triage and its consultations carry; a skill's own wins.
+    /// threads, its triage, its consultations and people's plain chats with it carry; a skill's own
+    /// wins. For an agent created in the administration it is the classification of its definition.
     /// <see langword="null"/> uses <see cref="NhAiDataClassification.Internal"/>.
     /// </summary>
     public NhAiDataClassification? DataClassification { get; internal set; }
@@ -716,10 +717,12 @@ public sealed class NhAssistantAgentRunBuilder
 
     /// <summary>
     /// The classification of the data the agent's model calls carry: in its runs, people's turns in
-    /// its threads, its triage and its consultations. A skill's own classification wins. The model
-    /// profile of each call must permit it (<c>PermitDataClassifications</c>); otherwise its
-    /// fallbacks are tried and the call is refused when none permits it, as for every model call.
-    /// Without it the calls are <see cref="NhAiDataClassification.Internal"/>.
+    /// its threads, its triage, its consultations and people's plain chats with it. A skill's own
+    /// classification wins. The model profile of each call must permit it
+    /// (<c>PermitDataClassifications</c>); otherwise its fallbacks are tried and the call is refused
+    /// with <c>assistant-classification-not-permitted</c> when none permits it; startup logs a warning
+    /// when neither the agent's profile nor its fallbacks permit it. Without it the calls are
+    /// <see cref="NhAiDataClassification.Internal"/>.
     /// </summary>
     public NhAssistantAgentRunBuilder DataClassification(NhAiDataClassification classification)
     {

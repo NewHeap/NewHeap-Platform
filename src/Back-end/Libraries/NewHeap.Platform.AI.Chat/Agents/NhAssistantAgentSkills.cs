@@ -224,7 +224,7 @@ public sealed class NhAssistantSkillBuilder
     /// The classification of the data the skill's model calls carry, instead of the agent's, for a
     /// skill that reads more sensitive data than the rest of its agent. The model profile the skill
     /// uses must permit it (<c>PermitDataClassifications</c>); otherwise its fallbacks are tried and
-    /// the model call is refused when none permits it.
+    /// the model call is refused when none permits it. Startup logs a warning when none does.
     /// </summary>
     public NhAssistantSkillBuilder DataClassification(NhAiDataClassification classification)
     {

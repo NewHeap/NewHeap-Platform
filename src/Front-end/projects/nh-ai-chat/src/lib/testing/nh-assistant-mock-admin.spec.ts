@@ -33,7 +33,9 @@ const scenario: NhAssistantMockScenario = {
           { remoteName: 'deleteFile', description: 'Deletes a file', inputSchemaHash: 'b1', readOnlyHint: false }
         ]
       }
-    ]
+    ],
+    // The chat profile and its fallbacks permit public and internal data.
+    profileClassifications: { chat: ['public', 'internal'] }
   }
 };
 
@@ -166,6 +168,25 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(active.runState).toBe('active');
   });
 
+  it('releases the kill switch without switching on an agent that was off, as the server does', async () => {
+    const killSwitch = async (engaged: boolean) => (await backend.fetch('/api/assistant/admin/agents/projects/kill-switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ engaged })
+    })).json() as Promise<{ enabled: boolean; runState: string }>;
+
+    await firstValueFrom(admin.setAgentState('projects', { state: 'off' }));
+    const engaged = await killSwitch(true);
+    const released = await killSwitch(false);
+    await firstValueFrom(admin.setAgentState('projects', { state: 'paused' }));
+    await killSwitch(true);
+    const resumed = await killSwitch(false);
+
+    expect(engaged).toEqual(jasmine.objectContaining({ enabled: false, runState: 'stopped' }));
+    expect(released).toEqual(jasmine.objectContaining({ enabled: true, runState: 'off' }));
+    expect(resumed).toEqual(jasmine.objectContaining({ enabled: true, runState: 'active' }));
+  });
+
   it('adds a data skill that starts off with its classification, as the server checks both', async () => {
     const invalid = await failure(firstValueFrom(admin.saveDataSkill('projects', 'audit', {
       description: 'Audits the project.', dataClassification: 'secret' as 'internal'
@@ -190,6 +211,32 @@ describe('provideNhAssistantMockApi administration', () => {
 
     expect(unknown.fieldErrors?.['profile']).toEqual(['not-found']);
     expect(standard.profile).toBe('chat');
+  });
+
+  it('lets an agent created in the administration choose its classification and keeps it when omitted, as the server does', async () => {
+    const invalid = await failure(firstValueFrom(admin.createAgent({ ...newAgent, id: 'secret-agent', dataClassification: 'secret' as 'internal' })));
+    const created = await firstValueFrom(admin.createAgent({ ...newAgent, id: 'figures-agent', dataClassification: 'confidential' }));
+    const kept = await firstValueFrom(admin.updateAgent('figures-agent', { ...newAgent, id: 'figures-agent', expectedVersion: created.version }));
+    const standard = await firstValueFrom(admin.createAgent({ ...newAgent, id: 'notes-agent' }));
+
+    expect(invalid.fieldErrors?.['dataClassification']).toEqual(['invalid']);
+    expect(created.dataClassification).toBe('confidential');
+    expect(kept.dataClassification).toBe('confidential');
+    expect(standard.dataClassification).toBeNull();
+  });
+
+  it('saves an agent and a data skill whose classification no profile permits with a warning, as the server does', async () => {
+    const agent = await firstValueFrom(admin.createAgent({ ...newAgent, id: 'vault-agent', dataClassification: 'restricted' }));
+    const standard = await firstValueFrom(admin.createAgent({ ...newAgent, id: 'notes-agent' }));
+    const skill = await firstValueFrom(admin.saveDataSkill('projects', 'audit', { description: 'Audits.', dataClassification: 'confidential' }));
+    const permitted = await firstValueFrom(admin.saveDataSkill('projects', 'notes', { description: 'Notes.', dataClassification: 'internal' }));
+    const configuration = await firstValueFrom(admin.getAgentConfiguration('projects'));
+
+    expect(agent.warnings).toEqual(['classification-not-permitted']);
+    expect(standard.warnings).toEqual([]);
+    expect(skill.warnings).toEqual(['classification-not-permitted']);
+    expect(permitted.warnings).toEqual([]);
+    expect(configuration.dataSkills.find(item => item.skillId === 'audit')?.warnings).toEqual(['classification-not-permitted']);
   });
 
   it('stores whether a data skill and the run settings of an agent accept files', async () => {

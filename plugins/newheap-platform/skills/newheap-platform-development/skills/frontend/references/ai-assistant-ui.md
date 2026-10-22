@@ -316,7 +316,12 @@ whether to switch it on now (unticked sends `startsOff: true`; the skill form of
 new skill, next to its data classification and its "Accepts files" switch, which sends
 `acceptsFiles` and is off for a new skill as the run settings' own switch is for a new agent), its
 model profile among the run catalog's `profiles`
-(the application's chat profile by default), and what it works on: "All objects" or chosen kinds of objects by the names of the run catalog's
+(the application's chat profile by default), its data classification (`public`, `internal`,
+`confidential` or `restricted`, "Internal" by default, sent as `dataClassification` only when it
+changes, with the server's `dataClassification` field error at the field; the server's `warnings`,
+such as `classification-not-permitted`, show on the agent's card and next to the field, and for a
+data skill with the saved message, on the skill and in its form, because a warning never refuses
+the save), and what it works on: "All objects" or chosen kinds of objects by the names of the run catalog's
 `subjectTypes`, "The whole application", "Per division" only when the catalog reports `divisions`,
 and the run and view policy for the whole application from the catalog's `agentPolicies`. It sends
 `worksOnSubjectTypes`, `worksOnAllSubjects`, `worksOnApplication`, `perDivision`, `runPolicy` and

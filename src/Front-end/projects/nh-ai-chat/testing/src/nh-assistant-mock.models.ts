@@ -8,6 +8,7 @@ import {
   AgentRunStatus,
   AgentSummary,
   AgentTriggerReceipt,
+  AssistantDataClassification,
   AssistantPreferences,
   AssistantStatus,
   ClientContext,
@@ -250,6 +251,13 @@ export interface NhAssistantMockAdminScenario {
    * administration work per division, as an application that lists its divisions does.
    */
   runCatalog?: Partial<RunCatalog>;
+  /**
+   * The data classifications each model profile and its fallbacks permit together, by profile name.
+   * An agent or skill whose classification its profile does not permit is saved with the warning
+   * `classification-not-permitted`, as on the server. A profile that is not listed permits every
+   * classification. Default: none.
+   */
+  profileClassifications?: Record<string, AssistantDataClassification[]>;
   /**
    * Triggers in code, per agent; they cannot change in the administration. `subjectType` is the type
    * a trigger names up front, `nh-system` for a schedule for the whole application.

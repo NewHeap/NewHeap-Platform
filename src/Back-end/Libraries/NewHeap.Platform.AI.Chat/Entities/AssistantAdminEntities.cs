@@ -24,6 +24,14 @@ public sealed class AssistantAgent
 
     public string ProfileName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The classification of the data the model calls of an agent created in the administration carry,
+    /// one of <see cref="NhAssistantDataClassificationNames"/>; <see langword="null"/> for
+    /// <see cref="NhAiDataClassification.Internal"/>. Agents in code take it from
+    /// <c>DataClassification(...)</c> on <c>ConfigureAgent</c> instead.
+    /// </summary>
+    public string? DataClassification { get; set; }
+
     public string Instructions { get; set; } = string.Empty;
 
     public string InstructionsAssetId { get; set; } = string.Empty;
@@ -102,6 +110,13 @@ public sealed class AssistantAgent
     /// Why the agent was paused, stopped, switched off or resumed, as the person who did it wrote it.
     /// </summary>
     public string? StateReason { get; set; }
+
+    /// <summary>
+    /// <see langword="true"/> while the agent is stopped after it was off: releasing the kill switch
+    /// switches it off again instead of on. Every state change sets it anew, so it is
+    /// <see langword="false"/> in every other state.
+    /// </summary>
+    public bool OffBeforeStop { get; set; }
 
     /// <summary>
     /// The shadow mode an administrator set at runtime; <see langword="null"/> follows the code.

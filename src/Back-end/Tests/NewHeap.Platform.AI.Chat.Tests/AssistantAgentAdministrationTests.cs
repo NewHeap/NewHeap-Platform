@@ -242,6 +242,57 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
         Assert.Equal("project-chat", code.Data!.Definition.ProfileName);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_administration_agent_stores_its_classification_and_keeps_it_on_update(AssistantTestProvider provider)
+    {
+        var state = CreateState(AssistantTestData.Agent());
+        state.ChatProfileName = "project-chat";
+        await using var services = await CreateServicesAsync(provider, state);
+        await using var scope = services.CreateAsyncScope();
+        var administration = scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>();
+        var input = new NhAssistantAgentInput(
+            "figures-desk",
+            "Figures desk",
+            "Answers questions about the figures.",
+            "Answer about the figures.",
+            ["projects.search"],
+            [],
+            null,
+            NhAiAutonomyLevel.Explain,
+            DataClassification: NhAssistantDataClassificationNames.Confidential);
+        var original = (await scope.ServiceProvider.GetRequiredService<NhAssistantAgentCatalog>()
+            .FindAsync("project-assistant", includeDisabled: true, CancellationToken.None))!;
+
+        var created = await administration.CreateAsync(input, "admin-1", CancellationToken.None);
+        var invalid = await administration.CreateAsync(input with { Id = "secret-desk", DataClassification = "secret" }, "admin-1", CancellationToken.None);
+        var standard = await administration.CreateAsync(input with { Id = "notes-desk", DataClassification = null }, "admin-1", CancellationToken.None);
+        // Omitted keeps the classification; a name changes it.
+        var kept = await administration.UpdateAsync(input with { Instructions = "Answer briefly.", DataClassification = null }, 1, "admin-1", CancellationToken.None);
+        var changed = await administration.UpdateAsync(input with { DataClassification = NhAssistantDataClassificationNames.Restricted }, 2, "admin-1", CancellationToken.None);
+        // An agent in code takes its classification from its code; the input's is ignored, not checked.
+        var code = await administration.UpdateAsync(
+            Input(original, "Answer only about budgets.") with { DataClassification = "secret" },
+            original.Definition.Version,
+            "admin-1",
+            CancellationToken.None);
+
+        Assert.Equal(NhAiDataClassification.Confidential, created.Data!.DataClassification);
+        Assert.Equal(["invalid"], Field(invalid, "dataClassification"));
+        Assert.Null(standard.Data!.DataClassification);
+        Assert.Equal(NhAiDataClassification.Confidential, kept.Data!.DataClassification);
+        Assert.Equal(NhAiDataClassification.Restricted, changed.Data!.DataClassification);
+        Assert.True(code.Success);
+        Assert.Null(code.Data!.DataClassification);
+        await using var context = Factory(services).CreateDbContext();
+        var stored = await context.Agents.ToDictionaryAsync(agent => agent.Id, agent => agent.DataClassification);
+        Assert.Equal(NhAssistantDataClassificationNames.Restricted, stored["figures-desk"]);
+        Assert.Null(stored["notes-desk"]);
+        Assert.Null(stored["project-assistant"]);
+        Assert.False(stored.ContainsKey("secret-desk"));
+    }
+
     /// <summary>
     /// The errors of one field of a validation failure.
     /// </summary>

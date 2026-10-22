@@ -25,6 +25,16 @@ export function skillDescriptionKeys(agentId: string, skillId: string): string[]
   return [`nh-assistant.agents.${agentId}.skills.${skillId}.description`];
 }
 
+/**
+ * The key of a warning about an agent or a skill that is saved and in effect but may not work as
+ * configured, such as `classification-not-permitted`; a code the screen does not know shows as sent.
+ */
+export function warningKeys(kind: 'agent' | 'skill', code: string): string[] {
+  return kind === 'agent'
+    ? [`nh-assistant.admin.agents.warnings.${code}`]
+    : [`nh-assistant.admin.run-config.skills.warnings.${code}`];
+}
+
 /** The key an application may translate an authorization policy's name with. */
 export function policyKeys(policy: string | null | undefined): string[] {
   return policy ? [`nh-assistant.policies.${policy}`] : [];

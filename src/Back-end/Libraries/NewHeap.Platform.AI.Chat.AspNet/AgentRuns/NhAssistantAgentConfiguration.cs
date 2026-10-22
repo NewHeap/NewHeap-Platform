@@ -307,6 +307,10 @@ public sealed record NhAssistantAccountDto(string ActorId, string DisplayName, s
 /// <param name="Profile">The model profile of its model calls, one of the run catalog's
 /// <see cref="NhAssistantRunCatalogDto.Profiles"/> (field error <c>profile: not-found</c> otherwise);
 /// without it the application's chat profile.</param>
+/// <param name="DataClassification">The classification of the data its model calls carry, in people's
+/// chats with it and in its runs: <c>public</c>, <c>internal</c>, <c>confidential</c> or
+/// <c>restricted</c> (field error <c>dataClassification: invalid</c> otherwise); without it
+/// <c>internal</c>. A skill's own wins.</param>
 /// <remarks>
 /// Without <paramref name="WorksOnSubjectTypes"/>, <paramref name="WorksOnAllSubjects"/> and
 /// <paramref name="WorksOnApplication"/> the agent works on all object types and not on the
@@ -328,7 +332,8 @@ public sealed record NhAssistantAgentRequest(
     string? RunPolicy = null,
     string? ViewPolicy = null,
     bool StartsOff = false,
-    string? Profile = null);
+    string? Profile = null,
+    string? DataClassification = null);
 
 /// <param name="Name">The building block's name.</param>
 /// <param name="Description">What it means, for the administration.</param>
@@ -538,6 +543,15 @@ public sealed record NhAssistantDataSkillDto(
     /// Whether a run in the skill reads files, when its agent accepts them too.
     /// </summary>
     public bool AcceptsFiles { get; init; }
+
+    /// <summary>
+    /// Why the skill, saved and in effect, may still not work as configured, as
+    /// <see cref="NhAssistantConfigurationWarnings"/>:
+    /// <see cref="NhAssistantConfigurationWarnings.ClassificationNotPermitted"/> when neither its
+    /// profile, or else its agent's, nor any of the profile's fallbacks permits its classification, or
+    /// else its agent's. Empty without warnings. A warning never refuses a save.
+    /// </summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 
 /// <param name="Version">The candidate version the change is for.</param>
@@ -623,7 +637,9 @@ public sealed record NhAssistantDataTriggerDto(
 /// with a field error <c>startsOff</c>.</param>
 /// <param name="DataClassification">The classification of the data the skill's model calls carry:
 /// <c>public</c>, <c>internal</c>, <c>confidential</c> or <c>restricted</c>; <see langword="null"/> uses
-/// the agent's. The model profile of its runs must permit it, or its model calls are refused.</param>
+/// the agent's. The model profile of its runs or one of the profile's fallbacks must permit it, or its
+/// model calls are refused; the save succeeds either way and the skill then reports the warning
+/// <c>classification-not-permitted</c>.</param>
 /// <param name="AcceptsFiles">A run in the skill reads files, when its agent accepts them too;
 /// <see langword="false"/> (default) refuses them.</param>
 public sealed record NhAssistantDataSkillRequest(
@@ -778,7 +794,8 @@ internal sealed class NhAssistantAgentConfiguration(
                     request.RunPolicy,
                     request.ViewPolicy),
                 request.StartsOff,
-                string.IsNullOrWhiteSpace(request.Profile) ? null : request.Profile.Trim()),
+                string.IsNullOrWhiteSpace(request.Profile) ? null : request.Profile.Trim(),
+                string.IsNullOrWhiteSpace(request.DataClassification) ? null : request.DataClassification.Trim()),
             actorId,
             cancellationToken);
         if (!created.Success)
@@ -832,9 +849,13 @@ internal sealed class NhAssistantAgentConfiguration(
             .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live)
             .Select(item => ToDto(item, problems) with
             {
+                Warnings = WarningsOf(item, agent),
                 Candidate = versions
                     .Where(candidate => candidate.SkillId == item.SkillId && candidate.Status == NhAssistantSkillDefinitionStatuses.Candidate)
-                    .Select(candidate => ToDto(candidate, problems, NhAssistantRunConfigurationProblems.CandidateKind))
+                    .Select(candidate => ToDto(candidate, problems, NhAssistantRunConfigurationProblems.CandidateKind) with
+                    {
+                        Warnings = WarningsOf(candidate, agent)
+                    })
                     .FirstOrDefault()
             })
             .ToArray();
@@ -1137,9 +1158,15 @@ internal sealed class NhAssistantAgentConfiguration(
             actorId,
             cancellationToken);
         await configurations.ReloadAsync(cancellationToken);
-        return TaskResult<NhAssistantDataSkillDto>.Succeeded(asCandidate
+        // The save succeeds also when no profile permits the skill's classification; the warning
+        // tells the administrator that its model calls will be refused.
+        var dto = asCandidate
             ? ToDto(saved.Value, configurations.Problems, NhAssistantRunConfigurationProblems.CandidateKind)
-            : ToDto(saved.Value, configurations.Problems));
+            : ToDto(saved.Value, configurations.Problems);
+        return TaskResult<NhAssistantDataSkillDto>.Succeeded(dto with
+        {
+            Warnings = await WarningsOfAsync(saved.Value, cancellationToken)
+        });
     }
 
     public async Task<TaskResult<NhAssistantDataSkillDto>> PromoteSkillCandidateAsync(
@@ -1151,9 +1178,15 @@ internal sealed class NhAssistantAgentConfiguration(
         CancellationToken cancellationToken = default)
     {
         var changed = await ChangeCandidateAsync(agentId, skillId, candidateVersion, actorId, reason, promote: true, cancellationToken);
-        return changed.Failure is { } failure
-            ? TaskResult<NhAssistantDataSkillDto>.Failed(failure)
-            : TaskResult<NhAssistantDataSkillDto>.Succeeded(ToDto(changed.Definition!, configurations.Problems));
+        if (changed.Failure is { } failure)
+        {
+            return TaskResult<NhAssistantDataSkillDto>.Failed(failure);
+        }
+
+        return TaskResult<NhAssistantDataSkillDto>.Succeeded(ToDto(changed.Definition!, configurations.Problems) with
+        {
+            Warnings = await WarningsOfAsync(changed.Definition!, cancellationToken)
+        });
     }
 
     public async Task<TaskResult> DiscardSkillCandidateAsync(
@@ -1498,6 +1531,27 @@ internal sealed class NhAssistantAgentConfiguration(
         }
 
         return TaskResult<NhAssistantDataTriggerDto>.Succeeded(ToDto(changed.Value!, configurations.Problems));
+    }
+
+    /// <summary>
+    /// The warnings of a data skill on its agent: its classification, or else the agent's, that
+    /// neither its profile, or else the agent's, nor any of the profile's fallbacks permits.
+    /// </summary>
+    private IReadOnlyList<string> WarningsOf(AssistantAgentSkillDefinition skill, NhAssistantAgent agent)
+    {
+        var classification = NhAssistantDataClassificationNames.TryParse(skill.DataClassification, out var own)
+            ? own
+            : agent.DataClassification;
+        return NhAssistantClassificationChecks.WarningsOf(
+            services.GetService<INhAiModelProfileRegistry>(),
+            skill.ProfileName ?? agent.Definition.ProfileName,
+            classification);
+    }
+
+    private async Task<IReadOnlyList<string>> WarningsOfAsync(AssistantAgentSkillDefinition skill, CancellationToken cancellationToken)
+    {
+        var agent = await agents.FindAsync(skill.AgentId, includeDisabled: true, cancellationToken);
+        return agent is null ? [] : WarningsOf(skill, agent);
     }
 
     /// <summary>

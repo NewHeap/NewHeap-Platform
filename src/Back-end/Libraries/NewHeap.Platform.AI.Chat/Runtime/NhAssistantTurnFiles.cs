@@ -164,9 +164,23 @@ internal sealed class NhAssistantTurnFiles(
     /// </summary>
     public static NhAiDataClassification ClassificationOf(NhAssistantTurnState state, NhAssistantSkillOptions? skill)
     {
-        var configured = state.AgentTurn?.Options.ClassificationOf(skill) ?? NhAiDataClassification.Internal;
+        var configured = ConfiguredClassificationOf(state, skill);
         var files = state.FileClassification;
         return files > configured ? files : configured;
+    }
+
+    /// <summary>
+    /// The classification the agent's configuration gives the turn's model calls in
+    /// <paramref name="skill"/>: the skill's, then the agent's, then
+    /// <see cref="NhAiDataClassification.Internal"/>. It applies to every model call of the agent: its
+    /// runs, people's turns in its threads, its consultations and people's plain chats with it.
+    /// </summary>
+    public static NhAiDataClassification ConfiguredClassificationOf(NhAssistantTurnState state, NhAssistantSkillOptions? skill)
+    {
+        return skill?.DataClassification
+            ?? state.AgentTurn?.Options.DataClassification
+            ?? state.EffectiveAgent.DataClassification
+            ?? NhAiDataClassification.Internal;
     }
 
     /// <summary>

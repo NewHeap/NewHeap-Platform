@@ -128,6 +128,12 @@
             @if (agent.description) {
               <p class="muted">{{ codeTextKeys(agent.source, agent.description) | nhAssistantTranslate: agent.description }}</p>
             }
+            <!-- A warning never refused the save: the agent is in effect but may not work as configured. -->
+            @for (warning of agent.warnings ?? []; track warning) {
+              <p class="message warning" [attr.data-agent-warning]="warning">
+                <nh-assistant-icon name="warning" />{{ warningKeys('agent', warning) | nhAssistantTranslate: warning }}
+              </p>
+            }
             @if (agent.runState === 'configured-off') {
               <p class="muted">{{ 'nh-assistant.admin.agents.state.configured-off-hint' | translate }}</p>
             } @else if (agent.runState !== 'active') {

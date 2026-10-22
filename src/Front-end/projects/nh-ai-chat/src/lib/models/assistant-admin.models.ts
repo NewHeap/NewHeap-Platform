@@ -146,6 +146,13 @@ export interface AdminAgentInput {
    * the application's chat profile. Agents in code take it from their code.
    */
   profile?: string | null;
+  /**
+   * For an agent created in the administration: the classification of the data its model calls carry,
+   * in people's chats with it and in its runs (`dataClassification: invalid` for another value). A
+   * skill's own wins. Omitted keeps it on update; a new agent has none, so its calls are `internal`.
+   * Agents in code take it from their code.
+   */
+  dataClassification?: AssistantDataClassification | null;
 }
 
 /** Body of `PUT admin/agents/{id}`. */
@@ -211,6 +218,18 @@ export interface AdminAgent extends AdminAgentInput {
    * here; missing on older servers.
    */
   profile?: string;
+  /**
+   * The classification of the data the agent's model calls carry: from its code, or chosen here for
+   * an agent created here; `null` when it has none, so its calls are `internal`. Missing on older
+   * servers.
+   */
+  dataClassification?: AssistantDataClassification | null;
+  /**
+   * Why the agent, saved and in effect, may still not work as configured (`AssistantConfigurationWarning`):
+   * `classification-not-permitted` when neither its model profile nor the profile's fallbacks permit
+   * its classification. A warning never refuses a save; missing on older servers.
+   */
+  warnings?: AssistantConfigurationWarning[];
 }
 
 /** The groups one agent is in, as `setAgentGroups` answers. */
@@ -1086,6 +1105,14 @@ export interface CodeRunSettings {
  */
 export type AssistantDataClassification = 'public' | 'internal' | 'confidential' | 'restricted';
 
+/**
+ * Why an agent or a skill that is saved and in effect may still not work as configured
+ * (`NhAssistantConfigurationWarnings`). `classification-not-permitted`: neither its model profile nor
+ * the profile's fallbacks permit its data classification, so its model calls are refused. A newer
+ * server may report other codes.
+ */
+export type AssistantConfigurationWarning = 'classification-not-permitted' | (string & {});
+
 /** One version of a skill defined as data. */
 export interface DataSkill {
   skillId: string;
@@ -1118,6 +1145,12 @@ export interface DataSkill {
    * new skill.
    */
   acceptsFiles?: boolean;
+  /**
+   * Why the skill, saved and in effect, may still not work as configured: `classification-not-permitted`
+   * when neither its model profile, or else its agent's, nor the profile's fallbacks permit its
+   * classification, or else its agent's. A warning never refuses a save; missing on older servers.
+   */
+  warnings?: AssistantConfigurationWarning[];
 }
 
 /** How a change of a skill takes effect: at once, or as a candidate in shadow next to the live version. */

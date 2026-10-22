@@ -9,9 +9,11 @@ namespace NewHeap.Platform.AI.Chat;
 /// Administrator input for an agent. It carries no state: pause, stop, switching off and resume
 /// change that through the agent control, never the definition; only a new agent created in the
 /// administration may start off with <paramref name="StartsOff"/>. <paramref name="OfferedInChat"/>,
-/// <paramref name="WorksOn"/> and <paramref name="ProfileName"/> apply to agents created in the
-/// administration; <see langword="null"/> keeps them, a new agent is offered in the chat, works on all
-/// object types and uses the application's chat profile. Agents in code take them from their code.
+/// <paramref name="WorksOn"/>, <paramref name="ProfileName"/> and <paramref name="DataClassification"/>
+/// apply to agents created in the administration; <see langword="null"/> keeps them, a new agent is
+/// offered in the chat, works on all object types, uses the application's chat profile and has no
+/// classification of its own, so its model calls are <see cref="NhAiDataClassification.Internal"/>.
+/// Agents in code take them from their code.
 /// </summary>
 internal sealed record NhAssistantAgentInput(
     string Id,
@@ -25,7 +27,8 @@ internal sealed record NhAssistantAgentInput(
     bool? OfferedInChat = null,
     NhAssistantAgentWorksOn? WorksOn = null,
     bool StartsOff = false,
-    string? ProfileName = null);
+    string? ProfileName = null,
+    string? DataClassification = null);
 
 /// <summary>
 /// Creates, overrides, resets and deletes agents. Every change is versioned and reported to the
@@ -258,6 +261,14 @@ internal sealed class NhAssistantAgentAdministration(
         {
             errors.Require(validator.IsChoosableProfile(profileName), "profile", NhAssistantFieldErrors.NotFound);
         }
+        // An agent created here classifies its model calls by name, as a data skill does.
+        if (input.DataClassification is { } classification && adminAgent)
+        {
+            errors.Require(
+                NhAssistantDataClassificationNames.TryParse(classification, out _),
+                "dataClassification",
+                NhAssistantFieldErrors.Invalid);
+        }
         if (!errors.IsEmpty)
         {
             return errors.ToResult();
@@ -290,6 +301,10 @@ internal sealed class NhAssistantAgentAdministration(
         if (input.ProfileName is { } profileName && row.Source == NhAssistantAgentSources.Admin)
         {
             row.ProfileName = profileName;
+        }
+        if (input.DataClassification is { } classification && row.Source == NhAssistantAgentSources.Admin)
+        {
+            row.DataClassification = classification;
         }
         var hash = NhAssistantAgentCatalog.ComputeHash(instructions);
         if (!string.Equals(hash, row.InstructionsHash, StringComparison.Ordinal))

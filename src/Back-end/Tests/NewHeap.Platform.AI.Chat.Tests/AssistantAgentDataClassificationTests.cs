@@ -26,6 +26,7 @@ public sealed class AssistantAgentDataClassificationTests(AssistantDatabaseFixtu
     private const string Secure = "secure";
     private const string Notes = "notes";
     private const string ConfidentialProfile = "confidential-chat";
+    private const string GuardedProfile = "guarded-chat";
 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -94,17 +95,97 @@ public sealed class AssistantAgentDataClassificationTests(AssistantDatabaseFixtu
             new NhAssistantDataSkillRequest("Audits the project.", Profile: ConfidentialProfile, DataClassification: "confidential", ExpectedVersion: 1),
             "admin-1"));
         var confidential = await RunAsync(host, "audit second", "audit-changed");
+        // Without a classification of its own a skill takes the agent's Confidential, which the agent's
+        // profile does not permit: the save succeeds and warns.
+        var inherited = await ConfigureAsync(host, configuration => configuration.SaveSkillAsync(
+            AgentId,
+            "summary",
+            new NhAssistantDataSkillRequest("Summarizes the project."),
+            "admin-1"));
 
         Assert.Contains(invalid.GetResultItems(), item => item.Name == "field:dataClassification");
         Assert.True(saved.Success);
         Assert.Equal("restricted", saved.Data!.DataClassification);
+        // No profile of the chain permits Restricted: the save succeeds with a warning.
+        Assert.Equal([NhAssistantConfigurationWarnings.ClassificationNotPermitted], saved.Data.Warnings);
+        Assert.Empty(changed.Data!.Warnings);
+        Assert.True(inherited.Success);
+        Assert.Equal([NhAssistantConfigurationWarnings.ClassificationNotPermitted], inherited.Data!.Warnings);
         Assert.True(trigger.Success);
         Assert.Equal((NhAssistantRunStatuses.Failed, NhAssistantErrorCodes.ClassificationNotPermitted), (restricted.Status, restricted.FailureCode));
         Assert.True(changed.Success);
         Assert.Equal(NhAssistantRunStatuses.Completed, confidential.Status);
         Assert.Single(models.Confidential.Requests);
         var configuration = await ConfigureAsync(host, configuration => configuration.GetAsync(AgentId));
-        Assert.Equal("confidential", configuration!.DataSkills.Single(skill => skill.SkillId == "audit").DataClassification);
+        var audit = configuration!.DataSkills.Single(skill => skill.SkillId == "audit");
+        Assert.Equal("confidential", audit.DataClassification);
+        Assert.Empty(audit.Warnings);
+        Assert.Equal(
+            [NhAssistantConfigurationWarnings.ClassificationNotPermitted],
+            configuration.DataSkills.Single(skill => skill.SkillId == "summary").Warnings);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_plain_chat_carries_the_agents_classification_and_moves_to_the_fallback_that_permits_it_or_fails(AssistantTestProvider provider)
+    {
+        var models = new ClassifiedModels();
+        models.Confidential.RespondWithText("The confidential figures are on track.");
+        await using var host = await CreateHostAsync(provider, models);
+
+        // An agent created in the administration chooses a profile whose fallback permits Confidential.
+        var desk = await ConfigureAsync(host, configuration => configuration.CreateAgentAsync(
+            AdminAgent("figures-desk", NhAssistantDataClassificationNames.Confidential),
+            "admin-1"));
+        var vault = await ConfigureAsync(host, configuration => configuration.CreateAgentAsync(
+            AdminAgent("vault-desk", NhAssistantDataClassificationNames.Restricted),
+            "admin-1"));
+        var invalid = await ConfigureAsync(host, configuration => configuration.CreateAgentAsync(
+            AdminAgent("secret-desk", "secret"),
+            "admin-1"));
+
+        var moved = await ChatAsync(host, "figures-desk");
+        // No profile of the chain permits Restricted: the chat fails at once.
+        var refused = await ChatAsync(host, "vault-desk");
+        // The agent in code is Confidential and its profile permits Internal only, without a fallback:
+        // its plain chat is no longer Internal and fails as well.
+        var code = await ChatAsync(host, AgentId);
+
+        Assert.True(desk.Success);
+        Assert.True(vault.Success);
+        Assert.Contains(invalid.GetResultItems(), item => item.Name == "field:dataClassification");
+        Assert.Equal((NhAssistantTurnStatuses.Completed, (string?)null), moved);
+        Assert.Single(models.Confidential.Requests);
+        Assert.Equal((NhAssistantTurnStatuses.Failed, NhAssistantErrorCodes.ClassificationNotPermitted), refused);
+        Assert.Equal((NhAssistantTurnStatuses.Failed, NhAssistantErrorCodes.ClassificationNotPermitted), code);
+        Assert.Empty(models.Default.Requests);
+        Assert.Empty(models.Guarded.Requests);
+    }
+
+    private static NhAssistantAgentRequest AdminAgent(string id, string classification)
+    {
+        return new NhAssistantAgentRequest(
+            id,
+            "Figures desk",
+            "Answers questions about the project figures.",
+            "Answer questions about the project figures.",
+            ["projects.*"],
+            NhAiAutonomyLevel.Explain,
+            Profile: GuardedProfile,
+            DataClassification: classification);
+    }
+
+    /// <summary>
+    /// Sends a person's message in a new plain chat with <paramref name="agentId"/> and returns how
+    /// the turn ended.
+    /// </summary>
+    private static async Task<(string Status, string? ErrorCode)> ChatAsync(AssistantTestHost host, string agentId)
+    {
+        var conversation = await host.CreateConversationAsync(agentId: agentId);
+        var turn = await host.SendAsync(conversation.Id, "How are the figures of the project?");
+        var completed = Assert.IsType<NhAssistantTurnCompletedEvent>(turn.Events[^1]);
+        return (completed.Status, completed.ErrorCode);
     }
 
     private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, ClassifiedModels models)
@@ -120,13 +201,24 @@ public sealed class AssistantAgentDataClassificationTests(AssistantDatabaseFixtu
                 services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, TestPrincipalFactory>());
                 services.AddKeyedSingleton<IChatClient>("confidential-model", models.Confidential);
-                services.AddNewHeapPlatformAI(ai => ai.AddChatProfile(ConfidentialProfile, profile => profile
-                    .UseKeyedClient("confidential-model")
-                    .RequireCapabilities(NhAiModelCapability.FunctionCalling)
-                    .WithStreaming(NhAiStreamingPolicy.Allowed)
-                    .PermitDataClassifications(NhAiDataClassification.Confidential)
-                    .PermitExecutionRegions("local")
-                    .WithBudget(maxInputTokens: 8_192, maxOutputTokens: 1_024, maxCalls: 16)));
+                services.AddKeyedSingleton<IChatClient>("guarded-model", models.Guarded);
+                services.AddNewHeapPlatformAI(ai => ai
+                    .AddChatProfile(ConfidentialProfile, profile => profile
+                        .UseKeyedClient("confidential-model")
+                        .RequireCapabilities(NhAiModelCapability.FunctionCalling)
+                        .WithStreaming(NhAiStreamingPolicy.Allowed)
+                        .PermitDataClassifications(NhAiDataClassification.Confidential)
+                        .PermitExecutionRegions("local")
+                        .WithBudget(maxInputTokens: 8_192, maxOutputTokens: 1_024, maxCalls: 16))
+                    // Internal data stays on this profile; confidential data moves to its fallback.
+                    .AddChatProfile(GuardedProfile, profile => profile
+                        .UseKeyedClient("guarded-model")
+                        .RequireCapabilities(NhAiModelCapability.FunctionCalling)
+                        .WithStreaming(NhAiStreamingPolicy.Allowed)
+                        .PermitDataClassifications(NhAiDataClassification.Internal)
+                        .WithFallbackProfiles(ConfidentialProfile)
+                        .PermitExecutionRegions("local")
+                        .WithBudget(maxInputTokens: 8_192, maxOutputTokens: 1_024, maxCalls: 16)));
             },
             assistantBuilder: assistant => assistant
                 .AddSubjectType<TestSubjectResolver>()
@@ -195,5 +287,7 @@ public sealed class AssistantAgentDataClassificationTests(AssistantDatabaseFixtu
         public NhAiScriptedChatClient Default { get; } = new();
 
         public NhAiScriptedChatClient Confidential { get; } = new();
+
+        public NhAiScriptedChatClient Guarded { get; } = new();
     }
 }

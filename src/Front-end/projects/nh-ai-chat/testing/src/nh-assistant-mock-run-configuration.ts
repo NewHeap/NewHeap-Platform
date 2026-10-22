@@ -18,7 +18,7 @@ import {
 import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
 import { NhAssistantMockAdminScenario } from './nh-assistant-mock.models';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
-import { mockFailure as failure } from './nh-assistant-mock-admin-shared';
+import { mockClassificationWarnings, mockFailure as failure } from './nh-assistant-mock-admin-shared';
 
 /** A mock response: status plus optional JSON body. */
 interface MockResult {
@@ -66,6 +66,8 @@ export class NhAssistantMockRunConfiguration {
   private readonly codeTriggers: (CodeTrigger & { agentId: string })[];
   /** How the scenario's agents in code run, as their code would say. */
   private readonly codeRunSettings: Map<string, Partial<CodeRunSettings>>;
+  /** What each profile and its fallbacks permit, to warn as the server does. */
+  private readonly profileClassifications: NhAssistantMockAdminScenario['profileClassifications'];
 
   constructor(
     scenario: NhAssistantMockAdminScenario,
@@ -97,6 +99,7 @@ export class NhAssistantMockRunConfiguration {
       skillId: trigger.skillId ?? null,
       subjectType: trigger.subjectType ?? null
     }));
+    this.profileClassifications = scenario.profileClassifications;
     this.codeRunSettings = new Map((scenario.agents ?? [])
       .filter(agent => agent.source === 'code')
       .map(agent => [agent.id, agent.codeRunSettings ?? {}]));
@@ -406,7 +409,8 @@ export class NhAssistantMockRunConfiguration {
     if (!candidate) {
       this.agents.setDataSkill(agent.id, skillId, saved.description, live === undefined && request.startsOff === true);
     }
-    return { status: 200, body: toSkill(saved) };
+    // A classification that no profile permits never refuses the save; the skill reports it.
+    return { status: 200, body: this.withWarnings(agent, toSkill(saved)) };
   }
 
   private candidate(method: string, agent: AdminAgent, skillId: string, action: string | undefined, body: unknown): MockResult {
@@ -453,7 +457,7 @@ export class NhAssistantMockRunConfiguration {
     }
     candidate.status = 'live';
     this.agents.setDataSkill(agent.id, skillId, candidate.description);
-    return { status: 200, body: toSkill(candidate) };
+    return { status: 200, body: this.withWarnings(agent, toSkill(candidate)) };
   }
 
   private versions(agentId: string, skillId: string): DataSkillVersion[] {
@@ -604,6 +608,7 @@ export class NhAssistantMockRunConfiguration {
 
   private liveSkills(agentId: string): DataSkill[] {
     const result: DataSkill[] = [];
+    const agent = this.agents.find(agentId);
     for (const [stored, versions] of this.skills) {
       if (!stored.startsWith(`${agentId}/`)) {
         continue;
@@ -611,10 +616,27 @@ export class NhAssistantMockRunConfiguration {
       const live = versions.find(version => version.status === 'live');
       if (live) {
         const candidate = versions.find(version => version.status === 'candidate');
-        result.push({ ...toSkill(live), candidate: candidate ? toSkill(candidate) : null });
+        result.push({
+          ...this.withWarnings(agent, toSkill(live)),
+          candidate: candidate ? this.withWarnings(agent, toSkill(candidate)) : null
+        });
       }
     }
     return result.sort((left, right) => left.skillId.localeCompare(right.skillId));
+  }
+
+  /**
+   * The skill with the warnings the server reports for it: its classification, or else its agent's,
+   * that its profile, or else its agent's, does not permit.
+   */
+  private withWarnings(agent: AdminAgent | undefined, skill: DataSkill): DataSkill {
+    return {
+      ...skill,
+      warnings: mockClassificationWarnings(
+        this.profileClassifications,
+        skill.profile ?? agent?.profile,
+        skill.dataClassification ?? agent?.dataClassification)
+    };
   }
 
   private ownerOf(trigger: DataTrigger): string | undefined {

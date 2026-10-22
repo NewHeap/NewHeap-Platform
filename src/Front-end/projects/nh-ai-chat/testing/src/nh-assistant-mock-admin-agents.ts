@@ -6,11 +6,13 @@ import {
   AgentSkillState,
   AgentState,
   AgentSummary,
-  AssistantAutonomy
+  AssistantAutonomy,
+  AssistantDataClassification
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminAgent, NhAssistantMockScenario } from './nh-assistant-mock.models';
 import {
   NhAssistantMockResult,
+  mockClassificationWarnings,
   mockDashCase,
   mockFailure as failure,
   mockHashText as hashText,
@@ -24,6 +26,8 @@ interface StoredAgent {
   agent: AdminAgent;
   /** The definition in code, for `reset`; null for admin agents. */
   codeDefinition: AdminAgentInput | null;
+  /** The agent stopped while it was off: releasing the kill switch switches it off again. */
+  offBeforeStop?: boolean;
 }
 
 /** What the agents read of the other areas of the mock administration. */
@@ -42,6 +46,7 @@ export interface NhAssistantMockAgentRules {
 const mockChatProfile = 'chat';
 
 const autonomyLevels: AssistantAutonomy[] = ['observe', 'explain', 'propose', 'simulate', 'execute'];
+const dataClassifications: AssistantDataClassification[] = ['public', 'internal', 'confidential', 'restricted'];
 
 /**
  * The agents of the mock administration: agents in code and agents created as data, their state,
@@ -190,9 +195,15 @@ export class NhAssistantMockAdminAgents {
       if (typeof engaged !== 'boolean') {
         return validationFailure();
       }
-      const changed = this.agentStateEndpoint(stored, 'POST', { state: engaged ? 'stopped' : 'active' });
+      // Releasing never switches on an agent that was off, as on the server: one that was off when
+      // it stopped goes back off, and one that is off stays off.
+      const released = stored.agent.runState === 'off' || stored.offBeforeStop === true ? 'off' : 'active';
+      const changed = this.agentStateEndpoint(stored, 'POST', { state: engaged ? 'stopped' : released });
       return changed.status === 200
-        ? { status: 200, body: { agentId: id, enabled: stored.agent.runState !== 'stopped', cancelledRuns: 0 } }
+        ? {
+          status: 200,
+          body: { agentId: id, enabled: stored.agent.runState !== 'stopped', cancelledRuns: 0, runState: stored.agent.runState }
+        }
         : changed;
     }
     if (length !== 3) {
@@ -538,6 +549,8 @@ export class NhAssistantMockAdminAgents {
         : { status: 200, body: toAgentState(stored.agent) };
     }
     if (stored.agent.runState !== request.state) {
+      // A stop remembers whether the agent was off, for the kill switch; every other change forgets it.
+      stored.offBeforeStop = request.state === 'stopped' && stored.agent.runState === 'off';
       stored.agent = {
         ...stored.agent,
         isEnabled: request.state !== 'stopped',
@@ -581,6 +594,11 @@ export class NhAssistantMockAdminAgents {
       && !this.rules.profileNames().includes(profile)) {
       return failure('assistant-validation', { profile: ['not-found'] });
     }
+    // An agent created here names the classification of its model calls, as a data skill does.
+    const classification = chosenClassification(input!.dataClassification);
+    if (source === 'admin' && classification !== null && !dataClassifications.includes(classification as AssistantDataClassification)) {
+      return failure('assistant-validation', { dataClassification: ['invalid'] });
+    }
     return null;
   }
 
@@ -610,13 +628,18 @@ export class NhAssistantMockAdminAgents {
     previous?: AdminAgent
   ): AdminAgent {
     // Only a new agent starts off, created that way here or with StartsOff() in code.
-    const { isEnabled, startsOff, profile, ...definition } = structuredClone(input);
+    const { isEnabled, startsOff, profile, dataClassification, ...definition } = structuredClone(input);
     const createdOff = previous === undefined && startsOff === true;
     const chosenProfile = source === 'admin' && typeof profile === 'string' && profile.trim().length > 0 ? profile.trim() : null;
-    return {
+    const classification = chosenClassification(dataClassification) as AssistantDataClassification | null;
+    return this.withWarnings({
       ...definition,
       // An agent created here keeps its profile when the input omits it; code decides for the others.
       profile: chosenProfile ?? previous?.profile ?? mockChatProfile,
+      // The same for its classification; an agent in code keeps the one of its scenario.
+      dataClassification: source === 'admin' || previous === undefined
+        ? classification ?? previous?.dataClassification ?? null
+        : previous.dataClassification ?? null,
       isEnabled: previous?.isEnabled ?? true,
       version,
       source,
@@ -641,8 +664,21 @@ export class NhAssistantMockAdminAgents {
         ? pickWorksOn(previous)
         : mockWorksOnFromInput(input) ?? (previous ? pickWorksOn(previous) : { ...mockUndeclaredWorksOn, worksOnDeclared: true })),
       knownSubjectTypes: previous?.knownSubjectTypes ?? []
+    });
+  }
+
+  /** The agent with the warnings the server reports for it, from its profile and classification. */
+  private withWarnings(agent: AdminAgent): AdminAgent {
+    return {
+      ...agent,
+      warnings: mockClassificationWarnings(this.scenario.admin?.profileClassifications, agent.profile, agent.dataClassification)
     };
   }
+}
+
+/** A classification name the input chose, or `null` when it chose none. */
+function chosenClassification(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
 function codeAgentFromSummary(agent: AgentSummary): AdminAgentInput {

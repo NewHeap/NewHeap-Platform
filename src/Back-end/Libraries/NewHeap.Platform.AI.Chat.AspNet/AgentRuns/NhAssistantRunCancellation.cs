@@ -79,9 +79,16 @@ internal sealed class NhAssistantRunCancellation(
 /// <param name="Enabled">Whether the agent accepts triggers and runs: <see langword="false"/> while it
 /// is stopped.</param>
 /// <param name="CancelledRuns">The runs the kill switch cancelled.</param>
-public sealed record NhAssistantKillSwitchDto(string AgentId, bool Enabled, int CancelledRuns);
+public sealed record NhAssistantKillSwitchDto(string AgentId, bool Enabled, int CancelledRuns)
+{
+    /// <summary>
+    /// The agent's state after the change: <c>stopped</c> while the kill switch is engaged; after it
+    /// is released <c>off</c> for an agent that was off, otherwise <c>active</c>.
+    /// </summary>
+    public string RunState { get; init; } = NhAssistantAgentRunStates.Active;
+}
 
-/// <param name="Engaged"><see langword="true"/> stops the agent; <see langword="false"/> resumes it.
-/// The kill switch is <see cref="INhAssistantAgentControl.StopAsync"/> and
-/// <see cref="INhAssistantAgentControl.ResumeAsync"/> without a reason.</param>
+/// <param name="Engaged"><see langword="true"/> stops the agent; <see langword="false"/> releases the
+/// kill switch, which switches an agent that was off when it stopped off again and resumes every
+/// other agent. The kill switch is <see cref="INhAssistantAgentControl.SetKillSwitchAsync"/>.</param>
 public sealed record NhAssistantKillSwitchRequest(bool? Engaged);

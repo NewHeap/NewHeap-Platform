@@ -107,6 +107,7 @@ public sealed class ProjectAiInMemoryIdempotencyManager : INhAiIdempotencyManage
 public sealed class ProjectAiBudgetUsage
 {
     private readonly ConcurrentDictionary<(string Purpose, string? AgentId), int> _calls = new();
+    private readonly ConcurrentDictionary<(string? AgentId, string ProfileName), int> _profiles = new();
 
     public void Add(NhAiBudgetRequest request)
     {
@@ -115,6 +116,28 @@ public sealed class ProjectAiBudgetUsage
             (request.Purpose ?? NhAiBudgetPurposes.Application, request.AgentId),
             request.RequestedCalls,
             (_, calls) => calls + request.RequestedCalls);
+        // A model call reserves tokens on the profile that serves it; a tool call reserves none.
+        if (request.RequestedInputTokens > 0 || request.RequestedOutputTokens > 0)
+        {
+            _profiles.AddOrUpdate(
+                (request.AgentId, request.ProfileName),
+                request.RequestedCalls,
+                (_, calls) => calls + request.RequestedCalls);
+        }
+    }
+
+    /// <summary>
+    /// SPM-307: the model profiles that served the model calls of <paramref name="agentId"/>, as the
+    /// profile resolution chose them for the calls' data classification, ordered by name.
+    /// </summary>
+    public IReadOnlyList<string> ProfilesOf(string agentId)
+    {
+        return _profiles.Keys
+            .Where(key => key.AgentId == agentId)
+            .Select(key => key.ProfileName)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
     }
 
     /// <summary>

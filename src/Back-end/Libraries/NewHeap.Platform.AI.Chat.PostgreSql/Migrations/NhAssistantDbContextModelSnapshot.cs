@@ -38,6 +38,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<string>("DataClassification")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(512)
@@ -72,6 +76,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsOverridden")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("OffBeforeStop")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("PerDivision")

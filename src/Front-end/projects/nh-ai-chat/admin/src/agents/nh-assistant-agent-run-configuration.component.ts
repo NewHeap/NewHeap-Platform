@@ -35,7 +35,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountLabelComponent, NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
-import { codeTextKeys, readableId, skillDescriptionKeys, skillNameKeys } from './agent-texts';
+import { codeTextKeys, readableId, skillDescriptionKeys, skillNameKeys, warningKeys } from './agent-texts';
 import { AgentFlowEntry } from './run-config/agent-flow';
 import { NhAssistantAgentFlowComponent } from './run-config/nh-assistant-agent-flow.component';
 import { NhAssistantAgentWorkSetupComponent } from './run-config/nh-assistant-agent-work-setup.component';
@@ -124,6 +124,7 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   readonly id = `nh-assistant-run-configuration-${nextId++}`;
   readonly maxReason = runConfigLimits.reason;
   readonly skillNameKeys = skillNameKeys;
+  readonly warningKeys = warningKeys;
   readonly skillDescriptionKeys = skillDescriptionKeys;
   readonly readableId = readableId;
 
@@ -135,6 +136,8 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   readonly error = signal<NhAssistantError | null>(null);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   readonly saved = signal<string | null>(null);
+  /** The warnings of the skill that was just saved, shown with the saved message. */
+  readonly savedWarnings = signal<readonly string[]>([]);
   readonly form = signal<Form | null>(null);
   readonly confirming = signal<Confirmation | null>(null);
   readonly reason = signal('');
@@ -364,9 +367,11 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   }
 
   onSkillSaved(result: SkillFormSaved): void {
-    this.finish(result.candidate
-      ? 'nh-assistant.admin.run-config.skills.saved-candidate'
-      : result.added ? 'nh-assistant.admin.run-config.skills.added' : 'nh-assistant.admin.run-config.skills.saved');
+    this.finish(
+      result.candidate
+        ? 'nh-assistant.admin.run-config.skills.saved-candidate'
+        : result.added ? 'nh-assistant.admin.run-config.skills.added' : 'nh-assistant.admin.run-config.skills.saved',
+      result.skill.warnings ?? []);
   }
 
   onTriggerSaved(added: boolean): void {
@@ -486,10 +491,11 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     this.returnFocus = opener instanceof HTMLElement ? opener : null;
   }
 
-  private finish(savedKey: string): void {
+  private finish(savedKey: string, warnings: readonly string[] = []): void {
     this.returnFocus = null;
     this.form.set(null);
     this.saved.set(savedKey);
+    this.savedWarnings.set(warnings);
     this.changed.emit();
     this.load();
     afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('[data-saved]')?.focus(), { injector: this.injector });

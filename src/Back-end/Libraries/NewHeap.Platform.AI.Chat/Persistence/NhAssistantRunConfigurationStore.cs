@@ -6,8 +6,8 @@ namespace NewHeap.Platform.AI.Chat.Persistence;
 /// <summary>
 /// The skills and triggers defined as data, read together into a snapshot.
 /// </summary>
-/// <param name="AdminAgents">The tool selectors, as JSON, and what it works on of every agent created
-/// in the administration, by agent id.</param>
+/// <param name="AdminAgents">The tool selectors, as JSON, what it works on and the data classification
+/// of every agent created in the administration, by agent id.</param>
 internal sealed record NhAssistantStoredRunConfiguration(
     Guid? Stamp,
     IReadOnlyList<AssistantAgentRunConfiguration> AgentRuns,
@@ -18,7 +18,12 @@ internal sealed record NhAssistantStoredRunConfiguration(
 /// <summary>
 /// What the run configuration reads of an agent created in the administration.
 /// </summary>
-internal sealed record NhAssistantStoredAdminAgent(string ToolSelectorsJson, NhAssistantAgentWorksOn WorksOn);
+/// <param name="DataClassification">The classification of its model calls, one of
+/// <see cref="NhAssistantDataClassificationNames"/>; <see langword="null"/> for none.</param>
+internal sealed record NhAssistantStoredAdminAgent(
+    string ToolSelectorsJson,
+    NhAssistantAgentWorksOn WorksOn,
+    string? DataClassification = null);
 
 /// <summary>
 /// Persistence of the run configuration defined as data: the versions of data skills and the data
@@ -67,12 +72,16 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                     WorksOnApplication = agent.WorksOnApplication,
                     PerDivision = agent.PerDivision,
                     RunPolicy = agent.RunPolicy,
-                    ViewPolicy = agent.ViewPolicy
+                    ViewPolicy = agent.ViewPolicy,
+                    DataClassification = agent.DataClassification
                 })
                 .ToListAsync(cancellationToken))
             .ToDictionary(
                 agent => agent.Id,
-                agent => new NhAssistantStoredAdminAgent(agent.ToolSelectorsJson, NhAssistantAgentWorksOn.FromRow(agent)),
+                agent => new NhAssistantStoredAdminAgent(
+                    agent.ToolSelectorsJson,
+                    NhAssistantAgentWorksOn.FromRow(agent),
+                    agent.DataClassification),
                 StringComparer.Ordinal);
         var skills = await context.AgentSkillDefinitions
             .AsNoTracking()

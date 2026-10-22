@@ -485,15 +485,16 @@ internal static class NhAssistantAdminEndpoints
         }
 
         var control = httpContext.RequestServices.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
-        var result = engaged
-            ? await control.StopAsync(id, actor, null, httpContext.RequestAborted)
-            : await control.ResumeAsync(id, actor, null, httpContext.RequestAborted);
+        var result = await control.SetKillSwitchAsync(id, engaged, actor, httpContext.RequestAborted);
         return result.Success
             ? Json(
                 new AgentRuns.NhAssistantKillSwitchDto(
                     id,
                     result.Data!.RunState != NhAssistantAgentRunStates.Stopped,
-                    result.Data.CancelledRuns),
+                    result.Data.CancelledRuns)
+                {
+                    RunState = result.Data.RunState
+                },
                 AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantKillSwitchDto)
             : Failure(result);
     }
@@ -961,7 +962,8 @@ internal static class NhAssistantAdminEndpoints
                 body.RunPolicy,
                 body.ViewPolicy),
             body.StartsOff == true,
-            string.IsNullOrWhiteSpace(body.Profile) ? null : body.Profile.Trim()), errors);
+            string.IsNullOrWhiteSpace(body.Profile) ? null : body.Profile.Trim(),
+            string.IsNullOrWhiteSpace(body.DataClassification) ? null : body.DataClassification.Trim()), errors);
     }
 
     private static (NhAssistantMcpServerInput? Input, NhAssistantValidationErrors Errors) ToInput(
@@ -1034,7 +1036,12 @@ internal static class NhAssistantAdminEndpoints
         {
             KnownSubjectTypes = known.GetValueOrDefault(agent.Id) ?? [],
             Groups = membership?.Groups ?? [],
-            CodeGroups = membership?.CodeGroups ?? []
+            CodeGroups = membership?.CodeGroups ?? [],
+            // A save succeeds also when no profile permits the agent's classification.
+            Warnings = NhAssistantClassificationChecks.WarningsOf(
+                httpContext.RequestServices.GetService<INhAiModelProfileRegistry>(),
+                agent.Definition.ProfileName,
+                agent.DataClassification)
         };
     }
 
@@ -1081,6 +1088,9 @@ internal static class NhAssistantAdminEndpoints
             ServiceAccount = state.ServiceAccount,
             OfferedInChat = agent.OfferedInChat,
             Profile = agent.Definition.ProfileName,
+            DataClassification = agent.DataClassification is { } classification
+                ? NhAssistantDataClassificationNames.NameOf(classification)
+                : null,
             WorksOnSubjectTypes = agent.WorksOn.SubjectTypes,
             WorksOnAllSubjects = agent.WorksOn.AllSubjects,
             WorksOnApplication = agent.WorksOn.Application,

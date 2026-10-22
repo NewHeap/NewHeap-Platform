@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
@@ -200,7 +201,8 @@ internal sealed class NhAssistantAgentAccess(
 
 /// <summary>
 /// Fails host start when the assistant registration is incomplete: missing ASP.NET AI integration,
-/// managers replaced after the assistant, unknown policies or profiles, or invalid agents.
+/// managers replaced after the assistant, unknown policies or profiles, or invalid agents. It logs a
+/// warning for an agent or skill in code whose data classification no profile of its chain permits.
 /// </summary>
 internal sealed class NhAssistantStartupValidator(
     IServiceScopeFactory scopeFactory,
@@ -208,7 +210,8 @@ internal sealed class NhAssistantStartupValidator(
     NhAssistantAgentRegistry registry,
     IAuthorizationPolicyProvider policyProvider,
     INhAiModelProfileRegistry profiles,
-    IOptions<NhAssistantOptions> options) : IHostedService
+    IOptions<NhAssistantOptions> options,
+    ILogger<NhAssistantStartupValidator> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -348,6 +351,9 @@ internal sealed class NhAssistantStartupValidator(
                 }
             }
         }
+        // A classification that no profile of the chain permits is no reason to stop the host: the
+        // profiles may change without a deploy of the agent. The model calls fail until then.
+        NhAssistantClassificationChecks.LogCodeWarnings(state, profiles, logger);
         if (state.CodeAgentRuns.Count > 0)
         {
             var operations = provider.GetService<NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.NhBackgroundOperationRegistry>();

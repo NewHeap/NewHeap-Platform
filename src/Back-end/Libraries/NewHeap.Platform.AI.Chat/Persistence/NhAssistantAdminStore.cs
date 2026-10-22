@@ -405,12 +405,18 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
         }
 
         var now = DateTimeOffset.UtcNow;
+        var stopping = runState == NhAssistantAgentRunStates.Stopped;
         await context.Agents
             .Where(agent => agent.Id == id)
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(agent => agent.RunState, runState)
-                    .SetProperty(agent => agent.IsEnabled, runState != NhAssistantAgentRunStates.Stopped)
+                    .SetProperty(agent => agent.IsEnabled, !stopping)
+                    // A stop remembers whether the agent was off, so releasing the kill switch
+                    // switches it off again; every other change forgets it.
+                    .SetProperty(
+                        agent => agent.OffBeforeStop,
+                        agent => stopping && agent.IsEnabled && agent.RunState == NhAssistantAgentRunStates.Off)
                     .SetProperty(agent => agent.StateChangedAt, now)
                     .SetProperty(agent => agent.StateChangedBy, actorId)
                     .SetProperty(agent => agent.StateReason, reason),
