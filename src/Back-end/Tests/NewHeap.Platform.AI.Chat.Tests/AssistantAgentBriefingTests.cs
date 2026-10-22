@@ -137,6 +137,91 @@ public sealed class AssistantAgentBriefingTests(AssistantDatabaseFixture databas
         Assert.EndsWith("</subject-briefing>", briefing);
     }
 
+    [Fact]
+    public void A_hand_over_names_what_became_of_each_rule_proposal_and_the_decisions_the_rules_saw()
+    {
+        var rejectedAt = new DateTimeOffset(2026, 10, 20, 9, 0, 0, TimeSpan.Zero);
+        var proposals = new[]
+        {
+            Note("projects.change-status", new NhAssistantRuleProposal(NhAssistantProposeOutcome.Created, Guid.NewGuid(), [], null, null)),
+            Note("projects.change-status", new NhAssistantRuleProposal(NhAssistantProposeOutcome.Created, Guid.NewGuid(), [Guid.NewGuid(), Guid.NewGuid()], null, null)),
+            Note("tasks.complete", new NhAssistantRuleProposal(NhAssistantProposeOutcome.Created, Guid.NewGuid(), [], null, null)
+            {
+                PlacedAt = new NhAiSubjectRef("project-task", "task-7")
+            }),
+            Note("projects.change-status", new NhAssistantRuleProposal(NhAssistantProposeOutcome.AlreadyOpen, Guid.NewGuid(), [], null, null)),
+            Note("projects.change-status", new NhAssistantRuleProposal(NhAssistantProposeOutcome.RecentlyRejected, Guid.NewGuid(), [], rejectedAt, null)),
+            Note("tasks.complete", new NhAssistantRuleProposal(NhAssistantProposeOutcome.NotNeeded, null, [], null, "task-completed")
+            {
+                NotNeededKind = NhAiStaleKind.AlreadyDone,
+                Explanation = "Completed by \"Henk\" <b>on 14 Oct</b>."
+            }),
+            Note("tasks.assign", new NhAssistantRuleProposal(NhAssistantProposeOutcome.Refused, null, [], null, NhAssistantErrorCodes.ProposalNotPlaced)
+            {
+                PlacementReason = NhAssistantPlacementReasons.NoAccess
+            }),
+            Note("projects.archive", new NhAssistantRuleProposal(NhAssistantProposeOutcome.Refused, null, [], null, NhAssistantErrorCodes.ProposalRefused))
+        };
+        var rejections = new[] { new NhAssistantRuleDecision(Guid.NewGuid(), "projects.change-status", rejectedAt, null) };
+        var invalidations = new[] { new NhAssistantRuleDecision(Guid.NewGuid(), "tasks.complete", rejectedAt.AddDays(1), NhAssistantStaleKinds.AlreadyDone) };
+
+        var section = NhAssistantBriefingService.RulesSection("Two tasks are overdue.", 3, proposals, rejections, invalidations, 8_000);
+
+        Assert.Equal(NhAssistantBriefingService.RulesTitle, section.Title);
+        var lines = section.Text.Split('\n');
+        Assert.Equal(
+            [
+                "The agent's application rules handed this run over to you. Their reason: Two tasks are overdue.",
+                "They already recorded 3 proposal(s) in this run; do not propose those again.",
+                "What became of each proposal the rules asked for in this run:",
+                "- projects.change-status on this subject: recorded; it waits for approval.",
+                "- projects.change-status on this subject: recorded; it superseded 2 pending proposal(s) for the same objects and waits for approval.",
+                "- tasks.complete at project-task task-7: recorded there; it waits for that object's approvers.",
+                "- projects.change-status on this subject: not recorded again; the same proposal already waits for a decision or its execution.",
+                "- projects.change-status on this subject: not recorded; people rejected the same proposal recently (2026-10-20).",
+                "- tasks.complete: not needed (already-done, task-completed); nothing was recorded. The application explains: \"Completed by 'Henk' <b>on 14 Oct</b>.\"",
+                "- tasks.assign: not placed at its object (no-access); nothing was recorded.",
+                "- projects.archive: refused (assistant-proposal-refused); nothing was recorded.",
+                "Recent decisions on earlier proposals of this subject that the rules saw, newest first (the agent continuity block has the details):",
+                "- 2026-10-21 tasks.complete: closed without a decision as already-done",
+                "- 2026-10-20 projects.change-status: rejected by people"
+            ],
+            lines);
+
+        // In the briefing the explanation's markup is neutralized like any other section text.
+        var briefing = NhAssistantBriefingService.Format([section], 8_000);
+        Assert.Contains("‹b›on 14 Oct‹/b›", briefing);
+        Assert.DoesNotContain("<b>", briefing);
+    }
+
+    [Fact]
+    public void The_rules_section_caps_its_lists_and_stays_within_its_bound()
+    {
+        var proposals = Enumerable.Range(0, 30)
+            .Select(index => Note("projects.change-status", new NhAssistantRuleProposal(NhAssistantProposeOutcome.AlreadyOpen, Guid.NewGuid(), [], null, null)))
+            .ToArray();
+        var rejections = Enumerable.Range(0, 15)
+            .Select(index => new NhAssistantRuleDecision(Guid.NewGuid(), "projects.change-status", DateTimeOffset.UtcNow.AddDays(-index), null))
+            .ToArray();
+
+        var capped = NhAssistantBriefingService.RulesSection("Unclear.", 0, proposals, rejections, null, 8_000).Text;
+        Assert.Equal(NhAssistantBriefingService.MaxRuleProposalLines, capped.Split('\n').Count(line => line.StartsWith("- projects.change-status on this subject", StringComparison.Ordinal)));
+        Assert.Contains("- … and 10 more proposal(s).", capped);
+        Assert.Equal(NhAssistantBriefingService.MaxRuleDecisionLines, capped.Split('\n').Count(line => line.EndsWith("rejected by people", StringComparison.Ordinal)));
+        Assert.Contains("- … and 5 more decision(s).", capped);
+
+        // A small briefing bound keeps the reason and lists what fits, with a note for the rest.
+        var bounded = NhAssistantBriefingService.RulesSection("Unclear.", 0, proposals, rejections, null, 600).Text;
+        Assert.True(bounded.Length <= 600, $"The section has {bounded.Length} characters.");
+        Assert.StartsWith("The agent's application rules handed this run over to you. Their reason: Unclear.", bounded);
+        Assert.Matches(@"- … and \d+ more proposal\(s\)\.", bounded);
+    }
+
+    private static NhAssistantRuleProposalNote Note(string toolId, NhAssistantRuleProposal proposal)
+    {
+        return new NhAssistantRuleProposalNote(toolId, proposal);
+    }
+
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]

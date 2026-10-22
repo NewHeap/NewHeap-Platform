@@ -182,6 +182,11 @@ export interface AdminAgent extends AdminAgentInput {
   stateReason: string | null;
   /** Events that wait while the agent is paused. */
   waitingInputs: number;
+  /**
+   * `true` while the agent is stopped and was off when it stopped: releasing the kill switch switches
+   * it back off, while resuming switches it on. `false` otherwise; missing on older servers.
+   */
+  offBeforeStop?: boolean;
   /** The agent's skills with their states and today's usage; missing or empty without skills. */
   skills?: AgentSkillState[];
   /** The live agent this agent is a shadow variant of; missing or null for an agent that is no variant. */
@@ -310,6 +315,11 @@ export interface AgentState {
   cancelledRuns: number;
   /** The runs this change started for waiting events by resuming the agent. */
   startedRuns: number;
+  /**
+   * `true` while the agent is stopped and was off when it stopped: releasing the kill switch switches
+   * it back off, while resuming switches it on. `false` otherwise; missing on older servers.
+   */
+  offBeforeStop?: boolean;
   skills?: AgentSkillState[];
   shadowOf?: string | null;
   /** `null` for an agent without runs, which only chats. */

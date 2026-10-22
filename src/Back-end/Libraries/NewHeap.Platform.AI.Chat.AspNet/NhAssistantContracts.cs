@@ -763,6 +763,13 @@ public sealed record NhAssistantAdminAgentDto(
     /// administration.
     /// </summary>
     public IReadOnlyList<string> CodeGroups { get; init; } = [];
+
+    /// <summary>
+    /// <see langword="true"/> while the agent is stopped and was off when it stopped: releasing the
+    /// kill switch switches it back off, while resuming switches it on. <see langword="false"/>
+    /// otherwise (<see cref="NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState.OffBeforeStop"/>).
+    /// </summary>
+    public bool OffBeforeStop { get; init; }
 }
 
 /// <summary>

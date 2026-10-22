@@ -46,6 +46,10 @@ The platform asks the application what it knows about people through interfaces 
 
 - `INhActorContextAccessor`: the current actor (`NhActorRef`, a user id in `D` format) and the
   active division. The default reads the `NameIdentifier` claim and has no division.
+  The assistant names people by the actor id its `INhAiAuthenticatedInvocationContextResolver`
+  resolves for a request; when the application's actor ids are not the claim, register a resolver
+  (`UseAuthenticatedInvocationContextResolver<TResolver>()`) that returns the same actor id, so the
+  platform recognizes the person's own requests as theirs.
 - `INhDivisionAccess`: whether an actor may work in a division. Division is the platform's
   tenancy term; map the application's tenant onto it. Without an implementation there are no
   divisions and every division is denied.

@@ -175,15 +175,26 @@ describe('provideNhAssistantMockApi administration', () => {
       body: JSON.stringify({ engaged })
     })).json() as Promise<{ enabled: boolean; runState: string }>;
 
+    const stoppedAgent = async () => (await firstValueFrom(admin.getAgents())).find(agent => agent.id === 'projects')!;
+
     await firstValueFrom(admin.setAgentState('projects', { state: 'off' }));
     const engaged = await killSwitch(true);
+    const stoppedFromOff = await firstValueFrom(admin.getAgentState('projects'));
+    const listedFromOff = await stoppedAgent();
     const released = await killSwitch(false);
+    const offAgain = await firstValueFrom(admin.getAgentState('projects'));
     await firstValueFrom(admin.setAgentState('projects', { state: 'paused' }));
     await killSwitch(true);
+    const stoppedFromPaused = await firstValueFrom(admin.getAgentState('projects'));
     const resumed = await killSwitch(false);
 
     expect(engaged).toEqual(jasmine.objectContaining({ enabled: false, runState: 'stopped' }));
+    // While stopped the state and the agent say that releasing switches it back off.
+    expect(stoppedFromOff).toEqual(jasmine.objectContaining({ runState: 'stopped', offBeforeStop: true }));
+    expect(listedFromOff).toEqual(jasmine.objectContaining({ runState: 'stopped', offBeforeStop: true }));
     expect(released).toEqual(jasmine.objectContaining({ enabled: true, runState: 'off' }));
+    expect(offAgain.offBeforeStop).toBeFalse();
+    expect(stoppedFromPaused).toEqual(jasmine.objectContaining({ runState: 'stopped', offBeforeStop: false }));
     expect(resumed).toEqual(jasmine.objectContaining({ enabled: true, runState: 'active' }));
   });
 

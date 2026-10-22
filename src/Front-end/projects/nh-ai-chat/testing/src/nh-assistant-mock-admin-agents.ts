@@ -26,8 +26,6 @@ interface StoredAgent {
   agent: AdminAgent;
   /** The definition in code, for `reset`; null for admin agents. */
   codeDefinition: AdminAgentInput | null;
-  /** The agent stopped while it was off: releasing the kill switch switches it off again. */
-  offBeforeStop?: boolean;
 }
 
 /** What the agents read of the other areas of the mock administration. */
@@ -197,7 +195,7 @@ export class NhAssistantMockAdminAgents {
       }
       // Releasing never switches on an agent that was off, as on the server: one that was off when
       // it stopped goes back off, and one that is off stays off.
-      const released = stored.agent.runState === 'off' || stored.offBeforeStop === true ? 'off' : 'active';
+      const released = stored.agent.runState === 'off' || stored.agent.offBeforeStop === true ? 'off' : 'active';
       const changed = this.agentStateEndpoint(stored, 'POST', { state: engaged ? 'stopped' : released });
       return changed.status === 200
         ? {
@@ -549,12 +547,12 @@ export class NhAssistantMockAdminAgents {
         : { status: 200, body: toAgentState(stored.agent) };
     }
     if (stored.agent.runState !== request.state) {
-      // A stop remembers whether the agent was off, for the kill switch; every other change forgets it.
-      stored.offBeforeStop = request.state === 'stopped' && stored.agent.runState === 'off';
       stored.agent = {
         ...stored.agent,
         isEnabled: request.state !== 'stopped',
         runState: request.state,
+        // A stop remembers whether the agent was off, for the kill switch; every other change forgets it.
+        offBeforeStop: request.state === 'stopped' && stored.agent.runState === 'off',
         stateChangedAt: this.now(),
         stateChangedBy: 'current-user',
         stateReason: reason
@@ -655,6 +653,7 @@ export class NhAssistantMockAdminAgents {
       shadowOf: previous?.shadowOf ?? null,
       shadow: previous?.shadow ?? shadowState(false, false, null, false),
       serviceAccount: previous?.serviceAccount ?? null,
+      offBeforeStop: previous?.offBeforeStop ?? false,
       // Code decides for its agents; an agent created here keeps its choice when it is omitted.
       offeredInChat: source === 'code' && previous
         ? previous.offeredInChat ?? true
@@ -708,7 +707,8 @@ function toAgentState(agent: AdminAgent): AgentState {
     skills: agent.skills ?? [],
     shadowOf: agent.shadowOf ?? null,
     shadow: agent.shadow ?? shadowState(false, false, null, false),
-    serviceAccount: agent.serviceAccount ?? null
+    serviceAccount: agent.serviceAccount ?? null,
+    offBeforeStop: agent.runState === 'stopped' && agent.offBeforeStop === true
   };
 }
 

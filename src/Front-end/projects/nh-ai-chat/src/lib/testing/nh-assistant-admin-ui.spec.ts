@@ -625,6 +625,10 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await settle(fixture);
     expect(card().textContent).toContain('Stopped');
     expect(buttons(element, 'Stop').length).toBe(0);
+    // It was not off when it stopped, so releasing the kill switch makes it work again.
+    const stoppedHint = card().querySelector('[data-stopped-hint]');
+    expect(stoppedHint?.getAttribute('data-off-before-stop')).toBe('false');
+    expect(stoppedHint?.textContent).toContain('releasing the kill switch makes it work again, as Resume does.');
 
     button(element, 'Resume').click();
     await settle(fixture);
@@ -675,6 +679,25 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(requestBodies('POST', 'admin/agents/projects/state').at(-1)).toEqual({ state: 'off', reason: 'Not yet' });
     expect(card().querySelector('[data-off-hint]')?.textContent).toContain('People can still chat with it and start it by hand.');
     expect(card().textContent).toContain('Note: Not yet');
+
+    // Stopped while it was off, the card says that releasing the kill switch switches it back off,
+    // while resuming switches it on; once it works again the hint is gone.
+    expect(card().querySelector('[data-stopped-hint]')).toBeNull();
+    (card().querySelector('.card-actions [data-state-action="stopped"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    button(element, 'Confirm stop').click();
+    await settle(fixture);
+    const stoppedHint = card().querySelector('[data-stopped-hint]');
+    expect(stoppedHint?.getAttribute('data-off-before-stop')).toBe('true');
+    expect(stoppedHint?.textContent).toContain('It was off when it stopped: releasing the kill switch switches it back off. Resume switches it on.');
+    expect(await firstValueFrom(TestBed.inject(NhAssistantAdminApiService).getAgentState('projects')))
+      .toEqual(jasmine.objectContaining({ runState: 'stopped', offBeforeStop: true }));
+    (card().querySelector('.card-actions [data-state-action="active"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    button(element, 'Confirm resume').click();
+    await settle(fixture);
+    expect(card().querySelector('.card-header')?.textContent).toContain('Active');
+    expect(card().querySelector('[data-stopped-hint]')).toBeNull();
 
     // A new agent starts off when the administrator leaves it switched off.
     button(element, 'New agent').click();

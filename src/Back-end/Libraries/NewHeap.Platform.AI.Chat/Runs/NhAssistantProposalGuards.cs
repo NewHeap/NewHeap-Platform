@@ -186,9 +186,22 @@ internal sealed class NhAssistantStaleExplanations(
     /// </summary>
     public string? Render(Func<CultureInfo, string?>? explain)
     {
+        var texts = RenderTexts(explain);
+        return texts.Count == 0 ? null : JsonSerializer.Serialize(texts, NhAssistantContent.JsonOptions);
+    }
+
+    /// <summary>
+    /// Renders <paramref name="explain"/> as <see cref="Render"/> does and returns the texts by culture
+    /// name, the current UI culture first: the same texts the stored JSON holds, without the cultures
+    /// that would make it longer than <see cref="NhAssistantLimits.MaxStaleExplanationsSerializedLength"/>.
+    /// Empty without an explanation.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> RenderTexts(Func<CultureInfo, string?>? explain)
+    {
+        var texts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (explain is null)
         {
-            return null;
+            return texts;
         }
 
         var cultures = new[] { CultureInfo.CurrentUICulture }
@@ -196,7 +209,6 @@ internal sealed class NhAssistantStaleExplanations(
             .Where(culture => !string.IsNullOrEmpty(culture.Name))
             .DistinctBy(culture => culture.Name, StringComparer.OrdinalIgnoreCase)
             .Take(NhAssistantToolPresentationResolver.MaxLocalizedCultures);
-        var texts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var culture in cultures)
         {
             if (RenderIn(explain, culture) is { } text)
@@ -205,18 +217,13 @@ internal sealed class NhAssistantStaleExplanations(
             }
         }
 
-        while (texts.Count > 0)
+        while (texts.Count > 0
+               && JsonSerializer.Serialize(texts, NhAssistantContent.JsonOptions).Length > NhAssistantLimits.MaxStaleExplanationsSerializedLength)
         {
-            var json = JsonSerializer.Serialize(texts, NhAssistantContent.JsonOptions);
-            if (json.Length <= NhAssistantLimits.MaxStaleExplanationsSerializedLength)
-            {
-                return json;
-            }
-
             texts.Remove(texts.Keys.Last());
         }
 
-        return null;
+        return texts;
     }
 
     /// <summary>
@@ -240,7 +247,16 @@ internal sealed class NhAssistantStaleExplanations(
             return null;
         }
 
-        if (texts is not { Count: > 0 })
+        return texts is null ? null : PickFrom(texts, culture);
+    }
+
+    /// <summary>
+    /// The explanation for a reader in <paramref name="culture"/> from texts by culture name, as
+    /// <see cref="Pick"/> chooses it.
+    /// </summary>
+    public static string? PickFrom(IReadOnlyDictionary<string, string> texts, CultureInfo culture)
+    {
+        if (texts.Count == 0)
         {
             return null;
         }
