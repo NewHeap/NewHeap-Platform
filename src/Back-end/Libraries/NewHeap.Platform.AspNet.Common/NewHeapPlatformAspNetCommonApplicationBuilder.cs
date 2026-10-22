@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -66,6 +67,12 @@ public class NewHeapPlatformAspNetCommonOptionsBuilder
         return this;
     }
 
+    /// <summary>
+    /// Configures routes of the old MVC routing (<c>UseMvc</c>). Not used with
+    /// <c>NewHeapAspNetCommonOptionsBuilder.UseEndpointRoutingOnly</c>, which fails at startup when
+    /// this is set; map conventional routes in <see cref="UseEndpoints"/> with
+    /// <c>MapControllerRoute</c> there.
+    /// </summary>
     public NewHeapPlatformAspNetCommonOptionsBuilder UseMvc(Action<IRouteBuilder> action)
     {
         ThrowIfBuild();
@@ -134,9 +141,23 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
 
     private void ConfigureDefault()
     {
+        var endpointRoutingOnly = _services.GetService<NewHeapAspNetCommonOptions>()?.UseEndpointRoutingOnly == true;
+        if (endpointRoutingOnly)
+        {
+            ValidateEndpointRoutingOnly();
+        }
+
         _applicationBuilder.UseNewHeapTraceIdentifier();
 
         ConfigureHealthEndpoints();
+
+        if (endpointRoutingOnly)
+        {
+            // One route table for every endpoint, controllers included. Routing comes first, so CORS,
+            // authentication and the middleware below see the endpoint and its metadata.
+            _applicationBuilder.UseRouting();
+        }
+
         ConfigureCors();
         
         _applicationBuilder.UseAuthentication();
@@ -163,12 +184,17 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
 
         _options.AddMiddlewaresAction?.Invoke();
 
-        _applicationBuilder.UseMvc(options =>
+        if (!endpointRoutingOnly)
         {
-            _options.MvcConfigureRoutesAction?.Invoke(options);
-        });
+            // The old MVC routing serves controllers; endpoint routing serves every other endpoint.
+            _applicationBuilder.UseMvc(options =>
+            {
+                _options.MvcConfigureRoutesAction?.Invoke(options);
+            });
 
-        _applicationBuilder.UseRouting();
+            _applicationBuilder.UseRouting();
+        }
+
         _applicationBuilder.UseAuthorization();
 
         _applicationBuilder.UseEndpoints(endpoints =>
@@ -184,6 +210,23 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
 
             _options.EndpointRouteConfigureAction?.Invoke(endpoints);
         });
+    }
+
+    private void ValidateEndpointRoutingOnly()
+    {
+        if (_options.MvcConfigureRoutesAction is not null)
+        {
+            throw new InvalidOperationException(
+                "UseMvc(Action<IRouteBuilder>) configures routes of the old MVC routing, which UseEndpointRoutingOnly does not use. " +
+                "Map conventional routes in UseEndpoints with MapControllerRoute or MapAreaControllerRoute instead.");
+        }
+
+        if (!_services.GetRequiredService<IOptions<MvcOptions>>().Value.EnableEndpointRouting)
+        {
+            throw new InvalidOperationException(
+                "UseEndpointRoutingOnly routes controllers with endpoint routing, but MvcOptions.EnableEndpointRouting was turned off. " +
+                "Do not set EnableEndpointRouting in ConfigureMvc.");
+        }
     }
 
     private void ConfigureHealthEndpoints()

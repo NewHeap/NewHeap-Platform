@@ -361,6 +361,34 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_reviewer_proposes_nothing_for_a_task_that_is_already_ticked_off()
+    {
+        // SPM-282: the task guard also checks when the reviewer proposes.
+        var project = await host.CreateProjectAsync("ALREADY-TICKED", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var taskId = await host.CreateTaskAsync(project, "Sign the charter");
+        await host.CompleteTaskByHandAsync(taskId, host.ColleagueId);
+        NhAssistantTriggerReceipt started;
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            started = await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>().StartAsync(
+                SampleIntakeReviewerComposition.AgentId,
+                ProjectSubjects.For(project),
+                host.OwnerId.ToString("D"),
+                $"Complete task {taskId:D} of project {project:D}.");
+        }
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+
+        // The reviewer reads why instead of proposing, and nothing waits for the approver.
+        var run = await WaitForRunWithTriggerAsync(colleague, started.ConversationId!.Value, started.TriggerId);
+        Assert.Equal(NhAssistantRunStatuses.Completed, run.Status);
+        Assert.Contains("Nothing to propose", run.Summary);
+        Assert.Contains("colleague@sample.localhost", run.Summary);
+        var proposals = await colleague.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{started.ConversationId}/proposals", Json);
+        Assert.DoesNotContain(proposals!, proposal => proposal.ToolId == ProjectTaskAiTools.CompleteToolId);
+    }
+
+    [Fact]
     public async Task A_run_waiting_for_a_proposal_that_a_person_overtook_continues_without_it()
     {
         // SPM-282: the status advisor's run waits for the participant's inline approval. Nobody
@@ -947,6 +975,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var shadowNote = await WaitForRunWithTriggerAsync(administrator, shadowThread, SampleAgentConfigurationService.ProgressNoteTriggerId);
             Assert.Equal((NhAssistantRunStatuses.Completed, note, true, NhAssistantRunKinds.Rule), (shadowNote.Status, shadowNote.Skill, shadowNote.Shadow, shadowNote.Kind));
             Assert.Contains("1", shadowNote.Summary);
+            // The rules read from their context which skill version they run for; the note is written
+            // in the run's culture, here Dutch.
+            Assert.Contains($"genoteerd door versie {skill.Version} van {note}.", shadowNote.Summary);
 
             // The team agrees with the notes: the operator puts the trigger and the skill live, and
             // the next completed task gets its note in the live thread after the follow-up.
@@ -1893,7 +1924,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 }
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -1946,7 +1977,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return thread;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException("No thread of the whole application was created.");
@@ -2869,7 +2900,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             {
                 return;
             }
-            await Task.Delay(TimeSpan.FromMilliseconds(200));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
         throw new TimeoutException($"No completed run started by {initiator}.");
     }
@@ -3338,7 +3369,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return runs;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3370,7 +3401,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return found;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3424,7 +3455,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return thread.ConversationId;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException($"No thread of agent {agentId} was created for project {projectId}.");
@@ -3446,7 +3477,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return replay;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(500));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException($"Replay {replayId} is still {replay?.Status ?? "missing"} after {replay?.RunsReplayed ?? 0} runs.");
@@ -3467,7 +3498,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return found;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3490,7 +3521,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return found;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3513,7 +3544,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 }
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3588,7 +3619,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return thread.ConversationId;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException($"No shadow thread of agent {agentId} was created for project {projectId}.");
@@ -3655,7 +3686,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 }
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
         }
 
         throw new TimeoutException(
@@ -3665,8 +3696,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
 
 /// <summary>
 /// The assistant sample host with the platform's background operations on Hangfire in memory and
-/// the intake reviewer of Program.cs. The sample database is migrated before the host starts so
-/// the background-operation dispatcher finds its tables from its first poll.
+/// the intake reviewer of Program.cs. The host's database is a copy of the migrated sample
+/// database, so the background-operation dispatcher finds its tables from its first poll.
 /// </summary>
 public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : AssistantCollaborationSampleHost(postgreSql)
 {
@@ -3710,6 +3741,12 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
 
     public const string ReviewBoardSecret = "sample-review-board-secret-for-tests-only";
 
+    /// <summary>
+    /// How often the tests' wait helpers ask again for work that the host's background operations
+    /// do. The host dispatches them every 50 ms, so the evidence waits little for them.
+    /// </summary>
+    public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(50);
+
     public override async ValueTask InitializeAsync()
     {
         Model.Use(new SampleAssistantChatClient());
@@ -3733,15 +3770,6 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
     {
         await base.DisposeAsync();
         _hangfireStorage.Dispose();
-    }
-
-    protected override async Task OnDatabaseCreatedAsync()
-    {
-        var options = new DbContextOptionsBuilder<SampleProjectManagementDbContext>()
-            .UseNpgsql(ConnectionString)
-            .Options;
-        await using var dbContext = new SampleProjectManagementDbContext(options);
-        await dbContext.Database.MigrateAsync();
     }
 
     protected override void ConfigureSettings(IDictionary<string, string?> settings)
@@ -3854,11 +3882,11 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
                 {
                     server.ServerName = "sample-agent-runs-" + Guid.NewGuid().ToString("N");
                     server.WorkerCount = 2;
-                    server.SchedulePollingInterval = TimeSpan.FromMilliseconds(100);
+                    server.SchedulePollingInterval = TimeSpan.FromMilliseconds(25);
                 })
             .WithBackgroundOperations(operations =>
             {
-                operations.Options.DispatchInterval = TimeSpan.FromMilliseconds(200);
+                operations.Options.DispatchInterval = TimeSpan.FromMilliseconds(50);
                 operations.Options.LiveUpdatesEnabled = false;
                 operations.Options.UserNotificationProjectionEnabled = false;
                 operations.Options.CleanupEnabled = false;
@@ -4002,7 +4030,7 @@ public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSq
                 return;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(200));
+            await Task.Delay(PollInterval);
         }
 
         throw new TimeoutException($"Operation {operationId} stayed {current} instead of {status}.");

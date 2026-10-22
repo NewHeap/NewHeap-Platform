@@ -221,6 +221,7 @@ internal sealed partial class NhAiDelegatedReadService(
     public const string UnavailableCode = "ai-delegated-read-unavailable";
 
     private static readonly object InternalAuthentication = new();
+    private static readonly object IdentifiedTarget = new();
     private static readonly TimeSpan ExpiryTolerance = TimeSpan.FromSeconds(30);
     private readonly Dictionary<string, ClaimsPrincipal?> _principals = new(StringComparer.Ordinal);
 
@@ -232,6 +233,42 @@ internal sealed partial class NhAiDelegatedReadService(
     {
         return httpContext.Items.TryGetValue(InternalAuthentication, out var value)
             && ReferenceEquals(value, InternalAuthentication);
+    }
+
+    /// <summary>
+    /// The target that the delegated read restriction checks: the target passed to
+    /// <see cref="AuthenticateForTargetAsync"/> while that authentication runs, otherwise the routed
+    /// endpoint, or <see langword="null"/> when neither is known yet.
+    /// </summary>
+    public static Endpoint? Target(HttpContext httpContext)
+    {
+        if (httpContext.Items.TryGetValue(IdentifiedTarget, out var value) && value is Endpoint identified)
+        {
+            return identified;
+        }
+        return httpContext.GetEndpoint();
+    }
+
+    /// <summary>
+    /// Authenticates <paramref name="scheme"/> for a request whose target the host identified without
+    /// endpoint routing, such as the action that MVC selected under <c>UseMvc</c>. The restriction sees
+    /// the target only during this call; like every authentication, the result is cached for the
+    /// request, so a scheme that was authenticated earlier keeps its earlier result.
+    /// </summary>
+    public static async Task<AuthenticateResult> AuthenticateForTargetAsync(
+        HttpContext httpContext,
+        Endpoint target,
+        string scheme)
+    {
+        httpContext.Items[IdentifiedTarget] = target;
+        try
+        {
+            return await httpContext.AuthenticateAsync(scheme);
+        }
+        finally
+        {
+            httpContext.Items.Remove(IdentifiedTarget);
+        }
     }
 
     public static TaskResult<NhAiDelegatedReadCredential> Unavailable()
@@ -418,8 +455,9 @@ internal sealed class NhAiDelegatedReadRestriction : IPostConfigureOptions<JwtBe
     /// <see cref="NhAiDelegatedReadDefaults.ClaimType"/> claim authenticates only a <c>GET</c> request
     /// to the gateway action named by its <see cref="NhAiDelegatedReadDefaults.ActionClaimType"/>
     /// claim with the matching invocation header, or the library's own authentication of it. Every
-    /// other request with such a token, including one whose endpoint is not yet known, fails.
-    /// Tokens without the claim are not affected.
+    /// other request with such a token, including one whose target is not yet known
+    /// (<see cref="NhAiDelegatedReadService.Target"/>), fails. Tokens without the claim are not
+    /// affected.
     /// </summary>
     internal static bool Allows(TokenValidatedContext context)
     {
@@ -439,11 +477,9 @@ internal sealed class NhAiDelegatedReadRestriction : IPostConfigureOptions<JwtBe
             return true;
         }
 
-        var actions = context.Principal!.FindAll(NhAiDelegatedReadDefaults.ActionClaimType).ToArray();
-        if (actions.Length != 1
-            || !HttpMethods.IsGet(httpContext.Request.Method)
-            || httpContext.GetEndpoint() is not { } endpoint
-            || !httpContext.RequestServices.GetServices<INhAiDelegatedReadSurface>().Any(surface => surface.IsReadEndpoint(endpoint, actions[0].Value)))
+        if (!HttpMethods.IsGet(httpContext.Request.Method)
+            || NhAiDelegatedReadService.Target(httpContext) is not { } target
+            || !Reaches(context.Principal!, target, httpContext.RequestServices))
         {
             return false;
         }
@@ -452,6 +488,31 @@ internal sealed class NhAiDelegatedReadRestriction : IPostConfigureOptions<JwtBe
         return header.Count == 1
             && Guid.TryParse(header[0], out var headerInvocationId)
             && headerInvocationId == invocationId;
+    }
+
+    /// <summary>
+    /// Whether the principal may reach <paramref name="target"/>: every identity with the
+    /// <see cref="NhAiDelegatedReadDefaults.ClaimType"/> claim needs a single action claim that names
+    /// the target as its gateway read. Identities without the claim are not affected, so a principal
+    /// that authorization merged from several schemes is checked per delegated read token.
+    /// </summary>
+    internal static bool Reaches(ClaimsPrincipal principal, Endpoint target, IServiceProvider services)
+    {
+        foreach (var identity in principal.Identities)
+        {
+            if (!identity.HasClaim(claim => claim.Type == NhAiDelegatedReadDefaults.ClaimType))
+            {
+                continue;
+            }
+
+            var actions = identity.FindAll(NhAiDelegatedReadDefaults.ActionClaimType).ToArray();
+            if (actions.Length != 1
+                || !services.GetServices<INhAiDelegatedReadSurface>().Any(surface => surface.IsReadEndpoint(target, actions[0].Value)))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 }
 

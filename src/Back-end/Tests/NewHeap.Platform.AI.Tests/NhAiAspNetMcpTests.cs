@@ -262,6 +262,56 @@ public sealed class NhAiAspNetMcpTests
             Assert.IsType<TextContentBlock>(Assert.Single(failedWithoutPayload.Content)).Text);
     }
 
+    [Fact]
+    public async Task A_call_through_the_mcp_export_reserves_its_budget_as_an_mcp_call()
+    {
+        var context = new NhAiInvocationContext(
+            "agent-1",
+            "order-maintenance",
+            new Dictionary<string, string>());
+        var budget = new NhAiTestBudgetManager();
+        var services = new ServiceCollection();
+        services.AddScoped<FlatMcpTools>();
+        services.AddScoped<INhAiToolInvocationGate>(
+            _ => NhAiTestInvocationGate.Authorized(context));
+        services.AddScoped<INhAiToolDiscoveryPolicy>(
+            _ => NhAiTestDiscoveryPolicy.Allowed());
+        services.AddSingleton<INhAiBudgetManager>(budget);
+        services.AddNewHeapPlatformAI(ai =>
+            ai.AddGeneratedToolCatalog<FlatMcpToolsNhAiCatalog>());
+        services.AddNewHeapPlatformAIMcp();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var mcpTools = await scope.ServiceProvider
+            .GetRequiredService<INhAiMcpToolAdapter>()
+            .CreateToolsAsync(scope.ServiceProvider, context);
+        var clientToServer = new Pipe();
+        var serverToClient = new Pipe();
+        await using var server = McpServer.Create(
+            new StreamServerTransport(
+                clientToServer.Reader.AsStream(),
+                serverToClient.Writer.AsStream()),
+            new McpServerOptions
+            {
+                ScopeRequests = false,
+                ToolCollection = [.. mcpTools]
+            },
+            serviceProvider: scope.ServiceProvider);
+        _ = server.RunAsync();
+        await using var client = await McpClient.CreateAsync(
+            new StreamClientTransport(
+                clientToServer.Writer.AsStream(),
+                serverToClient.Reader.AsStream()));
+
+        var tool = Assert.Single(await client.ListToolsAsync());
+        await client.CallNewHeapFlatToolAsync<FlatReceiptInput, FlatReceipt>(
+            tool.Name,
+            new FlatReceiptInput("order-1", "valid-grant", "key-1"));
+
+        var request = Assert.Single(budget.Requests);
+        Assert.Equal((NhAiBudgetPurposes.Mcp, "agent-1"), (request.Purpose, request.ActorId));
+    }
+
     private static DefaultHttpContext CreateContext(
         string subject,
         string tenant,

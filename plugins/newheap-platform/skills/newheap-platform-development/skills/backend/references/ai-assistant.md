@@ -101,7 +101,14 @@ fallback. Never log presenter text, arguments or lookup results.
 The library replaces `INhAiBudgetManager`, `INhAiIdempotencyManager` and
 `INhAiApprovalEvidenceProvider` with durable implementations on its own tables.
 Budget and evidence requests outside an assistant turn are delegated to the
-implementations registered before `AddNewHeapAssistant`.
+implementations registered before `AddNewHeapAssistant`. Call
+`UseApplicationBudgetInTurns()` when the application's budget manager must also reserve the
+model and tool calls of assistant turns: once the assistant's daily budget accepted a call, the
+application's manager receives it with the agent, skill, run and purpose (`chat`, `agent-run`,
+`consultation` or `proposal-execution`), and its refusal ends the call as
+`assistant-budget-exhausted`. Register that manager before `AddNewHeapAssistant`
+(`UseBudgetManager<TManager>()` or `UseInMemoryBudget`); with only the default manager, which
+refuses every reservation, host start fails.
 
 ## Administration and personalization
 

@@ -469,6 +469,11 @@ internal sealed class NhAssistantToolCallInterceptor(
                 return await NotPlacedAsync(descriptor, row, notPlaced, placed.Subject.Subject, cancellationToken);
             }
             _lastProposal = requested;
+            if (requested is { Outcome: NhAssistantProposeOutcome.NotNeeded } notNeeded)
+            {
+                // A guard found the work done or no longer applicable; nothing waits for people.
+                return NotNeeded(notNeeded);
+            }
             if (requested is { Outcome: not NhAssistantProposeOutcome.Created } skipped)
             {
                 // The same proposal is open or was rejected recently; nothing new waits for people.
@@ -763,6 +768,14 @@ internal sealed class NhAssistantToolCallInterceptor(
                 };
             }
 
+            if (recorded.Outcome == NhAssistantProposeOutcome.NotNeeded)
+            {
+                return new NhAssistantRuleProposal(NhAssistantProposeOutcome.NotNeeded, null, [], null, recorded.NotNeededReason)
+                {
+                    Explanation = recorded.NotNeededExplanation
+                };
+            }
+
             return new NhAssistantRuleProposal(
                 recorded.Outcome,
                 recorded.ApprovalId,
@@ -929,6 +942,13 @@ internal sealed class NhAssistantToolCallInterceptor(
             .ToArray();
         var approvalId = Guid.NewGuid();
         var argumentsHash = NhAssistantProposalDuplicates.IdentityOf(descriptor.Id, proposal.Arguments);
+        // Guards that check at proposal time keep work that is already done or no longer applies
+        // from being proposed at all.
+        if (await CheckAtProposalAsync(home, descriptor.Id, proposal, now, cancellationToken) is { } stale)
+        {
+            return await SkipNotNeededAsync(row, proposal.ProposalId, stale, mode, cancellationToken);
+        }
+
         // Proposals of a person's own turn wait in the conversation; only agent proposals can be
         // revalidated or deduplicated.
         var agentProposal = agentTurn is not null && !shadow && !(mode == NhAiApprovalMode.Inline && agentTurn.RunId is null);
@@ -1254,6 +1274,78 @@ internal sealed class NhAssistantToolCallInterceptor(
     }
 
     /// <summary>
+    /// Runs the guards of the tool that check at proposal time (<see cref="NhAiProposalGuardStages.Proposal"/>)
+    /// and returns their stale result, or <see langword="null"/> when the proposal is needed. A guard
+    /// that fails keeps the proposal, as at the other stages: the decision and the execution check it
+    /// again.
+    /// </summary>
+    private async Task<NhAiPreconditionResult?> CheckAtProposalAsync(
+        AssistantThread? thread,
+        string toolId,
+        NhAiProposal proposal,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (proposalGuards is null || !proposalGuards.HasGuards(toolId, NhAiProposalGuardStages.Proposal))
+        {
+            return null;
+        }
+
+        var check = await proposalGuards.CheckAsync(
+            new NhAiProposalGuardContext(
+                proposal.ProposalId,
+                toolId,
+                proposal.Arguments,
+                thread is null ? null : new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
+                thread?.ScopeKey,
+                now),
+            NhAiProposalGuardStages.Proposal,
+            cancellationToken);
+        return check.Stale;
+    }
+
+    /// <summary>
+    /// Ends the tool call of a proposal that a guard found not needed: nothing is recorded, the call
+    /// reads <c>not-executed</c> with <see cref="NhAssistantErrorCodes.ProposalNotNeeded"/>, and its
+    /// result carries the guard's reason and explanation in the culture the turn works in.
+    /// </summary>
+    private async Task<NhAssistantRecordedProposal> SkipNotNeededAsync(
+        AssistantToolInvocation row,
+        Guid proposalId,
+        NhAiPreconditionResult stale,
+        NhAiApprovalMode mode,
+        CancellationToken cancellationToken)
+    {
+        var reason = NhAssistantProposalGuards.ReasonCodeOf(stale);
+        var kind = NhAssistantStaleKinds.From(stale.Kind);
+        var explanation = texts is null
+            ? null
+            : NhAssistantStaleExplanations.Pick(texts.Render(stale.Explain), CultureInfo.CurrentUICulture);
+        var result = NotNeededResult(reason, kind, explanation);
+        row.Status = NhAssistantToolCallStatuses.NotExecuted;
+        row.ResultCode = NhAssistantErrorCodes.ProposalNotNeeded;
+        row.ResultJson = NhAssistantContent.SerializeResult(result);
+        row.CompletedAt = DateTimeOffset.UtcNow;
+        if (state.Scope.Consultation is null)
+        {
+            await store.UpdateToolInvocationAsync(row, cancellationToken);
+            await state.EmitAsync(new NhAssistantToolCompletedEvent(
+                row.Id,
+                row.Status,
+                row.ResultCode,
+                NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification)));
+        }
+
+        return new NhAssistantRecordedProposal(Guid.Empty, proposalId, mode, false)
+        {
+            Outcome = NhAssistantProposeOutcome.NotNeeded,
+            NotNeededReason = reason,
+            NotNeededKind = kind,
+            NotNeededExplanation = explanation
+        };
+    }
+
+    /// <summary>
     /// The application objects an agent proposal changes, as its guards name them, so the application
     /// can revalidate it by object and recognize a newer proposal for the same objects.
     /// </summary>
@@ -1278,6 +1370,30 @@ internal sealed class NhAssistantToolCallInterceptor(
                 thread.ScopeKey,
                 now),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// The result the model receives when a guard found its proposal not needed.
+    /// </summary>
+    private static JsonElement NotNeeded(NhAssistantRecordedProposal notNeeded)
+    {
+        return NotNeededResult(notNeeded.NotNeededReason!, notNeeded.NotNeededKind!, notNeeded.NotNeededExplanation);
+    }
+
+    private static JsonElement NotNeededResult(string reason, string kind, string? explanation)
+    {
+        return JsonSerializer.SerializeToElement(
+            new Dictionary<string, object?>
+            {
+                ["success"] = false,
+                ["code"] = NhAssistantErrorCodes.ProposalNotNeeded,
+                ["reason"] = reason,
+                ["kind"] = kind,
+                ["explanation"] = explanation,
+                ["message"] = "The application found that this proposal is not needed: the work is already done or no longer applies. "
+                    + "Nothing was proposed. Do not propose it again; tell people why, using the explanation."
+            },
+            NhAssistantContent.JsonOptions);
     }
 
     /// <summary>
@@ -1469,6 +1585,16 @@ internal sealed record NhAssistantRecordedProposal(
     /// <see cref="Runs.NhAssistantPlacementReasons"/>.
     /// </summary>
     public string? NotPlacedReason { get; init; }
+
+    /// <summary>
+    /// For <see cref="NhAssistantProposeOutcome.NotNeeded"/>: the guard's reason code, the kind of its
+    /// stale result (one of <see cref="NhAssistantStaleKinds"/>) and its explanation.
+    /// </summary>
+    public string? NotNeededReason { get; init; }
+
+    public string? NotNeededKind { get; init; }
+
+    public string? NotNeededExplanation { get; init; }
 }
 
 /// <summary>

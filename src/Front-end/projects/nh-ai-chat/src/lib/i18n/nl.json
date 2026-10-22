@@ -240,7 +240,8 @@
       "assistant-proposal-already-open": "Niet opnieuw voorgesteld: hetzelfde voorstel wacht al.",
       "assistant-proposal-recently-rejected": "Niet opnieuw voorgesteld: het is kort geleden afgewezen.",
       "assistant-proposal-placed": "Voorgesteld bij het object; wacht op de goedkeurders daarvan",
-      "assistant-proposal-not-placed": "Niet voorgesteld: het object waar het om gaat accepteert het niet."
+      "assistant-proposal-not-placed": "Niet voorgesteld: het object waar het om gaat accepteert het niet.",
+      "assistant-proposal-not-needed": "Niet voorgesteld: het werk is al gedaan of is niet meer van toepassing."
     },
     "errors": {
       "generic": "Er ging iets mis. Probeer het opnieuw.",
@@ -410,7 +411,8 @@
       "assistant-mcp-authorization-cancelled": "Het autorisatievenster is gesloten voordat het klaar was.",
       "assistant-mcp-popup-blocked": "De browser heeft het autorisatievenster geblokkeerd. Sta pop-ups toe voor deze site en probeer het opnieuw.",
       "assistant-proposal-placed": "Het voorstel wacht bij het object waar het om gaat, op de goedkeurders daarvan.",
-      "assistant-proposal-not-placed": "Het voorstel is niet bij het object geplaatst waar het om gaat."
+      "assistant-proposal-not-placed": "Het voorstel is niet bij het object geplaatst waar het om gaat.",
+      "assistant-proposal-not-needed": "Niet voorgesteld: het werk is al gedaan of is niet meer van toepassing."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",

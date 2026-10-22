@@ -227,6 +227,15 @@ internal sealed class NhAssistantStartupValidator(
             throw new InvalidOperationException(
                 "The assistant budget, idempotency or approval-evidence manager was replaced. Call AddNewHeapAssistant after the application's own AI registrations.");
         }
+        if (state.ApplicationBudgetInTurns
+            && !NhAssistantBudgetManager.IsApplicationManager(
+                provider.GetRequiredKeyedService<INhAiBudgetManager>(NhAssistantFallbacks.ServiceKey)))
+        {
+            // Every call of every turn would be refused.
+            throw new InvalidOperationException(
+                "UseApplicationBudgetInTurns needs a budget manager of the application. Register one before AddNewHeapAssistant, "
+                + "for example AddNewHeapPlatformAI(ai => ai.UseBudgetManager<TManager>()) or ai.UseInMemoryBudget(...).");
+        }
 
         // Invalid push keys or limits fail here instead of at the first notification.
         options.Value.Push.Validate();

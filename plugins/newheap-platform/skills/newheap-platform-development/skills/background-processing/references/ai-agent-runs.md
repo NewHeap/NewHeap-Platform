@@ -509,7 +509,10 @@ data trigger can start a skill on (its `Subject`, `Message`, `Initiator`, `Dedup
 `When` are what every trigger on it receives; one published event serves code and data triggers
 alike), `AddSubjectSet(name, description, subjects)` for the subjects a data schedule starts a
 skill for, and `AddRuleHandler<THandler>(name, description)` for rules a data skill works by.
-Approval policies, model profiles and subject types are named by their ids as in code.
+Several skills may name the same rule handler: it reads the skill it runs for from
+`NhAssistantRuleContext.SkillId`, `SkillVersion` (the data version, `null` for a skill in code) and
+`SkillCandidate` (`true` in the run of a candidate version); all three are `null` for the agent's own
+rules outside a skill. Approval policies, model profiles and subject types are named by their ids as in code.
 `INhAssistantAgentConfiguration`, or `PUT admin/agents/{id}/skills/{skillId}` and `PUT
 admin/agents/{id}/triggers/{triggerId}`, stores a data skill (description, instructions with their
 hash, tools within the agent's own selectors, profile, rule handler, ceiling, budget and approval
@@ -775,6 +778,16 @@ by default (`NhAiProposalGuardStages`): when the application revalidates, before
 either decision endpoint, also for a person's own chat proposal, and right before execution next
 to `RequireUnchangedSubject`. Limit an expensive guard to `Decision | Execution`, knowing it then
 never closes an open proposal by itself.
+
+Keep work that is already done from being proposed at all. Add `NhAiProposalGuardStages.Proposal`
+to a guard's stages (`AddProposalGuard<TGuard>(selectors, NhAiProposalGuardStages.All |
+NhAiProposalGuardStages.Proposal)`; `All` leaves it out): its `CheckAsync` then also runs when a
+rule (`NhAssistantRuleContext.ProposeAsync`) or the model proposes, before anything is recorded.
+A stale result records no proposal, no approval and no `ApprovalRequested` audit event. Rules get
+`NhAssistantProposeOutcome.NotNeeded` with the guard's reason code as `Code` and its explanation in
+the run's culture as `Explanation`; the model gets `assistant-proposal-not-needed` with `reason`,
+`kind` and `explanation` as its tool result, and the tool call reads `not-executed`. A guard that
+throws at proposal time lets the proposal be recorded; the decision and the execution check again.
 
 Revalidate after the change committed. Call `INhAssistantProposalRevalidation`
 `RevalidateSubjectAsync(subject)` or `RevalidateKeysAsync(keys, scopeKey)` from the outbox

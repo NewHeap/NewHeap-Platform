@@ -44,6 +44,14 @@ public class NewHeapAspNetCommonOptions
     public Action<ApiBehaviorOptions>? ApiBehaviorOptionsAction { get; set; }
     public Action<CorsOptions>? CorsOptionsAction { get; set; }
     public Action<IMapperConfigurationExpression>? AutoMapperConfigurationAction { get; set; }
+
+    /// <summary>
+    /// Routes controllers with endpoint routing only: MVC keeps <c>EnableEndpointRouting</c> on and
+    /// <c>UseNewHeapPlatformAspNetCommon</c> maps them with <c>MapControllers</c> instead of the old
+    /// <c>UseMvc</c> routing, so controller requests carry endpoint metadata. <see langword="false"/>
+    /// by default; new applications opt in with <see cref="NewHeapAspNetCommonOptionsBuilder.UseEndpointRoutingOnly"/>.
+    /// </summary>
+    public bool UseEndpointRoutingOnly { get; set; }
 }
 
 public class NewHeapAspNetCommonOptionsBuilder
@@ -154,6 +162,20 @@ public class NewHeapAspNetCommonOptionsBuilder
     {
         ThrowIfBuild();
         _options!.AutoMapperConfigurationAction = action;
+        return this;
+    }
+
+    /// <summary>
+    /// Routes controllers with endpoint routing only, the recommended setup for new applications:
+    /// one route table, and endpoint metadata such as authorization, CORS and rate limiting applies to
+    /// controllers too. <c>UseNewHeapPlatformAspNetCommon</c> then routes before CORS and
+    /// authentication and maps conventional routes only in <c>UseEndpoints</c>, with
+    /// <c>MapControllerRoute</c>.
+    /// </summary>
+    public NewHeapAspNetCommonOptionsBuilder UseEndpointRoutingOnly(bool use = true)
+    {
+        ThrowIfBuild();
+        _options!.UseEndpointRoutingOnly = use;
         return this;
     }
 

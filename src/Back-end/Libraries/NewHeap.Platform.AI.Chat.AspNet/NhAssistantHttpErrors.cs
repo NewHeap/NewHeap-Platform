@@ -102,6 +102,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.ProposalRefused,
             NhAssistantErrorCodes.ProposalPlaced,
             NhAssistantErrorCodes.ProposalNotPlaced,
+            NhAssistantErrorCodes.ProposalNotNeeded,
             NhAssistantErrorCodes.MemoryNotConfigured,
             NhAssistantErrorCodes.MemoryInvalid,
             NhAssistantErrorCodes.ArtifactInvalid,

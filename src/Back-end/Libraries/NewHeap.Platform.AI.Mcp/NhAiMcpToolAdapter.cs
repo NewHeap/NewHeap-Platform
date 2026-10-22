@@ -303,6 +303,8 @@ internal sealed class NhAiFlatSchemaMcpServerTool : McpServerTool
         }
 
         var capture = NhAiToolOutcomeCapture.Begin();
+        // The budget manager sees the call as an MCP client's.
+        using var purpose = NhAiBudgetPurposeScope.Begin(NhAiBudgetPurposes.Mcp);
         var output = await _function.InvokeAsync(arguments, cancellationToken);
         var envelope = output is JsonElement element
             ? element
@@ -421,6 +423,8 @@ internal sealed class NhAiOutcomeAwareMcpServerTool(
         CancellationToken cancellationToken = default)
     {
         var capture = NhAiToolOutcomeCapture.Begin();
+        // The budget manager sees the call as an MCP client's.
+        using var purpose = NhAiBudgetPurposeScope.Begin(NhAiBudgetPurposes.Mcp);
         var result = await inner.InvokeAsync(request, cancellationToken);
         if (result.StructuredContent is not { ValueKind: JsonValueKind.Object } content
             || !NhAiMcpResultMetadata.TryGetEnvelopeProperty(content, "success", out var success)

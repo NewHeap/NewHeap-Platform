@@ -672,7 +672,10 @@
     "SPM-061": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationConfigurationBuilder.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
     ],
     "SPM-062": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -931,7 +934,9 @@
     "SPM-097": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
-      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeapPlatformAspNetCommonApplicationBuilder.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/PlatformPipelineRoutingTests.cs"
     ],
     "SPM-098": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -1352,7 +1357,9 @@
     "SPM-187": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs",
-      "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts"
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Media.Http/NhEndpointsBuiltOnce.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaEndpointRouteTests.cs"
     ],
     "SPM-188": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectMediaEventHandler.cs",
@@ -1677,7 +1684,9 @@
       "src/Back-end/Applications/SampleProjectManagement.Proxy/Properties/launchSettings.json",
       "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyApiSamplesTests.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyHostAuthenticationSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyHostAuthenticationSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Proxy.Sqlite.Tests/NhProxyApiTests.cs"
     ],
     "SPM-239": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyRewriteSamplesTests.cs",
@@ -1776,7 +1785,11 @@
     "SPM-247": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantBudgetManager.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentSkillTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantIdempotencyManager.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/NhAssistantSqlServer.cs",
@@ -1812,7 +1825,7 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetStartupChecks.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpointDataSource.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeStartupValidationTests.cs"
     ],
     "SPM-250": [
@@ -2280,6 +2293,8 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInlineRunWaker.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSuspension.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalRevalidationTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRuleRunTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationOwnershipProviderTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/approval-card/nh-assistant-approval-card.component.ts",
@@ -2402,6 +2417,7 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRestrictedResults.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDelegatedReadTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgePlatformPipelineTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantGatewayReadTests.cs"
     ],
     "SPM-291": [
@@ -2453,6 +2469,7 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",

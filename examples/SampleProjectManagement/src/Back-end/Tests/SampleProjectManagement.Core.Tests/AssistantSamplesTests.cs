@@ -17,6 +17,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.Common.Models;
@@ -156,11 +157,19 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
                 "projects_change_status_v1",
                 new { input = new { projectId, status = (int)ProjectStatus.OnHold } })
             .RespondWithText("The project is on hold."));
+        var usage = host.Services.GetRequiredService<ProjectAiBudgetUsage>();
+        var chatCalls = usage.Calls(NhAiBudgetPurposes.Chat, SampleAssistantComposition.AgentId);
+        var agentCalls = usage.Calls(NhAiBudgetPurposes.AgentRun);
         using var client = host.CreateClient(user);
         var conversationId = await host.CreateConversationAsync(client);
         var paused = await host.SendAsync(client, conversationId, "Put the backlog project on hold.");
         var approval = paused.Single(evt => evt.Name == "approval.required").Data;
         await host.DecideAsync(client, conversationId, approval, "approve");
+
+        // The application's budget manager reserved the chat's three model and two tool calls as a
+        // person's chat with the assistant, not as an agent's work.
+        Assert.Equal(5, usage.Calls(NhAiBudgetPurposes.Chat, SampleAssistantComposition.AgentId) - chatCalls);
+        Assert.Equal(agentCalls, usage.Calls(NhAiBudgetPurposes.AgentRun));
 
         await using var connection = new NpgsqlConnection(host.ConnectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -205,8 +214,8 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
 }
 
 /// <summary>
-/// One Kestrel host with the sample assistant composition over a PostgreSQL database of its own on
-/// the shared <see cref="SamplePostgreSqlServer"/>. Project data is served by an in-memory fake so
+/// One Kestrel host with the sample assistant composition over a migrated sample database of its own
+/// on the shared <see cref="SamplePostgreSqlServer"/>. Project data is served by an in-memory fake so
 /// the evidence focuses on the assistant. Derived hosts add compositions (such as the API bridge)
 /// through the protected hooks.
 /// </summary>
@@ -234,7 +243,10 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
 
     public virtual async ValueTask InitializeAsync()
     {
-        _connectionString = await postgreSql.CreateDatabaseAsync("assistant_sample");
+        _connectionString = CreatesOwnSchema
+            ? await postgreSql.CreateDatabaseAsync("assistant_sample")
+            : await postgreSql.CreateMigratedDatabaseAsync("assistant_sample");
+
         await OnDatabaseCreatedAsync();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.WebHost.UseUrls("http://127.0.0.1:0");
@@ -310,8 +322,14 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
     }
 
     /// <summary>
-    /// Runs after the host's empty database was created and before the host is built, for example
-    /// to apply migrations that hosted services need from their first run.
+    /// Whether the host's application creates its own schema, such as the partner portal. Such a host
+    /// gets an empty database of its own instead of a migrated sample database.
+    /// </summary>
+    protected virtual bool CreatesOwnSchema => false;
+
+    /// <summary>
+    /// Runs after the host's database is ready and before the host is built, for example to create
+    /// the application's own schema or rows that hosted services need from their first run.
     /// </summary>
     protected virtual Task OnDatabaseCreatedAsync()
     {

@@ -9,6 +9,7 @@ export * from './lib/models/assistant-agent-run.models';
 export * from './lib/nh-assistant.config';
 export * from './lib/provide-nh-assistant';
 export * from './lib/i18n/nh-assistant-translations';
+export * from './lib/i18n/nh-assistant-error-codes';
 export * from './lib/services/nh-assistant-sse-parser';
 export { NhAssistantStatusCodes } from './lib/services/nh-assistant-transport';
 export * from './lib/services/nh-assistant-api.service';
@@ -24,6 +25,7 @@ export * from './lib/services/nh-assistant-subject-summary.service';
 export * from './lib/services/nh-assistant-share-link';
 export * from './lib/services/nh-assistant-mcp-authorization';
 export * from './lib/services/nh-assistant-mcp-connect.service';
+export { toNhAssistantError } from './lib/internal/nh-assistant-errors';
 export { NH_ASSISTANT_ICONS, NhAssistantIconName } from './lib/internal/nh-assistant-icon.component';
 export * from './lib/components/launcher/nh-assistant-launcher.component';
 export * from './lib/components/panel/nh-assistant-panel.component';
@@ -63,5 +65,6 @@ export {
   nhAssistantCodeKeys as ɵnhAssistantCodeKeys,
   nhAssistantErrorKeys as ɵnhAssistantErrorKeys,
   nhAssistantErrorOf as ɵnhAssistantErrorOf,
+  // Kept for the secondary entry points and earlier callers; `toNhAssistantError` is public.
   toNhAssistantError as ɵtoNhAssistantError
 } from './lib/internal/nh-assistant-errors';

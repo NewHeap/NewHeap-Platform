@@ -779,6 +779,13 @@ public static class NhAssistantErrorCodes
     /// names the reason, one of <see cref="NhAssistantPlacementReasons"/>. The run continues.
     /// </summary>
     public const string ProposalNotPlaced = "assistant-proposal-not-placed";
+
+    /// <summary>
+    /// A proposal guard that checks at proposal time found the proposal not needed: the work is
+    /// already done, no longer applies or what it is based on changed. Nothing was proposed; the
+    /// result carries the guard's reason and explanation.
+    /// </summary>
+    public const string ProposalNotNeeded = "assistant-proposal-not-needed";
     public const string WebhookSignatureInvalid = "assistant-webhook-signature-invalid";
     public const string MemoryNotConfigured = "assistant-memory-not-configured";
     public const string MemoryInvalid = "assistant-memory-invalid";

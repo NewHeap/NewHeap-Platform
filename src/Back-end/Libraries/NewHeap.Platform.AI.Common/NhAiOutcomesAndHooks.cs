@@ -199,6 +199,103 @@ public sealed record NhAiBudgetRequest(
 {
     /// <summary>The authenticated actor or accountable owner charged for this reservation.</summary>
     public string? ActorId { get; init; }
+
+    /// <summary>
+    /// The agent the call works for, when it works for one; in an assistant conversation the agent
+    /// the person talks to.
+    /// </summary>
+    public string? AgentId { get; init; }
+
+    /// <summary>
+    /// The skill of <see cref="AgentId"/> the call works in, when the assistant knows it.
+    /// </summary>
+    public string? SkillId { get; init; }
+
+    /// <summary>
+    /// The agent run the call belongs to, when it belongs to one.
+    /// </summary>
+    public string? RunId { get; init; }
+
+    /// <summary>
+    /// What the call is for: one of <see cref="NhAiBudgetPurposes"/>.
+    /// </summary>
+    public string? Purpose { get; init; }
+}
+
+/// <summary>
+/// What a budget reservation is for, as <see cref="NhAiBudgetRequest.Purpose"/> names it, so a
+/// budget manager can treat a person's chat, an agent's work and calls from outside apart.
+/// </summary>
+public static class NhAiBudgetPurposes
+{
+    /// <summary>A person's turn in an assistant conversation.</summary>
+    public const string Chat = "chat";
+
+    /// <summary>
+    /// Work of an agent: a turn of an agent run by rules or a model, including triage, or a call
+    /// for an agent outside the assistant.
+    /// </summary>
+    public const string AgentRun = "agent-run";
+
+    /// <summary>An agent answering a consultation in another agent's thread.</summary>
+    public const string Consultation = "consultation";
+
+    /// <summary>An approved proposal that executes after people decided.</summary>
+    public const string ProposalExecution = "proposal-execution";
+
+    /// <summary>A tool call of an MCP client through the MCP export.</summary>
+    public const string Mcp = "mcp";
+
+    /// <summary>Embeddings of an ingestion.</summary>
+    public const string Ingestion = "ingestion";
+
+    /// <summary>
+    /// A model or tool call the application makes itself through <see cref="INhAiChatExecutor"/> or
+    /// <see cref="INhAiToolInvoker"/>, for no agent, such as a call through the API bridge.
+    /// </summary>
+    public const string Application = "application";
+
+    /// <summary>
+    /// The purpose of a model or tool call: the one its call site set for the current flow, otherwise
+    /// agent work when it names an agent and the application's own call when it does not.
+    /// </summary>
+    internal static string Of(string? agentId)
+    {
+        return NhAiBudgetPurposeScope.Current
+            ?? (agentId is null ? Application : AgentRun);
+    }
+}
+
+/// <summary>
+/// The budget purpose of the calls in the current asynchronous flow, for a call site that knows it
+/// better than the invocation context, such as the MCP export.
+/// </summary>
+internal static class NhAiBudgetPurposeScope
+{
+    private static readonly AsyncLocal<string?> CurrentPurpose = new();
+
+    public static string? Current => CurrentPurpose.Value;
+
+    public static IDisposable Begin(string purpose)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(purpose);
+        var previous = CurrentPurpose.Value;
+        CurrentPurpose.Value = purpose;
+        return new Restore(previous);
+    }
+
+    private sealed class Restore(string? previous) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                CurrentPurpose.Value = previous;
+            }
+        }
+    }
 }
 
 public sealed record NhAiBudgetReservation(

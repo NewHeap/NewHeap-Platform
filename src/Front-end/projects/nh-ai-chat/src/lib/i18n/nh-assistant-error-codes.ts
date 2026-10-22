@@ -105,6 +105,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-proposal-refused',
   'assistant-proposal-placed',
   'assistant-proposal-not-placed',
+  'assistant-proposal-not-needed',
   'assistant-trigger-not-found',
   'assistant-trigger-rate-limited',
   'assistant-trigger-rolled-back',

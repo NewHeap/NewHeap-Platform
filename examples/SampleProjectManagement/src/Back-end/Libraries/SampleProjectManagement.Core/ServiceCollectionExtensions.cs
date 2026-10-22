@@ -41,6 +41,7 @@ public static class ServiceCollectionExtensions
         services.TryAddKeyedSingleton<IChatClient, ProjectAiSampleChatClient>(
             "project-assistant-model");
         services.TryAddSingleton<ProjectAiStatusReceiptStore>();
+        services.TryAddSingleton<ProjectAiBudgetUsage>();
         services.TryAddScoped<IProjectAiStatusReceiptService, ProjectAiStatusReceiptService>();
         services.AddNewHeapPlatformAI(ai =>
         {

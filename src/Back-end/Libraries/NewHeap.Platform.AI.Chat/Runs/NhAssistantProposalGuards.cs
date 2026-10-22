@@ -38,9 +38,9 @@ internal sealed record NhAssistantGuardCheck(NhAiPreconditionResult? Stale, bool
 }
 
 /// <summary>
-/// Runs the application's proposal guards: the keys of a new proposal and the checks at
-/// revalidation, decision and execution. Guards run in their own service scope without a person;
-/// a guard that throws is logged and never closes a proposal.
+/// Runs the application's proposal guards: the keys of a new proposal and the checks when it is
+/// proposed, at revalidation, decision and execution. Guards run in their own service scope without
+/// a person; a guard that throws is logged and never closes a proposal, nor keeps one from being made.
 /// </summary>
 internal sealed class NhAssistantProposalGuards(
     IServiceScopeFactory scopes,
@@ -65,7 +65,7 @@ internal sealed class NhAssistantProposalGuards(
         NhAiProposalGuardContext context,
         CancellationToken cancellationToken)
     {
-        var registrations = Registrations(context.ToolId, NhAiProposalGuardStages.All).ToArray();
+        var registrations = Registrations(context.ToolId, NhAiProposalGuardStages.All | NhAiProposalGuardStages.Proposal).ToArray();
         if (registrations.Length == 0)
         {
             return [];

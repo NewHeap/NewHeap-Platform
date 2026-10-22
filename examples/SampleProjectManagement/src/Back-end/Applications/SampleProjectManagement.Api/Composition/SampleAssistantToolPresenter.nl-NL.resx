@@ -32,6 +32,7 @@
   <data name="PlannerAllDone" xml:space="preserve"><value>Alle {0} taken zijn afgerond.</value></data>
   <data name="PlannerProgressNote" xml:space="preserve"><value>{0} van de {1} taken zijn afgerond.</value></data>
   <data name="PlannerProgressPercentage" xml:space="preserve"><value>{0}% van de taken is afgerond.</value></data>
+  <data name="PlannerProgressNoteOfVersion" xml:space="preserve"><value>{0} van de {1} taken zijn afgerond; genoteerd door versie {2} van {3}.</value></data>
   <data name="StarterReason" xml:space="preserve"><value>Het project is als concept aangemaakt; door het te starten kan het team het werk plannen.</value></data>
   <data name="StarterProposed" xml:space="preserve"><value>Voorgesteld om het project te starten; een projectbeoordelaar besluit.</value></data>
   <data name="StarterAlreadyOpen" xml:space="preserve"><value>Het voorstel om het project te starten wacht al op een beoordelaar.</value></data>

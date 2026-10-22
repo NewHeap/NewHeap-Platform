@@ -240,7 +240,8 @@
       "assistant-proposal-already-open": "Not proposed again: the same proposal already waits.",
       "assistant-proposal-recently-rejected": "Not proposed again: people rejected it recently.",
       "assistant-proposal-placed": "Proposed at its object; waits for that object's approvers",
-      "assistant-proposal-not-placed": "Not proposed: the object it concerns does not accept it."
+      "assistant-proposal-not-placed": "Not proposed: the object it concerns does not accept it.",
+      "assistant-proposal-not-needed": "Not proposed: the work is already done or no longer applies."
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",
@@ -410,7 +411,8 @@
       "assistant-mcp-authorization-cancelled": "The authorization window was closed before it finished.",
       "assistant-mcp-popup-blocked": "The browser blocked the authorization window. Allow pop-ups for this site and try again.",
       "assistant-proposal-placed": "The proposal waits at the object it concerns, for that object's approvers.",
-      "assistant-proposal-not-placed": "The proposal was not placed at the object it concerns."
+      "assistant-proposal-not-placed": "The proposal was not placed at the object it concerns.",
+      "assistant-proposal-not-needed": "Not proposed: the work is already done or no longer applies."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",

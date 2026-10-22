@@ -340,7 +340,9 @@ internal static class TestReadTokens
 {
     public const string Issuer = "delegated-read-tests";
 
-    public static readonly SymmetricSecurityKey Key = new(Encoding.UTF8.GetBytes("delegated-read-tests-signing-key-0123456789"));
+    public const string KeyText = "delegated-read-tests-signing-key-0123456789";
+
+    public static readonly SymmetricSecurityKey Key = new(Encoding.UTF8.GetBytes(KeyText));
 
     public static string Create(
         string person,
@@ -348,7 +350,8 @@ internal static class TestReadTokens
         Guid? invocation,
         TimeSpan lifetime,
         string? action = null,
-        IEnumerable<Claim>? extra = null)
+        IEnumerable<Claim>? extra = null,
+        string? audience = null)
     {
         var claims = new List<Claim> { new("sub", person), new(ClaimTypes.NameIdentifier, person) };
         claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
@@ -365,7 +368,7 @@ internal static class TestReadTokens
         var notBefore = lifetime < TimeSpan.Zero ? now.Add(lifetime).AddMinutes(-1) : now;
         return new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(
             Issuer,
-            null,
+            audience,
             claims,
             notBefore,
             now.Add(lifetime),

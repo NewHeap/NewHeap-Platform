@@ -118,6 +118,10 @@ public static class SampleAssistantComposition
             .UseAccessPolicy(AccessPolicy)
             .UseAdminPolicy(AdminPolicy)
             .UseDefaultApplicationContext(DefaultApplicationContext)
+            // SPM-247: the application's budget manager also reserves the calls of assistant turns
+            // and reads whose work they are: a person's chat, an agent's run, a consultation or a
+            // proposal that executes, with the agent, skill and run.
+            .UseApplicationBudgetInTurns()
             // SPM-251: an administrator may name a secret instead of storing it: config:<name> reads
             // NewHeap:AI:Assistant:Mcp:Secrets:<name>, and secret-file:<name> a mounted secret file.
             .AddMcpSecretResolver<SampleMountedSecretResolver>(SampleMountedSecretResolver.Prefix)
@@ -485,6 +489,19 @@ public sealed partial class SampleAssistantChatClient : IChatClient
 
         if (result is not null)
         {
+            // SPM-282: a guard found the work already done; the reviewer says why instead of proposing.
+            if (result.Result is JsonElement { ValueKind: JsonValueKind.Object } notNeeded
+                && notNeeded.TryGetProperty("code", out var notNeededCode)
+                && notNeededCode.GetString() == "assistant-proposal-not-needed")
+            {
+                var explanation = notNeeded.TryGetProperty("explanation", out var why) && why.ValueKind == JsonValueKind.String
+                    ? why.GetString()
+                    : null;
+                return new ChatMessage(
+                    ChatRole.Assistant,
+                    "Nothing to propose: " + (explanation ?? "the work is already done."));
+            }
+
             // A deferred proposal returns a "recorded" result: nothing happened yet.
             if (result.Result is JsonElement { ValueKind: JsonValueKind.Object } recorded
                 && recorded.TryGetProperty("code", out var code)

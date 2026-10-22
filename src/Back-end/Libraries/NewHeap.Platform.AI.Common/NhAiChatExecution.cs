@@ -399,6 +399,7 @@ internal sealed class NhAiChatExecutor(
                     "The requested AI model call exceeds the remaining run budget.");
             }
         }
+        var agentId = request.AgentId ?? request.InvocationContext.AgentId;
         var reservation = await budgetManager.ReserveAsync(
             new NhAiBudgetRequest(
                 request.InvocationContext.InvocationId,
@@ -408,7 +409,10 @@ internal sealed class NhAiChatExecutor(
                 request.RequestedOutputTokens,
                 request.EstimatedCost)
             {
-                ActorId = request.InvocationContext.AccountableOwnerId ?? request.InvocationContext.ActorId
+                ActorId = request.InvocationContext.AccountableOwnerId ?? request.InvocationContext.ActorId,
+                AgentId = agentId,
+                RunId = request.InvocationContext.RunId,
+                Purpose = NhAiBudgetPurposes.Of(agentId)
             },
             cancellationToken);
         if (!reservation.Success)

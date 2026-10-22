@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -77,7 +78,7 @@ public sealed class AssistantAgentWorkWatchTests(AssistantDatabaseFixture databa
         // Without a watch nothing about the whole application arrives: it lists no members.
         var approvalId = Guid.NewGuid();
         await PublishAsync(app, followUp.ConversationId, approvalId);
-        await AssertNothingAsync(viewerUpdates, readerUpdates);
+        await AssertNothingAsync(app, (Viewer, viewerUpdates), (Reader, readerUpdates));
 
         // Watching joins the work the server decides the person reads.
         var viewerWatch = await viewer.InvokeAsync<NhAssistantLiveWatchDto>("WatchAgentWork");
@@ -92,7 +93,7 @@ public sealed class AssistantAgentWorkWatchTests(AssistantDatabaseFixture databa
         Assert.Equal(
             (followUp.ConversationId, NhAssistantAgentWorkReasons.Proposal, approvalId, NhAiSubjectRef.SystemType, NhAiSystemSubjects.GlobalId),
             (change.ConversationId, change.Reason, change.ApprovalId, change.SubjectType, change.SubjectId));
-        await AssertNothingAsync(readerUpdates);
+        await AssertNothingAsync(app, (Reader, readerUpdates));
 
         // Work both may read reaches both.
         await PublishAsync(app, statistics.ConversationId, null);
@@ -103,10 +104,10 @@ public sealed class AssistantAgentWorkWatchTests(AssistantDatabaseFixture databa
         Assert.Equal(2, (await viewer.InvokeAsync<NhAssistantLiveWatchDto>("WatchAgentWork")).Watched);
         await PublishAsync(app, followUp.ConversationId, approvalId);
         Assert.Equal(followUp.ConversationId, (await NextAsync(viewerUpdates)).ConversationId);
-        await AssertNothingAsync(viewerUpdates);
+        await AssertNothingAsync(app, (Viewer, viewerUpdates));
         await viewer.InvokeAsync("UnwatchAgentWork");
         await PublishAsync(app, followUp.ConversationId, approvalId);
-        await AssertNothingAsync(viewerUpdates);
+        await AssertNothingAsync(app, (Viewer, viewerUpdates));
     }
 
     private static HubConnection Connect(AssistantWebApplication app, string user)
@@ -136,14 +137,27 @@ public sealed class AssistantAgentWorkWatchTests(AssistantDatabaseFixture databa
     }
 
     /// <summary>
-    /// Waits long enough for an update that was sent to have arrived, then asserts that none did.
+    /// Sends each person a marker after everything published so far and asserts that the marker is
+    /// the next update to arrive. A connection receives its messages in the order they were sent, so
+    /// an update that reached the person would have arrived before the marker.
     /// </summary>
-    private static async Task AssertNothingAsync(params Channel<NhAssistantLiveAgentWorkDto>[] updates)
+    private static async Task AssertNothingAsync(
+        AssistantWebApplication app,
+        params (string User, Channel<NhAssistantLiveAgentWorkDto> Updates)[] people)
     {
-        await Task.Delay(TimeSpan.FromSeconds(1));
-        foreach (var channel in updates)
+        var hub = app.Services.GetRequiredService<IHubContext<NhAssistantHub, INhAssistantHubClient>>();
+        foreach (var (user, updates) in people)
         {
-            Assert.False(channel.Reader.TryRead(out var unexpected), unexpected?.ConversationId.ToString());
+            var marker = Guid.NewGuid();
+            await hub.Clients.Group(NhAssistantHub.GroupFor(user)).AgentWorkChanged(new NhAssistantLiveAgentWorkDto(
+                marker,
+                "test-marker",
+                null,
+                null,
+                NhAiSubjectRef.SystemType,
+                NhAiSystemSubjects.GlobalId));
+
+            Assert.Equal(marker, (await NextAsync(updates)).ConversationId);
         }
     }
 

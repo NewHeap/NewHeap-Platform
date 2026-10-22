@@ -13,7 +13,8 @@ namespace SampleProjectManagement.Api.Composition;
 /// SPM-282: closes the intake reviewer's proposal to complete a task once someone completed the
 /// task another way, typically by ticking it off by hand. The proposal is indexed by its task, so
 /// the update of the task revalidates it wherever it waits. The explanation names who completed
-/// the task, in each reader's language.
+/// the task, in each reader's language. Registered for the proposal stage too, it keeps the reviewer
+/// from proposing a task that is already completed: the reviewer reads the explanation instead.
 /// </summary>
 public sealed class ProjectTaskProposalGuard(
     SampleProjectManagementDbContext dbContext,

@@ -26,6 +26,7 @@
 - backend-models-localization: ./backend-models-localization.md
 - backend-module-composition: ./backend-module-composition.md
 - backend-partial-update: ./backend-partial-update.md
+- backend-platform-pipeline: ./backend-platform-pipeline.md
 - backend-project-foundation: ./backend-project-foundation.md
 - backend-unit-of-work: ./backend-unit-of-work.md
 - background-operation-suspension: ./background-operation-suspension.md

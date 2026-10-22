@@ -565,7 +565,10 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 0,
                 null)
             {
-                ActorId = context.AccountableOwnerId ?? context.ActorId
+                ActorId = context.AccountableOwnerId ?? context.ActorId,
+                AgentId = context.AgentId,
+                RunId = context.RunId,
+                Purpose = NhAiBudgetPurposes.Of(context.AgentId)
             },
             cancellationToken);
         if (!reservation.Success)

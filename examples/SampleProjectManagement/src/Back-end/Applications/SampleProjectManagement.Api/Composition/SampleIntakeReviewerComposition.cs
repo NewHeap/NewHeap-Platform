@@ -97,8 +97,11 @@ public static class SampleIntakeReviewerComposition
             // SPM-282: proposals that people overtake by hand close on their own. The guards say
             // when a proposal no longer fits and why; they run when the application revalidates,
             // when an approver decides and right before execution. The task guard names the task a
-            // proposal changes, so an update of that task finds the proposal by key.
-            .AddProposalGuard<ProjectTaskProposalGuard>(ProjectTaskAiTools.CompleteToolId)
+            // proposal changes, so an update of that task finds the proposal by key. It also checks
+            // when the reviewer proposes, so a task someone already ticked off is never proposed.
+            .AddProposalGuard<ProjectTaskProposalGuard>(
+                [ProjectTaskAiTools.CompleteToolId],
+                NhAiProposalGuardStages.All | NhAiProposalGuardStages.Proposal)
             .AddProposalGuard<ProjectStatusProposalGuard>(ProjectAiTools.ChangeStatusToolId)
             .AddProposalRevalidation<ProjectTaskUpdatedEvent>(revalidation => revalidation
                 .Keys(evt => [ProjectTaskProposalGuard.Key(evt.ProjectTaskId)])

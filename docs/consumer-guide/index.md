@@ -42,6 +42,7 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 - [backend-models-localization](./backend-models-localization.md) — 1 rule
 - [backend-module-composition](./backend-module-composition.md) — 1 rule
 - [backend-partial-update](./backend-partial-update.md) — 1 rule
+- [backend-platform-pipeline](./backend-platform-pipeline.md) — 1 rule
 - [backend-project-foundation](./backend-project-foundation.md) — 1 rule
 - [backend-unit-of-work](./backend-unit-of-work.md) — 1 rule
 - [background-operation-suspension](./background-operation-suspension.md) — 1 rule
@@ -65,4 +66,4 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 
 ## Maintenance
 
-Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 48 validated rules.
+Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 49 validated rules.

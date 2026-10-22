@@ -7,18 +7,19 @@ administration of `@newheap/platform-ai-chat/admin`, delivered in 15.0.0 by the
 
 ## Status
 
-Accepted on 2026-10-19 after a review of the screen in a consuming application; U1 to U6 implemented. The
+Accepted on 2026-10-19 after a review of the screen in a consuming application; U1 to U6 and the
+review fixes were released on 2026-10-21 in NuGet 16.0.0 and npm `@newheap/platform-ai-chat` 0.15.0. The
 decisions below are the defaults chosen for that review and can be adjusted while it is built.
 
 | Phase | Status |
 | --- | --- |
-| U1 | Implemented: consistent controls, errors at their fields and next to the actions, the internal searchable picker, layout. |
-| U2 | Implemented: `INhActorSearch` with the NewHeap Identity search, `GET admin/accounts` and the account picker. |
-| U3 | Implemented: `HideFromChat()`, `offeredInChat`, the `AgentChatAvailability` migrations and the editor's use choice. |
-| U4 | Implemented: policy summaries, the regrouped run settings and the guided setup. |
-| U5 | Implemented: mock API, the sample's runtime agent and real administration page (SPM-298), guidance and release notes. |
-| Review | Implemented after a walk-through in the sample: translated names and descriptions of agents in code (also in the editor, which keeps their keys), readable skill names and translatable skill descriptions and policies, people by name, notes instead of reasons, "Cancel" instead of "Keep", tool descriptions in the skill's tool choice, and singular counts. The sample got an optional real model and a connection state that follows every API answer. |
-| U6 | Implemented, not released: the flow view of an agent at the top of its run configuration (what it works on, when, how, whom it answers to, approval, results) with problems at their step and entry points to the forms; not a node editor. Its notes and decisions are in the [agents working on application objects plan](ai-agent-work-on-objects-plan.md#u6-the-flow-view), which adds what an agent works on and its results to the flow. |
+| U1 | Released in NuGet 16.0.0 and npm 0.15.0: consistent controls, errors at their fields and next to the actions, the internal searchable picker, layout. |
+| U2 | Released in NuGet 16.0.0 and npm 0.15.0: `INhActorSearch` with the NewHeap Identity search, `GET admin/accounts` and the account picker. |
+| U3 | Released in NuGet 16.0.0 and npm 0.15.0: `HideFromChat()`, `offeredInChat`, the `AgentChatAvailability` migrations and the editor's use choice. |
+| U4 | Released in NuGet 16.0.0 and npm 0.15.0: policy summaries, the regrouped run settings and the guided setup. |
+| U5 | Released in NuGet 16.0.0 and npm 0.15.0: mock API, the sample's runtime agent and real administration page (SPM-298), guidance and release notes. |
+| Review | Released in NuGet 16.0.0 and npm 0.15.0, built after a walk-through in the sample: translated names and descriptions of agents in code (also in the editor, which keeps their keys), readable skill names and translatable skill descriptions and policies, people by name, notes instead of reasons, "Cancel" instead of "Keep", tool descriptions in the skill's tool choice, and singular counts. The sample got an optional real model and a connection state that follows every API answer. |
+| U6 | Released in NuGet 16.0.0 and npm 0.15.0: the flow view of an agent at the top of its run configuration (what it works on, when, how, whom it answers to, approval, results) with problems at their step and entry points to the forms; not a node editor. Its notes and decisions are in the [agents working on application objects plan](ai-agent-work-on-objects-plan.md#u6-the-flow-view), which adds what an agent works on and its results to the flow. |
 
 ## Problem
 

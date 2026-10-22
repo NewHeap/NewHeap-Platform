@@ -171,7 +171,10 @@ public sealed record NhAssistantRuleDecision(
 /// <param name="ApprovalId">The recorded proposal, or the open or rejected one that made it unnecessary.</param>
 /// <param name="Superseded">Pending proposals for the same objects that the new one replaced.</param>
 /// <param name="RejectedAt">When people rejected the same proposal, for <see cref="NhAssistantProposeOutcome.RecentlyRejected"/>.</param>
-/// <param name="Code">Why a proposal was refused.</param>
+/// <param name="Code">
+/// Why a proposal was refused, or, for <see cref="NhAssistantProposeOutcome.NotNeeded"/>, the reason
+/// code of the guard that found it not needed.
+/// </param>
 public sealed record NhAssistantRuleProposal(
     NhAssistantProposeOutcome Outcome,
     Guid? ApprovalId,
@@ -191,6 +194,13 @@ public sealed record NhAssistantRuleProposal(
     /// <c>assistant-proposal-not-placed</c>.
     /// </summary>
     public string? PlacementReason { get; init; }
+
+    /// <summary>
+    /// For <see cref="NhAssistantProposeOutcome.NotNeeded"/>, the guard's explanation in the culture the
+    /// run works in, such as "Office task completed by Henk on 14 Oct"; <see langword="null"/> when the
+    /// guard gives none.
+    /// </summary>
+    public string? Explanation { get; init; }
 
     internal static NhAssistantRuleProposal Refused(string code)
     {
@@ -218,7 +228,14 @@ public enum NhAssistantProposeOutcome
     /// The tool may not be proposed this way: the agent may not use it, it needs no approval or the
     /// arguments do not fit.
     /// </summary>
-    Refused = 3
+    Refused = 3,
+
+    /// <summary>
+    /// A proposal guard that checks at proposal time (<see cref="NhAiProposalGuardStages.Proposal"/>)
+    /// found the proposal not needed, for example because the work is already done. Nothing was
+    /// recorded; <see cref="NhAssistantRuleProposal.Explanation"/> says why.
+    /// </summary>
+    NotNeeded = 4
 }
 
 /// <summary>
@@ -235,6 +252,8 @@ public sealed class NhAssistantRuleContext
         string agentId,
         Guid runId,
         string triggerId,
+        NhAssistantSkillOptions? skill,
+        bool skillCandidate,
         NhAiSubjectInfo subject,
         string? initiatorActorId,
         string accountableOwnerId,
@@ -251,6 +270,9 @@ public sealed class NhAssistantRuleContext
         AgentId = agentId;
         RunId = runId;
         TriggerId = triggerId;
+        SkillId = skill?.Id;
+        SkillVersion = skill?.DataVersion;
+        SkillCandidate = skill is null ? null : skillCandidate;
         Subject = subject;
         InitiatorActorId = initiatorActorId;
         AccountableOwnerId = accountableOwnerId;
@@ -271,6 +293,26 @@ public sealed class NhAssistantRuleContext
 
     /// <summary>The trigger that started the run, such as an event trigger or <c>manual</c>.</summary>
     public string TriggerId { get; }
+
+    /// <summary>
+    /// The skill the run works in while these rules run; <see langword="null"/> for the agent's own
+    /// rules outside a skill. A handler registered once with <c>AddRuleHandler</c> and named by several
+    /// skills reads here which one it runs for.
+    /// </summary>
+    public string? SkillId { get; }
+
+    /// <summary>
+    /// The version of the skill defined as data in the administration; <see langword="null"/> for a
+    /// skill in code and outside a skill.
+    /// </summary>
+    public int? SkillVersion { get; }
+
+    /// <summary>
+    /// <see langword="true"/> when the run evaluates the candidate version of its skill in the shadow
+    /// thread, next to the live version's run on the same event; <see langword="false"/> for the
+    /// version in effect; <see langword="null"/> outside a skill.
+    /// </summary>
+    public bool? SkillCandidate { get; }
 
     /// <summary>The subject as its resolver describes it now.</summary>
     public NhAiSubjectInfo Subject { get; }

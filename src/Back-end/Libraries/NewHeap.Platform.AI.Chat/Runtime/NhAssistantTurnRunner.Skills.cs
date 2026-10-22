@@ -262,6 +262,7 @@ internal sealed partial class NhAssistantTurnRunner
         CancellationToken cancellationToken)
     {
         state.Skill = skill;
+        state.Scope.SkillId = skill?.Id;
         state.SkillChosenBy = skill is null ? null : chosenBy;
         var agent = ForSkill(
             state.EffectiveAgent.Definition,

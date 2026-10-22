@@ -22,6 +22,8 @@ Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup h
 
 Resolve the media files of one view together. Collect the referenced file ids first, for example while mapping content blocks, and call `IMediaLibraryService.GetFilesAsync` once instead of `GetFileAsync(Guid)` per block. Relational storage then reads the files with one primary-key query and their distinct folders with one lookup-index query, and splits very large sets into fixed-size batches. The result is keyed by id and omits missing files, so handle missing references explicitly. Id lookups, single or batched, do not call the path-based `IAuthorizationModule`; only resolve ids that content the caller may already see refers to. Custom `IFileStructureStorage` or `IMediaLibraryService` implementations inherit a fallback with one lookup per id and can override the batch method.
 
+Map the media HTTP API with `MapNhMediaEndpoints` and configure its routes, through the `MediaLibraryRouteBuilder` callback or the returned group, before the host starts. The group builds its endpoints once; routing, the authorization policy cache, link generation and API descriptions share them, so a convention added after the host started no longer applies.
+
 Keep relational media pages deterministic. Unsorted folder and search results use `Id`; requested file sorting appends `Id` as its final tie-breaker. Preserve that ordering before every `Skip` or `Take`, including when a sort key is absent, invalid, or equal for multiple files.
 
 Configure the media schema through `FileStructureDbContextOptions.Scheme` for either relational provider. Both providers apply it to the model, migration history and every historical migration operation, whether the startup migration (`RunMigrations`), a direct `MigrateAsync` or a generated migration script runs through the registered `FileStructureDbContext`; the PostgreSQL provider also applies it to its lookup-hash backfills. Each configured schema gets its own EF model. Upgrade existing media databases with the provider migrations before serving media requests; retain file and folder records and let the PostgreSQL migration recompute lookup hashes from their original paths and names.
@@ -39,6 +41,8 @@ Configure the media schema through `FileStructureDbContextOptions.Scheme` for ei
 Test the folder lifecycle, upload and download, search and sorting, metadata, thumbnails, authorization, and events. Seed files in reverse `Id` order, page unsorted and tied sorted results, and verify SQL Server and PostgreSQL return the same deterministic `Id` sequence. Check missing blobs, oversized uploads, forbidden access, and consistent cleanup after failures. For provider lookup indexes, use `EXPLAIN (ANALYZE, FORMAT JSON)` against a real provider and assert the expected index scan without a sequential scan.
 
 For file lookups, count the database round trips of one call with a command interceptor and replay the recorded commands against SQL Server and PostgreSQL to assert index seeks without table or sequential scans: a batch by id costs one file query and one folder query, and a lookup by path costs one query.
+
+Assert that routing and the application-wide `EndpointDataSource` share the media endpoints built once.
 
 For folder creation and renaming through `IMediaLibraryService`, verify that directory separators and surrounding whitespace are removed while internal spaces and the existing folder lookup remain intact. Names that normalize to empty must return a failed result without storage calls or folder events.
 

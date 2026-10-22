@@ -10,7 +10,8 @@ application groups them on its own pages. It was written on 2026-10-19 during th
 ## Status
 
 Accepted on 2026-10-19: Lars took decisions K1 to K16 below. W1 to W7 and the flow view (U6 of the
-run configuration UX plan) on top of them are implemented and not released; the
+run configuration UX plan) on top of them were released on 2026-10-21 in NuGet 16.0.0 and npm
+`@newheap/platform-ai-chat` 0.15.0; the
 [final cleanup](#final-cleanup) closed the open ends before the review, and the
 [proposed follow-ups](#proposed-follow-ups) are left for Lars to plan. The
 [MCP connections plan](ai-assistant-mcp-connections-plan.md) uses SPM-299 and SPM-300; this plan
@@ -18,14 +19,14 @@ uses SPM-301 onwards.
 
 | Phase | Status |
 | --- | --- |
-| W1 | Implemented, not released: object types with names, entity binding, search and links. |
-| W2 | Implemented, not released: what an agent works on. |
-| W3 | Implemented, not released: the whole application as a scope. |
-| W4 | Implemented, not released: run now. |
-| W5 | Implemented, not released: proposals placed at their object. |
-| W6 | Implemented, not released: results and history. |
-| W7 | Implemented, not released: groups and boards. |
-| U6 | Implemented, not released: the flow view of an agent. |
+| W1 | Released in NuGet 16.0.0 and npm 0.15.0: object types with names, entity binding, search and links. |
+| W2 | Released in NuGet 16.0.0 and npm 0.15.0: what an agent works on. |
+| W3 | Released in NuGet 16.0.0 and npm 0.15.0: the whole application as a scope. |
+| W4 | Released in NuGet 16.0.0 and npm 0.15.0: run now. |
+| W5 | Released in NuGet 16.0.0 and npm 0.15.0: proposals placed at their object. |
+| W6 | Released in NuGet 16.0.0 and npm 0.15.0: results and history. |
+| W7 | Released in NuGet 16.0.0 and npm 0.15.0: groups and boards. |
+| U6 | Released in NuGet 16.0.0 and npm 0.15.0: the flow view of an agent. |
 
 ## Problem
 

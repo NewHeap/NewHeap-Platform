@@ -28,6 +28,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.FileStructureStorage.SqlServer\NewHeap.Platform.Media.FileStructureStorage.SqlServer.csproj" />
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.FileStructureStorage.PostgreSql\NewHeap.Platform.Media.FileStructureStorage.PostgreSql.csproj" />
+    <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.Http\NewHeap.Platform.Media.Http.csproj" />
     <ProjectReference Include="..\NewHeap.Platform.Tests.Relational\NewHeap.Platform.Tests.Relational.csproj" />
   </ItemGroup>
 

@@ -100,7 +100,41 @@ public sealed class ProjectAiInMemoryIdempotencyManager : INhAiIdempotencyManage
         string? FencingToken);
 }
 
-public sealed class ProjectAiInMemoryBudgetManager : INhAiBudgetManager
+/// <summary>
+/// SPM-247: what the sample's budget manager reserved, per purpose and agent, so the application
+/// can report an agent's work apart from people's chats and MCP clients.
+/// </summary>
+public sealed class ProjectAiBudgetUsage
+{
+    private readonly ConcurrentDictionary<(string Purpose, string? AgentId), int> _calls = new();
+
+    public void Add(NhAiBudgetRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        _calls.AddOrUpdate(
+            (request.Purpose ?? NhAiBudgetPurposes.Application, request.AgentId),
+            request.RequestedCalls,
+            (_, calls) => calls + request.RequestedCalls);
+    }
+
+    /// <summary>
+    /// The calls reserved for <paramref name="purpose"/>, by <paramref name="agentId"/> or by every agent.
+    /// </summary>
+    public int Calls(string purpose, string? agentId = null)
+    {
+        return _calls
+            .Where(item => item.Key.Purpose == purpose && (agentId is null || item.Key.AgentId == agentId))
+            .Sum(item => item.Value);
+    }
+}
+
+/// <summary>
+/// The sample's budget manager. It bounds every call of the application itself and of MCP clients
+/// per invocation. SPM-247: the assistant reserves the calls of its turns here too
+/// (<c>UseApplicationBudgetInTurns</c>); its own durable daily budget bounds people's chats and
+/// agents' work, so this manager only counts those, by purpose and agent.
+/// </summary>
+public sealed class ProjectAiInMemoryBudgetManager(ProjectAiBudgetUsage usage) : INhAiBudgetManager
 {
     private const int MaxInputTokens = 4_096;
     private const int MaxOutputTokens = 1_024;
@@ -115,6 +149,20 @@ public sealed class ProjectAiInMemoryBudgetManager : INhAiBudgetManager
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
+        if (request.Purpose is NhAiBudgetPurposes.Chat
+            or NhAiBudgetPurposes.AgentRun
+            or NhAiBudgetPurposes.Consultation
+            or NhAiBudgetPurposes.ProposalExecution)
+        {
+            usage.Add(request);
+            return ValueTask.FromResult(
+                TaskResult<NhAiBudgetReservation>.Succeeded(
+                    new NhAiBudgetReservation(
+                        Guid.NewGuid().ToString("N"),
+                        new NhAiModelBudget(MaxInputTokens, MaxOutputTokens, MaxCalls, MaxEstimatedCost),
+                        DateTimeOffset.UtcNow.AddMinutes(5))));
+        }
+
         lock (_sync)
         {
             _usage.TryGetValue(request.InvocationId, out var current);
@@ -135,6 +183,7 @@ public sealed class ProjectAiInMemoryBudgetManager : INhAiBudgetManager
             }
 
             _usage[request.InvocationId] = next;
+            usage.Add(request);
             return ValueTask.FromResult(
                 TaskResult<NhAiBudgetReservation>.Succeeded(
                     new NhAiBudgetReservation(

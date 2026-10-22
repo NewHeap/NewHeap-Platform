@@ -86,7 +86,9 @@ Use reserves /newheap-proxy in its own MVC branch, installs redirects and maps Y
 Do not also call MapNewHeapProxy; that remains a lower-level YARP-only alternative.
 Server-to-server management is disabled by default. Explicitly call
 MapProxyEndpoints() before UseNewHeapProxy() to expose /newheap-proxy/api. This
-isolated branch cannot be intercepted by redirect or catch-all rewrite rules.
+isolated branch cannot be intercepted by redirect or catch-all rewrite rules. Its
+endpoints are built once; the branch's routing and the application-wide endpoints
+share them.
 By default, use Basic authentication with the configured administrator credentials (UTF-8,
 username without a colon), HTTPS outside Development and the existing IP allowlist.
 No session cookie is issued or accepted; host authentication defaults remain intact.
@@ -375,7 +377,8 @@ Resolver tests cover engine-enforced remaining-budget timeouts, exhausted-budget
 short-circuiting, configured budgets, invalid values, bounded caching, slow exact
 hits/misses and accumulated rule work. The persisted HTTP sample binds a 75 ms
 budget from configuration, verifies that an expensive regex returns 503 and that
-a later request succeeds. Registration tests verify the 50 ms default.
+a later request succeeds. Registration tests verify the 50 ms default. An API test
+asserts that routing and the application-wide endpoints share the API endpoints built once.
 Run the standalone sample and inspect login, list, editor and audit pages on desktop
 and mobile. Exercise rewrite persistence/restart, native preview/forwarding parity, synthetic-input isolation, shared destinations, disabled rules, stale revisions, ambiguous matching, redirect precedence and rejected YARP reload/retry.
 

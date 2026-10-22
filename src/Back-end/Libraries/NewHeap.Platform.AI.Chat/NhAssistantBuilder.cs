@@ -516,7 +516,10 @@ public sealed class NhAssistantBuilder
     /// <summary>
     /// Registers an application guard that runs only at <paramref name="stages"/>. A guard without
     /// <see cref="NhAiProposalGuardStages.Revalidation"/> never closes open proposals by itself; the
-    /// decision or the execution does.
+    /// decision or the execution does. A guard with <see cref="NhAiProposalGuardStages.Proposal"/> also
+    /// checks a proposal before it is recorded, so work that is already done or no longer applies is
+    /// never proposed; pass it with the other stages, such as
+    /// <c>NhAiProposalGuardStages.All | NhAiProposalGuardStages.Proposal</c>.
     /// </summary>
     public NhAssistantBuilder AddProposalGuard<TGuard>(
         IReadOnlyCollection<string> toolSelectors,
@@ -530,7 +533,8 @@ public sealed class NhAssistantBuilder
                 "A proposal guard needs one or more tool ids or prefix.* selectors.",
                 nameof(toolSelectors));
         }
-        if (stages == NhAiProposalGuardStages.None || (stages & ~NhAiProposalGuardStages.All) != 0)
+        if (stages == NhAiProposalGuardStages.None
+            || (stages & ~(NhAiProposalGuardStages.All | NhAiProposalGuardStages.Proposal)) != 0)
         {
             throw new ArgumentOutOfRangeException(nameof(stages));
         }
@@ -577,6 +581,20 @@ public sealed class NhAssistantBuilder
         where TChannel : class, INhAssistantAgentNotificationChannel
     {
         Services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAssistantAgentNotificationChannel, TChannel>());
+        return this;
+    }
+
+    /// <summary>
+    /// Also reserves the model and tool calls of assistant turns (a person's chat, agent runs,
+    /// consultations and approved proposals that execute) with the budget manager the application
+    /// registered before <c>AddNewHeapAssistant</c>, once the assistant's own daily budget accepted
+    /// them. The request names the agent, skill, run and purpose (<see cref="NhAiBudgetPurposes"/>);
+    /// a refusal ends the call as an exhausted budget. Off by default: the application's manager then
+    /// sees only calls outside assistant turns.
+    /// </summary>
+    public NhAssistantBuilder UseApplicationBudgetInTurns()
+    {
+        _state.ApplicationBudgetInTurns = true;
         return this;
     }
 
@@ -725,6 +743,12 @@ internal sealed class NhAssistantRegistrationState
     public NhAiTextAsset? DefaultApplicationContext { get; set; }
 
     public NhAssistantLimits Limits { get; set; } = new();
+
+    /// <summary>
+    /// Reservations inside assistant turns also go to the application's budget manager; see
+    /// <see cref="NhAssistantBuilder.UseApplicationBudgetInTurns"/>.
+    /// </summary>
+    public bool ApplicationBudgetInTurns { get; set; }
 
     public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Utc;
 

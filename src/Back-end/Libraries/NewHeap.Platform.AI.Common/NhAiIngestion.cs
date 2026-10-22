@@ -440,7 +440,10 @@ internal sealed class NhAiIngestionPipeline(
                 0,
                 null)
             {
-                ActorId = request.InvocationContext.AccountableOwnerId ?? request.InvocationContext.ActorId
+                ActorId = request.InvocationContext.AccountableOwnerId ?? request.InvocationContext.ActorId,
+                AgentId = request.InvocationContext.AgentId,
+                RunId = request.InvocationContext.RunId,
+                Purpose = NhAiBudgetPurposes.Ingestion
             },
             cancellationToken);
         if (!reservation.Success)

@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace NewHeap.Platform.AI.AspNet.Mvc;
@@ -36,6 +38,52 @@ internal sealed class NhAiMvcBridgeReadSurface(NhAiMvcBridgeToolCatalog catalog)
         ArgumentException.ThrowIfNullOrWhiteSpace(actionToolId);
         return endpoint.Metadata.GetMetadata<ControllerActionDescriptor>() is { } action
             && catalog.IsGatewayRead(action, actionToolId);
+    }
+}
+
+/// <summary>
+/// Identifies the target of a delegated read by the MVC action, which MVC selects in both routing
+/// modes before its authorization filters run. Under the old <c>UseMvc</c> routing a controller
+/// request has no endpoint, so the restriction alone refuses every delegated read there. As the first
+/// authorization filter this filter authenticates the delegated read scheme with the executing action
+/// as the target; MVC's own authorization then uses that cached result. It also refuses a delegated
+/// read principal that was authenticated earlier against a routed endpoint when MVC executes another
+/// action than the gateway read that its token names.
+/// </summary>
+/// <remarks>
+/// The filter only acts on <c>GET</c> requests with the invocation header, the only requests that a
+/// delegated read token can authenticate. Middleware before MVC still sees no target and refuses the
+/// token, so the scheme stays refused when such middleware authenticated it first, for example when
+/// it is the default authentication scheme under <c>UseMvc</c>.
+/// </remarks>
+internal sealed class NhAiMvcBridgeDelegatedReadFilter : IAsyncAuthorizationFilter, IOrderedFilter
+{
+    public int Order => int.MinValue;
+
+    public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
+    {
+        var httpContext = context.HttpContext;
+        if (!HttpMethods.IsGet(httpContext.Request.Method)
+            || !httpContext.Request.Headers.ContainsKey(NhAiDelegatedReadDefaults.InvocationHeaderName)
+            || context.ActionDescriptor is not ControllerActionDescriptor action
+            || httpContext.RequestServices.GetService<NhAiDelegatedReadOptions>() is not { } options)
+        {
+            return;
+        }
+
+        // The action as an endpoint carries the same metadata as its endpoint under endpoint routing.
+        var target = new Endpoint(
+            null,
+            new EndpointMetadataCollection([action, .. action.EndpointMetadata]),
+            action.DisplayName);
+        var authenticated = await NhAiDelegatedReadService.AuthenticateForTargetAsync(httpContext, target, options.Scheme);
+
+        var services = httpContext.RequestServices;
+        if ((authenticated.Succeeded && !NhAiDelegatedReadRestriction.Reaches(authenticated.Principal!, target, services))
+            || !NhAiDelegatedReadRestriction.Reaches(httpContext.User, target, services))
+        {
+            context.Result = new UnauthorizedResult();
+        }
     }
 }
 
