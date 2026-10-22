@@ -583,6 +583,15 @@
             "description": "Judges a deadline risk only when less than a third of the project's tasks is completed."
           }
         }
+      },
+      "sample-project-document-reader": {
+        "name": "Document reader",
+        "description": "Reads a project's documents when one is added and says what they change for the project.",
+        "skills": {
+          "read-documents": {
+            "description": "Reads the newest documents of a project and says what they change for the project."
+          }
+        }
       }
     },
     "policies": {

@@ -33,6 +33,12 @@ public static class SampleAssistantComposition
 {
     public const string AgentId = "sample-project-assistant";
     public const string ProfileName = "project-assistant-chat";
+
+    /// <summary>
+    /// SPM-305: the fallback of <see cref="ProfileName"/> for model calls that carry confidential data,
+    /// such as the files people upload.
+    /// </summary>
+    public const string ConfidentialProfileName = "project-assistant-confidential";
     public const string ModelKey = "project-assistant-chat-model";
     public const string AccessPolicy = "app.active-division.project.view";
 
@@ -93,19 +99,21 @@ public static class SampleAssistantComposition
                 Options = new LocalizationOptions(),
                 Order = 0
             }));
+        // SPM-305: the files the model reads itself. The deterministic model names what it received;
+        // a real model reads the types its MediaTypes setting lists. Word and Excel documents reach
+        // either as text through the sample's reading tool (SampleAssistantFilesComposition).
+        var mediaTypes = (model?.MediaTypes ?? SampleAssistantModel.DeterministicMediaTypes).ToArray();
+        var regions = ModelExecutionRegions(services);
         services.AddNewHeapPlatformAI(ai => ai
-            .AddChatProfile(ProfileName, profile => profile
-                .UseKeyedClient(ModelKey)
-                .RequireCapabilities(NhAiModelCapability.FunctionCalling)
-                .WithStreaming(NhAiStreamingPolicy.Allowed)
+            .AddChatProfile(ProfileName, profile => ConfigureChatProfile(profile, model, mediaTypes, regions)
                 .PermitDataClassifications(NhAiDataClassification.Internal)
-                .PermitExecutionRegions(ModelExecutionRegions(services))
-                // A real model reads the agent's instructions and the tool schemas with every call.
-                .WithBudget(
-                    maxInputTokens: model?.MaxInputTokens ?? 8_192,
-                    maxOutputTokens: model?.MaxOutputTokens ?? 1_024,
-                    maxCalls: 16)
-                .WithTimeout(model?.Timeout ?? TimeSpan.FromSeconds(30))));
+                // A model call that carries confidential data, such as an uploaded file, goes to the
+                // fallback that permits it.
+                .WithFallbackProfiles(ConfidentialProfileName))
+            // The sample sends confidential data to the same model. A real application points this
+            // profile at a model that may receive it, such as one it runs in its own region.
+            .AddChatProfile(ConfidentialProfileName, profile => ConfigureChatProfile(profile, model, mediaTypes, regions)
+                .PermitDataClassifications(NhAiDataClassification.Internal, NhAiDataClassification.Confidential)));
 
         services.AddNewHeapAssistant(assistant => assistant
             .UsePostgreSql(
@@ -219,6 +227,26 @@ public static class SampleAssistantComposition
         }
 
         return services;
+    }
+
+    private static NhAiModelProfileBuilder ConfigureChatProfile(
+        NhAiModelProfileBuilder profile,
+        SampleAssistantModel? model,
+        string[] mediaTypes,
+        string[] regions)
+    {
+        return profile
+            .UseKeyedClient(ModelKey)
+            .RequireCapabilities(NhAiModelCapability.FunctionCalling)
+            .WithStreaming(NhAiStreamingPolicy.Allowed)
+            .PermitExecutionRegions(regions)
+            .AcceptMediaTypes(mediaTypes)
+            // A real model reads the agent's instructions and the tool schemas with every call.
+            .WithBudget(
+                maxInputTokens: model?.MaxInputTokens ?? 8_192,
+                maxOutputTokens: model?.MaxOutputTokens ?? 1_024,
+                maxCalls: 16)
+            .WithTimeout(model?.Timeout ?? TimeSpan.FromSeconds(30));
     }
 
     /// <summary>
@@ -406,7 +434,9 @@ public sealed class SampleAssistantAuditSink(SampleAssistantAuditLog log) : INhA
 /// status proposes <c>projects.change-status</c>, which is also how the intake reviewer answers
 /// its event message; a message that names a project id and "the intake reviewer" consults it, or
 /// with "again" requests a new review (SPM-278), and the consulted reviewer answers from its
-/// working memory; any other message searches projects; a tool result is summarized. It
+/// working memory; a message that names a project id and its documents reads them through the
+/// document tool (SPM-306); any other message searches projects; a tool result is summarized, and
+/// files that reach it are named with their type and size or the start of their text (SPM-305). It
 /// demonstrates the governed flow, not language understanding.
 /// </summary>
 public sealed partial class SampleAssistantChatClient : IChatClient
@@ -463,6 +493,13 @@ public sealed partial class SampleAssistantChatClient : IChatClient
     private static ChatMessage Respond(IReadOnlyList<ChatMessage> messages)
     {
         var last = messages.LastOrDefault();
+        if (last is not null && DescribeFiles(last) is { } received)
+        {
+            // SPM-305: files a person attached, or that a tool returned, follow the text as external
+            // data; the deterministic model says what it received instead of reading them.
+            return new ChatMessage(ChatRole.Assistant, received);
+        }
+
         var result = last?.Contents.OfType<FunctionResultContent>().LastOrDefault();
         if (result is null && IsConsultation(messages))
         {
@@ -541,6 +578,15 @@ public sealed partial class SampleAssistantChatClient : IChatClient
                 : Call("consult_sample-project-intake-reviewer_project_v1", new { input = new { subjectId, question = text } });
         }
 
+        if (projectId is not null && text.Contains("documents", StringComparison.OrdinalIgnoreCase))
+        {
+            // SPM-306: the document reader reads the project's documents through its tool.
+            return Call("project_documents_read_v1", new
+            {
+                input = new { projectId = Guid.Parse(projectId) }
+            });
+        }
+
         var task = TaskPattern().Match(text);
         if (task.Success)
         {
@@ -572,6 +618,48 @@ public sealed partial class SampleAssistantChatClient : IChatClient
         {
             input = new { query = text.Length > 100 ? text[..100] : text, limit = 5 }
         });
+    }
+
+    /// <summary>
+    /// What the model received in files: the assistant puts an <c>&lt;external-file&gt;</c> marker
+    /// before each file, followed by the file itself or the text a reading tool made of it.
+    /// <see langword="null"/> for a message without files.
+    /// </summary>
+    private static string? DescribeFiles(ChatMessage message)
+    {
+        var received = new List<string>();
+        for (var index = 0; index < message.Contents.Count; index++)
+        {
+            if (message.Contents[index] is not TextContent marker
+                || !marker.Text.StartsWith("<external-file>", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var name = FileNamePattern().Match(marker.Text).Groups["name"].Value;
+            var body = index + 1 < message.Contents.Count ? message.Contents[index + 1] : null;
+            received.Add(body switch
+            {
+                DataContent file => $"\"{name}\" reached me as a {file.MediaType} file of {file.Data.Length} bytes.",
+                TextContent text => $"A reading tool turned \"{name}\" into text, which starts with: {Excerpt(text.Text)}",
+                _ => $"\"{name}\" reached me without content."
+            });
+        }
+
+        if (received.Count == 0)
+        {
+            return null;
+        }
+
+        return "I received " + (received.Count == 1 ? "one file" : received.Count + " files") + ". "
+            + string.Join(" ", received)
+            + " The sample's deterministic model does not read files; connect a real model to ask about their content.";
+    }
+
+    private static string Excerpt(string text)
+    {
+        var line = string.Join(' ', text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return line.Length > 200 ? line[..200] + "…" : line;
     }
 
     private static ChatMessage Call(string name, object arguments)
@@ -663,4 +751,7 @@ public sealed partial class SampleAssistantChatClient : IChatClient
 
     [GeneratedRegex("<tool-call-summary>.*?</tool-call-summary>", RegexOptions.Singleline)]
     private static partial Regex ToolCallSummaryPattern();
+
+    [GeneratedRegex("^<external-file>[^\"]*\"(?<name>[^\"]*)\"")]
+    private static partial Regex FileNamePattern();
 }

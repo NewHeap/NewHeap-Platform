@@ -436,6 +436,23 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
         return await ReadEventsAsync(response);
     }
 
+    /// <summary>
+    /// SPM-305: sends a message that carries the references of files uploaded to the conversation.
+    /// </summary>
+    public async Task<IReadOnlyList<SampleServerSentEvent>> SendWithFilesAsync(
+        HttpClient client,
+        Guid conversationId,
+        string text,
+        params JsonElement[] files)
+    {
+        using var response = await client.PostAsync(
+            $"/api/assistant/conversations/{conversationId}/messages",
+            Json(new { text, clientMessageId = Guid.NewGuid().ToString("N"), files }),
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await ReadEventsAsync(response);
+    }
+
     public async Task<IReadOnlyList<SampleServerSentEvent>> DecideAsync(
         HttpClient client,
         Guid conversationId,

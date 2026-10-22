@@ -23,7 +23,12 @@ implemented on `feat/ai-files-f3-uploads` (2026-10-22): the upload endpoint with
 default classification, `files` on the message, file parts in the conversation view, the composer's
 attach control with progress and errors at the control, and the mock API, without a migration. Its
 details are in [F-3 implementation decisions](#f-3-implementation-decisions), for Lars to review.
-What F-4 builds on is in [Contracts for F-4](#contracts-for-f-4). F-4 is not implemented.
+What F-4 builds on is in [Contracts for F-4](#contracts-for-f-4). F-4 is implemented on
+`feat/ai-files-f4-sample` (2026-10-22): the file source on the sample's media library, the example Word
+and Excel reader, the document reader agent whose skill reads a project's documents through a tool,
+sample cases SPM-305 and SPM-306, and the malicious-document case of the safety evaluation (SPM-233),
+without a library change. Its details are in [F-4 implementation decisions](#f-4-implementation-decisions),
+for Lars to review. The plan is implemented, not released.
 
 ## Problem
 
@@ -142,7 +147,7 @@ What F-4 builds on is in [Contracts for F-4](#contracts-for-f-4). F-4 is not imp
 | F-1 | File references, the hook, tool results with files, native reading per profile, limits, classification, audit, accepting files per agent and skill. Library tests on SQL Server and PostgreSQL. |
 | F-2 | Reading tools: local tool declarations and the MCP reader setting in the administration, with classification and consent checks. |
 | F-3 | Chat attachments: upload endpoint, Angular composer control, mock API. Implemented; see [F-3 implementation decisions](#f-3-implementation-decisions). |
-| F-4 | Sample case on the media library (upload a project document and ask about it; an agent skill that reads a document through a tool), the example Word and Excel reading tool, an evaluation case with a malicious document, guidance and release notes. |
+| F-4 | Sample case on the media library (upload a project document and ask about it; an agent skill that reads a document through a tool), the example Word and Excel reading tool, an evaluation case with a malicious document, guidance and release notes. Implemented; see [F-4 implementation decisions](#f-4-implementation-decisions). No release notes: the libraries did not change. |
 
 ## F-1 implementation decisions
 
@@ -272,6 +277,20 @@ Each line: the decision, why, and its status.
 - **Upload evidence F-4 can reuse:** `AssistantUploadEndpointTests` (HTTP, both providers) and
   `TestUploadFileSource`; the specs `nh-assistant-composer.component.spec.ts` and
   `nh-assistant-uploads.spec.ts`.
+
+## F-4 implementation decisions
+
+Each line: the decision, why, and its status.
+
+| # | Decision | Reason | Status |
+|---|---|---|---|
+| S1 | The sample's `ProjectMediaFileSource` stores an upload in the media library folder `/assistant-uploads/{conversation}` through the library's storage modules (`IMediaStorage`, `IFileStructureStorage`), with its classification, media type and length in the item's metadata, and opens it only in turns of that conversation. | The assistant already checked the person and the conversation; `IMediaLibraryService.CreateFileAsync` would ask the HTTP-bound authorization module, which grants project folders only, so the media library's endpoints never serve an upload either. | For Lars to review |
+| S2 | A project document (`/divisions/{division}/projects/{project}/documents`) opens for a person whom the project subject's access resolver gives at least `Reader`, and for an agent actor whose thread's subject is that project; every other media item is refused (`assistant-file-forbidden`). | One rule for who sees a project's agent work and its documents; agent runs have no HTTP request for the media library's own module, and id lookups skip it. | For Lars to review |
+| S3 | The sample's chat profile keeps `Internal` and falls back to `project-assistant-confidential` on the same model for confidential calls; both declare the media types the model reads. | Uploads are `Confidential` by default (F5); the fallback shows the recommended split, which a real application points at a model that may receive confidential data. | For Lars to review |
+| S4 | The deterministic model reads PDF, PNG and JPEG and names what it received; a real model reads only the types of its `MediaTypes` setting, none by default. | Not every OpenAI-compatible model reads files; declaring a type the model cannot read would fail turns instead of refusing the file. | For Lars to review |
+| S5 | `OfficeDocumentReader` (`office-documents`, DocumentFormat.OpenXml 3.5.1, MIT) permits `Internal` and `Confidential`, returns paragraphs and table rows, and per sheet the cell values with formula results, bounds a package part with `MaxCharactersInPart` and fails a damaged document. | It runs in the application's process; nothing is cut off silently (F4) and the turn's limits count the text. | For Lars to review |
+| S6 | The document reader agent starts in its `read-documents` skill when a document is added to a project's documents folder (a media library event handler publishes the trigger event); the agent and the skill call `AcceptsFiles()`, the skill lowers `MaxFileBytes` to 10 MB, and its tool `project-documents.read` names at most five documents. | Shows both opt-ins (F11) and a lower skill limit; a trigger that names the skill needs no triage model, and five fits `MaxFilesPerTurn`, whose excess would refuse every file of the result (D7). | For Lars to review |
+| S7 | The malicious-document case extends the sample's safety evaluation (SPM-233): it records a real turn with the example reader and scores it with `NhAiEvaluationRunner`, the outcomes of the turn (tools, approval, execution) as `EvaluationContext`; no library-side evaluation test was added. | The sample expresses it end to end, and `AssistantFileReaderTests` already proves the reader text's marker and trust in the library. | For Lars to review |
 
 ## Open questions
 

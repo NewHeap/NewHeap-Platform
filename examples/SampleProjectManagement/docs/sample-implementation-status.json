@@ -300,7 +300,9 @@
     "SPM-301",
     "SPM-302",
     "SPM-303",
-    "SPM-304"
+    "SPM-304",
+    "SPM-305",
+    "SPM-306"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -1660,6 +1662,7 @@
     ],
     "SPM-233": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAiEvaluationSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantFileSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiEvaluationTests.cs"
     ],
@@ -2706,6 +2709,40 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentWorkWatchTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-work-watch.spec.ts"
+    ],
+    "SPM-305": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OfficeDocumentReader.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantFilesComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantModel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantFileSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantModelSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantFileTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantFileReaderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantUploadEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-uploads.spec.ts"
+    ],
+    "SPM-306": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectDocumentAiTools.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDocumentReaderComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectDocumentEventHandler.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantFileSamplesTests.cs",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantFileTests.cs"
     ]
   }
 }

@@ -583,6 +583,15 @@
             "description": "Beoordeelt een deadlinerisico alleen als minder dan een derde van de taken van het project is afgerond."
           }
         }
+      },
+      "sample-project-document-reader": {
+        "name": "Documentlezer",
+        "description": "Leest de documenten van een project als er een bijkomt en zegt wat ze voor het project veranderen.",
+        "skills": {
+          "read-documents": {
+            "description": "Leest de nieuwste documenten van een project en zegt wat ze voor het project veranderen."
+          }
+        }
       }
     },
     "policies": {

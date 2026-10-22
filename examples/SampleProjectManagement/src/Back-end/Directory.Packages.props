@@ -8,6 +8,7 @@
     <PackageVersion Include="Aspire.Hosting.Javascript" Version="13.4.6" />
     <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.4.6" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
+    <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
     <PackageVersion Include="DotNetCore.CAP.RabbitMQ" Version="8.4.1" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10" />

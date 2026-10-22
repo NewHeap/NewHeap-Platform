@@ -94,6 +94,7 @@ your own, connect an OpenAI-compatible chat model through
 | `Endpoint` | optional; empty for OpenAI itself, or the https URL of a compatible endpoint such as an Azure OpenAI `/openai/v1/` endpoint; plain http only for a loopback server in Development |
 | `Region` | optional execution region the assistant sends; `external` by default |
 | `MaxInputTokens`, `MaxOutputTokens`, `TimeoutSeconds` | optional limits per model call; 32000, 2000 and 60 by default |
+| `MediaTypes` | optional media types of files the model reads itself, separated by commas, such as `application/pdf,image/png,image/jpeg`; none by default, because not every compatible model reads files. Word and Excel documents reach the model as text through the sample's reading tool either way |
 
 The API validates these settings at startup and stops with a message that names
 the missing or invalid setting; it never logs the key. Environment variables such
@@ -102,8 +103,9 @@ The model then serves the project assistant, every agent and skill whose model
 decides, and the planner's triage; rule-based skills still call no model. Leave
 `Provider` empty to return to the deterministic model.
 
-With a real model, messages, the agents' instructions and the project data that
-tools read leave your machine for the endpoint. Use test data only.
+With a real model, messages, the agents' instructions, the project data that
+tools read and the files people attach leave your machine for the endpoint. Use
+test data only.
 
 ## Read-only database diagnostics
 

@@ -138,7 +138,9 @@ changes the text. A host that provides every text itself (`translations: 'host'`
 `nh-assistant.errors.<code>` for each code in `NH_ASSISTANT_ERROR_CODES` (the server's
 `NH_ASSISTANT_SERVER_ERROR_CODES` plus the client-side codes). Theme the panel through the `--nh-assistant-*` custom
 properties mapped onto the host's tokens, and pass the host icon library through
-`NH_ASSISTANT_ICONS`.
+`NH_ASSISTANT_ICONS`. A host that maps every `NhAssistantIconName`, as SampleProjectManagement's
+management portal does, maps a new name when the library adds one, such as `attach` and `file` for
+attachments (SPM-305).
 
 Use `NhAssistantStore.submit` for the panel's composer: it sends while idle and queues
 follow-ups while `running` or `waiting-for-approval`. The queue is FIFO per conversation,
@@ -178,6 +180,10 @@ thread shows a person's files by name, type and size (`FilePart`), never their c
 use `NH_ASSISTANT_UPLOAD`, `XMLHttpRequest` by default because `fetch` reports no upload progress;
 the mock API replaces it, answers with the server's checks and codes, and refuses an upload with
 `refuseUpload` of the scenario. Give an agent of the scenario `uploads` to offer attachments.
+SampleProjectManagement's panel needs no code for it (SPM-305): against the API it shows the attach
+button for the project assistant and the document reader, whose summaries list `uploads`, and none
+for the agents that never opted in; the management playground gives its project assistant
+`uploads` in the mock scenario.
 
 A turn that fails leaves the conversation open, as the server does: the error bar keeps the
 translated failure, the composer stays available and the next message starts a new turn in
@@ -871,3 +877,8 @@ executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectFollowUpRules.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
+- SPM-305 — A person uploads a project document in the chat and asks about it; the model reads a PDF itself and a Word or Excel document as the text of the example reader
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/OfficeDocumentReader.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/OfficeDocumentReader.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantFilesComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantFilesComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)

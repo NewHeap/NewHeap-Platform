@@ -164,6 +164,25 @@ that region next to `local`, and the assistant's profile gets a larger call budg
 Messages and the project data that tools read leave the machine, so use test data only; the
 [README](../README.md#a-real-model-for-the-assistant) lists the settings.
 
+The assistant reads files of the sample's media library (SPM-305). `ProjectMediaFileSource`
+implements the assistant's file source: a person attaches a PDF, an image, or a Word or Excel
+document in the chat panel, the upload endpoint checks it and the source stores it in a media
+library folder of that conversation, with the `Confidential` classification the assistant gives
+every upload. A turn opens each file through the source for its own person or agent: an upload
+opens only in its conversation, a project document for the people who see the project's agent work
+and for an agent on that project, and the media library's own endpoints never serve the uploads.
+Confidential files move the model call to the chat profile's fallback, which permits them. The
+model reads PDFs and images itself; `OfficeDocumentReader`, the example reading tool the sample
+registers as `office-documents`, turns Word and Excel documents into text with DocumentFormat.OpenXml,
+because NewHeap's packages carry no document library. The deterministic model says which files it
+received; with a real model, its `MediaTypes` setting lists the types it reads itself. The document
+reader (SPM-306) reads a project's documents when one is added to the project's `documents` folder in
+the media library: its `read-documents` skill opts in to files with `AcceptsFiles()`, like the agent,
+and its tool names the media items in its result without content. The other agents never opted in,
+so the chat panel shows the attach control only for the project assistant and the document reader.
+`AssistantFileSamplesTests` runs both cases, and the safety evaluation of SPM-233 a turn with a
+malicious document, whose text stays untrusted data that changes no tools or approvals.
+
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
 server protects its address, from its challenge and protected resource metadata; saving the server

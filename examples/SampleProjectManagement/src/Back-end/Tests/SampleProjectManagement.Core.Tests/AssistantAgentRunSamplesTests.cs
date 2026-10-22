@@ -3789,9 +3789,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
 /// <summary>
 /// The assistant sample host with the platform's background operations on Hangfire in memory and
 /// the intake reviewer of Program.cs. The host's database is a copy of the migrated sample
-/// database, so the background-operation dispatcher finds its tables from its first poll.
+/// database, so the background-operation dispatcher finds its tables from its first poll. Derived
+/// hosts, such as the one of the files evidence, add compositions of Program.cs.
 /// </summary>
-public sealed class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : AssistantCollaborationSampleHost(postgreSql)
+public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : AssistantCollaborationSampleHost(postgreSql)
 {
     public const string JwtIssuer = "sample-project-management";
 

@@ -92,7 +92,20 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       version: 1,
       displayNameKey: 'nh-assistant.agents.sample-project-assistant.name',
       descriptionKey: 'nh-assistant.agents.sample-project-assistant.description',
-      canMutate: true
+      canMutate: true,
+      // SPM-305: what the API's project assistant takes, so the panel shows its attach control; the
+      // catalog guide takes no files and shows none.
+      uploads: {
+        acceptedMediaTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ],
+        maxFileBytes: 20 * 1024 * 1024,
+        maxFiles: 5
+      }
     },
     {
       id: CATALOG_GUIDE_ID,
