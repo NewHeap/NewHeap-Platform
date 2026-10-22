@@ -93,6 +93,10 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<Runtime.NhAssistantApplicationMapService>();
         services.TryAddScoped<Runtime.NhAssistantRetrievalService>();
         services.TryAddScoped<Runtime.NhAssistantTurnFiles>();
+        // Reading tools: the application's own, then MCP servers set up as readers, which the ASP.NET
+        // integration supplies.
+        services.TryAddScoped<Runtime.NhAssistantFileReaders>();
+        services.TryAddScoped<Runtime.INhAssistantMcpFileReader, Runtime.NhAssistantNoMcpFileReader>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAiContextTraceSink, Runtime.NhAssistantContextTraceSink>());
         services.TryAddScoped<NhAssistantSubjectAccessService>();
         services.TryAddScoped<INhAiSubjectAccess>(provider => provider.GetRequiredService<NhAssistantSubjectAccessService>());

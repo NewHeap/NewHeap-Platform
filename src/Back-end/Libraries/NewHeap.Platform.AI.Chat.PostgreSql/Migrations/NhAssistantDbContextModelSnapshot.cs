@@ -1700,6 +1700,18 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
+                    b.Property<string>("ReaderMaxClassification")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("ReaderMediaTypes")
+                        .HasMaxLength(2064)
+                        .HasColumnType("character varying(2064)");
+
+                    b.Property<string>("ReaderToolName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<string>("RequiredPolicy")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");

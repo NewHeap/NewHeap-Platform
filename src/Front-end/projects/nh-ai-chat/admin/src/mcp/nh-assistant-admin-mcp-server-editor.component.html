@@ -509,6 +509,86 @@
     }
   </div>
 
+  @if (!isNew()) {
+    <fieldset class="field">
+      <legend>{{ 'nh-assistant.admin.server-editor.reader.title' | translate }}</legend>
+      <p class="hint">{{ 'nh-assistant.admin.server-editor.reader.hint' | translate }}</p>
+      <label [for]="id + '-reader-types'">{{ 'nh-assistant.admin.server-editor.reader.media-types' | translate }}</label>
+      <input
+        type="text"
+        class="mono"
+        spellcheck="false"
+        [id]="id + '-reader-types'"
+        [value]="readerMediaTypes()"
+        [attr.aria-describedby]="describedBy(id + '-reader-types-hint', 'reader.mediaTypes')"
+        [attr.aria-invalid]="(submitted() && readerTypesInvalid()) || serverInvalid('reader.mediaTypes') ? true : null"
+        (input)="readerMediaTypes.set(value($event)); touch('reader.mediaTypes')" />
+      <p class="hint" [id]="id + '-reader-types-hint'">
+        <span [class.error-text]="submitted() && readerTypesInvalid()">
+          {{ (submitted() && readerTypesInvalid() ? 'nh-assistant.admin.server-editor.reader.media-types-invalid' : 'nh-assistant.admin.server-editor.reader.media-types-hint') | translate }}
+        </span>
+      </p>
+      @if (serverInvalid('reader.mediaTypes')) {
+        <p class="field-error" [id]="errorId('reader.mediaTypes')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('reader.mediaTypes') | nhAssistantTranslate }}</p>
+      }
+
+      @if (readerEnabled()) {
+        <div class="grid">
+          <div class="field">
+            <label [for]="id + '-reader-tool'">{{ 'nh-assistant.admin.server-editor.reader.tool' | translate }}</label>
+            <select
+              [id]="id + '-reader-tool'"
+              [attr.aria-describedby]="describedBy(id + '-reader-tool-hint', 'reader.toolName')"
+              [attr.aria-invalid]="(submitted() && readerToolMissing()) || serverInvalid('reader.toolName') ? true : null"
+              (change)="readerToolName.set(value($event)); touch('reader.toolName')">
+              <option value="" [selected]="readerToolName() === ''">{{ 'nh-assistant.admin.server-editor.reader.tool-choose' | translate }}</option>
+              @for (name of readerToolNames(); track name) {
+                <option [value]="name" [selected]="readerToolName() === name">{{ name }}</option>
+              }
+            </select>
+            <p class="hint" [id]="id + '-reader-tool-hint'">
+              @if (submitted() && readerToolMissing()) {
+                <span class="error-text">{{ 'nh-assistant.admin.required' | translate }}</span>
+              } @else {
+                {{ (readerToolNames().length === 0 ? 'nh-assistant.admin.server-editor.reader.tool-sync' : 'nh-assistant.admin.server-editor.reader.tool-hint') | translate }}
+              }
+            </p>
+            @if (serverInvalid('reader.toolName')) {
+              <p class="field-error" [id]="errorId('reader.toolName')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('reader.toolName') | nhAssistantTranslate }}</p>
+            }
+          </div>
+
+          <div class="field">
+            <label [for]="id + '-reader-classification'">{{ 'nh-assistant.admin.server-editor.reader.max-classification' | translate }}</label>
+            <select
+              [id]="id + '-reader-classification'"
+              [attr.aria-describedby]="describedBy(id + '-reader-classification-hint', 'reader.maxClassification')"
+              [attr.aria-invalid]="(submitted() && readerClassificationMissing()) || serverInvalid('reader.maxClassification') ? true : null"
+              (change)="readerMaxClassification.set($any(value($event))); touch('reader.maxClassification')">
+              <option value="" [selected]="readerMaxClassification() === ''">{{ 'nh-assistant.admin.server-editor.reader.max-classification-choose' | translate }}</option>
+              @for (classification of classifications; track classification) {
+                <option [value]="classification" [selected]="readerMaxClassification() === classification">
+                  {{ 'nh-assistant.admin.run-config.skills.classification.' + classification | translate }}
+                </option>
+              }
+            </select>
+            <p class="hint" [id]="id + '-reader-classification-hint'">
+              @if (submitted() && readerClassificationMissing()) {
+                <span class="error-text">{{ 'nh-assistant.admin.required' | translate }}</span>
+              } @else {
+                {{ 'nh-assistant.admin.server-editor.reader.max-classification-hint' | translate }}
+              }
+            </p>
+            @if (serverInvalid('reader.maxClassification')) {
+              <p class="field-error" [id]="errorId('reader.maxClassification')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('reader.maxClassification') | nhAssistantTranslate }}</p>
+            }
+          </div>
+        </div>
+        <p class="message warning" role="note"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.server-editor.reader.leaves-application' | translate }}</p>
+      }
+    </fieldset>
+  }
+
   <label class="check">
     <input type="checkbox" [checked]="isEnabled()" (change)="isEnabled.set(checked($event))" />
     <span>{{ 'nh-assistant.admin.server-editor.enabled' | translate }}</span>

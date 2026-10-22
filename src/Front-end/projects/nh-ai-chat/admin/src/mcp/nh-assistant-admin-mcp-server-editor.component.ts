@@ -16,6 +16,7 @@ import {
 import { TranslatePipe } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import {
+  AssistantDataClassification,
   McpAuthMode,
   McpBuiltInAuthMode,
   McpConnectionScope,
@@ -25,6 +26,7 @@ import {
   McpOAuthInput,
   McpServer,
   McpServerInput,
+  McpTool,
   McpTransport,
   ɵNH_ASSISTANT_DASH_CASE as NH_ASSISTANT_DASH_CASE,
   NhAssistantAdminApiService,
@@ -76,7 +78,10 @@ const serverFields = [
   'oauth.organizationAccountLabel',
   'oauth.confirmAuthorization',
   'requiredPolicy',
-  'headlessUse'
+  'headlessUse',
+  'reader.mediaTypes',
+  'reader.toolName',
+  'reader.maxClassification'
 ] as const;
 
 /** A header name the server accepts: 1 to 128 letters, digits and dashes. */
@@ -98,13 +103,19 @@ const secretReferencePattern = /^[a-z][a-z0-9-]{0,31}:[A-Za-z0-9][A-Za-z0-9._/-]
 const certificateNamePattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 /** Space-separated scope tokens: printable ASCII without quotes or backslashes (RFC 6749). */
 const scopesPattern = /^[\x21\x23-\x5B\x5D-\x7E]+( [\x21\x23-\x5B\x5D-\x7E]+)*$/;
+/** A media type without parameters, as the server compares them (`type/subtype`). */
+const mediaTypePattern = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/;
+/** The most media types one server reads. */
+const maxReaderMediaTypes = 16;
 
 let nextId = 0;
 
 /**
  * Creates or edits one MCP server: the authentication with a write-only secret or a reference to
  * one, OAuth with discovery the administrator confirms, an optional client certificate, the
- * transport and the use in background runs. Every field stops at the length the server accepts; a
+ * transport, the use in background runs and, for a server that is synced, the reader setting: the
+ * media types the server turns into text, its reading tool and the highest classification that may be
+ * sent to it. Every field stops at the length the server accepts; a
  * refused save shows each of the server's field errors at its field, for example a secret reference
  * the application cannot resolve (`not-found`), and moves the focus to the first of them.
  */
@@ -123,6 +134,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
   private subscription?: Subscription;
   private discoverySubscription?: Subscription;
   private modesSubscription?: Subscription;
+  private toolsSubscription?: Subscription;
   /** Fields whose server error the administrator changed since the refused save. */
   private readonly touched = signal<ReadonlySet<string>>(new Set());
 
@@ -145,6 +157,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly transports: readonly McpTransport[] = ['streamable-http', 'auto'];
   readonly secretSources: readonly NhAssistantSecretSource[] = ['stored', 'reference'];
   readonly connectionScopes: readonly McpConnectionScope[] = ['organization', 'user'];
+  readonly classifications: readonly AssistantDataClassification[] = ['public', 'internal', 'confidential', 'restricted'];
 
   readonly serverId = signal('');
   readonly displayName = signal('');
@@ -176,6 +189,12 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly discovering = signal(false);
   readonly discoveryError = signal<NhAssistantError | null>(null);
   readonly confirmAuthorization = signal(false);
+  /** The media types the server reads, as typed: separated by commas, spaces or new lines. */
+  readonly readerMediaTypes = signal('');
+  readonly readerToolName = signal('');
+  readonly readerMaxClassification = signal<AssistantDataClassification | ''>('');
+  /** The server's synced tools, of which one reads files; empty until they are loaded. */
+  readonly readerTools = signal<readonly McpTool[]>([]);
   readonly submitted = signal(false);
   readonly saving = signal(false);
   readonly error = signal<NhAssistantError | null>(null);
@@ -255,8 +274,24 @@ export class NhAssistantAdminMcpServerEditorComponent {
     const header = this.headerName().trim();
     return this.authMode() === 'api-key' && header.length > 0 && !headerNamePattern.test(header);
   });
+  readonly readerTypes = computed(() => splitMediaTypes(this.readerMediaTypes()));
+  /** The server reads files once it declares a media type; no types removes the setting. */
+  readonly readerEnabled = computed(() => !this.isNew() && this.readerTypes().length > 0);
+  readonly readerTypesInvalid = computed(() => this.readerEnabled() &&
+    (this.readerTypes().some(type => !isMediaType(type)) ||
+      new Set(this.readerTypes().map(type => type.split(';')[0].trim().toLowerCase())).size > maxReaderMediaTypes));
+  readonly readerToolMissing = computed(() => this.readerEnabled() && this.readerToolName().length === 0);
+  readonly readerClassificationMissing = computed(() => this.readerEnabled() && this.readerMaxClassification() === '');
+  /** The tool names to choose from, keeping a stored tool the list no longer holds selectable. */
+  readonly readerToolNames = computed(() => {
+    const names = this.readerTools().map(tool => tool.remoteName);
+    const stored = this.server()?.reader?.toolName;
+    return stored && !names.includes(stored) ? [...names, stored] : names;
+  });
+  readonly readerInvalid = computed(() => this.readerTypesInvalid() || this.readerToolMissing() || this.readerClassificationMissing());
   readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.urlInvalid() && !this.headerNameInvalid() &&
-    !this.userNameInvalid() && !this.secretReferenceInvalid() && !this.certificateInvalid() && !this.oauthInvalid());
+    !this.userNameInvalid() && !this.secretReferenceInvalid() && !this.certificateInvalid() && !this.oauthInvalid() &&
+    !this.readerInvalid());
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   /** The server's first error per field of the refused save, until the administrator changes the field. */
   readonly serverErrors = computed<Readonly<Record<string, string>>>(() => {
@@ -280,6 +315,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
       this.subscription?.unsubscribe();
       this.discoverySubscription?.unsubscribe();
       this.modesSubscription?.unsubscribe();
+      this.toolsSubscription?.unsubscribe();
     });
     // The application's own modes; without them the editor offers the built-in modes.
     this.modesSubscription = this.admin.getMcpAuthModes().subscribe({
@@ -447,6 +483,15 @@ export class NhAssistantAdminMcpServerEditorComponent {
       input.connectionScope = authMode === 'oauth' ? this.connectionScope() : 'organization';
       input.oauth = this.oauthInput();
     }
+    if (!this.isNew()) {
+      // Every save sends the setting as shown; no media types removes it.
+      const enabled = this.readerEnabled();
+      input.reader = {
+        mediaTypes: this.readerTypes(),
+        toolName: enabled ? this.readerToolName() : null,
+        maxClassification: enabled ? this.readerMaxClassification() || null : null
+      };
+    }
 
     const existing = this.server();
     const request = existing ? this.admin.updateMcpServer(existing.id, input) : this.admin.createMcpServer(input);
@@ -507,9 +552,26 @@ export class NhAssistantAdminMcpServerEditorComponent {
     this.discovery.set(null);
     this.discoveryError.set(null);
     this.confirmAuthorization.set(false);
+    this.readerMediaTypes.set(server?.reader?.mediaTypes.join(', ') ?? '');
+    this.readerToolName.set(server?.reader?.toolName ?? '');
+    this.readerMaxClassification.set(server?.reader?.maxClassification ?? '');
+    this.loadReaderTools(server);
     this.submitted.set(false);
     this.error.set(null);
     this.touched.set(new Set());
+  }
+
+  /** The synced tools of an existing server, to choose the reading tool from. */
+  private loadReaderTools(server: McpServer | null): void {
+    this.toolsSubscription?.unsubscribe();
+    this.readerTools.set([]);
+    if (server === null) {
+      return;
+    }
+    this.toolsSubscription = this.admin.getMcpTools(server.id).subscribe({
+      next: tools => this.readerTools.set(tools),
+      error: () => this.readerTools.set([])
+    });
   }
 
   /**
@@ -541,6 +603,17 @@ export class NhAssistantAdminMcpServerEditorComponent {
 
 function isSecretReference(value: string): boolean {
   return secretReferencePattern.test(value) && !value.includes('..');
+}
+
+/** The media types an administrator typed, separated by commas, spaces or new lines. */
+function splitMediaTypes(value: string): string[] {
+  return value.split(/[\s,]+/).map(item => item.trim()).filter(item => item.length > 0);
+}
+
+/** Whether a value is a media type the server accepts: `type/subtype`, optionally with parameters. */
+function isMediaType(value: string): boolean {
+  const essence = value.split(';')[0].trim().toLowerCase();
+  return essence.length <= 128 && mediaTypePattern.test(essence);
 }
 
 function isAllowedUrl(value: string): boolean {

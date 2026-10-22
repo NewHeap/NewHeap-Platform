@@ -446,9 +446,18 @@ public sealed record NhAssistantAuditEvent(
     public string? FileMediaType { get; init; }
 
     /// <summary>
-    /// The SHA-256 of the content the model received, <c>sha256:&lt;hex&gt;</c>.
+    /// The SHA-256 of the content the model received, <c>sha256:&lt;hex&gt;</c>. For a file a reading
+    /// tool turned into text, the SHA-256 of the file's content that the reader received.
     /// </summary>
     public string? FileHash { get; init; }
+
+    /// <summary>
+    /// The reading tool that turned the file into text, or that refused or failed it: the id of a
+    /// reader of the application (<c>AddFileReader</c>), or <c>mcp.&lt;server&gt;</c> for an MCP server
+    /// set up as reader, whose credential <see cref="McpConnectionOwner"/> names. Null when the model
+    /// read the file itself.
+    /// </summary>
+    public string? FileReaderId { get; init; }
 }
 
 /// <summary>

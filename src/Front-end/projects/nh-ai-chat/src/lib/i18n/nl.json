@@ -302,6 +302,7 @@
       "assistant-file-not-found": "Het bestand is niet gevonden. Misschien is het verwijderd.",
       "assistant-file-forbidden": "Je mag dit bestand niet lezen, dus de assistent heeft het ook niet gelezen.",
       "assistant-file-unavailable": "Het bestand kon nu niet worden geopend. Probeer het zo opnieuw.",
+      "assistant-file-reader-failed": "Het leesprogramma voor dit type bestand kon het niet omzetten in tekst.",
       "assistant-file-too-large": "Het bestand is groter dan de assistent mag lezen. Deel een kleiner bestand.",
       "assistant-file-too-many-pages": "Het bestand heeft meer pagina's dan de assistent mag lezen. Deel een korter document.",
       "assistant-file-count-limit": "De assistent mag in dit antwoord geen bestanden meer lezen. Vraag naar minder bestanden tegelijk.",
@@ -923,7 +924,22 @@
         "client-secret-reference": "Verwijzing naar het clientgeheim",
         "organization-account-label": "Gekoppeld account",
         "organization-account-label-hint": "Welk account de organisatie koppelt, bijvoorbeeld \"Planning-serviceaccount\". Iedereen die de server gebruikt ziet het.",
-        "organization-account-label-required": "Noem het account dat gekoppeld wordt."
+        "organization-account-label-required": "Noem het account dat gekoppeld wordt.",
+        "reader": {
+          "title": "Documenten lezen",
+          "hint": "Modellen die een bestandstype niet zelf kunnen lezen, kunnen het bestand als tekst van deze server krijgen. De assistent roept het leesprogramma aan met de bestandsnaam, het mediatype en de base64-inhoud van het bestand, na de eigen leesprogramma's van de applicatie.",
+          "media-types": "Mediatypes",
+          "media-types-hint": "Gescheiden door komma's, hoogstens 16, zoals application/vnd.openxmlformats-officedocument.wordprocessingml.document. Leeg: de server leest geen bestanden.",
+          "media-types-invalid": "Vul hoogstens 16 mediatypes in van de vorm type/subtype, gescheiden door komma's.",
+          "tool": "Leesprogramma",
+          "tool-choose": "Kies een tool",
+          "tool-hint": "Een tool die van deze server is gesynchroniseerd en een bestand omzet in tekst. Hij hoeft niet voor agents aan te staan.",
+          "tool-sync": "Synchroniseer eerst de tools van de server en kies dan het leesprogramma.",
+          "max-classification": "Hoogste classificatie",
+          "max-classification-choose": "Kies een classificatie",
+          "max-classification-hint": "Een gevoeliger bestand wordt nooit naar deze server gestuurd.",
+          "leaves-application": "Een bestand dat naar deze server gaat, verlaat de applicatie. Kies een classificatie die de server mag ontvangen; voor persoonlijke verbindingen blijft de toestemming van de persoon voor gebruik op de achtergrond gelden."
+        }
       },
       "tools": {
         "title": "Tools van {{name}}",

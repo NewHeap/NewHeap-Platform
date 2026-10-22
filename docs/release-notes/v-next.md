@@ -364,3 +364,53 @@ file error codes, with English and Dutch texts.
 | Breaking change | Required action |
 |---|---|
 | New translation keys `nh-assistant.admin.run-config.files.*` and `nh-assistant.errors.assistant-file*` for the file codes. | Applications with their own translation files add them. |
+
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: reading tools for files
+
+A file of a type the serving model does not read itself, such as a Word or Excel document, no longer
+needs to be refused: a reading tool turns it into text, which the model reads behind the same marker as
+untrusted external data. The application registers its own with the new
+`AddFileReader<T>(readerId, reader => reader.AcceptMediaTypes(...).PermitDataClassifications(...))`
+(`INhAssistantFileReader`, `NhAssistantFileReadRequest`, `NhAssistantFileReaderBuilder`); an
+administrator sets an MCP server up as reader with the new `reader` setting (`mediaTypes`, the synced
+`toolName` that receives `name`, `mediaType` and the base64 `content` of a file, and
+`maxClassification`; `NhAssistantMcpReaders`, `NhAssistantMcpReaderInputDto` and
+`NhAssistantMcpReaderDto` on `NhAssistantMcpServerInputDto` and `NhAssistantMcpServerDto`).
+
+- The readers of the application come first, in registration order, then the MCP servers by id; the
+  first that accepts the type and permits the file's classification reads it. A file above an MCP
+  server's `maxClassification`, and a file for a server the turn may not use (its policy, headless use,
+  a person's consent for `personal` or the initiator rule), is never sent; the code of the first reader
+  that declares the type applies. Without a reader the file is still refused with
+  `assistant-file-type-not-supported`.
+- A reader that received the file and failed refuses it with the new code
+  `assistant-file-reader-failed` (`502`), per file; no second reader receives it.
+- The file and turn limits count the tokens of the text (one per four characters) instead of the
+  file's pages; `INhAiChatExecutor` counts such text once, with the message text.
+- The new `NhAssistantAuditEvent.FileReaderId` names the reader of `FileRead` and `FileRefused`
+  (`mcp.<server>` with `McpConnectionOwner` for a server); `FileHash` is then the hash of the content
+  the reader received.
+
+Apply the `McpServerReaders` migration of `NewHeap.Platform.AI.Chat.SqlServer` or
+`NewHeap.Platform.AI.Chat.PostgreSql`: it adds the nullable `ReaderMediaTypes`, `ReaderToolName` and
+`ReaderMaxClassification` columns to `AssistantMcpServer`.
+
+| Breaking change | Required action |
+|---|---|
+| Database schema change. | Apply the `McpServerReaders` migration. |
+| `NhAssistantMcpServerDto` has the new property `reader`. | Update a client or test that compares the server's properties exactly. |
+
+## @newheap/platform-ai-chat: MCP servers as readers of documents
+
+The MCP server editor of a synced server offers "Reading documents" (Dutch: "Documenten lezen"): the
+media types the server turns into text, the reading tool chosen from its synced tools and the highest
+classification that may be sent to it, with a note that a file sent to the server leaves the
+application. `McpServer` gains `reader` (`McpReader`) and `McpServerInput` the optional `reader`
+(`McpReaderInput`); an empty `mediaTypes` removes the setting. The mock backend of
+`@newheap/platform-ai-chat/testing` validates and stores it as the server does.
+`NH_ASSISTANT_SERVER_ERROR_CODES` lists `assistant-file-reader-failed`, with English and Dutch texts.
+
+| Breaking change | Required action |
+|---|---|
+| `McpServer` has the new required property `reader`. | Set `reader: null` where you construct an `McpServer`, such as in tests. |
+| New translation keys `nh-assistant.admin.server-editor.reader.*` and `nh-assistant.errors.assistant-file-reader-failed`. | Applications with their own translation files add them. |

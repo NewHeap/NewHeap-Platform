@@ -575,6 +575,9 @@ public sealed class NhAssistantDbContext : DbContext
             server.Property(item => item.OAuthClientSecretReference).HasMaxLength(NhAssistantMcpSecretReferences.MaxLength);
             server.Property(item => item.OrganizationAccountLabel).HasMaxLength(200);
             server.Property(item => item.AuthorizationConfirmedBy).HasMaxLength(128);
+            server.Property(item => item.ReaderMediaTypes).HasMaxLength(NhAssistantMcpReaders.MaxMediaTypesLength);
+            server.Property(item => item.ReaderToolName).HasMaxLength(NhAssistantMcpReaders.MaxToolNameLength);
+            server.Property(item => item.ReaderMaxClassification).HasMaxLength(16);
             server.HasMany(item => item.Tools)
                 .WithOne()
                 .HasForeignKey(item => item.ServerId)

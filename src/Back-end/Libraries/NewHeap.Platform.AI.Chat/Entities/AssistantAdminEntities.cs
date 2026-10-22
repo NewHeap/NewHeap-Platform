@@ -270,6 +270,23 @@ public sealed class AssistantMcpServer
     /// <summary>The administrator who confirmed them.</summary>
     public string? AuthorizationConfirmedBy { get; set; }
 
+    /// <summary>
+    /// The media types the server reads as a reading tool, lowercase and separated by spaces; null
+    /// when the server is not set up as reader (<see cref="NhAssistantMcpReaders"/>).
+    /// </summary>
+    public string? ReaderMediaTypes { get; set; }
+
+    /// <summary>
+    /// The remote name of the tool that turns a file into text; set with <see cref="ReaderMediaTypes"/>.
+    /// </summary>
+    public string? ReaderToolName { get; set; }
+
+    /// <summary>
+    /// The highest classification of a file that may be sent to the reader, one of
+    /// <see cref="NhAssistantDataClassificationNames"/>; set with <see cref="ReaderMediaTypes"/>.
+    /// </summary>
+    public string? ReaderMaxClassification { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }

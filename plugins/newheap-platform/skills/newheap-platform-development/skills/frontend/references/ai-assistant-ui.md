@@ -103,6 +103,15 @@ popup by default, or with `mcpConnectMode: 'redirect'` by leaving the page and c
 (`mcpConnectReturnUrl`, an origin in `ReturnOrigins`). The mock's `connectionRequired` step and
 `personalConnected` play it without a server.
 
+The server editor of a synced server also sets it up as a reader of documents ("Reading
+documents"): the media types it turns into text, the reading tool chosen from the server's synced
+tools and the highest classification that may be sent to it, saved as `reader` (`McpReaderInput`,
+returned as `McpReader` on `McpServer`). Every save of an existing server sends the setting as
+shown; no media types removes it. The editor states that a file sent to the server leaves the
+application, and shows `reader.mediaTypes`, `reader.toolName` and `reader.maxClassification` field
+errors at their fields. The mock API validates and stores the setting as the server does; a
+scenario server with `reader` starts with its tools synced.
+
 Route to `NhAssistantAdminComponent` from `@newheap/platform-ai-chat/admin` with a
 lazy route guarded by the host's admin permission (for example
 `app.assistant.admin`), and pass that route as `adminRoute` to

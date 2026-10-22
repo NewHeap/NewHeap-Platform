@@ -645,6 +645,27 @@ public sealed class NhAssistantBuilder
         return this;
     }
 
+    /// <summary>
+    /// Registers a reading tool under <paramref name="readerId"/> that turns files of the media types it
+    /// declares into text, for profiles that do not read those types themselves. The assistant asks the
+    /// readers of the application first, in registration order, then the MCP servers an administrator
+    /// set up as readers; the first that accepts the type and permits the file's classification reads
+    /// it. The model reads the text as untrusted external data, and the file and turn limits count its
+    /// tokens. The audit names the reader by <paramref name="readerId"/>, never the text.
+    /// </summary>
+    public NhAssistantBuilder AddFileReader<TReader>(string readerId, Action<NhAssistantFileReaderBuilder> configure)
+        where TReader : class, INhAssistantFileReader
+    {
+        NhAssistantNames.ValidateSegment(readerId, nameof(readerId));
+        ArgumentNullException.ThrowIfNull(configure);
+        var reader = new NhAssistantFileReaderBuilder();
+        configure(reader);
+
+        _state.AddFileReader(reader.Build(readerId, typeof(TReader)));
+        Services.TryAddScoped<TReader>();
+        return this;
+    }
+
     private static void ValidateTriggerId(string triggerId)
     {
         if (!NhAiSubjectRef.IsValidType(triggerId))
@@ -732,6 +753,7 @@ internal sealed class NhAssistantRegistrationState
     private NhAssistantRunSnapshot? _snapshot;
     private readonly List<Runs.NhAssistantProposalGuardRegistration> _proposalGuards = [];
     private readonly List<NhAssistantRevalidationDefinition> _revalidations = [];
+    private readonly List<NhAssistantFileReaderDefinition> _fileReaders = [];
 
     public string? AccessPolicy { get; set; }
 
@@ -912,6 +934,22 @@ internal sealed class NhAssistantRegistrationState
         {
             throw new InvalidOperationException($"Subject set '{definition.Name}' is already registered.");
         }
+    }
+
+    /// <summary>
+    /// The reading tools of the application in registration order.
+    /// </summary>
+    public IReadOnlyList<NhAssistantFileReaderDefinition> FileReaders => _fileReaders;
+
+    public void AddFileReader(NhAssistantFileReaderDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        if (_fileReaders.Any(item => string.Equals(item.Id, definition.Id, StringComparison.Ordinal)))
+        {
+            throw new InvalidOperationException($"File reader '{definition.Id}' is already registered.");
+        }
+
+        _fileReaders.Add(definition);
     }
 
     public void AddRuleHandler(NhAssistantRuleHandlerDefinition definition)
