@@ -144,10 +144,13 @@ export function affectedFrontEndLibraries(changedFiles, libraries) {
 /**
  * The `npx` arguments that test one Angular library once. Karma runs it in headless Chrome: a
  * visible Chrome window that is hidden or minimized throttles timers and focus, and specs that need
- * a visible page, such as the collaboration specs of `nh-ai-chat`, then fail.
+ * a visible page, such as the collaboration specs of `nh-ai-chat`, then fail. The dots reporter
+ * replaces the default progress reporter, whose "Executed n of m" line moves the cursor back over
+ * itself: kept as one block, that output is a line per spec and pushes the failures out of view.
+ * Dots prints each failing spec with its message and stack, and the totals at the end.
  */
 export function angularTestArguments(library) {
-  return ['ng', 'test', library, '--watch=false', '--browsers=ChromeHeadless'];
+  return ['ng', 'test', library, '--watch=false', '--browsers=ChromeHeadless', '--reporters=dots'];
 }
 
 /**
@@ -406,9 +409,41 @@ export function runJobs(jobs, limits, start, { stopAfter = () => false } = {}) {
   });
 }
 
+/** `text` without ANSI escape sequences: colours and the cursor moves of progress output. */
+export function withoutAnsi(text) {
+  return text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
+}
+
 /** The count line a test run ends with, such as `Passed! - Failed: 0, ...` or Karma's `TOTAL: 12 SUCCESS`, without colours. */
 export function outcomeSummary(output) {
-  return output.split(/\r?\n/).reverse().find(line => /Passed!|Failed!|TOTAL:|Executed .* of/.test(line))?.trim().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
+  return withoutAnsi(output).split(/\r?\n/).reverse().find(line => /Passed!|Failed!|TOTAL:|Executed .* of/.test(line))?.trim();
+}
+
+/** Karma's line for a failed spec, `<browser> (<platform>) <suites> <spec> FAILED`, as the full spec name. */
+function karmaFailedSpec(line) {
+  return line.includes(': Executed ') ? undefined : /^\S.*? \([^)]*\) (.+) FAILED$/.exec(line)?.[1];
+}
+
+/**
+ * The full names of the specs a Karma run reports as failed, in the order it reports them. Below
+ * each such line Karma prints the message and stack, every line indented with a tab.
+ */
+export function failedSpecs(output) {
+  return withoutAnsi(output).split(/\r?\n/).map(karmaFailedSpec).filter(Boolean);
+}
+
+/** How many lines of a failed process's output its job block shows at least. */
+const reportedTailLines = 60;
+
+/**
+ * The output a failed process shows: its last lines without ANSI escape sequences and, for a Karma
+ * run, everything from the first failed spec on, so that no failure, message or stack falls off.
+ */
+export function failureOutput(output) {
+  const lines = withoutAnsi(output).split(/\r?\n/);
+  const firstFailure = lines.findIndex(line => karmaFailedSpec(line) !== undefined);
+  const tail = Math.max(0, lines.length - reportedTailLines);
+  return lines.slice(firstFailure >= 0 ? Math.min(firstFailure, tail) : tail).join('\n');
 }
 
 /** The line of one process: `PASS <label> (12s) - <count line>`. */
@@ -416,16 +451,17 @@ export function resultLine({ label, passed, seconds, summary }) {
   return `${passed ? 'PASS' : 'FAIL'} ${label} (${seconds}s)${summary ? ` - ${summary}` : ''}`;
 }
 
-/** The block printed when a job ends: a line per process and, for a process that failed, the end of its output. */
+/** The block printed when a job ends: a line per process and, for a process that failed, its failures and the end of its output. */
 export function jobReport(results) {
   return results
-    .flatMap(result => result.passed ? [resultLine(result)] : [resultLine(result), result.output.split(/\r?\n/).slice(-60).join('\n')])
+    .flatMap(result => result.passed ? [resultLine(result)] : [resultLine(result), failureOutput(result.output)])
     .join('\n');
 }
 
 /**
- * The summary after the run: every process with its duration, then the failures or the closing line.
- * @param {{ label: string, passed: boolean, seconds: number }[]} results
+ * The summary after the run: every process with its duration, then the failures, each with the specs
+ * that failed in it, or the closing line.
+ * @param {{ label: string, passed: boolean, seconds: number, output?: string }[]} results
  * @param {number} wallSeconds
  */
 export function summaryLines(results, wallSeconds) {
@@ -436,6 +472,9 @@ export function summaryLines(results, wallSeconds) {
     ...results.map(result => `  ${result.passed ? 'PASS' : 'FAIL'} ${String(result.seconds).padStart(width)}s  ${result.label}`),
     ...(failed.length === 0
       ? ['All affected tests passed. Run the validators AGENTS.md lists for the files you changed.']
-      : [`Affected tests failed: ${failed.length} of ${results.length}.`, ...failed.map(result => `  ${result.label}`)])
+      : [
+        `Affected tests failed: ${failed.length} of ${results.length}.`,
+        ...failed.flatMap(result => [`  ${result.label}`, ...failedSpecs(result.output ?? '').map(spec => `    ${spec}`)])
+      ])
   ];
 }
