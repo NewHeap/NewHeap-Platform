@@ -105,7 +105,8 @@ internal sealed class NhAiAgentInvocationGate(
     IAuthorizationService authorizationService,
     INhAiPrincipalFactory principalFactory,
     NhAiAspNetRegistrationState state,
-    IEnumerable<INhAiDelegatedReadSurface> readSurfaces) : INhAiToolInvocationGate, INhAiAgentToolAuthorizer
+    IEnumerable<INhAiDelegatedReadSurface> readSurfaces,
+    IServiceProvider services) : INhAiToolInvocationGate, INhAiAgentToolAuthorizer
 {
     public async ValueTask<TaskResult<NhAiInvocationContext>> AuthorizeAsync(
         NhAiToolDescriptor descriptor,
@@ -214,12 +215,14 @@ internal sealed class NhAiAgentInvocationGate(
             return null;
         }
 
-        var user = httpContextAccessor.HttpContext?.User;
+        // In the initiator's own request its live principal decides, recognized by the platform's actor
+        // id of the request's person rather than by a claim.
+        var httpContext = httpContextAccessor.HttpContext;
         if (scope.IsRequestTurn
-            && user?.Identity?.IsAuthenticated == true
-            && string.Equals(user.FindFirstValue(ClaimTypes.NameIdentifier), scope.InitiatorActorId, StringComparison.Ordinal))
+            && httpContext is not null
+            && await NhAiRequestActor.IsAsync(httpContext, scope.InitiatorActorId, services, cancellationToken))
         {
-            return user;
+            return httpContext.User;
         }
 
         return await principalFactory.CreateAsync(scope.InitiatorActorId, scope.Subject, cancellationToken);

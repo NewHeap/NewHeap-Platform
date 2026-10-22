@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.81",
   "backEnd": {
-    "hash": "7a7ceb5ff80b2b97c41a6bfaedc77306e2f4594da02a188a4f8bfbb6e59acc99",
-    "declarationCount": 9665,
+    "hash": "ad0b08bf11e9a7da35294d25d8f1f6ce03a2836671899c5552f9ea7869f5813a",
+    "declarationCount": 9681,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -568,6 +568,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpDelegatedTokens.cs",
         "declaration": "public async ValueTask<TaskResult<NhAiMcpDelegatedToken>> IssueAsync( NhAiMcpDelegatedTokenRequest request, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiRequestActor.cs",
+        "declaration": "public static async ValueTask<bool> IsAsync( HttpContext httpContext, string? actorId, IServiceProvider services, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiRequestActor.cs",
+        "declaration": "public static async ValueTask<string?> GetActorIdAsync( HttpContext httpContext, IServiceProvider services, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiRequestActor.cs",
+        "declaration": "public static IDisposable BeginResolving(HttpContext httpContext, string actorId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiRequestActor.cs",
+        "declaration": "public static void Remember(HttpContext httpContext, string actorId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiRequestActor.cs",
+        "declaration": "public void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeActionInfo.cs",
@@ -2052,6 +2072,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
         "declaration": "public NhAssistantServiceAccountState? ServiceAccount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+        "declaration": "public bool OffBeforeStop { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
@@ -4708,6 +4732,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public IReadOnlyList<string> CodeGroups { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool OffBeforeStop { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -11139,7 +11167,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
+        "declaration": "public NhAiStaleKind? NotNeededKind { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
         "declaration": "public string? Explanation { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
+        "declaration": "public IReadOnlyDictionary<string, string> Explanations { get; init; } = EmptyExplanations;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
@@ -16067,7 +16103,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantBriefingService.cs",
-        "declaration": "public static NhAssistantBriefingSection RulesSection(string reason, int ruleProposals) {"
+        "declaration": "public static NhAssistantBriefingSection RulesSection( string reason, int ruleProposals, IReadOnlyList<NhAssistantRuleProposalNote>? proposals = null, IReadOnlyList<NhAssistantRuleDecision>? rejections = null, IReadOnlyList<NhAssistantRuleDecision>? invalidations = null, int maxCharacters = MaxRulesSectionCharacters)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantBriefingService.cs",
@@ -16203,7 +16239,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalGuards.cs",
+        "declaration": "public IReadOnlyDictionary<string, string> RenderTexts(Func<CultureInfo, string?>? explain) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalGuards.cs",
         "declaration": "public static string? Pick(string? explanationsJson, CultureInfo culture) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalGuards.cs",
+        "declaration": "public static string? PickFrom(IReadOnlyDictionary<string, string> texts, CultureInfo culture) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
@@ -17227,6 +17271,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public List<NhAssistantRuleProposalNote> RuleProposals { get; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public IReadOnlyList<NhAssistantRuleDecision> RuleRejections { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public IReadOnlyList<NhAssistantRuleDecision> RuleInvalidations { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public IReadOnlyDictionary<string, string>? LocalizedAnswer { get; set; }"
       },
       {
@@ -17339,7 +17395,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public NhAiStaleKind? NotNeededStaleKind { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public string? NotNeededExplanation { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public IReadOnlyDictionary<string, string> NotNeededExplanations { get; init; } ="
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolHistory.cs",

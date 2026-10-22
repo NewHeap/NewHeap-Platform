@@ -603,6 +603,8 @@
           "changed": "Changed by {{user}} on {{date}}.",
           "reason": "Note: {{reason}}",
           "waiting": "{{count}} events wait for the resume.",
+          "stopped-was-off-hint": "It was off when it stopped: releasing the kill switch switches it back off. Resume switches it on.",
+          "stopped-was-on-hint": "It was not off when it stopped: releasing the kill switch makes it work again, as Resume does.",
           "action": {
             "active": "Resume",
             "paused": "Pause",

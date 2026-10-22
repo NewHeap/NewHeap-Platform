@@ -4,7 +4,7 @@ title: "Host the NewHeap assistant panel in an Angular application"
 area: frontend
 reference: ai-assistant-ui
 summary: "Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, let users run several conversations at once, share them and get desktop notifications, route to the lazily loaded administration page behind the admin permission, and test against the scripted mock API instead of a live model."
-sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-295", "SPM-296", "SPM-297", "SPM-298", "SPM-299", "SPM-300", "SPM-301", "SPM-302", "SPM-303", "SPM-304", "SPM-305", "SPM-307", "SPM-310"]
+sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-284", "SPM-295", "SPM-296", "SPM-297", "SPM-298", "SPM-299", "SPM-300", "SPM-301", "SPM-302", "SPM-303", "SPM-304", "SPM-305", "SPM-307", "SPM-310"]
 public-symbols: ["McpCustomAuthMode", "McpBuiltInAuthMode", "McpReader", "McpReaderInput", "getMcpAuthModes", "provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService", "getRequestHeaders", "NhAssistantAgentRunApiService", "NhAssistantAgentInboxComponent", "NhAssistantAgentThreadViewComponent", "NhAssistantAgentProposalsComponent", "NhAssistantRunTimelineComponent", "NhAssistantAgentMemoryComponent", "NhAssistantAgentArtifactsComponent", "NhAssistantAgentConsultationsComponent", "getHubQueryParameters", "NhAssistantApprovalRight", "NhAssistantApprovalChoice", "ConversationThread", "NhAssistantProposalFeedbackComponent", "NhAssistantProposalFeedbackSaved", "NhAssistantAgentFeedbackReportComponent", "NhAssistantFeedbackPeriod", "AgentProposalFeedback", "AgentProposalFeedbackCategory", "AgentProposalFeedbackGroup", "AgentFeedbackOutcome", "AgentFeedbackSummary", "AgentFeedbackSummaryRow", "AgentFeedbackItem", "AgentFeedbackList", "AgentFeedbackFilter", "NH_ASSISTANT_FEEDBACK_CATEGORIES", "NH_ASSISTANT_FEEDBACK_GROUPS", "NH_ASSISTANT_MAX_FEEDBACK_TEXT", "NH_ASSISTANT_MAX_BULK_FEEDBACK", "LiveAgentWorkChanged", "LiveAgentWorkReason", "NhAssistantSubjectBadgeComponent", "NhAssistantSubjectSummaryService", "NhAssistantSubjectSuggestionsComponent", "AgentSubjectWork", "AgentSubjectSummary", "AgentProposalDecisionRight", "NH_ASSISTANT_MAX_SUBJECT_SUMMARY", "NhAssistantAgentRunConfigurationComponent", "RunCatalog", "AgentRunConfiguration", "CodeRunSettings", "CodeTrigger", "ToolCatalogEntry", "DataSkill", "AssistantConfigurationWarning", "DataTrigger", "AgentRunSettings", "NhAssistantError", "toNhAssistantError", "NH_ASSISTANT_SERVER_ERROR_CODES", "NH_ASSISTANT_ERROR_CODES", "AssistantAccount", "ApprovalPolicySummary", "ApproverSummary", "AgentSubjectType", "AgentSubjectSearch", "AgentSubjectSearchResult", "NH_ASSISTANT_SUBJECT_SEARCH", "NhAssistantSubjectLinkBuilder", "NhAssistantSubjectRef", "NhAssistantMockSubjectType", "NhAssistantMockSubject", "NhAssistantMcpConnectionsComponent", "McpConnection", "NH_ASSISTANT_MCP_AUTHORIZATION_WINDOW", "NhAssistantMcpAuthorizationWindow", "NhAssistantMcpPopupAuthorizationWindow", "nhAssistantConnectMcp", "nhAssistantMcpAuthorizationFromFragment", "NhAssistantMockAuthorizationWindow", "McpDiscovery", "McpOrganizationConnection", "NhAssistantConnectionRequiredComponent", "NhAssistantMcpConnectService", "ConnectionRequiredPart", "ConnectionRequiredEvent", "NhAssistantObjectAgentsComponent", "AgentObjectAgents", "AgentObjectAgent", "AgentLatestRun", "NH_ASSISTANT_SYSTEM_SUBJECT_TYPE", "NH_ASSISTANT_SYSTEM_GLOBAL_ID", "NH_ASSISTANT_RESULT_PREVIEW_LENGTH", "NhAssistantMockDivision", "NhAssistantMockRunNow", "AgentProposalOrigin", "NhAssistantMockProposal", "NhAssistantRunResultComponent", "NhAssistantAgentRunHistoryComponent", "AgentRunFilter", "AgentRunHistory", "AgentRunHistoryItem", "AgentRunResult", "NH_ASSISTANT_RUN_RESULT_MAX_LENGTH", "NH_ASSISTANT_RUN_HISTORY_MAX_PAGE", "NhAssistantMockRun", "NhAssistantAgentBoardComponent", "NhAssistantBoardPanel", "AgentBoard", "AgentBoardAgent", "AgentBoardList", "AgentBoardSummary", "AgentBoardWorksOn", "AgentBoardSubjectType", "AgentBoardVisit", "AgentInbox", "AgentInboxFilter", "AgentInboxGroup", "AgentInboxSubjectGroup", "AgentInboxVisit", "AgentProposalParent", "AgentGroup", "AdminAgentGroups", "NhAssistantMockAgentGroup", "NhAssistantMockRunConfigurationPreset", "NhAssistantMockDataSkill", "NhAssistantMockDataTrigger", "LiveAgentWorkWatch", "NhAssistantComposerComponent", "NhAssistantAttachment", "AgentUploads", "FileReference", "FilePart", "NhAssistantUploadEvent", "NH_ASSISTANT_UPLOAD", "NhAssistantUpload", "NhAssistantUploadRequest", "nhAssistantXhrUpload", "NH_ASSISTANT_UPLOAD_HEADER", "NhAssistantMockUpload", "FileLimits", "LowerFileLimits", "NhAssistantMessageEvent", "MessageQueuedEvent", "NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
@@ -313,7 +313,9 @@ the feedback per agent with `nh-assistant-agent-feedback-report` of
 page: rejection rates and categories per tool and agent version, the texts and a JSON
 Lines export through `NhAssistantAdminApiService`. The same page pauses, stops, switches off
 and resumes an agent and each skill (an agent or skill that is off offers "Switch on", which
-replays nothing, and an agent that started off in code says so), puts them in shadow or live or
+replays nothing, and an agent that started off in code says so; a stopped agent says, from
+`offBeforeStop` on `AdminAgent` and `AgentState`, whether releasing the kill switch switches it back
+off or makes it work again, while "Resume" switches it on), puts them in shadow or live or
 lets the code decide again
 (`setAgentShadow`, `setSkillShadow`), and replaces the technical account of an agent that
 answers to one (`setServiceAccount`), each with an optional reason; a thread view marks a
@@ -510,7 +512,8 @@ registers with `AddAgentGroup`. Each agent the person may see gets a tile: what 
 result for the whole application rendered with the assistant's safe Markdown rendering, "New" for what
 arrived since the person's last visit of the board, "Run now" when the server says `canStart` (the
 run-now dialog runs it for the whole application without asking), its open proposals, shown on demand
-in `nh-assistant-agent-inbox` filtered by the agent, and its history with every result on demand. An
+in `nh-assistant-agent-inbox` filtered by the agent and, on a division's board, by that division, and
+its history with every result on demand. An
 agent that works only on objects, or per division on the board of the whole application, shows what it
 works on without a result. Showing the board records the visit (`visitBoard`) once, after it was read,
 so the next visit marks what is new after this one; with live updates the board reloads by itself. It
@@ -693,7 +696,9 @@ uploading state at the composer, show a message's files by name, type and size, 
 without horizontal overflow, and get the server's upload codes from the mock. The preference tests save, validate the 1,000-character limit and show
 failures; the administration tests save context versions and report conflicts,
 create, disable, reset and delete agents after confirmation, put an agent and a skill in
-shadow and back and replace and restore a technical account, never render a stored
+shadow and back and replace and restore a technical account, show for a stopped agent whether
+releasing the kill switch switches it back off or makes it work again (and that the mock API serves
+`offBeforeStop` as the server does), never render a stored
 secret and send it only on replace or clear, ask a user name for `basic`, send a
 `secretReference` instead of a secret and show the server's reference, certificate and
 fallback transport, offer `personal` only for a forwarded token, keep synced MCP tools
@@ -823,7 +828,8 @@ and a Dutch reader. The playground's administration shows earlier runs of the pr
 what each agent works on, render the latest result as safe Markdown, mark what is new, record the
 visit once after reading the board, show no "New" on the next visit, open the whole result, the
 history and run now, show a board that is not available, and keep one column without sideways scrolling
-at 375px and several columns on a wide page; the editor tests save the groups an administrator chooses
+at 375px and several columns on a wide page; the inbox overview tests show that an agent's proposals on
+a division's board ask the inbox for that division and on the board of the whole application for none; the editor tests save the groups an administrator chooses
 and mark those of the code, and the mock API serves groups, memberships, boards and visits with the
 server's validation (`NhAssistantMockScenario.agentGroups`, `NhAssistantMockAgentGroup`). The portal's
 Project management page shows the group's board with the project follow-up against the real back-end,

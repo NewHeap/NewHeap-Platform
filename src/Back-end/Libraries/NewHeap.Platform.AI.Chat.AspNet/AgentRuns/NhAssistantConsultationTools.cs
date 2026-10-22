@@ -399,7 +399,7 @@ internal sealed class NhAssistantConsultationToolHandler(
                 "A consultation needs a person whose rights it uses.");
         }
 
-        var requestPrincipal = RequestPrincipalOf(asker);
+        var requestPrincipal = await RequestPrincipalOfAsync(asker, cancellationToken);
         return await consultations.ConsultAsync(
             new NhAssistantConsultationRequest(
                 options,
@@ -508,14 +508,14 @@ internal sealed class NhAssistantConsultationToolHandler(
 
     /// <summary>
     /// The request principal when it is the asker's own, so authorization uses the live request
-    /// instead of a rebuilt principal.
+    /// instead of a rebuilt principal. The asker is recognized by the platform's actor id of the
+    /// request's person, the id the assistant records as an asker, not by a claim.
     /// </summary>
-    private ClaimsPrincipal? RequestPrincipalOf(string asker)
+    private async Task<ClaimsPrincipal?> RequestPrincipalOfAsync(string asker, CancellationToken cancellationToken)
     {
-        var user = httpContextAccessor.HttpContext?.User;
-        return user?.Identity?.IsAuthenticated == true
-               && string.Equals(user.FindFirstValue(ClaimTypes.NameIdentifier), asker, StringComparison.Ordinal)
-            ? user
+        var httpContext = httpContextAccessor.HttpContext;
+        return httpContext is not null && await NhAiRequestActor.IsAsync(httpContext, asker, services, cancellationToken)
+            ? httpContext.User
             : null;
     }
 

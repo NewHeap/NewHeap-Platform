@@ -603,6 +603,8 @@
           "changed": "Gewijzigd door {{user}} op {{date}}.",
           "reason": "Notitie: {{reason}}",
           "waiting": "{{count}} gebeurtenissen wachten op het hervatten.",
+          "stopped-was-off-hint": "Hij stond uit toen hij stopte: de noodstop opheffen zet hem weer uit. Hervatten zet hem aan.",
+          "stopped-was-on-hint": "Hij stond niet uit toen hij stopte: de noodstop opheffen laat hem weer werken, net als Hervatten.",
           "action": {
             "active": "Hervatten",
             "paused": "Pauzeren",

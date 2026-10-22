@@ -832,6 +832,7 @@ function withState(agent: AdminAgent, state: AgentState): AdminAgent {
     stateChangedBy: state.changedBy,
     stateReason: state.reason,
     waitingInputs: state.waitingInputs,
+    offBeforeStop: state.offBeforeStop,
     skills: state.skills ?? agent.skills,
     shadow: state.shadow ?? agent.shadow,
     serviceAccount: state.serviceAccount === undefined ? agent.serviceAccount : state.serviceAccount

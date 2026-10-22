@@ -489,6 +489,9 @@ end their run with `assistant-skill-off`, and triage and `use_skill` do not offe
 (`SetKillSwitchAsync`, `POST admin/agents/{id}/kill-switch` `{ engaged }`) stops an agent without a
 reason when engaged; releasing it never switches on an agent that was off: one that was off when it
 stopped goes back off, one that is off stays off, and every other agent resumes, a paused one included.
+While an agent is stopped, `NhAssistantAgentState.OffBeforeStop` (`offBeforeStop` on the state and on
+`NhAssistantAdminAgentDto`) says whether releasing switches it back off, and the agents
+administration shows it on a stopped agent; an explicit `ResumeAsync` switches it on either way.
 Skills keep their own states through it. A state change never
 changes the agent's definition or version; editing and resetting never change the state, and
 `isEnabled` in the definition is ignored. An agent disabled in code with `Enabled(false)` reads
@@ -656,7 +659,11 @@ the briefing after its instructions, as data: headless runs (with the run's even
 `Inputs`), people's turns in the thread and consultations; rule handlers read data themselves and
 get none. Return a few `NhAssistantBriefingSection`s with facts and their dates, most important
 first, from the same domain checks the agent's rules use, so rules signal and the model decides;
-a rule run that hands over gives the model its reason as the briefing's first section. Briefings
+a rule run that hands over gives the model its reason as the briefing's first section, with what
+became of each proposal the rules asked for in the run (tool, object, outcome: recorded, superseding
+others, placed, already open, recently rejected, not needed with its kind, refused or not placed) and
+the recent rejections and invalidations of the thread they were given (tool, date, kind), at most 20
+and 10 lines and within the briefing's bound; people's feedback stays in the continuity block. Briefings
 are bounded by `MaxBriefingCharacters` (8,000, at most 32,000) at section boundaries, count
 against the turn's history, and a provider that throws or takes longer than `BriefingTimeout`
 leaves the turn without one. Briefings reach the model provider: include only what every reader of
@@ -891,8 +898,11 @@ to a guard's stages (`AddProposalGuard<TGuard>(selectors, NhAiProposalGuardStage
 NhAiProposalGuardStages.Proposal)`; `All` leaves it out): its `CheckAsync` then also runs when a
 rule (`NhAssistantRuleContext.ProposeAsync`) or the model proposes, before anything is recorded.
 A stale result records no proposal, no approval and no `ApprovalRequested` audit event. Rules get
-`NhAssistantProposeOutcome.NotNeeded` with the guard's reason code as `Code` and its explanation in
-the run's culture as `Explanation`; the model gets `assistant-proposal-not-needed` with `reason`,
+`NhAssistantProposeOutcome.NotNeeded` with the guard's reason code as `Code`, the kind of its result
+as `NotNeededKind` (`NhAiStaleKind.AlreadyDone`, `NotApplicable` or `Changed`), its explanation in
+the run's culture as `Explanation` and in every supported UI culture as `Explanations` (culture name
+to text, the same texts a stale proposal stores), so `Done(culture => ...)` can say in each reader's
+language why nothing was proposed; the model gets `assistant-proposal-not-needed` with `reason`,
 `kind` and `explanation` as its tool result, and the tool call reads `not-executed`. A guard that
 throws at proposal time lets the proposal be recorded; the decision and the execution check again.
 
@@ -955,8 +965,9 @@ whose arguments do not fit, is `Refused`. The rationale is rendered in every sup
 approvers read it as `rationale` on the proposal and its approval part, and it ends the rule's
 message in the thread. Finish with `NhAssistantRuleResult.Done(culture => summary)` so people read the
 run's result in their own language (`Done(summary)` writes it in the run's culture only), or hand an unclear case
-over with `HandOver(reason)`: the same run continues with the model, which reads the reason and the
-proposals already made, and reads `rule-then-model`. `UseModel()` on a trigger sends its runs to the
+over with `HandOver(reason)`: the same run continues with the model, which reads in its briefing the
+reason, what became of each proposal the rules asked for and the recent decisions they saw, and reads
+`rule-then-model`. `UseModel()` on a trigger sends its runs to the
 model. A person's message in the thread and a consultation always reach the model, so keep a model
 profile and instructions that answer questions about the rules' proposals from the thread.
 
@@ -1186,7 +1197,9 @@ an agent's view policy and as one who does not and assert who receives its propo
 sends nothing twice and that stopping the watch ends them, on both providers; finish a rule run with `Done(culture => ...)` and assert that `GET
 runs/{id}`, `GET runs`, `GET admin/agents/{id}/runs`, the agents of the subject and the board read the
 result in an English and a Dutch request and a model's answer as written, on both providers; hand a
-run over and assert `rule-then-model`. Propose the same change
+run over and assert `rule-then-model` and that the model's briefing names what became of each rule
+proposal and the rejections the rules saw; assert `NotNeededKind` and `Explanations` per supported
+culture for a proposal a proposal-time guard found not needed. Propose the same change
 twice from rules and from a model and assert one proposal and the deduplication audit; propose for
 the same objects with other arguments and assert the replacement, `Skip`, `Allow` and that an
 approved proposal stays; reject a proposal and assert that it is refused within the cooldown and
@@ -1215,7 +1228,8 @@ an audit; that a run that started finishes and its proposal stays decidable and 
 follow-up is ignored; that people still chat and start it by hand; that waiting inputs of a pause
 end and switching on starts no run; that a skill that is off ignores its triggers with `skill-off`
 and that rules and triage do not route to it; that releasing the kill switch leaves an agent that
-was off off and its skills in their states, while a paused or stopped agent resumes; and that
+was off off and its skills in their states, while a paused or stopped agent resumes, and that
+`OffBeforeStop` is true only while an agent that was off is stopped; and that
 `StartsOff()` applies only at the first start, also after a new host start and a deploy, on both
 providers. Assert that a skill's classification, or else its agent's, reaches the model call, also
 in a plain chat with the agent, where it moves to the profile's fallback that permits it; that a

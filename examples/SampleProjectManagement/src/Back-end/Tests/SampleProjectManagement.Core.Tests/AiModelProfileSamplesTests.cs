@@ -171,6 +171,57 @@ public sealed class AiModelProfileSamplesTests
     }
 
     [Fact]
+    public async Task An_initiators_own_request_lends_its_rights_by_the_issuer_qualified_actor_id_and_nobody_elses()
+    {
+        // SPM-223: with issuer mappings a person's actor id is no claim. In the initiator's own
+        // request an agent turn still uses the request's principal, recognized by the actor id the
+        // resolver resolves; another person's turn in the same request gets nothing from it.
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddAuthorization(options => options.AddPolicy(
+            "app.project.manage",
+            policy => policy.RequireClaim("operator_subject", "operator-1")));
+        var httpContext = CreatePrincipalContext(
+            "operator_issuer",
+            "https://operators.sample",
+            "operator_subject",
+            "operator-1",
+            "operator_tenant",
+            "operator-tenant",
+            "operator_scope",
+            "console");
+        services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor { HttpContext = httpContext });
+        services.AddNewHeapPlatformAIAspNet(ai => ai.UseAuthenticatedClaims(
+        [
+            new NhAiAspNetIssuerClaimMapping("https://operators.sample", "operator_issuer", "operator_subject", "operator_tenant")
+        ]));
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        httpContext.RequestServices = scope.ServiceProvider;
+        var resolved = await scope.ServiceProvider.GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
+            .ResolveAsync(httpContext, TestContext.Current.CancellationToken);
+        Assert.True(resolved.Success);
+        Assert.StartsWith("oidc:", resolved.Data.ActorId, StringComparison.Ordinal);
+        var gate = scope.ServiceProvider.GetRequiredService<INhAiToolInvocationGate>();
+
+        TaskResult<NhAiInvocationContext> own;
+        using (NhAiAgentInvocationScopes.Begin(RequestTurnOf(resolved.Data.ActorId)))
+        {
+            own = await gate.AuthorizeAsync(StatusTool, TestContext.Current.CancellationToken);
+        }
+        TaskResult<NhAiInvocationContext> someoneElse;
+        using (NhAiAgentInvocationScopes.Begin(RequestTurnOf("oidc:someone-else")))
+        {
+            someoneElse = await gate.AuthorizeAsync(StatusTool, TestContext.Current.CancellationToken);
+        }
+
+        Assert.True(own.Success);
+        Assert.Equal(NhAiGrantSource.Delegated, own.Data.GrantSource);
+        // Without the NewHeap user manager nothing rebuilds the other person's principal.
+        Assert.False(someoneElse.Success);
+    }
+
+    [Fact]
     public async Task Project_agent_uses_only_discovered_tools_within_its_autonomy()
     {
         var divisionId = Guid.NewGuid();
@@ -281,6 +332,40 @@ public sealed class AiModelProfileSamplesTests
         {
             return Task.FromResult<ProjectStatus?>(ProjectStatus.Active);
         }
+    }
+
+    /// <summary>A project tool that agents may use only with a person's rights.</summary>
+    private static readonly NhAiToolDescriptor StatusTool = new(
+        "projects.change-status",
+        1,
+        "Change a project's status.",
+        typeof(string),
+        typeof(string),
+        NhAiToolEffect.Mutation,
+        NhAiToolExposure.Agent,
+        true,
+        ["app.project.manage"]);
+
+    /// <summary>
+    /// A turn of an agent in the request of <paramref name="initiatorActorId"/>, acting with that
+    /// person's rights and without grants of its own.
+    /// </summary>
+    private static NhAiAgentInvocationScope RequestTurnOf(string initiatorActorId)
+    {
+        var subject = new NhAiSubjectInfo(new NhAiSubjectRef("project", "sample"), NhAiSubjectInfo.CreateScopeKey(null, null));
+        return new NhAiAgentInvocationScope(
+            "sample-agent",
+            "assistant-agent:sample-agent",
+            1,
+            subject,
+            "assistant-agent:sample-agent",
+            "run-1",
+            "agent-run")
+        {
+            InitiatorActorId = initiatorActorId,
+            DelegateFromInitiator = true,
+            IsRequestTurn = true
+        };
     }
 
     private static DefaultHttpContext CreatePrincipalContext(

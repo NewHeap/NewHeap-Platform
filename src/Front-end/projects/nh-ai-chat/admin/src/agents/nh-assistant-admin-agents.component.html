@@ -148,6 +148,12 @@
               @if (agent.runState === 'paused') {
                 <p class="muted">{{ 'nh-assistant.admin.agents.state.waiting' | translate: { count: agent.waitingInputs } }}</p>
               }
+              <!-- What releasing the kill switch does: an agent that was off goes back off. Older servers do not say. -->
+              @if (agent.runState === 'stopped' && agent.offBeforeStop !== undefined) {
+                <p class="muted" data-stopped-hint [attr.data-off-before-stop]="agent.offBeforeStop">
+                  {{ (agent.offBeforeStop ? 'nh-assistant.admin.agents.state.stopped-was-off-hint' : 'nh-assistant.admin.agents.state.stopped-was-on-hint') | translate }}
+                </p>
+              }
               @if (agent.runState === 'off') {
                 <p class="muted" data-off-hint>
                   {{ 'nh-assistant.admin.agents.state.off-hint' | translate }}

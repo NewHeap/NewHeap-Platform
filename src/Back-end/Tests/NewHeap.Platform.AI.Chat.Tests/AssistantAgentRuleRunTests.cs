@@ -72,6 +72,8 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         Assert.Equal(new RuleNotice("intake-complete"), payload);
         var proposed = Assert.Single(script.Proposals);
         Assert.Equal(NhAssistantProposeOutcome.Created, proposed.Outcome);
+        Assert.Null(proposed.NotNeededKind);
+        Assert.Empty(proposed.Explanations);
         var context = Assert.Single(script.Contexts);
         Assert.Equal(run.Thread.SubjectId, context.Subject.Subject.Id);
         Assert.Equal("project-created", context.TriggerId);
@@ -232,14 +234,19 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
                 return NhAssistantRuleResult.Done("Checked the project.");
             };
 
-            // The rules learn that the work is done, with the guard's reason and explanation.
+            // The rules learn that the work is done, with the guard's reason, kind and explanation.
             var ruleRun = await StartRunAsync(host, projectId);
             var ruleResult = await RunTurnAsync(host, ruleRun, "Daily round.");
             var proposed = Assert.Single(script.Proposals);
             Assert.Equal(
-                (NhAssistantProposeOutcome.NotNeeded, (Guid?)null, ProjectStatusGuard.ReasonCode, "Already set to Active by Henk."),
-                (proposed.Outcome, proposed.ApprovalId, proposed.Code, proposed.Explanation));
+                (NhAssistantProposeOutcome.NotNeeded, (Guid?)null, ProjectStatusGuard.ReasonCode, (NhAiStaleKind?)NhAiStaleKind.AlreadyDone, "Already set to Active by Henk."),
+                (proposed.Outcome, proposed.ApprovalId, proposed.Code, proposed.NotNeededKind, proposed.Explanation));
             Assert.Equal(0, ruleResult.ProposalCount);
+            // The explanation in every supported UI culture, the run's culture first, for a result in
+            // each reader's language.
+            Assert.Equal(["en", "nl"], proposed.Explanations.Keys);
+            Assert.Equal("Already set to Active by Henk.", proposed.Explanations["en"]);
+            Assert.Equal("Al op Active gezet door Henk.", proposed.Explanations["NL"]);
 
             // The model reads the same as its tool result and continues.
             var modelRun = await StartRunAsync(host, projectId, triggerId: ModelTriggerId);
@@ -416,6 +423,53 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         Assert.True((await DecideAsync(withoutCooldown, script.Proposals.Single().ApprovalId!.Value, approve: false)).Success);
         await RunTurnAsync(withoutCooldown, await StartRunAsync(withoutCooldown, projectId), "Round 2.");
         Assert.Equal(NhAssistantProposeOutcome.Created, script.Proposals.ToArray()[1].Outcome);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_hand_over_tells_the_model_what_became_of_the_rules_proposals_and_which_rejections_they_saw(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        var otherProjectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient().RespondWithText("I looked at the unclear case.");
+        await using var host = await CreateHostAsync(provider, model);
+        var script = Script(host);
+        script.Run = async (context, cancellationToken) =>
+        {
+            script.Proposals.Enqueue(await context.ProposeAsync(ChangeStatusTool, new ProjectStatusInput(projectId, "Active"), null, cancellationToken));
+            return NhAssistantRuleResult.Done("Proposed a status.");
+        };
+        await RunTurnAsync(host, await StartRunAsync(host, projectId), "Round 1.");
+        var rejected = script.Proposals.Single();
+        Assert.True((await DecideAsync(host, rejected.ApprovalId!.Value, approve: false)).Success);
+
+        // The rules propose the rejected change again and another one, then hand the case over.
+        script.Run = async (context, cancellationToken) =>
+        {
+            script.Proposals.Enqueue(await context.ProposeAsync(ChangeStatusTool, new ProjectStatusInput(projectId, "Active"), null, cancellationToken));
+            script.Proposals.Enqueue(await context.ProposeAsync(ChangeStatusTool, new ProjectStatusInput(otherProjectId, "OnHold"), null, cancellationToken));
+            return NhAssistantRuleResult.HandOver("The project changed twice in a day.");
+        };
+        var handedOver = await RunTurnAsync(host, await StartRunAsync(host, projectId), "Round 2.");
+
+        Assert.Equal(NhAssistantRunKinds.RuleThenModel, handedOver.Kind);
+        var outcomes = script.Proposals.ToArray();
+        Assert.Equal(NhAssistantProposeOutcome.RecentlyRejected, outcomes[1].Outcome);
+        Assert.Equal(NhAssistantProposeOutcome.Created, outcomes[2].Outcome);
+        var briefing = Assert.Single(
+            Assert.Single(model.Requests).Messages,
+            message => message.Role == ChatRole.System && message.Text.Contains("<subject-briefing>", StringComparison.Ordinal)).Text;
+        var decidedAt = (await FindAsync(host, rejected.ApprovalId!.Value)).DecidedAt!.Value;
+        var day = decidedAt.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        Assert.Contains("They already recorded 1 proposal(s) in this run; do not propose those again.", briefing);
+        Assert.Contains($"- {ChangeStatusTool} on this subject: not recorded; people rejected the same proposal recently ({day}).", briefing);
+        Assert.Contains($"- {ChangeStatusTool} on this subject: recorded; it waits for approval.", briefing);
+        Assert.Contains($"- {day} {ChangeStatusTool}: rejected by people", briefing);
+        // The rules' reason and work come first, before what the application's briefing supplies.
+        Assert.True(
+            briefing.IndexOf("changed twice in a day", StringComparison.Ordinal)
+            < briefing.IndexOf("rejected by people", StringComparison.Ordinal));
     }
 
     [Theory]

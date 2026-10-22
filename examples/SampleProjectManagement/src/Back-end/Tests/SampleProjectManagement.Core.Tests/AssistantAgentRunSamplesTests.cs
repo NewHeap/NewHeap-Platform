@@ -2170,6 +2170,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             // its execution waits: nothing is queued while the closer is stopped.
             var stopped = await ChangeAgentAsync(closer, SampleAgentStateChange.Stop, "Check the closer's proposals");
             Assert.Equal(NhAssistantAgentRunStates.Stopped, stopped.RunState);
+            // It was not off when it stopped: releasing the kill switch would make it work again.
+            Assert.False(stopped.OffBeforeStop);
             Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, firstProposal, "approve")).StatusCode);
             var held = await colleague.GetFromJsonAsync<NhAssistantSubjectProposalDto>($"/api/assistant/approvals/{firstProposal.ApprovalId}", Json);
             Assert.Equal(NhAssistantApprovalStatuses.Approved, held!.Proposal.Status);
@@ -2212,6 +2214,17 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Null(await ThreadOfAsync(admin, project, variant));
         try
         {
+            // The kill switch stops the variant while it is off. Its state says that releasing the
+            // switch puts it back off, and releasing does; only switching on makes it work.
+            var killSwitch = $"/api/assistant/admin/agents/{variant}/kill-switch";
+            using var engaged = await admin.PostAsJsonAsync(killSwitch, new NhAssistantKillSwitchRequest(true), Json);
+            Assert.Equal(HttpStatusCode.OK, engaged.StatusCode);
+            var stoppedWhileOff = await AgentStateAsync(variant);
+            Assert.Equal((NhAssistantAgentRunStates.Stopped, true), (stoppedWhileOff.RunState, stoppedWhileOff.OffBeforeStop));
+            using var released = await admin.PostAsJsonAsync(killSwitch, new NhAssistantKillSwitchRequest(false), Json);
+            Assert.Equal(NhAssistantAgentRunStates.Off, (await released.Content.ReadFromJsonAsync<NhAssistantKillSwitchDto>(Json))!.RunState);
+            Assert.False((await AgentStateAsync(variant)).OffBeforeStop);
+
             // Switched on to evaluate it, the variant starts no run for the event from before.
             var on = await ChangeAgentAsync(variant, SampleAgentStateChange.Resume, "Evaluate the stricter triage");
             Assert.Equal((NhAssistantAgentRunStates.Active, 0), (on.RunState, on.StartedRuns));

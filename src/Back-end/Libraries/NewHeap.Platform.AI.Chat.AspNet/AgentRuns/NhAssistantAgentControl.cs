@@ -239,6 +239,15 @@ public sealed record NhAssistantAgentState(
     /// agent that answers to itself or to the subject's responsible person.
     /// </summary>
     public NhAssistantServiceAccountState? ServiceAccount { get; init; }
+
+    /// <summary>
+    /// <see langword="true"/> while the agent is stopped and was off when it stopped: releasing the
+    /// kill switch (<see cref="INhAssistantAgentControl.SetKillSwitchAsync"/>) switches it back off,
+    /// while an explicit <see cref="INhAssistantAgentControl.ResumeAsync"/> switches it on.
+    /// <see langword="false"/> in every other state, and while stopped when it was not off: then
+    /// releasing the kill switch makes it work again, as resuming does.
+    /// </summary>
+    public bool OffBeforeStop { get; init; }
 }
 
 /// <param name="Shadow">Whether the work goes to shadow threads now. For a skill this includes the
@@ -919,7 +928,9 @@ internal sealed class NhAssistantAgentControl(
                     agent.ServiceAccountChangedAt,
                     agent.ServiceAccountChangedBy,
                     agent.ServiceAccountReason)
-                : null
+                : null,
+            // An agent disabled in code reads configured-off whatever it stored.
+            OffBeforeStop = runState == NhAssistantAgentRunStates.Stopped && agent.OffBeforeStop
         };
     }
 }
