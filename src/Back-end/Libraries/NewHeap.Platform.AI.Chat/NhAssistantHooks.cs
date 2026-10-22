@@ -282,7 +282,15 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.ObjectId"/> are as for <see cref="FileRead"/>, without a hash
     /// when the file was not read.
     /// </summary>
-    FileRefused = 64
+    FileRefused = 64,
+
+    /// <summary>
+    /// An administrator or the application switched the routes of an agent's consultations within
+    /// the ceiling in code. <see cref="NhAssistantAuditEvent.ResultCode"/> lists each route with
+    /// <c>on</c>, <c>off</c> or <c>code</c>, such as
+    /// <c>asker-decides=on;subject-agent-rights=off;subject-asker-rights=code</c>.
+    /// </summary>
+    AdminAgentConsultationRoutesChanged = 65
 }
 
 /// <summary>

@@ -556,6 +556,29 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    public Task AgentConsultationRoutesChangedAsync(
+        string agentId,
+        string actorId,
+        NhAssistantConsultationRouteOverrides routes,
+        CancellationToken cancellationToken)
+    {
+        static string Of(bool? value) => value switch
+        {
+            true => "on",
+            false => "off",
+            _ => "code"
+        };
+
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentConsultationRoutesChanged, Guid.Empty, Guid.Empty, actorId, agentId, 0, DateTimeOffset.UtcNow)
+            {
+                ResultCode = $"{NhAssistantConsultationRoutes.AskerDecides}={Of(routes.AskerDecides)};"
+                    + $"{NhAssistantConsultationRoutes.SubjectAgentRights}={Of(routes.SubjectAgentRights)};"
+                    + $"{NhAssistantConsultationRoutes.SubjectAskerRights}={Of(routes.SubjectAskerRights)}"
+            },
+            cancellationToken);
+    }
+
     public Task AgentServiceAccountChangedAsync(
         string agentId,
         string actorId,

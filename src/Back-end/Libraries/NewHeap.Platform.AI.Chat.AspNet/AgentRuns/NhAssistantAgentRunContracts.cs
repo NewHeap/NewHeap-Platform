@@ -227,9 +227,17 @@ public sealed record NhAssistantProposalDto(
 
     /// <summary>
     /// The consultation that proposed it, when another assistant consulted the agent on behalf of
-    /// <see cref="InitiatorActorId"/>. It executes with that person's rights only.
+    /// <see cref="InitiatorActorId"/>. <see cref="ConsultationRoute"/> says whose rights execute it.
     /// </summary>
     public Guid? ConsultationId { get; init; }
+
+    /// <summary>
+    /// How a consultation's proposal is decided and whose rights execute it: <c>asker-decides</c> (the
+    /// person who asked decides it in their own conversation), <c>subject-asker-rights</c> (the
+    /// subject's approvers; the asker's rights) or <c>subject-agent-rights</c> (the subject's approvers
+    /// other than the asker; the agent's own rights). <see langword="null"/> for a run's proposal.
+    /// </summary>
+    public string? ConsultationRoute { get; init; }
 
     /// <summary>
     /// The caller's own feedback on the proposal, or <see langword="null"/> when they gave none.
@@ -795,7 +803,14 @@ public sealed record NhAssistantConsultationDto(
     long OutputTokens,
     int ProposalCount,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? EndedAt);
+    DateTimeOffset? EndedAt)
+{
+    /// <summary>
+    /// The proposals the consultation left per route: <c>asker-decides</c>, <c>subject-asker-rights</c>
+    /// and <c>subject-agent-rights</c>; routes without proposals are left out.
+    /// </summary>
+    public IReadOnlyDictionary<string, int> ProposalsByRoute { get; init; } = new Dictionary<string, int>();
+}
 
 public sealed record NhAssistantConsultationListDto(
     IReadOnlyList<NhAssistantConsultationDto> Items,
@@ -936,6 +951,7 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantSkillCandidateRequest))]
 [JsonSerializable(typeof(NhAssistantSkillComparisonDto))]
 [JsonSerializable(typeof(NhAssistantServiceAccountRequest))]
+[JsonSerializable(typeof(NhAssistantConsultationRoutesRequest))]
 [JsonSerializable(typeof(NhAssistantStartAgentRequest))]
 [JsonSerializable(typeof(NhAssistantTriggerReceiptDto))]
 [JsonSerializable(typeof(NhAssistantRunDto))]
@@ -1046,6 +1062,7 @@ internal static class NhAssistantAgentRunDtoMapper
             approval.ExecutedAt)
         {
             ConsultationId = approval.ConsultationId,
+            ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource),
             StaleKind = NhAssistantConversationReader.StaleKindOf(approval),
             StaleExplanation = NhAssistantStaleExplanations.Pick(
                 approval.StaleExplanationsJson,

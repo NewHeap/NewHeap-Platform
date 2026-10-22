@@ -490,6 +490,35 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// How many proposals each consultation left per route, derived from their mode and grant source.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, int>>> CountConsultationProposalsByRouteAsync(
+        IReadOnlyCollection<Guid> consultationIds,
+        CancellationToken cancellationToken)
+    {
+        if (consultationIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyDictionary<string, int>>();
+        }
+
+        var ids = consultationIds.Select(id => (Guid?)id).ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        var rows = await context.Approvals
+            .AsNoTracking()
+            .Where(approval => ids.Contains(approval.ConsultationId))
+            .GroupBy(approval => new { approval.ConsultationId, approval.Mode, approval.GrantSource })
+            .Select(group => new { group.Key.ConsultationId, group.Key.Mode, group.Key.GrantSource, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+        return rows
+            .GroupBy(row => row.ConsultationId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyDictionary<string, int>)group
+                    .GroupBy(row => NhAssistantConsultationRoutes.Of(row.ConsultationId, row.Mode, row.GrantSource)!, StringComparer.Ordinal)
+                    .ToDictionary(route => route.Key, route => route.Sum(row => row.Count), StringComparer.Ordinal));
+    }
+
     public async Task<AssistantConsultation?> FindConsultationAsync(Guid consultationId, CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();

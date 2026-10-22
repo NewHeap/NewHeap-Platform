@@ -825,6 +825,13 @@ public static class NhAssistantErrorCodes
     public const string ServiceAccountNotUsed = "assistant-service-account-not-used";
 
     /// <summary>
+    /// A route of the agent's consultations was switched on that no consultation registration in code
+    /// allows, or the agent allows no consultation at all: the administration switches routes only
+    /// within the ceiling in code.
+    /// </summary>
+    public const string ConsultRouteNotAllowed = "assistant-consult-route-not-allowed";
+
+    /// <summary>
     /// No account exists with the id given as the agent's technical account.
     /// </summary>
     public const string ServiceAccountNotFound = "assistant-service-account-not-found";

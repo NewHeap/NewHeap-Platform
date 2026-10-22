@@ -385,6 +385,47 @@ public sealed record NhAssistantApprovalPartDto(
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Guid? SupersededByApprovalId { get; init; }
+
+    /// <summary>
+    /// The consultation that proposed it, when the conversation's assistant consulted another agent
+    /// and the person who asked decides its proposal here (<c>AskerDecides()</c>). Approving executes
+    /// it in this request with the person's own rights. Only written for such proposals.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantApprovalConsultationDto? Consultation { get; init; }
+}
+
+/// <summary>
+/// Where a proposal the person who asked decides in their own conversation comes from.
+/// </summary>
+/// <param name="ConsultationId">The consultation record in the consulted agent's thread.</param>
+/// <param name="AgentId">The consulted agent that proposed it.</param>
+/// <param name="SubjectType">The type of the subject the consultation was about.</param>
+/// <param name="SubjectId">The id of that subject.</param>
+/// <param name="SubjectDisplayName">The subject's name as the consulted agent's thread knows it.</param>
+public sealed record NhAssistantApprovalConsultationDto(
+    Guid ConsultationId,
+    string AgentId,
+    string SubjectType,
+    string SubjectId,
+    string? SubjectDisplayName)
+{
+    /// <summary>
+    /// The route at the subject the person may leave the pending proposal for with the decision
+    /// <c>leave</c>: <c>subject-agent-rights</c> or <c>subject-asker-rights</c>; <see langword="null"/>
+    /// when the person can only approve or reject it.
+    /// </summary>
+    public string? LeaveRoute { get; init; }
+
+    /// <summary>
+    /// The consulted agent's answer, bounded, when the consultation's classification allows a preview.
+    /// </summary>
+    public string? Answer { get; init; }
+
+    /// <summary>
+    /// The proposal that waits at the subject since the person left this one for its approvers.
+    /// </summary>
+    public Guid? MovedToApprovalId { get; init; }
 }
 
 public sealed record NhAssistantCreateConversationRequest(
