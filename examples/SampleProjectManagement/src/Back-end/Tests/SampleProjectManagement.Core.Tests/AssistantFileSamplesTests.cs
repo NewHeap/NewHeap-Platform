@@ -116,6 +116,53 @@ public sealed class AssistantFileSamplesTests(AssistantFileSampleHost host) : IC
     }
 
     [Fact]
+    public async Task SPM_305_the_example_scanner_refuses_the_eicar_test_file_before_the_media_library_stores_it()
+    {
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var conversationId = await host.CreateConversationAsync(owner);
+        // The EICAR test string inside a PDF, assembled here so no source file contains it whole.
+        var infected = Encoding.ASCII.GetBytes(string.Concat(
+            "%PDF-1.4\n% ",
+            "X5O!P%@AP[4\\PZX54(P^)7CC)7}$",
+            "EICAR-STANDARD-",
+            "ANTIVIRUS-TEST-FILE!$H+H*",
+            "\n%%EOF"));
+
+        using var refused = await PostUploadAsync(owner, conversationId, "Infected.pdf", NhAiMediaTypes.Pdf, infected);
+        var clean = await UploadAsync(owner, conversationId, "Project plan.pdf", NhAiMediaTypes.Pdf, ProjectPlanPdf);
+
+        // The scanner refused the file before the media library stored anything, with the assistant's code.
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, refused.StatusCode);
+        var body = await refused.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        using (var document = JsonDocument.Parse(body))
+        {
+            Assert.Equal(NhAssistantErrorCodes.FileScanRefused, document.RootElement.GetProperty("code").GetString());
+        }
+        Assert.DoesNotContain(EicarUploadScanner.MalwareFoundCode, body, StringComparison.Ordinal);
+        // A clean file passes the scanner and is stored in the conversation's folder.
+        var stored = await MediaFileAsync(clean.GetProperty("id").GetString()!);
+        Assert.Equal(ProjectMediaFolders.UploadsOf(conversationId), stored.Folder.FullPath);
+        // The scanner itself: the test string refuses, anything else passes.
+        var scanner = new EicarUploadScanner();
+        await using (var content = new MemoryStream(infected))
+        {
+            var scanned = await scanner.ScanAsync(
+                new NhAssistantFileUpload(conversationId, "Infected.pdf", NhAiMediaTypes.Pdf, infected.Length, content),
+                Person(host.OwnerId, conversationId),
+                TestContext.Current.CancellationToken);
+            Assert.Equal(EicarUploadScanner.MalwareFoundCode, Code(scanned));
+        }
+        await using (var content = new MemoryStream(ProjectPlanPdf))
+        {
+            var scanned = await scanner.ScanAsync(
+                new NhAssistantFileUpload(conversationId, "Project plan.pdf", NhAiMediaTypes.Pdf, ProjectPlanPdf.Length, content),
+                Person(host.OwnerId, conversationId),
+                TestContext.Current.CancellationToken);
+            Assert.True(scanned.Success);
+        }
+    }
+
+    [Fact]
     public async Task SPM_305_word_and_excel_documents_reach_the_model_as_text_through_the_example_reader()
     {
         var model = new RecordingChatClient(new SampleAssistantChatClient());
@@ -367,13 +414,15 @@ public sealed class AssistantFileSamplesTests(AssistantFileSampleHost host) : IC
         Assert.Equal(ProjectAiTools.ChangeStatusToolId, approval.GetProperty("toolId").GetString());
         Assert.Equal("waiting-for-approval", events[^1].Data.GetProperty("status").GetString());
         Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == projectId);
-        // The audit holds the file's id, type, reader and hash; never its text or its name.
+        // The business audit holds the file's id, its normalized name, type, reader and hash; never its
+        // text. The name stays out of the platform audit and the logs.
         var fileId = reference.GetProperty("id").GetString();
         var read = Assert.Single(host.AuditEvents, evt => evt.Kind == NhAssistantAuditEventKind.FileRead && evt.FileId == fileId);
         Assert.Equal(
-            (NhAiMediaTypes.Docx, Sha256(document), OfficeDocumentReader.ReaderId),
-            (read.FileMediaType, read.FileHash, read.FileReaderId));
-        host.AssertContentFree(Injection, "Approval note.docx");
+            (NhAiMediaTypes.Docx, Sha256(document), OfficeDocumentReader.ReaderId, "Approval note.docx"),
+            (read.FileMediaType, read.FileHash, read.FileReaderId, read.FileName));
+        host.AssertContentFree(Injection);
+        host.AssertNotLogged("Approval note.docx");
 
         // The evaluation gate scores the recorded turn: deterministic, versioned and content-free.
         var dataset = new NhAiEvaluationDataset(
@@ -813,6 +862,21 @@ public sealed class AssistantFileSampleHost(SamplePostgreSqlServer postgreSql) :
         foreach (var marker in markers)
         {
             Assert.DoesNotContain(marker, business, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(marker, audit, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(marker, logs, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <summary>
+    /// Asserts that no marker, such as a file's name, which the business audit may carry, reached the
+    /// platform audit or a log message.
+    /// </summary>
+    public void AssertNotLogged(params string[] markers)
+    {
+        var audit = string.Join('\n', Services.GetRequiredService<RecordingAuditSinkStore>().Records);
+        var logs = string.Join('\n', _logs.Messages);
+        foreach (var marker in markers)
+        {
             Assert.DoesNotContain(marker, audit, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(marker, logs, StringComparison.OrdinalIgnoreCase);
         }
