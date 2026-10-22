@@ -301,6 +301,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<bool>("AcceptsFiles")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Accountability")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -388,6 +391,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AcceptsFiles")
+                        .HasColumnType("bit");
 
                     b.Property<string>("AgentId")
                         .IsRequired()

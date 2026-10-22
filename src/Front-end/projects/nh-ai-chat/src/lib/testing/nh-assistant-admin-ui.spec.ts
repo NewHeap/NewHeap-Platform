@@ -647,11 +647,15 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await pick(fixture, form(), 'input[id$="-policy"]', 'review', 'project-review');
     expect(form().textContent).toContain('Approved by an approver of the subject.');
     await pick(fixture, form(), 'input[id$="-rule-handler"]', 'kick', 'project-kickoff');
+    // A new agent accepts no files until the administrator switches them on.
+    expect((form().querySelector('[data-accepts-files] input') as HTMLInputElement).checked).toBeFalse();
+    expect(form().querySelector('[data-accepts-files]')?.textContent).toContain('Accepts files');
+    check(form(), '[data-accepts-files] input');
     button(form(), 'Save').click();
     await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/follower/run-settings').at(-1)).toEqual(jasmine.objectContaining({
       accountability: 'service-account', serviceAccountActorId: 'service-1', ruleHandler: 'project-kickoff',
-      approvalPolicy: 'project-review', dailyToolCalls: 100, dailyTokens: 20000, expectedVersion: null
+      approvalPolicy: 'project-review', dailyToolCalls: 100, dailyTokens: 20000, expectedVersion: null, acceptsFiles: true
     }));
     expect(view().textContent).toContain('The run settings are saved.');
     const summary = view().querySelector('[data-settings-summary]') as HTMLElement;
@@ -686,11 +690,13 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await pick(fixture, skillForm(), 'input[id$="-skill-rules"]', 'kick', 'project-kickoff');
     // The skill reads more sensitive data than the agent: its model calls carry its own classification.
     await pick(fixture, skillForm(), 'input[id$="-skill-classification"]', 'conf', 'Confidential');
+    // The skill reads the documents its agent accepts.
+    check(skillForm(), '[data-accepts-files] input');
     button(skillForm(), 'Save').click();
     await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/follower/skills/kickoff')).toEqual([jasmine.objectContaining({
       description: 'Starts projects that were created as drafts.', tools: ['sample-api.project.*'], ruleHandler: 'project-kickoff',
-      dataClassification: 'confidential', expectedVersion: null
+      dataClassification: 'confidential', acceptsFiles: true, expectedVersion: null
     })]);
     expect(view().querySelector('[data-data-skill="kickoff"]')?.textContent).toContain('Version 1');
 

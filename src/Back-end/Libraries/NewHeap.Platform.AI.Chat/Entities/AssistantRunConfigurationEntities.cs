@@ -42,6 +42,12 @@ public sealed class AssistantAgentSkillDefinition
     public string? DataClassification { get; set; }
 
     /// <summary>
+    /// Whether a run in the skill reads files, when its agent accepts them too. A new skill accepts
+    /// none until an administrator switches it on.
+    /// </summary>
+    public bool AcceptsFiles { get; set; }
+
+    /// <summary>
     /// The name of a rule handler registered with <c>AddRuleHandler</c>.
     /// </summary>
     public string? RuleHandlerName { get; set; }
@@ -174,6 +180,12 @@ public sealed class AssistantAgentRunConfiguration
     /// The name of a rule handler registered with <c>AddRuleHandler</c>.
     /// </summary>
     public string? RuleHandlerName { get; set; }
+
+    /// <summary>
+    /// Whether people's messages and the agent's tools may give it files. An agent accepts none until
+    /// an administrator switches it on.
+    /// </summary>
+    public bool AcceptsFiles { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

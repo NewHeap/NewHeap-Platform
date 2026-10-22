@@ -165,6 +165,19 @@ public sealed class NhAssistantAgentRunOptions
     }
 
     /// <summary>
+    /// The agent's lower file limits once it accepts files; <see langword="null"/> while it accepts
+    /// none, which is where every agent starts. Switch it on with
+    /// <see cref="NhAssistantAgentRunBuilder.AcceptsFiles"/>, or in the administration for an agent
+    /// created there.
+    /// </summary>
+    public NhAssistantFileLimits? FileLimits { get; internal set; }
+
+    /// <summary>
+    /// Whether people's messages and the agent's tools may give it files.
+    /// </summary>
+    public bool AcceptsFiles => FileLimits is not null;
+
+    /// <summary>
     /// The skills of the agent by id; empty for an agent without skills.
     /// </summary>
     public IReadOnlyDictionary<string, NhAssistantSkillOptions> Skills => _skills;
@@ -716,6 +729,23 @@ public sealed class NhAssistantAgentRunBuilder
         }
 
         _options.DataClassification = classification;
+        return this;
+    }
+
+    /// <summary>
+    /// Lets the agent read files: those people attach to their messages and those its tools return.
+    /// An agent accepts no files until it is switched on here or, for an agent created there, in the
+    /// administration, so a deploy never opens a new stream of documents unnoticed. A skill of the
+    /// agent accepts files only when it is switched on too. The application's file source opens every
+    /// file for the actor of the turn; the turn takes the highest classification of its files, agent
+    /// and skill. <paramref name="limits"/> can only lower the application's
+    /// <see cref="NhAssistantLimits"/>; the host refuses to start when a limit is higher.
+    /// </summary>
+    public NhAssistantAgentRunBuilder AcceptsFiles(Action<NhAssistantFileLimits>? limits = null)
+    {
+        var fileLimits = new NhAssistantFileLimits();
+        limits?.Invoke(fileLimits);
+        _options.FileLimits = fileLimits;
         return this;
     }
 

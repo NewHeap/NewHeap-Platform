@@ -15,6 +15,7 @@ public sealed class NhAiModelProfileBuilder
     private readonly List<string> _fallbackProfiles = [];
     private string? _evaluationBaselineId;
     private readonly HashSet<string> _routingTags = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _mediaTypes = new(StringComparer.Ordinal);
 
     internal NhAiModelProfileBuilder(string name)
     {
@@ -146,6 +147,25 @@ public sealed class NhAiModelProfileBuilder
         return this;
     }
 
+    /// <summary>
+    /// Declares the media types of files the model reads itself, such as
+    /// <see cref="NhAiMediaTypes.Pdf"/>, <see cref="NhAiMediaTypes.Png"/> and
+    /// <see cref="NhAiMediaTypes.Jpeg"/>. The assistant gives a file of such a type to the model as
+    /// file content; a profile without the type never receives it. Declare only types the provider
+    /// and model behind the keyed client accept.
+    /// </summary>
+    public NhAiModelProfileBuilder AcceptMediaTypes(params string[] mediaTypes)
+    {
+        ArgumentNullException.ThrowIfNull(mediaTypes);
+        foreach (var mediaType in mediaTypes)
+        {
+            var normalized = NhAiMediaTypes.Normalize(mediaType)
+                ?? throw new ArgumentException("A media type has the form type/subtype, such as application/pdf.", nameof(mediaTypes));
+            _mediaTypes.Add(normalized);
+        }
+        return this;
+    }
+
     internal NhAiModelProfile Build()
     {
         if (_keyedClientKey is null)
@@ -165,7 +185,8 @@ public sealed class NhAiModelProfileBuilder
             _timeout,
             _fallbackProfiles.ToArray(),
             _evaluationBaselineId,
-            _routingTags.ToHashSet(StringComparer.Ordinal));
+            _routingTags.ToHashSet(StringComparer.Ordinal),
+            _mediaTypes.ToHashSet(StringComparer.Ordinal));
     }
 }
 

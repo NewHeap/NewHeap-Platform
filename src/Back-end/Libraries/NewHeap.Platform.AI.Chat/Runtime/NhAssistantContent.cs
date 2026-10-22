@@ -13,7 +13,8 @@ internal sealed record NhAssistantStoredPart(
     Guid? ApprovalId = null,
     string? ServerId = null,
     string? DisplayName = null,
-    string? Reason = null)
+    string? Reason = null,
+    NhAssistantStoredFile? File = null)
 {
     public const string TextType = "text";
     public const string ToolCallType = "tool-call";
@@ -24,6 +25,40 @@ internal sealed record NhAssistantStoredPart(
     /// <see cref="DisplayName"/> and the <see cref="Reason"/> (<see cref="NhAssistantMcpConnectionReasons"/>).
     /// </summary>
     public const string ConnectionRequiredType = "connection-required";
+
+    /// <summary>
+    /// A file of the message: an attachment of a person's message, or in an agent's message a file a
+    /// tool returned (<see cref="InvocationId"/> names the call). <see cref="File"/> is its reference,
+    /// never its content; a later turn opens the file again through the application's file source.
+    /// </summary>
+    public const string FileType = "file";
+}
+
+/// <summary>
+/// The reference of a file in a stored message: the application's id, name, media type, size and
+/// hash, the SHA-256 of what the model read (<c>sha256:&lt;hex&gt;</c>, once read) and how it reached
+/// the turn.
+/// </summary>
+internal sealed record NhAssistantStoredFile(
+    string Id,
+    string Name,
+    string MediaType,
+    long Size,
+    string? Hash,
+    string? Sha256,
+    string Origin,
+    string? ToolId = null)
+{
+    public static NhAssistantStoredFile From(NhAiFileReference reference, string? sha256, string origin, string? toolId = null)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        return new NhAssistantStoredFile(reference.Id, reference.Name, reference.MediaType, reference.Size, reference.Hash, sha256, origin, toolId);
+    }
+
+    public NhAiFileReference ToReference()
+    {
+        return new NhAiFileReference(Id, Name, MediaType, Size, Hash);
+    }
 }
 
 /// <summary>

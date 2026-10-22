@@ -5,7 +5,7 @@ area: backend
 reference: ai-model-profiles
 summary: "Keep provider clients consumer-owned and resolve them through stable NewHeap profiles with explicit capabilities, data policy, budgets, and startup requirements."
 sample-cases: ["SPM-220"]
-public-symbols: ["INhAiModelProfileRegistry", "INhAiModelProfileResolver", "INhAiBudgetManager", "NhAiBudgetRequest", "NhAiBudgetPurposes", "NhAiBudgetReservation", "NhAiInMemoryBudgetManager", "NhAiInMemoryBudgetOptions", "NhAiBuilder", "NhAiDataClassification", "NhAiDeterministicChatClient", "NhAiDeterministicEmbeddingGenerator", "NhAiModelBudget", "NhAiModelCapability", "NhAiModelProfile", "NhAiModelProfileBuilder", "NhAiModelResolutionRequest", "NhAiResolvedChatProfile", "NhAiServiceCollectionExtensions", "NhAiStreamingPolicy"]
+public-symbols: ["INhAiModelProfileRegistry", "INhAiModelProfileResolver", "INhAiBudgetManager", "NhAiBudgetRequest", "NhAiBudgetPurposes", "NhAiBudgetReservation", "NhAiInMemoryBudgetManager", "NhAiInMemoryBudgetOptions", "NhAiBuilder", "NhAiDataClassification", "NhAiDeterministicChatClient", "NhAiDeterministicEmbeddingGenerator", "NhAiModelBudget", "NhAiModelCapability", "NhAiModelProfile", "NhAiModelProfileBuilder", "NhAiModelResolutionRequest", "NhAiResolvedChatProfile", "NhAiServiceCollectionExtensions", "NhAiStreamingPolicy", "AcceptMediaTypes", "AcceptsMediaType"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -18,6 +18,14 @@ lowercase dash-case application profile name to that key. Declare the required
 capabilities, permitted data classifications and execution regions, bounded
 token/call/cost budget, timeout, streaming policy, fallbacks, routing tags, and
 evaluation baseline that match the application's intent.
+
+Declare with `AcceptMediaTypes` which file types the model behind a profile reads itself, such as
+`NhAiMediaTypes.Pdf`, `NhAiMediaTypes.Png` and `NhAiMediaTypes.Jpeg`; `AcceptedMediaTypes` and
+`AcceptsMediaType` compare them lowercase without parameters. The assistant gives a file to the
+model as file content only when the profile that serves the turn declares its type. A governed
+model call takes the classification of the most sensitive file it carries and counts the file's
+estimated tokens against the profile budget, so a fallback that serves confidential files must
+declare the types it reads as well.
 
 Use `RequireProfile` for profiles and capabilities the host must have at
 startup. Resolve a client through `INhAiModelProfileResolver` with an explicit

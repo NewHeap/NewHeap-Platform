@@ -503,6 +503,67 @@ public static class NhAssistantErrorCodes
     /// </summary>
     public const string ClassificationNotPermitted = "assistant-classification-not-permitted";
 
+    /// <summary>
+    /// The application registered no file source (<c>UseFileSource</c>), so turns take no files.
+    /// </summary>
+    public const string FilesUnavailable = "assistant-files-unavailable";
+
+    /// <summary>
+    /// The agent, or the skill the turn works in, does not accept files: it was not switched on with
+    /// <c>AcceptsFiles()</c> in code or in the administration.
+    /// </summary>
+    public const string FilesNotAccepted = "assistant-files-not-accepted";
+
+    /// <summary>
+    /// A tool result or a message names a file with an invalid reference.
+    /// </summary>
+    public const string FileReferenceInvalid = "assistant-file-reference-invalid";
+
+    /// <summary>
+    /// The application's file source does not know the file, or no longer has it.
+    /// </summary>
+    public const string FileNotFound = "assistant-file-not-found";
+
+    /// <summary>
+    /// The actor of the turn may not read the file.
+    /// </summary>
+    public const string FileForbidden = "assistant-file-forbidden";
+
+    /// <summary>
+    /// The application's file source could not open the file for another reason.
+    /// </summary>
+    public const string FileUnavailable = "assistant-file-unavailable";
+
+    /// <summary>
+    /// The file is larger than <see cref="NhAssistantLimits.MaxFileBytes"/> or the lower limit of the
+    /// agent or skill.
+    /// </summary>
+    public const string FileTooLarge = "assistant-file-too-large";
+
+    /// <summary>
+    /// The file has more pages than <see cref="NhAssistantLimits.MaxFilePages"/> or the lower limit of
+    /// the agent or skill.
+    /// </summary>
+    public const string FileTooManyPages = "assistant-file-too-many-pages";
+
+    /// <summary>
+    /// The turn would read more files than <see cref="NhAssistantLimits.MaxFilesPerTurn"/> or the
+    /// lower limit of the agent or skill.
+    /// </summary>
+    public const string FileCountLimit = "assistant-file-count-limit";
+
+    /// <summary>
+    /// The turn's files would exceed <see cref="NhAssistantLimits.MaxFileTokensPerTurn"/>, the lower
+    /// limit of the agent or skill, or the input budget of its model profile.
+    /// </summary>
+    public const string FileTokenLimit = "assistant-file-token-limit";
+
+    /// <summary>
+    /// The model profile that serves the turn does not read files of this media type
+    /// (<c>AcceptMediaTypes</c>). The refusal names the type.
+    /// </summary>
+    public const string FileTypeNotSupported = "assistant-file-type-not-supported";
+
     public const string TurnFailed = "assistant-turn-failed";
     public const string ContextUnavailable = "assistant-context-unavailable";
 

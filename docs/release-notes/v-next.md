@@ -300,3 +300,67 @@ recovered by reconciliation after `StaleAttemptTimeout`.
 | Breaking change | Required action |
 |---|---|
 | A heartbeat skips a beat while its attempt's own write holds the operation lock instead of rescheduling the attempt as contention. | None. |
+
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: files in model turns
+
+A tool can now give the model a file. Its result names the application's files next to its data:
+data that implements the new `INhAiToolResultFiles`, or the new overload
+`NhAiToolResult.Create(result, options, files)`, writes `files` with each `NhAiFileReference` (id,
+name, media type, size and hash), never content; `NhAiToolResult.TryGetFiles` reads them and the
+published result schema lists them. The application registers the new `INhAssistantFileSource`
+with `UseFileSource<T>()`: `OpenAsync` opens a file for the actor of the turn
+(`NhAssistantFileActor`) and returns `NhAssistantFile` with its content, media type, length, page
+count and `NhAiDataClassification`, or refuses it with `assistant-file-not-found` or
+`assistant-file-forbidden`; `StoreUploadAsync` (with `NhAssistantFileUpload`) stores a person's
+upload. Without a source turns take no files (`assistant-files-unavailable`).
+
+- `AcceptMediaTypes(...)` on `NhAiModelProfileBuilder` declares the file types a model reads itself
+  (`NhAiModelProfile.AcceptedMediaTypes`, `AcceptsMediaType`, `NhAiMediaTypes`). A file of a declared
+  type reaches the model as file content in a user message after the tool results, behind a marker
+  that names it as external data and never instructions; another type is refused with
+  `assistant-file-type-not-supported`, which names the type.
+- `NhAssistantLimits` gains `MaxFileBytes` (20 MB), `MaxFilePages` (100), `MaxFilesPerTurn` (5) and
+  `MaxFileTokensPerTurn` (100,000), refused with `assistant-file-too-large`,
+  `assistant-file-too-many-pages`, `assistant-file-count-limit` and `assistant-file-token-limit`.
+- A turn takes the highest classification of its files, agent and skill. `INhAiChatExecutor`
+  classifies a model call as the most sensitive file it carries and counts the files' estimated
+  tokens against the profile budget; a file no profile of the chain may receive is refused with
+  `assistant-classification-not-permitted`.
+- The chat assistant accepts files at once. An agent configured with `ConfigureAgent` and each of its
+  skills accept none until `AcceptsFiles()` (`NhAssistantAgentRunOptions.FileLimits` and
+  `AcceptsFiles`, the same on `NhAssistantSkillOptions`, with `NhAssistantFileLimits` that only lower
+  the application's limits) or the administration switches them on: `acceptsFiles` on
+  `NhAssistantAgentRunSettingsRequest`, `NhAssistantAgentRunSettingsDto`, `NhAssistantDataSkillRequest`
+  and `NhAssistantDataSkillDto`, and shown on `NhAssistantCodeRunSettingsDto` and
+  `NhAssistantCodeSkillDto`. Otherwise `assistant-files-not-accepted`.
+- Messages and tool calls keep references and the SHA-256 of what the model read, never content. A
+  later turn opens the files of the history again with its own actor. The new business audit events
+  `FileRead` and `FileRefused` carry `FileId`, `FileMediaType` and `FileHash`.
+- New error codes `assistant-files-unavailable`, `assistant-files-not-accepted`,
+  `assistant-file-reference-invalid`, `assistant-file-not-found`, `assistant-file-forbidden`,
+  `assistant-file-unavailable`, `assistant-file-too-large`, `assistant-file-too-many-pages`,
+  `assistant-file-count-limit`, `assistant-file-token-limit` and `assistant-file-type-not-supported`,
+  with their HTTP statuses in the shared table.
+
+Apply the `AcceptsFiles` migration of `NewHeap.Platform.AI.Chat.SqlServer` or
+`NewHeap.Platform.AI.Chat.PostgreSql`: it adds the `AcceptsFiles` column, false for existing rows, to
+`AssistantAgentRunConfiguration` and `AssistantAgentSkillDefinition`.
+
+| Breaking change | Required action |
+|---|---|
+| Database schema change. | Apply the `AcceptsFiles` migration. |
+| The published result schema of every governed tool lists the optional `files`. | Update a client or test that compares the result schema's properties exactly. |
+| `NhAssistantAgentRunSettingsRequest` and `NhAssistantDataSkillRequest` have a new optional last parameter, `AcceptsFiles`. | Recompile callers that construct them positionally; send `acceptsFiles` to keep files on when you save. |
+
+## @newheap/platform-ai-chat: accepting files in the administration
+
+The run settings form of an agent created in the administration and the skill form offer "Accepts
+files" (Dutch: "Neemt bestanden aan"), off for a new agent or skill, and send `acceptsFiles`.
+`AgentRunSettings`, `AgentRunSettingsRequest`, `DataSkill` and `DataSkillRequest` gain `acceptsFiles`;
+`CodeRunSettings` and `CodeSkill` show it for agents and skills in code. The mock backend of
+`@newheap/platform-ai-chat/testing` stores it. `NH_ASSISTANT_SERVER_ERROR_CODES` lists the eleven
+file error codes, with English and Dutch texts.
+
+| Breaking change | Required action |
+|---|---|
+| New translation keys `nh-assistant.admin.run-config.files.*` and `nh-assistant.errors.assistant-file*` for the file codes. | Applications with their own translation files add them. |

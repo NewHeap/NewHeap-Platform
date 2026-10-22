@@ -88,6 +88,8 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly profile = signal('');
   /** The skill's data classification; empty uses the agent's. */
   readonly dataClassification = signal('');
+  /** Whether a run in the skill reads files when the agent accepts them too; off for a new skill. */
+  readonly acceptsFiles = signal(false);
   readonly ruleHandler = signal('');
   readonly approvalPolicy = signal('');
   readonly maxTokens = signal('');
@@ -122,6 +124,7 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
     this.tools.set([...(skill?.tools ?? [])]);
     this.profile.set(skill?.profile ?? '');
     this.dataClassification.set(skill?.dataClassification ?? '');
+    this.acceptsFiles.set(skill?.acceptsFiles ?? false);
     this.ruleHandler.set(skill?.ruleHandler ?? '');
     this.approvalPolicy.set(skill?.approvalPolicy ?? '');
     this.maxTokens.set(numberText(skill?.maxTokensPerRun));
@@ -164,6 +167,7 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
       tools: this.tools(),
       profile: blank(this.profile()),
       dataClassification: (blank(this.dataClassification()) as AssistantDataClassification | null),
+      acceptsFiles: this.acceptsFiles(),
       ruleHandler: blank(this.ruleHandler()),
       approvalPolicy: blank(this.approvalPolicy()),
       maxTokensPerRun: toNumber(this.maxTokens()),

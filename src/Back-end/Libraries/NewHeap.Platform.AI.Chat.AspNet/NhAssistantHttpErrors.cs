@@ -82,6 +82,10 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.TurnTimeout,
             NhAssistantErrorCodes.ModelUnavailable,
             NhAssistantErrorCodes.ClassificationNotPermitted,
+            NhAssistantErrorCodes.FileReferenceInvalid,
+            NhAssistantErrorCodes.FileTooManyPages,
+            NhAssistantErrorCodes.FileCountLimit,
+            NhAssistantErrorCodes.FileTokenLimit,
             NhAssistantErrorCodes.TurnFailed,
             NhAssistantErrorCodes.PushSubscriptionInvalid,
             NhAssistantErrorCodes.SubjectInvalid,
@@ -150,6 +154,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.SubjectAccessDenied,
             NhAssistantErrorCodes.ApprovalPolicyDenied,
             NhAssistantErrorCodes.FourEyesRequired,
+            NhAssistantErrorCodes.FileForbidden,
             NhAssistantAdminErrorCodes.Forbidden,
             NhAssistantAdminErrorCodes.McpCredentialMismatch,
             NhAssistantAdminErrorCodes.McpInitiatorOnly);
@@ -172,6 +177,8 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.BoardNotFound,
             NhAssistantErrorCodes.ArtifactNotFound,
             NhAssistantErrorCodes.TriggerNotFound,
+            NhAssistantErrorCodes.FilesUnavailable,
+            NhAssistantErrorCodes.FileNotFound,
             NhAssistantAdminErrorCodes.NotFound,
             NhAssistantAdminErrorCodes.ContextNotFound,
             NhAssistantAdminErrorCodes.McpServerNotFound,
@@ -207,6 +214,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.MemoryConflict,
             NhAssistantErrorCodes.ReplayActive,
             NhAssistantErrorCodes.FeedbackNotAccepted,
+            NhAssistantErrorCodes.FilesNotAccepted,
             NhAssistantTriggerReasons.RateLimited,
             NhAssistantAdminErrorCodes.VersionConflict,
             NhAssistantAdminErrorCodes.AgentExists,
@@ -222,7 +230,10 @@ internal static class NhAssistantHttpErrors
             NhAssistantAdminErrorCodes.McpConnectionNotSupported,
             NhAssistantAdminErrorCodes.McpSecretUnreadable);
         Add(statuses, StatusCodes.Status413PayloadTooLarge,
-            NhAssistantErrorCodes.WebhookPayloadTooLarge);
+            NhAssistantErrorCodes.WebhookPayloadTooLarge,
+            NhAssistantErrorCodes.FileTooLarge);
+        Add(statuses, StatusCodes.Status415UnsupportedMediaType,
+            NhAssistantErrorCodes.FileTypeNotSupported);
         Add(statuses, StatusCodes.Status429TooManyRequests,
             NhAssistantAdminErrorCodes.McpTooManyAuthorizations);
         // Failures of a remote MCP or OAuth server.
@@ -235,6 +246,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantAdminErrorCodes.McpTokenRequestFailed);
         Add(statuses, StatusCodes.Status503ServiceUnavailable,
             NhAssistantErrorCodes.ProposalCheckFailed,
+            NhAssistantErrorCodes.FileUnavailable,
             NhAssistantRunStore.OrphanedRunCode,
             NhAssistantAdminErrorCodes.McpSecretUnavailable);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);

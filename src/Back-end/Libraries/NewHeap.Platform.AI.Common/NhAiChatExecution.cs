@@ -7,6 +7,11 @@ using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI;
 
+/// <summary>
+/// One governed model call. File content the assistant annotated in <see cref="Messages"/> raises
+/// the call's classification to the most sensitive file it carries, and its estimated tokens count
+/// next to <see cref="EstimatedInputTokens"/>, which counts the text.
+/// </summary>
 public sealed record NhAiChatRequest(
     NhAiInvocationContext InvocationContext,
     string ProfileName,
@@ -113,7 +118,7 @@ internal sealed class NhAiChatExecutor(
             try
             {
                 var response = await state.Client.GetResponseAsync(
-                    request.Messages,
+                    state.Messages,
                     request.Options,
                     timeout.Token);
                 var elapsed = Stopwatch.GetElapsedTime(startedAt);
@@ -227,7 +232,7 @@ internal sealed class NhAiChatExecutor(
         var dependencyFailure = false;
         using var timeout = CreateTimeout(request.InvocationContext, state.Profile, cancellationToken);
         var enumerator = state.Client.GetStreamingResponseAsync(
-            request.Messages,
+            state.Messages,
             request.Options,
             timeout.Token).GetAsyncEnumerator(timeout.Token);
         var received = false;
@@ -276,7 +281,7 @@ internal sealed class NhAiChatExecutor(
                     await Task.Delay(RetryDelay(attempt), timeout.Token);
                     attempt++;
                     enumerator = state.Client.GetStreamingResponseAsync(
-                        request.Messages,
+                        state.Messages,
                         request.Options,
                         timeout.Token).GetAsyncEnumerator(timeout.Token);
                     continue;
@@ -361,11 +366,19 @@ internal sealed class NhAiChatExecutor(
         {
             requiredCapabilities |= NhAiModelCapability.Streaming;
         }
+
+        // Files a tool returned reach the model in a user message after the tool results; the call
+        // carries the most sensitive data of its files and counts their tokens.
+        var messages = NhAiModelFiles.MoveToolContent(request.Messages);
+        var classification = NhAiModelFiles.Highest(messages, request.DataClassification);
+        var estimatedInputTokens = (int)Math.Min(
+            int.MaxValue,
+            request.EstimatedInputTokens + NhAiModelFiles.EstimatedTokens(messages));
         var resolution = await modelProfiles.ResolveChatAsync(
             new NhAiModelResolutionRequest(
                 request.ProfileName,
                 requiredCapabilities,
-                request.DataClassification,
+                classification,
                 request.InvocationContext.Purpose,
                 request.ExecutionRegion),
             cancellationToken);
@@ -374,7 +387,7 @@ internal sealed class NhAiChatExecutor(
             return TaskResult<PreparedChat>.Failed(resolution);
         }
         var profile = resolution.Data.Profile;
-        if (request.EstimatedInputTokens > profile.Budget.MaxInputTokens
+        if (estimatedInputTokens > profile.Budget.MaxInputTokens
             || request.RequestedOutputTokens > profile.Budget.MaxOutputTokens
             || profile.Budget.MaxCalls < 1
             || (request.EstimatedCost is { } cost
@@ -387,7 +400,7 @@ internal sealed class NhAiChatExecutor(
         }
         if (request.InvocationContext.RemainingBudget is { } remaining)
         {
-            if (request.EstimatedInputTokens > remaining.MaxInputTokens
+            if (estimatedInputTokens > remaining.MaxInputTokens
                 || request.RequestedOutputTokens > remaining.MaxOutputTokens
                 || remaining.MaxCalls < 1
                 || (request.EstimatedCost is { } remainingCost
@@ -405,7 +418,7 @@ internal sealed class NhAiChatExecutor(
                 request.InvocationContext.InvocationId,
                 profile.Name,
                 1,
-                request.EstimatedInputTokens,
+                estimatedInputTokens,
                 request.RequestedOutputTokens,
                 request.EstimatedCost)
             {
@@ -424,7 +437,8 @@ internal sealed class NhAiChatExecutor(
         return TaskResult<PreparedChat>.Succeeded(new PreparedChat(
             profile,
             resolution.Data.Client,
-            resolution.Data.DecisionTrace));
+            resolution.Data.DecisionTrace,
+            messages));
     }
 
     private async ValueTask RecordCompletionAsync(
@@ -619,5 +633,6 @@ internal sealed class NhAiChatExecutor(
     private sealed record PreparedChat(
         NhAiModelProfile Profile,
         IChatClient Client,
-        IReadOnlyList<string> DecisionTrace);
+        IReadOnlyList<string> DecisionTrace,
+        IReadOnlyList<ChatMessage> Messages);
 }

@@ -390,6 +390,11 @@ public sealed record NhAssistantCodeRunSettingsDto(
     /// it. Its state now is in the agent's state.
     /// </summary>
     public bool StartsOff { get; init; }
+
+    /// <summary>
+    /// The agent accepts files in code (<c>AcceptsFiles()</c>).
+    /// </summary>
+    public bool AcceptsFiles { get; init; }
 }
 
 /// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or
@@ -417,7 +422,13 @@ public sealed record NhAssistantAgentRunSettingsDto(
     string ChangedBy,
     string? Reason,
     bool InEffect,
-    string? Problem);
+    string? Problem)
+{
+    /// <summary>
+    /// Whether people's messages and the agent's tools may give it files.
+    /// </summary>
+    public bool AcceptsFiles { get; init; }
+}
 
 /// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or <c>service-account</c>.
 /// The agent acts with the rights of the person or technical account it answers to; one that answers
@@ -443,6 +454,8 @@ public sealed record NhAssistantAgentRunSettingsDto(
 /// <param name="ExpectedVersion">The settings' current version; <see langword="null"/> for new
 /// settings.</param>
 /// <param name="Reason">At most 500 characters.</param>
+/// <param name="AcceptsFiles">People's messages and the agent's tools may give it files, within the
+/// application's limits; <see langword="false"/> (default) refuses them.</param>
 public sealed record NhAssistantAgentRunSettingsRequest(
     string? Accountability,
     string? ServiceAccountActorId = null,
@@ -459,7 +472,8 @@ public sealed record NhAssistantAgentRunSettingsRequest(
     string? TriageProfile = null,
     string? RuleHandler = null,
     int? ExpectedVersion = null,
-    string? Reason = null);
+    string? Reason = null,
+    bool AcceptsFiles = false);
 
 public sealed record NhAssistantCodeSkillDto(string SkillId, string Description)
 {
@@ -468,6 +482,11 @@ public sealed record NhAssistantCodeSkillDto(string SkillId, string Description)
     /// it. Its state now is in the skill's state.
     /// </summary>
     public bool StartsOff { get; init; }
+
+    /// <summary>
+    /// The skill accepts files in code (<c>AcceptsFiles()</c>).
+    /// </summary>
+    public bool AcceptsFiles { get; init; }
 }
 
 /// <param name="Source"><c>event</c>, <c>schedule</c> or <c>webhook</c>.</param>
@@ -514,6 +533,11 @@ public sealed record NhAssistantDataSkillDto(
     /// <see cref="NhAssistantDataClassificationNames"/>; <see langword="null"/> uses the agent's.
     /// </summary>
     public string? DataClassification { get; init; }
+
+    /// <summary>
+    /// Whether a run in the skill reads files, when its agent accepts them too.
+    /// </summary>
+    public bool AcceptsFiles { get; init; }
 }
 
 /// <param name="Version">The candidate version the change is for.</param>
@@ -600,6 +624,8 @@ public sealed record NhAssistantDataTriggerDto(
 /// <param name="DataClassification">The classification of the data the skill's model calls carry:
 /// <c>public</c>, <c>internal</c>, <c>confidential</c> or <c>restricted</c>; <see langword="null"/> uses
 /// the agent's. The model profile of its runs must permit it, or its model calls are refused.</param>
+/// <param name="AcceptsFiles">A run in the skill reads files, when its agent accepts them too;
+/// <see langword="false"/> (default) refuses them.</param>
 public sealed record NhAssistantDataSkillRequest(
     string? Description,
     string? Instructions = null,
@@ -614,7 +640,8 @@ public sealed record NhAssistantDataSkillRequest(
     string? Reason = null,
     string? Apply = null,
     bool StartsOff = false,
-    string? DataClassification = null);
+    string? DataClassification = null,
+    bool AcceptsFiles = false);
 
 /// <summary>
 /// How a change of a data skill takes effect.
@@ -820,7 +847,7 @@ internal sealed class NhAssistantAgentConfiguration(
             code is null
                 ? []
                 : code.Skills.Values
-                    .Select(skill => new NhAssistantCodeSkillDto(skill.Id, skill.Description) { StartsOff = skill.StartsOff })
+                    .Select(skill => new NhAssistantCodeSkillDto(skill.Id, skill.Description) { StartsOff = skill.StartsOff, AcceptsFiles = skill.AcceptsFiles })
                     .ToArray(),
             skills,
             registration.CodeTriggers.Values
@@ -848,7 +875,8 @@ internal sealed class NhAssistantAgentConfiguration(
             code.ApprovalPolicyId,
             code.RuleHandlerType is not null)
         {
-            StartsOff = code.StartsOff
+            StartsOff = code.StartsOff,
+            AcceptsFiles = code.AcceptsFiles
         };
     }
 
@@ -919,6 +947,7 @@ internal sealed class NhAssistantAgentConfiguration(
             MaxTokensPerRun = request.MaxTokensPerRun,
             TriageProfileName = Blank(request.TriageProfile),
             RuleHandlerName = Blank(request.RuleHandler),
+            AcceptsFiles = request.AcceptsFiles,
             UpdatedAt = DateTimeOffset.UtcNow,
             UpdatedBy = actorId,
             Reason = reason
@@ -1063,6 +1092,7 @@ internal sealed class NhAssistantAgentConfiguration(
             ToolSelectorsJson = JsonSerializer.Serialize(tools),
             ProfileName = Blank(request.Profile),
             DataClassification = Blank(request.DataClassification),
+            AcceptsFiles = request.AcceptsFiles,
             RuleHandlerName = Blank(request.RuleHandler),
             MaxTokensPerRun = request.MaxTokensPerRun,
             DailyToolCalls = request.DailyToolCalls,
@@ -1599,7 +1629,10 @@ internal sealed class NhAssistantAgentConfiguration(
             item.UpdatedBy,
             item.Reason,
             problem is null,
-            problem);
+            problem)
+        {
+            AcceptsFiles = item.AcceptsFiles
+        };
     }
 
     private static NhAssistantDataSkillDto ToDto(
@@ -1629,7 +1662,8 @@ internal sealed class NhAssistantAgentConfiguration(
             problem is null,
             problem)
         {
-            DataClassification = item.DataClassification
+            DataClassification = item.DataClassification,
+            AcceptsFiles = item.AcceptsFiles
         };
     }
 

@@ -630,6 +630,21 @@ public sealed class NhAssistantBuilder
         return this;
     }
 
+    /// <summary>
+    /// Lets turns read the application's files: a tool result that names files and, in a chat, a
+    /// message with attachments. The source opens each file for the actor of the turn, so file
+    /// access follows the application's authorization, and reports its classification. Without it
+    /// turns take no files. The chat assistant accepts files at once; an agent configured with
+    /// <see cref="ConfigureAgent"/> and its skills accept them only after <c>AcceptsFiles()</c> or the
+    /// switch in the administration. <see cref="NhAssistantLimits"/> bounds every file and turn.
+    /// </summary>
+    public NhAssistantBuilder UseFileSource<TSource>()
+        where TSource : class, INhAssistantFileSource
+    {
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantFileSource, TSource>());
+        return this;
+    }
+
     private static void ValidateTriggerId(string triggerId)
     {
         if (!NhAiSubjectRef.IsValidType(triggerId))
@@ -1088,8 +1103,11 @@ internal sealed class NhAssistantRegistrationState
                     $"Agent '{agentId}' allows consultation about '{consultation.SubjectType}', which it does not work on. Add the type to WorksOn.");
             }
 
+            // WithLimits may run after ConfigureAgent: agent and skill file limits are checked now.
+            options.FileLimits?.Validate(Limits, $"agent '{agentId}'");
             foreach (var skill in options.Skills.Values)
             {
+                skill.FileLimits?.Validate(Limits, $"skill '{skill.Id}' of agent '{agentId}'");
                 if (skill.ApprovalPolicyId is { } skillPolicy)
                 {
                     ValidatePolicyReference(skillPolicy, $"skill '{skill.Id}' of agent '{agentId}'");

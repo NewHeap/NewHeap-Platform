@@ -123,6 +123,13 @@
         <p class="field-error" [id]="id + '-skill-classification-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('dataClassification')?.params }}</p>
       }
     </div>
+    <label class="check" data-accepts-files>
+      <input type="checkbox" [checked]="acceptsFiles()" (change)="acceptsFiles.set(checked($event))" />
+      <span>
+        {{ 'nh-assistant.admin.run-config.files.label' | translate }}
+        <span class="muted block">{{ 'nh-assistant.admin.run-config.files.skill-hint' | translate }}</span>
+      </span>
+    </label>
   </fieldset>
 
   <fieldset class="group">

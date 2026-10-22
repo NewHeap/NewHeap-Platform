@@ -224,6 +224,34 @@ public sealed class NhAssistantLimits
     /// </summary>
     public TimeSpan BoardVisitRetention { get; set; } = TimeSpan.FromDays(180);
 
+    /// <summary>
+    /// The largest file a turn reads, in bytes: 20 MB by default, at most 100 MB. A larger file is
+    /// refused with <see cref="NhAssistantErrorCodes.FileTooLarge"/>. An agent or skill can lower it.
+    /// </summary>
+    public int MaxFileBytes { get; set; } = 20 * 1024 * 1024;
+
+    /// <summary>
+    /// The most pages of a file whose page count the application reports: 100 by default, at most
+    /// 10,000. A longer file is refused with <see cref="NhAssistantErrorCodes.FileTooManyPages"/>.
+    /// </summary>
+    public int MaxFilePages { get; set; } = 100;
+
+    /// <summary>
+    /// The most files one turn reads, from attachments and tool results together: 5 by default, at most
+    /// 50. Files beyond it are refused with <see cref="NhAssistantErrorCodes.FileCountLimit"/>. Files a
+    /// turn opens again from earlier turns are bounded by it separately.
+    /// </summary>
+    public int MaxFilesPerTurn { get; set; } = 5;
+
+    /// <summary>
+    /// The most estimated tokens of the files of one turn: 100,000 by default, from 1,000 to
+    /// 2,000,000. A file counts 1,000 tokens per page, an image one page, and a file without a page
+    /// count one page per started 100 KB. A file beyond it is refused with
+    /// <see cref="NhAssistantErrorCodes.FileTokenLimit"/>. Files a turn opens again from earlier turns
+    /// are bounded by it separately.
+    /// </summary>
+    public int MaxFileTokensPerTurn { get; set; } = 100_000;
+
     internal void Validate()
     {
         if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
@@ -262,7 +290,11 @@ public sealed class NhAssistantLimits
             || RetrievalTimeout <= TimeSpan.Zero
             || RetrievalTimeout > TimeSpan.FromSeconds(30)
             || BoardVisitRetention < TimeSpan.FromDays(1)
-            || BoardVisitRetention > TimeSpan.FromDays(3_650))
+            || BoardVisitRetention > TimeSpan.FromDays(3_650)
+            || MaxFileBytes is < 1 or > 100 * 1024 * 1024
+            || MaxFilePages is < 1 or > 10_000
+            || MaxFilesPerTurn is < 1 or > 50
+            || MaxFileTokensPerTurn is < 1_000 or > 2_000_000)
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }

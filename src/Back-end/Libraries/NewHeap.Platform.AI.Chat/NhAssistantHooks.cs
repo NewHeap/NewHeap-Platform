@@ -261,7 +261,24 @@ public enum NhAssistantAuditEventKind
     /// <c>SkillId</c>: its triggers are ignored until it is switched on. <c>ResultCode</c> is
     /// <c>off</c>; switching it on again is <see cref="AdminAgentRunsResumed"/>.
     /// </summary>
-    AdminAgentSwitchedOff = 62
+    AdminAgentSwitchedOff = 62,
+
+    /// <summary>
+    /// A turn gave a file to the model. <see cref="NhAssistantAuditEvent.FileId"/>,
+    /// <see cref="NhAssistantAuditEvent.FileMediaType"/> and <see cref="NhAssistantAuditEvent.FileHash"/>
+    /// name it, <see cref="NhAssistantAuditEvent.ObjectId"/> is how it reached the turn (one of
+    /// <see cref="NhAssistantFileOrigins"/>) and, for a tool result, <c>ToolId</c> and
+    /// <c>InvocationId</c> name the call. Never its content.
+    /// </summary>
+    FileRead = 63,
+
+    /// <summary>
+    /// A turn did not give a file to the model. <see cref="NhAssistantAuditEvent.ResultCode"/> is the
+    /// refusal, such as <see cref="NhAssistantErrorCodes.FileForbidden"/>; the file fields and
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> are as for <see cref="FileRead"/>, without a hash
+    /// when the file was not read.
+    /// </summary>
+    FileRefused = 64
 }
 
 /// <summary>
@@ -419,6 +436,19 @@ public sealed record NhAssistantAuditEvent(
     /// personal connection or a forwarded sign-in, or <c>none</c>. Null for other tools.
     /// </summary>
     public string? McpConnectionOwner { get; init; }
+
+    /// <summary>
+    /// The application's id of the file a <see cref="NhAssistantAuditEventKind.FileRead"/> or
+    /// <see cref="NhAssistantAuditEventKind.FileRefused"/> event concerns.
+    /// </summary>
+    public string? FileId { get; init; }
+
+    public string? FileMediaType { get; init; }
+
+    /// <summary>
+    /// The SHA-256 of the content the model received, <c>sha256:&lt;hex&gt;</c>.
+    /// </summary>
+    public string? FileHash { get; init; }
 }
 
 /// <summary>

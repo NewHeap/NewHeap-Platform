@@ -173,6 +173,31 @@ internal sealed class NhAssistantTurnState
     public bool ClassificationNotPermitted { get; set; }
 
     /// <summary>
+    /// The files this turn gave the model, from attachments and tool results; the turn's file limits
+    /// bound them.
+    /// </summary>
+    public List<NhAssistantTurnFile> Files { get; } = [];
+
+    /// <summary>
+    /// The files of earlier turns this turn opened again; the same limits bound them on their own.
+    /// </summary>
+    public List<NhAssistantTurnFile> EarlierFiles { get; } = [];
+
+    /// <summary>
+    /// Whether the model of this turn reads files.
+    /// </summary>
+    public bool HasFiles => Files.Count > 0 || EarlierFiles.Count > 0;
+
+    /// <summary>
+    /// The highest classification of the files the model of this turn reads;
+    /// <see cref="NhAiDataClassification.Public"/> without files.
+    /// </summary>
+    public NhAiDataClassification FileClassification => Files.Concat(EarlierFiles)
+        .Select(file => file.Classification)
+        .DefaultIfEmpty(NhAiDataClassification.Public)
+        .Max();
+
+    /// <summary>
     /// Set after a rejected approval and before the closing answer after a tool limit: the model may
     /// give one closing message but call no more tools.
     /// </summary>
@@ -306,7 +331,8 @@ internal sealed class NhAssistantToolCallInterceptor(
     NhAssistantStaleExplanations? texts = null,
     NhAssistantProposalPlacement? placements = null,
     Live.NhAssistantAgentWorkUpdates? workUpdates = null,
-    TimeProvider? applicationClock = null)
+    TimeProvider? applicationClock = null,
+    NhAssistantTurnFiles? turnFiles = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
     public const string ProposalRecordedCode = "assistant-proposal-recorded";
@@ -497,7 +523,8 @@ internal sealed class NhAssistantToolCallInterceptor(
             }
         }
 
-        await CompleteToolCallAsync(row, execution, cancellationToken);
+        var withFiles = await WithFilesAsync(descriptor, row, execution, cancellationToken);
+        await CompleteToolCallAsync(row, withFiles.Execution, cancellationToken);
         if (state.RequestedSkill is not null)
         {
             // use_skill: the loop ends here and the turn continues in the chosen skill.
@@ -509,7 +536,52 @@ internal sealed class NhAssistantToolCallInterceptor(
             state.ToolBudgetExhausted = true;
             context.Terminate = true;
         }
-        return execution.Result;
+        return withFiles.ModelResult;
+    }
+
+    /// <summary>
+    /// Opens the files a successful tool result names, through the application's file source with the
+    /// actor of the turn, so a tool can never hand the model a file that actor may not read. The
+    /// result then names, per file, whether the model received it or why not; the thread and the
+    /// audit keep references and hashes only. Files the model receives follow the tool results of the
+    /// round as untrusted external data (<see cref="NhAiToolResultWithContent"/>).
+    /// </summary>
+    internal async Task<(NhAssistantToolExecution Execution, object? ModelResult)> WithFilesAsync(
+        NhAiToolDescriptor descriptor,
+        AssistantToolInvocation row,
+        NhAssistantToolExecution execution,
+        CancellationToken cancellationToken)
+    {
+        if (turnFiles is null
+            || state.RuleTurn
+            || execution.Outcome.Kind != NhAssistantToolOutcomeKind.Succeeded
+            || execution.Result is not JsonElement { ValueKind: JsonValueKind.Object } result
+            || !result.TryGetProperty(NhAiToolResult.FilesPropertyName, out _))
+        {
+            return (execution, execution.Result);
+        }
+
+        var valid = NhAiToolResult.TryGetFiles(result, out var references);
+        var outcomes = valid
+            ? await turnFiles.OpenAsync(state, references, NhAssistantFileOrigins.ToolResult, descriptor.Id, cancellationToken)
+            : [];
+        var described = NhAssistantTurnFiles.DescribeInResult(result, outcomes, !valid);
+        foreach (var outcome in outcomes)
+        {
+            if (outcome.File is { } file)
+            {
+                state.AddPart(new NhAssistantStoredPart(
+                    NhAssistantStoredPart.FileType,
+                    InvocationId: row.Id,
+                    File: NhAssistantStoredFile.From(outcome.Reference, file.Sha256, NhAssistantFileOrigins.ToolResult, descriptor.Id)));
+            }
+            await RecordBusinessEventAsync(NhAssistantTurnFiles.AuditEventOf(state, outcome, row.Id), cancellationToken);
+        }
+
+        var contents = outcomes.SelectMany(outcome => outcome.Contents).ToArray();
+        return (
+            execution with { Result = described },
+            contents.Length > 0 ? new NhAiToolResultWithContent(described, contents) : described);
     }
 
     /// <summary>

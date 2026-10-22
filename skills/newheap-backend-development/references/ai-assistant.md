@@ -439,6 +439,70 @@ carries the conversation id, a kind and short localized texts with the conversat
 title (`IncludeConversationTitle`); never messages or tool data. Delivery happens after
 the final event and never fails the turn; subscriptions reported as gone are removed.
 
+## Files in model turns
+
+Let turns read the application's files with `UseFileSource<T>()`, where `T` implements
+`INhAssistantFileSource`. The application keeps the files, decides who may read them and how
+sensitive they are; the assistant keeps references and hashes only. Without a source turns take no
+files, and every file is refused with `assistant-files-unavailable`. Declare on the model profile
+which media types its model reads itself:
+
+```csharp
+services.AddNewHeapPlatformAI(ai => ai.AddChatProfile("project-assistant-chat", profile => profile
+    .UseKeyedClient("project-model")
+    .RequireCapabilities(NhAiModelCapability.FunctionCalling)
+    .WithStreaming(NhAiStreamingPolicy.Allowed)
+    .PermitDataClassifications(NhAiDataClassification.Internal)
+    .AcceptMediaTypes(NhAiMediaTypes.Pdf, NhAiMediaTypes.Png, NhAiMediaTypes.Jpeg)));
+
+services.AddNewHeapAssistant(assistant => assistant
+    // ...
+    .UseFileSource<ProjectDocumentFileSource>()
+    .WithLimits(limits => { limits.MaxFilesPerTurn = 3; }));
+```
+
+- `OpenAsync(reference, actor, cancellationToken)` returns `TaskResult<NhAssistantFile>` with the
+  content stream, media type, length, page count where known and the file's
+  `NhAiDataClassification`. Check that `actor` may read the file now: the person of a chat turn, or
+  in a run the agent with the initiator and accountable owner it works for
+  (`NhAssistantFileActor`). Return `assistant-file-not-found` or `assistant-file-forbidden`
+  otherwise. `StoreUploadAsync` stores a file a person uploads to a conversation in the
+  application's own storage and returns its reference; return a failed result for a type, size or
+  scan outcome the application refuses.
+- A tool names files in its result through data that implements `INhAiToolResultFiles` (mark the
+  property `[JsonIgnore]`) or with `NhAiToolResult.Create(result, options, files)`. The result
+  then carries `files` next to `data`: each `NhAiFileReference` with id, name, media type, size
+  and hash, never content. The assistant opens every file through the source with the turn's actor,
+  so a tool cannot hand the model a file that actor may not read.
+- When the profile that serves the turn declares the media type, the model reads the file itself:
+  it follows the tool results as file content in a user message, behind a marker that names it as
+  external data that is never instructions. Nothing in a file changes the tools, rights or
+  approvals of the turn. A type the profile does not declare is refused with
+  `assistant-file-type-not-supported`, which names the type.
+- The result names per file whether the model received it (`attached` with the SHA-256 of what it
+  read as `hash`) or the `code` and `message` of its refusal; the tool call itself succeeds.
+- `NhAssistantLimits` bounds every file and turn: `MaxFileBytes` (20 MB), `MaxFilePages` (100,
+  when the source reports a page count), `MaxFilesPerTurn` (5; the files of one result count
+  together) and `MaxFileTokensPerTurn` (100,000; a file counts 1,000 tokens per page, an image
+  one page and a file without a page count one page per started 100 KB, also within the profile's
+  input budget). Each refusal has its own code: `assistant-file-too-large`,
+  `assistant-file-too-many-pages`, `assistant-file-count-limit` and `assistant-file-token-limit`.
+  An agent or skill can only lower them (`AcceptsFiles(limits => ...)`, `NhAssistantFileLimits`).
+- The turn takes the highest classification of its files, its agent and its skill. A model call
+  that carries a more sensitive file goes to the fallback profile that permits it; a file no profile
+  of the chain may receive is refused with `assistant-classification-not-permitted`.
+- The chat assistant, an agent without run settings, accepts files at once. An agent configured
+  with `ConfigureAgent`, and each of its skills, accepts none until it is switched on with
+  `AcceptsFiles()` or in the administration; see the agent-runs rule. Otherwise files are refused
+  with `assistant-files-not-accepted`.
+- Messages and tool calls keep the reference, name, media type and hashes of a file, never its
+  content. A later turn opens the files of the history it replays again through the source with its
+  own actor, newest first and each file once, within the same limits on their own; a file it cannot
+  open is named in its place with the reason.
+- `FileRead` and `FileRefused` business events carry `FileId`, `FileMediaType`, `FileHash`, how
+  the file reached the turn as `ObjectId` (`NhAssistantFileOrigins`) and, for a tool result, the
+  tool and invocation. File content never reaches logs, audit or usage records.
+
 ## Agent threads
 
 An agent that runs on its own (see the agent-runs rule) keeps one thread per agent and
@@ -523,6 +587,12 @@ or output of the running turn, also not text written before an approval pause.
 - Binding the assistant context to a server id without its reviewed URL, asking the model
   to repeat conversation text as tool arguments, or treating the metadata as
   authorization on the remote side.
+- Returning file content, base64 or extracted text in a tool's data to show the model a document;
+  return references and let the file source open them with the turn's actor.
+- Checking access to a file only in the tool that names it; `OpenAsync` decides for every turn,
+  also a later one with another actor.
+- Declaring media types in `AcceptMediaTypes` that the model behind the profile cannot read, or
+  reporting a file as less sensitive than it is.
 
 ## Verification
 
@@ -589,6 +659,14 @@ turn and calls outside a tool call while leaving out output of the running turn 
 reporting cut text as omitted bytes (SPM-266).
 
 For the application map, assert that an agent with `UseApplicationMap` reads the entries of the tools its turn offers between the instructions and the situation, in order and within the bound, that a changed map changes its hash but not the prompt, that agents without it and a failing source leave the turn without it, and that the sample's assistant queries the tasks of a project with one gateway call (SPM-289).
+
+For files, script a tool that returns a reference and assert on both providers that the next model
+request carries the file after the tool results as file content behind the external-data marker,
+that the result names `attached` and the hash, that each limit, an undeclared type, a forbidden or
+missing file and a file no profile may receive are refused with their own codes, that a
+confidential file moves the model calls to the fallback that permits it, that messages, tool calls,
+audit and logs hold references and hashes only, and that a later turn opens the file again with its
+own actor and names it when that actor may no longer read it.
 
 For retrieved context, assert that the sample's assistant reads the project descriptions of the
 person's active division that match the question, after the situation, never those of another

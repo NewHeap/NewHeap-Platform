@@ -71,6 +71,52 @@ public sealed class NhAiChatExecutionTests
     }
 
     [Fact]
+    public async Task A_model_call_carries_the_classification_and_the_tokens_of_its_files()
+    {
+        var client = new NhAiDeterministicChatClient("read");
+        var services = CreateServices(client, new NhAiCapturedUsageSink());
+        services.AddNewHeapPlatformAI(ai => ai.AddChatProfile("document-reader", profile => profile
+            .UseKeyedClient("project-model")
+            .AcceptMediaTypes("Application/PDF; charset=binary", NhAiMediaTypes.Png)));
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var executor = scope.ServiceProvider.GetRequiredService<INhAiChatExecutor>();
+        var request = CreateRequest("read");
+
+        var internalFile = await executor.GetResponseAsync(request with { Messages = [WithFile(NhAiDataClassification.Internal, 500)] });
+        var confidentialFile = await executor.GetResponseAsync(request with { Messages = [WithFile(NhAiDataClassification.Confidential, 500)] });
+        var largeFile = await executor.GetResponseAsync(request with { Messages = [WithFile(NhAiDataClassification.Internal, 5_000)] });
+
+        // The profile permits internal data within 2,000 input tokens: the confidential file and the
+        // file beyond the budget never reach the model.
+        Assert.True(internalFile.Success);
+        Assert.False(confidentialFile.Success);
+        Assert.False(largeFile.Success);
+        Assert.Single(client.Requests);
+        Assert.True(scope.ServiceProvider.GetRequiredService<INhAiModelProfileRegistry>().TryGet("document-reader", out var reader));
+        Assert.Equal([NhAiMediaTypes.Pdf, NhAiMediaTypes.Png], reader.AcceptedMediaTypes.Order(StringComparer.Ordinal).ToArray());
+        Assert.True(reader.AcceptsMediaType("application/pdf; charset=binary"));
+        Assert.False(reader.AcceptsMediaType(NhAiMediaTypes.Jpeg));
+    }
+
+    /// <summary>
+    /// A user message with a file the assistant annotated with its classification and tokens.
+    /// </summary>
+    private static ChatMessage WithFile(NhAiDataClassification classification, int tokens)
+    {
+        var file = new DataContent(new byte[] { 37, 80, 68, 70 }, NhAiMediaTypes.Pdf)
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                ["newheap.data-classification"] = classification.ToString(),
+                ["newheap.estimated-tokens"] = tokens.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["newheap.trust"] = "untrusted-retrieved"
+            }
+        };
+        return new ChatMessage(ChatRole.User, [new TextContent("read"), file]);
+    }
+
+    [Fact]
     public async Task Expired_run_deadline_fails_before_model_access()
     {
         var client = new NhAiDeterministicChatClient("unused");
