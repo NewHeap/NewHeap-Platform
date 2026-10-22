@@ -1602,7 +1602,12 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiModelProfileSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetContextTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiRequestActor.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAgentInvocationGateTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationTests.cs"
     ],
     "SPM-224": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
@@ -2357,7 +2362,10 @@
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-agents.ts",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerVariantComposition.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentOffStateTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentOffStateTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-admin.models.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts"
     ],
     "SPM-285": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectBriefing.cs",
@@ -2371,7 +2379,8 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentBriefingTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationTests.cs",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/i18n/en.json"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/i18n/en.json",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRuleRunTests.cs"
     ],
     "SPM-286": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
@@ -2717,7 +2726,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentWorkWatchers.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentWorkWatchTests.cs",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-work-watch.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-work-watch.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-board.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-overview.spec.ts"
     ],
     "SPM-305": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs",
