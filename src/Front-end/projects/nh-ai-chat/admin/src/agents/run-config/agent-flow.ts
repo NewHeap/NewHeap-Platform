@@ -342,7 +342,8 @@ export const unavailableServerUses: ReadonlySet<AgentFlowServerUse> = new Set([
 /**
  * Whether the agent can be run now, by the rule the server applies to runs by hand: it is neither
  * stopped nor disabled in code, an agent created here has run settings, and the run catalog names
- * what it runs on. A paused agent accepts the run, which waits until it is resumed.
+ * what it runs on. A paused agent accepts the run, which waits until it is resumed; an agent that is
+ * off runs it at once, because it only ignores the work it would take on by itself.
  */
 export function flowRunNow(agent: AdminAgent, configuration: AgentRunConfiguration, catalog: RunCatalog | null): AgentFlowRunNow {
   if (agent.runState === 'configured-off') {

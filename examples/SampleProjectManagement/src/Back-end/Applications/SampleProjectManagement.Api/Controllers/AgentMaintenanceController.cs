@@ -12,7 +12,8 @@ namespace SampleProjectManagement.Api.Controllers;
 
 /// <summary>
 /// SPM-284: the application's maintenance page for its agents. Operators who manage projects pause
-/// an agent around an import, stop it when it proposes wrongly and resume it, each with a reason.
+/// an agent around an import, stop it when it proposes wrongly, switch it off while it should not
+/// work on its own and resume it, each with a reason.
 /// SPM-293 and SPM-294: they also put an agent or a skill in shadow or live and replace the
 /// technical account an agent answers to, without a deploy.
 /// </summary>
@@ -23,7 +24,7 @@ public sealed class AgentMaintenanceController(SampleAgentMaintenanceService mai
 {
     [HttpGet]
     [EndpointSummary("List the sample's agents with their state")]
-    [EndpointDescription("Returns active, paused, stopped or configured-off per agent, who changed it when and why, and the events that wait while an agent is paused.")]
+    [EndpointDescription("Returns active, paused, stopped, off or configured-off per agent, who changed it when and why, and the events that wait while an agent is paused.")]
     [ProducesResponseType<NhAssistantAgentState[]>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -58,9 +59,22 @@ public sealed class AgentMaintenanceController(SampleAgentMaintenanceService mai
         return ChangeAsync(agentId, SampleAgentStateChange.Stop, model, cancellationToken);
     }
 
+    [HttpPost("{agentId}/switch-off")]
+    [EndpointSummary("Switch an agent off")]
+    [EndpointDescription("The agent ignores its events, schedules, webhooks, hand-offs and follow-ups and nothing waits for it. Running work finishes, open proposals stay decidable and people still chat with it and start it by hand.")]
+    [ProducesResponseType<NhAssistantAgentState>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> SwitchOff(string agentId, [FromBody] AgentStateChangeMutateModel model, CancellationToken cancellationToken)
+    {
+        return ChangeAsync(agentId, SampleAgentStateChange.SwitchOff, model, cancellationToken);
+    }
+
     [HttpPost("{agentId}/resume")]
     [EndpointSummary("Resume an agent")]
-    [EndpointDescription("Makes a paused or stopped agent active: every project with waiting events gets one run and held approved proposals execute. An agent disabled in configuration answers 409.")]
+    [EndpointDescription("Makes a paused, stopped or off agent active: every project with waiting events gets one run and held approved proposals execute; an agent that was off starts nothing. An agent disabled in configuration answers 409.")]
     [ProducesResponseType<NhAssistantAgentState>(StatusCodes.Status200OK)]
     [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -73,8 +87,8 @@ public sealed class AgentMaintenanceController(SampleAgentMaintenanceService mai
     }
 
     [HttpPost("{agentId}/skills/{skillId}/{change}")]
-    [EndpointSummary("Pause, stop or resume one skill of an agent")]
-    [EndpointDescription("change is pause, stop or resume. The agent's other skills keep working; a stopped skill refuses its triggers and triage no longer chooses it.")]
+    [EndpointSummary("Pause, stop, switch off or resume one skill of an agent")]
+    [EndpointDescription("change is pause, stop, switch-off or resume. The agent's other skills keep working; a stopped skill refuses its triggers, a skill that is off ignores them, and triage no longer chooses either.")]
     [ProducesResponseType<NhAssistantSkillState>(StatusCodes.Status200OK)]
     [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -96,6 +110,7 @@ public sealed class AgentMaintenanceController(SampleAgentMaintenanceService mai
             "pause" => SampleAgentStateChange.Pause,
             "stop" => SampleAgentStateChange.Stop,
             "resume" => SampleAgentStateChange.Resume,
+            "switch-off" => SampleAgentStateChange.SwitchOff,
             _ => null
         };
         if (parsed is not { } value)

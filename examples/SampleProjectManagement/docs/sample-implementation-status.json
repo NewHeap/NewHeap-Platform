@@ -2326,7 +2326,9 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-agents.ts"
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-agents.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerVariantComposition.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentOffStateTests.cs"
     ],
     "SPM-285": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectBriefing.cs",

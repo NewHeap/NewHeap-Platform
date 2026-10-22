@@ -10,7 +10,9 @@ namespace SampleProjectManagement.Api.Services;
 /// project closer, so the task events of the import wait instead of starting runs, and resumes it
 /// afterwards: each project then gets one run that sees all its changes. When the closer proposes
 /// wrongly, the operator stops it: nothing new starts and approved proposals wait until the closer
-/// is resumed. A state change never changes an agent's definition or version.
+/// is resumed. A state change never changes an agent's definition or version. The planner's
+/// evaluation variant is deployed off (<c>StartsOff()</c>); the operator switches it on to evaluate
+/// it, which replays none of the planner's events from before, and off again afterwards.
 /// SPM-293: while the team evaluates new rules, the operator puts an agent or one skill in shadow:
 /// its work goes to shadow threads that only administrators see, nobody is notified and nothing
 /// executes; afterwards the operator puts it live or lets the code decide again.
@@ -26,7 +28,8 @@ public sealed class SampleAgentMaintenanceService(INhAssistantAgentControl agent
         SampleIntakeReviewerComposition.AgentId,
         SampleStatusAdvisorComposition.AgentId,
         SampleProjectCloserComposition.AgentId,
-        SampleProjectPlannerComposition.AgentId
+        SampleProjectPlannerComposition.AgentId,
+        SampleProjectPlannerVariantComposition.AgentId
     ];
 
     public async Task<IReadOnlyList<NhAssistantAgentState>> ListAsync(CancellationToken cancellationToken)
@@ -44,7 +47,7 @@ public sealed class SampleAgentMaintenanceService(INhAssistantAgentControl agent
     }
 
     /// <summary>
-    /// Pauses, stops or resumes one of the sample's agents for the operator. Returns
+    /// Pauses, stops, switches off or resumes one of the sample's agents for the operator. Returns
     /// <see langword="null"/> for an agent the page does not offer.
     /// </summary>
     public async Task<TaskResult<NhAssistantAgentState>?> ChangeAsync(
@@ -64,6 +67,7 @@ public sealed class SampleAgentMaintenanceService(INhAssistantAgentControl agent
         {
             SampleAgentStateChange.Pause => await agents.PauseAsync(agentId, actorId, reason, cancellationToken),
             SampleAgentStateChange.Stop => await agents.StopAsync(agentId, actorId, reason, cancellationToken),
+            SampleAgentStateChange.SwitchOff => await agents.SwitchOffAsync(agentId, actorId, reason, cancellationToken),
             _ => await agents.ResumeAsync(agentId, actorId, reason, cancellationToken)
         };
     }
@@ -139,8 +143,8 @@ public sealed class SampleAgentMaintenanceService(INhAssistantAgentControl agent
     }
 
     /// <summary>
-    /// SPM-286: pauses, stops or resumes one skill of one of the sample's agents; its other skills
-    /// keep working. Returns <see langword="null"/> for an agent the page does not offer.
+    /// SPM-286: pauses, stops, switches off or resumes one skill of one of the sample's agents; its
+    /// other skills keep working. Returns <see langword="null"/> for an agent the page does not offer.
     /// </summary>
     public async Task<TaskResult<NhAssistantSkillState>?> ChangeSkillAsync(
         string agentId,
@@ -160,6 +164,7 @@ public sealed class SampleAgentMaintenanceService(INhAssistantAgentControl agent
         {
             SampleAgentStateChange.Pause => await agents.PauseSkillAsync(agentId, skillId, actorId, reason, cancellationToken),
             SampleAgentStateChange.Stop => await agents.StopSkillAsync(agentId, skillId, actorId, reason, cancellationToken),
+            SampleAgentStateChange.SwitchOff => await agents.SwitchOffSkillAsync(agentId, skillId, actorId, reason, cancellationToken),
             _ => await agents.ResumeSkillAsync(agentId, skillId, actorId, reason, cancellationToken)
         };
     }
@@ -169,7 +174,12 @@ public enum SampleAgentStateChange
 {
     Pause,
     Stop,
-    Resume
+    Resume,
+
+    /// <summary>
+    /// SPM-284: the agent ignores its triggers until it is resumed, which replays nothing.
+    /// </summary>
+    SwitchOff
 }
 
 /// <summary>

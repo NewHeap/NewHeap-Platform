@@ -73,7 +73,7 @@ export class NhAssistantMockAdminAgents {
           skills: (skills ?? []).map((skill): AgentSkillState => ({
             skillId: skill.skillId,
             description: skill.description,
-            runState: 'active' as const,
+            runState: skill.startsOff === true ? 'off' as const : 'active' as const,
             changedAt: null,
             changedBy: null,
             reason: null,
@@ -233,7 +233,7 @@ export class NhAssistantMockAdminAgents {
     }
 
     const request = body as { state?: unknown; reason?: unknown } | undefined;
-    if (request?.state !== 'active' && request?.state !== 'paused' && request?.state !== 'stopped') {
+    if (request?.state !== 'active' && request?.state !== 'paused' && request?.state !== 'stopped' && request?.state !== 'off') {
       return validationFailure();
     }
     const reason = typeof request.reason === 'string' && request.reason.trim().length > 0 ? request.reason.trim() : null;
@@ -406,9 +406,9 @@ export class NhAssistantMockAdminAgents {
 
   /**
    * A skill defined as data shows among the agent's skills as a skill in shadow by default, as the
-   * server shows it; removing it takes its state along.
+   * server shows it, and off when it was added with `startsOff`; removing it takes its state along.
    */
-  setDataSkill(agentId: string, skillId: string, description: string | null): void {
+  setDataSkill(agentId: string, skillId: string, description: string | null, startsOff = false): void {
     const stored = this.agents.get(agentId);
     if (!stored) {
       return;
@@ -422,9 +422,9 @@ export class NhAssistantMockAdminAgents {
         : [...others, existing ? { ...existing, description } : {
           skillId,
           description,
-          runState: 'active',
-          changedAt: null,
-          changedBy: null,
+          runState: startsOff ? 'off' : 'active',
+          changedAt: startsOff ? this.now() : null,
+          changedBy: startsOff ? 'current-user' : null,
           reason: null,
           waitingInputs: 0,
           toolCallsToday: 0,
@@ -505,7 +505,8 @@ export class NhAssistantMockAdminAgents {
 
   /**
    * `GET` and `POST admin/agents/{id}/state`. The mock runs no agents on their own, so a pause
-   * collects no waiting events and a stop cancels no runs; the version never changes.
+   * collects no waiting events, a stop cancels no runs and switching an agent off or on starts
+   * nothing; the version never changes.
    */
   private agentStateEndpoint(stored: StoredAgent, method: string, body: unknown): NhAssistantMockResult {
     if (method === 'GET') {
@@ -519,7 +520,7 @@ export class NhAssistantMockAdminAgents {
     if (request?.state === undefined || request.state === null) {
       return validationFailure();
     }
-    if (request.state !== 'active' && request.state !== 'paused' && request.state !== 'stopped') {
+    if (request.state !== 'active' && request.state !== 'paused' && request.state !== 'stopped' && request.state !== 'off') {
       return validationFailure();
     }
     const reason = typeof request.reason === 'string' && request.reason.trim().length > 0 ? request.reason.trim() : null;
@@ -595,7 +596,9 @@ export class NhAssistantMockAdminAgents {
     isOverridden: boolean,
     previous?: AdminAgent
   ): AdminAgent {
-    const { isEnabled, ...definition } = structuredClone(input);
+    // Only a new agent starts off, created that way here or with StartsOff() in code.
+    const { isEnabled, startsOff, ...definition } = structuredClone(input);
+    const createdOff = previous === undefined && startsOff === true;
     return {
       ...definition,
       isEnabled: previous?.isEnabled ?? true,
@@ -604,9 +607,9 @@ export class NhAssistantMockAdminAgents {
       isOverridden,
       instructionsHash: hashText(input.instructions),
       updatedAt: this.now(),
-      runState: previous?.runState ?? 'active',
-      stateChangedAt: previous?.stateChangedAt ?? null,
-      stateChangedBy: previous?.stateChangedBy ?? null,
+      runState: previous?.runState ?? (createdOff ? 'off' : 'active'),
+      stateChangedAt: previous?.stateChangedAt ?? (createdOff && source === 'admin' ? this.now() : null),
+      stateChangedBy: previous?.stateChangedBy ?? (createdOff && source === 'admin' ? 'current-user' : null),
       stateReason: previous?.stateReason ?? null,
       waitingInputs: previous?.waitingInputs ?? 0,
       skills: previous?.skills ?? [],

@@ -235,9 +235,9 @@ internal sealed partial class NhAssistantTurnRunner
 
     /// <summary>
     /// Makes the run work in the skill its rules or triage chose. Returns <see langword="true"/>
-    /// when the run ended instead: the skill is unknown, stopped, paused (its events then wait for
-    /// it), works in shadow while the run is live (its events then go to the shadow thread) or is
-    /// out of budget.
+    /// when the run ended instead: the skill is unknown, stopped, off, paused (its events then wait
+    /// for it), works in shadow while the run is live (its events then go to the shadow thread) or
+    /// is out of budget.
     /// </summary>
     private async Task<bool> RouteAsync(
         NhAssistantTurnState state,
@@ -256,6 +256,12 @@ internal sealed partial class NhAssistantTurnRunner
         if (stored == NhAssistantAgentRunStates.Stopped)
         {
             await EndRoutedRunAsync(state, NhAssistantTurnStatuses.Cancelled, null, NhAssistantErrorCodes.SkillStopped);
+            return true;
+        }
+        if (stored == NhAssistantAgentRunStates.Off)
+        {
+            // Rules route nothing to a skill that is off; nothing waits for it either.
+            await EndRoutedRunAsync(state, NhAssistantTurnStatuses.Cancelled, null, NhAssistantErrorCodes.SkillOff);
             return true;
         }
         if (stored == NhAssistantAgentRunStates.Paused)

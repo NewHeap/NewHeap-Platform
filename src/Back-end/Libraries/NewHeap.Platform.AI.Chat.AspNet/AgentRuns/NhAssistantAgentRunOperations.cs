@@ -394,13 +394,13 @@ internal sealed class NhAssistantAgentRunOperation(
         used += result.InputTokens + result.OutputTokens;
         agentTurn = WithSkill(agentTurn, result);
 
-        // Messages that arrived while the run worked get further turns, a bounded number of times;
-        // after a pause they wait for the resume instead.
+        // Messages that arrived while the run worked get further turns, a bounded number of times,
+        // also while the agent is off; after a pause they wait for the resume instead.
         var turnCount = 1;
         while (result.Outcome == NhAssistantTurnStatuses.Completed
                && turnCount < MaxTurnsPerRun
                && await runs.CountWaitingInputsAsync(run.ConversationId, cancellationToken, agentTurn.SkillId ?? string.Empty) > 0
-               && await agents.FindRunStateAsync(agentId, cancellationToken) == NhAssistantAgentRunStates.Active)
+               && await agents.FindRunStateAsync(agentId, cancellationToken) is NhAssistantAgentRunStates.Active or NhAssistantAgentRunStates.Off)
         {
             if (CeilingOf(agentTurn) is { } ceiling && used >= ceiling)
             {
@@ -497,7 +497,8 @@ internal sealed class NhAssistantAgentRunOperation(
     /// <summary>
     /// Why the run may not work now: the assistant is disabled, the agent is disabled in code or
     /// stopped, or the agent is paused and the run has not started yet. A run that started before a
-    /// pause finishes.
+    /// pause finishes, and every run of an agent that is off works: it was accepted before the agent
+    /// was switched off, or a person started it.
     /// </summary>
     private async Task<string?> RefusalAsync(
         AssistantRun run,

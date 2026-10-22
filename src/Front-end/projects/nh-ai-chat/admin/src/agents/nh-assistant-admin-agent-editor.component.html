@@ -61,6 +61,15 @@
       @if (isNew() && use() !== 'chat') {
         <p class="hint">{{ 'nh-assistant.admin.agent-editor.use.next' | translate }}</p>
       }
+      @if (isNew()) {
+        <label class="check described" data-switch-on-now>
+          <input type="checkbox" [checked]="switchOnNow()" (change)="switchOnNow.set(checked($event))" />
+          <span>
+            <strong>{{ 'nh-assistant.admin.agent-editor.switch-on-now' | translate }}</strong>
+            <span class="muted">{{ 'nh-assistant.admin.agent-editor.switch-on-now-hint' | translate }}</span>
+          </span>
+        </label>
+      }
     </fieldset>
 
     @if (catalogUnavailable()) {

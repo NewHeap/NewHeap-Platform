@@ -187,6 +187,13 @@
     </fieldset>
   } @else {
     <p class="hint">{{ 'nh-assistant.admin.run-config.skills.starts-in-shadow' | translate }}</p>
+    <label class="check" data-switch-on-now>
+      <input type="checkbox" [checked]="switchOnNow()" (change)="switchOnNow.set(checked($event))" />
+      <span>
+        {{ 'nh-assistant.admin.run-config.skills.switch-on-now' | translate }}
+        <span class="muted block">{{ 'nh-assistant.admin.run-config.skills.switch-on-now-hint' | translate }}</span>
+      </span>
+    </label>
   }
 
   <div class="field">

@@ -2022,6 +2022,42 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task An_operator_switches_on_the_planners_variant_that_was_deployed_off_without_replaying_earlier_events()
+    {
+        // SPM-284
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string variant = SampleProjectPlannerVariantComposition.AgentId;
+        var project = await host.CreateProjectAsync("VARIANTOFF", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var task = await host.CreateTaskAsync(project, "Plan the evaluation");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var admin = host.CreateClient(host.ColleagueId.ToString(), admin: true);
+
+        // Deployed off with StartsOff(): the variant ignores the planner's events, which the live
+        // planner handles as before.
+        Assert.Equal(NhAssistantAgentRunStates.Off, (await AgentStateAsync(variant)).RunState);
+        var configuration = await admin.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{variant}/configuration", Json);
+        Assert.True(configuration!.CodeRunSettings!.StartsOff);
+        await host.DeliverAsync(await host.CompleteTaskByHandAsync(task, host.ParticipantId));
+        var plannerThread = await WaitForThreadAsync(colleague, project, planner);
+        await WaitForRunWithTriggerAsync(colleague, plannerThread, SampleProjectPlannerComposition.TaskTriggerId);
+        Assert.Null(await ThreadOfAsync(admin, project, variant));
+        try
+        {
+            // Switched on to evaluate it, the variant starts no run for the event from before.
+            var on = await ChangeAgentAsync(variant, SampleAgentStateChange.Resume, "Evaluate the stricter triage");
+            Assert.Equal((NhAssistantAgentRunStates.Active, 0), (on.RunState, on.StartedRuns));
+            Assert.Null(await ThreadOfAsync(admin, project, variant));
+        }
+        finally
+        {
+            // As deployed, for the other samples that share the host.
+            var off = await ChangeAgentAsync(variant, SampleAgentStateChange.SwitchOff, null);
+            Assert.Equal(NhAssistantAgentRunStates.Off, off.RunState);
+        }
+    }
+
+    [Fact]
     public async Task The_intake_reviewer_starts_from_a_briefing_of_the_project_and_stops_at_its_token_ceiling()
     {
         // SPM-285
@@ -2270,6 +2306,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 && RoutingChatClient.Mentions(messages, options, projectText), deadline)));
         try
         {
+            // The variant is deployed off; the team switches it on to evaluate it (SPM-284).
+            await ChangeAgentAsync(variant, SampleAgentStateChange.Resume, "Evaluate the stricter triage");
+
             // The daily deadline check fires for the live planner and for its shadow variant. The
             // planner's triage sends it to the deadline skill, which proposes to put the project on
             // hold; the variant's stricter triage finds it too early and proposes nothing.
@@ -2331,6 +2370,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
         finally
         {
+            await ChangeAgentAsync(variant, SampleAgentStateChange.SwitchOff, null);
             host.Model.Use(new SampleAssistantChatClient());
         }
     }
@@ -3562,6 +3602,17 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.NotNull(changed);
         Assert.True(changed.Success);
         return changed.Data!;
+    }
+
+    /// <summary>
+    /// The agent's thread of the project, or <see langword="null"/> while it has none.
+    /// </summary>
+    private static async Task<Guid?> ThreadOfAsync(HttpClient client, Guid projectId, string agentId)
+    {
+        var lookup = await client.GetFromJsonAsync<NhAssistantThreadLookupDto>(
+            $"/api/assistant/threads?agentId={agentId}&subjectType={ProjectSubjects.Type}&subjectId={projectId:D}",
+            Json);
+        return lookup?.Thread?.ConversationId;
     }
 
     private async Task<NhAssistantAgentState> AgentStateAsync(string agentId)

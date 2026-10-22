@@ -59,6 +59,12 @@ public sealed class NhAssistantSkillOptions
     public bool Shadow { get; internal set; }
 
     /// <summary>
+    /// The skill starts off (<see cref="NhAssistantAgentRunStates.Off"/>) the first time the
+    /// application sees it; afterwards its stored state wins, also after a deploy.
+    /// </summary>
+    public bool StartsOff { get; internal set; }
+
+    /// <summary>
     /// The version of a skill defined as data in the administration; <see langword="null"/> for a
     /// skill in code.
     /// </summary>
@@ -218,6 +224,18 @@ public sealed class NhAssistantSkillBuilder
     public NhAssistantSkillBuilder Shadow(bool enabled = true)
     {
         _options.Shadow = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Starts the skill off the first time the application sees it, while the agent's other skills
+    /// work: triggers that name it are ignored and rules and triage do not route to it until an
+    /// administrator switches it on. Only the first start applies it; after that the stored state
+    /// wins, also after a deploy.
+    /// </summary>
+    public NhAssistantSkillBuilder StartsOff()
+    {
+        _options.StartsOff = true;
         return this;
     }
 }

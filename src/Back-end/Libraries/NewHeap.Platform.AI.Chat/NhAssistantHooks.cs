@@ -83,8 +83,9 @@ public enum NhAssistantAuditEventKind
     AdminAgentRunsStopped = 35,
 
     /// <summary>
-    /// An administrator or the application resumed a paused or stopped agent.
-    /// <c>ResultCode</c> is <c>resumed-{count}</c>, the runs it started for waiting inputs.
+    /// An administrator or the application resumed a paused or stopped agent, or switched on one
+    /// that was off. <c>ResultCode</c> is <c>resumed-{count}</c>, the runs it started for waiting
+    /// inputs.
     /// </summary>
     AdminAgentRunsResumed = 36,
 
@@ -253,7 +254,14 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantPlacementReasons"/>, and <see cref="NhAssistantAuditEvent.ObjectId"/> the
     /// object the call named as <c>type/id</c>, when it named a valid one.
     /// </summary>
-    AgentProposalNotPlaced = 61
+    AgentProposalNotPlaced = 61,
+
+    /// <summary>
+    /// An administrator or the application switched an agent off, or one skill with
+    /// <c>SkillId</c>: its triggers are ignored until it is switched on. <c>ResultCode</c> is
+    /// <c>off</c>; switching it on again is <see cref="AdminAgentRunsResumed"/>.
+    /// </summary>
+    AdminAgentSwitchedOff = 62
 }
 
 /// <summary>

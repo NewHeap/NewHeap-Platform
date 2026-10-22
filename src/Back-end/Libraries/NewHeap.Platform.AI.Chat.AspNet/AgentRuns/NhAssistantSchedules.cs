@@ -12,8 +12,10 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// The Hangfire job of a scheduled trigger: it reads the subjects of the tick and fires the
 /// trigger for each of them, at most <c>MaxSubjectsPerTick</c>. A tick fires every subject once:
 /// a repeated job in the same minute finds the runs it already started. While the assistant is
-/// disabled or the agent is paused, stopped or disabled in code, the tick is skipped before the
-/// subjects are read. The shadow variants of the agent get every subject of the tick too, unless
+/// disabled or the agent is paused, stopped, off or disabled in code, the tick is skipped before the
+/// subjects are read; an agent or skill that is off reports it as one ignored receipt
+/// (<see cref="NhAssistantTriggerReasons.AgentOff"/> or <see cref="NhAssistantTriggerReasons.SkillOff"/>).
+/// The shadow variants of the agent get every subject of the tick too, unless
 /// they are not active themselves. A schedule without subjects runs for the whole application:
 /// once on <c>nh-system/global</c> for an agent that works app-wide, once per listed division for
 /// one that works per division.
@@ -54,13 +56,18 @@ internal sealed class NhAssistantScheduledTriggerJob(
 
         // Read before the subjects query: a tick of an agent or skill that is not active comes back
         // by itself.
-        var refusal = await triggers.RefusalOfAsync(trigger.AgentId, refusePaused: true, cancellationToken);
+        var refusal = await triggers.RefusalOfAsync(trigger.AgentId, refusePaused: true, cancellationToken, refuseOff: true);
         if (refusal is null
             && trigger.SkillId is { } skillId
             && await triggers.SkillStateAsync(trigger.AgentId, skillId, cancellationToken) is var skillState
             && skillState != NhAssistantAgentRunStates.Active)
         {
-            refusal = skillState == NhAssistantAgentRunStates.Paused ? NhAssistantErrorCodes.SkillPaused : NhAssistantErrorCodes.SkillStopped;
+            refusal = skillState switch
+            {
+                NhAssistantAgentRunStates.Paused => NhAssistantErrorCodes.SkillPaused,
+                NhAssistantAgentRunStates.Off => NhAssistantErrorCodes.SkillOff,
+                _ => NhAssistantErrorCodes.SkillStopped
+            };
         }
         var variants = await triggers.AcceptingVariantsAsync(trigger, null, refusePaused: true, cancellationToken);
         var variantsTakingTick = new List<string>();
@@ -73,22 +80,32 @@ internal sealed class NhAssistantScheduledTriggerJob(
                 variantsTakingTick.Add(variant);
             }
         }
-        if (refusal is not null)
+        var receipts = new List<NhAssistantTriggerReceipt>();
+        if (refusal is NhAssistantErrorCodes.AgentOff or NhAssistantErrorCodes.SkillOff)
+        {
+            // An agent or skill that is off ignores the tick silently, without reading its subjects.
+            receipts.Add(new NhAssistantTriggerReceipt(
+                triggerId,
+                NhAssistantTriggerOutcomes.Ignored,
+                null,
+                null,
+                refusal == NhAssistantErrorCodes.AgentOff ? NhAssistantTriggerReasons.AgentOff : NhAssistantTriggerReasons.SkillOff));
+        }
+        else if (refusal is not null)
         {
             logger.LogInformation(
                 "Scheduled trigger {TriggerId} skipped its tick ({Reason}).",
                 triggerId,
                 refusal);
-            if (variantsTakingTick.Count == 0)
-            {
-                return [];
-            }
+        }
+        if (refusal is not null && variantsTakingTick.Count == 0)
+        {
+            return receipts;
         }
 
         // The tick is the minute of the application's clock: a repeated job in that minute
         // deduplicates against the runs it already started.
         var tick = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, now.Offset).ToUniversalTime();
-        var receipts = new List<NhAssistantTriggerReceipt>();
         var subjects = 0;
         var tickSubjects = trigger.ScheduledSubjects is { } subjectsOfTick
             ? subjectsOfTick(services, cancellationToken)

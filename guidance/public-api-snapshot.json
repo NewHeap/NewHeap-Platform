@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "f414fd68b4fce17db3faf0157daebdc103ec15d1d6b60d5941091e7ead68df36",
-    "declarationCount": 9203,
+    "hash": "c0e24140d52eb4b4bb9273f053f58c5e085c13436704bed8285487a3fa9ea00d",
+    "declarationCount": 9218,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1779,7 +1779,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantAgentRequest( string Id, string DisplayName, string Description, string Instructions, IReadOnlyList<string> ToolSelectors, NhAiAutonomyLevel Autonomy, string? RequiredPolicy = null, bool OfferedInChat = true, IReadOnlyList<string>? WorksOnSubjectTypes = null, bool? WorksOnAllSubjects = null, bool? WorksOnApplication = null, bool PerDivision = false, string? RunPolicy = null, string? ViewPolicy = null);"
+        "declaration": "public sealed record NhAssistantAgentRequest( string Id, string DisplayName, string Description, string Instructions, IReadOnlyList<string> ToolSelectors, NhAiAutonomyLevel Autonomy, string? RequiredPolicy = null, bool OfferedInChat = true, IReadOnlyList<string>? WorksOnSubjectTypes = null, bool? WorksOnAllSubjects = null, bool? WorksOnApplication = null, bool PerDivision = false, string? RunPolicy = null, string? ViewPolicy = null, bool StartsOff = false);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -1799,7 +1799,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantCodeRunSettingsDto( string Accountability, bool DelegateFromInitiator, string? ApprovalPolicy, bool UsesRules);"
+        "declaration": "public sealed record NhAssistantCodeRunSettingsDto( string Accountability, bool DelegateFromInitiator, string? ApprovalPolicy, bool UsesRules) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool StartsOff { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -1811,7 +1815,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantCodeSkillDto(string SkillId, string Description);"
+        "declaration": "public sealed record NhAssistantCodeSkillDto(string SkillId, string Description) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool StartsOff { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -1855,7 +1863,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantDataSkillRequest( string? Description, string? Instructions = null, IReadOnlyList<string>? Tools = null, string? Profile = null, string? RuleHandler = null, long? MaxTokensPerRun = null, int? DailyToolCalls = null, long? DailyTokens = null, string? ApprovalPolicy = null, int? ExpectedVersion = null, string? Reason = null, string? Apply = null);"
+        "declaration": "public sealed record NhAssistantDataSkillRequest( string? Description, string? Instructions = null, IReadOnlyList<string>? Tools = null, string? Profile = null, string? RuleHandler = null, long? MaxTokensPerRun = null, int? DailyToolCalls = null, long? DailyTokens = null, string? ApprovalPolicy = null, int? ExpectedVersion = null, string? Reason = null, string? Apply = null, bool StartsOff = false);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -2015,6 +2023,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+        "declaration": "public Task<TaskResult<NhAssistantAgentState>> SwitchOffAsync( string agentId, string actorId, string? reason = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
         "declaration": "public Task<TaskResult<NhAssistantAgentState>> ResumeAsync( string agentId, string actorId, string? reason = null, CancellationToken cancellationToken = default)"
       },
       {
@@ -2024,6 +2036,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
         "declaration": "public Task<TaskResult<NhAssistantSkillState>> StopSkillAsync( string agentId, string skillId, string actorId, string? reason = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+        "declaration": "public Task<TaskResult<NhAssistantSkillState>> SwitchOffSkillAsync( string agentId, string skillId, string actorId, string? reason = null, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
@@ -2788,6 +2804,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
         "declaration": "public const string Filtered = \"filtered\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "declaration": "public const string AgentOff = \"agent-off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "declaration": "public const string SkillOff = \"skill-off\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
@@ -4399,7 +4423,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantAdminAgentInputDto( string? Id, string? DisplayName, string? Description, string? Instructions, IReadOnlyList<string>? ToolSelectors, IReadOnlyList<string>? McpServerIds, string? RequiredPolicy, string? Autonomy, bool? IsEnabled, int? ExpectedVersion = null, bool? OfferedInChat = null, IReadOnlyList<string>? WorksOnSubjectTypes = null, bool? WorksOnAllSubjects = null, bool? WorksOnApplication = null, bool? PerDivision = null, string? RunPolicy = null, string? ViewPolicy = null);"
+        "declaration": "public sealed record NhAssistantAdminAgentInputDto( string? Id, string? DisplayName, string? Description, string? Instructions, IReadOnlyList<string>? ToolSelectors, IReadOnlyList<string>? McpServerIds, string? RequiredPolicy, string? Autonomy, bool? IsEnabled, int? ExpectedVersion = null, bool? OfferedInChat = null, IReadOnlyList<string>? WorksOnSubjectTypes = null, bool? WorksOnAllSubjects = null, bool? WorksOnApplication = null, bool? PerDivision = null, string? RunPolicy = null, string? ViewPolicy = null, bool? StartsOff = null);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -6639,6 +6663,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public bool StartsOff { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public bool HiddenFromChat { get; internal set; }"
       },
       {
@@ -6800,6 +6828,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder Enabled(bool enabled) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder StartsOff() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -7171,6 +7203,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
+        "declaration": "public bool StartsOff { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
         "declaration": "public int? DataVersion { get; internal set; }"
       },
       {
@@ -7224,6 +7260,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
         "declaration": "public NhAssistantSkillBuilder Shadow(bool enabled = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
+        "declaration": "public NhAssistantSkillBuilder StartsOff() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
@@ -10775,6 +10815,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Off = \"off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string ConfiguredOff = \"configured-off\";"
       },
       {
@@ -11396,6 +11440,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string SkillPaused = \"assistant-skill-paused\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string AgentOff = \"assistant-agent-off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string SkillOff = \"assistant-skill-off\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -13111,6 +13163,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
+        "declaration": "public async Task RecordCodeSkillsAsync( IReadOnlyCollection<(string AgentId, string SkillId, bool StartsOff)> skills, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
         "declaration": "public async Task<string> SetSkillStateAsync( string agentId, string skillId, string runState, string actorId, string? reason, CancellationToken cancellationToken) {"
       },
       {
@@ -14048,6 +14104,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<int> DiscardAgentWaitingInputsAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<int> DiscardUnclaimedWaitingInputsAsync( string agentId, CancellationToken cancellationToken, string? skillId = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -40468,6 +40528,9 @@
       "PauseSkillAsync",
       "StopSkillAsync",
       "ResumeSkillAsync",
+      "SwitchOffAsync",
+      "SwitchOffSkillAsync",
+      "StartsOff",
       "NhAssistantSkillState",
       "AcceptHandOffs",
       "NhAssistantHandOffBuilder",

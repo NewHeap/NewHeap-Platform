@@ -86,8 +86,9 @@ public sealed class AssistantAgent
     public string? ViewPolicy { get; set; }
 
     /// <summary>
-    /// One of <see cref="NhAssistantAgentRunStates.Active"/>, <see cref="NhAssistantAgentRunStates.Paused"/>
-    /// or <see cref="NhAssistantAgentRunStates.Stopped"/>. Changing it never changes <see cref="Version"/>.
+    /// One of <see cref="NhAssistantAgentRunStates.Active"/>, <see cref="NhAssistantAgentRunStates.Paused"/>,
+    /// <see cref="NhAssistantAgentRunStates.Stopped"/> or <see cref="NhAssistantAgentRunStates.Off"/>.
+    /// A code agent with <c>StartsOff()</c> is inserted off. Changing it never changes <see cref="Version"/>.
     /// An agent with <see cref="IsEnabled"/> <see langword="false"/> reads as stopped, which keeps the
     /// kill switches engaged before this column existed.
     /// </summary>
@@ -98,7 +99,7 @@ public sealed class AssistantAgent
     public string? StateChangedBy { get; set; }
 
     /// <summary>
-    /// Why the agent was paused, stopped or resumed, as the person who did it wrote it.
+    /// Why the agent was paused, stopped, switched off or resumed, as the person who did it wrote it.
     /// </summary>
     public string? StateReason { get; set; }
 
@@ -499,7 +500,8 @@ public sealed class AssistantUserPreference
 
 /// <summary>
 /// The run state of one skill of an agent, next to the agent's own state. A skill without a row is
-/// active.
+/// active. Every skill in code gets a row the first time the application sees it, off with
+/// <c>StartsOff()</c>, so the row also marks the skill as seen.
 /// </summary>
 public sealed class AssistantAgentSkillState
 {
@@ -508,8 +510,8 @@ public sealed class AssistantAgentSkillState
     public string SkillId { get; set; } = string.Empty;
 
     /// <summary>
-    /// One of <see cref="NhAssistantAgentRunStates.Active"/>, <see cref="NhAssistantAgentRunStates.Paused"/>
-    /// or <see cref="NhAssistantAgentRunStates.Stopped"/>.
+    /// One of <see cref="NhAssistantAgentRunStates.Active"/>, <see cref="NhAssistantAgentRunStates.Paused"/>,
+    /// <see cref="NhAssistantAgentRunStates.Stopped"/> or <see cref="NhAssistantAgentRunStates.Off"/>.
     /// </summary>
     public string RunState { get; set; } = NhAssistantAgentRunStates.Active;
 

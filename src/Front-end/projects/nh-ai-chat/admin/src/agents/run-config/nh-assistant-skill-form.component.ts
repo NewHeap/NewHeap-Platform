@@ -76,7 +76,7 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly maxInstructions = runConfigLimits.instructions;
   protected readonly fields = [
     'skillId', 'description', 'instructions', 'tools', 'ruleHandler', 'profile', 'approvalPolicy',
-    'maxTokensPerRun', 'dailyToolCalls', 'dailyTokens', 'apply', 'reason'
+    'maxTokensPerRun', 'dailyToolCalls', 'dailyTokens', 'apply', 'startsOff', 'reason'
   ];
 
   readonly skillId = signal('');
@@ -90,6 +90,8 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly dailyToolCalls = signal('');
   readonly dailyTokens = signal('');
   readonly apply = signal<SkillApplyMode>('shadow');
+  /** A new skill takes work at once; without it, it starts off until someone switches it on. */
+  readonly switchOnNow = signal(true);
   readonly reason = signal('');
 
   readonly editing = computed(() => this.skill() !== null);
@@ -155,7 +157,8 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
       dailyTokens: toNumber(this.dailyTokens()),
       expectedVersion: editing?.version ?? null,
       reason: blank(this.reason()),
-      ...(editing ? { apply: this.apply() } : {})
+      ...(editing ? { apply: this.apply() } : {}),
+      ...(!editing && !this.switchOnNow() ? { startsOff: true } : {})
     };
     this.submit(errors, () => this.admin.saveDataSkill(this.agentId(), skillId, request), skill => this.saved.emit({
       skill,

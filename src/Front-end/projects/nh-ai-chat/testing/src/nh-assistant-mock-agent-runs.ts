@@ -776,9 +776,9 @@ export class NhAssistantMockAgentRuns {
     return picked ?? this.results.get(runId) ?? null;
   }
 
-  /** Neither stopped nor disabled in code; a paused agent still works for people. */
+  /** Neither stopped nor disabled in code; a paused agent, and one that is off, still works for people. */
   private isWorking(agent: AdminAgent): boolean {
-    return agent.runState === 'active' || agent.runState === 'paused';
+    return agent.runState === 'active' || agent.runState === 'paused' || agent.runState === 'off';
   }
 
   private mayUse(agent: AdminAgent): boolean {

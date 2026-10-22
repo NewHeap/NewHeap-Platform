@@ -45,7 +45,8 @@ internal sealed class NhAssistantHandOffService(
         var sourceAgentId = source.Thread.AgentId;
         var targetAgentId = request.TargetAgentId;
         var subject = request.Subject;
-        if (await triggers.RefusalOfAsync(targetAgentId, refusePaused: false, cancellationToken) is { } refusal)
+        // An agent that is off takes no hand-offs; the source learns why.
+        if (await triggers.RefusalOfAsync(targetAgentId, refusePaused: false, cancellationToken, refuseOff: true) is { } refusal)
         {
             return await RefuseAsync(request, sourceRunId, refusal);
         }
@@ -151,6 +152,9 @@ internal sealed class NhAssistantHandOffService(
                 or NhAssistantTriggerOutcomes.Superseded => new NhAssistantHandOffReceipt(NhAssistantHandOffOutcomes.Accepted, fired.RunId, null),
             NhAssistantTriggerOutcomes.Waiting => new NhAssistantHandOffReceipt(NhAssistantHandOffOutcomes.Waiting, null, fired.ReasonCode),
             NhAssistantTriggerOutcomes.Deduplicated => new NhAssistantHandOffReceipt(NhAssistantHandOffOutcomes.Deduplicated, fired.RunId, null),
+            // The target was switched off after the check above.
+            NhAssistantTriggerOutcomes.Ignored when fired.ReasonCode == NhAssistantTriggerReasons.AgentOff
+                => NhAssistantHandOffReceipt.Refused(NhAssistantErrorCodes.AgentOff),
             _ => NhAssistantHandOffReceipt.Refused(fired.ReasonCode ?? NhAssistantErrorCodes.HandOffUnavailable)
         };
         if (receipt.Accepted)

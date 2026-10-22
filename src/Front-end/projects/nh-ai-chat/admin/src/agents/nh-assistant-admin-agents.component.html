@@ -142,6 +142,14 @@
               @if (agent.runState === 'paused') {
                 <p class="muted">{{ 'nh-assistant.admin.agents.state.waiting' | translate: { count: agent.waitingInputs } }}</p>
               }
+              @if (agent.runState === 'off') {
+                <p class="muted" data-off-hint>
+                  {{ 'nh-assistant.admin.agents.state.off-hint' | translate }}
+                  @if (!agent.stateChangedAt) {
+                    {{ 'nh-assistant.admin.agents.state.starts-off' | translate }}
+                  }
+                </p>
+              }
             }
             @if (agent.shadow; as shadow) {
               @if (shadow.shadow) {
@@ -232,10 +240,11 @@
                   type="button"
                   [class.secondary]="action !== 'stopped'"
                   [class.danger]="action === 'stopped'"
+                  [attr.data-state-action]="action"
                   [attr.aria-expanded]="isChangingState(agent.id, action)"
                   [disabled]="busyAgentId() !== null"
                   (click)="askState(agent, action)">
-                  {{ 'nh-assistant.admin.agents.state.action.' + action | translate }}
+                  {{ stateKey('action', agent.runState, action) | translate }}
                 </button>
               }
               @if (agent.runState !== 'configured-off') {
@@ -360,11 +369,12 @@
                             type="button"
                             [class.secondary]="action !== 'stopped'"
                             [class.danger]="action === 'stopped'"
-                            [attr.aria-label]="('nh-assistant.admin.agents.state.action.' + action | translate) + ' ' + (skillNameKeys(agent.id, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId))"
+                            [attr.data-state-action]="action"
+                            [attr.aria-label]="(stateKey('action', skill.runState, action) | translate) + ' ' + (skillNameKeys(agent.id, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId))"
                             [attr.aria-expanded]="isChangingState(agent.id, action, skill.skillId)"
                             [disabled]="busyAgentId() !== null"
                             (click)="askState(agent, action, skill)">
-                            {{ 'nh-assistant.admin.agents.state.action.' + action | translate }}
+                            {{ stateKey('action', skill.runState, action) | translate }}
                           </button>
                         }
                         @for (mode of shadowActions(skill.shadow); track mode) {
@@ -389,9 +399,9 @@
               @if (change.agentId === agent.id) {
                 <form class="stack" (submit)="$event.preventDefault(); applyState(agent)">
                   @if (change.skillId) {
-                    <p class="muted">{{ 'nh-assistant.admin.agents.skills.explain.' + change.state | translate: { skill: (skillNameKeys(agent.id, change.skillId) | nhAssistantTranslate: readableId(change.skillId)) } }}</p>
+                    <p class="muted">{{ skillStateExplainKey(change) | translate: { skill: (skillNameKeys(agent.id, change.skillId) | nhAssistantTranslate: readableId(change.skillId)) } }}</p>
                   } @else {
-                    <p class="muted">{{ 'nh-assistant.admin.agents.state.explain.' + change.state | translate }}</p>
+                    <p class="muted">{{ stateKey('explain', change.from, change.state) | translate }}</p>
                   }
                   <div class="field">
                     <label [for]="id + '-' + agent.id + '-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>
@@ -408,7 +418,7 @@
                   </div>
                   <div class="card-actions">
                     <button type="submit" [class.primary]="change.state !== 'stopped'" [class.danger]="change.state === 'stopped'" [disabled]="busyAgentId() !== null">
-                      {{ 'nh-assistant.admin.agents.state.confirm.' + change.state | translate }}
+                      {{ stateKey('confirm', change.from, change.state) | translate }}
                     </button>
                     <button class="secondary" type="button" (click)="changingState.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
                   </div>

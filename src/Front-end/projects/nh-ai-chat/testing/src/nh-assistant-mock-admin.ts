@@ -70,7 +70,7 @@ export class NhAssistantMockAdmin {
       admin,
       {
         find: agentId => this.agents.find(agentId),
-        setDataSkill: (agentId, skillId, description) => this.agents.setDataSkill(agentId, skillId, description)
+        setDataSkill: (agentId, skillId, description, startsOff) => this.agents.setDataSkill(agentId, skillId, description, startsOff)
       },
       now,
       this.accounts);

@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop and resume agents from code and the administration, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, and group agents on boards that show their latest results and what is new.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, and group agents on boards that show their latest results and what is new.
 
 ## Preferred approach
 
@@ -451,12 +451,34 @@ proposals execute and people keep chatting. **Resume** starts one run per thread
 waiting events, which sees them all. **Stop** an agent that works wrongly: its active runs
 are cancelled and their pending proposals withdrawn, waiting events end, triggers and chat
 are refused with `assistant-agent-stopped`, and approved proposals wait until it leaves the
-stopped state. The kill switch, `POST admin/agents/{id}/kill-switch`, is stop and resume
-without a reason. A state change never changes the agent's definition or version; editing
-and resetting never change the state, and `isEnabled` in the definition is ignored. An
-agent disabled in code with `Enabled(false)` reads `configured-off` and cannot be resumed;
-with `NewHeap:AI:Assistant:Enabled` off, triggers, schedules, runs and execution queuing
-stop as well. A stopped or code-disabled agent's triggers evaluate no lambda.
+stopped state. **Switch off** an agent (`SwitchOffAsync`, state `off`) that should not work on
+its own for a while, for weeks if needed: its events (data triggers included), schedule ticks
+(data schedules included), webhooks, hand-offs and follow-up runs are ignored before any of their
+lambdas runs, read `ignored` with reason `agent-off` like a `When` filter, are not audited and
+nothing waits; a hand-off to it is refused with `assistant-agent-off`. Running runs finish, open
+proposals stay decidable and executable, and people keep chatting with it and starting it by hand
+(`POST threads/start`, a message in its thread, a request through another assistant) as their
+policies allow. Inputs that waited from an earlier pause end, so switching it on again with
+`ResumeAsync` starts no run for anything that happened meanwhile. A skill switches off on its own
+(`SwitchOffSkillAsync`): triggers that name it are ignored with `skill-off`, rules that route to it
+end their run with `assistant-skill-off`, and triage and `use_skill` do not offer it. The kill switch,
+`POST admin/agents/{id}/kill-switch`, is stop and resume without a reason. A state change never
+changes the agent's definition or version; editing and resetting never change the state, and
+`isEnabled` in the definition is ignored. An agent disabled in code with `Enabled(false)` reads
+`configured-off` and cannot be switched on at runtime; with `NewHeap:AI:Assistant:Enabled` off,
+triggers, schedules, runs and execution queuing stop as well. A stopped, switched-off or
+code-disabled agent's triggers evaluate no lambda.
+
+Deploy an agent or a skill that should wait for an administrator with `StartsOff()` on
+`ConfigureAgent` or on `Skill(...)`, not with `Enabled(false)`: it is off the first time the
+application sees it, an administrator switches it on at runtime, and from then on its stored state
+wins, so a new host start or a later deploy never switches it off again. The skills in code are
+recorded at the first start on this version; a skill that was deployed before and gets `StartsOff()`
+in that same deploy therefore starts off once. An agent created in the administration
+(`startsOff` on `POST admin/agents` and `NhAssistantAgentRequest`) and a new data skill (`startsOff`
+on `NhAssistantDataSkillRequest`) start off only when asked to; the administration's create forms
+offer it as "Switch on now", on by default. The run configuration reports `startsOff` for an agent
+and its skills in code.
 
 The shadow mode and the technical account are runtime overrides of the code, changed the same way
 (`INhAssistantAgentControl`, `POST admin/agents/{id}/shadow`, `POST
@@ -801,6 +823,10 @@ profile and instructions that answer questions about the rules' proposals from t
 - Stopping an agent by editing its definition or sending `isEnabled`; pause or stop it with
   `INhAssistantAgentControl` or `POST admin/agents/{id}/state`.
 - Stopping an agent for an import or a migration that should lose no events; pause it.
+- Pausing an agent for weeks: every event of the period waits and runs at the resume. Switch it off
+  instead, so switching it on replays nothing.
+- `Enabled(false)` for an agent that administrators should switch on after a deploy: it reads
+  `configured-off` until the next deploy. Use `StartsOff()`.
 - Deploying to put an agent or a skill live after an evaluation in shadow, or to replace its
   technical account; change it at runtime with `INhAssistantAgentControl`.
 - Registering a skill or trigger in code that administrators are meant to change; register its
@@ -1013,7 +1039,13 @@ executions that the resume queues, consultations included, behind more than a ba
 executions; assert that the version is unchanged, that editing and reset keep the state, that a
 code-disabled agent reads `configured-off` and refuses to resume, that a stopped agent and a `When`
 filter evaluate no further lambda and that the global switch stops triggers, schedules, runs and
-execution queuing, on both providers. Assert that a headless run, a consultation and a person's
+execution queuing, on both providers. Switch an agent off and assert that an event, a data trigger,
+a schedule tick and a webhook read `ignored` with `agent-off` without running a lambda, waiting or
+an audit; that a run that started finishes and its proposal stays decidable and executes while its
+follow-up is ignored; that people still chat and start it by hand; that waiting inputs of a pause
+end and switching on starts no run; that a skill that is off ignores its triggers with `skill-off`
+and that rules and triage do not route to it; and that `StartsOff()` applies only at the first
+start, also after a new host start and a deploy, on both providers. Assert that a headless run, a consultation and a person's
 turn in the thread read the briefing once, before the continuity, with markup neutralized; that a
 rule run that hands over passes its reason inside it; that a briefing over its bound is cut at a
 section boundary with a note and that a throwing or slow provider leaves the turn without one; and

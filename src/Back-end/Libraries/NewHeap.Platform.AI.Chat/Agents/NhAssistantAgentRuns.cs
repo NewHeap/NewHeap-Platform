@@ -93,6 +93,13 @@ public sealed class NhAssistantAgentRunOptions
     public bool Enabled { get; internal set; } = true;
 
     /// <summary>
+    /// The agent starts off (<see cref="NhAssistantAgentRunStates.Off"/>) the first time the
+    /// application sees it; afterwards its stored state wins, also after a deploy. Unlike
+    /// <see cref="Enabled"/>, an administrator switches it on.
+    /// </summary>
+    public bool StartsOff { get; internal set; }
+
+    /// <summary>
     /// The agent is not offered in the chat: it is left out of the agent picker and people cannot
     /// start a chat conversation with it. Its runs, subject threads and consultations are unaffected.
     /// </summary>
@@ -646,11 +653,26 @@ public sealed class NhAssistantAgentRunBuilder
     }
 
     /// <summary>
-    /// The configured kill switch. A disabled agent rejects new triggers and stops its active runs.
+    /// The configured kill switch. A disabled agent rejects new triggers and stops its active runs,
+    /// reports <c>configured-off</c> and cannot be switched on at runtime. To deploy an agent that
+    /// waits for an administrator instead, use <see cref="StartsOff"/>.
     /// </summary>
     public NhAssistantAgentRunBuilder Enabled(bool enabled)
     {
         _options.Enabled = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Starts the agent off the first time the application sees it: its events, schedules,
+    /// webhooks, hand-offs and follow-ups are ignored until an administrator switches it on, while
+    /// people can already chat with it and start it by hand. Only the first start applies it; after
+    /// that the stored state wins, so a later deploy never switches the agent off again. Unlike
+    /// <see cref="Enabled"/>(<see langword="false"/>), the administration switches it on.
+    /// </summary>
+    public NhAssistantAgentRunBuilder StartsOff()
+    {
+        _options.StartsOff = true;
         return this;
     }
 

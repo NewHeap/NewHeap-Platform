@@ -492,6 +492,7 @@ internal sealed class NhAssistantAgentEvents(
         {
             NhAssistantAgentRunStates.Stopped => (NhAssistantAuditEventKind.AdminAgentRunsStopped, "cancelled-" + number),
             NhAssistantAgentRunStates.Paused => (NhAssistantAuditEventKind.AdminAgentPaused, "paused"),
+            NhAssistantAgentRunStates.Off => (NhAssistantAuditEventKind.AdminAgentSwitchedOff, "off"),
             _ => (NhAssistantAuditEventKind.AdminAgentRunsResumed, "resumed-" + number)
         };
         return RecordAsync(

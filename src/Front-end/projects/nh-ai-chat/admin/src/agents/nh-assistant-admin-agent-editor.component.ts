@@ -112,6 +112,8 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly autonomy = signal<AssistantAutonomy>('explain');
   /** How the agent is used: in the chat, on its own, or both. */
   readonly use = signal<AgentUse>('chat');
+  /** A new agent takes its triggers at once; without it, it starts off until someone switches it on. */
+  readonly switchOnNow = signal(true);
   readonly requiredPolicy = signal('');
   readonly toolSelectors = signal<string[]>([]);
   readonly mcpServerIds = signal<string[]>([]);
@@ -280,7 +282,8 @@ export class NhAssistantAdminAgentEditorComponent {
       autonomy: this.autonomy(),
       ...(this.choosesUse() ? { offeredInChat: this.use() !== 'background' } : {}),
       // Omitted, what the agent works on stays as it is; a new agent then works on every object type.
-      ...(this.editsWorksOn() ? this.worksOnInput() : {})
+      ...(this.editsWorksOn() ? this.worksOnInput() : {}),
+      ...(this.isNew() && !this.switchOnNow() ? { startsOff: true } : {})
     };
     const startsWork = this.agent() === null && this.use() !== 'chat';
 
@@ -345,6 +348,7 @@ export class NhAssistantAdminAgentEditorComponent {
     this.instructions.set(agent?.instructions ?? '');
     this.autonomy.set(agent?.autonomy ?? 'explain');
     this.use.set(agent?.offeredInChat === false ? 'background' : 'chat');
+    this.switchOnNow.set(true);
     this.requiredPolicy.set(agent?.requiredPolicy ?? '');
     this.toolSelectors.set([...(agent?.toolSelectors ?? [])]);
     this.mcpServerIds.set([...(agent?.mcpServerIds ?? [])]);

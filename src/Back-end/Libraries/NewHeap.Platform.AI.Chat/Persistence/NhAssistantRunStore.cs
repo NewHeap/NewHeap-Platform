@@ -1442,6 +1442,30 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// Ends the inputs that wait in the threads of an agent, or with <paramref name="skillId"/> for
+    /// one skill, for no run: the events that waited from a pause, when the agent or skill is
+    /// switched off. Inputs in a thread with a run that has not ended stay for that run, which
+    /// finishes. Returns how many ended.
+    /// </summary>
+    public async Task<int> DiscardUnclaimedWaitingInputsAsync(
+        string agentId,
+        CancellationToken cancellationToken,
+        string? skillId = null)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        return await context.QueuedInputs
+            .Where(input => input.ConsumedAt == null
+                && (skillId == null || input.SkillId == skillId)
+                && context.Threads.Any(thread => thread.ConversationId == input.ConversationId && thread.AgentId == agentId)
+                && !context.Runs.Any(run => run.ConversationId == input.ConversationId
+                    && run.Status != NhAssistantRunStatuses.Completed
+                    && run.Status != NhAssistantRunStatuses.Failed
+                    && run.Status != NhAssistantRunStatuses.Cancelled))
+            .ExecuteUpdateAsync(setters => setters.SetProperty(input => input.ConsumedAt, now), cancellationToken);
+    }
+
+    /// <summary>
     /// Ends the waiting inputs of one thread without a run, when its subject is gone.
     /// </summary>
     public async Task DiscardWaitingInputsAsync(Guid conversationId, CancellationToken cancellationToken)

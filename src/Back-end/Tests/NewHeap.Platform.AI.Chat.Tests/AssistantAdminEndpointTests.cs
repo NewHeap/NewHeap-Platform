@@ -202,7 +202,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
     }
 
     [Fact]
-    public async Task The_state_endpoints_pause_stop_and_resume_an_agent_without_touching_its_definition()
+    public async Task The_state_endpoints_pause_stop_switch_off_and_resume_an_agent_without_touching_its_definition()
     {
         await using var app = await StartAsync();
         using var admin = app.CreateClient(admin: true);
@@ -230,6 +230,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
             autonomy = listed.GetProperty("autonomy").GetString(),
             expectedVersion = listed.GetProperty("version").GetInt32()
         }));
+        using var off = await admin.PostAsync(path + "/state", Json(new { state = "off", reason = "Not yet" }));
         using var engaged = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = true }));
         var stopped = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
         using var released = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = false }));
@@ -257,6 +258,9 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         // isEnabled; the state stays as it was.
         Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
         Assert.Equal("paused", (await ReadJsonAsync(edited)).GetProperty("runState").GetString());
+        Assert.Equal(HttpStatusCode.OK, off.StatusCode);
+        var offBody = await ReadJsonAsync(off);
+        Assert.Equal(("off", false, "Not yet"), (offBody.GetProperty("runState").GetString(), offBody.GetProperty("active").GetBoolean(), offBody.GetProperty("reason").GetString()));
         Assert.Equal(HttpStatusCode.OK, engaged.StatusCode);
         Assert.False((await ReadJsonAsync(engaged)).GetProperty("enabled").GetBoolean());
         Assert.Equal("stopped", stopped.GetProperty("runState").GetString());

@@ -32,8 +32,11 @@ public interface INhAssistantAgentTriggers
     /// Each agent's state is read once per call before any of its trigger's lambdas run: with the
     /// assistant disabled every receipt is rejected with <c>assistant-disabled</c> and nothing is
     /// queued; a stopped or code-disabled agent's triggers are rejected, audited once per call and
-    /// agent; a trigger's <c>When</c> filter decides next. A paused agent's events wait in their
-    /// thread (<see cref="NhAssistantTriggerOutcomes.Waiting"/>) until it resumes.
+    /// agent; an agent that is off, or a skill the trigger names that is off, ignores them without
+    /// an audit (<see cref="NhAssistantTriggerReasons.AgentOff"/>,
+    /// <see cref="NhAssistantTriggerReasons.SkillOff"/>); a trigger's <c>When</c> filter decides
+    /// next. A paused agent's events wait in their thread
+    /// (<see cref="NhAssistantTriggerOutcomes.Waiting"/>) until it resumes.
     /// </para>
     /// <para>
     /// Every trigger also fires for the shadow variants of its agent (<c>ShadowOf</c>), with their
@@ -47,8 +50,10 @@ public interface INhAssistantAgentTriggers
 
     /// <summary>
     /// Starts an agent on a subject for a person, who becomes the run's initiator. The caller must
-    /// already have checked that the person may start the agent. Inside the application's
-    /// transaction the start is deferred until the commit, as in <see cref="PublishAsync{TEvent}"/>.
+    /// already have checked that the person may start the agent. An agent that is off
+    /// (<see cref="NhAssistantAgentRunStates.Off"/>) still starts for a person. Inside the
+    /// application's transaction the start is deferred until the commit, as in
+    /// <see cref="PublishAsync{TEvent}"/>.
     /// </summary>
     Task<NhAssistantTriggerReceipt> StartAsync(
         string agentId,
@@ -111,6 +116,19 @@ public static class NhAssistantTriggerReasons
     /// <see cref="NhAssistantTriggerOutcomes.Ignored"/> and nothing is audited.
     /// </summary>
     public const string Filtered = "filtered";
+
+    /// <summary>
+    /// The agent is switched off (<see cref="NhAssistantAgentRunStates.Off"/>): the outcome is
+    /// <see cref="NhAssistantTriggerOutcomes.Ignored"/>, no lambda of the trigger ran, nothing waits
+    /// and nothing is audited, as for <see cref="Filtered"/>.
+    /// </summary>
+    public const string AgentOff = "agent-off";
+
+    /// <summary>
+    /// The skill the trigger names is switched off while its agent is on; ignored as for
+    /// <see cref="AgentOff"/>.
+    /// </summary>
+    public const string SkillOff = "skill-off";
 }
 
 internal sealed record NhAssistantTriggerFire(
@@ -461,10 +479,17 @@ internal sealed class NhAssistantAgentTriggers(
 
     /// <summary>
     /// Why the agent takes no triggers now, before any of a trigger's lambdas runs: the assistant
-    /// is disabled, the agent is not configured, disabled in code or stopped, or, with
-    /// <paramref name="refusePaused"/>, paused. <see langword="null"/> when it takes them.
+    /// is disabled, the agent is not configured, disabled in code or stopped, with
+    /// <paramref name="refusePaused"/> paused, or with <paramref name="refuseOff"/> switched off
+    /// (<see cref="NhAssistantErrorCodes.AgentOff"/>). <see langword="null"/> when it takes them.
+    /// People's own starts pass <paramref name="refuseOff"/> <see langword="false"/>: an agent that
+    /// is off still works for them.
     /// </summary>
-    internal async Task<string?> RefusalOfAsync(string agentId, bool refusePaused, CancellationToken cancellationToken)
+    internal async Task<string?> RefusalOfAsync(
+        string agentId,
+        bool refusePaused,
+        CancellationToken cancellationToken,
+        bool refuseOff = false)
     {
         if (!assistantOptions.CurrentValue.Enabled)
         {
@@ -484,8 +509,35 @@ internal sealed class NhAssistantAgentTriggers(
             null => NhAssistantErrorCodes.AgentNotFound,
             NhAssistantAgentRunStates.Stopped => NhAssistantErrorCodes.AgentStopped,
             NhAssistantAgentRunStates.Paused when refusePaused => NhAssistantErrorCodes.AgentPaused,
+            NhAssistantAgentRunStates.Off when refuseOff => NhAssistantErrorCodes.AgentOff,
             _ => null
         };
+    }
+
+    /// <summary>
+    /// Whether a fire is work the agent takes on by itself, which an agent or skill that is off
+    /// ignores: events, schedules, webhooks, hand-offs, follow-ups and replays. People's own starts,
+    /// their messages and requests through another assistant still start it, and so does the
+    /// continuation of work it already accepted.
+    /// </summary>
+    private static bool IsAutomatic(NhAssistantTriggerFire fire)
+    {
+        return !fire.Resume && !NhAssistantTriggerIds.IsAskedByPerson(fire.TriggerId);
+    }
+
+    private static NhAssistantTriggerReceipt Ignored(string triggerId, string reason)
+    {
+        return new NhAssistantTriggerReceipt(triggerId, NhAssistantTriggerOutcomes.Ignored, null, null, reason);
+    }
+
+    /// <summary>
+    /// Whether a receipt says that an agent or skill that is off ignored the trigger, which is not
+    /// audited.
+    /// </summary>
+    internal static bool IsIgnoredWhileOff(NhAssistantTriggerReceipt receipt)
+    {
+        return receipt.Outcome == NhAssistantTriggerOutcomes.Ignored
+               && receipt.ReasonCode is NhAssistantTriggerReasons.AgentOff or NhAssistantTriggerReasons.SkillOff;
     }
 
     /// <summary>
@@ -515,8 +567,9 @@ internal sealed class NhAssistantAgentTriggers(
 
     /// <summary>
     /// The receipt of a trigger that <paramref name="agentId"/> takes no event of now: the agent
-    /// takes no triggers, audited once per agent in <paramref name="refusals"/>, or the skill the
-    /// trigger names for it is stopped. <see langword="null"/> when the agent takes it.
+    /// takes no triggers, audited once per agent in <paramref name="refusals"/>, the skill the
+    /// trigger names for it is stopped, or the agent or that skill is off, which ignores the
+    /// trigger without an audit. <see langword="null"/> when the agent takes it.
     /// </summary>
     private async Task<NhAssistantTriggerReceipt?> RefuseAgentAsync(
         NhAssistantTriggerDefinition trigger,
@@ -529,27 +582,43 @@ internal sealed class NhAssistantAgentTriggers(
         string? refusal;
         if (refusals is null || !refusals.TryGetValue(agentId, out refusal))
         {
-            refusal = await RefusalOfAsync(agentId, refusePaused, cancellationToken);
+            refusal = await RefusalOfAsync(agentId, refusePaused, cancellationToken, refuseOff: true);
             if (refusals is not null)
             {
                 refusals[agentId] = refusal;
             }
-            if (refusal is not null && refusal != NhAssistantErrorCodes.Disabled)
+            if (refusal is not null && refusal != NhAssistantErrorCodes.Disabled && refusal != NhAssistantErrorCodes.AgentOff)
             {
                 await events.TriggerAsync(agentId, null, trigger.Id, null, null, null, refusal, accepted: false, cancellationToken);
             }
         }
 
-        if (refusal is null && skillId is not null
-            && await SkillStateAsync(agentId, skillId, cancellationToken) == NhAssistantAgentRunStates.Stopped)
+        if (refusal is null && skillId is not null)
         {
-            // A stopped skill evaluates none of its triggers' lambdas either.
-            refusal = NhAssistantErrorCodes.SkillStopped;
-            await events.TriggerAsync(agentId, null, trigger.Id, null, null, null, refusal, accepted: false, cancellationToken, skillId);
+            var skillState = await SkillStateAsync(agentId, skillId, cancellationToken);
+            if (skillState == NhAssistantAgentRunStates.Stopped)
+            {
+                // A stopped skill evaluates none of its triggers' lambdas either.
+                refusal = NhAssistantErrorCodes.SkillStopped;
+                await events.TriggerAsync(agentId, null, trigger.Id, null, null, null, refusal, accepted: false, cancellationToken, skillId);
+            }
+            else if (skillState == NhAssistantAgentRunStates.Off)
+            {
+                refusal = NhAssistantErrorCodes.SkillOff;
+            }
         }
         if (refusal is null)
         {
             return null;
+        }
+        if (refusal == NhAssistantErrorCodes.AgentOff)
+        {
+            // An agent that is off ignores its triggers silently, as a When filter does.
+            return Ignored(trigger.Id, NhAssistantTriggerReasons.AgentOff);
+        }
+        if (refusal == NhAssistantErrorCodes.SkillOff)
+        {
+            return Ignored(trigger.Id, NhAssistantTriggerReasons.SkillOff);
         }
 
         logger.LogInformation(
@@ -852,6 +921,12 @@ internal sealed class NhAssistantAgentTriggers(
         NhAssistantTriggerReceipt receipt,
         CancellationToken cancellationToken)
     {
+        if (IsIgnoredWhileOff(receipt))
+        {
+            // What an agent or skill that is off ignores leaves no trace, as a When filter does.
+            return;
+        }
+
         var accepted = receipt.Outcome is NhAssistantTriggerOutcomes.Started
             or NhAssistantTriggerOutcomes.Queued
             or NhAssistantTriggerOutcomes.Coalesced
@@ -1151,6 +1226,13 @@ internal sealed class NhAssistantAgentTriggers(
             return Rejected(fire, null, NhAssistantErrorCodes.AgentStopped);
         }
 
+        // An agent that is off ignores the work it would take on by itself; people still start it.
+        var automatic = IsAutomatic(fire);
+        if (automatic && agent.RunState == NhAssistantAgentRunStates.Off)
+        {
+            return Ignored(fire.TriggerId, NhAssistantTriggerReasons.AgentOff);
+        }
+
         // Every start, from events, schedules, webhooks, people, requests, hand-offs and follow-ups,
         // is on a subject type the agent works on, and for the whole application on the scope that
         // fits it (app-wide or a division); nothing waits for a type it does not.
@@ -1166,6 +1248,10 @@ internal sealed class NhAssistantAgentTriggers(
         if (skillState == NhAssistantAgentRunStates.Stopped)
         {
             return Rejected(fire, null, NhAssistantErrorCodes.SkillStopped);
+        }
+        if (automatic && skillState == NhAssistantAgentRunStates.Off)
+        {
+            return Ignored(fire.TriggerId, NhAssistantTriggerReasons.SkillOff);
         }
 
         // Work of an agent, a skill or a data trigger in shadow goes to the agent's shadow thread of

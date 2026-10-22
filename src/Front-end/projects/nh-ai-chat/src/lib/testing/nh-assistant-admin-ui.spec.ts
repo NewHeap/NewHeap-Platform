@@ -530,6 +530,62 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(card().textContent).toContain('Active');
   });
 
+  it('switches an agent and a skill off and on again, and creates an agent that starts off', async () => {
+    const script = scenario();
+    script.admin!.agents![0] = {
+      ...script.admin!.agents![0],
+      startsOff: true,
+      skills: [{ skillId: 'deadline-risk', description: 'Judges deadline risks.', startsOff: true }]
+    };
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const card = () => element.querySelector('.card')!;
+    const skill = () => element.querySelector('[data-skill="deadline-risk"]')!;
+
+    // Off in code: the agent says what that means, and offers to switch it on instead of a resume.
+    expect(card().querySelector('.card-header')?.textContent).toContain('Off');
+    expect(card().querySelector('[data-off-hint]')?.textContent).toContain('It started off, as its code says.');
+    expect(buttons(element, 'Resume').length).toBe(0);
+    (card().querySelector('.card-actions [data-state-action="active"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(card().textContent).toContain('Nothing that happened while it was off runs.');
+    button(element, 'Confirm switch on').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/state')).toEqual([{ state: 'active', reason: null }]);
+    expect(card().querySelector('.card-header')?.textContent).toContain('Active');
+
+    (skill().querySelector('[data-state-action="active"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(card().textContent).toContain('The skill Deadline risk takes work again.');
+    button(element, 'Confirm switch on').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/skills/deadline-risk/state')).toEqual([{ state: 'active', reason: null }]);
+
+    (card().querySelector('.card-actions [data-state-action="off"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(card().textContent).toContain('Events, schedules, webhooks, hand-offs and follow-ups are ignored');
+    type(element, 'input[id$="-reason"]', 'Not yet');
+    button(element, 'Confirm switch off').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/state').at(-1)).toEqual({ state: 'off', reason: 'Not yet' });
+    expect(card().querySelector('[data-off-hint]')?.textContent).toContain('People can still chat with it and start it by hand.');
+    expect(card().textContent).toContain('Note: Not yet');
+
+    // A new agent starts off when the administrator leaves it switched off.
+    button(element, 'New agent').click();
+    await settle(fixture);
+    type(element, 'input[id$="-id"]', 'quiet-agent');
+    type(element, 'input[id$="-name"]', 'Quiet agent');
+    type(element, 'textarea', 'Help quietly.');
+    (element.querySelector('[data-switch-on-now] input') as HTMLInputElement).click();
+    fixture.detectChanges();
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents')).toEqual([jasmine.objectContaining({ id: 'quiet-agent', startsOff: true })]);
+    const created = Array.from(element.querySelectorAll('.card')).find(item => item.textContent?.includes('quiet-agent'))!;
+    expect(created.querySelector('.card-header')?.textContent).toContain('Off');
+  });
+
   it('gives an administration agent run settings with errors at their fields, a skill that starts in shadow and a trigger it puts live', async () => {
     const script = runScenario();
     script.admin!.accounts = [

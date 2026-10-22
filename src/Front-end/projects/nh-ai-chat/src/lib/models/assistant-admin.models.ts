@@ -134,6 +134,12 @@ export interface AdminAgentInput {
   runPolicy?: string | null;
   /** Who sees its results for the whole application, from the run catalog's `agentPolicies`; `null`: the agent's required policy. */
   viewPolicy?: string | null;
+  /**
+   * On create only: the new agent starts off, so its events, schedules and other triggers are
+   * ignored until someone switches it on with `setAgentState`. Omitted starts it active; ignored on
+   * update.
+   */
+  startsOff?: boolean;
 }
 
 /** Body of `PUT admin/agents/{id}`. */
@@ -141,10 +147,13 @@ export type UpdateAdminAgentRequest = AdminAgentInput & { expectedVersion: numbe
 
 /**
  * The run state of an agent. `paused`: no new runs; events wait and run after the resume.
- * `stopped`: active runs were cancelled and events are refused. `configured-off`: disabled in the
- * application's code until the next deployment; it cannot be resumed here.
+ * `stopped`: active runs were cancelled and events are refused. `off`: events, schedules and other
+ * triggers are ignored and nothing waits, while running runs finish, proposals stay decidable and
+ * people still chat with it and start it by hand; switching it on replays nothing.
+ * `configured-off`: disabled in the application's code until the next deployment; it cannot be
+ * resumed here.
  */
-export type AgentRunState = 'active' | 'paused' | 'stopped' | 'configured-off';
+export type AgentRunState = 'active' | 'paused' | 'stopped' | 'off' | 'configured-off';
 
 export interface AdminAgent extends AdminAgentInput {
   /** `false` while the agent is stopped; read `runState` for the full state. */
@@ -240,7 +249,7 @@ export interface AgentServiceAccountState {
 export interface AgentSkillState {
   skillId: string;
   description: string;
-  runState: 'active' | 'paused' | 'stopped';
+  runState: 'active' | 'paused' | 'stopped' | 'off';
   changedAt: string | null;
   changedBy: string | null;
   reason: string | null;
@@ -292,9 +301,9 @@ export interface SetAgentServiceAccountRequest {
   reason?: string | null;
 }
 
-/** Body of `POST admin/agents/{id}/state`. `active` resumes the agent. */
+/** Body of `POST admin/agents/{id}/state`. `active` resumes the agent or switches it on. */
 export interface SetAgentStateRequest {
-  state: 'active' | 'paused' | 'stopped';
+  state: 'active' | 'paused' | 'stopped' | 'off';
   /** Optional, at most 500 characters. */
   reason?: string | null;
 }
@@ -982,6 +991,11 @@ export interface AgentRunSettingsRequest {
 export interface CodeSkill {
   skillId: string;
   description: string;
+  /**
+   * The skill starts off in code (`StartsOff()`): it was off when the application first saw it. Its
+   * state now is in the skill's state; missing on older servers.
+   */
+  startsOff?: boolean;
 }
 
 /** A trigger registered in code; it cannot change here. */
@@ -1010,6 +1024,11 @@ export interface CodeRunSettings {
   approvalPolicy: string | null;
   /** It works by a rule handler in code instead of the model. */
   usesRules: boolean;
+  /**
+   * The agent starts off in code (`StartsOff()`): it was off when the application first saw it. Its
+   * state now is the agent's `runState`; missing on older servers.
+   */
+  startsOff?: boolean;
 }
 
 /** One version of a skill defined as data. */
@@ -1058,6 +1077,11 @@ export interface DataSkillRequest {
   reason?: string | null;
   /** For a change of a skill; `live` by default. */
   apply?: SkillApplyMode;
+  /**
+   * For a new skill only: it starts off, so triggers that name it are ignored and rules and triage do
+   * not route to it until someone switches it on. A change of a skill fails with `startsOff: invalid`.
+   */
+  startsOff?: boolean;
 }
 
 export type DataSkillVersionStatus = 'live' | 'candidate' | 'superseded' | 'discarded';

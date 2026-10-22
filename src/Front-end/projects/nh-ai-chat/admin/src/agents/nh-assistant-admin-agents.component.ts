@@ -51,6 +51,14 @@ let nextId = 0;
 
 type AgentStateAction = SetAgentStateRequest['state'];
 
+/** A state change being entered, of the agent or one of its skills, with the state it changes from. */
+interface StateChange {
+  agentId: string;
+  skillId?: string;
+  state: AgentStateAction;
+  from: AdminAgent['runState'] | AgentSkillState['runState'];
+}
+
 /** The longest reason the server stores with a state change. */
 const maxStateReason = 500;
 
@@ -65,7 +73,8 @@ interface CatalogRead {
 
 /**
  * Agent administration: code agents (override, reset) and agents created here (edit, delete),
- * and for every agent its run state with pause, stop and resume, its shadow mode and that of each
+ * and for every agent and skill its run state with pause, switch off, stop and resume (switch on
+ * for one that is off), its shadow mode and that of each
  * skill, and the technical account of an agent that answers to one, each with an optional reason.
  * Editing opens `nh-assistant-admin-agent-editor`; the feedback action opens
  * `nh-assistant-agent-feedback-report` for the agent, the evaluation action of an agent with
@@ -147,7 +156,7 @@ export class NhAssistantAdminAgentsComponent {
   readonly confirming = signal<{ agentId: string; action: 'delete' | 'reset' } | null>(null);
   readonly busyAgentId = signal<string | null>(null);
   /** The state change whose reason is being entered, of the agent or one of its skills. */
-  readonly changingState = signal<{ agentId: string; skillId?: string; state: AgentStateAction } | null>(null);
+  readonly changingState = signal<StateChange | null>(null);
   /** The shadow mode change whose reason is being entered, of the agent or one of its skills. */
   readonly changingShadow = signal<{ agentId: string; skillId?: string; mode: AgentShadowMode } | null>(null);
   /** The change of the technical account being entered: a new account, or the one in code. */
@@ -286,13 +295,13 @@ export class NhAssistantAdminAgentsComponent {
 
   /**
    * Whether the agent can be run now: it runs on its own, so it has a run configuration, it is
-   * neither stopped nor disabled in code, and the run catalog names what it can run on. The server
-   * decides the rest when the run starts.
+   * neither stopped nor disabled in code, and the run catalog names what it can run on. An agent
+   * that is off still runs for a person. The server decides the rest when the run starts.
    */
   canRunNow(agent: AdminAgent): boolean {
     return this.catalog() !== null
       && this.hasRunConfiguration(agent)
-      && (agent.runState === 'active' || agent.runState === 'paused');
+      && (agent.runState === 'active' || agent.runState === 'paused' || agent.runState === 'off');
   }
 
   /** Opens the run-now dialog of the agent. */
@@ -479,11 +488,13 @@ export class NhAssistantAdminAgentsComponent {
   stateActions(agent: AdminAgent): AgentStateAction[] {
     switch (agent.runState) {
       case 'active':
-        return ['paused', 'stopped'];
+        return ['paused', 'off', 'stopped'];
       case 'paused':
+        return ['active', 'off', 'stopped'];
+      case 'off':
         return ['active', 'stopped'];
       case 'stopped':
-        return ['active'];
+        return ['active', 'off'];
       default:
         return [];
     }
@@ -493,18 +504,33 @@ export class NhAssistantAdminAgentsComponent {
   skillActions(skill: AgentSkillState): AgentStateAction[] {
     switch (skill.runState) {
       case 'active':
-        return ['paused', 'stopped'];
+        return ['paused', 'off', 'stopped'];
       case 'paused':
+        return ['active', 'off', 'stopped'];
+      case 'off':
         return ['active', 'stopped'];
       default:
         return ['active'];
     }
   }
 
+  /**
+   * The key of a state change's label, explanation or confirmation: making an agent or skill that is
+   * off active again switches it on, which replays nothing, unlike a resume.
+   */
+  stateKey(part: 'action' | 'explain' | 'confirm', from: string, action: AgentStateAction): string {
+    return `nh-assistant.admin.agents.state.${part}.${from === 'off' && action === 'active' ? 'switch-on' : action}`;
+  }
+
+  /** The explanation of a state change of one skill. */
+  skillStateExplainKey(change: StateChange): string {
+    return `nh-assistant.admin.agents.skills.explain.${change.from === 'off' && change.state === 'active' ? 'switch-on' : change.state}`;
+  }
+
   /** Opens the reason form of a state change of the agent or, with a skill, of that skill. */
   askState(agent: AdminAgent, state: AgentStateAction, skill?: AgentSkillState): void {
     this.closeForms();
-    this.changingState.set({ agentId: agent.id, skillId: skill?.skillId, state });
+    this.changingState.set({ agentId: agent.id, skillId: skill?.skillId, state, from: skill?.runState ?? agent.runState });
     afterNextRender(() => this.reasonInput()?.nativeElement.focus(), { injector: this.injector });
   }
 

@@ -184,6 +184,57 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
     }
 
     /// <summary>
+    /// Records the skills in code that the application sees for the first time: each starts active,
+    /// or off when its code says <c>StartsOff()</c>. A skill with a row keeps its stored state, so
+    /// the row also marks that the skill was seen.
+    /// </summary>
+    public async Task RecordCodeSkillsAsync(
+        IReadOnlyCollection<(string AgentId, string SkillId, bool StartsOff)> skills,
+        CancellationToken cancellationToken)
+    {
+        if (skills.Count == 0)
+        {
+            return;
+        }
+
+        var agentIds = skills.Select(skill => skill.AgentId).Distinct(StringComparer.Ordinal).ToArray();
+        HashSet<(string AgentId, string SkillId)> seen;
+        await using (var context = contextFactory.CreateDbContext())
+        {
+            var rows = await context.AgentSkillStates
+                .AsNoTracking()
+                .Where(row => agentIds.Contains(row.AgentId))
+                .Select(row => new { row.AgentId, row.SkillId })
+                .ToListAsync(cancellationToken);
+            seen = rows.Select(row => (row.AgentId, row.SkillId)).ToHashSet();
+        }
+
+        foreach (var (agentId, skillId, startsOff) in skills)
+        {
+            if (seen.Contains((agentId, skillId)))
+            {
+                continue;
+            }
+
+            await using var context = contextFactory.CreateDbContext();
+            context.AgentSkillStates.Add(new AssistantAgentSkillState
+            {
+                AgentId = agentId,
+                SkillId = skillId,
+                RunState = startsOff ? NhAssistantAgentRunStates.Off : NhAssistantAgentRunStates.Active
+            });
+            try
+            {
+                await context.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                // Another host recorded the same skill concurrently.
+            }
+        }
+    }
+
+    /// <summary>
     /// Sets the state of one skill and returns the state it had before.
     /// </summary>
     public async Task<string> SetSkillStateAsync(

@@ -324,6 +324,8 @@
       "assistant-run-token-limit": "This run stopped because it reached its token budget. What it did so far stays; an approver can resume it.",
       "assistant-skill-stopped": "This skill of the agent has been stopped.",
       "assistant-skill-paused": "This skill of the agent is paused; its events wait until it resumes.",
+      "assistant-agent-off": "This agent is switched off; it takes no work from other agents until it is switched on.",
+      "assistant-skill-off": "This skill of the agent is switched off.",
       "assistant-skill-not-found": "The agent has no such skill.",
       "assistant-skill-not-available": "That skill is not available now.",
       "assistant-skill-switch-limit": "The run already switched skills as often as allowed.",
@@ -557,22 +559,31 @@
           "stopped": "Stopped",
           "configured-off": "Off in configuration",
           "configured-off-hint": "Disabled in the application's code until the next deployment; it cannot be resumed here.",
+          "off": "Off",
+          "off-hint": "Events, schedules and other triggers are ignored until it is switched on, and nothing waits for it. People can still chat with it and start it by hand.",
+          "starts-off": "It started off, as its code says.",
           "changed": "Changed by {{user}} on {{date}}.",
           "reason": "Note: {{reason}}",
           "waiting": "{{count}} events wait for the resume.",
           "action": {
             "active": "Resume",
             "paused": "Pause",
+            "off": "Switch off",
+            "switch-on": "Switch on",
             "stopped": "Stop"
           },
           "explain": {
             "active": "The agent works again. Every subject with waiting events gets one run.",
             "paused": "No new runs start. Events wait and run after the resume; running work finishes and approved proposals execute.",
+            "off": "Events, schedules, webhooks, hand-offs and follow-ups are ignored and nothing waits; switching on later starts nothing for them. Running work finishes, open proposals can still be decided and people can still chat with the agent and start it by hand.",
+            "switch-on": "The agent takes its events, schedules and other triggers again. Nothing that happened while it was off runs.",
             "stopped": "Active runs are cancelled, their open proposals withdrawn and waiting events dropped. Approved proposals wait until the agent works again."
           },
           "confirm": {
             "active": "Confirm resume",
             "paused": "Confirm pause",
+            "off": "Confirm switch off",
+            "switch-on": "Confirm switch on",
             "stopped": "Confirm stop"
           },
           "note-label": "Note for other administrators (optional)",
@@ -585,6 +596,8 @@
           "explain": {
             "active": "The skill {{skill}} works again. Every subject with events waiting for it gets one run.",
             "paused": "The skill {{skill}} starts no new runs: its events wait, triage no longer chooses it and running work finishes. The other skills keep working.",
+            "off": "Triggers of the skill {{skill}} are ignored and rules and triage no longer route work to it; nothing waits for it. Running work finishes. The other skills keep working.",
+            "switch-on": "The skill {{skill}} takes work again. Nothing that happened while it was off runs.",
             "stopped": "The runs of the skill {{skill}} are cancelled and its waiting events dropped; its triggers are refused. The other skills keep working."
           }
         },
@@ -677,6 +690,8 @@
         "required-policy": "Required policy",
         "required-policy-hint": "Optional. Only users who pass this policy see the agent.",
         "state-hint": "Pause, stop and resume the agent from the agent list. Saving never changes its state.",
+        "switch-on-now": "Switch on now",
+        "switch-on-now-hint": "Otherwise the agent starts off: its events, schedules and other triggers are ignored until you switch it on in the agent list. People can still chat with it and start it by hand.",
         "tool-selectors": "Tool selectors",
         "tool-selectors-hint": "Choose tools from the catalog or add a pattern such as sample-api.project.*. MCP tools come from the assigned servers.",
         "add-selector": "Add pattern",
@@ -1178,6 +1193,8 @@
           "apply-shadow": "Evaluate in shadow next to the live version first",
           "apply-live": "Put live at once",
           "starts-in-shadow": "A new skill starts in shadow.",
+          "switch-on-now": "Switch on now",
+          "switch-on-now-hint": "Otherwise the skill starts off: triggers that name it are ignored and rules and triage do not route to it until you switch it on in the agent list.",
           "versions": "Versions",
           "remove-explain": "Its versions stay as history. A trigger that starts it must go first.",
           "what": {

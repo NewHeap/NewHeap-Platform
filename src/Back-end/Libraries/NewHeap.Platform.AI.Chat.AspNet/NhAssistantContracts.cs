@@ -540,7 +540,8 @@ public sealed record NhAssistantToolCatalogEntryDto(
 /// <summary>
 /// Agent input. <see cref="ExpectedVersion"/> is required on update and ignored on create.
 /// <see cref="IsEnabled"/> is accepted and ignored until the next major version: the run state
-/// changes with <c>POST admin/agents/{id}/state</c>, and a new agent starts active.
+/// changes with <c>POST admin/agents/{id}/state</c>, and a new agent starts active, or off with
+/// <see cref="StartsOff"/>.
 /// <see cref="OfferedInChat"/> applies to agents created in the administration: omitted keeps it on
 /// update and offers a new agent in the chat; agents in code take it from <c>HideFromChat()</c>.
 /// What the agent works on (<see cref="WorksOnSubjectTypes"/>, <see cref="WorksOnAllSubjects"/>,
@@ -560,6 +561,9 @@ public sealed record NhAssistantToolCatalogEntryDto(
 /// administration policy.</param>
 /// <param name="ViewPolicy">A policy of the run catalog's <c>agentPolicies</c>, or empty for the
 /// agent's required policy.</param>
+/// <param name="StartsOff">On create only: the new agent starts off (<c>off</c>), so its triggers are
+/// ignored until someone switches it on with <c>POST admin/agents/{id}/state</c>. Omitted or
+/// <see langword="false"/> starts it active; ignored on update.</param>
 public sealed record NhAssistantAdminAgentInputDto(
     string? Id,
     string? DisplayName,
@@ -577,10 +581,11 @@ public sealed record NhAssistantAdminAgentInputDto(
     bool? WorksOnApplication = null,
     bool? PerDivision = null,
     string? RunPolicy = null,
-    string? ViewPolicy = null);
+    string? ViewPolicy = null,
+    bool? StartsOff = null);
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
-/// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c> or <c>configured-off</c>.</param>
+/// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c>, <c>off</c> or <c>configured-off</c>.</param>
 /// <param name="WaitingInputs">The inputs that wait while the agent is paused.</param>
 public sealed record NhAssistantAdminAgentDto(
     string Id,

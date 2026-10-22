@@ -255,7 +255,9 @@ internal sealed class NhAssistantAgentCatalog(
 }
 
 /// <summary>
-/// Upserts code agents and seeds the application context once per process.
+/// Upserts code agents, records the skills in code and seeds the application context once per
+/// process. An agent or skill with <c>StartsOff()</c> is stored off when it is seen for the first
+/// time; after that its stored state wins.
 /// </summary>
 internal sealed class NhAssistantSeeder(
     NhAssistantDbContextFactory contextFactory,
@@ -280,7 +282,15 @@ internal sealed class NhAssistantSeeder(
             var store = new NhAssistantAdminStore(contextFactory);
             var now = DateTimeOffset.UtcNow;
             await store.UpsertCodeAgentsAsync(
-                state.Agents.Select(agent => NhAssistantAgentCatalog.ToCodeRow(agent, now)).ToArray(),
+                state.Agents.Select(agent => FirstRow(agent, now)).ToArray(),
+                cancellationToken);
+            var agentIds = state.Agents.Select(agent => agent.Id).ToHashSet(StringComparer.Ordinal);
+            await store.RecordCodeSkillsAsync(
+                state.CodeAgentRuns.Values
+                    .Where(options => agentIds.Contains(options.AgentId))
+                    .SelectMany(options => options.Skills.Values)
+                    .Select(skill => (skill.AgentId, skill.Id, skill.StartsOff))
+                    .ToArray(),
                 cancellationToken);
             // Threads of agents that work in shadow by their code stay with administrators.
             await store.MarkShadowThreadsAsync(
@@ -300,5 +310,20 @@ internal sealed class NhAssistantSeeder(
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>
+    /// The row a code agent gets when the application sees it for the first time: off with
+    /// <c>StartsOff()</c>, otherwise active. An existing row keeps its state.
+    /// </summary>
+    private AssistantAgent FirstRow(NhAssistantAgentDefinition agent, DateTimeOffset now)
+    {
+        var row = NhAssistantAgentCatalog.ToCodeRow(agent, now);
+        if (state.CodeAgentRuns.TryGetValue(agent.Id, out var options) && options.StartsOff)
+        {
+            row.RunState = NhAssistantAgentRunStates.Off;
+        }
+
+        return row;
     }
 }

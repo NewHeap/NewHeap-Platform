@@ -257,8 +257,10 @@ low-key "What was wrong?" button; plain chat approvals never ask. Administrators
 the feedback per agent with `nh-assistant-agent-feedback-report` of
 `@newheap/platform-ai-chat/admin`, also reachable from each agent in the administration
 page: rejection rates and categories per tool and agent version, the texts and a JSON
-Lines export through `NhAssistantAdminApiService`. The same page pauses, stops and resumes
-an agent and each skill, puts them in shadow or live or lets the code decide again
+Lines export through `NhAssistantAdminApiService`. The same page pauses, stops, switches off
+and resumes an agent and each skill (an agent or skill that is off offers "Switch on", which
+replays nothing, and an agent that started off in code says so), puts them in shadow or live or
+lets the code decide again
 (`setAgentShadow`, `setSkillShadow`), and replaces the technical account of an agent that
 answers to one (`setServiceAccount`), each with an optional reason; a thread view marks a
 shadow thread, which only administrators reach.
@@ -273,8 +275,9 @@ account is found by name through `searchAccounts` when the catalog reports `acco
 (otherwise by its id, with the name `getAccounts` knows). The screens of the administration show a
 person or account by its name only, with the account ID as the name's tooltip and a button that copies
 it; they show the ID itself, labeled as an account ID, only while no name is known. The editor of a new agent asks how it is
-used: in the chat, on its own (`offeredInChat: false`, kept out of the agent picker) or both, and
-what it works on: "All objects" or chosen kinds of objects by the names of the run catalog's
+used: in the chat, on its own (`offeredInChat: false`, kept out of the agent picker) or both,
+whether to switch it on now (unticked sends `startsOff: true`; the skill form offers the same for a
+new skill), and what it works on: "All objects" or chosen kinds of objects by the names of the run catalog's
 `subjectTypes`, "The whole application", "Per division" only when the catalog reports `divisions`,
 and the run and view policy for the whole application from the catalog's `agentPolicies`. It sends
 `worksOnSubjectTypes`, `worksOnAllSubjects`, `worksOnApplication`, `perDivision`, `runPolicy` and

@@ -28,8 +28,11 @@ interface MockResult {
 /** What the run configuration reads of the mock's agents and changes in them. */
 export interface NhAssistantMockRunAgents {
   find(agentId: string): AdminAgent | undefined;
-  /** Adds the state of a data skill to the agent, or removes it with `description` `null`. */
-  setDataSkill(agentId: string, skillId: string, description: string | null): void;
+  /**
+   * Adds the state of a data skill to the agent, off with `startsOff`, or removes it with
+   * `description` `null`.
+   */
+  setDataSkill(agentId: string, skillId: string, description: string | null, startsOff?: boolean): void;
 }
 
 interface StoredSkillVersion extends DataSkill {
@@ -183,7 +186,8 @@ export class NhAssistantMockRunConfiguration {
       accountability: given.accountability ?? (agent.serviceAccount ? 'service-account' : 'agent'),
       delegateFromInitiator: given.delegateFromInitiator ?? false,
       approvalPolicy: given.approvalPolicy ?? null,
-      usesRules: given.usesRules ?? false
+      usesRules: given.usesRules ?? false,
+      startsOff: given.startsOff ?? false
     };
   }
 
@@ -340,6 +344,10 @@ export class NhAssistantMockRunConfiguration {
     if (request.apply === 'shadow' && (request.expectedVersion ?? null) === null) {
       errors['apply'] = ['invalid'];
     }
+    // Only a new skill starts off; a skill that exists keeps its state.
+    if (request.startsOff === true && (request.expectedVersion ?? null) !== null) {
+      errors['startsOff'] = ['invalid'];
+    }
     this.requireKnown(errors, 'profile', request.profile, this.catalog.profiles);
     this.requireKnown(errors, 'ruleHandler', request.ruleHandler, this.catalog.ruleHandlers.map(handler => handler.name));
     this.requireKnown(errors, 'approvalPolicy', request.approvalPolicy, this.catalog.approvalPolicies);
@@ -381,7 +389,7 @@ export class NhAssistantMockRunConfiguration {
     };
     this.skills.set(key(agent.id, skillId), [...versions, saved]);
     if (!candidate) {
-      this.agents.setDataSkill(agent.id, skillId, saved.description);
+      this.agents.setDataSkill(agent.id, skillId, saved.description, live === undefined && request.startsOff === true);
     }
     return { status: 200, body: toSkill(saved) };
   }

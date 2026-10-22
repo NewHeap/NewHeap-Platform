@@ -324,6 +324,8 @@
       "assistant-run-token-limit": "Deze run is gestopt omdat hij zijn tokenbudget heeft bereikt. Wat hij al deed blijft staan; een goedkeurder kan hem hervatten.",
       "assistant-skill-stopped": "Deze vaardigheid van de agent is gestopt.",
       "assistant-skill-paused": "Deze vaardigheid van de agent is gepauzeerd; haar gebeurtenissen wachten tot ze hervat wordt.",
+      "assistant-agent-off": "Deze agent staat uit; hij neemt geen werk van andere agents aan tot hij aangezet wordt.",
+      "assistant-skill-off": "Deze vaardigheid van de agent staat uit.",
       "assistant-skill-not-found": "De agent heeft deze vaardigheid niet.",
       "assistant-skill-not-available": "Die vaardigheid is nu niet beschikbaar.",
       "assistant-skill-switch-limit": "De run is al zo vaak van vaardigheid gewisseld als mag.",
@@ -557,22 +559,31 @@
           "stopped": "Gestopt",
           "configured-off": "Uit in configuratie",
           "configured-off-hint": "Uitgeschakeld in de code van de applicatie tot de volgende deployment; hier kun je de agent niet hervatten.",
+          "off": "Uit",
+          "off-hint": "Gebeurtenissen, schema's en andere triggers worden genegeerd tot de agent aangezet wordt, en er wacht niets op hem. Mensen kunnen nog met de agent chatten en hem handmatig starten.",
+          "starts-off": "De agent begon uit, zoals zijn code zegt.",
           "changed": "Gewijzigd door {{user}} op {{date}}.",
           "reason": "Notitie: {{reason}}",
           "waiting": "{{count}} gebeurtenissen wachten op het hervatten.",
           "action": {
             "active": "Hervatten",
             "paused": "Pauzeren",
+            "off": "Uitzetten",
+            "switch-on": "Aanzetten",
             "stopped": "Stoppen"
           },
           "explain": {
             "active": "De agent werkt weer. Elk onderwerp met wachtende gebeurtenissen krijgt één run.",
             "paused": "Er starten geen nieuwe runs. Gebeurtenissen wachten en lopen na het hervatten; lopend werk wordt afgemaakt en goedgekeurde voorstellen worden uitgevoerd.",
+            "off": "Gebeurtenissen, schema's, webhooks, overdrachten en vervolgruns worden genegeerd en er wacht niets; later aanzetten start er niets voor. Lopend werk wordt afgemaakt, open voorstellen kunnen nog beoordeeld worden en mensen kunnen nog met de agent chatten en hem handmatig starten.",
+            "switch-on": "De agent neemt zijn gebeurtenissen, schema's en andere triggers weer aan. Wat er gebeurde terwijl hij uit stond, loopt niet alsnog.",
             "stopped": "Actieve runs worden geannuleerd, hun open voorstellen ingetrokken en wachtende gebeurtenissen vervallen. Goedgekeurde voorstellen wachten tot de agent weer werkt."
           },
           "confirm": {
             "active": "Hervatten bevestigen",
             "paused": "Pauze bevestigen",
+            "off": "Uitzetten bevestigen",
+            "switch-on": "Aanzetten bevestigen",
             "stopped": "Stop bevestigen"
           },
           "note-label": "Notitie voor andere beheerders (optioneel)",
@@ -585,6 +596,8 @@
           "explain": {
             "active": "De vaardigheid {{skill}} werkt weer. Elk onderwerp met gebeurtenissen die erop wachten krijgt één run.",
             "paused": "De vaardigheid {{skill}} start geen nieuwe runs: haar gebeurtenissen wachten, triage kiest haar niet meer en lopend werk wordt afgemaakt. De andere vaardigheden werken door.",
+            "off": "Triggers van de vaardigheid {{skill}} worden genegeerd en regels en triage sturen er geen werk meer heen; er wacht niets op haar. Lopend werk wordt afgemaakt. De andere vaardigheden werken door.",
+            "switch-on": "De vaardigheid {{skill}} neemt weer werk aan. Wat er gebeurde terwijl ze uit stond, loopt niet alsnog.",
             "stopped": "De runs van de vaardigheid {{skill}} worden geannuleerd en haar wachtende gebeurtenissen vervallen; haar triggers worden geweigerd. De andere vaardigheden werken door."
           }
         },
@@ -677,6 +690,8 @@
         "required-policy": "Vereiste policy",
         "required-policy-hint": "Optioneel. Alleen gebruikers die aan deze policy voldoen zien de agent.",
         "state-hint": "Pauzeer, stop en hervat de agent vanuit de lijst met agents. Opslaan verandert de stand nooit.",
+        "switch-on-now": "Nu aanzetten",
+        "switch-on-now-hint": "Anders begint de agent uit: zijn gebeurtenissen, schema's en andere triggers worden genegeerd tot je hem aanzet in de lijst met agents. Mensen kunnen nog met de agent chatten en hem handmatig starten.",
         "tool-selectors": "Toolselectors",
         "tool-selectors-hint": "Kies tools uit de catalogus of voeg een patroon toe, zoals sample-api.project.*. MCP-tools komen van de toegewezen servers.",
         "add-selector": "Patroon toevoegen",
@@ -1178,6 +1193,8 @@
           "apply-shadow": "Eerst in schaduw beoordelen naast de live versie",
           "apply-live": "Direct live zetten",
           "starts-in-shadow": "Een nieuwe vaardigheid start in schaduw.",
+          "switch-on-now": "Nu aanzetten",
+          "switch-on-now-hint": "Anders begint de vaardigheid uit: triggers die haar noemen worden genegeerd en regels en triage sturen er niets heen tot je haar aanzet in de lijst met agents.",
           "versions": "Versies",
           "remove-explain": "Haar versies blijven bewaard. Een trigger die haar start moet eerst weg.",
           "what": {

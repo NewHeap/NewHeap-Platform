@@ -9,8 +9,9 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
-/// Pauses, stops and resumes agents. The administration, <c>POST admin/agents/{id}/state</c> and
-/// the kill switch use it; applications call it from their own code, for example around an import.
+/// Pauses, stops, switches off and resumes agents. The administration,
+/// <c>POST admin/agents/{id}/state</c> and the kill switch use it; applications call it from their
+/// own code, for example around an import.
 /// <list type="bullet">
 /// <item><description><b>Paused:</b> no new runs start. Events, webhooks, manual starts and
 /// requests wait per thread, deduplicated by their dedupe key; schedules skip their ticks.
@@ -18,13 +19,20 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// <item><description><b>Stopped:</b> active runs are cancelled and their pending proposals
 /// withdrawn, waiting inputs end, approved proposals are held and every trigger, request and
 /// chat turn is refused with <c>assistant-agent-stopped</c>.</description></item>
+/// <item><description><b>Off:</b> events, schedules, webhooks, hand-offs and follow-ups are ignored
+/// (<c>ignored</c> with the reason <c>agent-off</c>) before any of their lambdas runs, and nothing
+/// waits. Running runs finish, open proposals stay decidable and executable, and people still chat
+/// with the agent and start it by hand. Inputs that waited from a pause end.</description></item>
 /// <item><description><b>Resumed:</b> every thread with waiting inputs gets one run, which claims
-/// them all. Leaving the stopped state, by a resume or a pause, queues the executions of the
-/// approved proposals the stop held.</description></item>
+/// them all; switching an agent that is off on starts nothing, because nothing waited. Leaving the
+/// stopped state, by a resume, a pause or switching off, queues the executions of the approved
+/// proposals the stop held.</description></item>
 /// </list>
 /// The state never changes the agent's definition or version, and <c>Enabled(false)</c> in code
 /// wins: such an agent reports <see cref="NhAssistantAgentRunStates.ConfiguredOff"/> and cannot be
-/// resumed.
+/// resumed. <c>StartsOff()</c> in code is no such switch: it only makes an agent or skill start
+/// off the first time the application sees it, after which the stored state wins, also after a
+/// deploy.
 /// <para>Next to the state, the shadow mode of an agent and of each skill and the technical account
 /// of an agent that answers to one are runtime overrides of the code: <see cref="SetShadowAsync"/>,
 /// <see cref="SetSkillShadowAsync"/> and <see cref="SetServiceAccountAsync"/> change them without
@@ -54,8 +62,20 @@ public interface INhAssistantAgentControl
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Makes a paused or stopped agent active again. Fails with
-    /// <c>assistant-agent-configured-off</c> for an agent that is disabled in code.
+    /// Switches the agent off: its triggers are ignored until it is switched on again with
+    /// <see cref="ResumeAsync"/>, which replays nothing. Running runs finish and people keep working
+    /// with it.
+    /// </summary>
+    Task<TaskResult<NhAssistantAgentState>> SwitchOffAsync(
+        string agentId,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Makes a paused, stopped or off agent active again; an agent that was off starts no run for
+    /// what happened meanwhile. Fails with <c>assistant-agent-configured-off</c> for an agent that is
+    /// disabled in code.
     /// </summary>
     Task<TaskResult<NhAssistantAgentState>> ResumeAsync(
         string agentId,
@@ -86,7 +106,20 @@ public interface INhAssistantAgentControl
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Resumes one skill; every thread with events waiting for it gets one run in it.
+    /// Switches one skill off while the agent's other skills keep working: triggers that name it are
+    /// ignored (<c>skill-off</c>), rules and triage no longer route to it and <c>use_skill</c> does
+    /// not offer it. Its running runs finish; its events that waited from a pause end.
+    /// </summary>
+    Task<TaskResult<NhAssistantSkillState>> SwitchOffSkillAsync(
+        string agentId,
+        string skillId,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resumes one skill; every thread with events waiting for it gets one run in it. A skill that
+    /// was off starts no run.
     /// </summary>
     Task<TaskResult<NhAssistantSkillState>> ResumeSkillAsync(
         string agentId,
@@ -145,7 +178,7 @@ public interface INhAssistantAgentControl
 }
 
 /// <param name="RunState">One of <see cref="NhAssistantAgentRunStates"/>: <c>active</c>,
-/// <c>paused</c>, <c>stopped</c> or <c>configured-off</c>.</param>
+/// <c>paused</c>, <c>stopped</c>, <c>off</c> or <c>configured-off</c>.</param>
 /// <param name="Active">Whether the agent works now: active, enabled in code and the assistant
 /// enabled.</param>
 /// <param name="ChangedAt">When the state last changed; <see langword="null"/> when it never did.</param>
@@ -225,7 +258,7 @@ public sealed record NhAssistantServiceAccountState(
     string? ChangedBy,
     string? Reason);
 
-/// <param name="RunState"><c>active</c>, <c>paused</c> or <c>stopped</c>.</param>
+/// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c> or <c>off</c>.</param>
 /// <param name="WaitingInputs">The events that wait for the skill while it is paused.</param>
 /// <param name="ToolCallsToday">The tool calls of the skill's runs today, in every scope.</param>
 /// <param name="TokensToday">The model tokens of the skill's runs today, in every scope.</param>
@@ -255,7 +288,7 @@ public sealed record NhAssistantSkillState(
     public NhAssistantShadowState Shadow { get; init; } = NhAssistantShadowState.Live;
 }
 
-/// <param name="State"><c>active</c>, <c>paused</c> or <c>stopped</c>.</param>
+/// <param name="State"><c>active</c>, <c>paused</c>, <c>stopped</c> or <c>off</c>.</param>
 /// <param name="Reason">Optional, at most 500 characters.</param>
 public sealed record NhAssistantAgentStateRequest(string? State, string? Reason);
 
@@ -342,6 +375,15 @@ internal sealed class NhAssistantAgentControl(
         return ChangeAsync(agentId, NhAssistantAgentRunStates.Stopped, actorId, reason, cancellationToken);
     }
 
+    public Task<TaskResult<NhAssistantAgentState>> SwitchOffAsync(
+        string agentId,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ChangeAsync(agentId, NhAssistantAgentRunStates.Off, actorId, reason, cancellationToken);
+    }
+
     public Task<TaskResult<NhAssistantAgentState>> ResumeAsync(
         string agentId,
         string actorId,
@@ -369,6 +411,16 @@ internal sealed class NhAssistantAgentControl(
         CancellationToken cancellationToken = default)
     {
         return ChangeSkillAsync(agentId, skillId, NhAssistantAgentRunStates.Stopped, actorId, reason, cancellationToken);
+    }
+
+    public Task<TaskResult<NhAssistantSkillState>> SwitchOffSkillAsync(
+        string agentId,
+        string skillId,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ChangeSkillAsync(agentId, skillId, NhAssistantAgentRunStates.Off, actorId, reason, cancellationToken);
     }
 
     public Task<TaskResult<NhAssistantSkillState>> ResumeSkillAsync(
@@ -593,7 +645,14 @@ internal sealed class NhAssistantAgentControl(
 
                 await runs.DiscardSkillWaitingInputsAsync(agentId, skillId, cancellationToken);
             }
-            else if (target == NhAssistantAgentRunStates.Active && agent.RunState == NhAssistantAgentRunStates.Active)
+            else if (target == NhAssistantAgentRunStates.Off)
+            {
+                // Events that waited from a pause end, so switching the skill on replays nothing.
+                await runs.DiscardUnclaimedWaitingInputsAsync(agentId, cancellationToken, skillId);
+            }
+            else if (target == NhAssistantAgentRunStates.Active
+                     && current != NhAssistantAgentRunStates.Off
+                     && agent.RunState == NhAssistantAgentRunStates.Active)
             {
                 started = await triggers.ResumeWaitingAsync(agentId, cancellationToken, skillId);
             }
@@ -742,7 +801,13 @@ internal sealed class NhAssistantAgentControl(
             {
                 await ReleaseHeldExecutionsAsync(agentId, cancellationToken);
             }
-            if (target == NhAssistantAgentRunStates.Active)
+            if (target == NhAssistantAgentRunStates.Off)
+            {
+                // Events that waited from a pause end, so switching the agent on replays nothing;
+                // runs that were queued before keep their inputs and finish.
+                await runs.DiscardUnclaimedWaitingInputsAsync(agentId, cancellationToken);
+            }
+            else if (target == NhAssistantAgentRunStates.Active && previous != NhAssistantAgentRunStates.Off)
             {
                 started = await triggers.ResumeWaitingAsync(agentId, cancellationToken);
             }

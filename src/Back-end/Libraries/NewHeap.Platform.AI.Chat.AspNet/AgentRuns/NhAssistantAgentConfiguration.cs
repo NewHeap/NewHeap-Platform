@@ -32,7 +32,8 @@ public interface INhAssistantAgentConfiguration
     /// <summary>
     /// Creates an agent the way an administrator does in the administration, for example from a
     /// package import: offered in the chat unless <see cref="NhAssistantAgentRequest.OfferedInChat"/>
-    /// is <see langword="false"/>, active, and without run settings until
+    /// is <see langword="false"/>, active unless <see cref="NhAssistantAgentRequest.StartsOff"/>
+    /// starts it off, and without run settings until
     /// <see cref="SaveRunSettingsAsync"/> gives it some. An existing id fails with
     /// <c>assistant-agent-exists</c>; invalid input with field errors.
     /// </summary>
@@ -82,7 +83,8 @@ public interface INhAssistantAgentConfiguration
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Adds a data skill, which starts in shadow, or stores the next version of one. With
+    /// Adds a data skill, which starts in shadow, and off with <c>StartsOff</c>, or stores the next
+    /// version of one. With
     /// <c>apply</c> <c>live</c> the version takes effect at once in the mode the skill has; with
     /// <c>shadow</c> it becomes the skill's candidate, which runs in the agent's shadow thread next to
     /// the live version on the triggers that name the skill, until it is promoted or discarded. A new
@@ -300,6 +302,8 @@ public sealed record NhAssistantAccountDto(string ActorId, string DisplayName, s
 /// <c>AddAgentPolicy</c>; without it the administration policy.</param>
 /// <param name="ViewPolicy">Who sees its results for the whole application: a policy listed with
 /// <c>AddAgentPolicy</c>; without it the agent's required policy.</param>
+/// <param name="StartsOff">The agent starts off: its triggers are ignored until someone switches it on
+/// with <c>INhAssistantAgentControl.ResumeAsync</c>. People can still chat with it and start it.</param>
 /// <remarks>
 /// Without <paramref name="WorksOnSubjectTypes"/>, <paramref name="WorksOnAllSubjects"/> and
 /// <paramref name="WorksOnApplication"/> the agent works on all object types and not on the
@@ -319,7 +323,8 @@ public sealed record NhAssistantAgentRequest(
     bool? WorksOnApplication = null,
     bool PerDivision = false,
     string? RunPolicy = null,
-    string? ViewPolicy = null);
+    string? ViewPolicy = null,
+    bool StartsOff = false);
 
 /// <param name="Name">The building block's name.</param>
 /// <param name="Description">What it means, for the administration.</param>
@@ -374,7 +379,14 @@ public sealed record NhAssistantCodeRunSettingsDto(
     string Accountability,
     bool DelegateFromInitiator,
     string? ApprovalPolicy,
-    bool UsesRules);
+    bool UsesRules)
+{
+    /// <summary>
+    /// The agent starts off in code (<c>StartsOff()</c>): it was off when the application first saw
+    /// it. Its state now is in the agent's state.
+    /// </summary>
+    public bool StartsOff { get; init; }
+}
 
 /// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or
 /// <c>service-account</c>.</param>
@@ -445,7 +457,14 @@ public sealed record NhAssistantAgentRunSettingsRequest(
     int? ExpectedVersion = null,
     string? Reason = null);
 
-public sealed record NhAssistantCodeSkillDto(string SkillId, string Description);
+public sealed record NhAssistantCodeSkillDto(string SkillId, string Description)
+{
+    /// <summary>
+    /// The skill starts off in code (<c>StartsOff()</c>): it was off when the application first saw
+    /// it. Its state now is in the skill's state.
+    /// </summary>
+    public bool StartsOff { get; init; }
+}
 
 /// <param name="Source"><c>event</c>, <c>schedule</c> or <c>webhook</c>.</param>
 public sealed record NhAssistantCodeTriggerDto(string TriggerId, string Source, string? SkillId)
@@ -565,6 +584,9 @@ public sealed record NhAssistantDataTriggerDto(
 /// <param name="Reason">At most 500 characters.</param>
 /// <param name="Apply">For a change of a skill: <c>live</c> (default) puts the version into effect at
 /// once; <c>shadow</c> makes it the candidate that runs in shadow next to the live version.</param>
+/// <param name="StartsOff">For a new skill only: it starts off, so triggers that name it are ignored
+/// and rules and triage do not route to it until someone switches it on. A change of a skill fails
+/// with a field error <c>startsOff</c>.</param>
 public sealed record NhAssistantDataSkillRequest(
     string? Description,
     string? Instructions = null,
@@ -577,7 +599,8 @@ public sealed record NhAssistantDataSkillRequest(
     string? ApprovalPolicy = null,
     int? ExpectedVersion = null,
     string? Reason = null,
-    string? Apply = null);
+    string? Apply = null,
+    bool StartsOff = false);
 
 /// <summary>
 /// How a change of a data skill takes effect.
@@ -712,7 +735,8 @@ internal sealed class NhAssistantAgentConfiguration(
                     request.WorksOnApplication,
                     request.PerDivision ? true : null,
                     request.RunPolicy,
-                    request.ViewPolicy)),
+                    request.ViewPolicy),
+                request.StartsOff),
             actorId,
             cancellationToken);
         if (!created.Success)
@@ -778,7 +802,11 @@ internal sealed class NhAssistantAgentConfiguration(
         return new NhAssistantAgentConfigurationDto(
             agentId,
             agent.Definition.ToolSelectors,
-            code is null ? [] : code.Skills.Values.Select(skill => new NhAssistantCodeSkillDto(skill.Id, skill.Description)).ToArray(),
+            code is null
+                ? []
+                : code.Skills.Values
+                    .Select(skill => new NhAssistantCodeSkillDto(skill.Id, skill.Description) { StartsOff = skill.StartsOff })
+                    .ToArray(),
             skills,
             registration.CodeTriggers.Values
                 .Where(trigger => trigger.AgentId == agentId)
@@ -803,7 +831,10 @@ internal sealed class NhAssistantAgentConfiguration(
             NhAssistantAccountabilities.From(code.Accountability),
             code.DelegateFromInitiator,
             code.ApprovalPolicyId,
-            code.RuleHandlerType is not null);
+            code.RuleHandlerType is not null)
+        {
+            StartsOff = code.StartsOff
+        };
     }
 
     public async Task<TaskResult<NhAssistantAgentRunSettingsDto>> SaveRunSettingsAsync(
@@ -993,7 +1024,9 @@ internal sealed class NhAssistantAgentConfiguration(
             .Require((request.DailyToolCalls is null) == (request.DailyTokens is null) && request.DailyToolCalls is null or >= 1 && request.DailyTokens is null or >= 1, "dailyBudget", NhAssistantFieldErrors.Invalid)
             .Require(request.Apply is null or NhAssistantSkillApplyModes.Live or NhAssistantSkillApplyModes.Shadow, "apply", NhAssistantFieldErrors.Invalid)
             // A new skill has no live version to evaluate a candidate next to; it starts in shadow.
-            .Require(request.Apply != NhAssistantSkillApplyModes.Shadow || request.ExpectedVersion is not null, "apply", NhAssistantFieldErrors.Invalid);
+            .Require(request.Apply != NhAssistantSkillApplyModes.Shadow || request.ExpectedVersion is not null, "apply", NhAssistantFieldErrors.Invalid)
+            // Only a new skill starts off; a skill that exists keeps its state.
+            .Require(!request.StartsOff || request.ExpectedVersion is null, "startsOff", NhAssistantFieldErrors.Invalid);
         if (!errors.IsEmpty)
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(errors.ToResult());
@@ -1035,6 +1068,13 @@ internal sealed class NhAssistantAgentConfiguration(
         if (!saved.Succeeded)
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The skill changed in the meantime.");
+        }
+        if (request.StartsOff)
+        {
+            // Off before the configuration reloads, so no trigger reaches the new skill first.
+            await services.GetRequiredService<NhAssistantAdminStore>()
+                .SetSkillStateAsync(agentId, skillId, NhAssistantAgentRunStates.Off, actorId, reason, cancellationToken);
+            await events.AgentStateChangedAsync(agentId, actorId, NhAssistantAgentRunStates.Off, 0, cancellationToken, skillId);
         }
 
         await events.SkillDefinitionChangedAsync(

@@ -13,6 +13,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// sends fewer deadline checks to the model. Administrators compare it with the live planner in the
 /// administration, replay the planner's recorded runs into it and export the comparison. Call it
 /// after <c>AddSampleProjectPlanner</c>.
+/// SPM-284: the variant is deployed off with <c>StartsOff()</c>, so it costs nothing until an
+/// administrator switches it on to evaluate it. Only the first start applies it; switching it on
+/// replays none of the planner's events from before, and a later deploy never switches it off again.
 /// </summary>
 public static class SampleProjectPlannerVariantComposition
 {
@@ -45,6 +48,8 @@ public static class SampleProjectPlannerVariantComposition
             .ConfigureAgent(AgentId, agent => agent
                 // A shadow of the live planner: its events, no notifications, nothing executes.
                 .ShadowOf(SampleProjectPlannerComposition.AgentId)
+                // SPM-284: off until an administrator switches it on to evaluate it.
+                .StartsOff()
                 .WorksOn(ProjectSubjects.Type)
                 .Grant(ProjectAiTools.ChangeStatusToolId)
                 .TriggerOnly()

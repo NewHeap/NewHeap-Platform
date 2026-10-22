@@ -153,6 +153,19 @@ describe('provideNhAssistantMockApi administration', () => {
     expect((await firstValueFrom(admin.getAgentState('projects'))).runState).toBe('active');
   });
 
+  it('switches an agent off and on, and lets a new agent start off', async () => {
+    const off = await firstValueFrom(admin.setAgentState('projects', { state: 'off', reason: 'Not yet' }));
+    const on = await firstValueFrom(admin.setAgentState('projects', { state: 'active' }));
+    const created = await firstValueFrom(admin.createAgent({ ...newAgent, id: 'quiet-agent', startsOff: true }));
+    const active = await firstValueFrom(admin.createAgent({ ...newAgent, id: 'busy-agent' }));
+
+    expect(off).toEqual(jasmine.objectContaining({ runState: 'off', active: false, reason: 'Not yet', startedRuns: 0 }));
+    expect(on).toEqual(jasmine.objectContaining({ runState: 'active', active: true, startedRuns: 0 }));
+    expect(created).toEqual(jasmine.objectContaining({ runState: 'off', isEnabled: true, stateChangedBy: 'current-user' }));
+    expect(Object.keys(created)).not.toContain('startsOff');
+    expect(active.runState).toBe('active');
+  });
+
   it('rejects invalid agents', async () => {
     const invalid = [
       { ...newAgent, id: 'Not Dash Case' },

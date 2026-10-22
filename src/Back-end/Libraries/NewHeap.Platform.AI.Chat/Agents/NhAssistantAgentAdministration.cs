@@ -6,11 +6,12 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat;
 
 /// <summary>
-/// Administrator input for an agent. It carries no state: pause, stop and resume change that
-/// through the agent control, never the definition. <paramref name="OfferedInChat"/> and
-/// <paramref name="WorksOn"/> apply to agents created in the administration; <see langword="null"/>
-/// keeps them, a new agent is offered in the chat and works on all object types. Agents in code
-/// take both from their code.
+/// Administrator input for an agent. It carries no state: pause, stop, switching off and resume
+/// change that through the agent control, never the definition; only a new agent created in the
+/// administration may start off with <paramref name="StartsOff"/>. <paramref name="OfferedInChat"/>
+/// and <paramref name="WorksOn"/> apply to agents created in the administration;
+/// <see langword="null"/> keeps them, a new agent is offered in the chat and works on all object
+/// types. Agents in code take both from their code.
 /// </summary>
 internal sealed record NhAssistantAgentInput(
     string Id,
@@ -22,7 +23,8 @@ internal sealed record NhAssistantAgentInput(
     string? RequiredPolicy,
     NhAiAutonomyLevel Autonomy,
     bool? OfferedInChat = null,
-    NhAssistantAgentWorksOn? WorksOn = null);
+    NhAssistantAgentWorksOn? WorksOn = null,
+    bool StartsOff = false);
 
 /// <summary>
 /// Creates, overrides, resets and deletes agents. Every change is versioned and reported to the
@@ -63,7 +65,8 @@ internal sealed class NhAssistantAgentAdministration(
         }
 
         var now = DateTimeOffset.UtcNow;
-        // A new agent starts active; its state changes through the agent control only.
+        // A new agent starts active, or off when its administrator chose so; its state changes
+        // through the agent control only.
         var row = new AssistantAgent
         {
             Id = input.Id,
@@ -71,7 +74,9 @@ internal sealed class NhAssistantAgentAdministration(
             Source = NhAssistantAgentSources.Admin,
             ProfileName = profileName,
             IsEnabled = true,
-            RunState = NhAssistantAgentRunStates.Active,
+            RunState = input.StartsOff ? NhAssistantAgentRunStates.Off : NhAssistantAgentRunStates.Active,
+            StateChangedAt = input.StartsOff ? now : null,
+            StateChangedBy = input.StartsOff ? actorId : null,
             UpdatedAt = now,
             UpdatedBy = actorId
         };

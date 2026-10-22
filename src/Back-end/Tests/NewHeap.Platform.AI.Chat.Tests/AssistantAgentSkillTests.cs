@@ -249,6 +249,51 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_skill_that_is_off_ignores_its_triggers_and_rules_and_triage_do_not_route_to_it(AssistantTestProvider provider)
+    {
+        var models = new SkillModels();
+        models.Triage.RespondWithText("""{"skill":null,"reason":"Nothing changed that matters."}""");
+        await using var host = await CreateHostAsync(provider, models);
+        host.Services.GetRequiredService<TestRuleScript>().Run = (_, _) =>
+            Task.FromResult(NhAssistantRuleResult.UseSkill(Risk, "Check the deadline."));
+        var off = await ControlAsync(host, control => control.SwitchOffSkillAsync(AgentId, FollowUp, "operator-1", "Not yet"));
+        await ControlAsync(host, control => control.SwitchOffSkillAsync(AgentId, Risk, "operator-1"));
+        await ControlAsync(host, control => control.SwitchOffSkillAsync(AgentId, Notes, "operator-1"));
+        var auditsBefore = host.Business.Events.Count;
+
+        // A trigger that names the skill is ignored, without a thread, an input or an audit.
+        var ignored = Assert.Single(await PublishAsync(host, "task done"));
+        // Rules route nothing to a skill that is off: the run ends and nothing waits for the skill.
+        var ruled = Assert.Single(await PublishAsync(host, "rule check"));
+        await ExecuteAsync(host, ruled.RunId!.Value);
+        // Triage only offers the skills that are on.
+        var triaged = Assert.Single(await PublishAsync(host, "triage first"));
+        await ExecuteAsync(host, triaged.RunId!.Value);
+        // The agent's other skills keep working.
+        var intake = Assert.Single(await PublishAsync(host, "intake new"));
+
+        Assert.Equal(NhAssistantAgentRunStates.Off, off.Data!.RunState);
+        Assert.Equal((NhAssistantTriggerOutcomes.Ignored, NhAssistantTriggerReasons.SkillOff), (ignored.Outcome, ignored.ReasonCode));
+        Assert.Null(ignored.ConversationId);
+        var ended = await Runs(host).FindRunAsync(ruled.RunId.Value, CancellationToken.None);
+        Assert.Equal((NhAssistantRunStatuses.Cancelled, NhAssistantErrorCodes.SkillOff), (ended!.Status, ended.FailureCode));
+        Assert.Empty(models.Skill.Requests);
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            Assert.False(await context.QueuedInputs.AnyAsync(input => input.ConversationId == ruled.ConversationId && input.ConsumedAt == null));
+        }
+        var catalog = Assert.Single(models.Triage.Requests).Messages[^1].Text;
+        Assert.Contains($"- {Intake}: ", catalog);
+        Assert.DoesNotContain($"- {Risk}: ", catalog);
+        Assert.DoesNotContain($"- {Notes}: ", catalog);
+        Assert.Equal(NhAssistantTriggerOutcomes.Started, intake.Outcome);
+        Assert.DoesNotContain(host.Business.Events.Skip(auditsBefore), evt => evt.Kind == NhAssistantAuditEventKind.AgentTriggerRejected);
+        Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentSwitchedOff && evt.SkillId == FollowUp);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Rules_of_a_skill_hand_over_to_its_own_model_with_its_tools_instructions_profile_and_ceiling(AssistantTestProvider provider)
     {
         var models = new SkillModels();

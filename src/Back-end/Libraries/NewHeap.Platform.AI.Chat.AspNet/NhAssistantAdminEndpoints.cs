@@ -71,7 +71,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapGet("agents", GetAgentsAsync)
             .WithName("NhAssistantAdminGetAgents")
             .WithSummary("List agents")
-            .WithDescription("Returns code and administrator agents with their run state, including paused, stopped and code-disabled agents.")
+            .WithDescription("Returns code and administrator agents with their run state, including paused, stopped, switched-off and code-disabled agents.")
             .Produces<NhAssistantAdminAgentDto[]>();
         admin.MapPost("agents", CreateAgentAsync)
             .WithName("NhAssistantAdminCreateAgent")
@@ -106,13 +106,13 @@ internal static class NhAssistantAdminEndpoints
         admin.MapGet("agents/{id}/state", GetAgentStateAsync)
             .WithName("NhAssistantAdminGetAgentState")
             .WithSummary("Get the run state of an agent")
-            .WithDescription("Returns active, paused, stopped or configured-off, who changed it when and why, and the inputs that wait while the agent is paused.")
+            .WithDescription("Returns active, paused, stopped, off or configured-off, who changed it when and why, and the inputs that wait while the agent is paused.")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapPost("agents/{id}/skills/{skillId}/state", SetSkillStateAsync)
             .WithName("NhAssistantAdminSetSkillState")
-            .WithSummary("Pause, stop or resume one skill of an agent")
-            .WithDescription("paused: triggers that name the skill let their events wait and triage no longer offers it. stopped: its active runs are cancelled and its waiting events dropped. active: resumes it with one run per thread with waiting events. The agent's other skills keep working; the agent's own state covers all skills.")
+            .WithSummary("Pause, stop, switch off or resume one skill of an agent")
+            .WithDescription("paused: triggers that name the skill let their events wait and triage no longer offers it. stopped: its active runs are cancelled and its waiting events dropped. off: triggers that name the skill are ignored (reason skill-off), rules and triage no longer route to it, its running runs finish and nothing waits. active: resumes it with one run per thread with waiting events; a skill that was off starts nothing. The agent's other skills keep working; the agent's own state covers all skills.")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantSkillState>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
@@ -142,8 +142,8 @@ internal static class NhAssistantAdminEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPost("agents/{id}/state", SetAgentStateAsync)
             .WithName("NhAssistantAdminSetAgentState")
-            .WithSummary("Pause, stop or resume an agent")
-            .WithDescription("paused: no new runs start and events wait; running runs finish and approved proposals execute. stopped: active runs are cancelled, waiting inputs end, approved proposals are held and events are refused. active: resumes, with one run per thread that has waiting inputs. A code-disabled agent cannot be resumed (409). The reason has at most 500 characters.")
+            .WithSummary("Pause, stop, switch off or resume an agent")
+            .WithDescription("paused: no new runs start and events wait; running runs finish and approved proposals execute. stopped: active runs are cancelled, waiting inputs end, approved proposals are held and events are refused. off: events, schedules, webhooks, hand-offs and follow-ups are ignored (reason agent-off) and nothing waits; running runs finish, open proposals stay decidable and people still chat and start the agent by hand. active: resumes, with one run per thread that has waiting inputs; an agent that was off starts nothing. A code-disabled agent cannot be resumed (409). The reason has at most 500 characters.")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -534,6 +534,7 @@ internal static class NhAssistantAdminEndpoints
         var result = body.State switch
         {
             NhAssistantAgentRunStates.Paused => await control.PauseSkillAsync(id, skillId, actor, body.Reason, httpContext.RequestAborted),
+            NhAssistantAgentRunStates.Off => await control.SwitchOffSkillAsync(id, skillId, actor, body.Reason, httpContext.RequestAborted),
             NhAssistantAgentRunStates.Stopped => await control.StopSkillAsync(id, skillId, actor, body.Reason, httpContext.RequestAborted),
             _ => await control.ResumeSkillAsync(id, skillId, actor, body.Reason, httpContext.RequestAborted)
         };
@@ -651,6 +652,7 @@ internal static class NhAssistantAdminEndpoints
         var result = body.State switch
         {
             NhAssistantAgentRunStates.Paused => await control.PauseAsync(id, actor, body.Reason, httpContext.RequestAborted),
+            NhAssistantAgentRunStates.Off => await control.SwitchOffAsync(id, actor, body.Reason, httpContext.RequestAborted),
             NhAssistantAgentRunStates.Stopped => await control.StopAsync(id, actor, body.Reason, httpContext.RequestAborted),
             _ => await control.ResumeAsync(id, actor, body.Reason, httpContext.RequestAborted)
         };
@@ -957,7 +959,8 @@ internal static class NhAssistantAdminEndpoints
                 body.WorksOnApplication,
                 body.PerDivision,
                 body.RunPolicy,
-                body.ViewPolicy)), errors);
+                body.ViewPolicy),
+            body.StartsOff == true), errors);
     }
 
     private static (NhAssistantMcpServerInput? Input, NhAssistantValidationErrors Errors) ToInput(

@@ -713,7 +713,7 @@ internal sealed class NhAssistantReplayOperation(
         }
 
         var options = registration.AgentRuns[replay.VariantAgentId];
-        if (await triggers.RefusalOfAsync(replay.VariantAgentId, refusePaused: true, cancellationToken) is { } refusal)
+        if (await triggers.RefusalOfAsync(replay.VariantAgentId, refusePaused: true, cancellationToken, refuseOff: true) is { } refusal)
         {
             await EndAsync(replay, NhAssistantReplayStatuses.Stopped, refusal);
             return TaskResult.Succeeded();

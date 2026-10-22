@@ -40,7 +40,8 @@ public static class NhAssistantMessageAuthorKinds
 /// </summary>
 /// <summary>
 /// The run states of an agent. Active agents work; paused agents start no runs and let their
-/// events wait; stopped agents end their work and refuse events. An agent disabled in code with
+/// events wait; stopped agents end their work and refuse events; agents that are off ignore their
+/// triggers while people still start and chat with them. An agent disabled in code with
 /// <c>Enabled(false)</c> reports <see cref="ConfiguredOff"/>.
 /// </summary>
 public static class NhAssistantAgentRunStates
@@ -48,11 +49,21 @@ public static class NhAssistantAgentRunStates
     public const string Active = "active";
     public const string Paused = "paused";
     public const string Stopped = "stopped";
+
+    /// <summary>
+    /// The agent or skill is switched off: events, schedules, webhooks, hand-offs and follow-ups
+    /// are ignored without being queued, while running runs finish, open proposals stay decidable
+    /// and people still chat with the agent and start it by hand. Switching it on replays nothing.
+    /// <c>StartsOff()</c> in code makes an agent or skill start in this state the first time the
+    /// application sees it; an administrator switches it on and off at runtime.
+    /// </summary>
+    public const string Off = "off";
+
     public const string ConfiguredOff = "configured-off";
 
     public static bool IsStored(string? state)
     {
-        return state is Active or Paused or Stopped;
+        return state is Active or Paused or Stopped or Off;
     }
 }
 
@@ -569,6 +580,18 @@ public static class NhAssistantErrorCodes
     /// The skill is paused: the run's events wait for it to resume.
     /// </summary>
     public const string SkillPaused = "assistant-skill-paused";
+
+    /// <summary>
+    /// The agent is switched off: it takes no hand-offs and its replays stop. Its triggers are
+    /// ignored with the reason <c>agent-off</c> instead.
+    /// </summary>
+    public const string AgentOff = "assistant-agent-off";
+
+    /// <summary>
+    /// The skill is switched off: a run that rules route to it ends without working in it. Triggers
+    /// that name it are ignored with the reason <c>skill-off</c> instead.
+    /// </summary>
+    public const string SkillOff = "assistant-skill-off";
 
     /// <summary>
     /// The agent declares no skill with this id.
