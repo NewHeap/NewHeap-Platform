@@ -82,3 +82,38 @@ skill and starts scenario agents and skills off with `startsOff`.
 |---|---|
 | `AgentRunState`, `AgentSkillState.runState` and `SetAgentStateRequest.state` include `off`. | Handle `off` where you switch over a state. |
 | New translation keys `nh-assistant.admin.agents.state.off`, `off-hint`, `starts-off`, `action.off`, `action.switch-on`, `explain.off`, `explain.switch-on`, `confirm.off`, `confirm.switch-on`, `nh-assistant.admin.agents.skills.explain.off` and `switch-on`, `nh-assistant.admin.agent-editor.switch-on-now` and `switch-on-now-hint`, `nh-assistant.admin.run-config.skills.switch-on-now` and `switch-on-now-hint`, and `nh-assistant.errors.assistant-agent-off` and `assistant-skill-off`. | Applications with their own translation files add them. |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: data classification per agent and skill
+
+`DataClassification(...)` on `ConfigureAgent` (`NhAssistantAgentRunOptions.DataClassification`) and on
+`Skill(...)` (`NhAssistantSkillOptions.DataClassification`) classifies the data of an agent's model
+calls, which were always `Internal` before. The most specific one wins: the skill's, then the
+agent's, then `Internal`. It applies to the model calls of the agent's runs, people's turns in its
+threads and its consultations, and the agent's own one to its triage; it also classifies a skill's
+instructions and the run's hand-off calls. The profile resolution applies its existing check: a
+profile that does not permit the classification is skipped for its fallbacks, and the call is
+refused as `assistant-model-unavailable` when none permits it. A data skill stores its own
+(`dataClassification` on `NhAssistantDataSkillRequest` and `NhAssistantDataSkillDto`, one of
+`NhAssistantDataClassificationNames`: `public`, `internal`, `confidential` or `restricted`; another
+value is the field error `dataClassification: invalid`).
+
+Apply the `SkillDataClassification` migration of `NewHeap.Platform.AI.Chat.SqlServer` or
+`NewHeap.Platform.AI.Chat.PostgreSql`: it adds the nullable `DataClassification` column to
+`AssistantAgentSkillDefinition`.
+
+| Breaking change | Required action |
+|---|---|
+| Database schema change. | Apply the `SkillDataClassification` migration. |
+| `NhAssistantDataSkillRequest` has a new optional last parameter, `DataClassification`. | Recompile callers that construct it positionally. |
+
+## @newheap/platform-ai-chat: data classification of a skill
+
+The skill form of the run configuration asks for the skill's data classification, with "The agent's
+classification" as the default (Dutch: "Dataclassificatie", "De classificatie van de agent"), and
+shows the server's `dataClassification` field error. `DataSkill` and `DataSkillRequest` gain
+`dataClassification` of the new type `AssistantDataClassification`. The mock backend of
+`@newheap/platform-ai-chat/testing` stores it and refuses an unknown value as the server does.
+
+| Breaking change | Required action |
+|---|---|
+| New translation keys `nh-assistant.admin.run-config.skills.classification.*`. | Applications with their own translation files add them. |

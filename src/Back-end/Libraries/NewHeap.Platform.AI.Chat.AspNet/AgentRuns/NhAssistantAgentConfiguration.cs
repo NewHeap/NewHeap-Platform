@@ -504,6 +504,12 @@ public sealed record NhAssistantDataSkillDto(
     /// without one.
     /// </summary>
     public NhAssistantDataSkillDto? Candidate { get; init; }
+
+    /// <summary>
+    /// The classification of the data the skill's model calls carry, one of
+    /// <see cref="NhAssistantDataClassificationNames"/>; <see langword="null"/> uses the agent's.
+    /// </summary>
+    public string? DataClassification { get; init; }
 }
 
 /// <param name="Version">The candidate version the change is for.</param>
@@ -587,6 +593,9 @@ public sealed record NhAssistantDataTriggerDto(
 /// <param name="StartsOff">For a new skill only: it starts off, so triggers that name it are ignored
 /// and rules and triage do not route to it until someone switches it on. A change of a skill fails
 /// with a field error <c>startsOff</c>.</param>
+/// <param name="DataClassification">The classification of the data the skill's model calls carry:
+/// <c>public</c>, <c>internal</c>, <c>confidential</c> or <c>restricted</c>; <see langword="null"/> uses
+/// the agent's. The model profile of its runs must permit it, or its model calls are refused.</param>
 public sealed record NhAssistantDataSkillRequest(
     string? Description,
     string? Instructions = null,
@@ -600,7 +609,8 @@ public sealed record NhAssistantDataSkillRequest(
     int? ExpectedVersion = null,
     string? Reason = null,
     string? Apply = null,
-    bool StartsOff = false);
+    bool StartsOff = false,
+    string? DataClassification = null);
 
 /// <summary>
 /// How a change of a data skill takes effect.
@@ -1026,7 +1036,12 @@ internal sealed class NhAssistantAgentConfiguration(
             // A new skill has no live version to evaluate a candidate next to; it starts in shadow.
             .Require(request.Apply != NhAssistantSkillApplyModes.Shadow || request.ExpectedVersion is not null, "apply", NhAssistantFieldErrors.Invalid)
             // Only a new skill starts off; a skill that exists keeps its state.
-            .Require(!request.StartsOff || request.ExpectedVersion is null, "startsOff", NhAssistantFieldErrors.Invalid);
+            .Require(!request.StartsOff || request.ExpectedVersion is null, "startsOff", NhAssistantFieldErrors.Invalid)
+            .Require(
+                Blank(request.DataClassification) is not { } classificationName
+                    || NhAssistantDataClassificationNames.TryParse(classificationName, out _),
+                "dataClassification",
+                NhAssistantFieldErrors.Invalid);
         if (!errors.IsEmpty)
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(errors.ToResult());
@@ -1042,6 +1057,7 @@ internal sealed class NhAssistantAgentConfiguration(
             InstructionsHash = instructions is null ? null : NhAssistantAgentCatalog.ComputeHash(instructions),
             ToolSelectorsJson = JsonSerializer.Serialize(tools),
             ProfileName = Blank(request.Profile),
+            DataClassification = Blank(request.DataClassification),
             RuleHandlerName = Blank(request.RuleHandler),
             MaxTokensPerRun = request.MaxTokensPerRun,
             DailyToolCalls = request.DailyToolCalls,
@@ -1606,7 +1622,10 @@ internal sealed class NhAssistantAgentConfiguration(
             item.CreatedBy,
             item.Reason,
             problem is null,
-            problem);
+            problem)
+        {
+            DataClassification = item.DataClassification
+        };
     }
 
     private static NhAssistantDataTriggerDto ToDto(

@@ -51,6 +51,44 @@ public static class NhAssistantAgentConfigurationLimits
 /// <summary>
 /// The names of <see cref="NhAiElevatedReads"/> in the run settings of an agent.
 /// </summary>
+/// <summary>
+/// The names of <see cref="NhAiDataClassification"/> that data skills store and the administration
+/// sends.
+/// </summary>
+public static class NhAssistantDataClassificationNames
+{
+    public const string Public = "public";
+
+    public const string Internal = "internal";
+
+    public const string Confidential = "confidential";
+
+    public const string Restricted = "restricted";
+
+    public static string NameOf(NhAiDataClassification classification)
+    {
+        return classification switch
+        {
+            NhAiDataClassification.Public => Public,
+            NhAiDataClassification.Confidential => Confidential,
+            NhAiDataClassification.Restricted => Restricted,
+            _ => Internal
+        };
+    }
+
+    public static bool TryParse(string? name, out NhAiDataClassification classification)
+    {
+        classification = name switch
+        {
+            Public => NhAiDataClassification.Public,
+            Confidential => NhAiDataClassification.Confidential,
+            Restricted => NhAiDataClassification.Restricted,
+            _ => NhAiDataClassification.Internal
+        };
+        return name is Public or Internal or Confidential or Restricted;
+    }
+}
+
 public static class NhAssistantElevatedReadNames
 {
     public const string Restricted = "restricted";
@@ -700,6 +738,9 @@ internal sealed class NhAssistantRunConfigurations(
             MaxTokensPerRun = definition.MaxTokensPerRun,
             DailyBudget = definition is { DailyToolCalls: { } calls, DailyTokens: { } tokens } ? new NhAssistantAgentBudget(calls, tokens) : null,
             ApprovalPolicyId = definition.ApprovalPolicyId,
+            DataClassification = NhAssistantDataClassificationNames.TryParse(definition.DataClassification, out var classification)
+                ? classification
+                : null,
             // A data skill starts in shadow; an administrator puts it live like any skill.
             Shadow = true,
             DataVersion = definition.Version
@@ -721,7 +762,9 @@ internal sealed class NhAssistantRunConfigurations(
             NhAiModelCapability.Chat,
             [],
             "default",
-            NhAiDataClassification.Internal,
+            NhAssistantDataClassificationNames.TryParse(definition.DataClassification, out var classification)
+                ? classification
+                : NhAiDataClassification.Internal,
             NhAiRetentionCategory.Operational,
             $"{definition.AgentId}-{definition.SkillId}-v{version}");
     }

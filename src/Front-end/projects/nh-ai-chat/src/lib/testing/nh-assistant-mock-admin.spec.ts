@@ -166,6 +166,24 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(active.runState).toBe('active');
   });
 
+  it('adds a data skill that starts off with its classification, as the server checks both', async () => {
+    const invalid = await failure(firstValueFrom(admin.saveDataSkill('projects', 'audit', {
+      description: 'Audits the project.', dataClassification: 'secret' as 'internal'
+    })));
+    const saved = await firstValueFrom(admin.saveDataSkill('projects', 'audit', {
+      description: 'Audits the project.', dataClassification: 'confidential', startsOff: true
+    }));
+    const changed = await failure(firstValueFrom(admin.saveDataSkill('projects', 'audit', {
+      description: 'Audits the project again.', expectedVersion: 1, startsOff: true
+    })));
+    const state = await firstValueFrom(admin.getAgentState('projects'));
+
+    expect(invalid.fieldErrors?.['dataClassification']).toEqual(['invalid']);
+    expect(saved.dataClassification).toBe('confidential');
+    expect(changed.fieldErrors?.['startsOff']).toEqual(['invalid']);
+    expect(state.skills?.find(skill => skill.skillId === 'audit')?.runState).toBe('off');
+  });
+
   it('rejects invalid agents', async () => {
     const invalid = [
       { ...newAgent, id: 'Not Dash Case' },

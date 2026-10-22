@@ -1031,6 +1031,12 @@ export interface CodeRunSettings {
   startsOff?: boolean;
 }
 
+/**
+ * How sensitive the data is that a model call carries (`NhAiDataClassification`); the model profile of
+ * the call must permit it.
+ */
+export type AssistantDataClassification = 'public' | 'internal' | 'confidential' | 'restricted';
+
 /** One version of a skill defined as data. */
 export interface DataSkill {
   skillId: string;
@@ -1053,6 +1059,11 @@ export interface DataSkill {
   problem: string | null;
   /** The candidate that runs in shadow next to this live version; missing or null without one. */
   candidate?: DataSkill | null;
+  /**
+   * The classification of the data the skill's model calls carry; `null` uses the agent's, missing on
+   * older servers.
+   */
+  dataClassification?: AssistantDataClassification | null;
 }
 
 /** How a change of a skill takes effect: at once, or as a candidate in shadow next to the live version. */
@@ -1082,6 +1093,11 @@ export interface DataSkillRequest {
    * not route to it until someone switches it on. A change of a skill fails with `startsOff: invalid`.
    */
   startsOff?: boolean;
+  /**
+   * The classification of the data the skill's model calls carry; `null` uses the agent's. The model
+   * profile of its runs must permit it, or its model calls are refused.
+   */
+  dataClassification?: AssistantDataClassification | null;
 }
 
 export type DataSkillVersionStatus = 'live' | 'candidate' | 'superseded' | 'discarded';

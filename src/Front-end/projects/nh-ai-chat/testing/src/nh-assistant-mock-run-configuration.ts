@@ -1,6 +1,7 @@
 import {
   AdminAgent,
   AgentRunConfiguration,
+  AssistantDataClassification,
   AgentRunSettings,
   AgentRunSettingsRequest,
   CodeRunSettings,
@@ -40,6 +41,7 @@ interface StoredSkillVersion extends DataSkill {
 }
 
 const dashCase = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+const dataClassifications: string[] = ['public', 'internal', 'confidential', 'restricted'];
 const accountabilities = ['agent', 'subject-responsible', 'service-account'];
 const conflicts = ['coalesce', 'queue', 'supersede', 'ignore'];
 const maxDescription = 300;
@@ -348,6 +350,10 @@ export class NhAssistantMockRunConfiguration {
     if (request.startsOff === true && (request.expectedVersion ?? null) !== null) {
       errors['startsOff'] = ['invalid'];
     }
+    const classification = text(request.dataClassification);
+    if (classification !== null && !dataClassifications.includes(classification)) {
+      errors['dataClassification'] = ['invalid'];
+    }
     this.requireKnown(errors, 'profile', request.profile, this.catalog.profiles);
     this.requireKnown(errors, 'ruleHandler', request.ruleHandler, this.catalog.ruleHandlers.map(handler => handler.name));
     this.requireKnown(errors, 'approvalPolicy', request.approvalPolicy, this.catalog.approvalPolicies);
@@ -376,6 +382,7 @@ export class NhAssistantMockRunConfiguration {
       instructionsHash: instructions === null ? null : hashText(instructions),
       tools: [...new Set(request.tools ?? [])],
       profile: text(request.profile),
+      dataClassification: classification as AssistantDataClassification | null,
       ruleHandler: text(request.ruleHandler),
       maxTokensPerRun: request.maxTokensPerRun ?? null,
       dailyToolCalls: request.dailyToolCalls ?? null,

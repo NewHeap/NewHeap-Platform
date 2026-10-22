@@ -1,5 +1,6 @@
 import {
   ApprovalPolicySummary,
+  AssistantDataClassification,
   NhAssistantError,
   RunCatalog,
   ToolCatalogEntry,
@@ -163,6 +164,9 @@ export function withScheduleTargetError(errors: RunConfigErrors, target: Schedul
     ? { ...errors, subjectSet: { code: 'application-not-worked-on' } }
     : errors;
 }
+
+/** The data classifications a skill can choose, from the least to the most sensitive. */
+export const dataClassifications: readonly AssistantDataClassification[] = ['public', 'internal', 'confidential', 'restricted'];
 
 export function profileOptions(catalog: RunCatalog | null): NhAssistantPickerOption[] {
   return (catalog?.profiles ?? []).map(profile => ({ value: profile, label: profile }));

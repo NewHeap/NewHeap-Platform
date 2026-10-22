@@ -665,10 +665,13 @@ describe('NhAssistantAdminAgentsComponent', () => {
     type(skillForm(), 'input[id$="-skill-description"]', 'Starts projects that were created as drafts.');
     check(skillForm(), 'input[type="checkbox"]');
     await pick(fixture, skillForm(), 'input[id$="-skill-rules"]', 'kick', 'project-kickoff');
+    // The skill reads more sensitive data than the agent: its model calls carry its own classification.
+    await pick(fixture, skillForm(), 'input[id$="-skill-classification"]', 'conf', 'Confidential');
     button(skillForm(), 'Save').click();
     await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/follower/skills/kickoff')).toEqual([jasmine.objectContaining({
-      description: 'Starts projects that were created as drafts.', tools: ['sample-api.project.*'], ruleHandler: 'project-kickoff', expectedVersion: null
+      description: 'Starts projects that were created as drafts.', tools: ['sample-api.project.*'], ruleHandler: 'project-kickoff',
+      dataClassification: 'confidential', expectedVersion: null
     })]);
     expect(view().querySelector('[data-data-skill="kickoff"]')?.textContent).toContain('Version 1');
 

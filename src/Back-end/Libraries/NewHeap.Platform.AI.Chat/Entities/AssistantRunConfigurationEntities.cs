@@ -36,6 +36,12 @@ public sealed class AssistantAgentSkillDefinition
     public string? ProfileName { get; set; }
 
     /// <summary>
+    /// The classification of the data the skill's runs send to the model, one of
+    /// <see cref="NhAssistantDataClassificationNames"/>; <see langword="null"/> uses the agent's.
+    /// </summary>
+    public string? DataClassification { get; set; }
+
+    /// <summary>
     /// The name of a rule handler registered with <c>AddRuleHandler</c>.
     /// </summary>
     public string? RuleHandlerName { get; set; }

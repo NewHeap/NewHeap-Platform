@@ -108,6 +108,21 @@
         <p class="field-error" [id]="id + '-skill-profile-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('profile')?.params }}</p>
       }
     </div>
+    <div class="field" data-classification>
+      <label [for]="id + '-skill-classification'">{{ 'nh-assistant.admin.run-config.skills.classification.label' | translate }}</label>
+      <nh-assistant-picker
+        [inputId]="id + '-skill-classification'"
+        [options]="classifications()"
+        [value]="dataClassification()"
+        [noneLabel]="'nh-assistant.admin.run-config.skills.classification.agent' | translate"
+        [invalid]="fieldError('dataClassification') !== null"
+        [describedBy]="describedBy(id + '-skill-classification-hint', 'dataClassification', id + '-skill-classification-error')"
+        (valueChange)="dataClassification.set($event); touch('dataClassification')" />
+      <p class="hint" [id]="id + '-skill-classification-hint'">{{ 'nh-assistant.admin.run-config.skills.classification.hint' | translate }}</p>
+      @if (errorKey('dataClassification'); as key) {
+        <p class="field-error" [id]="id + '-skill-classification-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('dataClassification')?.params }}</p>
+      }
+    </div>
   </fieldset>
 
   <fieldset class="group">

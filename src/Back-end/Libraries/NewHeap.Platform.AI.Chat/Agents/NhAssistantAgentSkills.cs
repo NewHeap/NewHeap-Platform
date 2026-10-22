@@ -52,6 +52,12 @@ public sealed class NhAssistantSkillOptions
     public string? ApprovalPolicyId { get; internal set; }
 
     /// <summary>
+    /// The classification of the data the model calls of a run in the skill carry, before the
+    /// agent's; <see langword="null"/> uses the agent's.
+    /// </summary>
+    public NhAiDataClassification? DataClassification { get; internal set; }
+
+    /// <summary>
     /// The skill starts in shadow mode: its work goes to the agent's shadow thread of the subject,
     /// where nobody is notified and nothing executes. Administrators switch it at runtime with
     /// <c>INhAssistantAgentControl.SetSkillShadowAsync</c>.
@@ -199,6 +205,23 @@ public sealed class NhAssistantSkillBuilder
     {
         ArgumentNullException.ThrowIfNull(perDay);
         _options.DailyBudget = perDay;
+        return this;
+    }
+
+    /// <summary>
+    /// The classification of the data the skill's model calls carry, instead of the agent's, for a
+    /// skill that reads more sensitive data than the rest of its agent. The model profile the skill
+    /// uses must permit it (<c>PermitDataClassifications</c>); otherwise its fallbacks are tried and
+    /// the model call is refused when none permits it.
+    /// </summary>
+    public NhAssistantSkillBuilder DataClassification(NhAiDataClassification classification)
+    {
+        if (!Enum.IsDefined(classification))
+        {
+            throw new ArgumentOutOfRangeException(nameof(classification));
+        }
+
+        _options.DataClassification = classification;
         return this;
     }
 

@@ -31,9 +31,13 @@ internal sealed partial class NhAssistantTurnRunner
 
     /// <summary>
     /// The agent as it works in <paramref name="skill"/>: the skill's profile, its tools within the
-    /// agent's and the agent's instructions followed by the skill's.
+    /// agent's and the agent's instructions followed by the skill's, classified as the skill's model
+    /// calls are (<paramref name="classification"/>).
     /// </summary>
-    internal static NhAssistantAgentDefinition ForSkill(NhAssistantAgentDefinition agent, NhAssistantSkillOptions? skill)
+    internal static NhAssistantAgentDefinition ForSkill(
+        NhAssistantAgentDefinition agent,
+        NhAssistantSkillOptions? skill,
+        NhAiDataClassification classification = NhAiDataClassification.Internal)
     {
         if (skill is null)
         {
@@ -54,7 +58,7 @@ internal sealed partial class NhAssistantTurnRunner
                 NhAiModelCapability.Chat,
                 [],
                 "default",
-                NhAiDataClassification.Internal,
+                classification,
                 NhAiRetentionCategory.Operational,
                 $"{agent.Id}-{skill.Id}-v{agent.Version.ToString(CultureInfo.InvariantCulture)}");
         }
@@ -65,6 +69,17 @@ internal sealed partial class NhAssistantTurnRunner
             ToolSelectors = skill.ToolSelectors.Count > 0 ? skill.ToolSelectors : agent.ToolSelectors,
             Instructions = instructions
         };
+    }
+
+    /// <summary>
+    /// The classification of the turn's model calls: the skill's, then the agent's run
+    /// configuration, then <see cref="NhAiDataClassification.Internal"/>. A turn outside an agent's
+    /// thread is <see cref="NhAiDataClassification.Internal"/>. The profile resolution refuses a
+    /// profile that does not permit it.
+    /// </summary>
+    private static NhAiDataClassification ClassificationOf(NhAssistantTurnState state)
+    {
+        return state.AgentTurn?.Options.ClassificationOf(state.Skill) ?? NhAiDataClassification.Internal;
     }
 
     /// <summary>
@@ -214,7 +229,10 @@ internal sealed partial class NhAssistantTurnRunner
     {
         state.Skill = skill;
         state.SkillChosenBy = skill is null ? null : chosenBy;
-        var agent = ForSkill(state.EffectiveAgent.Definition, skill);
+        var agent = ForSkill(
+            state.EffectiveAgent.Definition,
+            skill,
+            state.AgentTurn?.Options.ClassificationOf(skill) ?? NhAiDataClassification.Internal);
         var prompt = await ComposePromptAsync(agent, state.Scope.TurnId, callerContext, state.Language, state.ClientContext, state.Speakers);
         state.Scope.Agent = agent;
         state.Scope.ModelProfileName = agent.ProfileName;
@@ -366,6 +384,10 @@ internal sealed partial class NhAssistantTurnRunner
             return NhAssistantTriageDecision.Undecided;
         }
 
+        // Triage reads the subject's briefing and the run's events before any skill: the agent's
+        // classification applies.
+        var classification = options.ClassificationOf(null);
+
         var instructions = NhAiTextAssetFactory.Create(
             "assistant-triage",
             1,
@@ -376,7 +398,7 @@ internal sealed partial class NhAssistantTurnRunner
             NhAiModelCapability.Chat,
             [],
             "default",
-            NhAiDataClassification.Internal,
+            classification,
             NhAiRetentionCategory.Operational,
             "assistant-triage-v1");
         var triageAgent = state.EffectiveAgent.Definition with
@@ -433,7 +455,10 @@ internal sealed partial class NhAssistantTurnRunner
                 PromptHash = descriptor.PromptHash
             };
             var created = await adapter.CreateAsync(
-                new NhAiAgentCreateRequest(descriptor, context, TriageInstructions, registration.ExecutionRegion),
+                new NhAiAgentCreateRequest(descriptor, context, TriageInstructions, registration.ExecutionRegion)
+                {
+                    DataClassification = classification
+                },
                 new NhAssistantContentSafeServiceProvider(services),
                 timeout.Token);
             if (!created.Success)

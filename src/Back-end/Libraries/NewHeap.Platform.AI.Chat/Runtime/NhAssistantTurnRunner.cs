@@ -2369,7 +2369,10 @@ internal sealed partial class NhAssistantTurnRunner(
             PromptHash = prompt.PromptHash
         };
         var created = await adapter.CreateAsync(
-            new NhAiAgentCreateRequest(descriptor, context, modelInstructions, registration.ExecutionRegion),
+            new NhAiAgentCreateRequest(descriptor, context, modelInstructions, registration.ExecutionRegion)
+            {
+                DataClassification = ClassificationOf(state)
+            },
             agentServices,
             cancellationToken);
         if (!created.Success)

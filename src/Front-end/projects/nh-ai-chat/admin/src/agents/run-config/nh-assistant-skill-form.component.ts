@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
+  AssistantDataClassification,
   DataSkill,
   DataSkillRequest,
   NhAssistantAdminApiService,
@@ -18,6 +19,7 @@ import {
   checkBudget,
   checkWhole,
   dashCase,
+  dataClassifications,
   describePolicy,
   numberText,
   policyOptions,
@@ -75,7 +77,7 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly maxDescription = runConfigLimits.description;
   readonly maxInstructions = runConfigLimits.instructions;
   protected readonly fields = [
-    'skillId', 'description', 'instructions', 'tools', 'ruleHandler', 'profile', 'approvalPolicy',
+    'skillId', 'description', 'instructions', 'tools', 'ruleHandler', 'profile', 'dataClassification', 'approvalPolicy',
     'maxTokensPerRun', 'dailyToolCalls', 'dailyTokens', 'apply', 'startsOff', 'reason'
   ];
 
@@ -84,6 +86,8 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly instructions = signal('');
   readonly tools = signal<string[]>([]);
   readonly profile = signal('');
+  /** The skill's data classification; empty uses the agent's. */
+  readonly dataClassification = signal('');
   readonly ruleHandler = signal('');
   readonly approvalPolicy = signal('');
   readonly maxTokens = signal('');
@@ -97,6 +101,14 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly editing = computed(() => this.skill() !== null);
   readonly rules = computed(() => ruleOptions(this.catalog()));
   readonly profiles = computed(() => profileOptions(this.catalog()));
+  readonly classifications = computed(() => {
+    this.language();
+    return dataClassifications.map(value => ({
+      value,
+      label: this.t(`nh-assistant.admin.run-config.skills.classification.${value}`),
+      description: this.t(`nh-assistant.admin.run-config.skills.classification.${value}-hint`)
+    }));
+  });
   readonly policies = computed(() => {
     this.language();
     return policyOptions(this.catalog(), summary => describePolicy(summary, (key, params) => this.t(key, params)));
@@ -109,6 +121,7 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
     this.instructions.set(skill?.instructions ?? '');
     this.tools.set([...(skill?.tools ?? [])]);
     this.profile.set(skill?.profile ?? '');
+    this.dataClassification.set(skill?.dataClassification ?? '');
     this.ruleHandler.set(skill?.ruleHandler ?? '');
     this.approvalPolicy.set(skill?.approvalPolicy ?? '');
     this.maxTokens.set(numberText(skill?.maxTokensPerRun));
@@ -150,6 +163,7 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
       instructions: blank(this.instructions()),
       tools: this.tools(),
       profile: blank(this.profile()),
+      dataClassification: (blank(this.dataClassification()) as AssistantDataClassification | null),
       ruleHandler: blank(this.ruleHandler()),
       approvalPolicy: blank(this.approvalPolicy()),
       maxTokensPerRun: toNumber(this.maxTokens()),

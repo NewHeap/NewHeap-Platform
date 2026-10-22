@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "c0e24140d52eb4b4bb9273f053f58c5e085c13436704bed8285487a3fa9ea00d",
-    "declarationCount": 9218,
+    "hash": "58364a00c51724132a29f28f6573d8b00a56249ecca61e9e5aa9b2a7438ba52f",
+    "declarationCount": 9239,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1839,6 +1839,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public string? DataClassification { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantSkillCandidateRequest(int? Version, string? Reason = null);"
       },
       {
@@ -1863,7 +1867,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantDataSkillRequest( string? Description, string? Instructions = null, IReadOnlyList<string>? Tools = null, string? Profile = null, string? RuleHandler = null, long? MaxTokensPerRun = null, int? DailyToolCalls = null, long? DailyTokens = null, string? ApprovalPolicy = null, int? ExpectedVersion = null, string? Reason = null, string? Apply = null, bool StartsOff = false);"
+        "declaration": "public sealed record NhAssistantDataSkillRequest( string? Description, string? Instructions = null, IReadOnlyList<string>? Tools = null, string? Profile = null, string? RuleHandler = null, long? MaxTokensPerRun = null, int? DailyToolCalls = null, long? DailyTokens = null, string? ApprovalPolicy = null, int? ExpectedVersion = null, string? Reason = null, string? Apply = null, bool StartsOff = false, string? DataClassification = null);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -5450,6 +5454,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022082629_SkillDataClassification.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022082629_SkillDataClassification.cs",
+        "declaration": "public partial class SkillDataClassification : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022082629_SkillDataClassification.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022082629_SkillDataClassification.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -5959,6 +5979,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261020195222_McpRunConnectionSkips.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022082620_SkillDataClassification.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022082620_SkillDataClassification.cs",
+        "declaration": "public partial class SkillDataClassification : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022082620_SkillDataClassification.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022082620_SkillDataClassification.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -6703,6 +6739,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAiDataClassification? DataClassification { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public IReadOnlyDictionary<string, NhAssistantSkillOptions> Skills => _skills;"
       },
       {
@@ -6832,6 +6872,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder StartsOff() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder DataClassification(NhAiDataClassification classification) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -7199,6 +7243,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
+        "declaration": "public NhAiDataClassification? DataClassification { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
         "declaration": "public bool Shadow { get; internal set; }"
       },
       {
@@ -7252,6 +7300,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
         "declaration": "public NhAssistantSkillBuilder Budget(NhAssistantAgentBudget perDay) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
+        "declaration": "public NhAssistantSkillBuilder DataClassification(NhAiDataClassification classification) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentSkills.cs",
@@ -7476,6 +7528,34 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
         "declaration": "public const int MaxRunsPerSubjectPerDay = 1_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public static class NhAssistantDataClassificationNames {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string Public = \"public\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string Internal = \"internal\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string Confidential = \"confidential\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string Restricted = \"restricted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public static string NameOf(NhAiDataClassification classification) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public static bool TryParse(string? name, out NhAiDataClassification classification) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
@@ -9880,6 +9960,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
         "declaration": "public string? ProfileName { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
+        "declaration": "public string? DataClassification { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
@@ -40531,6 +40615,7 @@
       "SwitchOffAsync",
       "SwitchOffSkillAsync",
       "StartsOff",
+      "NhAssistantDataClassificationNames",
       "NhAssistantSkillState",
       "AcceptHandOffs",
       "NhAssistantHandOffBuilder",

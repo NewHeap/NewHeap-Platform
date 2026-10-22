@@ -641,6 +641,19 @@ a single skill with `PauseSkillAsync`, `StopSkillAsync` and `ResumeSkillAsync`; 
 covers all its skills. Start with a trigger per skill and add triage only for events rules cannot
 route; keep separate roles separate agents.
 
+Classify the data an agent sends to its model with `DataClassification(...)` on `ConfigureAgent`
+and, for a skill that reads more sensitive data than the rest of its agent, on `Skill(...)`. The
+most specific one wins: the skill's, then the agent's, then `NhAiDataClassification.Internal`. It
+applies to every model call of the agent's runs, people's turns in its threads and its
+consultations, and the agent's own one to triage; it also classifies the skill's instructions and
+the run's hand-off calls. The model profile of each call must permit it
+(`PermitDataClassifications`): otherwise its fallbacks are tried and the call is refused as
+`assistant-model-unavailable`, exactly as for every other model call, so give such an agent or skill
+a profile that permits its classification (`UseProfile`). A data skill stores it as
+`dataClassification` (`public`, `internal`, `confidential` or `restricted`, see
+`NhAssistantDataClassificationNames`); an unknown name is a field error. A consultation's own
+`DataClassification(...)` keeps classifying its answers in the asking conversation.
+
 Let separate agents hand work to each other with hand-offs, never with events published to start
 another agent. Both sides opt in: the target lists its sources with `AcceptHandOffs(subjectType,
 handOff => handOff.From(sourceAgentId).Description(...).NotifySource().Limits(maxPerSubjectPerDay))`,
@@ -823,6 +836,8 @@ profile and instructions that answer questions about the rules' proposals from t
 - Stopping an agent by editing its definition or sending `isEnabled`; pause or stop it with
   `INhAssistantAgentControl` or `POST admin/agents/{id}/state`.
 - Stopping an agent for an import or a migration that should lose no events; pause it.
+- Letting a skill read confidential data while its model calls stay `Internal`: any profile that
+  permits `Internal` then takes them. Classify the skill or agent with `DataClassification(...)`.
 - Pausing an agent for weeks: every event of the period waits and runs at the resume. Switch it off
   instead, so switching it on replays nothing.
 - `Enabled(false)` for an agent that administrators should switch on after a deploy: it reads
@@ -1045,7 +1060,10 @@ an audit; that a run that started finishes and its proposal stays decidable and 
 follow-up is ignored; that people still chat and start it by hand; that waiting inputs of a pause
 end and switching on starts no run; that a skill that is off ignores its triggers with `skill-off`
 and that rules and triage do not route to it; and that `StartsOff()` applies only at the first
-start, also after a new host start and a deploy, on both providers. Assert that a headless run, a consultation and a person's
+start, also after a new host start and a deploy, on both providers. Assert that a skill's
+classification, or else its agent's, reaches the model call, that a profile that does not permit it
+refuses the call, and that a data skill stores its classification and refuses an unknown one, on
+both providers. Assert that a headless run, a consultation and a person's
 turn in the thread read the briefing once, before the continuity, with markup neutralized; that a
 rule run that hands over passes its reason inside it; that a briefing over its bound is cut at a
 section boundary with a note and that a throwing or slow provider leaves the turn without one; and

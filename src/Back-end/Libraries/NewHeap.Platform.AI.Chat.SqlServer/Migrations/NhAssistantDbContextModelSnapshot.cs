@@ -412,6 +412,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<int?>("DailyToolCalls")
                         .HasColumnType("int");
 
+                    b.Property<string>("DataClassification")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(300)

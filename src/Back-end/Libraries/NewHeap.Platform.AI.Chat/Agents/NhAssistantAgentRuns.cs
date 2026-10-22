@@ -149,6 +149,22 @@ public sealed class NhAssistantAgentRunOptions
     public long? MaxTokensPerRun { get; internal set; }
 
     /// <summary>
+    /// The classification of the data the model calls of the agent's runs, people's turns in its
+    /// threads, its triage and its consultations carry; a skill's own wins.
+    /// <see langword="null"/> uses <see cref="NhAiDataClassification.Internal"/>.
+    /// </summary>
+    public NhAiDataClassification? DataClassification { get; internal set; }
+
+    /// <summary>
+    /// The classification of a model call in <paramref name="skill"/>: the skill's, then the
+    /// agent's, then <see cref="NhAiDataClassification.Internal"/>.
+    /// </summary>
+    internal NhAiDataClassification ClassificationOf(NhAssistantSkillOptions? skill)
+    {
+        return skill?.DataClassification ?? DataClassification ?? NhAiDataClassification.Internal;
+    }
+
+    /// <summary>
     /// The skills of the agent by id; empty for an agent without skills.
     /// </summary>
     public IReadOnlyDictionary<string, NhAssistantSkillOptions> Skills => _skills;
@@ -673,6 +689,24 @@ public sealed class NhAssistantAgentRunBuilder
     public NhAssistantAgentRunBuilder StartsOff()
     {
         _options.StartsOff = true;
+        return this;
+    }
+
+    /// <summary>
+    /// The classification of the data the agent's model calls carry: in its runs, people's turns in
+    /// its threads, its triage and its consultations. A skill's own classification wins. The model
+    /// profile of each call must permit it (<c>PermitDataClassifications</c>); otherwise its
+    /// fallbacks are tried and the call is refused when none permits it, as for every model call.
+    /// Without it the calls are <see cref="NhAiDataClassification.Internal"/>.
+    /// </summary>
+    public NhAssistantAgentRunBuilder DataClassification(NhAiDataClassification classification)
+    {
+        if (!Enum.IsDefined(classification))
+        {
+            throw new ArgumentOutOfRangeException(nameof(classification));
+        }
+
+        _options.DataClassification = classification;
         return this;
     }
 

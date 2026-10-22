@@ -91,7 +91,7 @@ internal sealed partial class NhAssistantTurnRunner
             required = ownSubject ? new[] { "message" } : new[] { "subjectId", "message" }
         });
         return new NhAssistantMemoryFunction(
-            HandOffDescriptor(handOff),
+            HandOffDescriptor(handOff, ClassificationOf(state)),
             description,
             schema,
             async (arguments, cancellationToken) =>
@@ -141,7 +141,11 @@ internal sealed partial class NhAssistantTurnRunner
         });
     }
 
-    private static NhAiToolDescriptor HandOffDescriptor(NhAssistantHandOffOptions handOff)
+    /// <summary>
+    /// The descriptor of a hand-off tool, classified as the handing run's model calls are, so its
+    /// message is stored and previewed as the run's data.
+    /// </summary>
+    private static NhAiToolDescriptor HandOffDescriptor(NhAssistantHandOffOptions handOff, NhAiDataClassification classification)
     {
         const NhAiToolEffect effect = NhAiToolEffect.ReadOnly;
         return new NhAiToolDescriptor(
@@ -159,7 +163,7 @@ internal sealed partial class NhAssistantTurnRunner
             CatalogId = "assistant",
             ContractHash = NhAiCanonicalJson.ComputeHash(handOff.ToolId + "@1:" + effect),
             Approval = NhAiApprovalRequirement.NotRequired,
-            DataClassification = NhAiDataClassification.Internal,
+            DataClassification = classification,
             RetentionCategory = NhAiRetentionCategory.ConversationContent
         };
     }

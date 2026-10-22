@@ -593,6 +593,7 @@ public sealed class NhAssistantDbContext : DbContext
             definition.Property(item => item.InstructionsHash).HasMaxLength(64);
             definition.Property(item => item.ToolSelectorsJson).HasMaxLength(NhAssistantLimits.MaxStoredToolSelectorCharacters).IsRequired();
             definition.Property(item => item.ProfileName).HasMaxLength(128);
+            definition.Property(item => item.DataClassification).HasMaxLength(16);
             definition.Property(item => item.RuleHandlerName).HasMaxLength(NhAssistantBlockNames.MaxLength);
             definition.Property(item => item.ApprovalPolicyId).HasMaxLength(128);
             definition.Property(item => item.CreatedBy).HasMaxLength(256).IsRequired();
