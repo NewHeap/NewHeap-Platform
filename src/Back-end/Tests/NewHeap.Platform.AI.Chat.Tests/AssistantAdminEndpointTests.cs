@@ -276,7 +276,9 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         using var releasedAgain = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = false }));
         var active = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
 
-        AssertNames(initial, "agentId", "runState", "active", "changedAt", "changedBy", "reason", "waitingInputs", "cancelledRuns", "startedRuns", "skills", "shadowOf", "shadow", "serviceAccount", "offBeforeStop");
+        AssertNames(initial, "agentId", "runState", "active", "changedAt", "changedBy", "reason", "waitingInputs", "cancelledRuns", "startedRuns", "skills", "shadowOf", "shadow", "serviceAccount", "offBeforeStop", "consultationRoutes");
+        // Nobody can consult this agent, so it has no consultation routes to switch.
+        Assert.Equal(JsonValueKind.Null, initial.GetProperty("consultationRoutes").ValueKind);
         Assert.False(initial.GetProperty("offBeforeStop").GetBoolean());
         Assert.Equal("active", initial.GetProperty("runState").GetString());
         Assert.True(initial.GetProperty("active").GetBoolean());
@@ -360,6 +362,9 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         var listed = (await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/agents"))).EnumerateArray()
             .Single(agent => agent.GetProperty("id").GetString() == "project-assistant");
         using var back = await admin.PostAsync(path + "/service-account", Json(new { actorId = (string?)null }));
+        using var routesBeyondCode = await admin.PostAsync(path + "/consultation-routes", Json(new { askerDecides = "on", reason = "Pilot" }));
+        using var routesInvalid = await admin.PostAsync(path + "/consultation-routes", Json(new { askerDecides = "sometimes" }));
+        using var routesForbidden = await user.PostAsync(path + "/consultation-routes", Json(new { askerDecides = "off" }));
         using var code = await admin.PostAsync(path + "/shadow", Json(new { mode = "code" }));
 
         AssertNames(initial.GetProperty("shadow"), "shadow", "configured", "override", "locked", "changedAt", "changedBy", "reason");
@@ -401,6 +406,11 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Equal(KnownAccountPrincipalFactory.Second, listed.GetProperty("serviceAccount").GetProperty("actorId").GetString());
         Assert.Equal(HttpStatusCode.OK, back.StatusCode);
         Assert.False((await ReadJsonAsync(back)).GetProperty("serviceAccount").GetProperty("overridden").GetBoolean());
+        // Code is the ceiling of the consultation routes: an agent without consultations has none.
+        Assert.Equal(HttpStatusCode.Conflict, routesBeyondCode.StatusCode);
+        Assert.Equal("assistant-consult-route-not-allowed", (await ReadJsonAsync(routesBeyondCode)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, routesInvalid.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, routesForbidden.StatusCode);
         Assert.Equal(HttpStatusCode.OK, code.StatusCode);
         var followsCode = (await ReadJsonAsync(code)).GetProperty("shadow");
         Assert.False(followsCode.GetProperty("shadow").GetBoolean());
