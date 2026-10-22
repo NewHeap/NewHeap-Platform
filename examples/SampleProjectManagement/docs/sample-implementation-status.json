@@ -2377,6 +2377,7 @@
     "SPM-287": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.HandOffs.cs",

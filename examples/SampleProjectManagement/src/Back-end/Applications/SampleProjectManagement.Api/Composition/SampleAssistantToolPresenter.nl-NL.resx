@@ -41,6 +41,7 @@
   <data name="PlannerHandedToCloser" xml:space="preserve"><value>Alle {0} taken zijn afgerond; ik heb de projectafsluiter gevraagd of het project kan worden afgerond.</value></data>
   <data name="PlannerCloserAnswered" xml:space="preserve"><value>De projectafsluiter antwoordde: {0}</value></data>
   <data name="PlannerCloserEnded" xml:space="preserve"><value>De run van de projectafsluiter eindigde met {0}.</value></data>
+  <data name="PlannerNoTaskCompleted" xml:space="preserve"><value>Alle {0} taken zijn afgerond, maar deze run kreeg geen afgeronde taak; de run die er wel een kreeg, geeft het project aan de projectafsluiter.</value></data>
   <data name="CloserProposed" xml:space="preserve"><value>Voorgesteld om het project te voltooien; een goedkeurder van het project beslist.</value></data>
   <data name="CloserAlreadyOpen" xml:space="preserve"><value>Het voorstel om het project te voltooien wacht al op een goedkeurder.</value></data>
   <data name="CloserRecentlyRejected" xml:space="preserve"><value>Een goedkeurder heeft het voltooien van het project op {0} afgewezen; voorlopig niet opnieuw voorgesteld.</value></data>

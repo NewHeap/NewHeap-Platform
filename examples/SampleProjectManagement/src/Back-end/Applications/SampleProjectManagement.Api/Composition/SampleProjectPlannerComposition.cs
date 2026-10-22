@@ -125,6 +125,9 @@ public static class SampleProjectPlannerComposition
                 .When(evt => evt.IsCompleted)
                 .Subject(ProjectSubjects.Type, evt => ProjectSubjects.IdOf(evt.ProjectId))
                 .Message(evt => $"Task {evt.ProjectTaskId:D} of project {evt.ProjectId:D} was completed.")
+                // SPM-287: the rules hand a finished project over only from a run that received a
+                // completed task, as the closer's rules check before they propose.
+                .Payload(evt => new ProjectTaskChange(evt.ProjectTaskId, evt.IsCompleted))
                 .Dedupe(evt => evt.EventId.ToString("N"))
                 .OnBusy(NhAssistantTriggerConflict.Coalesce, TimeSpan.Zero))
             .AddScheduledTrigger(DeadlineCheckTriggerId, schedule => schedule
@@ -143,6 +146,7 @@ public static class SampleProjectPlannerComposition
                 // only to agents that work on projects.
                 .Subject(ProjectSubjects.Type, change => ProjectSubjects.IdOf(change.ProjectId))
                 .Message(change => $"Task {change.ProjectTaskId:D} of project {change.ProjectId:D} was completed.")
+                .Payload(change => new ProjectTaskChange(change.ProjectTaskId, change.IsCompleted))
                 .Dedupe(change => change.EventId.ToString("N")))
             .AddSubjectSet(ActiveProjectsSet, "Active projects with a deadline in the next two weeks.", ActiveProjectsWithDeadlineSoon)
             .AddRuleHandler<ProjectProgressNoteRules>(ProgressNoteRules, "Notes how many of the project's tasks are completed, without a model.")
@@ -217,7 +221,9 @@ public sealed class ProjectProgressPercentageRules(
 /// SPM-286: the rules of the planner's task follow-up skill. They read the project's tasks as they
 /// are now and say what is left; they propose nothing and call no model.
 /// SPM-287: a project with a deadline whose tasks are all completed goes to the project closer, and
-/// the closer's answer comes back to this skill.
+/// the closer's answer comes back to this skill. Only a run that received a completed task hands it
+/// over: when tasks are completed in quick succession, one run may take every waiting event, and a
+/// run that took none would otherwise hand the same project over again.
 /// </summary>
 public sealed class ProjectTaskFollowUpRules(
     SampleProjectManagementDbContext dbContext,
@@ -279,6 +285,13 @@ public sealed class ProjectTaskFollowUpRules(
         if (deadline is null)
         {
             return NhAssistantRuleResult.Done(_ => localizer["PlannerAllDone", total].Value);
+        }
+
+        // The run's inputs all concern its project. Without a completed task of its own, the run
+        // that received the completion hands the project over; this run does not do it again.
+        if (!context.Inputs.Any(input => input.GetPayload<ProjectTaskChange>()?.IsCompleted == true))
+        {
+            return NhAssistantRuleResult.Done(_ => localizer["PlannerNoTaskCompleted", total].Value);
         }
 
         // The closer decides whether the project can be completed, in its own thread and under its

@@ -2319,6 +2319,64 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task A_planner_run_without_a_completed_task_of_its_own_does_not_hand_the_project_to_the_closer()
+    {
+        // SPM-287
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        var project = await host.CreateProjectAsync("NO-HANDOFF", ownerId: host.OwnerId, status: ProjectStatus.Active, deadline: DateTimeOffset.UtcNow.AddDays(5));
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        // The project's only task is completed, but its update is not delivered: no run receives it,
+        // as when an earlier follow-up run took every waiting completion.
+        await host.CompleteTaskByHandAsync(await host.CreateTaskAsync(project, "Deliver the release"), host.ParticipantId);
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var projectText = project.ToString("D");
+        var triage = new NhAiScriptedChatClient()
+            .RespondWithText("""{"skill":"task-follow-up","reason":"The approver asks for a follow-up of the project's tasks."}""");
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You route the work of an assistant agent")
+                && RoutingChatClient.Mentions(messages, options, projectText)
+                && !RoutingChatClient.Mentions(messages, options, VariantDeadlineSkill), triage)));
+        try
+        {
+            // The approver starts the planner on the finished project, and triage sends the run to the
+            // task follow-up skill. Its rules find every task completed, but no completed task among
+            // the run's inputs, so they leave the hand-off to the run that received the completion.
+            var asked = await colleague.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new NhAssistantStartAgentRequest(planner, ProjectSubjects.Type, projectText, $"Follow up the tasks of project {projectText}."),
+                Json);
+            Assert.Equal(HttpStatusCode.Accepted, asked.StatusCode);
+            var plannerThread = await WaitForThreadAsync(colleague, project, planner);
+            var run = Assert.Single(await WaitForRunCountAsync(colleague, plannerThread, 1));
+            var dutch = CultureInfo.GetCultureInfo("nl-NL");
+            var expected = string.Format(
+                dutch,
+                new ResourceManager(typeof(SampleAssistantToolPresenter)).GetString("PlannerNoTaskCompleted", dutch)!,
+                1);
+            Assert.True(
+                run.Status == NhAssistantRunStatuses.Completed
+                    && run.Skill == SampleProjectPlannerComposition.TaskFollowUpSkill
+                    && run.SkillChosenBy == NhAssistantSkillChoosers.Triage
+                    && run.Kind == NhAssistantRunKinds.Rule
+                    && run.Summary?.Contains(expected, StringComparison.Ordinal) == true,
+                $"Expected the planner's run completed by rule in skill {SampleProjectPlannerComposition.TaskFollowUpSkill}, chosen by triage, with the summary '{expected}'; found {Describe(run)}, chosen by {run.SkillChosenBy ?? "nobody"}, summary '{run.Summary}'.");
+
+            // The run ended without handing the project over: the audit has no hand-off of it.
+            var handOffs = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events
+                .Where(evt => evt.Kind == NhAssistantAuditEventKind.AgentHandedOff && evt.SubjectId == projectText)
+                .ToArray();
+            Assert.True(
+                handOffs.Length == 0,
+                $"Expected no hand-off of project {project}; the audit has {handOffs.Length}: {string.Join("; ", handOffs.Select(evt => $"from {evt.AskingAgentId} to {evt.AgentId}: {evt.ResultCode} at {evt.OccurredAt:O}"))}.");
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
+    [Fact]
     public async Task A_variant_of_the_project_planner_runs_in_the_shadow_and_is_compared_with_the_live_planner()
     {
         // SPM-288
