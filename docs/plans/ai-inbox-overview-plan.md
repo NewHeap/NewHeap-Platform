@@ -40,7 +40,7 @@ open design choices taken while building them are recorded as IB1 to IB12. Lars 
   division's scope key) when the person last looked, marks proposals that arrived since then and those
   that arrive live while the inbox is open; a visit endpoint next to the board's.
 
-## Decisions for Lars to review
+## Decisions reviewed by Lars (all kept)
 
 - **IB1. The parent's shape.** `NhAiSubjectParent(NhAiSubjectRef Subject, string? DisplayName)` on
   `NhAiSubjectInfo.Parent`. The parent is a label only: the platform never resolves it, grants no access
