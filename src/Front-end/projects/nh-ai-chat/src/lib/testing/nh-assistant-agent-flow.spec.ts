@@ -527,7 +527,9 @@ describe('The mock API for the flow view', () => {
       delegateFromInitiator: false,
       approvalPolicy: 'project-review',
       usesRules: true,
-      startsOff: false
+      startsOff: false,
+      // As the server does, the mock says whether the agent accepts files in code.
+      acceptsFiles: false
     });
 
     const followUp = (await call('GET', 'admin/agents/follow-up/configuration')).body as AgentRunConfiguration;

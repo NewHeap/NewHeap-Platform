@@ -159,6 +159,7 @@ Each line: the decision, why, and its status.
 | D16 | HTTP statuses: `files-unavailable` and `file-not-found` 404, `file-forbidden` 403, `file-too-large` 413, `file-type-not-supported` 415, `files-not-accepted` 409, `file-unavailable` 503, the other file codes 400. | One status per code in the shared table, as for every assistant code. | For Lars to review |
 | D17 | The audit events are `FileRead` and `FileRefused`, with `FileId`, `FileMediaType`, `FileHash` and the origin (`NhAssistantFileOrigins`) as `ObjectId`. | Content-free, and the existing event shape names the tool and invocation. | For Lars to review |
 | D18 | An approved call that returns files gives them to the model as any tool call does. | Same rules for every tool result that reaches the model. | For Lars to review |
+| D19 | In the business audit event `FileId` and `FileHash` count as identifiers and `FileMediaType` as a code; the test that allows only identifiers, codes and timestamps names exactly these three, and the file's name never enters the event. | The application's id, a normalized media type and `sha256:<hex>` carry no free text or content, as `SubjectId` and the other hashes do not. | For Lars to review |
 
 ## Contracts for F-2 and F-3
 

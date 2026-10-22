@@ -223,6 +223,9 @@ public sealed class AssistantRegistrationTests
                     or "ApplicationContextVersion" or "ApplicationContextHash" or "InstructionsVersion"
                     or "InstructionsHash" or "PreferencesHash" or "TriggerId" or "SubjectType" or "SubjectId"
                     or "InitiatorActorId" or "ApprovalPolicyId" or "AskingAgentId" or "SkillId" or "ApplicationMapHash" or "RetrievedContextHash" or "McpConnectionOwner"
+                    // A file is named by the application's id, its normalized media type (a code) and
+                    // the SHA-256 of what the model read; never by its name or content.
+                    or "FileId" or "FileMediaType" or "FileHash"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }

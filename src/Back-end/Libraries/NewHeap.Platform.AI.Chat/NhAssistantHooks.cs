@@ -439,14 +439,18 @@ public sealed record NhAssistantAuditEvent(
 
     /// <summary>
     /// The application's id of the file a <see cref="NhAssistantAuditEventKind.FileRead"/> or
-    /// <see cref="NhAssistantAuditEventKind.FileRefused"/> event concerns.
+    /// <see cref="NhAssistantAuditEventKind.FileRefused"/> event concerns: an identifier, never the
+    /// file's name.
     /// </summary>
     public string? FileId { get; init; }
 
+    /// <summary>
+    /// The file's media type as a code, lowercase without parameters, such as <c>application/pdf</c>.
+    /// </summary>
     public string? FileMediaType { get; init; }
 
     /// <summary>
-    /// The SHA-256 of the content the model received, <c>sha256:&lt;hex&gt;</c>.
+    /// The SHA-256 of the content the model received, <c>sha256:&lt;hex&gt;</c>; never the content.
     /// </summary>
     public string? FileHash { get; init; }
 }
