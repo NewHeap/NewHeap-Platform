@@ -68,10 +68,16 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
   `AllowRequests()`, `assistant.request.{agentId}.{subjectType}` (a run with the asker as
   initiator). The asking agent selects them like any tool. A consultation uses the asking
   person's rights only, reads the agent's memory, summaries and recent thread, writes no
-  message into the thread and turns every change into a deferred proposal for the
-  subject's approvers. `NhAssistantLimits.MaxConsultationDepth` and
-  `MaxConsultationsPerActorPerDay` bound it; the consulted agent's daily budget includes
-  its consultations.
+  message into the thread and turns every change into a proposal. `Proposals(p => ...)`
+  chooses who decides it: the asker in their own chat (`AskerDecides()`, executed in their
+  own request), the subject's approvers with the asker's rights
+  (`AtSubject(NhAssistantConsultationRights.Asker)`, the route of `Proposals(true)`) or with
+  the agent's own rights under four-eyes (`AtSubject(NhAssistantConsultationRights.Agent)`);
+  each call takes the first route that applies, otherwise it is refused with
+  `assistant-consult-proposal-refused`. Administrators switch the routes per agent within
+  what code allows. `NhAssistantLimits.MaxConsultationDepth`,
+  `MaxConsultationsPerActorPerDay` and `MaxOpenConsultationProposalsPerAsker` bound it;
+  the consulted agent's daily budget includes its consultations.
 - **Proposal feedback** — after a rejection, the person who decided a proposal and the
   subject's approvers may say what was wrong: a category from
   `NhAssistantProposalFeedbackCategories` and an optional text, stored in

@@ -147,7 +147,15 @@ rights and return the shared `NhAiToolResult` shape to the model, `{ success, da
 `{ success: false, code, message }`, with codes such as `assistant-consult-subject-unavailable`. The startup validator checks
 that each consulted subject type has a resolver and each consultation policy exists. An
 `INhAiToolDiscoveryPolicy` that allows tool prefixes must allow `assistant.consult.` and
-`assistant.request.`.
+`assistant.request.`. The consult answer's optional `decision` (`asker` or `subject`) and
+`approvalIds` say who decides what the consulted agent proposed. A proposal the asker decides
+(`AskerDecides()`) makes the asking turn wait: its approval part carries `consultation` (agent,
+subject, answer, `leaveRoute`) and `POST conversations/{id}/approvals/{approvalId}/decide`
+approves, rejects or, with decision `leave`, leaves it for the subject's approvers; it executes in
+the asker's own request. Startup refuses `AtSubject(NhAssistantConsultationRights.Agent)` for an
+agent that answers to the subject's responsible person, for the whole application and for a
+consultation policy that names only the initiator. `POST admin/agents/{id}/consultation-routes`
+switches the routes of an agent's consultations within what code allows.
 
 A message to a thread while a run is active returns `202` with a receipt; the next run
 receives it. Turns that a person types in a thread are bound to the request like chat
@@ -159,7 +167,10 @@ proposal (`NhAssistantThreadDecisionDto`), its `runId`, `canDecide` and a `reaso
 such as `assistant-four-eyes-required`, checked like the decision itself. Clients decide a
 proposal with a run, and a deferred proposal of a consultation (`consultationId`), through
 `POST approvals/{id}/decisions`; an inline proposal without a run belongs to a person's
-turn and resumes it through `POST conversations/{id}/approvals/{approvalId}/decide`.
+turn and resumes it through `POST conversations/{id}/approvals/{approvalId}/decide`. A
+consultation's proposal that its asker decides in their own chat reads
+`assistant-consult-asker-decides` in the thread; one that executes with the agent's rights reads
+`assistant-four-eyes-required` for its asker. `consultationRoute` on a proposal names its route.
 User messages carry `authorKind`: `person`, or `trigger` for text a trigger wrote into the
 thread.
 

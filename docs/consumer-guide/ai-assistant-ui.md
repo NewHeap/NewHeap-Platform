@@ -872,11 +872,11 @@ are the executable references.
   - [src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html)
   - [src/Front-end/projects/management/src/app/project-members/project-members-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-members/project-members-page.component.ts)
   - [src/Front-end/projects/management/src/app/project-members/project-members-page.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-members/project-members-page.component.html)
-- SPM-278 — The project assistant consults the intake reviewer about a project
+- SPM-278 — The project assistant consults the intake reviewer and the project closer about a project
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
-  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)
 - SPM-279 — Approvers explain rejected agent proposals and administrators review the feedback
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs)

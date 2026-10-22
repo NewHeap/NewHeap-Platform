@@ -47,3 +47,34 @@ it work again, in English and Dutch (`nh-assistant.admin.agents.state.stopped-wa
 | Breaking change | Required action |
 |---|---|
 | The agent proposals that `nh-assistant-agent-board` shows on a board with `divisionId` are filtered on that division. | None; a board without `divisionId` shows the proposals of every division as before. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: proposals of consultations without a rebuilt principal
+
+`AllowConsultation(..., consult => consult.Proposals(p => p.AskerDecides().AtSubject(rights).Policy(id)))`
+chooses who decides what a consulted agent proposes. With `AskerDecides()` the person who asked decides
+it right away in their own chat and it executes in their own request with their own rights; with
+`AtSubject(NhAssistantConsultationRights.Agent)` it waits for the subject's approvers other than the
+asker and executes with the agent's own rights. Neither rebuilds a person's principal outside that
+person's request. `Proposals(bool, role)` keeps today's route (`AtSubject(Asker)`), and no existing
+registration changes how its proposals are decided. Administrators switch the routes per agent within
+what code allows (`INhAssistantAgentControl.SetConsultationRoutesAsync`,
+`POST admin/agents/{id}/consultation-routes`), stored in the new `AgentConsultationRoutes` migrations.
+
+| Breaking change | Required action |
+|---|---|
+| The maintenance job now expires and escalates every pending proposal of a consultation, today's route included; before, such a proposal stayed pending after its expiry until someone tried to decide it. After the upgrade, consultation proposals past their expiry close as `expired` on the next round, and policies with `OnExpiry(Escalate)` escalate them. | Check the expiry and escalation of the approval policies your consultations use; nothing to do when they should expire. |
+| The `AgentConsultationRoutes` migrations add six nullable columns to `AssistantAgent` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
+| `INhAssistantAgentControl` has the new member `SetConsultationRoutesAsync`. | Implement it in a class of your own that implements the interface; callers need nothing. |
+| `NhAssistantAgentNotificationKind` has the new value `ConsultationProposalDecided`, sent only to the asker of a proposal that executes with the agent's rights. | Let a custom notification policy or channel handle it or ignore kinds it does not know. |
+| The generated consult tool's output schema gains the optional `decision` and `approvalIds`; its version and export name stay, its contract and attestation hash change. | Refresh pinned MCP tool attestations of consult tools. |
+
+## @newheap/platform-ai-chat: proposals of consultations
+
+The approval card shows a consultation's proposal that the person decides in their own chat with the
+consulted agent, the subject and its answer, and offers Leave for approvers when a route at the subject
+applies; proposal views show who asked and the route; the run configuration of agents in code switches
+the consultation routes; the mock API serves both routes. Texts are in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| `ApprovalDecision` also allows `'leave'` and `NhAssistantApprovalWaitingFor` also allows `'asker'`. | Add the new values to an exhaustive `switch` over these types. |
