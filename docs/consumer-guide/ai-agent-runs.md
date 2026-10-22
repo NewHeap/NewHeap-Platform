@@ -1308,8 +1308,8 @@ references.
 - SPM-287 — An agent hands work to another agent and hears how it ended
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
-  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs)
 - SPM-288 — A shadow variant of an agent is compared with the live agent before it goes live
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerVariantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerVariantComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)

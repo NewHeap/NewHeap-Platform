@@ -41,6 +41,7 @@
   <data name="PlannerHandedToCloser" xml:space="preserve"><value>All {0} tasks are completed; I asked the project closer whether the project can be completed.</value></data>
   <data name="PlannerCloserAnswered" xml:space="preserve"><value>The project closer answered: {0}</value></data>
   <data name="PlannerCloserEnded" xml:space="preserve"><value>The run of the project closer ended {0}.</value></data>
+  <data name="PlannerNoTaskCompleted" xml:space="preserve"><value>All {0} tasks are completed, but this run received no completed task; the run that did hands the project to the project closer.</value></data>
   <data name="CloserProposed" xml:space="preserve"><value>Proposed to complete the project; a project approver decides.</value></data>
   <data name="CloserAlreadyOpen" xml:space="preserve"><value>The proposal to complete the project already waits for an approver.</value></data>
   <data name="CloserRecentlyRejected" xml:space="preserve"><value>An approver rejected completing the project on {0}; not proposed again for now.</value></data>
