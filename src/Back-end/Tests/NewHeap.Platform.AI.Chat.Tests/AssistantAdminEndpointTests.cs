@@ -189,7 +189,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
             "autonomy", "isEnabled", "version", "source", "isOverridden", "instructionsHash", "updatedAt",
             "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf", "shadow", "serviceAccount",
             "offeredInChat", "profile", "dataClassification", "warnings", "worksOnSubjectTypes", "worksOnAllSubjects", "worksOnApplication",
-            "perDivision", "runPolicy", "viewPolicy", "worksOnDeclared", "knownSubjectTypes", "groups", "codeGroups");
+            "perDivision", "runPolicy", "viewPolicy", "worksOnDeclared", "knownSubjectTypes", "groups", "codeGroups", "offBeforeStop");
         Assert.Equal("active", code.GetProperty("runState").GetString());
         Assert.Equal("project-chat", code.GetProperty("profile").GetString());
         Assert.Equal(JsonValueKind.Null, code.GetProperty("dataClassification").ValueKind);
@@ -265,15 +265,19 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         using var off = await admin.PostAsync(path + "/state", Json(new { state = "off", reason = "Not yet" }));
         using var engaged = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = true }));
         var stopped = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
+        var stoppedListed = (await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/agents"))).EnumerateArray()
+            .Single(agent => agent.GetProperty("id").GetString() == "project-assistant");
         using var released = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = false }));
         var offAgain = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
         // A paused agent behaves as before: the kill switch stops it and releasing it resumes it.
         using var pausedAgain = await admin.PostAsync(path + "/state", Json(new { state = "paused" }));
         using var engagedAgain = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = true }));
+        var stoppedAfterPause = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
         using var releasedAgain = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = false }));
         var active = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
 
-        AssertNames(initial, "agentId", "runState", "active", "changedAt", "changedBy", "reason", "waitingInputs", "cancelledRuns", "startedRuns", "skills", "shadowOf", "shadow", "serviceAccount");
+        AssertNames(initial, "agentId", "runState", "active", "changedAt", "changedBy", "reason", "waitingInputs", "cancelledRuns", "startedRuns", "skills", "shadowOf", "shadow", "serviceAccount", "offBeforeStop");
+        Assert.False(initial.GetProperty("offBeforeStop").GetBoolean());
         Assert.Equal("active", initial.GetProperty("runState").GetString());
         Assert.True(initial.GetProperty("active").GetBoolean());
         Assert.Equal(HttpStatusCode.OK, paused.StatusCode);
@@ -303,12 +307,17 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         AssertNames(engagedBody, "agentId", "enabled", "cancelledRuns", "runState");
         Assert.Equal((false, "stopped"), (engagedBody.GetProperty("enabled").GetBoolean(), engagedBody.GetProperty("runState").GetString()));
         Assert.Equal("stopped", stopped.GetProperty("runState").GetString());
+        // The stopped agent says that releasing the kill switch switches it back off, also in the list.
+        Assert.True(stopped.GetProperty("offBeforeStop").GetBoolean());
+        Assert.True(stoppedListed.GetProperty("offBeforeStop").GetBoolean());
         // Releasing the kill switch never switches on an agent that was off before it was engaged.
         var releasedBody = await ReadJsonAsync(released);
         Assert.Equal((true, "off"), (releasedBody.GetProperty("enabled").GetBoolean(), releasedBody.GetProperty("runState").GetString()));
         Assert.Equal("off", offAgain.GetProperty("runState").GetString());
+        Assert.False(offAgain.GetProperty("offBeforeStop").GetBoolean());
         Assert.Equal(HttpStatusCode.OK, pausedAgain.StatusCode);
         Assert.Equal("stopped", (await ReadJsonAsync(engagedAgain)).GetProperty("runState").GetString());
+        Assert.False(stoppedAfterPause.GetProperty("offBeforeStop").GetBoolean());
         Assert.Equal("active", (await ReadJsonAsync(releasedAgain)).GetProperty("runState").GetString());
         Assert.Equal("active", active.GetProperty("runState").GetString());
     }

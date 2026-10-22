@@ -1102,7 +1102,8 @@ internal static class NhAssistantAdminEndpoints
             PerDivision = agent.WorksOn.PerDivision,
             RunPolicy = agent.WorksOn.RunPolicy,
             ViewPolicy = agent.WorksOn.ViewPolicy,
-            WorksOnDeclared = agent.WorksOn.Declared
+            WorksOnDeclared = agent.WorksOn.Declared,
+            OffBeforeStop = state.OffBeforeStop
         };
     }
 

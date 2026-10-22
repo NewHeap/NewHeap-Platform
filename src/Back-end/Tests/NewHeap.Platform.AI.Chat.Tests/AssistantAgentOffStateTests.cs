@@ -168,7 +168,10 @@ public sealed class AssistantAgentOffStateTests(AssistantDatabaseFixture databas
         var releasedAgain = await ControlAsync(host, control => control.SetKillSwitchAsync(AgentId, false, "operator-1"));
 
         Assert.Equal(NhAssistantAgentRunStates.Stopped, engaged.Data!.RunState);
+        // While stopped the state says that releasing the kill switch switches it back off.
+        Assert.True(engaged.Data.OffBeforeStop);
         Assert.Equal(NhAssistantAgentRunStates.Off, released.Data!.RunState);
+        Assert.False(released.Data.OffBeforeStop);
         Assert.False(released.Data.Active);
         Assert.Equal(NhAssistantAgentRunStates.Off, released.Data.Skills.Single(skill => skill.SkillId == Review).RunState);
         Assert.Equal(NhAssistantAgentRunStates.Active, released.Data.Skills.Single(skill => skill.SkillId == Notes).RunState);
@@ -181,7 +184,8 @@ public sealed class AssistantAgentOffStateTests(AssistantDatabaseFixture databas
 
         // An explicit resume still switches the agent on, and a later stop forgets that it was off.
         await ControlAsync(host, control => control.ResumeAsync(AgentId, "operator-1"));
-        await ControlAsync(host, control => control.StopAsync(AgentId, "operator-1"));
+        var stoppedOn = await ControlAsync(host, control => control.StopAsync(AgentId, "operator-1"));
+        Assert.False(stoppedOn.Data!.OffBeforeStop);
         var resumed = await ControlAsync(host, control => control.SetKillSwitchAsync(AgentId, false, "operator-1"));
         Assert.Equal(NhAssistantAgentRunStates.Active, resumed.Data!.RunState);
 
@@ -190,6 +194,7 @@ public sealed class AssistantAgentOffStateTests(AssistantDatabaseFixture databas
         var pausedEngaged = await ControlAsync(host, control => control.SetKillSwitchAsync(AgentId, true, "operator-1"));
         var pausedReleased = await ControlAsync(host, control => control.SetKillSwitchAsync(AgentId, false, "operator-1"));
         Assert.Equal(NhAssistantAgentRunStates.Stopped, pausedEngaged.Data!.RunState);
+        Assert.False(pausedEngaged.Data.OffBeforeStop);
         Assert.Equal(NhAssistantAgentRunStates.Active, pausedReleased.Data!.RunState);
         Assert.Equal(NhAssistantAgentRunStates.Off, pausedReleased.Data.Skills.Single(skill => skill.SkillId == Review).RunState);
         await using var context = Factory(host).CreateDbContext();
