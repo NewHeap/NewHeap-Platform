@@ -131,8 +131,14 @@
             }
             @case ('proposals') {
               <div class="work" [id]="id + '-' + agent.agentId + '-panel'">
-                <!-- One agent's proposals are no visit of the whole inbox; the tile already marks what is new. -->
-                <nh-assistant-agent-inbox [agentId]="agent.agentId" [markNew]="false" [recordVisit]="false" (openConversation)="openConversation.emit($event)" />
+                <!-- One agent's proposals are no visit of the whole inbox; the tile already marks what is new.
+                     The board of a division shows that division's proposals only. -->
+                <nh-assistant-agent-inbox
+                  [agentId]="agent.agentId"
+                  [divisionId]="divisionId()"
+                  [markNew]="false"
+                  [recordVisit]="false"
+                  (openConversation)="openConversation.emit($event)" />
               </div>
             }
             @case ('history') {

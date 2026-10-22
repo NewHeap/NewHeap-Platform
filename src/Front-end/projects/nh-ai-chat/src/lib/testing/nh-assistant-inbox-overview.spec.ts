@@ -4,11 +4,13 @@ import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
 import { NEVER, Subject, firstValueFrom, of } from 'rxjs';
 import {
+  NhAssistantAgentBoardComponent,
   NhAssistantAgentInboxComponent,
   NhAssistantAgentProposalsComponent,
   NhAssistantRunResultComponent
 } from '../../../agent-runs/src/public-api';
 import {
+  AgentBoard,
   AgentInbox,
   AgentInboxGroup,
   AgentProposal,
@@ -139,6 +141,41 @@ class GroupedProposalsHostComponent {
   readonly rights = signal<ReadonlyMap<string, AgentProposalDecisionRight> | null>(null);
 }
 
+@Component({
+  standalone: true,
+  imports: [NhAssistantAgentBoardComponent],
+  template: `<nh-assistant-agent-board group="regional-review" [divisionId]="divisionId()" />`
+})
+class BoardHostComponent {
+  readonly divisionId = signal<string | null>(null);
+}
+
+/** A board with one agent that works per division and has an open proposal in the board's scope. */
+function board(group: string, divisionId: string | null): AgentBoard {
+  return {
+    id: group,
+    name: 'Regional review',
+    description: null,
+    scopeKey: divisionId ? `division:${divisionId.replaceAll('-', '')}` : 'global',
+    divisionId,
+    lastVisitedAt: '2026-10-20T12:00:00Z',
+    agents: [{
+      agentId: 'regional',
+      displayNameKey: 'Regional review',
+      descriptionKey: 'Reviews a division.',
+      worksOn: { allObjects: false, application: true, perDivision: true, subjectTypes: [] },
+      subjectType: 'nh-system',
+      subjectId: divisionId ? `division-${divisionId.replaceAll('-', '')}` : 'global',
+      subjectDisplayName: 'North',
+      canStart: false,
+      conversationId: null,
+      latestRun: null,
+      openProposals: 1,
+      isNew: false
+    }]
+  };
+}
+
 function text(element: Element | null | undefined): string {
   return element?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 }
@@ -159,7 +196,9 @@ describe('the inbox overview', () => {
         'visitInbox',
         'decide',
         'decideMany',
-        'lookupProposals'
+        'lookupProposals',
+        'getBoard',
+        'visitBoard'
       ]);
       api.visitInbox.and.returnValue(of({ scopeKey: 'global', visitedAt: '2026-10-21T12:00:00Z' }));
       TestBed.configureTestingModule({
@@ -308,6 +347,33 @@ describe('the inbox overview', () => {
       expect(element.querySelector('li.card.new')).toBeNull();
       expect(element.querySelector('[data-inbox-first-visit]')).toBeNull();
       expect(api.visitInbox).not.toHaveBeenCalled();
+    });
+
+    it('gives the proposals of an agent on a division\'s board that division, and none on the board of the whole application', () => {
+      const division = '8d5c6f7e-1a2b-4c3d-9e8f-0a1b2c3d4e5f';
+      api.getBoard.and.callFake((group: string, divisionId?: string | null) => of(board(group, divisionId ?? null)));
+      api.visitBoard.and.returnValue(of({ groupId: 'regional-review', scopeKey: 'global', visitedAt: '2026-10-21T12:00:00Z' }));
+      api.getInbox.and.returnValue(of({ items: [proposal('a', { agentId: 'regional' })], total: 1 }));
+      const fixture = TestBed.createComponent(BoardHostComponent);
+      fixture.componentInstance.divisionId.set(division);
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      (element.querySelector('[data-board-toggle-proposals]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(api.getInbox).toHaveBeenCalledOnceWith(jasmine.objectContaining({ agentId: 'regional', divisionId: division }));
+      // The board's agent panel is no visit of the inbox and marks nothing new itself.
+      expect(api.visitInbox).not.toHaveBeenCalled();
+      expect(cardIds(element.querySelector('nh-assistant-agent-inbox') as HTMLElement)).toEqual(['a']);
+
+      // The board of the whole application filters on no division.
+      api.getInbox.calls.reset();
+      fixture.componentInstance.divisionId.set(null);
+      fixture.detectChanges();
+      (element.querySelector('[data-board-toggle-proposals]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(api.getInbox).toHaveBeenCalledTimes(1);
+      expect(api.getInbox.calls.mostRecent().args[0]?.divisionId).toBeUndefined();
     });
   });
 
