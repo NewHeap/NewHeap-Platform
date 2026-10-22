@@ -752,6 +752,13 @@ public static class NhAssistantErrorCodes
     public const string TriggerInCode = "assistant-trigger-in-code";
 
     /// <summary>
+    /// A data trigger selects a filter that its trigger event does not register with <c>Filter</c>;
+    /// the field error <c>filters: not-found</c> goes with it. Choose from the filters the run
+    /// catalog lists for the event.
+    /// </summary>
+    public const string TriggerFilterNotFound = "assistant-trigger-filter-not-found";
+
+    /// <summary>
     /// A trigger defined as data names the skill; change or remove the trigger first.
     /// </summary>
     public const string SkillInUse = "assistant-skill-in-use";

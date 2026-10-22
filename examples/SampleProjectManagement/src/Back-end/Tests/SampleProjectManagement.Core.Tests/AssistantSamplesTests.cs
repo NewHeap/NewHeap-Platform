@@ -571,6 +571,7 @@ public sealed class FakeProjects : IProjectAiReadService, IProjectAiMutationServ
         Guid divisionId,
         Guid projectId,
         ProjectStatus status,
+        ProjectAgentCause? agentCause,
         CancellationToken cancellationToken = default)
     {
         var previous = _statuses.GetValueOrDefault(projectId, ProjectStatus.Draft);

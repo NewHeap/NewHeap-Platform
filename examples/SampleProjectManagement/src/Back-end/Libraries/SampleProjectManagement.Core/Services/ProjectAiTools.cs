@@ -96,10 +96,13 @@ public sealed class ProjectAiTools(
                     "The authorized AI invocation context has no active division."));
         }
 
+        // SPM-308: the status event names the agent and the subject it works in, so a trigger
+        // can skip the agent's own change on that subject.
         return projectMutationService.ChangeStatusForAiAsync(
             divisionId,
             input.ProjectId,
             input.Status,
+            ProjectAgentCause.Of(context),
             cancellationToken);
     }
 

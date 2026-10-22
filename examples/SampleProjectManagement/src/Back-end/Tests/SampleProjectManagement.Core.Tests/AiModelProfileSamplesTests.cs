@@ -262,6 +262,7 @@ public sealed class AiModelProfileSamplesTests
             Guid divisionId,
             Guid projectId,
             ProjectStatus status,
+            ProjectAgentCause? agentCause,
             CancellationToken cancellationToken = default)
         {
             return Task.FromResult(

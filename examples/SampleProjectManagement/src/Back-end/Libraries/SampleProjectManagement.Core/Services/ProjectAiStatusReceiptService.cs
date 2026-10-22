@@ -211,10 +211,12 @@ public sealed class ProjectAiStatusReceiptService(
         }
 
         var evidenceReference = ProjectAiStatusReceiptStore.EvidenceReference(request.ApprovalGrant);
+        // A receipt applies a change people approved through the application's own grant.
         var mutation = await projectMutationService.ChangeStatusForAiAsync(
             divisionId,
             request.ProjectId,
             request.Status,
+            agentCause: null,
             cancellationToken);
         if (!mutation.Success)
         {

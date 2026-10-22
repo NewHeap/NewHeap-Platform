@@ -22,6 +22,12 @@ public sealed class TestProjectToolRecorder
 
     public ConcurrentQueue<NhAiInvocationContext> Contexts { get; } = new();
 
+    /// <summary>
+    /// The agent invocation scope that was ambient while the search tool ran, as a tool handler of
+    /// the application reads it; <see langword="null"/> outside an agent's turn.
+    /// </summary>
+    public ConcurrentQueue<NhAiAgentInvocationScope?> Scopes { get; } = new();
+
     public string SearchResultName { get; set; } = "Roadmap project";
 
     /// <summary>When set, the search tool throws this exception inside the governed invocation.</summary>
@@ -102,6 +108,7 @@ public sealed class TestProjectToolCatalog : INhAiToolCatalog
                 async (context, token) =>
                 {
                     recorder.Contexts.Enqueue(context);
+                    recorder.Scopes.Enqueue(NhAiAgentInvocationScopes.Current);
                     if (recorder.SearchException is { } exception)
                     {
                         throw exception;

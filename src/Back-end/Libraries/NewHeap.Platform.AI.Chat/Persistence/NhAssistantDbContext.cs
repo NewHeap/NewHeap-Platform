@@ -650,6 +650,7 @@ public sealed class NhAssistantDbContext : DbContext
             trigger.Property(item => item.SkillId).HasMaxLength(64);
             trigger.Property(item => item.Source).HasMaxLength(16).IsRequired();
             trigger.Property(item => item.EventName).HasMaxLength(NhAssistantBlockNames.MaxLength);
+            trigger.Property(item => item.FiltersJson).HasMaxLength(NhAssistantDataTriggerFilters.MaxJsonLength);
             trigger.Property(item => item.Cron).HasMaxLength(128);
             trigger.Property(item => item.TimeZone).HasMaxLength(64);
             trigger.Property(item => item.SubjectSetName).HasMaxLength(NhAssistantBlockNames.MaxLength);

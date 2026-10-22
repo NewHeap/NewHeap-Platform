@@ -32,6 +32,26 @@ public sealed class ProjectStatusChangedEvent : INhEvent
     public Guid ProjectId { get; init; }
     public ProjectStatus PreviousStatus { get; init; }
     public ProjectStatus Status { get; init; }
+
+    /// <summary>
+    /// The person who changed the status, or <see langword="null"/> for an agent or a job.
+    /// </summary>
+    public Guid? ChangedByUserId { get; init; }
+
+    /// <summary>
+    /// SPM-308: the actor of the agent whose tool changed the status, as the tool's invocation
+    /// context names it; <see langword="null"/> for a person or a job.
+    /// </summary>
+    public string? ChangedByAgentActorId { get; init; }
+
+    /// <summary>
+    /// SPM-308: the type and id of the subject the agent worked in when its tool changed the status,
+    /// which may be another subject than this project.
+    /// </summary>
+    public string? ChangedInSubjectType { get; init; }
+
+    public string? ChangedInSubjectId { get; init; }
+
     public DateTimeOffset OccurredAt { get; init; } = DateTimeOffset.UtcNow;
     public static string Topic => "sample-project-management.project-status-changed";
 }

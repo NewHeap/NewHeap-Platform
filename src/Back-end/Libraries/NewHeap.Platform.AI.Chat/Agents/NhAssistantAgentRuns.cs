@@ -1092,6 +1092,19 @@ internal sealed class NhAssistantTriggerDefinition
     public string? BlockName { get; init; }
 
     /// <summary>
+    /// The named filters of its trigger event that a trigger defined as data selected, in the order
+    /// it stores them; every one must accept an event, after <see cref="When"/>.
+    /// </summary>
+    public IReadOnlyList<NhAssistantTriggerFilterDefinition> Filters { get; init; } = [];
+
+    /// <summary>
+    /// The filters a trigger defined as data selected that its event no longer registers, for example
+    /// after a deploy removed one. Such a trigger fails closed: it ignores every event with the reason
+    /// <c>filter-missing</c>.
+    /// </summary>
+    public IReadOnlyList<string> MissingFilters { get; init; } = [];
+
+    /// <summary>
     /// The trigger's runs work in the agent's shadow thread, whatever the agent's and the skill's
     /// mode. Only a trigger defined as data has a mode of its own; it starts in shadow.
     /// </summary>

@@ -36,6 +36,11 @@ namespace SampleProjectManagement.Api.Composition;
 /// combines them into a skill of the planner and its trigger at runtime, without a deploy.
 /// SPM-297: the progress-percentage rules are a second way to note progress; a changed progress note
 /// that names them is evaluated in shadow next to the live note before it is promoted.
+/// SPM-308: the status-changed event offers the named filter <c>not-own-change</c>, which a data
+/// trigger selects so the planner does not start itself again on a project whose status its own tool
+/// changed there. The status tool stamps the agent and the subject it works in on the event; the filter
+/// skips the event only when both are the trigger's agent and subject, so the planner's change made
+/// while it worked on another subject, and every person's change, still start it.
 /// </summary>
 public static class SampleProjectPlannerComposition
 {
@@ -54,6 +59,12 @@ public static class SampleProjectPlannerComposition
     public const string ActiveProjectsSet = "active-projects-with-deadline-soon";
     public const string ProgressNoteRules = "project-progress-note";
     public const string ProgressPercentageRules = "project-progress-percentage";
+
+    /// <summary>
+    /// SPM-308: the status-changed event and its filter that skips an agent's own change.
+    /// </summary>
+    public const string StatusChangedEvent = "project.status-changed";
+    public const string NotOwnChangeFilter = "not-own-change";
 
     public static IServiceCollection AddSampleProjectPlanner(this IServiceCollection services)
     {
@@ -148,10 +159,34 @@ public static class SampleProjectPlannerComposition
                 .Message(change => $"Task {change.ProjectTaskId:D} of project {change.ProjectId:D} was completed.")
                 .Payload(change => new ProjectTaskChange(change.ProjectTaskId, change.IsCompleted))
                 .Dedupe(change => change.EventId.ToString("N")))
+            // SPM-308: a data trigger on a status change selects the filter, so the planner's own
+            // change of a project's status does not start it on that project again. The filter
+            // runs after the subject function and learns the subject the trigger fires for.
+            .AddTriggerEvent<ProjectStatusChangedEvent>(StatusChangedEvent, evt => evt
+                .Description("The status of a project changed.")
+                .Subject(ProjectSubjects.Type, changed => ProjectSubjects.IdOf(changed.ProjectId))
+                .Initiator(changed => changed.ChangedByUserId?.ToString("D"))
+                .Message(changed => $"The status of project {changed.ProjectId:D} changed from {changed.PreviousStatus} to {changed.Status}.")
+                .Dedupe(changed => changed.EventId.ToString("N"))
+                .Filter(
+                    NotOwnChangeFilter,
+                    "Skips a status change the agent made itself while it worked on this project.",
+                    (changed, trigger) => !IsOwnChange(changed, trigger)))
             .AddSubjectSet(ActiveProjectsSet, "Active projects with a deadline in the next two weeks.", ActiveProjectsWithDeadlineSoon)
             .AddRuleHandler<ProjectProgressNoteRules>(ProgressNoteRules, "Notes how many of the project's tasks are completed, without a model.")
             .AddRuleHandler<ProjectProgressPercentageRules>(ProgressPercentageRules, "Notes which share of the project's tasks is completed, without a model."));
         return services;
+    }
+
+    /// <summary>
+    /// SPM-308: whether the trigger's own agent changed the status while it worked on the subject the
+    /// trigger fires for. Cheap and free of I/O, as every filter must be.
+    /// </summary>
+    private static bool IsOwnChange(ProjectStatusChangedEvent changed, NhAssistantTriggerFilterContext trigger)
+    {
+        return changed.ChangedByAgentActorId == trigger.AgentActorId
+               && changed.ChangedInSubjectType == trigger.Subject.Type
+               && changed.ChangedInSubjectId == trigger.Subject.Id;
     }
 
     private static async IAsyncEnumerable<NhAiSubjectRef> ActiveProjectsWithDeadlineSoon(
