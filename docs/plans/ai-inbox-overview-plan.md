@@ -10,8 +10,8 @@ marking what is new since a person's last visit. It was written on 2026-10-22 on
 ## Status
 
 Built on 2026-10-22 in one lane of a merge train. Lars decided the four parts below (IN1 to IN4); the
-open design choices taken while building them are recorded as IB1 to IB12 for Lars to review. The
-sample evidence is SPM-310.
+open design choices taken while building them are recorded as IB1 to IB12. Lars reviewed them on
+2026-10-22 and kept all twelve. The sample evidence is SPM-310.
 
 | Part | Status |
 | --- | --- |
