@@ -196,11 +196,31 @@ public sealed record NhAssistantRuleProposal(
     public string? PlacementReason { get; init; }
 
     /// <summary>
+    /// For <see cref="NhAssistantProposeOutcome.NotNeeded"/>, why the guard found the proposal not needed:
+    /// <see cref="NhAiStaleKind.AlreadyDone"/>, <see cref="NhAiStaleKind.NotApplicable"/> or
+    /// <see cref="NhAiStaleKind.Changed"/>, as <see cref="NhAiPreconditionResult.Kind"/> says;
+    /// <see langword="null"/> for the other outcomes.
+    /// </summary>
+    public NhAiStaleKind? NotNeededKind { get; init; }
+
+    /// <summary>
     /// For <see cref="NhAssistantProposeOutcome.NotNeeded"/>, the guard's explanation in the culture the
     /// run works in, such as "Office task completed by Henk on 14 Oct"; <see langword="null"/> when the
     /// guard gives none.
     /// </summary>
     public string? Explanation { get; init; }
+
+    /// <summary>
+    /// For <see cref="NhAssistantProposeOutcome.NotNeeded"/>, the guard's explanation in the culture the
+    /// run works in and in every supported UI culture, by culture name (case-insensitive), the run's
+    /// culture first: the same texts a proposal that becomes stale stores. A culture whose explanation
+    /// fails or is empty is missing, and cultures that would make the texts too long are left out.
+    /// Empty when the guard gives no explanation and for the other outcomes.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Explanations { get; init; } = EmptyExplanations;
+
+    private static readonly IReadOnlyDictionary<string, string> EmptyExplanations =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     internal static NhAssistantRuleProposal Refused(string code)
     {

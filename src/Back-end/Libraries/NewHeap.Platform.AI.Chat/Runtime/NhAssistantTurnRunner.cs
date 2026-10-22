@@ -393,7 +393,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 }
                 else
                 {
-                    routing = NhAssistantBriefingService.RulesSection(ruled.HandOverReason!, state.ProposalCount);
+                    routing = RulesRouting(state, ruled.HandOverReason!);
                 }
             }
 
@@ -444,7 +444,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 }
                 else
                 {
-                    routing = NhAssistantBriefingService.RulesSection(ruled.HandOverReason!, state.ProposalCount);
+                    routing = RulesRouting(state, ruled.HandOverReason!);
                 }
             }
             else if (state.Skill is { } working && routing is null)
@@ -1296,6 +1296,22 @@ internal sealed partial class NhAssistantTurnRunner(
     }
 
     /// <summary>
+    /// The first section of the model's briefing after the rules handed the run over: their reason,
+    /// what became of the proposals they asked for and the recent decisions they were given, kept
+    /// within the briefing's bound.
+    /// </summary>
+    private NhAssistantBriefingSection RulesRouting(NhAssistantTurnState state, string reason)
+    {
+        return NhAssistantBriefingService.RulesSection(
+            reason,
+            state.ProposalCount,
+            state.RuleProposals,
+            state.RuleRejections,
+            state.RuleInvalidations,
+            registration.Limits.MaxBriefingCharacters - NhAssistantBriefingService.RulesTitle.Length);
+    }
+
+    /// <summary>
     /// The answer of a rule turn as the thread shows it: the rules' summary, then why they made each
     /// proposal.
     /// </summary>
@@ -1401,6 +1417,10 @@ internal sealed partial class NhAssistantTurnRunner(
         var snapshot = await memory.GetAsync(conversationId, cancellationToken);
         var rationales = state.RuleRationales;
         var rationaleWriters = state.RuleRationaleWriters;
+        var ruleProposals = state.RuleProposals;
+        // The model's briefing names what the rules saw when they hand the run over.
+        state.RuleRejections = rejections.Select(item => new NhAssistantRuleDecision(item.ApprovalId, item.ToolId, item.DecidedAt, null)).ToArray();
+        state.RuleInvalidations = invalidations.Select(item => new NhAssistantRuleDecision(item.ApprovalId, item.ToolId, item.ClosedAt, item.Kind)).ToArray();
         return new NhAssistantRuleContext(
             agentTurn.Thread.AgentId,
             agentTurn.RunId ?? Guid.Empty,
@@ -1414,11 +1434,12 @@ internal sealed partial class NhAssistantTurnRunner(
             inputs.Select(input => new NhAssistantRuleInput(input.TriggerId, input.Text, input.PayloadJson, input.CreatedAt)).ToArray(),
             snapshot.Json,
             summaries,
-            rejections.Select(item => new NhAssistantRuleDecision(item.ApprovalId, item.ToolId, item.DecidedAt, null)).ToArray(),
-            invalidations.Select(item => new NhAssistantRuleDecision(item.ApprovalId, item.ToolId, item.ClosedAt, item.Kind)).ToArray(),
+            state.RuleRejections,
+            state.RuleInvalidations,
             async (toolId, arguments, rationale, token) =>
             {
                 var proposed = await ProposeForRulesAsync(interceptor, tools, toolId, arguments, rationale, token);
+                ruleProposals.Add(new NhAssistantRuleProposalNote(toolId, proposed));
                 if (proposed.Outcome == NhAssistantProposeOutcome.Created
                     && rationale?.Invoke(CultureInfo.CurrentUICulture)?.Trim() is { Length: > 0 } why)
                 {

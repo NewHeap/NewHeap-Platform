@@ -238,6 +238,22 @@ internal sealed class NhAssistantTurnState
     public List<Func<CultureInfo, string?>> RuleRationaleWriters { get; } = [];
 
     /// <summary>
+    /// What became of each proposal the agent's rules asked for in this turn, with its tool, in order,
+    /// for the model's briefing when the rules hand the run over.
+    /// </summary>
+    public List<NhAssistantRuleProposalNote> RuleProposals { get; } = [];
+
+    /// <summary>
+    /// The recent rejections of the thread the rules were given (<see cref="NhAssistantRuleContext.RecentRejections"/>).
+    /// </summary>
+    public IReadOnlyList<NhAssistantRuleDecision> RuleRejections { get; set; } = [];
+
+    /// <summary>
+    /// The recent invalidations of the thread the rules were given (<see cref="NhAssistantRuleContext.RecentInvalidations"/>).
+    /// </summary>
+    public IReadOnlyList<NhAssistantRuleDecision> RuleInvalidations { get; set; } = [];
+
+    /// <summary>
     /// The answer of a rule turn in each supported UI culture, by culture name; <see langword="null"/>
     /// for a model's answer or an application with one culture.
     /// </summary>
@@ -883,7 +899,9 @@ internal sealed class NhAssistantToolCallInterceptor(
             {
                 return new NhAssistantRuleProposal(NhAssistantProposeOutcome.NotNeeded, null, [], null, recorded.NotNeededReason)
                 {
-                    Explanation = recorded.NotNeededExplanation
+                    NotNeededKind = recorded.NotNeededStaleKind,
+                    Explanation = recorded.NotNeededExplanation,
+                    Explanations = recorded.NotNeededExplanations
                 };
             }
 
@@ -1437,9 +1455,12 @@ internal sealed class NhAssistantToolCallInterceptor(
     {
         var reason = NhAssistantProposalGuards.ReasonCodeOf(stale);
         var kind = NhAssistantStaleKinds.From(stale.Kind);
-        var explanation = texts is null
-            ? null
-            : NhAssistantStaleExplanations.Pick(texts.Render(stale.Explain), CultureInfo.CurrentUICulture);
+        // The same texts per supported UI culture as a stale proposal stores, for rules that write
+        // their result in each reader's language; the run's own culture for the model and the thread.
+        IReadOnlyDictionary<string, string> explanations = texts is null
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : texts.RenderTexts(stale.Explain);
+        var explanation = NhAssistantStaleExplanations.PickFrom(explanations, CultureInfo.CurrentUICulture);
         var result = NotNeededResult(reason, kind, explanation);
         row.Status = NhAssistantToolCallStatuses.NotExecuted;
         row.ResultCode = NhAssistantErrorCodes.ProposalNotNeeded;
@@ -1460,7 +1481,9 @@ internal sealed class NhAssistantToolCallInterceptor(
             Outcome = NhAssistantProposeOutcome.NotNeeded,
             NotNeededReason = reason,
             NotNeededKind = kind,
-            NotNeededExplanation = explanation
+            NotNeededStaleKind = stale.Kind,
+            NotNeededExplanation = explanation,
+            NotNeededExplanations = explanations
         };
     }
 
@@ -1713,7 +1736,17 @@ internal sealed record NhAssistantRecordedProposal(
 
     public string? NotNeededKind { get; init; }
 
+    /// <summary>The kind of the guard's stale result, as the guard returned it.</summary>
+    public NhAiStaleKind? NotNeededStaleKind { get; init; }
+
     public string? NotNeededExplanation { get; init; }
+
+    /// <summary>
+    /// The guard's explanation per supported UI culture, by culture name, the run's culture first;
+    /// empty when the guard gives none.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> NotNeededExplanations { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>
