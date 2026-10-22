@@ -720,8 +720,9 @@ public sealed class NhAssistantAgentRunBuilder
     /// its threads, its triage, its consultations and people's plain chats with it. A skill's own
     /// classification wins. The model profile of each call must permit it
     /// (<c>PermitDataClassifications</c>); otherwise its fallbacks are tried and the call is refused
-    /// with <c>assistant-classification-not-permitted</c> when none permits it. Without it the calls
-    /// are <see cref="NhAiDataClassification.Internal"/>.
+    /// with <c>assistant-classification-not-permitted</c> when none permits it; startup logs a warning
+    /// when neither the agent's profile nor its fallbacks permit it. Without it the calls are
+    /// <see cref="NhAiDataClassification.Internal"/>.
     /// </summary>
     public NhAssistantAgentRunBuilder DataClassification(NhAiDataClassification classification)
     {

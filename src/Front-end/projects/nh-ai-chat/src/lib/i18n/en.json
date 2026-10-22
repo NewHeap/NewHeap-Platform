@@ -708,7 +708,10 @@
           "view-policy": "Results for the whole application seen by: {{policy}}."
         },
         "groups": "Groups: {{groups}}",
-        "catalog-failed": "The building blocks of agent runs could not be read. Until they are, agents cannot be run now here and what an agent works on and its groups stay as they are."
+        "catalog-failed": "The building blocks of agent runs could not be read. Until they are, agents cannot be run now here and what an agent works on and its groups stay as they are.",
+        "warnings": {
+          "classification-not-permitted": "Neither the agent's model profile nor the profile's fallbacks permit its data classification. The agent is saved, but its model calls are refused until a profile permits the classification."
+        }
       },
       "agent-editor": {
         "new-title": "New agent",
@@ -1277,6 +1280,9 @@
             "confidential-hint": "Data only some people may see, such as personal or financial data.",
             "restricted": "Restricted",
             "restricted-hint": "The most sensitive data, for which only specially approved models may be used."
+          },
+          "warnings": {
+            "classification-not-permitted": "Neither the skill's model profile nor the profile's fallbacks permit its data classification. The skill is saved, but its model calls are refused until a profile permits the classification."
           },
           "apply-shadow-hint": "The new version runs next to the live one; compare them, then promote or discard it.",
           "apply-live-hint": "For a small correction: the new version replaces the live one at once.",

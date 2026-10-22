@@ -8,6 +8,12 @@
 
   @if (saved(); as key) {
     <p class="message success" role="status" tabindex="-1" data-saved>{{ key | translate }}</p>
+    <!-- The save succeeded; a warning says what may still keep the skill from working. -->
+    @for (warning of savedWarnings(); track warning) {
+      <p class="message warning" role="status" [attr.data-saved-warning]="warning">
+        <nh-assistant-icon name="warning" />{{ warningKeys('skill', warning) | nhAssistantTranslate: warning }}
+      </p>
+    }
   }
 
   @if (loading() && !configuration()) {
@@ -177,6 +183,11 @@
                 }
               </div>
               <p class="muted">{{ skill.description }}</p>
+              @for (warning of skill.warnings ?? []; track warning) {
+                <p class="message warning" [attr.data-skill-warning]="warning">
+                  <nh-assistant-icon name="warning" />{{ warningKeys('skill', warning) | nhAssistantTranslate: warning }}
+                </p>
+              }
               <div class="meta">
                 <span>{{ skill.ruleHandler ? ('nh-assistant.admin.run-config.rule-handler-value' | translate: { name: skill.ruleHandler }) : ('nh-assistant.admin.run-config.model' | translate) }}</span>
                 @if (skill.profile) {

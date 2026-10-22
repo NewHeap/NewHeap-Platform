@@ -670,8 +670,11 @@ stores it as `dataClassification` (`public`, `internal`, `confidential` or `rest
 administration chooses it in its definition next to its profile (`dataClassification` on
 `NhAssistantAdminAgentInputDto` and `NhAssistantAgentRequest`, shown on `NhAssistantAdminAgentDto`;
 omitted keeps it on update and leaves a new agent at `internal`); its plain chats and, with run
-settings, its runs use it. A consultation's own `DataClassification(...)` keeps classifying its
-answers in the asking conversation.
+settings, its runs use it. A classification that no profile of the chain permits never refuses a save
+or a start: saving such a data skill or agent succeeds and its DTO reports `warnings`
+(`NhAssistantConfigurationWarnings.ClassificationNotPermitted`, `classification-not-permitted`) for
+the administration to show, and an agent or skill in code logs a warning at startup. A consultation's
+own `DataClassification(...)` keeps classifying its answers in the asking conversation.
 
 An agent and each of its skills read no files until they are switched on, so a deploy never opens
 a new stream of documents unnoticed: `AcceptsFiles()` on `ConfigureAgent` lets people's messages
@@ -1121,8 +1124,10 @@ was off off and its skills in their states, while a paused or stopped agent resu
 providers. Assert that a skill's classification, or else its agent's, reaches the model call, also
 in a plain chat with the agent, where it moves to the profile's fallback that permits it; that a
 profile chain that does not permit it refuses the call with
-`assistant-classification-not-permitted` without a retry; and that a data skill and an agent created
-in the administration store their classification and refuse an unknown one, on both providers. Assert that an agent configured for runs and a skill refuse files with
+`assistant-classification-not-permitted` without a retry; that a data skill and an agent created
+in the administration store their classification and refuse an unknown one, and are saved with the
+warning `classification-not-permitted` when no profile of the chain permits it, on both providers;
+and that an agent or skill in code with such a classification is logged at startup. Assert that an agent configured for runs and a skill refuse files with
 `assistant-files-not-accepted` until `AcceptsFiles()` or `acceptsFiles` in the administration switches
 them on, that a run opens a file for the agent, and that an agent's limit only lowers the
 application's, on both providers. SPM-306 runs the sample's document reader end to end: its skill

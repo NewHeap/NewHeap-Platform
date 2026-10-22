@@ -1036,7 +1036,12 @@ internal static class NhAssistantAdminEndpoints
         {
             KnownSubjectTypes = known.GetValueOrDefault(agent.Id) ?? [],
             Groups = membership?.Groups ?? [],
-            CodeGroups = membership?.CodeGroups ?? []
+            CodeGroups = membership?.CodeGroups ?? [],
+            // A save succeeds also when no profile permits the agent's classification.
+            Warnings = NhAssistantClassificationChecks.WarningsOf(
+                httpContext.RequestServices.GetService<INhAiModelProfileRegistry>(),
+                agent.Definition.ProfileName,
+                agent.DataClassification)
         };
     }
 

@@ -224,6 +224,12 @@ export interface AdminAgent extends AdminAgentInput {
    * servers.
    */
   dataClassification?: AssistantDataClassification | null;
+  /**
+   * Why the agent, saved and in effect, may still not work as configured (`AssistantConfigurationWarning`):
+   * `classification-not-permitted` when neither its model profile nor the profile's fallbacks permit
+   * its classification. A warning never refuses a save; missing on older servers.
+   */
+  warnings?: AssistantConfigurationWarning[];
 }
 
 /** The groups one agent is in, as `setAgentGroups` answers. */
@@ -1099,6 +1105,14 @@ export interface CodeRunSettings {
  */
 export type AssistantDataClassification = 'public' | 'internal' | 'confidential' | 'restricted';
 
+/**
+ * Why an agent or a skill that is saved and in effect may still not work as configured
+ * (`NhAssistantConfigurationWarnings`). `classification-not-permitted`: neither its model profile nor
+ * the profile's fallbacks permit its data classification, so its model calls are refused. A newer
+ * server may report other codes.
+ */
+export type AssistantConfigurationWarning = 'classification-not-permitted' | (string & {});
+
 /** One version of a skill defined as data. */
 export interface DataSkill {
   skillId: string;
@@ -1131,6 +1145,12 @@ export interface DataSkill {
    * new skill.
    */
   acceptsFiles?: boolean;
+  /**
+   * Why the skill, saved and in effect, may still not work as configured: `classification-not-permitted`
+   * when neither its model profile, or else its agent's, nor the profile's fallbacks permit its
+   * classification, or else its agent's. A warning never refuses a save; missing on older servers.
+   */
+  warnings?: AssistantConfigurationWarning[];
 }
 
 /** How a change of a skill takes effect: at once, or as a candidate in shadow next to the live version. */

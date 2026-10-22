@@ -89,31 +89,7 @@ internal sealed partial class NhAssistantTurnRunner
     /// </summary>
     private bool PermitsClassification(NhAiModelProfile profile, NhAiDataClassification classification)
     {
-        var visited = new HashSet<string>(StringComparer.Ordinal);
-        var candidates = new Queue<NhAiModelProfile>();
-        candidates.Enqueue(profile);
-        while (candidates.Count > 0)
-        {
-            var candidate = candidates.Dequeue();
-            if (!visited.Add(candidate.Name))
-            {
-                continue;
-            }
-            if (candidate.PermittedDataClassifications.Contains(classification))
-            {
-                return true;
-            }
-
-            foreach (var fallbackName in candidate.FallbackProfileNames)
-            {
-                if (profiles.TryGet(fallbackName, out var fallback))
-                {
-                    candidates.Enqueue(fallback);
-                }
-            }
-        }
-
-        return false;
+        return NhAssistantClassificationChecks.Permits(profiles, profile, classification);
     }
 
     /// <summary>

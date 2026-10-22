@@ -119,6 +119,11 @@
         [describedBy]="describedBy(id + '-skill-classification-hint', 'dataClassification', id + '-skill-classification-error')"
         (valueChange)="dataClassification.set($event); touch('dataClassification')" />
       <p class="hint" [id]="id + '-skill-classification-hint'">{{ 'nh-assistant.admin.run-config.skills.classification.hint' | translate }}</p>
+      @for (warning of warnings(); track warning) {
+        <p class="message warning" [attr.data-skill-form-warning]="warning">
+          <nh-assistant-icon name="warning" />{{ warningKeys('skill', warning) | nhAssistantTranslate: warning }}
+        </p>
+      }
       @if (errorKey('dataClassification'); as key) {
         <p class="field-error" [id]="id + '-skill-classification-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('dataClassification')?.params }}</p>
       }

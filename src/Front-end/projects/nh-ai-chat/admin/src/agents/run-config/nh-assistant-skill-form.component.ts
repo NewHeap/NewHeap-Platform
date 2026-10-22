@@ -31,6 +31,7 @@ import {
   toNumber,
   withBudgetField
 } from './run-config-shared';
+import { warningKeys } from '../agent-texts';
 
 let nextId = 0;
 
@@ -101,6 +102,9 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly reason = signal('');
 
   readonly editing = computed(() => this.skill() !== null);
+  /** The warnings of the skill as it was saved, until this form saves it again. */
+  readonly warnings = computed(() => this.skill()?.warnings ?? []);
+  readonly warningKeys = warningKeys;
   readonly rules = computed(() => ruleOptions(this.catalog()));
   readonly profiles = computed(() => profileOptions(this.catalog()));
   readonly classifications = computed(() => {

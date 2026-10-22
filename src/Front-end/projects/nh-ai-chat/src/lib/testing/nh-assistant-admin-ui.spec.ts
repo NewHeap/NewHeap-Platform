@@ -350,6 +350,53 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(agents.find(agent => agent.id === 'notes-desk')?.dataClassification).toBeNull();
   });
 
+  it('shows the warning of an agent and a skill whose classification no profile permits, while their saves succeed', async () => {
+    const script = runScenario();
+    // The chat profile and its fallbacks permit internal data only.
+    script.admin!.profileClassifications = { 'chat': ['public', 'internal'], 'project-chat': ['public', 'internal'] };
+    await configure(script);
+    const admin = TestBed.inject(NhAssistantAdminApiService);
+    await firstValueFrom(admin.createAgent({
+      id: 'vault-desk', displayName: 'Vault desk', description: 'Reads the vault.', instructions: 'Read the vault.',
+      toolSelectors: ['sample-api.project.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'explain',
+      dataClassification: 'restricted'
+    }));
+    await firstValueFrom(admin.saveRunSettings('vault-desk', { accountability: 'agent' }));
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+
+    // The agent's card says that its model calls will be refused; so does its editor.
+    const card = () => Array.from(element.querySelectorAll('.card')).find(item => item.textContent?.includes('Vault desk')) as HTMLElement;
+    expect(card().querySelector('[data-agent-warning="classification-not-permitted"]')?.textContent)
+      .toContain("Neither the agent's model profile nor the profile's fallbacks permit its data classification.");
+    button(card(), 'Edit').click();
+    await settle(fixture);
+    expect(element.querySelector('[data-agent-editor-warning="classification-not-permitted"]')).not.toBeNull();
+    button(element, 'Cancel').click();
+    await settle(fixture);
+
+    // A skill saved with a classification no profile permits is saved, with the warning next to it.
+    (element.querySelector('[data-run-config-agent="vault-desk"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
+    button(view(), 'Add skill').click();
+    await settle(fixture);
+    const skillForm = () => view().querySelector('[data-form="skill"]') as HTMLElement;
+    type(skillForm(), 'input[id$="-skill-id"]', 'audit');
+    type(skillForm(), 'input[id$="-skill-description"]', 'Audits the project.');
+    await pick(fixture, skillForm(), 'input[id$="-skill-classification"]', 'conf', 'Confidential');
+    button(skillForm(), 'Save').click();
+    await settle(fixture);
+
+    expect(view().querySelector('[data-saved]')?.textContent).toContain('The skill is added');
+    expect(view().querySelector('[data-saved-warning="classification-not-permitted"]')?.textContent)
+      .toContain("Neither the skill's model profile nor the profile's fallbacks permit its data classification.");
+    const skill = view().querySelector('[data-data-skill="audit"]') as HTMLElement;
+    expect(skill.querySelector('[data-skill-warning="classification-not-permitted"]')).not.toBeNull();
+    button(skill, 'Edit').click();
+    await settle(fixture);
+    expect(skillForm().querySelector('[data-skill-form-warning="classification-not-permitted"]')).not.toBeNull();
+  });
+
   it('refuses an invalid id without calling the server', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);

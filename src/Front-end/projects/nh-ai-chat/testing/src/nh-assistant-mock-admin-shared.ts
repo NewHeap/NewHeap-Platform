@@ -31,6 +31,21 @@ export function mockValidationFailure(field?: string): NhAssistantMockResult {
 }
 
 /** A stable, non-cryptographic fingerprint; the mock only needs change detection. */
+/**
+ * The warnings of an agent or skill that classifies its model calls with `classification` on
+ * `profile`: `classification-not-permitted` when the scenario lists what the profile and its
+ * fallbacks permit and that does not include it, as the server reports it; none without a
+ * classification of its own.
+ */
+export function mockClassificationWarnings(
+  permitted: Record<string, readonly string[]> | undefined,
+  profile: string | null | undefined,
+  classification: string | null | undefined
+): string[] {
+  const allowed = profile ? permitted?.[profile] : undefined;
+  return classification && allowed && !allowed.includes(classification) ? ['classification-not-permitted'] : [];
+}
+
 export function mockHashText(text: string): string {
   let hash = 0x811c9dc5;
   for (let index = 0; index < text.length; index++) {

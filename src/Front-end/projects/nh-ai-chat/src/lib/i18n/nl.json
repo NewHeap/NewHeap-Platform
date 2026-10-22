@@ -708,7 +708,10 @@
           "view-policy": "Resultaten voor de hele applicatie zichtbaar voor: {{policy}}."
         },
         "groups": "Groepen: {{groups}}",
-        "catalog-failed": "De bouwstenen van agentruns konden niet worden gelezen. Tot dat lukt, kunnen agents hier niet nu draaien en blijven waar een agent aan werkt en zijn groepen zoals ze zijn."
+        "catalog-failed": "De bouwstenen van agentruns konden niet worden gelezen. Tot dat lukt, kunnen agents hier niet nu draaien en blijven waar een agent aan werkt en zijn groepen zoals ze zijn.",
+        "warnings": {
+          "classification-not-permitted": "Het modelprofiel van de agent en de terugvalprofielen daarvan staan zijn dataclassificatie niet toe. De agent is opgeslagen, maar zijn modelaanroepen worden geweigerd tot een profiel de classificatie toestaat."
+        }
       },
       "agent-editor": {
         "new-title": "Nieuwe agent",
@@ -1277,6 +1280,9 @@
             "confidential-hint": "Gegevens die alleen sommige mensen mogen zien, zoals persoonlijke of financiële gegevens.",
             "restricted": "Strikt vertrouwelijk",
             "restricted-hint": "De gevoeligste gegevens, waarvoor alleen speciaal goedgekeurde modellen gebruikt mogen worden."
+          },
+          "warnings": {
+            "classification-not-permitted": "Het modelprofiel van de vaardigheid en de terugvalprofielen daarvan staan haar dataclassificatie niet toe. De vaardigheid is opgeslagen, maar haar modelaanroepen worden geweigerd tot een profiel de classificatie toestaat."
           },
           "apply-shadow-hint": "De nieuwe versie draait naast de live versie; vergelijk ze en promoveer of verwerp hem daarna.",
           "apply-live-hint": "Voor een kleine correctie: de nieuwe versie vervangt de live versie meteen.",

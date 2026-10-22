@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.76",
   "backEnd": {
-    "hash": "18fc67ea11c339417f93e0fc6625e2728ace8228332a7ac648ee7c8c285b02ca",
-    "declarationCount": 9514,
+    "hash": "e7c8e402d4115d399c48685f0418e10e53816398f2d2ce638eb7b6a0f1a6e60e",
+    "declarationCount": 9521,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1872,6 +1872,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public bool AcceptsFiles { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public IReadOnlyList<string> Warnings { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -4536,6 +4540,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public string? DataClassification { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public IReadOnlyList<string> Warnings { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -7688,6 +7696,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
         "declaration": "public async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> ListAsync( IReadOnlyCollection<string>? agentIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantClassificationChecks.cs",
+        "declaration": "public static class NhAssistantConfigurationWarnings {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantClassificationChecks.cs",
+        "declaration": "public const string ClassificationNotPermitted = \"classification-not-permitted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantClassificationChecks.cs",
+        "declaration": "public static bool Permits( INhAiModelProfileRegistry profiles, NhAiModelProfile profile, NhAiDataClassification classification) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantClassificationChecks.cs",
+        "declaration": "public static IReadOnlyList<string> WarningsOf( INhAiModelProfileRegistry? profiles, string? profileName, NhAiDataClassification? classification) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantClassificationChecks.cs",
+        "declaration": "public static void LogCodeWarnings( NhAssistantRegistrationState registration, INhAiModelProfileRegistry profiles, ILogger logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",

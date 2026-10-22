@@ -697,6 +697,15 @@ public sealed record NhAssistantAdminAgentDto(
     public string? DataClassification { get; init; }
 
     /// <summary>
+    /// Why the agent, saved and in effect, may still not work as configured, as
+    /// <see cref="NhAssistantConfigurationWarnings"/>:
+    /// <see cref="NhAssistantConfigurationWarnings.ClassificationNotPermitted"/> when neither its
+    /// profile nor any of the profile's fallbacks permits its classification. Empty without warnings.
+    /// A warning never refuses a save.
+    /// </summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    /// <summary>
     /// The object types the agent works on, ordered by id; empty with
     /// <see cref="WorksOnAllSubjects"/> or for an agent that works on the application only.
     /// </summary>

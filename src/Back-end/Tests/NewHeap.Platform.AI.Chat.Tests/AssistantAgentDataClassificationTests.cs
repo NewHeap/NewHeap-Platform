@@ -95,17 +95,34 @@ public sealed class AssistantAgentDataClassificationTests(AssistantDatabaseFixtu
             new NhAssistantDataSkillRequest("Audits the project.", Profile: ConfidentialProfile, DataClassification: "confidential", ExpectedVersion: 1),
             "admin-1"));
         var confidential = await RunAsync(host, "audit second", "audit-changed");
+        // Without a classification of its own a skill takes the agent's Confidential, which the agent's
+        // profile does not permit: the save succeeds and warns.
+        var inherited = await ConfigureAsync(host, configuration => configuration.SaveSkillAsync(
+            AgentId,
+            "summary",
+            new NhAssistantDataSkillRequest("Summarizes the project."),
+            "admin-1"));
 
         Assert.Contains(invalid.GetResultItems(), item => item.Name == "field:dataClassification");
         Assert.True(saved.Success);
         Assert.Equal("restricted", saved.Data!.DataClassification);
+        // No profile of the chain permits Restricted: the save succeeds with a warning.
+        Assert.Equal([NhAssistantConfigurationWarnings.ClassificationNotPermitted], saved.Data.Warnings);
+        Assert.Empty(changed.Data!.Warnings);
+        Assert.True(inherited.Success);
+        Assert.Equal([NhAssistantConfigurationWarnings.ClassificationNotPermitted], inherited.Data!.Warnings);
         Assert.True(trigger.Success);
         Assert.Equal((NhAssistantRunStatuses.Failed, NhAssistantErrorCodes.ClassificationNotPermitted), (restricted.Status, restricted.FailureCode));
         Assert.True(changed.Success);
         Assert.Equal(NhAssistantRunStatuses.Completed, confidential.Status);
         Assert.Single(models.Confidential.Requests);
         var configuration = await ConfigureAsync(host, configuration => configuration.GetAsync(AgentId));
-        Assert.Equal("confidential", configuration!.DataSkills.Single(skill => skill.SkillId == "audit").DataClassification);
+        var audit = configuration!.DataSkills.Single(skill => skill.SkillId == "audit");
+        Assert.Equal("confidential", audit.DataClassification);
+        Assert.Empty(audit.Warnings);
+        Assert.Equal(
+            [NhAssistantConfigurationWarnings.ClassificationNotPermitted],
+            configuration.DataSkills.Single(skill => skill.SkillId == "summary").Warnings);
     }
 
     [Theory]

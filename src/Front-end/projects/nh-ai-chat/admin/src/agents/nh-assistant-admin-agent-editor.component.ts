@@ -30,7 +30,7 @@ import {
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import { NH_ASSISTANT_MAX_INSTRUCTIONS } from '../context/nh-assistant-admin-context.component';
-import { policyKeys, worksOnSummary } from './agent-texts';
+import { policyKeys, warningKeys, worksOnSummary } from './agent-texts';
 
 /** True when a tool id matches a selector glob (`*` matches any characters). */
 export function nhAssistantSelectorMatches(toolId: string, selector: string): boolean {
@@ -198,6 +198,9 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly tooManyTypes = computed(() =>
     this.editsWorksOn() && this.worksOnScope() === 'types' && this.worksOnTypes().length > maxWorksOnTypes);
   readonly policyKeys = policyKeys;
+  readonly warningKeys = warningKeys;
+  /** The warnings of the agent as it was saved, until this editor saves it again. */
+  readonly warnings = computed(() => this.agent()?.warnings ?? []);
   readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.tooLong() && !this.worksOnMissing() && !this.tooManyTypes());
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   readonly filteredTools = computed(() => {

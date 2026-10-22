@@ -188,14 +188,18 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         AssertNames(code, "id", "displayName", "description", "instructions", "toolSelectors", "mcpServerIds", "requiredPolicy",
             "autonomy", "isEnabled", "version", "source", "isOverridden", "instructionsHash", "updatedAt",
             "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf", "shadow", "serviceAccount",
-            "offeredInChat", "profile", "dataClassification", "worksOnSubjectTypes", "worksOnAllSubjects", "worksOnApplication", "perDivision",
-            "runPolicy", "viewPolicy", "worksOnDeclared", "knownSubjectTypes", "groups", "codeGroups");
+            "offeredInChat", "profile", "dataClassification", "warnings", "worksOnSubjectTypes", "worksOnAllSubjects", "worksOnApplication",
+            "perDivision", "runPolicy", "viewPolicy", "worksOnDeclared", "knownSubjectTypes", "groups", "codeGroups");
         Assert.Equal("active", code.GetProperty("runState").GetString());
         Assert.Equal("project-chat", code.GetProperty("profile").GetString());
         Assert.Equal(JsonValueKind.Null, code.GetProperty("dataClassification").ValueKind);
-        // An agent created here chooses the classification of its model calls.
+        Assert.Equal(0, code.GetProperty("warnings").GetArrayLength());
+        // An agent created here chooses the classification of its model calls. The chat profile permits
+        // only Internal and has no fallback: the agent is saved with a warning.
         Assert.Equal(HttpStatusCode.Created, classified.StatusCode);
-        Assert.Equal("confidential", (await ReadJsonAsync(classified)).GetProperty("dataClassification").GetString());
+        var classifiedBody = await ReadJsonAsync(classified);
+        Assert.Equal("confidential", classifiedBody.GetProperty("dataClassification").GetString());
+        Assert.Equal(["classification-not-permitted"], classifiedBody.GetProperty("warnings").EnumerateArray().Select(item => item.GetString()).ToArray());
         Assert.Equal(HttpStatusCode.BadRequest, unknownClassification.StatusCode);
         Assert.Equal("invalid", (await ReadJsonAsync(unknownClassification)).GetProperty("errors").GetProperty("dataClassification")[0].GetString());
         Assert.Equal("code", code.GetProperty("source").GetString());

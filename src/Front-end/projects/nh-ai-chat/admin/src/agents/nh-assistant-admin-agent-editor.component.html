@@ -323,6 +323,11 @@
           }
         </select>
         <p class="hint" [id]="id + '-classification-hint'">{{ 'nh-assistant.admin.agent-editor.classification-hint' | translate }}</p>
+        @for (warning of warnings(); track warning) {
+          <p class="message warning" [attr.data-agent-editor-warning]="warning">
+            <nh-assistant-icon name="warning" />{{ warningKeys('agent', warning) | nhAssistantTranslate: warning }}
+          </p>
+        }
         @if (fieldError('dataClassification'); as key) {
           <p class="hint" [id]="id + '-classification-error'"><span class="error-text">{{ key | translate }}</span></p>
         }

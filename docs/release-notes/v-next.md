@@ -254,12 +254,19 @@ Apply the `SkillDataClassification` and `AgentDataClassification` migrations of
 `NewHeap.Platform.AI.Chat.SqlServer` or `NewHeap.Platform.AI.Chat.PostgreSql`: they add the nullable
 `DataClassification` columns to `AssistantAgentSkillDefinition` and `AssistantAgent`.
 
+A classification that no profile of the chain permits does not refuse a save or a start. Saving such
+a data skill or agent created in the administration succeeds, and `NhAssistantDataSkillDto.Warnings`
+and `NhAssistantAdminAgentDto.Warnings` report `classification-not-permitted`
+(`NhAssistantConfigurationWarnings.ClassificationNotPermitted`) for the skill's classification, or
+else its agent's, on its profile, or else its agent's, and for the agent's on its own profile. An
+agent, its triage or a skill in code with such a classification logs a warning at startup.
+
 | Breaking change | Required action |
 |---|---|
 | Database schema change. | Apply the `SkillDataClassification` and `AgentDataClassification` migrations. |
 | `NhAssistantDataSkillRequest` has a new optional last parameter, `DataClassification`. | Recompile callers that construct it positionally. |
 | A plain chat conversation with an agent that has a `DataClassification(...)` carries that classification instead of `Internal`, so its profile chain must permit it or the turn fails with `assistant-classification-not-permitted`. | Give such an agent a profile, or a profile with a fallback, that permits its classification. |
-| `NhAssistantAdminAgentInputDto` and `NhAssistantAgentRequest` have a new optional last parameter, `DataClassification`; `NhAssistantAdminAgentDto` lists `dataClassification`. | Recompile callers that construct them positionally; clients that compare the agent's fields add `dataClassification`. |
+| `NhAssistantAdminAgentInputDto` and `NhAssistantAgentRequest` have a new optional last parameter, `DataClassification`; `NhAssistantAdminAgentDto` lists `dataClassification` and `warnings`, and `NhAssistantDataSkillDto` lists `warnings`. | Recompile callers that construct them positionally; clients that compare the fields add `dataClassification` and `warnings`. |
 
 ## @newheap/platform-ai-chat: data classification of a skill
 
@@ -269,12 +276,16 @@ shows the server's `dataClassification` field error. The agent editor asks for t
 an agent created here, next to its model profile, with "Internal" as the default, sends
 `dataClassification` only when it changes and shows its field error. `DataSkill`, `DataSkillRequest`,
 `AdminAgentInput` and `AdminAgent` gain `dataClassification` of the new type
-`AssistantDataClassification`. The mock backend of `@newheap/platform-ai-chat/testing` stores it for
-data skills and agents created here and refuses an unknown value as the server does.
+`AssistantDataClassification`. `AdminAgent` and `DataSkill` gain `warnings`
+(`AssistantConfigurationWarning`): a classification that no profile permits shows on the agent's card
+and in the agent editor, and for a skill with the saved message, on the skill and in the skill form,
+while the save succeeds. The mock backend of `@newheap/platform-ai-chat/testing` stores the
+classification for data skills and agents created here, refuses an unknown value as the server does
+and reports the warning for the profiles its scenario's new `admin.profileClassifications` lists.
 
 | Breaking change | Required action |
 |---|---|
-| New translation keys `nh-assistant.admin.run-config.skills.classification.*`, `nh-assistant.admin.agent-editor.classification` and `classification-hint`, and `nh-assistant.errors.assistant-classification-not-permitted`. | Applications with their own translation files add them. |
+| New translation keys `nh-assistant.admin.run-config.skills.classification.*`, `nh-assistant.admin.agent-editor.classification` and `classification-hint`, `nh-assistant.admin.agents.warnings.classification-not-permitted`, `nh-assistant.admin.run-config.skills.warnings.classification-not-permitted` and `nh-assistant.errors.assistant-classification-not-permitted`. | Applications with their own translation files add them. |
 
 ## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: model profile of an agent created in the administration
 

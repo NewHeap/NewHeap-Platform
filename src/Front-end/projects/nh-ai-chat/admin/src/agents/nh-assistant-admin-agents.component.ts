@@ -39,7 +39,17 @@ import {
   type ɵNhAssistantRunNowAgent as NhAssistantRunNowAgent
 } from '@newheap/platform-ai-chat/agent-runs';
 import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
-import { codeTextKeys, policyKeys, readableId, runNowAgentOf, skillDescriptionKeys, skillNameKeys, WorksOnSummary, worksOnSummary } from './agent-texts';
+import {
+  codeTextKeys,
+  policyKeys,
+  readableId,
+  runNowAgentOf,
+  skillDescriptionKeys,
+  skillNameKeys,
+  warningKeys,
+  WorksOnSummary,
+  worksOnSummary
+} from './agent-texts';
 import { NhAssistantAdminAgentEditorComponent } from './nh-assistant-admin-agent-editor.component';
 import { NhAssistantAgentEvaluationComponent } from './nh-assistant-agent-evaluation.component';
 import { NhAssistantAgentFeedbackReportComponent } from './nh-assistant-agent-feedback-report.component';
@@ -201,6 +211,7 @@ export class NhAssistantAdminAgentsComponent {
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   readonly codeTextKeys = codeTextKeys;
   readonly skillNameKeys = skillNameKeys;
+  readonly warningKeys = warningKeys;
   readonly skillDescriptionKeys = skillDescriptionKeys;
   readonly policyKeys = policyKeys;
   readonly readableId = readableId;

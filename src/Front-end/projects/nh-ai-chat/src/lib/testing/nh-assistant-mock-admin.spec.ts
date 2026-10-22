@@ -33,7 +33,9 @@ const scenario: NhAssistantMockScenario = {
           { remoteName: 'deleteFile', description: 'Deletes a file', inputSchemaHash: 'b1', readOnlyHint: false }
         ]
       }
-    ]
+    ],
+    // The chat profile and its fallbacks permit public and internal data.
+    profileClassifications: { chat: ['public', 'internal'] }
   }
 };
 
@@ -221,6 +223,20 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(created.dataClassification).toBe('confidential');
     expect(kept.dataClassification).toBe('confidential');
     expect(standard.dataClassification).toBeNull();
+  });
+
+  it('saves an agent and a data skill whose classification no profile permits with a warning, as the server does', async () => {
+    const agent = await firstValueFrom(admin.createAgent({ ...newAgent, id: 'vault-agent', dataClassification: 'restricted' }));
+    const standard = await firstValueFrom(admin.createAgent({ ...newAgent, id: 'notes-agent' }));
+    const skill = await firstValueFrom(admin.saveDataSkill('projects', 'audit', { description: 'Audits.', dataClassification: 'confidential' }));
+    const permitted = await firstValueFrom(admin.saveDataSkill('projects', 'notes', { description: 'Notes.', dataClassification: 'internal' }));
+    const configuration = await firstValueFrom(admin.getAgentConfiguration('projects'));
+
+    expect(agent.warnings).toEqual(['classification-not-permitted']);
+    expect(standard.warnings).toEqual([]);
+    expect(skill.warnings).toEqual(['classification-not-permitted']);
+    expect(permitted.warnings).toEqual([]);
+    expect(configuration.dataSkills.find(item => item.skillId === 'audit')?.warnings).toEqual(['classification-not-permitted']);
   });
 
   it('stores whether a data skill and the run settings of an agent accept files', async () => {
