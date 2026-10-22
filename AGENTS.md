@@ -425,3 +425,46 @@ with InMemory: report exactly which provider remains unverified.
 
 The final handoff must identify the sample case/evidence added, the provider
 matrix exercised and any explicit provider gap.
+
+### Fast tests
+
+Keep the test loop short. These rules add to "Test project ownership" and the
+`test:affected` description above; consumers get them through
+`guidance/rules/testing/nh-fast-consumer-tests.md` and sample case SPM-309.
+
+- **Rhythm.** While building, run only the focused test class or spec:
+  `dotnet test <project> --filter FullyQualifiedName~<Class>`, or
+  `npx ng test <library> --include <spec>` from `src/Front-end`. Before committing,
+  run `npm run test:affected`. Run the full matrix (`npm run test:affected -- --all`,
+  about two minutes) only before merging to `main`, before a release, or once per
+  merge train of several branches. Never loop reruns to chase a flake.
+- **Databases.** Share the per-process containers and give each test a database of
+  its own or a pooled lease, as "Test project ownership" says. Migrate once and
+  reset instead of migrating per test: a `RelationalTestPool` empties a leased slot
+  with `RelationalTestReset` and keeps its migration history, and the AI.Chat
+  `AssistantSchemaPool` leases migrated assistant schemas from it.
+- **Hosts.** Start a test host once per class fixture, never per test. Build other
+  expensive things, such as models, keys and seed data, once per fixture.
+- **Parallelism.** Test classes run in parallel, and `src/Back-end/Directory.Build.targets`
+  gives every `IsTestProject` server GC. Tests must not share rows or global state.
+  A test that truly must run alone, for example because it changes process
+  environment variables, goes into a named collection
+  (`[CollectionDefinition(Name, DisableParallelization = true)]`) with a comment
+  that says why.
+- **Time.** Business deadlines follow the application's clock (a registered
+  `TimeProvider`, otherwise the system clock): `NotBefore`, retry and contention
+  backoff, debounce, the schedule minute and approval lifetime. Leases, heartbeats
+  and audit timestamps stay on the system clock. Move a test clock forward instead
+  of waiting. Never `Task.Delay` or `Thread.Sleep` to wait for work: wait for a
+  signal, or poll a condition with a generous upper bound that only matters when
+  the test fails. Never assert short wall-clock windows such as 100 ms or 250 ms;
+  they flake under parallel load. A spec that walks a whole form flow takes one
+  generous, named timeout, as `formFlowTimeout` in the `nh-ai-chat` admin UI spec
+  does.
+- **Failures.** A full run prints the failing tests and specs with their messages
+  (Karma's `dots` reporter for Angular). Read that summary instead of rerunning.
+- **Budget.** A test project that takes more than one to two minutes, or a single
+  test above a few seconds, is a finding: profile container start, migrations,
+  host start and waits before adding tests to it. When a failure appears only
+  under load, run that test alone a few times; if it passes, fix the timing cause
+  instead of adding retries.

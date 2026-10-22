@@ -7,7 +7,7 @@ namespace SampleProjectManagement.Core.Tests;
 /// clock, such as when a background operation becomes due, how long a trigger debounces, the
 /// minute a schedule tick belongs to and how long a proposal lives. Leases, heartbeats, tokens and
 /// audit timestamps keep the system clock, so moving it forward never takes work away from a
-/// running attempt. It never moves back.
+/// running attempt. It never moves back. SPM-309 shows a deadline that a test releases by moving it.
 /// </summary>
 public sealed class SampleTestClock : TimeProvider
 {

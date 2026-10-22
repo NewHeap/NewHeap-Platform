@@ -43026,6 +43026,9 @@
       "NhProxyAdministrationAuthenticationOptions",
       "NhProxyApiAuthenticationOptions"
     ],
+    "nh-fast-consumer-tests": [
+      "TimeProvider"
+    ],
     "nh-reusable-test-helper-boundaries": [
       "NhTestingContext",
       "NhDbContextTestingContext",

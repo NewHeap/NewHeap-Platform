@@ -320,6 +320,14 @@ The in-memory DbContext helper is intended only for isolated unit tests. Query
 translation, migrations, relational constraints, and transactions still require
 evidence on real SQL Server and PostgreSQL providers.
 
+SPM-309 keeps that relational evidence fast. `SamplePostgreSqlServer` is an
+xUnit assembly fixture that starts one PostgreSQL container when a test first
+needs a database. `CreateMigratedDatabaseAsync` gives every host a copy of a
+template database that is migrated once per run, so parallel test classes never
+see each other's rows. Hosts register `SampleTestClock` as their `TimeProvider`,
+and a test moves it past a debounce or a lifetime instead of waiting.
+`FastTestInfrastructureSamplesTests` proves both.
+
 ## Filtering
 
 The frontend creates `ProjectCollectionRequestOptions` and adds only active

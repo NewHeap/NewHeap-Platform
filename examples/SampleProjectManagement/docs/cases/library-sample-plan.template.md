@@ -141,7 +141,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | Frontend collections, routing, authentication, and interaction | SPM-126–140 | 15 |
 | Utilities, SEO, SSR, and observability | SPM-141–161 | 21 |
 | Common helpers and caching | SPM-162–172 | 11 |
-| Test helpers | SPM-173–176 | 4 |
+| Test helpers | SPM-173–176, SPM-309 | 5 |
 | Media | SPM-177–188 | 12 |
 | Application services and unit of work | SPM-189–200 | 12 |
 | Helpers, extensions, and transactional boundaries | SPM-201–209 | 9 |

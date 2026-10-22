@@ -268,6 +268,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-174 | DbContext test context | `NhDbContextTestingContext` | A consumer test uses the ASP.NET NH helper to register an in-memory DbContext and repositories automatically without publishing library-owned tests. |
 | SPM-175 | TaskResult assertions | test assertion extensions | A consumer test reads success and error results through the reusable NH assertion extensions. |
 | SPM-176 | Predicate substitutes | NSubstitute test extensions | A consumer test uses the reusable NH NSubstitute extensions to evaluate real expressions against sample data. |
+| SPM-309 | Fast relational test infrastructure | `SamplePostgreSqlServer`, `CreateMigratedDatabaseAsync`, `SampleTestClock` | The consumer tests share one PostgreSQL container per run, every host gets a database of its own copied from a template that is migrated once, parallel test classes never see each other's rows, and a test moves the host's registered clock past a deadline instead of waiting for it. |
 
 ## 13. Media
 
@@ -430,7 +431,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | Frontend collections, routing, authentication, and interaction | SPM-126–140 | 15 |
 | Utilities, SEO, SSR, and observability | SPM-141–161 | 21 |
 | Common helpers and caching | SPM-162–172 | 11 |
-| Test helpers | SPM-173–176 | 4 |
+| Test helpers | SPM-173–176, SPM-309 | 5 |
 | Media | SPM-177–188 | 12 |
 | Application services and unit of work | SPM-189–200 | 12 |
 | Helpers, extensions, and transactional boundaries | SPM-201–209 | 9 |

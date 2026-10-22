@@ -2423,6 +2423,19 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     ]
   },
   {
+    "id": "SPM-309",
+    "title": "Fast relational test infrastructure",
+    "category": "Test helpers",
+    "surface": "SamplePostgreSqlServer, CreateMigratedDatabaseAsync, SampleTestClock",
+    "outcome": "The consumer tests share one PostgreSQL container per run, every host gets a database of its own copied from a template that is migrated once, parallel test classes never see each other's rows, and a test moves the host's registered clock past a deadline instead of waiting for it.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SamplePostgreSqlServer.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleTestClock.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/FastTestInfrastructureSamplesTests.cs"
+    ]
+  },
+  {
     "id": "SPM-177",
     "title": "Media composition root",
     "category": "Media",

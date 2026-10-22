@@ -1,0 +1,73 @@
+---
+id: nh-fast-consumer-tests
+title: "Keep consumer tests fast"
+area: backend
+reference: testing
+summary: "Share one database container per test assembly, give every test or host a database of its own copied from a template that is migrated once, move a registered test TimeProvider instead of waiting, and run focused tests while building."
+sample-cases: ["SPM-309"]
+public-symbols: ["TimeProvider"]
+skills: ["newheap-testing"]
+providers: ["sql-server", "postgresql"]
+risk: medium
+---
+## Preferred approach
+
+Start one database container per test assembly, not per test or test class. Use
+an xUnit assembly fixture (`[assembly: AssemblyFixture(typeof(...))]` in xUnit
+v3) that starts the container lazily, when a test first asks for a database, and
+disposes it when the run ends; test classes and class fixtures receive it in
+their constructor. A run without database tests then starts no container.
+SPM-309's `SamplePostgreSqlServer` is the executable example.
+
+Give every test, or every test host, a database of its own on that container, so
+test classes run in parallel without sharing rows. Migrate a template database
+once per run and copy it for each host: on PostgreSQL, close the template's
+pooled connections, refuse new ones and create each database with
+`CREATE DATABASE ... TEMPLATE ...`, as `CreateMigratedDatabaseAsync` does. On SQL
+Server, or wherever copying is not available, keep a small pool of migrated
+databases and empty their tables when a test leases one, keeping the migration
+history. A test that
+proves the migrations themselves creates an empty database of its own.
+
+Start a test host once per class fixture and share it between the tests of that
+class. Build other expensive things, such as models, keys and seed data, once.
+
+Register a test `TimeProvider` as the host's application clock, replacing any
+earlier registration, and move it forward instead of waiting. NewHeap libraries
+read the application's clock (a registered `TimeProvider`, otherwise the system
+clock) for business deadlines: when a background operation becomes due
+(`NotBefore`, retry backoff), how long a trigger debounces, the minute a schedule
+tick belongs to and how long an approval lives. Leases, heartbeats and audit
+timestamps keep the system clock, so moving the test clock forward never takes
+work away from a running attempt. `SampleTestClock` adds a forward-only offset
+to real time.
+
+Wait for work through a signal, or poll a condition with a generous upper bound
+that only matters when the test fails. Assert the outcome, not how long it took.
+
+While building, run the focused test class
+(`dotnet test --filter FullyQualifiedName~<Class>`). Run the complete suite, on
+every provider the application supports, before merging.
+
+## Avoid
+
+- Starting a database container per test or per test class.
+- Applying migrations per test or per host when a template copy or a reset of a
+  migrated database would do.
+- Sharing rows between test classes or depending on the order in which tests run.
+- `Task.Delay` or `Thread.Sleep` as a wait for work, and waiting real time for a
+  deadline that the application's clock controls.
+- Asserting short wall-clock timings, such as completion within 100 ms; they fail
+  under parallel load.
+- Retrying a test that fails only under load instead of fixing its timing cause.
+- Using EF Core InMemory as evidence for relational behavior.
+
+## Verification
+
+Run SPM-309's `FastTestInfrastructureSamplesTests`: two databases from
+`CreateMigratedDatabaseAsync` arrive migrated and do not see each other's rows,
+and moving `SampleTestClock` releases a deadline on the application's clock
+without waiting. In a consumer, check that a full run starts one container per
+provider and migrates once. A test project above one to two minutes, or a single
+test above a few seconds, is a finding: profile container start, migrations, host
+start and waits before adding tests to it.

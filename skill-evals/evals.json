@@ -242,6 +242,13 @@
       "expectedOutcome": "Consumer tests reference the packable .Test helper packages, while NewHeap self-tests stay in non-packable plural .Tests projects and relational behavior is verified on real providers."
     },
     {
+      "id": "consumer-fast-relational-tests",
+      "skill": "newheap-testing",
+      "prompt": "Our consumer test run takes fifteen minutes: every test class starts its own PostgreSQL container, every test applies the migrations, and tests sleep to wait for debounced background work. Make it fast without losing relational evidence.",
+      "expectedRules": ["nh-fast-consumer-tests"],
+      "expectedOutcome": "One lazily started container per test assembly, a database of its own per test or host copied from a template migrated once or reset, a registered test TimeProvider moved forward instead of sleeping, parallel test classes without shared rows, no short wall-clock assertions, and focused tests while building with the full suite on real providers before merging."
+    },
+    {
       "id": "consumer-ai-governed-assistant",
       "skill": "newheap-backend-development",
       "prompt": "Add a provider-neutral project assistant with named model profiles, versioned prompts, authorized retrieval, generated local tools, protected mutations and an allowlisted MCP integration.",
