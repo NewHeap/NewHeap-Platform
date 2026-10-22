@@ -114,8 +114,9 @@ Install .NET 10, Node.js 22 or later, npm and Docker. Follow the
 [sample setup](examples/SampleProjectManagement/README.md#run-the-sample) to run
 the complete Aspire environment.
 
-While developing, `npm run test:affected` runs only the tests your changes reach
-(`--dry-run` shows the plan). Run the complete backend verification from the
+While developing, `npm run test:affected` runs only the tests your changes reach,
+built once and several test projects at a time (`--dry-run` shows the plan,
+`--max-parallel 1` runs one job at a time). Run the complete backend verification from the
 repository root before merging:
 
 ```text

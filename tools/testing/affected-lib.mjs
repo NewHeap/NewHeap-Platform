@@ -1,5 +1,6 @@
 // Pure helpers of `npm run test:affected`: which test projects and front-end libraries a change
-// reaches, and whether it needs both database providers. Kept free of I/O so they can be tested.
+// reaches, whether it needs both database providers, and how the build and test jobs are planned,
+// started and reported. Kept free of I/O so they can be tested.
 
 /** Normalizes a repository-relative path to forward slashes without a leading `./`. */
 export function normalizePath(path) {
@@ -205,7 +206,7 @@ export function providerRuns(allProviders) {
 
 /**
  * The arguments of `dotnet test` for one provider process. Processes that run at the same time test
- * one build made beforehand (`noBuild`): building in each would write the same files. Through the
+ * the one build made beforehand (`noBuild`): building in each would write the same files. Through the
  * Windows shell the filter needs quotes; spawned directly it does not.
  */
 export function dotnetTestArguments(project, filter, { noBuild = false, windowsShell = false } = {}) {
@@ -218,5 +219,223 @@ export function dotnetTestArguments(project, filter, { noBuild = false, windowsS
     ...(noBuild ? ['--no-build'] : []),
     '--filter',
     windowsShell ? `"${filter}"` : filter
+  ];
+}
+
+/** Where `ng test` and the sample checks run, relative to the repository. */
+export const frontEndRoot = 'src/Front-end';
+export const sampleRoot = 'examples/SampleProjectManagement';
+
+/** How many .NET test projects run at the same time unless `--max-parallel <n>` says otherwise. */
+export const defaultMaxParallel = 3;
+
+/** The value of `--max-parallel`: the default when it is absent, null when it is not a whole number of at least 1. */
+export function parseMaxParallel(value) {
+  if (value === undefined) {
+    return defaultMaxParallel;
+  }
+  return /^[1-9]\d*$/.test(value) ? Number(value) : null;
+}
+
+/**
+ * Seconds a test project typically takes with both providers, so that a first run starts the
+ * slowest projects first. Later runs use the durations of the run before. A project not listed
+ * counts as fast.
+ */
+export const typicalTestSeconds = {
+  'SampleProjectManagement.Core.Tests': 80,
+  'NewHeap.Platform.AI.Chat.Tests': 45,
+  'NewHeap.Platform.DatabaseRead.Tool.Tests': 25,
+  'NewHeap.Platform.AspNet.Common.Tests': 20,
+  'NewHeap.Platform.Media.Tests': 17,
+  'NewHeap.Platform.AspNet.Proxy.Sqlite.Tests': 11,
+  'NewHeap.Platform.AI.Tests': 9
+};
+
+/** The name of a project file without its folder and extension. */
+export function projectName(project) {
+  return project.slice(project.lastIndexOf('/') + 1).replace(/\.csproj$/, '');
+}
+
+/**
+ * The test projects in the order they start: the slowest first, so that the longest runs do not
+ * start last while the other slots are idle. A project counts its seconds of the previous run, else
+ * its typical seconds, else 0; equal seconds keep path order.
+ * @param {string[]} projects
+ * @param {Record<string, number>} previousSeconds project path to the seconds its last run took
+ */
+export function slowestFirst(projects, previousSeconds = {}) {
+  const seconds = project => previousSeconds[project] ?? typicalTestSeconds[projectName(project)] ?? 0;
+  return [...projects].sort((first, second) => seconds(second) - seconds(first) || (first < second ? -1 : first > second ? 1 : 0));
+}
+
+/** The arguments of the one `dotnet build` before the tests. Through the Windows shell the target is quoted. */
+export function dotnetBuildArguments(target, { windowsShell = false } = {}) {
+  return ['build', windowsShell ? `"${target}"` : target, '-v', 'q', '-nologo'];
+}
+
+/**
+ * A solution file of the given projects (absolute paths). One `dotnet build` of it builds every
+ * affected test project of both solutions: MSBuild builds the libraries they share once and builds
+ * independent projects in parallel.
+ */
+export function solutionOf(projectPaths) {
+  const escape = path => path.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+  return ['<Solution>', ...projectPaths.map(path => `  <Project Path="${escape(path)}" />`), '</Solution>', ''].join('\n');
+}
+
+/**
+ * Everything `npm run test:affected` runs, as jobs in the order they start. The first job builds
+ * every affected .NET test project once; the test jobs need it and run with `--no-build`, so
+ * processes that run at the same time never write the same files. Then each .NET test project runs,
+ * the slowest first and at most `maxParallel` at a time, with its provider processes side by side.
+ * The Angular libraries, one at a time because their headless Chrome instances compete for the CPU,
+ * and the sample checks, which read sources only, need no build and start next to it. `maxParallel`
+ * 1 runs one job after the other, in this order.
+ * @param {object} options
+ * @param {string} options.repositoryRoot absolute path; the generated solution lists absolute project paths
+ * @param {string[]} options.testProjects repository-relative project paths
+ * @param {{ label: string, filter: string }[]} options.runs the provider processes of each project
+ * @param {string[]} options.angularLibraries
+ * @param {boolean} options.sampleChecks
+ * @param {number} options.maxParallel
+ * @param {string} options.solutionPath where the solution of several test projects is written
+ * @param {Record<string, number>} [options.previousSeconds]
+ * @param {boolean} [options.windowsShell]
+ */
+export function testPlan({
+  repositoryRoot,
+  testProjects,
+  runs,
+  angularLibraries,
+  sampleChecks,
+  maxParallel,
+  solutionPath,
+  previousSeconds = {},
+  windowsShell = false
+}) {
+  const throughSolution = testProjects.length > 1;
+  const root = normalizePath(repositoryRoot).replace(/\/$/, '');
+  const single = (name, lane, command, args, cwd) => ({ name, lane, processes: [{ label: name, command, args, cwd }] });
+  const build = testProjects.length === 0
+    ? null
+    : {
+      ...single(
+        `build (${testProjects.length} test project${testProjects.length === 1 ? '' : 's'})`,
+        'build',
+        'dotnet',
+        dotnetBuildArguments(throughSolution ? solutionPath : testProjects[0], { windowsShell }),
+        '.'),
+      solution: throughSolution
+        ? { path: solutionPath, content: solutionOf(testProjects.map(project => `${root}/${project}`)) }
+        : null
+    };
+  const jobs = [
+    ...(build ? [build] : []),
+    ...slowestFirst(testProjects, previousSeconds).map(project => ({
+      name: project,
+      lane: 'dotnet',
+      needs: build?.name,
+      processes: runs.map(providerRun => ({
+        label: runs.length === 1 ? project : `${project} [${providerRun.label}]`,
+        command: 'dotnet',
+        args: dotnetTestArguments(project, providerRun.filter, { noBuild: true, windowsShell }),
+        cwd: '.'
+      }))
+    })),
+    ...angularLibraries.map(library => single(`ng test ${library}`, 'angular', 'npx', angularTestArguments(library), frontEndRoot)),
+    ...(sampleChecks ? [single('sample verify:samples', 'sample', 'npm', ['run', 'verify:samples'], sampleRoot)] : [])
+  ];
+  return {
+    build,
+    jobs,
+    limits: { total: maxParallel === 1 ? 1 : Infinity, lanes: { build: 1, dotnet: maxParallel, angular: 1, sample: 1 } }
+  };
+}
+
+/**
+ * Starts `jobs` in their order as far as `limits` allow: at most `limits.total` at a time, at most
+ * `limits.lanes[lane]` of one lane, and a job with `needs` only after the job of that name ended. A
+ * job that cannot start yet does not hold up the jobs behind it. Once `stopAfter` returns true for a
+ * result, no further job starts and the jobs that run are awaited. Resolves with the result of each
+ * job in job order; a job that never started has none.
+ * @template T
+ * @param {{ name: string, lane: string, needs?: string }[]} jobs
+ * @param {{ total: number, lanes: Record<string, number> }} limits
+ * @param {(job: { name: string, lane: string }) => Promise<T>} start
+ * @param {{ stopAfter?: (result: T) => boolean }} [options]
+ * @returns {Promise<(T | undefined)[]>}
+ */
+export function runJobs(jobs, limits, start, { stopAfter = () => false } = {}) {
+  return new Promise((resolve, reject) => {
+    const results = new Array(jobs.length).fill(undefined);
+    const waiting = jobs.map((_, index) => index);
+    const ended = new Set();
+    const running = new Map();
+    let runningTotal = 0;
+    let stopped = false;
+    const startWhatFits = () => {
+      for (let position = 0; !stopped && position < waiting.length && runningTotal < limits.total;) {
+        const index = waiting[position];
+        const { lane, needs } = jobs[index];
+        if ((running.get(lane) ?? 0) >= (limits.lanes[lane] ?? Infinity) || (needs !== undefined && !ended.has(needs))) {
+          position++;
+          continue;
+        }
+        waiting.splice(position, 1);
+        running.set(lane, (running.get(lane) ?? 0) + 1);
+        runningTotal++;
+        Promise.resolve(start(jobs[index])).then(result => {
+          results[index] = result;
+          ended.add(jobs[index].name);
+          running.set(lane, running.get(lane) - 1);
+          runningTotal--;
+          stopped ||= stopAfter(result);
+          startWhatFits();
+        }).catch(reject);
+      }
+      if (runningTotal === 0) {
+        if (stopped || waiting.length === 0) {
+          resolve(results);
+        } else {
+          reject(new Error(`These jobs need a job that is not planned: ${waiting.map(index => jobs[index].name).join(', ')}`));
+        }
+      }
+    };
+    startWhatFits();
+  });
+}
+
+/** The count line a test run ends with, such as `Passed! - Failed: 0, ...` or Karma's `TOTAL: 12 SUCCESS`, without colours. */
+export function outcomeSummary(output) {
+  return output.split(/\r?\n/).reverse().find(line => /Passed!|Failed!|TOTAL:|Executed .* of/.test(line))?.trim().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
+}
+
+/** The line of one process: `PASS <label> (12s) - <count line>`. */
+export function resultLine({ label, passed, seconds, summary }) {
+  return `${passed ? 'PASS' : 'FAIL'} ${label} (${seconds}s)${summary ? ` - ${summary}` : ''}`;
+}
+
+/** The block printed when a job ends: a line per process and, for a process that failed, the end of its output. */
+export function jobReport(results) {
+  return results
+    .flatMap(result => result.passed ? [resultLine(result)] : [resultLine(result), result.output.split(/\r?\n/).slice(-60).join('\n')])
+    .join('\n');
+}
+
+/**
+ * The summary after the run: every process with its duration, then the failures or the closing line.
+ * @param {{ label: string, passed: boolean, seconds: number }[]} results
+ * @param {number} wallSeconds
+ */
+export function summaryLines(results, wallSeconds) {
+  const failed = results.filter(result => !result.passed);
+  const width = Math.max(0, ...results.map(result => String(result.seconds).length));
+  return [
+    `Summary, ${wallSeconds}s in total:`,
+    ...results.map(result => `  ${result.passed ? 'PASS' : 'FAIL'} ${String(result.seconds).padStart(width)}s  ${result.label}`),
+    ...(failed.length === 0
+      ? ['All affected tests passed. Run the validators AGENTS.md lists for the files you changed.']
+      : [`Affected tests failed: ${failed.length} of ${results.length}.`, ...failed.map(result => `  ${result.label}`)])
   ];
 }
