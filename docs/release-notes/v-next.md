@@ -87,6 +87,27 @@ rights it did not have.
 |---|---|
 | An initiator or account that passes a tool's policies but whose capability grants do not cover its `RequiredCapabilities` no longer counts as `Delegated` or `Accountable`; the agent's grant decides, and without one the call is refused with `ai-tool-capability-denied` (`NhAiToolFailureCodes.CapabilityDenied`) and the tool is not offered. | Register each capability with the policy of the right the tool needs, and give the account that policy where it should lend its rights; expect `ai-tool-capability-denied` where you handled `ai-tool-agent-not-granted`. |
 
+## NewHeap.Platform.AI.AspNet.Common and NewHeap.Platform.AI.Chat.AspNet: rights outside a request from the application's access source
+
+A host whose rights come from a claims transformation per request, such as an OIDC host that adds the
+application's own permissions, implements `INhAiAccessSource.GetAsync(actorId, subject)`, which returns
+an `NhAiAccessContext` with the claims the application last knew and when they were valid (`ValidAt`),
+or `null`, and calls `UsePrincipalsFromAccessSource<TSource>(o => o.MaxAge = ...)` on the AI ASP.NET
+builder. It registers an `INhAiPrincipalFactory` in place of the one that reads the NewHeap user store,
+so every decision outside a person's request uses those claims: runs that delegate from their initiator
+and their follow-up runs, consultations, the account an agent answers to, MCP connections in the
+background and the whole application's people. No context, a context older than `MaxAge` on the
+application's clock (the registered `TimeProvider`), or one whose tenant claim does not name the
+subject's tenant where tenants come from a claim, yields no principal, and the work is refused with the
+usual codes. The principal carries exactly the context's claims (authentication type
+`nh-ai-delegation`, with `NameClaimType` and `RoleClaimType` from the options); NewHeap stores nothing.
+`MaxAge` is required and positive, a principal factory of the host's own cannot be combined with it,
+and the MCP owner sweep removes no connection on the source's answer.
+
+| Breaking change | Required action |
+|---|---|
+| None; the access source is opt-in, and a host without `UsePrincipalsFromAccessSource` keeps the built-in or its own `INhAiPrincipalFactory`. | None. To use it, implement `INhAiAccessSource`, call `UsePrincipalsFromAccessSource<TSource>(o => o.MaxAge = ...)` with a positive `MaxAge`, and remove a principal factory of your own, or startup fails. |
+
 ## NewHeap.Platform.AI.Common and NewHeap.Platform.AI.Chat: the real code of a refused tool call
 
 The invoker records the code of every refusal it audits as `NhAiOutcomeKind.AuthorizationDenied` as the
