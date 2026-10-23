@@ -2959,6 +2959,86 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task An_agent_that_acts_with_its_accounts_rights_never_consults_with_the_rights_of_the_person_who_created_the_project()
+    {
+        // SPM-278: the consult tool acts for a person. An agent created in the administration acts
+        // with the operations account's rights; a created project starts its run and names the person
+        // who created it, yet without delegation from that person the run is not offered the tool.
+        const string watcherId = "sample-project-watcher";
+        const string triggerId = "project-created-watch";
+        const string consultTool = "consult_sample-project-intake-reviewer_project_v1";
+        const string instructions = "You watch new projects and ask the intake reviewer what is still missing.";
+        var actor = host.OwnerId.ToString("D");
+        var project = await host.CreateProjectAsync("WATCH", ownerId: host.OwnerId);
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var watcher = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(consultTool, new { input = new { subjectId = project.ToString("D"), question = "What is still missing?" } }, "call-consult")
+            .RespondWithText("I cannot ask the intake reviewer in this run.");
+        var reviewer = new NhAiScriptedChatClient().RespondWithText("Nothing is missing.");
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, instructions), watcher),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You are being consulted"), reviewer)));
+        try
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+                Assert.True((await configuration.CreateAgentAsync(
+                    new NhAssistantAgentRequest(
+                        watcherId,
+                        "Project watcher",
+                        "Asks the intake reviewer about new projects.",
+                        instructions,
+                        [NhAssistantConsultationTools.ConsultToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type)],
+                        NhAiAutonomyLevel.Propose,
+                        OfferedInChat: false,
+                        WorksOnSubjectTypes: [ProjectSubjects.Type]),
+                    actor,
+                    CancellationToken.None)).Success);
+                Assert.True((await configuration.SaveRunSettingsAsync(
+                    watcherId,
+                    new NhAssistantAgentRunSettingsRequest(NhAssistantAccountabilities.ServiceAccount, host.OperationsAccountId.ToString("D")),
+                    actor,
+                    CancellationToken.None)).Success);
+                Assert.True((await configuration.SaveTriggerAsync(
+                    watcherId,
+                    triggerId,
+                    new NhAssistantDataTriggerRequest(
+                        NewHeap.Platform.AI.Chat.Entities.NhAssistantDataTriggerSources.Event,
+                        Event: SampleProjectStarterComposition.ProjectCreatedEvent,
+                        Conflict: NhAssistantTriggerConflictNames.Ignore,
+                        DebounceSeconds: 0),
+                    actor,
+                    CancellationToken.None)).Success);
+                Assert.True((await configuration.SetTriggerShadowAsync(watcherId, triggerId, false, actor, cancellationToken: CancellationToken.None)).Success);
+            }
+
+            var receipt = Assert.Single(await host.PublishProjectCreatedAsync(project, createdBy: host.OwnerId), item => item.TriggerId == triggerId);
+            var run = await WaitForRunAsync(owner, receipt.ConversationId!.Value, NhAssistantRunStatuses.Completed);
+
+            // The run names the project's creator, but the account's rights never lend that person's.
+            Assert.Equal(actor, run.InitiatorActorId);
+            Assert.DoesNotContain(watcher.Requests[0].Options?.Tools ?? [], tool => tool.Name == consultTool);
+            Assert.DoesNotContain(watcher.FunctionResults, result => result.Result?.ToString()?.Contains("consultationId", StringComparison.Ordinal) == true);
+            Assert.Empty(reviewer.Requests);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+                await configuration.RemoveTriggerAsync(watcherId, triggerId, null, actor, cancellationToken: CancellationToken.None);
+                await configuration.RemoveRunSettingsAsync(watcherId, null, actor, cancellationToken: CancellationToken.None);
+            }
+            using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{watcherId}");
+            Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task The_participant_decides_the_intake_reviewers_proposal_in_their_own_chat_with_their_own_rights()
     {
         // SPM-278, option A: the asker decides inline and no person's principal is rebuilt. The test

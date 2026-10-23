@@ -20,7 +20,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// The governed tools that consult agents and request their work, generated from every
 /// <c>AllowConsultation</c> registration: <c>assistant.consult.{agentId}.{subjectType}</c> and, when
 /// requests are allowed, <c>assistant.request.{agentId}.{subjectType}</c>. Every call runs through the
-/// shared invoker; no agent grant can cover them, so they always use a person's own rights.
+/// shared invoker; neither an agent grant nor the accountable account's rights can cover them, so they
+/// always use a person's own rights.
 /// </summary>
 internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCatalog
 {
@@ -380,6 +381,20 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
 }
 
 /// <summary>
+/// The consult and request tools act for a person: in an agent turn the gate allows them only through
+/// the rights of the initiator the turn delegates from, never through the accountable account's
+/// rights or an agent grant.
+/// </summary>
+internal sealed class NhAssistantConsultationPersonRightsTools : INhAiPersonRightsTools
+{
+    public bool UsesPersonRightsOnly(NhAiToolDescriptor descriptor)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        return NhAssistantConsultationTools.IsConsultationTool(descriptor.Id);
+    }
+}
+
+/// <summary>
 /// Runs the generated consultation tools for the person whose rights they use: the person chatting,
 /// the initiator who delegated an agent turn, or the MCP caller.
 /// </summary>
@@ -508,14 +523,19 @@ internal sealed class NhAssistantConsultationToolHandler(
     }
 
     /// <summary>
-    /// The person whose rights the call uses. In an agent turn that is the initiator who delegated
-    /// it; the gate never lets an agent's own grant cover these tools.
+    /// The person whose rights the call uses. In an agent turn that is only the initiator whose
+    /// rights the gate delegated for this call; a call that the accountable account's rights or an
+    /// agent grant allowed has no asker, whoever started the turn.
     /// </summary>
     private static string? ResolveAsker(NhAiInvocationContext context)
     {
         if (NhAiAgentInvocationScopes.Current is { } scope)
         {
-            return string.IsNullOrWhiteSpace(scope.InitiatorActorId) ? null : scope.InitiatorActorId;
+            return context.GrantSource == NhAiGrantSource.Delegated
+                   && scope.DelegateFromInitiator
+                   && !string.IsNullOrWhiteSpace(scope.InitiatorActorId)
+                ? scope.InitiatorActorId
+                : null;
         }
 
         if (NhAssistantExecutionScope.CurrentTurn is { } turn)

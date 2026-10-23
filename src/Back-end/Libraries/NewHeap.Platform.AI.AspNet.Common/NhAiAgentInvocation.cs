@@ -97,7 +97,9 @@ internal sealed class NhAiUserManagerPrincipalFactory(IServiceProvider services)
 /// through <see cref="NhAiToolAttribute.AllowAgentGrant"/> (<see cref="NhAiGrantSource.Agent"/>).</item>
 /// </list>
 /// A gateway read in a scope that allows gateway reads is allowed first, with the accountable
-/// person's rights (<see cref="NhAiGrantSource.DelegatedRead"/>).
+/// person's rights (<see cref="NhAiGrantSource.DelegatedRead"/>). A tool that
+/// <see cref="INhAiPersonRightsTools"/> names runs with a person's own rights only: only the
+/// delegation from the initiator allows it.
 /// </summary>
 internal sealed class NhAiAgentInvocationGate(
     NhAiAspNetToolInvocationGate requestGate,
@@ -106,6 +108,7 @@ internal sealed class NhAiAgentInvocationGate(
     INhAiPrincipalFactory principalFactory,
     NhAiAspNetRegistrationState state,
     IEnumerable<INhAiDelegatedReadSurface> readSurfaces,
+    IEnumerable<INhAiPersonRightsTools> personRightsTools,
     IServiceProvider services) : INhAiToolInvocationGate, INhAiAgentToolAuthorizer
 {
     public async ValueTask<TaskResult<NhAiInvocationContext>> AuthorizeAsync(
@@ -152,9 +155,12 @@ internal sealed class NhAiAgentInvocationGate(
                 "The AI tool is not exposed to agents.");
         }
 
+        var personRightsOnly = personRightsTools.Any(tools => tools.UsesPersonRightsOnly(descriptor));
+
         // A gateway read in a headless run reads with the accountable person's rights through a
         // delegated read credential; the bridge's controller decides, as in the person's own turn.
-        if (scope.AllowGatewayReads
+        if (!personRightsOnly
+            && scope.AllowGatewayReads
             && descriptor.Effect == NhAiToolEffect.ReadOnly
             && readSurfaces.Any(surface => surface.IsReadTool(descriptor)))
         {
@@ -170,6 +176,16 @@ internal sealed class NhAiAgentInvocationGate(
         {
             var delegatedCapabilities = await GrantCapabilitiesAsync(initiator, resource, cancellationToken);
             return AgentToolDecision.Allowed(NhAiGrantSource.Delegated, delegatedCapabilities);
+        }
+
+        // A tool that acts for a person has no other source: neither the account the agent answers
+        // to nor an agent grant lends a person's rights, so a turn without a delegating initiator
+        // never uses it.
+        if (personRightsOnly)
+        {
+            return AgentToolDecision.Denied(
+                NhAiAgentFailureCodes.NotGranted,
+                "The AI tool runs only with the rights of a person who delegated the turn.");
         }
 
         // The account the agent answers to lends its own rights, rebuilt for this decision only; an
@@ -332,6 +348,17 @@ internal sealed class NhAiAspNetAgentInvocationContextFactory(NhAiAspNetRegistra
         ArgumentNullException.ThrowIfNull(scope);
         return NhAiAgentInvocationGate.CreateContext(state, scope, NhAiGrantSource.None, new HashSet<string>(StringComparer.Ordinal));
     }
+}
+
+/// <summary>
+/// Names the tools that act for a person and so run with that person's own rights only, such as the
+/// assistant's consult and request tools. In an agent turn the gate allows such a tool only through
+/// the rights of the initiator the turn delegates from: never through a gateway read, the accountable
+/// account's rights or an agent grant.
+/// </summary>
+internal interface INhAiPersonRightsTools
+{
+    bool UsesPersonRightsOnly(NhAiToolDescriptor descriptor);
 }
 
 internal sealed record AgentToolDecision(

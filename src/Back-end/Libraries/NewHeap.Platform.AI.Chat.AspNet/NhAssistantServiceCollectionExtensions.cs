@@ -158,6 +158,8 @@ public static class NhAssistantServiceCollectionExtensions
             // Consultations: the generated consult and request tools of every AllowConsultation.
             services.TryAddScoped<NhAssistantConsultationToolHandler>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiToolCatalog, NhAssistantConsultationToolCatalog>());
+            // They act for a person: an agent turn uses them only with a delegating initiator's rights.
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiPersonRightsTools, NhAssistantConsultationPersonRightsTools>());
         }
 
         configure(new NhAssistantBuilder(services, state));
