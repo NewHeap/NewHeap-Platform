@@ -314,6 +314,8 @@
     "SPM-315",
     "SPM-316",
     "SPM-317",
+    "SPM-318",
+    "SPM-319",
     "SPM-320"
   ],
   "gaps": {
@@ -3015,6 +3017,38 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-consultation-form.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-consultations.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-consultations-admin.spec.ts"
+    ],
+    "SPM-318": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.HandOffs.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.HandOffs.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantHandOffsAsDataEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDataHandOffTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-hand-offs.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-hand-off-form.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-hand-offs.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-hand-offs-admin.spec.ts"
+    ],
+    "SPM-319": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.HandOffs.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantShadowVariants.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantHandOffsAsDataEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDataShadowVariantTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-shadow-variants.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-hand-offs.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-hand-offs-admin.spec.ts"
     ],
     "SPM-320": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleInstructionAssetComposition.cs",
