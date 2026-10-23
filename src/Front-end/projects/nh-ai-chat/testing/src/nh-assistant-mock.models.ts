@@ -17,6 +17,7 @@ import {
   ClientContext,
   CodeRunSettings,
   Conversation,
+  DataConsultationRequest,
   DataSkillRequest,
   DataTriggerRequest,
   McpDiscovery,
@@ -195,6 +196,25 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
    */
   consultations?: Partial<Record<NhAssistantConsultationRoute, string[]>>;
   /**
+   * The descriptions of a code agent's consultations in code, by subject type, as `Description` in
+   * `AllowConsultation`. A type listed here and in no route of `consultations` is a consultation in
+   * code that only answers.
+   */
+  consultationDescriptions?: Record<string, string>;
+  /**
+   * The ceiling of a code agent that administrators may make consultable as data, as
+   * `ConsultableAsData` in code; it applies together with the scenario's `consultationsAsData`. `{}`
+   * allows answers only, as `ConsultableAsData()` without a configuration does. Without it a code
+   * agent gets no consultations as data.
+   */
+  consultableAsData?: NhAssistantMockConsultationCeiling;
+  /**
+   * The consultations defined as data the agent starts with, as administrators saved them. The mock
+   * saves them through its own endpoint after the agent's run configuration, so each is checked as an
+   * administrator's save is; a consultation the mock refuses fails the scenario at once.
+   */
+  dataConsultations?: NhAssistantMockDataConsultation[];
+  /**
    * Whether a code agent says what it works on, as with `WorksOn`; by default it does when the
    * scenario gives `worksOnSubjectTypes`, `worksOnAllSubjects` or `worksOnApplication`.
    */
@@ -213,6 +233,28 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
    * the administration offers the guided setup.
    */
   runConfiguration?: NhAssistantMockRunConfigurationPreset;
+}
+
+/**
+ * A ceiling in code of consultations defined as data, as `NhAssistantConsultationCeilingBuilder`
+ * configures one: the routes data may use (none by default, which allows answers only), whether data
+ * may generate request tools and offer them to MCP clients (both off by default), and the highest
+ * limits (by default the bounds of `AllowConsultation`: 32 tool calls, 600 seconds, 32,000
+ * characters and 200 messages).
+ */
+export interface NhAssistantMockConsultationCeiling {
+  routes?: NhAssistantConsultationRoute[];
+  allowRequests?: boolean;
+  allowMcp?: boolean;
+  maxToolCalls?: number;
+  maxTimeoutSeconds?: number;
+  maxAnswerChars?: number;
+  maxHistoryMessages?: number;
+}
+
+/** A consultation defined as data an agent of the scenario starts with. */
+export interface NhAssistantMockDataConsultation extends DataConsultationRequest {
+  subjectType: string;
 }
 
 /**
@@ -285,6 +327,13 @@ export interface NhAssistantMockAdminScenario {
    * administration work per division, as an application that lists its divisions does.
    */
   runCatalog?: Partial<RunCatalog>;
+  /**
+   * Lets administrators define consultations as data within this ceiling, as `UseConsultationsAsData`
+   * in code: agents created in the administration with run settings get it, and code agents with
+   * `consultableAsData` get it together with their own. The run catalog reports it as
+   * `consultationCeiling`. Without it consultations exist in code only.
+   */
+  consultationsAsData?: NhAssistantMockConsultationCeiling;
   /**
    * The data classifications each model profile and its fallbacks permit together, by profile name.
    * An agent or skill whose classification its profile does not permit is saved with the warning

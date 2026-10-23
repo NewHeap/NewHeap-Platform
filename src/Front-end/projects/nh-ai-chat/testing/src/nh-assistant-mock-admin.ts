@@ -20,6 +20,7 @@ import {
   mockValidationFailure as validationFailure
 } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockRunConfiguration } from './nh-assistant-mock-run-configuration';
+import { mockSystemSubjectType } from './nh-assistant-mock-works-on';
 
 export type { NhAssistantMockResult } from './nh-assistant-mock-admin-shared';
 
@@ -64,13 +65,16 @@ export class NhAssistantMockAdmin {
       hasServer: serverId => this.mcp.hasServer(serverId),
       agentPolicyNames: () => this.runConfiguration.agentPolicyNames,
       divisionsListed: () => this.runConfiguration.divisionsListed,
-      profileNames: () => this.runConfiguration.profileNames
+      profileNames: () => this.runConfiguration.profileNames,
+      dataConsultations: agentId => this.runConfiguration.consultationsInEffect(agentId)
     });
     this.accounts = new NhAssistantMockAccounts(admin);
     this.runConfiguration = new NhAssistantMockRunConfiguration(
       admin,
       {
         find: agentId => this.agents.find(agentId),
+        all: () => this.agents.all(),
+        knownSubjectTypes: () => [...(scenario.subjectTypes ?? []).map(type => type.id), mockSystemSubjectType],
         setDataSkill: (agentId, skillId, description, startsOff) => this.agents.setDataSkill(agentId, skillId, description, startsOff)
       },
       now,
@@ -252,7 +256,8 @@ export class NhAssistantMockAdmin {
   /**
    * Saves the run configuration the scenario gives agents created in the administration through the
    * mock's own endpoints, as an administrator would: the run settings, then each skill and trigger,
-   * put live when the scenario says so. A part the mock refuses fails the scenario at once.
+   * put live when the scenario says so, and then the consultations defined as data of every agent. A
+   * part the mock refuses fails the scenario at once.
    */
   private presetRunConfigurations(agents: readonly NhAssistantMockAdminAgent[]): void {
     const query = new URLSearchParams();
@@ -279,12 +284,22 @@ export class NhAssistantMockAdmin {
         }
       }
     }
+    for (const agent of agents) {
+      for (const { subjectType, ...consultation } of agent.dataConsultations ?? []) {
+        presetStep(agent.id, `consultation about '${subjectType}'`, this.runConfiguration.handle('PUT', agent.id, ['consultations', subjectType], consultation, query));
+      }
+    }
   }
 
-  /** The scenario's tools, with the object type they name as the server reports it, and the enabled MCP tools. */
+  /**
+   * The scenario's tools, with the object type they name as the server reports it, the generated tools
+   * of the consultations defined as data in effect, read live as the server reads its catalogs, and
+   * the enabled MCP tools.
+   */
   private toolCatalog(): ToolCatalogEntry[] {
     return [
       ...(this.scenario.admin?.tools ?? []).map(tool => ({ ...tool, subjectType: tool.subjectType ?? null })),
+      ...this.runConfiguration.consultationTools(),
       ...this.mcp.catalogEntries()
     ];
   }

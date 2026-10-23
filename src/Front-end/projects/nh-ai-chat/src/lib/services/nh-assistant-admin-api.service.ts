@@ -23,6 +23,8 @@ import {
   DataSkill,
   DataSkillRequest,
   DataSkillVersion,
+  DataConsultation,
+  DataConsultationRequest,
   DataTrigger,
   DataTriggerRequest,
   DataTriggerShadowRequest,
@@ -439,6 +441,29 @@ export class NhAssistantAdminApiService {
     return this.request<DataTrigger>('POST', `${triggerPath(agentId, triggerId)}/shadow`, request);
   }
 
+  /**
+   * Adds or changes the consultation defined as data of an agent about one subject type, within the
+   * agent's `consultationCeiling`. It is in effect once saved and answers when an asking agent selects
+   * its consult tool. An agent that may get none fails with `assistant-consultations-not-allowed`, an
+   * agent created here without run settings with `assistant-agent-not-configured`, a type the agent
+   * allows consultation about in code with `assistant-consultation-in-code`, more than the ceiling's
+   * `maxConsultations` with `assistant-configuration-limit`, a stale `expectedVersion` with
+   * `assistant-version-conflict` and invalid input with field errors, such as `routes: not-allowed` for
+   * a route outside the ceiling.
+   */
+  saveDataConsultation(agentId: string, subjectType: string, request: DataConsultationRequest): Observable<DataConsultation> {
+    return this.request<DataConsultation>('PUT', consultationPath(agentId, subjectType), request);
+  }
+
+  /**
+   * Removes a consultation defined as data: its tools disappear, while its recorded proposals can still
+   * be decided. Fails with `assistant-consultation-not-found` without one and with
+   * `assistant-consultation-in-code` for a consultation in code.
+   */
+  removeDataConsultation(agentId: string, subjectType: string, removal: RunConfigurationRemoval = {}): Observable<void> {
+    return this.request<void>('DELETE', withQuery(consultationPath(agentId, subjectType), removal));
+  }
+
   private download(path: string): Promise<Blob> {
     return this.transport.download(path, 'application/x-ndjson', adminStatusCodes);
   }
@@ -466,6 +491,10 @@ function skillPath(agentId: string, skillId: string): string {
 
 function triggerPath(agentId: string, triggerId: string): string {
   return `${agentPath(agentId)}/triggers/${encodeURIComponent(triggerId)}`;
+}
+
+function consultationPath(agentId: string, subjectType: string): string {
+  return `${agentPath(agentId)}/consultations/${encodeURIComponent(subjectType)}`;
 }
 
 /** Appends the filter values that are set as query parameters. */
