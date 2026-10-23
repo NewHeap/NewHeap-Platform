@@ -133,7 +133,7 @@
                                 : consultation.askingAgents.length === 1 ? 'nh-assistant.admin.run-config.flow.when.asked-by-one' : 'nh-assistant.admin.run-config.flow.when.asked-by') | translate: { count: consultation.askingAgents.length } }}
                             </span>
                           </div>
-                          @if (consultation.origin === 'data') {
+                          @if (consultation.origin === 'data' && configuration().consultationCeiling) {
                             <div class="item-actions">
                               <button
                                 class="secondary small"

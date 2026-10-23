@@ -178,7 +178,9 @@ export function problemWarning(problem: RunConfigurationProblem, configuration: 
   };
   switch (problem.kind) {
     case 'consultation':
-      return (configuration.dataConsultations ?? []).some(consultation => consultation.subjectType === problem.id)
+      // A consultation the agent may no longer get can only be removed, below in the section.
+      return (configuration.consultationCeiling ?? null) !== null
+        && (configuration.dataConsultations ?? []).some(consultation => consultation.subjectType === problem.id)
         ? {
           ...base,
           entry: { kind: 'edit-consultation', subjectType: problem.id },

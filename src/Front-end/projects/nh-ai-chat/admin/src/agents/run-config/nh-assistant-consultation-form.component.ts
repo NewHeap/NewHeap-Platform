@@ -45,6 +45,11 @@ import {
 
 let nextId = 0;
 
+/** The fields under Advanced. */
+const advancedFields: readonly string[] = [
+  'limits', 'maxToolCalls', 'timeoutSeconds', 'maxAnswerChars', 'maxHistoryMessages', 'allowRequests', 'exposeToMcp', 'dataClassification'
+];
+
 /** What a saved consultation form tells its host. */
 export interface ConsultationFormSaved {
   consultation: DataConsultation;
@@ -123,6 +128,8 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
   readonly exposeToMcp = signal(false);
   readonly dataClassification = signal('');
   readonly reason = signal('');
+  /** Advanced is open: the administrator opened it, or one of its fields has an error to show. */
+  readonly advancedOpen = signal(false);
 
   readonly editing = computed(() => this.consultation() !== null);
   readonly maxInstructions = computed(() => this.ceiling().maxInstructionsLength);
@@ -294,10 +301,23 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
       expectedVersion: editing?.version ?? null,
       reason: blank(this.reason())
     };
-    this.submit(errors, () => this.admin.saveDataConsultation(this.agentId(), subjectType, request), consultation => this.saved.emit({
-      consultation,
-      added: editing === null
-    }));
+    this.openAdvancedFor(Object.keys(errors));
+    this.submit(
+      errors,
+      () => this.admin.saveDataConsultation(this.agentId(), subjectType, request),
+      consultation => this.saved.emit({ consultation, added: editing === null }),
+      () => this.openAdvancedFor(Object.keys(this.fieldErrors())));
+  }
+
+  isOpen(event: Event): boolean {
+    return (event.target as HTMLDetailsElement).open;
+  }
+
+  /** Opens Advanced when one of its fields has an error, so the error and the focus can reach it. */
+  private openAdvancedFor(fields: readonly string[]): void {
+    if (fields.some(field => advancedFields.includes(field))) {
+      this.advancedOpen.set(true);
+    }
   }
 
   /** The chosen routes in the order the form offers them. */

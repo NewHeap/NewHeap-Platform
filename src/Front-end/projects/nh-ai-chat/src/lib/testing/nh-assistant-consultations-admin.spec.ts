@@ -467,7 +467,10 @@ describe('The Consultations section of the run configuration', () => {
     await settle(fixture);
     button(form(), 'Save').click();
     await settle(fixture);
+    // Advanced opens to show the error and take the focus.
+    expect((form().querySelector('[data-consultation-advanced]') as HTMLDetailsElement).open).toBeTrue();
     expect(text(form().querySelector('[id$="-maxToolCalls-error"]'))).toBe('Enter a whole number from 0 to 8.');
+    expect(document.activeElement).toBe(form().querySelector('input[id$="-maxToolCalls"]'));
     type(form(), 'input[id$="-maxToolCalls"]', '6');
     (form().querySelector('[data-consultation-requests] input[type="checkbox"]') as HTMLInputElement).click();
     await settle(fixture);

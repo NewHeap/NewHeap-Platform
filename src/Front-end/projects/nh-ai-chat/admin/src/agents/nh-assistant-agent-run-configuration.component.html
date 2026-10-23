@@ -495,14 +495,17 @@
                     <span [attr.title]="accountTitle(data.changedBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(data.changedBy), date: (data.changedAt | date: 'medium') } }}</span>
                   </div>
                   <div class="card-actions">
-                    <button
-                      class="secondary"
-                      type="button"
-                      [attr.aria-label]="'nh-assistant.admin.run-config.consultations.edit-named' | translate: { type: typeName(row.subjectType) }"
-                      [disabled]="busy()"
-                      (click)="editConsultation(data)">
-                      <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
-                    </button>
+                    <!-- Without a ceiling, as after a deploy took it away, the consultation can only be removed. -->
+                    @if (consultationCeiling()) {
+                      <button
+                        class="secondary"
+                        type="button"
+                        [attr.aria-label]="'nh-assistant.admin.run-config.consultations.edit-named' | translate: { type: typeName(row.subjectType) }"
+                        [disabled]="busy()"
+                        (click)="editConsultation(data)">
+                        <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+                      </button>
+                    }
                     @if (isConfirming('remove-consultation', row.subjectType)) {
                       <span class="muted">{{ 'nh-assistant.admin.run-config.consultations.remove-explain' | translate }}</span>
                       <button class="danger" type="button" [disabled]="busy()" (click)="removeConsultation(data)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>

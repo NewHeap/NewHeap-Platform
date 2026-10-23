@@ -190,7 +190,7 @@
     }
   </fieldset>
 
-  <details class="advanced" data-consultation-advanced [open]="fieldError('limits') || fieldError('maxToolCalls') || fieldError('timeoutSeconds') || fieldError('maxAnswerChars') || fieldError('maxHistoryMessages') || fieldError('allowRequests') || fieldError('exposeToMcp') || fieldError('dataClassification')">
+  <details class="advanced" data-consultation-advanced [open]="advancedOpen()" (toggle)="advancedOpen.set(isOpen($event))">
     <summary>{{ 'nh-assistant.admin.run-config.consultations.form.advanced' | translate }}</summary>
     <div class="stack">
       <fieldset class="field" data-consultation-limits [attr.aria-describedby]="describedBy(id + '-limits-hint', 'limits', id + '-limits-error')">
