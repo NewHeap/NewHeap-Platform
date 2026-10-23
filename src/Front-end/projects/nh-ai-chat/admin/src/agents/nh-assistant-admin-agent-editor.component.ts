@@ -127,6 +127,11 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly use = signal<AgentUse>('chat');
   /** A new agent takes its triggers at once; without it, it starts off until someone switches it on. */
   readonly switchOnNow = signal(true);
+  /**
+   * A new agent starts in shadow: once it has run settings its runs work in its shadow threads, where
+   * nobody is notified and nothing executes, until someone puts it live.
+   */
+  readonly startsInShadow = signal(false);
   /** The model profile of an agent created here; empty uses the application's chat profile. */
   readonly profile = signal('');
   /** The classification of the model calls of an agent created here; `internal` when it has none. */
@@ -353,6 +358,7 @@ export class NhAssistantAdminAgentEditorComponent {
       // Omitted, what the agent works on stays as it is; a new agent then works on every object type.
       ...(this.editsWorksOn() ? this.worksOnInput() : {}),
       ...(this.isNew() && !this.switchOnNow() ? { startsOff: true } : {}),
+      ...(this.isNew() && this.use() !== 'chat' && this.startsInShadow() ? { startsInShadow: true } : {}),
       // Omitted, the profile stays as it is; a new agent then uses the application's chat profile.
       ...(this.choosesProfile() && this.profile() !== '' ? { profile: this.profile() } : {}),
       // Sent only when it changes, so an agent without a classification keeps none.
@@ -427,6 +433,7 @@ export class NhAssistantAdminAgentEditorComponent {
     this.autonomy.set(agent?.autonomy ?? 'explain');
     this.use.set(agent?.offeredInChat === false ? 'background' : 'chat');
     this.switchOnNow.set(true);
+    this.startsInShadow.set(false);
     this.profile.set(agent?.source === 'admin' ? agent.profile ?? '' : '');
     this.dataClassification.set(agent?.source === 'admin' ? agent.dataClassification ?? 'internal' : 'internal');
     this.requiredPolicy.set(agent?.requiredPolicy ?? '');

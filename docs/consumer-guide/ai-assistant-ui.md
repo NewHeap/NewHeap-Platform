@@ -362,7 +362,10 @@ account is found by name through `searchAccounts` when the catalog reports `acco
 person or account by its name only, with the account ID as the name's tooltip and a button that copies
 it; they show the ID itself, labeled as an account ID, only while no name is known. The editor of a new agent asks how it is
 used: in the chat, on its own (`offeredInChat: false`, kept out of the agent picker) or both,
-whether to switch it on now (unticked sends `startsOff: true`; the skill form offers the same for a
+whether to switch it on now (unticked sends `startsOff: true`), for an agent that runs on its own
+whether it starts in shadow ("Start in shadow", ticked sends `startsInShadow: true`: once it has run
+settings its runs work in its shadow threads until it is put live in the agent list; the skill form
+offers "Switch on now" for a
 new skill, next to its data classification and its "Accepts files" switch, which sends
 `acceptsFiles` and is off for a new skill as the run settings' own switch is for a new agent), its
 model profile among the run catalog's `profiles`
@@ -402,7 +405,16 @@ for run settings on such an agent. A new skill or trigger starts
 in shadow. A change of a skill runs in shadow by default as the skill's candidate, next to
 the live version, until the administrator compares, promotes or discards it
 (`compareSkillCandidate`, `promoteSkillCandidate`, `discardSkillCandidate`); choosing live
-replaces the live version at once. Saves and removals send the version they read and an
+replaces the live version at once. The trigger form asks the same for a change of a saved trigger,
+"Apply at once" by default as a trigger's change applied before, or "Evaluate in shadow next to the
+live version first" (`apply: 'shadow'`): the change becomes the trigger's candidate (`DataTrigger.candidate`),
+which fires into the agent's shadow threads next to the live version. The trigger list shows the
+candidate with what it changes against the live version, field by field, its problem when it no
+longer fits the code (`trigger-candidate`), the comparison of both versions with the events both,
+only the live version or only the candidate started a run for (`compareTriggerCandidate`), and
+promote and discard after a confirmation (`promoteTriggerCandidate`, `discardTriggerCandidate` with
+the candidate's `version`), and every trigger's history (`getDataTriggerVersions`). A run of a
+candidate carries `triggerVersion` and `triggerCandidate`. Saves and removals send the version they read and an
 optional reason. The forms check required fields and numbers before sending; an
 `assistant-validation` refusal carries the refused fields in `fieldErrors` of `NhAssistantError`, by
 camelCase field name. Errors appear under their field, a form-level message next to the save button
@@ -437,7 +449,11 @@ Consultations section. It shows for an agent with consultations and, once the ru
 not consultable as data (`consultationCeiling: null`), an agent created here without run settings, the
 ceiling's `maxConsultations`, or every kind of object it works on already has one. Consultations in code
 are read only; a consultation defined as data is saved with `saveDataConsultation` and removed with
-`removeDataConsultation`, each with the version it read. Its form offers the kinds of objects the agent
+`removeDataConsultation`, each with the version it read. A new one can start off ("Start off", sent as
+`startsOff: true`; when the ceiling reports `startsOff`, every new one does and the form says so): the
+list marks a consultation that is off (`DataConsultation.off`), explains that asking agents get none
+of its tools, and switches it on or off with `setDataConsultationState`
+(`state: 'on' | 'off'`), without a new version. Its form offers the kinds of objects the agent
 works on, a description and instructions with counters, who may ask (a role and one of the catalog's
 `agentPolicies`), whether it only answers or also proposes, with the routes as explained choices, the
 role and approval policy its proposals need, and under Advanced the agent's own tool selectors as check
@@ -459,19 +475,6 @@ section for every agent with consultations, in code or as data, and switch a rou
 once; the flow's "When it runs" step names the consultations with their askers, problems and an entry
 point. The mock API plays the same rules with `consultationsAsData`, `consultableAsData`,
 `consultationTools` and `dataConsultations`.
-
-Below the run configuration `nh-assistant-admin-agents` shows the agent's hand-offs
-(`nh-assistant-agent-hand-offs`) and shadow variants (`nh-assistant-agent-shadow-variants`). The
-hand-offs (`getAgentHandOffs`) list those in code read only and those defined as data with their
-version, sources, daily limit, generated tool and, out of effect, their problem; the form
-(`saveDataHandOff`, `removeDataHandOff`) offers only the kinds of object and sources the `ceiling`
-allows, says why an agent cannot accept one (no ceiling, no run settings, the ceiling's `maxHandOffs`,
-every kind of object taken) and keeps a saved source the ceiling no longer allows only to clear it. The
-shadow variants (`getShadowVariants`) list those in code and as data with whether they have run
-settings and receive the agent's events; "New shadow variant" creates an agent from the live agent's
-definition with `createAgent` and `shadowOf`, never offered in the chat, and the page continues in the
-variant's run configuration to give it run settings. The mock API plays the same rules with
-`handOffsAsData`, `shadowVariantsAsData` and `codeHandOffs`.
 
 The agent-run components refresh themselves: `NhAssistantLiveService.agentWork$` emits the
 hub's `AgentWorkChanged` for every run, proposal or feedback change on a subject the user
@@ -810,7 +813,9 @@ preference tests also allow and withdraw background use of a personal server. Th
 configuration tests give an administration agent run settings, show refused fields and an
 account that may not sign in, add a skill that starts in shadow and a trigger that is put
 live, keep the run settings while skills or triggers remain, keep skills and triggers in
-code read only, and save a skill change as a candidate that is compared and promoted. They also
+code read only, save a skill change as a candidate that is compared and promoted, save a trigger
+change as a candidate that shows its changes, comparison and history and is promoted or discarded,
+start a new agent in shadow, and start a consultation off and switch it on. They also
 show errors at their fields and next to the actions before and after a refused save, choose the
 technical account by name, and create an agent that works on its own through the guided setup, kept
 out of the chat; the picker tests cover the combobox keys, filtering and the server search. The
@@ -1068,13 +1073,13 @@ are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/assistant-administration/assistant-cost-center-editor.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-administration/assistant-cost-center-editor.component.ts)
-- SPM-318 — An administrator connects two agents created at runtime with a hand-off as data, within the ceiling in code, without a deploy
-  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs)
-  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+- SPM-316 — A change of the planner's status follow-up trigger runs as its candidate in shadow next to the live trigger, is compared with it and is discarded
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
-  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
-- SPM-319 — An administrator tries a shadow variant of the project planner created at runtime next to the live planner
-  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs)
-  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs)
+- SPM-317 — An agent created at runtime starts in shadow from the same request that gives it run settings, and its consultation is offered only once an administrator switches it on
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
-  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs)

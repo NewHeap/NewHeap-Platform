@@ -181,6 +181,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.BoardNotFound,
             NhAssistantErrorCodes.ArtifactNotFound,
             NhAssistantErrorCodes.TriggerNotFound,
+            NhAssistantErrorCodes.TriggerCandidateNotFound,
             NhAssistantErrorCodes.ConsultationNotFound,
             NhAssistantErrorCodes.HandOffNotFound,
             NhAssistantAdminErrorCodes.MetadataEntryNotFound,

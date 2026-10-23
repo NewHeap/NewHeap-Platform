@@ -10,8 +10,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// <summary>
 /// Keeps one Hangfire recurring job per schedule defined as data, under its own prefix, in line with
 /// every snapshot that goes into effect: it adds and changes the jobs of the snapshot's data schedules
-/// and removes those of schedules that were removed or are out of effect. Every host does this; the
-/// recurring job manager makes repeated registrations harmless.
+/// and removes those of schedules that were removed or are out of effect. The candidate version of a
+/// data schedule has a job of its own (<see cref="CandidateJobSuffix"/>) on its own cron. Every host
+/// does this; the recurring job manager makes repeated registrations harmless.
 /// </summary>
 internal sealed class NhAssistantDataScheduleSync(
     IServiceProvider services,
@@ -19,15 +20,22 @@ internal sealed class NhAssistantDataScheduleSync(
 {
     internal const string RecurringJobPrefix = "nh-assistant-data-trigger-";
 
+    /// <summary>
+    /// The suffix of a candidate's job id; a colon never occurs in a trigger id.
+    /// </summary>
+    internal const string CandidateJobSuffix = ":candidate";
+
     private string? _registered;
 
     public Task AppliedAsync(NhAssistantRunSnapshot snapshot, CancellationToken cancellationToken)
     {
         var schedules = snapshot.Triggers.Values
             .Where(trigger => trigger.Source == NhAssistantTriggerSource.Schedule && trigger.DataVersion is not null)
+            .Concat(snapshot.TriggerCandidates.Values.Where(trigger => trigger.Source == NhAssistantTriggerSource.Schedule))
             .OrderBy(trigger => trigger.Id, StringComparer.Ordinal)
+            .ThenBy(trigger => trigger.Candidate)
             .ToArray();
-        var fingerprint = string.Join('\n', schedules.Select(trigger => $"{trigger.Id} {trigger.Cron} {trigger.TimeZone.Id}"));
+        var fingerprint = string.Join('\n', schedules.Select(trigger => $"{JobIdOf(trigger)} {trigger.Cron} {trigger.TimeZone.Id}"));
         if (string.Equals(fingerprint, Volatile.Read(ref _registered), StringComparison.Ordinal))
         {
             return Task.CompletedTask;
@@ -50,15 +58,28 @@ internal sealed class NhAssistantDataScheduleSync(
         foreach (var trigger in schedules)
         {
             var triggerId = trigger.Id;
-            var jobId = RecurringJobPrefix + triggerId;
+            var jobId = JobIdOf(trigger);
             try
             {
-                manager.AddOrUpdate<NhAssistantScheduledTriggerJob>(
-                    jobId,
-                    queue,
-                    job => job.RunAsync(triggerId),
-                    trigger.Cron!,
-                    new RecurringJobOptions { TimeZone = trigger.TimeZone });
+                if (trigger.Candidate)
+                {
+                    manager.AddOrUpdate<NhAssistantScheduledTriggerJob>(
+                        jobId,
+                        queue,
+                        job => job.RunCandidateAsync(triggerId),
+                        trigger.Cron!,
+                        new RecurringJobOptions { TimeZone = trigger.TimeZone });
+                }
+                else
+                {
+                    manager.AddOrUpdate<NhAssistantScheduledTriggerJob>(
+                        jobId,
+                        queue,
+                        job => job.RunAsync(triggerId),
+                        trigger.Cron!,
+                        new RecurringJobOptions { TimeZone = trigger.TimeZone });
+                }
+
                 wanted.Add(jobId);
             }
             catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
@@ -82,6 +103,11 @@ internal sealed class NhAssistantDataScheduleSync(
 
         Volatile.Write(ref _registered, fingerprint);
         return Task.CompletedTask;
+    }
+
+    internal static string JobIdOf(NhAssistantTriggerDefinition trigger)
+    {
+        return RecurringJobPrefix + trigger.Id + (trigger.Candidate ? CandidateJobSuffix : string.Empty);
     }
 }
 

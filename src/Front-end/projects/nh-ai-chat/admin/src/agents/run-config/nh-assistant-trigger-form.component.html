@@ -231,7 +231,31 @@
     </div>
   </fieldset>
 
-  @if (!editing()) {
+  @if (editing()) {
+    <!-- A change applies at once, or fires as the candidate in shadow next to the live version first. -->
+    <fieldset class="group" data-apply>
+      <legend>{{ 'nh-assistant.admin.run-config.triggers.apply' | translate }}</legend>
+      <div class="choices">
+        <label class="choice" [class.selected]="apply() === 'live'">
+          <input type="radio" [name]="id + '-apply'" value="live" [checked]="apply() === 'live'" (change)="apply.set('live')" />
+          <span>
+            <strong>{{ 'nh-assistant.admin.run-config.triggers.apply-live' | translate }}</strong>
+            <span class="muted">{{ 'nh-assistant.admin.run-config.triggers.apply-live-hint' | translate }}</span>
+          </span>
+        </label>
+        <label class="choice" [class.selected]="apply() === 'shadow'">
+          <input type="radio" [name]="id + '-apply'" value="shadow" [checked]="apply() === 'shadow'" (change)="apply.set('shadow')" />
+          <span>
+            <strong>{{ 'nh-assistant.admin.run-config.triggers.apply-shadow' | translate }}</strong>
+            <span class="muted">{{ 'nh-assistant.admin.run-config.triggers.apply-shadow-hint' | translate }}</span>
+          </span>
+        </label>
+      </div>
+      @if (errorKey('apply'); as key) {
+        <p class="field-error"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('apply')?.params }}</p>
+      }
+    </fieldset>
+  } @else {
     <p class="hint">{{ 'nh-assistant.admin.run-config.triggers.starts-in-shadow' | translate }}</p>
   }
   <div class="field">

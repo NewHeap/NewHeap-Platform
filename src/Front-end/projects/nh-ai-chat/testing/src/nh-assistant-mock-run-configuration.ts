@@ -12,12 +12,14 @@ import {
   DataSkillVersionStatus,
   DataTrigger,
   DataTriggerRequest,
+  DataTriggerVersion,
   FileLimits,
   LowerFileLimits,
   NhAssistantConsultationRoute,
   RunCatalog,
   SkillComparison,
-  ToolCatalogEntry
+  ToolCatalogEntry,
+  TriggerComparison
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
 import { NhAssistantMockConsultations } from './nh-assistant-mock-consultations';
@@ -52,6 +54,12 @@ interface StoredSkillVersion extends DataSkill {
   status: DataSkillVersionStatus;
 }
 
+/** One version of a data trigger in the mock's history: the live one, a candidate or history. */
+interface StoredTriggerVersion extends DataTrigger {
+  status: DataSkillVersionStatus;
+  agentId: string;
+}
+
 const dashCase = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const dataClassifications: string[] = ['public', 'internal', 'confidential', 'restricted'];
 const accountabilities = ['agent', 'subject-responsible', 'service-account'];
@@ -80,13 +88,17 @@ const fileLimitFields: readonly (keyof FileLimits)[] = ['maxFileBytes', 'maxFile
  * checks the names against the scenario's run catalog as the server checks them against the code;
  * new skills and triggers start in shadow. A schedule without a subject set runs for the whole
  * application and fits only an agent that works on it; a stored trigger that no longer fits what its
- * agent works on stays, out of effect, with the problem `not-worked-on`. The mock runs no agents, so
- * a comparison counts nothing.
+ * agent works on stays, out of effect, with the problem `not-worked-on`. Triggers have append-only
+ * versions as skills do: a change applies at once or, with `apply` `shadow`, becomes the candidate next
+ * to the live version, which the administrator promotes or discards. The mock runs no agents, so a
+ * comparison counts nothing.
  */
 export class NhAssistantMockRunConfiguration {
   private readonly settings = new Map<string, AgentRunSettings>();
   private readonly skills = new Map<string, StoredSkillVersion[]>();
   private readonly triggers = new Map<string, DataTrigger>();
+  /** Every version of every data trigger by trigger id, live and candidate included, oldest first. */
+  private readonly triggerVersions = new Map<string, StoredTriggerVersion[]>();
   private readonly consultations: NhAssistantMockConsultations;
   private readonly catalog: RunCatalog;
   private readonly codeTriggers: (CodeTrigger & { agentId: string })[];
@@ -183,8 +195,8 @@ export class NhAssistantMockRunConfiguration {
 
   /**
    * `admin/agents/{id}/configuration`, `run-settings`, `skills/{skillId}[/...]`,
-   * `triggers/{triggerId}[/shadow]` and `consultations/{subjectType}`; `segments` start after the
-   * agent id.
+   * `triggers/{triggerId}[/shadow|/versions|/candidate/...]` and `consultations/{subjectType}[/state]`;
+   * `segments` start after the agent id.
    */
   handle(method: string, agentId: string, segments: string[], body: unknown, query: URLSearchParams): MockResult | null {
     const agent = this.agents.find(agentId);
@@ -207,14 +219,22 @@ export class NhAssistantMockRunConfiguration {
       }
       return segments.length === 2 ? this.skill(method, agent, id, body, query) : null;
     }
+    if (area === 'triggers' && id !== undefined && (segments.length === 3 && action === 'versions' || segments.length === 4 && action === 'candidate')) {
+      if (!agent) {
+        return failure('assistant-agent-not-found');
+      }
+      return action === 'versions'
+        ? method === 'GET' ? { status: 200, body: this.triggerHistory(agent.id, id) } : { status: 405 }
+        : this.triggerCandidate(method, agent, id, child, body);
+    }
     if (area === 'triggers' && id !== undefined && (segments.length === 2 || (segments.length === 3 && action === 'shadow'))) {
       if (!agent) {
         return failure('assistant-agent-not-found');
       }
       return action === 'shadow' ? this.triggerShadow(method, agent, id, body) : this.trigger(method, agent, id, body, query);
     }
-    if (area === 'consultations' && id !== undefined && segments.length === 2) {
-      return agent ? this.consultations.handle(method, agent, id, body, query) : failure('assistant-agent-not-found');
+    if (area === 'consultations' && id !== undefined && (segments.length === 2 || (segments.length === 3 && action === 'state'))) {
+      return agent ? this.consultations.handle(method, agent, id, body, query, action) : failure('assistant-agent-not-found');
     }
     return null;
   }
@@ -226,7 +246,9 @@ export class NhAssistantMockRunConfiguration {
       .filter(trigger => this.ownerOf(trigger) === agent.id)
       .map(trigger => {
         const problem = this.triggerProblem(agent, trigger);
-        return problem ? { ...withoutOwner(trigger), inEffect: false, problem } : withoutOwner(trigger);
+        const live = problem ? { ...withoutOwner(trigger), inEffect: false, problem } : withoutOwner(trigger);
+        const candidate = this.candidateOf(trigger.triggerId);
+        return { ...live, candidate: candidate ? this.candidateDto(agent, candidate) : null };
       });
     return {
       agentId: agent.id,
@@ -245,6 +267,9 @@ export class NhAssistantMockRunConfiguration {
         ...dataTriggers
           .filter(trigger => trigger.problem !== null)
           .map(trigger => ({ agentId: agent.id, kind: 'trigger' as const, id: trigger.triggerId, code: trigger.problem! })),
+        ...dataTriggers
+          .filter(trigger => trigger.candidate && trigger.candidate.problem !== null)
+          .map(trigger => ({ agentId: agent.id, kind: 'trigger-candidate' as const, id: trigger.triggerId, code: trigger.candidate!.problem! })),
         ...this.consultations.problems(agent)
       ],
       source: agent.source,
@@ -586,6 +611,10 @@ export class NhAssistantMockRunConfiguration {
       if (!versionMatches(query, existing.version)) {
         return failure('assistant-version-conflict');
       }
+      // Out of effect; its versions stay as history.
+      for (const version of this.triggerVersions.get(triggerId) ?? []) {
+        version.status = version.status === 'live' ? 'superseded' : version.status === 'candidate' ? 'discarded' : version.status;
+      }
       this.triggers.delete(triggerId);
       return { status: 204 };
     }
@@ -643,6 +672,11 @@ export class NhAssistantMockRunConfiguration {
     if (filters.length > maxTriggerFilters || filters.some(name => name.length > 64 || !filterName.test(name)) || (schedule && filters.length > 0)) {
       errors['filters'] = ['invalid'];
     }
+    // A new trigger has no live version to evaluate a candidate next to.
+    if ((request.apply !== undefined && request.apply !== 'live' && request.apply !== 'shadow')
+      || (request.apply === 'shadow' && (request.expectedVersion ?? null) === null)) {
+      errors['apply'] = ['invalid'];
+    }
     if (Object.keys(errors).length > 0) {
       return failure('assistant-validation', errors);
     }
@@ -656,6 +690,8 @@ export class NhAssistantMockRunConfiguration {
       return failure('assistant-version-conflict');
     }
 
+    const candidate = request.apply === 'shadow';
+    const history = this.triggerVersions.get(triggerId) ?? [];
     const saved: DataTrigger & { agentId?: string } = {
       triggerId,
       skillId: skill,
@@ -667,17 +703,125 @@ export class NhAssistantMockRunConfiguration {
       message: schedule ? text(request.message) : null,
       conflict: request.conflict ?? (schedule ? 'ignore' : 'coalesce'),
       debounceSeconds: schedule ? 0 : request.debounceSeconds ?? 120,
-      shadow: existing?.shadow ?? true,
-      version: (existing?.version ?? 0) + 1,
+      // A candidate always fires in shadow; a new version keeps the trigger's mode.
+      shadow: candidate || (existing?.shadow ?? true),
+      version: history.reduce((latest, version) => Math.max(latest, version.version), existing?.version ?? 0) + 1,
       changedAt: this.now(),
       changedBy: 'current-user',
       reason: text(request.reason),
       inEffect: true,
       problem: null,
-      filters: schedule ? [] : filters
+      filters: schedule ? [] : filters,
+      createdAt: this.now(),
+      createdBy: 'current-user'
     };
+    for (const version of history) {
+      if (version.status === 'candidate') {
+        version.status = 'discarded';
+      } else if (version.status === 'live' && !candidate) {
+        version.status = 'superseded';
+      }
+    }
+    if (existing && history.length === 0) {
+      // A trigger of the scenario's preset starts its history with its live version.
+      history.push({ ...withoutOwner(existing), status: candidate ? 'live' : 'superseded', agentId: agent.id });
+    }
+    this.triggerVersions.set(triggerId, [...history, { ...withoutOwner(saved), status: candidate ? 'candidate' : 'live', agentId: agent.id }]);
+    if (candidate) {
+      return { status: 200, body: this.candidateDto(agent, this.candidateOf(triggerId)!) };
+    }
     this.triggers.set(triggerId, Object.assign(saved, { [ownerKey]: agent.id }));
     return { status: 200, body: withoutOwner(saved) };
+  }
+
+  /** `admin/agents/{id}/triggers/{triggerId}/candidate/{promote|discard|comparison}`. */
+  private triggerCandidate(method: string, agent: AdminAgent, triggerId: string, action: string | undefined, body: unknown): MockResult {
+    const live = this.triggers.get(triggerId);
+    const candidate = live && this.ownerOf(live) === agent.id ? this.candidateOf(triggerId) : undefined;
+    if (action === 'comparison' && method === 'GET') {
+      if (!candidate || !live) {
+        return failure('assistant-trigger-candidate-not-found');
+      }
+      const comparison: TriggerComparison = {
+        agentId: agent.id,
+        triggerId,
+        from: candidate.createdAt ?? candidate.changedAt,
+        to: this.now(),
+        live: emptyStats(live.version),
+        candidate: emptyStats(candidate.version),
+        pairedEvents: 0,
+        liveOnlyEvents: 0,
+        candidateOnlyEvents: 0,
+        tools: []
+      };
+      return { status: 200, body: comparison };
+    }
+    if ((action !== 'promote' && action !== 'discard') || method !== 'POST') {
+      return { status: 405 };
+    }
+
+    const request = body as { version?: unknown; reason?: unknown } | undefined;
+    if (typeof request?.version !== 'number') {
+      return failure('assistant-validation', { version: ['required'] });
+    }
+    if (!candidate || !live) {
+      return failure('assistant-trigger-candidate-not-found');
+    }
+    if (candidate.version !== request.version) {
+      return failure('assistant-version-conflict');
+    }
+    if (action === 'discard') {
+      candidate.status = 'discarded';
+      return { status: 204 };
+    }
+
+    for (const version of this.triggerVersions.get(triggerId) ?? []) {
+      if (version.status === 'live') {
+        version.status = 'superseded';
+      }
+    }
+    candidate.status = 'live';
+    // The promoted version keeps working in the trigger's mode.
+    const { status, agentId, ...definition } = candidate;
+    const promoted: DataTrigger = { ...definition, shadow: live.shadow, changedAt: this.now(), changedBy: 'current-user' };
+    candidate.shadow = live.shadow;
+    this.triggers.set(triggerId, Object.assign(promoted, { [ownerKey]: agent.id }));
+    return { status: 200, body: withoutOwner(promoted) };
+  }
+
+  /** Every version of a data trigger of the agent, newest first, with its definition. */
+  private triggerHistory(agentId: string, triggerId: string): DataTriggerVersion[] {
+    return [...(this.triggerVersions.get(triggerId) ?? [])]
+      .filter(version => version.agentId === agentId)
+      .sort((left, right) => right.version - left.version)
+      .map(version => ({
+        version: version.version,
+        status: version.status,
+        skillId: version.skillId,
+        source: version.source,
+        event: version.event,
+        filters: [...(version.filters ?? [])],
+        cron: version.cron,
+        timeZone: version.timeZone,
+        subjectSet: version.subjectSet,
+        message: version.message,
+        conflict: version.conflict,
+        debounceSeconds: version.debounceSeconds,
+        createdAt: version.createdAt ?? version.changedAt,
+        createdBy: version.createdBy ?? version.changedBy,
+        reason: version.reason
+      }));
+  }
+
+  private candidateOf(triggerId: string): StoredTriggerVersion | undefined {
+    return (this.triggerVersions.get(triggerId) ?? []).find(version => version.status === 'candidate');
+  }
+
+  /** A candidate as the server shows it: always in shadow, with its own problem. */
+  private candidateDto(agent: AdminAgent, candidate: StoredTriggerVersion): DataTrigger {
+    const { status, agentId, ...definition } = candidate;
+    const problem = this.triggerProblem(agent, definition);
+    return { ...definition, shadow: true, inEffect: problem === null, problem };
   }
 
   private triggerShadow(method: string, agent: AdminAgent, triggerId: string, body: unknown): MockResult {

@@ -41,6 +41,62 @@ internal sealed class NhAssistantScheduledTriggerJob(
         await RunAsync(triggerId, applicationClock.GetUtcNow(), CancellationToken.None);
     }
 
+    /// <summary>
+    /// The entry point of the recurring job of a data schedule's candidate version, which ticks on its
+    /// own cron next to the live version's job.
+    /// </summary>
+    [AutomaticRetry(Attempts = 0)]
+    public async Task RunCandidateAsync(string triggerId)
+    {
+        var applicationClock = services.GetService<TimeProvider>() ?? TimeProvider.System;
+        await RunCandidateAsync(triggerId, applicationClock.GetUtcNow(), CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Fires the candidate version of a data schedule for every subject of its tick, for the trigger's
+    /// agent only, into its shadow threads; the agent's variants follow the live version only. A tick
+    /// that the agent or the skill would not take is skipped, as for the live version, and nothing
+    /// waits for a resume.
+    /// </summary>
+    internal async Task<IReadOnlyList<NhAssistantTriggerReceipt>> RunCandidateAsync(
+        string triggerId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        await configurations.EnsureCurrentAsync(cancellationToken);
+        if (!registration.TriggerCandidates.TryGetValue(triggerId, out var candidate)
+            || candidate.Source != NhAssistantTriggerSource.Schedule)
+        {
+            logger.LogInformation("Scheduled trigger {TriggerId} has no candidate schedule; the recurring job does nothing.", triggerId);
+            return [];
+        }
+
+        if (await triggers.RefusalOfAsync(candidate.AgentId, refusePaused: true, cancellationToken, refuseOff: true) is not null
+            || (candidate.SkillId is { } skillId
+                && await triggers.SkillStateAsync(candidate.AgentId, skillId, cancellationToken) != NhAssistantAgentRunStates.Active))
+        {
+            return [];
+        }
+
+        // The minute of the application's clock, as for the live version's tick.
+        var tick = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, now.Offset).ToUniversalTime();
+        var receipts = new List<NhAssistantTriggerReceipt>();
+        var tickSubjects = candidate.ScheduledSubjects is { } subjectsOfTick
+            ? subjectsOfTick(services, cancellationToken)
+            : SystemSubjectsAsync(candidate, cancellationToken);
+        await foreach (var subject in tickSubjects)
+        {
+            if (receipts.Count >= candidate.MaxSubjectsPerTick)
+            {
+                break;
+            }
+
+            receipts.Add(await triggers.FireScheduledCandidateAsync(candidate, new NhAssistantScheduledTick(subject, tick), cancellationToken));
+        }
+
+        return receipts;
+    }
+
     internal async Task<IReadOnlyList<NhAssistantTriggerReceipt>> RunAsync(
         string triggerId,
         DateTimeOffset now,

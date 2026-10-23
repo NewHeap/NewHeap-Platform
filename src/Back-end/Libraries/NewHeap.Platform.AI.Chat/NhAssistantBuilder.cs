@@ -1379,6 +1379,15 @@ internal sealed class NhAssistantRegistrationState
     public IReadOnlyDictionary<string, NhAssistantTriggerDefinition> CodeTriggers => _triggers;
 
     /// <summary>
+    /// The candidate versions of data triggers in effect, by trigger id, from the last loaded snapshot.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantTriggerDefinition> TriggerCandidates =>
+        Volatile.Read(ref _snapshot)?.TriggerCandidates ?? NoTriggerCandidates;
+
+    private static readonly IReadOnlyDictionary<string, NhAssistantTriggerDefinition> NoTriggerCandidates =
+        new Dictionary<string, NhAssistantTriggerDefinition>(StringComparer.Ordinal);
+
+    /// <summary>
     /// Proposal guards in registration order.
     /// </summary>
     public IReadOnlyList<Runs.NhAssistantProposalGuardRegistration> ProposalGuards => _proposalGuards;

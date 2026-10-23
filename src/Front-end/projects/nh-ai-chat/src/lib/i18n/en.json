@@ -443,6 +443,7 @@
       "assistant-run-settings-in-code": "This agent is part of the code; its runs are configured there.",
       "assistant-run-settings-in-use": "Skills, triggers, consultations or hand-offs still belong to this agent. Remove them first.",
       "assistant-skill-candidate-not-found": "This skill has no version being evaluated in shadow.",
+      "assistant-trigger-candidate-not-found": "This trigger has no version being evaluated in shadow.",
       "assistant-skill-version-gone": "The skill version this run was for is no longer evaluated.",
       "assistant-account-search-unavailable": "The application offers no account search; enter the account's id.",
       "assistant-mcp-connection-required": "This server needs a connection first. Connect it and try again.",
@@ -882,7 +883,9 @@
             "none": "No value"
           }
         },
-        "catalog-unavailable": "The building blocks of agent runs could not be read, so what this agent works on and its groups cannot be changed now. Saving keeps them as they are."
+        "catalog-unavailable": "The building blocks of agent runs could not be read, so what this agent works on and its groups cannot be changed now. Saving keeps them as they are.",
+        "starts-in-shadow": "Start in shadow",
+        "starts-in-shadow-hint": "Once it has run settings, its runs work in its shadow threads, where nobody is notified and nothing executes, until you put it live in the agent list."
       },
       "effect": {
         "read-only": "Read only",
@@ -1242,7 +1245,8 @@
             "candidate": "Candidate of skill {{id}}:",
             "trigger": "Trigger {{id}}:",
             "consultation": "Consultation about {{id}}:",
-            "hand-off": "Hand-off about {{id}}:"
+            "hand-off": "Hand-off about {{id}}:",
+            "trigger-candidate": "Candidate of trigger {{id}}:"
           },
           "code": {
             "unknown-agent": "the agent can no longer run on its own.",
@@ -1543,6 +1547,24 @@
             "set-hint": "One run each time for every object in a set, such as the active projects.",
             "every-division": "Every division",
             "dropped": "This schedule ran for the whole application, which the agent no longer works on. Choose a set of objects."
+          },
+          "saved-candidate": "The new version fires in shadow next to the live version, which keeps working.",
+          "apply": "How the change takes effect",
+          "apply-live": "Apply at once",
+          "apply-live-hint": "The new version replaces the live one at once, in the mode the trigger has.",
+          "apply-shadow": "Evaluate in shadow next to the live version first",
+          "apply-shadow-hint": "The new version fires next to the live one into the agent's shadow threads, where nothing executes; compare them, then promote or discard it.",
+          "versions": "Versions",
+          "candidate": {
+            "explain": "Version {{version}} fires in shadow next to the live version: its runs work in the agent's shadow threads, and the live version keeps working.",
+            "out-of-effect": "The candidate does not fire: it no longer fits the code ({{problem}}). The live version keeps working.",
+            "changes": "What the candidate changes",
+            "no-changes": "The candidate has the same definition as the live version.",
+            "change": "{{candidate}} (live: {{live}})",
+            "comparison": "Live version and candidate of trigger {{trigger}}",
+            "paired": "Since {{date}} both started a run on {{count}} of the same events, only the live version on {{liveOnly}} and only the candidate on {{candidateOnly}}.",
+            "promoted": "The candidate is the live version of the trigger now.",
+            "none": "none"
           }
         },
         "way-of-working": "Way of working",
@@ -1891,8 +1913,19 @@
             "tools": "Tools it may use",
             "tools-hint": "The agent's own tools; select some to narrow them for this consultation. None selected: every tool of the agent. Changes still need a route.",
             "tool-not-covered": "No longer among the agent's own tools.",
-            "in-effect": "A consultation is in effect once saved; it answers once an agent that asks selects its tool."
-          }
+            "in-effect": "A consultation is in effect once saved; it answers once an agent that asks selects its tool.",
+            "starts-off": "Start off",
+            "starts-off-hint": "It is not offered until you switch it on in the list, for example after a review.",
+            "starts-off-ceiling": "A new consultation starts off: the application wants every one reviewed before it is offered. Switch it on in the list."
+          },
+          "off-badge": "Off",
+          "off-explain": "Off: asking agents get none of its tools until you switch it on.",
+          "switch-on": "Switch on",
+          "switch-off": "Switch off",
+          "switch-on-named": "Switch on the consultation about {{type}}",
+          "switch-off-named": "Switch off the consultation about {{type}}",
+          "switched-on": "The consultation is on: agents that ask get its tools.",
+          "switched-off": "The consultation is off: agents that ask get none of its tools."
         }
       },
       "hand-offs": {

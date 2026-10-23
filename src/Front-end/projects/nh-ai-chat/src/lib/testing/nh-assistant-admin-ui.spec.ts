@@ -1060,6 +1060,130 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(versions.textContent).toContain('Earlier');
   });
 
+  it('evaluates a changed trigger as a candidate next to the live version, promotes it and shows its history', async () => {
+    const script = runScenario();
+    script.admin!.runCatalog!.triggerEvents = [{
+      name: 'project.created',
+      description: 'A project was created.',
+      filters: [{ name: 'not-own-change', description: 'Skips changes the agent made itself.' }]
+    }];
+    await configure(script);
+    const admin = TestBed.inject(NhAssistantAdminApiService);
+    await firstValueFrom(admin.saveDataTrigger('projects', 'project-created', { source: 'event', event: 'project.created' }));
+    await firstValueFrom(admin.setDataTriggerShadow('projects', 'project-created', { mode: 'live' }));
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    (element.querySelector('[data-run-config-agent="projects"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
+    const trigger = () => view().querySelector('[data-data-trigger="project-created"]') as HTMLElement;
+    const form = () => view().querySelector('[data-form="trigger"]') as HTMLElement;
+
+    // A change applies at once by default, as before; the administrator chooses to evaluate it first.
+    button(trigger(), 'Edit').click();
+    await settle(fixture);
+    expect((form().querySelector('[data-apply] input[value="live"]') as HTMLInputElement).checked).toBeTrue();
+    check(form(), '[data-filter="not-own-change"] input');
+    check(form(), '[data-apply] input[value="shadow"]');
+    type(form(), 'input[id$="-trigger-reason"]', 'Skip own changes');
+    button(form(), 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/projects/triggers/project-created').at(-1)).toEqual(jasmine.objectContaining({
+      filters: ['not-own-change'], expectedVersion: 1, apply: 'shadow', reason: 'Skip own changes'
+    }));
+    expect(view().textContent).toContain('The new version fires in shadow next to the live version, which keeps working.');
+
+    // The live version keeps working live; the candidate says what it changes.
+    expect(trigger().querySelector('[data-trigger-candidate-badge]')?.textContent).toContain('Candidate v2');
+    expect(trigger().querySelector('[data-shadow-badge]')).toBeNull();
+    expect(trigger().textContent).toContain('Version 1');
+    expect(trigger().querySelector('[data-trigger-change="filters"]')?.textContent).toContain('Filters');
+    expect(trigger().querySelector('[data-trigger-changes]')?.textContent).toContain('not-own-change (live: none)');
+
+    button(trigger(), 'Compare').click();
+    await settle(fixture);
+    const comparison = trigger().querySelector('[data-trigger-comparison]') as HTMLElement;
+    expect(comparison.textContent).toContain('Live (v1)');
+    expect(comparison.textContent).toContain('Candidate (v2)');
+    expect(trigger().querySelector('[data-trigger-paired]')?.textContent).toContain('both started a run on 0 of the same events');
+
+    (trigger().querySelector('[data-promote-trigger]') as HTMLButtonElement).click();
+    await settle(fixture);
+    button(trigger(), 'Confirm promote').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/triggers/project-created/candidate/promote')).toEqual([{ version: 2, reason: null }]);
+    expect(view().textContent).toContain('The candidate is the live version of the trigger now.');
+    expect(trigger().querySelector('[data-trigger-candidate-badge]')).toBeNull();
+    expect(trigger().querySelector('[data-shadow-badge]')).toBeNull();
+    expect(trigger().textContent).toContain('Version 2');
+    expect(trigger().querySelector('[data-trigger-filters]')?.textContent).toContain('Filters: not-own-change');
+
+    (trigger().querySelector('[data-trigger-versions]') as HTMLButtonElement).click();
+    await settle(fixture);
+    const history = trigger().querySelector('[data-trigger-history]') as HTMLElement;
+    expect(history.querySelector('[data-trigger-version="2"]')?.textContent).toContain('Live');
+    expect(history.querySelector('[data-trigger-version="2"]')?.textContent).toContain('project.created (not-own-change)');
+    expect(history.querySelector('[data-trigger-version="2"]')?.textContent).toContain('Note: Skip own changes');
+    expect(history.querySelector('[data-trigger-version="1"]')?.textContent).toContain('Earlier');
+  }, formFlowTimeout);
+
+  it('discards a trigger candidate, and refuses a candidate of a new trigger as the server does', async () => {
+    await configure(runScenario());
+    const admin = TestBed.inject(NhAssistantAdminApiService);
+    const backend = TestBed.inject(NhAssistantMockBackend);
+    await firstValueFrom(admin.saveDataTrigger('projects', 'project-created', { source: 'event', event: 'project.created' }));
+    const refused = await backend.fetch('/api/assistant/admin/agents/projects/triggers/other-trigger', {
+      method: 'PUT',
+      body: JSON.stringify({ source: 'event', event: 'project.created', apply: 'shadow' })
+    });
+    expect([refused.status, (await refused.json()).errors]).toEqual([400, { apply: ['invalid'] }]);
+    await firstValueFrom(admin.saveDataTrigger('projects', 'project-created', {
+      source: 'event', event: 'project.created', debounceSeconds: 30, expectedVersion: 1, apply: 'shadow'
+    }));
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    (element.querySelector('[data-run-config-agent="projects"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
+    const trigger = () => view().querySelector('[data-data-trigger="project-created"]') as HTMLElement;
+    expect(trigger().querySelector('[data-trigger-change="debounce"]')).not.toBeNull();
+    expect(trigger().querySelector('[data-trigger-changes]')?.textContent).toContain('30 (live: 120)');
+
+    (trigger().querySelector('[data-discard-trigger]') as HTMLButtonElement).click();
+    await settle(fixture);
+    button(trigger(), 'Confirm discard').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/triggers/project-created/candidate/discard')).toEqual([{ version: 2, reason: null }]);
+    expect(view().textContent).toContain('The candidate is discarded; it stays as history.');
+    expect(trigger().querySelector('[data-trigger-candidate]')).toBeNull();
+    const versions = await firstValueFrom(admin.getDataTriggerVersions('projects', 'project-created'));
+    expect(versions.map(version => [version.version, version.status])).toEqual([[2, 'discarded'], [1, 'live']]);
+  });
+
+  it('creates an agent that works on its own and starts in shadow once it has run settings', async () => {
+    await configure(runScenario());
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+
+    button(element, 'New agent').click();
+    await settle(fixture);
+    // Only an agent that works on its own may start in shadow.
+    expect(element.querySelector('[data-starts-in-shadow]')).toBeNull();
+    type(element, 'input[id$="-id"]', 'shadow-starter');
+    type(element, 'input[id$="-name"]', 'Shadow starter');
+    check(element, '[data-agent-use] input[value="background"]');
+    await settle(fixture);
+    expect(element.querySelector('[data-starts-in-shadow]')?.textContent).toContain('Start in shadow');
+    check(element, '[data-starts-in-shadow] input');
+    type(element, 'input.mono[aria-label]', 'sample-api.project.*');
+    await settle(fixture);
+    (element.querySelector('.inline button') as HTMLButtonElement).click();
+    await settle(fixture);
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents').at(-1)).toEqual(jasmine.objectContaining({ id: 'shadow-starter', startsInShadow: true }));
+
+    const created = (await firstValueFrom(TestBed.inject(NhAssistantAdminApiService).getAgents())).find(agent => agent.id === 'shadow-starter')!;
+    expect(created.shadow).toEqual(jasmine.objectContaining({ shadow: true, override: true }));
+  }, formFlowTimeout);
+
   it('names agents in code, their skills and policies in the language of the user and keeps the keys of an agent in code', async () => {
     const script = scenario();
     script.admin!.agents![0] = {

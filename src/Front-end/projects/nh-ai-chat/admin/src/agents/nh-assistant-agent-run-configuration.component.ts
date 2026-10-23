@@ -23,12 +23,14 @@ import {
   DataSkill,
   DataSkillVersion,
   DataTrigger,
+  DataTriggerVersion,
   McpServer,
   NhAssistantAdminApiService,
   NhAssistantError,
   RunCatalog,
   SkillComparison,
   ToolCatalogEntry,
+  TriggerComparison,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantPickerOption as NhAssistantPickerOption,
@@ -47,6 +49,7 @@ import { NhAssistantRunSettingsFormComponent } from './run-config/nh-assistant-r
 import { NhAssistantSkillFormComponent, SkillFormSaved } from './run-config/nh-assistant-skill-form.component';
 import { NhAssistantTriggerFormComponent } from './run-config/nh-assistant-trigger-form.component';
 import { describePolicy, runConfigLimits } from './run-config/run-config-shared';
+import { TriggerChange, isConflict, triggerChanges, triggerFieldKeys, versionSummary } from './run-config/trigger-versions';
 
 let nextId = 0;
 
@@ -54,7 +57,7 @@ type Form = 'setup' | 'settings' | 'skill' | 'trigger' | 'consultation';
 
 /** A removal, promotion or discard that waits for its confirmation. */
 interface Confirmation {
-  action: 'remove-settings' | 'remove-skill' | 'remove-trigger' | 'remove-consultation' | 'promote' | 'discard';
+  action: 'remove-settings' | 'remove-skill' | 'remove-trigger' | 'remove-consultation' | 'promote' | 'discard' | 'promote-trigger' | 'discard-trigger';
   id: string;
 }
 
@@ -70,11 +73,14 @@ interface Confirmation {
  * they compare with the live version and promote or discard; they add data triggers on the
  * application's events or on a schedule and put them live; a schedule without a subject set runs for
  * the whole application, or for every division of an agent that works per division. New skills and
- * triggers start in shadow; `changed` tells the agents page to reload the agent's skill states. Its
+ * triggers start in shadow; a change of a trigger applies at once or fires as a candidate in shadow next
+ * to the live version, which they compare, promote or discard, and every trigger shows its history.
+ * `changed` tells the agents page to reload the agent's skill states. Its
  * consultations (AC20) show what other assistants may consult it about: those in code read only, and
  * those defined as data, which administrators add, change and remove within the agent's ceiling in
- * code, each with the agents that ask it (`openAgent` opens the editor of one) and its problems,
- * followed by the switches that turn a route off for all of its consultations.
+ * code, each with the agents that ask it (`openAgent` opens the editor of one) and its problems, and
+ * switch on or off (a new one may start off), followed by the switches that turn a route off for all of
+ * its consultations.
  */
 @Component({
   selector: 'nh-assistant-agent-run-configuration',
@@ -190,6 +196,10 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   readonly loads = signal(0);
   readonly comparison = signal<{ skillId: string; result: SkillComparison | null; failed: boolean } | null>(null);
   readonly versions = signal<{ skillId: string; items: DataSkillVersion[] | null; failed: boolean } | null>(null);
+  readonly triggerComparison = signal<{ triggerId: string; result: TriggerComparison | null; failed: boolean } | null>(null);
+  readonly triggerVersions = signal<{ triggerId: string; items: DataTriggerVersion[] | null; failed: boolean } | null>(null);
+  readonly triggerFieldKeys = triggerFieldKeys;
+  readonly versionSummary = versionSummary;
 
   private readonly language = toSignal(
     this.translate.onLangChange.pipe(map(event => event.lang), startWith(this.translate.currentLang)),
@@ -352,9 +362,8 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
       return;
     }
 
-    this.versions.set(null);
+    this.closeDetails();
     this.comparison.set({ skillId: skill.skillId, result: null, failed: false });
-    this.detailSubscription?.unsubscribe();
     this.detailSubscription = this.admin.compareSkillCandidate(this.agent().id, skill.skillId).subscribe({
       next: result => this.comparison.set({ skillId: skill.skillId, result, failed: false }),
       error: () => this.comparison.set({ skillId: skill.skillId, result: null, failed: true })
@@ -368,9 +377,8 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
       return;
     }
 
-    this.comparison.set(null);
+    this.closeDetails();
     this.versions.set({ skillId: skill.skillId, items: null, failed: false });
-    this.detailSubscription?.unsubscribe();
     this.detailSubscription = this.admin.getDataSkillVersions(this.agent().id, skill.skillId).subscribe({
       next: items => {
         this.versions.set({ skillId: skill.skillId, items, failed: false });
@@ -383,6 +391,81 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   addTrigger(): void {
     this.editingTrigger.set(null);
     this.open('trigger');
+  }
+
+  /** What a trigger's candidate changes against its live version. */
+  triggerChanges(trigger: DataTrigger): TriggerChange[] {
+    return trigger.candidate ? triggerChanges(trigger, trigger.candidate) : [];
+  }
+
+  /** A value of a changed field as people read it: a skill's name, a conflict, a source, or none. */
+  changeValue(change: TriggerChange, value: string | null): string {
+    if (value === null) {
+      return this.translate.instant('nh-assistant.admin.run-config.triggers.candidate.none') as string;
+    }
+    switch (change.field) {
+      case 'skill':
+        return this.skillName(value);
+      case 'conflict':
+        return isConflict(value) ? this.translate.instant(`nh-assistant.admin.run-config.triggers.conflicts.${value}`) as string : value;
+      case 'source':
+        return this.translate.instant(`nh-assistant.admin.run-config.triggers.sources.${value}`) as string;
+      default:
+        return value;
+    }
+  }
+
+  promoteTrigger(trigger: DataTrigger): void {
+    const candidate = trigger.candidate;
+    if (candidate) {
+      this.run(
+        this.admin.promoteTriggerCandidate(this.agent().id, trigger.triggerId, { version: candidate.version, reason: blank(this.reason()) }),
+        'nh-assistant.admin.run-config.triggers.candidate.promoted',
+        `trigger:${trigger.triggerId}`);
+    }
+  }
+
+  discardTrigger(trigger: DataTrigger): void {
+    const candidate = trigger.candidate;
+    if (candidate) {
+      this.run(
+        this.admin.discardTriggerCandidate(this.agent().id, trigger.triggerId, { version: candidate.version, reason: blank(this.reason()) }),
+        'nh-assistant.admin.run-config.candidate.discarded',
+        `trigger:${trigger.triggerId}`);
+    }
+  }
+
+  /** Shows or hides the comparison of a trigger's candidate with its live version. */
+  toggleTriggerComparison(trigger: DataTrigger): void {
+    if (this.triggerComparison()?.triggerId === trigger.triggerId) {
+      this.triggerComparison.set(null);
+      return;
+    }
+
+    this.closeDetails();
+    this.triggerComparison.set({ triggerId: trigger.triggerId, result: null, failed: false });
+    this.detailSubscription = this.admin.compareTriggerCandidate(this.agent().id, trigger.triggerId).subscribe({
+      next: result => this.triggerComparison.set({ triggerId: trigger.triggerId, result, failed: false }),
+      error: () => this.triggerComparison.set({ triggerId: trigger.triggerId, result: null, failed: true })
+    });
+  }
+
+  /** Shows or hides the version history of a trigger. */
+  toggleTriggerVersions(trigger: DataTrigger): void {
+    if (this.triggerVersions()?.triggerId === trigger.triggerId) {
+      this.triggerVersions.set(null);
+      return;
+    }
+
+    this.closeDetails();
+    this.triggerVersions.set({ triggerId: trigger.triggerId, items: null, failed: false });
+    this.detailSubscription = this.admin.getDataTriggerVersions(this.agent().id, trigger.triggerId).subscribe({
+      next: items => {
+        this.triggerVersions.set({ triggerId: trigger.triggerId, items, failed: false });
+        this.accountNames.load(items.map(item => item.createdBy));
+      },
+      error: () => this.triggerVersions.set({ triggerId: trigger.triggerId, items: null, failed: true })
+    });
   }
 
   editTrigger(trigger: DataTrigger): void {
@@ -412,6 +495,14 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   editConsultation(consultation: DataConsultation): void {
     this.editingConsultation.set(consultation);
     this.open('consultation');
+  }
+
+  /** Switches a consultation defined as data on or off; off, asking agents get none of its tools. */
+  setConsultationState(consultation: DataConsultation, on: boolean): void {
+    this.run(
+      this.admin.setDataConsultationState(this.agent().id, consultation.subjectType, { state: on ? 'on' : 'off', reason: null }),
+      on ? 'nh-assistant.admin.run-config.consultations.switched-on' : 'nh-assistant.admin.run-config.consultations.switched-off',
+      `consultation:${consultation.subjectType}`);
   }
 
   removeConsultation(consultation: DataConsultation): void {
@@ -484,8 +575,11 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
       result.skill.warnings ?? []);
   }
 
-  onTriggerSaved(added: boolean): void {
-    this.finish(added ? 'nh-assistant.admin.run-config.triggers.added' : 'nh-assistant.admin.run-config.triggers.saved');
+  onTriggerSaved(result: { added: boolean; candidate: boolean }): void {
+    this.finish(
+      result.candidate
+        ? 'nh-assistant.admin.run-config.triggers.saved-candidate'
+        : result.added ? 'nh-assistant.admin.run-config.triggers.added' : 'nh-assistant.admin.run-config.triggers.saved');
   }
 
   confirm(action: Confirmation['action'], id: string): void {
@@ -635,6 +729,15 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     }, { injector: this.injector });
   }
 
+  /** One comparison or history is shown at a time. */
+  private closeDetails(): void {
+    this.detailSubscription?.unsubscribe();
+    this.comparison.set(null);
+    this.versions.set(null);
+    this.triggerComparison.set(null);
+    this.triggerVersions.set(null);
+  }
+
   /** Whether the last failed action concerned this item, so its error shows there. */
   failed(target: string): boolean {
     return this.error() !== null && this.actionTarget() === target;
@@ -655,8 +758,7 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
       complete: () => {
         this.busy.set(false);
         this.confirming.set(null);
-        this.comparison.set(null);
-        this.versions.set(null);
+        this.closeDetails();
         this.finish(savedKey);
       }
     });

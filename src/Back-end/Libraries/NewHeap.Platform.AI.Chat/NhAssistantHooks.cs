@@ -66,9 +66,9 @@ public enum NhAssistantAuditEventKind
     /// <c>status:code</c>; <see cref="NhAssistantAuditEvent.RunStatus"/> and
     /// <see cref="NhAssistantAuditEvent.RunFailureCode"/> carry them apart. The run facts
     /// <see cref="NhAssistantAuditEvent.TriggerKind"/>, <see cref="NhAssistantAuditEvent.Shadow"/>,
-    /// <see cref="NhAssistantAuditEvent.SkillVersion"/> and
-    /// <see cref="NhAssistantAuditEvent.ModelCallCount"/> let an audit sink count runs, runs without a
-    /// model call and shadow runs per agent and skill without reading the assistant's tables.
+    /// <see cref="NhAssistantAuditEvent.SkillVersion"/>, <see cref="NhAssistantAuditEvent.TriggerVersion"/>
+    /// and <see cref="NhAssistantAuditEvent.ModelCallCount"/> let an audit sink count runs, runs without a
+    /// model call and shadow runs per agent, skill and trigger without reading the assistant's tables.
     /// </summary>
     AgentRunEnded = 32,
 
@@ -485,6 +485,15 @@ public sealed record NhAssistantAuditEvent(
     /// for a skill in code, a run without a skill and other events.
     /// </summary>
     public int? SkillVersion { get; init; }
+
+    /// <summary>
+    /// The version of the trigger defined as data that started the run of an
+    /// <see cref="NhAssistantAuditEventKind.AgentRunEnded"/> event; <see langword="null"/> for a trigger
+    /// in code, a reserved trigger such as a start by hand, and other events. The run of a candidate
+    /// version is a shadow run (<see cref="Shadow"/>) in that version, as for a skill's candidate, while
+    /// the live version's runs carry the live version.
+    /// </summary>
+    public int? TriggerVersion { get; init; }
 
     /// <summary>
     /// Whether the run of an <see cref="NhAssistantAuditEventKind.AgentRunEnded"/> event worked in the

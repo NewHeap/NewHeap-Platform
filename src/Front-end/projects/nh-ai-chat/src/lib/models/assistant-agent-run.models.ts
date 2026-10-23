@@ -69,6 +69,10 @@ export interface AgentRun {
   skillVersion?: number | null;
   /** The run evaluated a candidate version of its skill in the shadow thread. */
   skillCandidate?: boolean;
+  /** The version of the trigger defined as data that started the run; absent for a trigger in code. */
+  triggerVersion?: number | null;
+  /** The run evaluated a candidate version of its data trigger in the shadow thread. */
+  triggerCandidate?: boolean;
   /** The agent that handed the run's work off; missing or null for a run no agent asked for. */
   requestedByAgentId?: string | null;
   /**

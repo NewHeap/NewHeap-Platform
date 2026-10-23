@@ -1019,7 +1019,8 @@ internal static class NhAssistantAdminEndpoints
             string.IsNullOrWhiteSpace(body.Profile) ? null : body.Profile.Trim(),
             string.IsNullOrWhiteSpace(body.DataClassification) ? null : body.DataClassification.Trim(),
             body.Metadata,
-            body.InstructionsAsset)
+            body.InstructionsAsset,
+            body.StartsInShadow == true)
         {
             ShadowOf = body.ShadowOf
         }, errors);

@@ -329,6 +329,8 @@ export interface NhAssistantMockConsultationCeiling {
   maxTimeoutSeconds?: number;
   maxAnswerChars?: number;
   maxHistoryMessages?: number;
+  /** Every new consultation defined as data starts off until an administrator switches it on (`StartOff()`). */
+  startsOff?: boolean;
 }
 
 /** A consultation defined as data an agent of the scenario starts with. */

@@ -820,8 +820,10 @@ export class NhAssistantMockAdminAgents {
   ): AdminAgent {
     // Only a new agent starts off, created that way here or with StartsOff() in code.
     // Metadata is not part of the definition; its values live with the mock's agent metadata.
-    const { isEnabled, startsOff, profile, dataClassification, metadata, instructionsAsset, ...definition } = structuredClone(input);
+    const { isEnabled, startsOff, startsInShadow, profile, dataClassification, metadata, instructionsAsset, ...definition } = structuredClone(input);
     const createdOff = previous === undefined && startsOff === true;
+    // Only a new agent created here starts in shadow, as an override that applies once it has run settings.
+    const createdInShadow = previous === undefined && source === 'admin' && startsInShadow === true;
     // The agent shows the asset's text read-only, or none while it does not resolve.
     const reference = source === 'admin' && instructionsAsset ? instructionsAsset : null;
     const assetProblem = reference ? this.instructionsProblemOf(reference) : null;
@@ -851,7 +853,9 @@ export class NhAssistantMockAdminAgents {
       waitingInputs: previous?.waitingInputs ?? 0,
       skills: previous?.skills ?? [],
       shadowOf: previous?.shadowOf ?? null,
-      shadow: previous?.shadow ?? shadowState(false, false, null, false),
+      shadow: previous?.shadow ?? (createdInShadow
+        ? { ...shadowState(true, false, true, false), changedAt: this.now(), changedBy: 'current-user' }
+        : shadowState(false, false, null, false)),
       serviceAccount: previous?.serviceAccount ?? null,
       offBeforeStop: previous?.offBeforeStop ?? false,
       // Code decides for its agents; an agent created here keeps its choice when it is omitted.

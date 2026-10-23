@@ -1,3 +1,4 @@
+using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
@@ -8,6 +9,15 @@ using SampleProjectManagement.Core.Services;
 namespace SampleProjectManagement.Api.Services;
 
 /// <summary>
+/// SPM-317: an agent created at runtime may start in shadow: created with
+/// <see cref="NhAssistantAgentRequest.StartsInShadow"/>, its run settings and a live trigger saved in
+/// the same call, its runs work in its shadow threads until an administrator puts it live. A
+/// consultation of it saved to start off is offered only once an administrator switches it on.
+/// SPM-316: a change of the status follow-up's trigger is evaluated before it goes live: saved for
+/// shadow without the <c>not-own-change</c> filter, it is the trigger's candidate, which fires in the
+/// planner's shadow threads next to the live trigger, also on the planner's own changes that the live
+/// trigger skips. The comparison counts the events both versions, or only one, started a run for; the
+/// team keeps the filter and discards the candidate.
 /// SPM-308: a trigger the application adds to the planner on every status change of a project, which
 /// selects the event's <c>not-own-change</c> filter: the planner's own status change of a project does
 /// not start its task follow-up on that project again, while a person's change does.
@@ -34,6 +44,8 @@ public sealed class SampleAgentConfigurationService(
     public const string ProgressNoteTriggerId = "planner-progress-note";
     public const string StarterTriggerId = "project-starter-created";
     public const string StatusFollowUpTriggerId = "planner-status-follow-up";
+    public const string ShadowStarterAgentId = "sample-shadow-starter";
+    public const string ShadowStarterTriggerId = "shadow-starter-created";
 
     private const string AgentId = SampleProjectPlannerComposition.AgentId;
 
@@ -92,6 +104,72 @@ public sealed class SampleAgentConfigurationService(
                 Filters: [SampleProjectPlannerComposition.NotOwnChangeFilter]),
             operatorId.ToString("D"),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-316: puts the status follow-up live, so the planner follows up status changes in its live
+    /// threads.
+    /// </summary>
+    public Task<TaskResult<NhAssistantDataTriggerDto>> PutStatusFollowUpLiveAsync(Guid operatorId, string? reason, CancellationToken cancellationToken)
+    {
+        return configuration.SetTriggerShadowAsync(AgentId, StatusFollowUpTriggerId, false, operatorId.ToString("D"), reason, cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-316: saves the status follow-up without its <c>not-own-change</c> filter as the candidate of
+    /// the live trigger, on the live version it was made on. The live trigger keeps skipping the
+    /// planner's own changes while the candidate fires in shadow.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantDataTriggerDto>> EvaluateStatusFollowUpWithoutFilterAsync(Guid operatorId, CancellationToken cancellationToken)
+    {
+        if (await LiveStatusFollowUpAsync(cancellationToken) is not { } live)
+        {
+            return TaskResult<NhAssistantDataTriggerDto>.Failed(NhAssistantErrorCodes.TriggerNotFound, "The planner has no status follow-up.");
+        }
+
+        return await configuration.SaveTriggerAsync(
+            AgentId,
+            StatusFollowUpTriggerId,
+            new NhAssistantDataTriggerRequest(
+                NhAssistantDataTriggerSources.Event,
+                SampleProjectPlannerComposition.TaskFollowUpSkill,
+                Event: SampleProjectPlannerComposition.StatusChangedEvent,
+                Conflict: NhAssistantTriggerConflictNames.Queue,
+                DebounceSeconds: 0,
+                ExpectedVersion: live.Version,
+                Reason: "Also follow up the planner's own changes",
+                Filters: [])
+            {
+                Apply = NhAssistantSkillApplyModes.Shadow
+            },
+            operatorId.ToString("D"),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-316: the comparison of the status follow-up's candidate with the live trigger.
+    /// </summary>
+    public Task<TaskResult<NhAssistantTriggerComparisonDto>> CompareStatusFollowUpAsync(CancellationToken cancellationToken)
+    {
+        return configuration.CompareTriggerCandidateAsync(AgentId, StatusFollowUpTriggerId, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-316: discards the status follow-up's candidate; it stays as history and fires no more.
+    /// </summary>
+    public async Task<TaskResult> DiscardStatusFollowUpCandidateAsync(Guid operatorId, string? reason, CancellationToken cancellationToken)
+    {
+        if ((await LiveStatusFollowUpAsync(cancellationToken))?.Candidate is not { } candidate)
+        {
+            return TaskResult.Failed(NhAssistantErrorCodes.TriggerCandidateNotFound, "The status follow-up has no candidate.");
+        }
+
+        return await configuration.DiscardTriggerCandidateAsync(AgentId, StatusFollowUpTriggerId, candidate.Version, operatorId.ToString("D"), reason, cancellationToken);
+    }
+
+    private async Task<NhAssistantDataTriggerDto?> LiveStatusFollowUpAsync(CancellationToken cancellationToken)
+    {
+        return (await configuration.GetAsync(AgentId, cancellationToken))?.DataTriggers.FirstOrDefault(trigger => trigger.TriggerId == StatusFollowUpTriggerId);
     }
 
     /// <summary>
@@ -300,6 +378,126 @@ public sealed class SampleAgentConfigurationService(
     {
         var removed = await configuration.RemoveConsultationAsync(agentId, ProjectSubjects.Type, null, operatorId.ToString("D"), cancellationToken: cancellationToken);
         return removed.Success || HasCode(removed, NhAssistantErrorCodes.ConsultationNotFound) ? TaskResult.Succeeded() : removed;
+    }
+
+    /// <summary>
+    /// SPM-317: creates a project starter that starts in shadow, as an import of an agent package
+    /// would: the agent, its run settings (the operations account, the kickoff rules and the intake
+    /// approval policy) and a live trigger on created projects, all in one call. The agent's shadow
+    /// mode takes effect as soon as its run settings exist, so the trigger's first runs already work in
+    /// its shadow threads, where nobody is notified and nothing executes.
+    /// </summary>
+    public async Task<TaskResult> CreateShadowStarterAsync(Guid accountId, Guid operatorId, CancellationToken cancellationToken)
+    {
+        var actorId = operatorId.ToString("D");
+        var created = await configuration.CreateAgentAsync(
+            new NhAssistantAgentRequest(
+                ShadowStarterAgentId,
+                "Shadow starter",
+                "Starts projects that were created as drafts, evaluated in shadow first.",
+                "Explain why you proposed to start the project.",
+                [ProjectAiTools.ChangeStatusToolId],
+                NhAiAutonomyLevel.Execute,
+                OfferedInChat: false)
+            {
+                StartsInShadow = true
+            },
+            actorId,
+            cancellationToken);
+        if (!created.Success)
+        {
+            return created;
+        }
+
+        var settings = await configuration.SaveRunSettingsAsync(
+            ShadowStarterAgentId,
+            new NhAssistantAgentRunSettingsRequest(
+                NhAssistantAccountabilities.ServiceAccount,
+                accountId.ToString("D"),
+                ApprovalPolicy: SampleIntakeReviewerComposition.ApprovalPolicyId,
+                RuleHandler: SampleProjectStarterComposition.KickoffRules,
+                MaxRunsPerSubjectPerDay: 2,
+                Reason: "Start new projects in shadow first"),
+            actorId,
+            cancellationToken);
+        if (!settings.Success)
+        {
+            return settings;
+        }
+
+        var trigger = await configuration.SaveTriggerAsync(
+            ShadowStarterAgentId,
+            ShadowStarterTriggerId,
+            new NhAssistantDataTriggerRequest(
+                NhAssistantDataTriggerSources.Event,
+                Event: SampleProjectStarterComposition.ProjectCreatedEvent,
+                Conflict: NhAssistantTriggerConflictNames.Ignore,
+                Reason: "Start new projects"),
+            actorId,
+            cancellationToken);
+        if (!trigger.Success)
+        {
+            return trigger;
+        }
+
+        // The trigger is live; the agent's own shadow mode keeps its work in the shadow threads.
+        return await configuration.SetTriggerShadowAsync(ShadowStarterAgentId, ShadowStarterTriggerId, false, actorId, "Start new projects", cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-317: lets other assistants consult the shadow starter about projects, as the project
+    /// starter's consultation does, saved to start off: it is not offered until an administrator
+    /// switches it on.
+    /// </summary>
+    public Task<TaskResult<NhAssistantDataConsultationDto>> MakeShadowStarterConsultableAsync(Guid operatorId, CancellationToken cancellationToken)
+    {
+        return configuration.SaveConsultationAsync(
+            ShadowStarterAgentId,
+            ProjectSubjects.Type,
+            StarterConsultation() with
+            {
+                Reason = "Review before other assistants may ask it",
+                StartsOff = true
+            },
+            operatorId.ToString("D"),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-317: switches the shadow starter's consultation on, after a review, or off again.
+    /// </summary>
+    public Task<TaskResult<NhAssistantDataConsultationDto>> SwitchShadowStarterConsultationAsync(bool on, Guid operatorId, CancellationToken cancellationToken)
+    {
+        return configuration.SetConsultationStateAsync(
+            ShadowStarterAgentId,
+            ProjectSubjects.Type,
+            on,
+            operatorId.ToString("D"),
+            on ? "Reviewed" : null,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-317: the shadow starter only chats again: its consultation, its trigger and its run
+    /// settings are removed.
+    /// </summary>
+    public async Task<TaskResult> RemoveShadowStarterAsync(Guid operatorId, CancellationToken cancellationToken)
+    {
+        var actorId = operatorId.ToString("D");
+        var consultation = await configuration.RemoveConsultationAsync(ShadowStarterAgentId, ProjectSubjects.Type, null, actorId, cancellationToken: cancellationToken);
+        if (!consultation.Success && !HasCode(consultation, NhAssistantErrorCodes.ConsultationNotFound))
+        {
+            return consultation;
+        }
+
+        var trigger = await configuration.RemoveTriggerAsync(ShadowStarterAgentId, ShadowStarterTriggerId, null, actorId, cancellationToken: cancellationToken);
+        if (!trigger.Success && !HasCode(trigger, NhAssistantErrorCodes.TriggerNotFound))
+        {
+            return trigger;
+        }
+
+        var settings = await configuration.RemoveRunSettingsAsync(ShadowStarterAgentId, null, actorId, cancellationToken: cancellationToken);
+        return settings.Success || HasCode(settings, NhAssistantErrorCodes.AgentNotConfigured) ? TaskResult.Succeeded() : settings;
     }
 
     private static bool HasCode(TaskResult result, string code)

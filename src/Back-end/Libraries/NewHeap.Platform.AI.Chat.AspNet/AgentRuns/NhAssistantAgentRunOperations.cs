@@ -54,7 +54,15 @@ public sealed record NhAssistantFireTriggerRequest(
     string? EventKey,
     NhAssistantTriggerConflict Conflict,
     TimeSpan Debounce,
-    string? PayloadJson);
+    string? PayloadJson)
+{
+    /// <summary>
+    /// The candidate version of the data trigger the fire evaluates in the agent's shadow thread;
+    /// <see langword="null"/> for the live trigger. A candidate that was promoted, discarded or replaced
+    /// before the commit fires nothing.
+    /// </summary>
+    public int? TriggerCandidateVersion { get; init; }
+}
 
 public static class NhAssistantAgentRunOperationTypes
 {
@@ -335,7 +343,13 @@ internal sealed class NhAssistantAgentRunOperation(
         {
             // A stopped agent starts no run and leaves the thread as it was. A run that had not
             // started when its agent was paused ends without claiming its inputs, which wait for
-            // the resume.
+            // the resume. A trigger's candidate evaluates work as it happens and lets nothing wait:
+            // its run takes its inputs along.
+            if (run.TriggerCandidate)
+            {
+                await runs.ClaimQueuedInputsAsync(run.ConversationId, run.Id, cancellationToken, run.SkillId, run.SkillCandidate, run.TriggerId);
+            }
+
             await ending.EndAsync(run, thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Policy, refusal);
             return TaskResult.Succeeded();
         }
@@ -480,7 +494,13 @@ internal sealed class NhAssistantAgentRunOperation(
     {
         // The run owns every input it claimed; inputs already written by an earlier attempt are
         // skipped when the turn appends them.
-        var inputs = await runs.ClaimQueuedInputsAsync(run.ConversationId, run.Id, cancellationToken, agentTurn.SkillId, run.SkillCandidate);
+        var inputs = await runs.ClaimQueuedInputsAsync(
+            run.ConversationId,
+            run.Id,
+            cancellationToken,
+            agentTurn.SkillId,
+            run.SkillCandidate,
+            run.TriggerCandidate ? run.TriggerId : null);
         // Work other agents handed off belongs to the run that claimed it, before its turn hands
         // work on itself.
         await handOffs.LinkAsync(run.Id, inputs, cancellationToken);

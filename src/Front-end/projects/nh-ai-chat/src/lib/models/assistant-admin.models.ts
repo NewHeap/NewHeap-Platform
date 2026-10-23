@@ -141,6 +141,13 @@ export interface AdminAgentInput {
    */
   startsOff?: boolean;
   /**
+   * On create only: the new agent starts in shadow, so once it has run settings, also when they are
+   * saved right after, its runs work in its shadow threads, where nobody is notified and nothing
+   * executes, until someone puts it live with `setAgentShadow`. Omitted starts it live; ignored on
+   * update.
+   */
+  startsInShadow?: boolean;
+  /**
    * For an agent created in the administration: values of the run catalog's `agentMetadata` entries
    * by name, saved with the definition's version; `null` removes one, entries left out keep theirs.
    * Field errors are `metadata.<name>`. An agent in code changes its editable entries one by one with
@@ -1150,6 +1157,11 @@ export interface ConsultationCeiling {
   maxConsultations: number;
   /** The longest instructions of a consultation defined as data. */
   maxInstructionsLength: number;
+  /**
+   * Every new consultation defined as data starts off until an administrator switches it on
+   * (`StartOff()` in code); missing on older servers.
+   */
+  startsOff?: boolean;
 }
 
 /**
@@ -1240,7 +1252,7 @@ export interface AssistantAccount {
 }
 
 /** Which part of the run configuration a problem concerns. */
-export type RunConfigurationProblemKind = 'agent' | 'skill' | 'candidate' | 'trigger' | 'consultation' | 'hand-off';
+export type RunConfigurationProblemKind = 'agent' | 'skill' | 'candidate' | 'trigger' | 'trigger-candidate' | 'consultation' | 'hand-off';
 
 /**
  * Data that is out of effect because it no longer fits the code, for example after a deploy removed
@@ -1569,6 +1581,15 @@ export interface DataTrigger {
    * Missing on older servers.
    */
   filters?: string[];
+  /**
+   * The candidate version that fires in shadow next to this live version, for the trigger's own agent
+   * and into its shadow threads; missing or null without one. Its `inEffect` and `problem` are its own
+   * (kind `trigger-candidate`), and its `shadow` is always `true`.
+   */
+  candidate?: DataTrigger | null;
+  /** When the version was stored and by whom; missing on older servers. */
+  createdAt?: string;
+  createdBy?: string;
 }
 
 /** Body of `PUT admin/agents/{id}/triggers/{triggerId}`. */
@@ -1601,6 +1622,55 @@ export interface DataTriggerRequest {
    * `assistant-trigger-filter-not-found`; a schedule takes none.
    */
   filters?: string[] | null;
+  /**
+   * For a change of a trigger, `live` by default: the version takes effect at once in the trigger's
+   * mode; `shadow` makes it the candidate that fires in shadow next to the live version, which keeps
+   * working, until it is promoted or discarded. A new trigger fails with `apply: invalid`.
+   */
+  apply?: SkillApplyMode;
+}
+
+/** One version in the history of a trigger defined as data, with its definition. */
+export interface DataTriggerVersion {
+  version: number;
+  status: DataSkillVersionStatus;
+  skillId: string | null;
+  source: 'event' | 'schedule';
+  event: string | null;
+  filters: string[];
+  cron: string | null;
+  timeZone: string | null;
+  subjectSet: string | null;
+  message: string | null;
+  conflict: TriggerConflict;
+  debounceSeconds: number;
+  createdAt: string;
+  createdBy: string;
+  reason: string | null;
+}
+
+/** Body of `POST admin/agents/{id}/triggers/{triggerId}/candidate/promote` and `.../discard`. */
+export type TriggerCandidateRequest = SkillCandidateRequest;
+
+/**
+ * Response of `GET admin/agents/{id}/triggers/{triggerId}/candidate/comparison`: the live version and
+ * the candidate on the runs they started, with the version statistics of the skill comparison. Counts
+ * only.
+ */
+export interface TriggerComparison {
+  agentId: string;
+  triggerId: string;
+  from: string;
+  to: string;
+  live: SkillVersionStats;
+  candidate: SkillVersionStats;
+  /** The events both versions started a run for. */
+  pairedEvents: number;
+  /** The events only the live version started a run for, such as those a filter of the candidate refuses. */
+  liveOnlyEvents: number;
+  /** The events only the candidate started a run for. */
+  candidateOnlyEvents: number;
+  tools: SkillComparisonTool[];
 }
 
 /** Body of `POST admin/agents/{id}/triggers/{triggerId}/shadow`. */
@@ -1739,6 +1809,21 @@ export interface DataConsultation {
   askingAgents: string[];
   createdAt: string;
   createdBy: string;
+  /**
+   * The consultation is switched off: it is not offered until an administrator switches it on with
+   * `setDataConsultationState`; `inEffect` is then `false` without a problem. Missing on older servers.
+   */
+  off?: boolean;
+}
+
+/** The state of a consultation defined as data an administrator switches. */
+export type DataConsultationState = 'on' | 'off';
+
+/** Body of `POST admin/agents/{id}/consultations/{subjectType}/state`. */
+export interface DataConsultationStateRequest {
+  state: DataConsultationState;
+  /** Optional, at most 500 characters. */
+  reason?: string | null;
 }
 
 /**
@@ -1788,4 +1873,10 @@ export interface DataConsultationRequest {
   expectedVersion?: number | null;
   /** Optional, at most 500 characters. */
   reason?: string | null;
+  /**
+   * For a new consultation only: it starts off, so it is not offered until an administrator switches it
+   * on, also when the ceiling does not make every new one start off. A change fails with
+   * `startsOff: invalid`; it keeps whether the consultation is on.
+   */
+  startsOff?: boolean;
 }

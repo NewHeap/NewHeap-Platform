@@ -104,14 +104,22 @@ public sealed class AssistantAgentSkillDefinition
 }
 
 /// <summary>
-/// A data-defined trigger: a named trigger event or a schedule that starts an agent, in one of its
-/// skills or routed by the agent itself.
+/// One version of a data-defined trigger: a named trigger event or a schedule that starts an agent, in
+/// one of its skills or routed by the agent itself. Versions are append-only, as those of a data skill:
+/// the live version is in effect; a candidate fires in shadow next to it until it is promoted or
+/// discarded; superseded and discarded versions are the history. One row per trigger id and version.
 /// </summary>
 public sealed class AssistantAgentTriggerDefinition
 {
     public string Id { get; set; } = string.Empty;
 
     public string AgentId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// One of <see cref="NhAssistantSkillDefinitionStatuses"/>: the statuses of trigger versions are
+    /// those of skill versions. A trigger stored before trigger versions existed is live.
+    /// </summary>
+    public string Status { get; set; } = NhAssistantSkillDefinitionStatuses.Live;
 
     public string? SkillId { get; set; }
 
@@ -154,12 +162,17 @@ public sealed class AssistantAgentTriggerDefinition
     public int DebounceSeconds { get; set; }
 
     /// <summary>
-    /// The trigger's runs work in the agent's shadow thread. A new trigger starts in shadow.
+    /// The trigger's runs work in the agent's shadow thread. A new trigger starts in shadow. The live
+    /// version carries the trigger's mode; a new version takes it over, and a candidate works in shadow
+    /// whatever it says.
     /// </summary>
     public bool Shadow { get; set; } = true;
 
     public int Version { get; set; } = 1;
 
+    /// <summary>
+    /// When the version was stored; <see cref="UpdatedAt"/> follows its status and mode.
+    /// </summary>
     public DateTimeOffset CreatedAt { get; set; }
 
     public string CreatedBy { get; set; } = string.Empty;
@@ -354,6 +367,13 @@ public sealed class AssistantAgentConsultationDefinition
     /// <see langword="null"/> uses the agent's.
     /// </summary>
     public string? DataClassification { get; set; }
+
+    /// <summary>
+    /// The consultation is switched off: it is not offered, and asking agents get none of its tools,
+    /// until an administrator switches it on. A consultation stored before it could be switched off is
+    /// on.
+    /// </summary>
+    public bool Off { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

@@ -6,6 +6,7 @@ import {
   NhAssistantAdminApiService,
   RunBlock,
   RunCatalog,
+  SkillApplyMode,
   TriggerConflict,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
@@ -42,7 +43,9 @@ const conflicts: TriggerConflict[] = ['coalesce', 'queue', 'supersede', 'ignore'
  * that works on the whole application, for the whole application: once each time, or once per
  * division for an agent that works per division. A new trigger starts in shadow. An event trigger may
  * select named filters the event offers, such as one that skips the agent's own changes; every selected
- * filter must let an event through.
+ * filter must let an event through. A change is the trigger's next version: it applies at once in the
+ * trigger's mode, or, when the administrator chooses so, it becomes the candidate that fires in shadow
+ * next to the live version until it is promoted or discarded.
  */
 @Component({
   selector: 'nh-assistant-trigger-form',
@@ -67,7 +70,7 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
   /** The trigger to change; `null` adds one. */
   readonly trigger = input<DataTrigger | null>(null);
   readonly takenIds = input<readonly string[]>([]);
-  readonly saved = output<{ trigger: DataTrigger; added: boolean }>();
+  readonly saved = output<{ trigger: DataTrigger; added: boolean; candidate: boolean }>();
   readonly cancelled = output<void>();
 
   readonly id = `nh-assistant-trigger-form-${nextId++}`;
@@ -76,7 +79,7 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
   readonly examples = cronExamples;
   readonly timeZones = timeZoneOptions().filter(zone => zone.value !== 'UTC');
   protected readonly fields = [
-    'triggerId', 'source', 'event', 'debounceSeconds', 'filters', 'cron', 'timeZone', 'subjectSet', 'message', 'skill', 'conflict', 'reason'
+    'triggerId', 'source', 'event', 'debounceSeconds', 'filters', 'cron', 'timeZone', 'subjectSet', 'message', 'skill', 'conflict', 'apply', 'reason'
   ];
 
   readonly triggerId = signal('');
@@ -93,6 +96,11 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
   readonly debounce = signal('120');
   /** The names of the event's filters the trigger applies. */
   readonly filters = signal<readonly string[]>([]);
+  /**
+   * How a change takes effect: at once, as before, or as the candidate that fires in shadow next to
+   * the live version first.
+   */
+  readonly apply = signal<SkillApplyMode>('live');
   readonly reason = signal('');
 
   readonly editing = computed(() => this.trigger() !== null);
@@ -149,6 +157,7 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
     this.conflict.set(trigger?.conflict ?? 'coalesce');
     this.debounce.set(String(trigger?.debounceSeconds ?? 120));
     this.filters.set(trigger?.filters ?? []);
+    this.apply.set('live');
   }
 
   /** Another event offers other filters: those it does not offer no longer apply. */
@@ -230,11 +239,13 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
       // In the order the event offers them; a schedule takes none.
       filters: schedule ? [] : this.orderedFilters(),
       expectedVersion: editing?.version ?? null,
-      reason: blank(this.reason())
+      reason: blank(this.reason()),
+      ...(editing ? { apply: this.apply() } : {})
     };
     this.submit(errors, () => this.admin.saveDataTrigger(this.agentId(), triggerId, request), trigger => this.saved.emit({
       trigger,
-      added: editing === null
+      added: editing === null,
+      candidate: editing !== null && this.apply() === 'shadow'
     }));
   }
 

@@ -92,6 +92,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-run-settings-in-code',
   'assistant-run-settings-in-use',
   'assistant-skill-candidate-not-found',
+  'assistant-trigger-candidate-not-found',
   'assistant-skill-version-gone',
   'assistant-account-search-unavailable',
   'assistant-handoff-unavailable',

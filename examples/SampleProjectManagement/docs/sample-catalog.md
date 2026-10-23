@@ -316,6 +316,28 @@ confirms in time becomes `execution-unknown`, and an approver hands it to the de
 proposal's card. `AssistantAgentRunSamplesTests` runs the case, with the desk's confirmations standing
 in for the supplier's callback.
 
+A changed data trigger can be tried in shadow before it replaces the live one (SPM-316). The planner's
+status follow-up skips the planner's own changes (SPM-308); `SampleAgentConfigurationService` saves the
+change that drops that filter with `Apply = NhAssistantSkillApplyModes.Shadow`, so it becomes the
+trigger's next version as its candidate while the live version keeps firing unchanged. Every event the
+trigger receives is evaluated by both: the planner's own change starts only the candidate, in the
+planner's shadow thread of the project, and a person's change starts the live version in the live
+thread and the candidate in the shadow thread, which records the trigger's version and that a
+candidate started it. `CompareTriggerCandidateAsync` counts both versions' runs and the events both
+handled, and the team discards the candidate with a reason; the trigger's history keeps every version.
+In the assistant administration, the run configuration shows the trigger's candidate with what it
+changes, the comparison, "Promote" and "Discard", and the trigger's history.
+
+An agent created at runtime can start in shadow, and a consultation can wait for an administrator
+(SPM-317). `SampleAgentConfigurationService` creates the shadow starter with `StartsInShadow` and in
+the same call gives it run settings and a live trigger on created projects: its first run already
+works in its shadow thread, where nobody is notified and nothing executes. Its consultation about
+projects is saved with `StartsOff`, so asking agents get no consult tool until an administrator
+switches it on with `SetConsultationStateAsync`, after which the tool appears at once. The agent
+editor offers "Start in shadow" for a new agent with runs, and the consultation form "Start off"; a
+consultation that is off shows that and offers "Switch on". `AssistantAgentRunSamplesTests` runs both
+cases.
+
 Administrators connect agents with hand-offs as data, within a ceiling in code (SPM-318).
 `SampleAgentLinksAsDataComposition` calls `UseHandOffsAsData`: agents created in the administration may
 accept hand-offs about projects from each other and from the project planner, at most five per source

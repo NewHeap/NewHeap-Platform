@@ -313,7 +313,19 @@
   </details>
 
   @if (!editing()) {
-    <p class="hint">{{ 'nh-assistant.admin.run-config.consultations.form.in-effect' | translate }}</p>
+    @if (ceilingStartsOff()) {
+      <!-- The application wants every new consultation reviewed before it is offered. -->
+      <p class="hint" data-starts-off-ceiling>{{ 'nh-assistant.admin.run-config.consultations.form.starts-off-ceiling' | translate }}</p>
+    } @else {
+      <p class="hint">{{ 'nh-assistant.admin.run-config.consultations.form.in-effect' | translate }}</p>
+      <label class="check described" data-starts-off>
+        <input type="checkbox" [checked]="startsOff()" (change)="startsOff.set(checked($event))" />
+        <span>
+          <strong>{{ 'nh-assistant.admin.run-config.consultations.form.starts-off' | translate }}</strong>
+          <span class="muted">{{ 'nh-assistant.admin.run-config.consultations.form.starts-off-hint' | translate }}</span>
+        </span>
+      </label>
+    }
   }
   <div class="field">
     <label [for]="id + '-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>

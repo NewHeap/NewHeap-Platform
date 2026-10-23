@@ -558,7 +558,7 @@ internal sealed class NhAssistantAgentEvents(
 
     /// <summary>
     /// Records that a run ended, with its content-free facts: what started it, whether it was a
-    /// shadow run, its skill and skill version, how many model calls it made and its status apart
+    /// shadow run, its skill and skill version, the version of its data trigger, how many model calls it made and its status apart
     /// from its failure code. <c>ResultCode</c> keeps <c>status:code</c> as before. A run created
     /// before its trigger kind was recorded takes the kind of its trigger as registered now.
     /// </summary>
@@ -585,6 +585,7 @@ internal sealed class NhAssistantAgentEvents(
                 InitiatorActorId = run.InitiatorActorId,
                 SkillId = run.SkillId,
                 SkillVersion = run.SkillVersion,
+                TriggerVersion = run.TriggerVersion,
                 Shadow = run.Shadow,
                 ModelCallCount = run.ModelCalls
             },
