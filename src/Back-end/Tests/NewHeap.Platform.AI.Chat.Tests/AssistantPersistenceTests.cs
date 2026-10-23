@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
@@ -227,6 +228,121 @@ public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Concurrent_messages_of_a_conversation_get_distinct_gap_free_sequences_and_a_client_message_id_is_stored_once(
+        AssistantTestProvider provider)
+    {
+        const int turnMessages = 12;
+        const int keyedPosts = 6;
+        const int unkeyedPosts = 4;
+        const int queuedInputs = 4;
+        const int elsewhere = 6;
+        await using var services = await database.CreateStorageAsync(provider);
+        var store = services.GetRequiredService<INhAssistantStore>();
+        var conversation = CreateConversation("owner-1");
+        var other = CreateConversation("owner-2");
+        await store.AddConversationAsync(conversation, CancellationToken.None);
+        await store.AddConversationAsync(other, CancellationToken.None);
+
+        // A turn's messages, the application's posts with one idempotency key and without one, an
+        // agent's queued input that a resumed run writes again, and the messages of another
+        // conversation, all at the same moment, each in a context of its own.
+        var adds = new List<Func<Task<(string Kind, AssistantMessage Sent, AssistantMessage? Earlier)>>>();
+        adds.AddRange(Enumerable.Range(0, turnMessages).Select(_ => Add(
+            "turn",
+            Message(conversation.Id, NhAssistantMessageRoles.Assistant, null),
+            async message =>
+            {
+                await store.AddMessageAsync(message, CancellationToken.None);
+                return null;
+            })));
+        adds.AddRange(Enumerable.Range(0, keyedPosts).Select(_ => Add(
+            "keyed",
+            Message(conversation.Id, NhAssistantMessageRoles.Application, "application:export-42"),
+            message => store.AddApplicationMessageAsync(message, CancellationToken.None))));
+        adds.AddRange(Enumerable.Range(0, unkeyedPosts).Select(_ => Add(
+            "unkeyed",
+            Message(conversation.Id, NhAssistantMessageRoles.Application, null),
+            message => store.AddApplicationMessageAsync(message, CancellationToken.None))));
+        adds.AddRange(Enumerable.Range(0, queuedInputs).Select(_ => Add(
+            "queued",
+            Message(conversation.Id, NhAssistantMessageRoles.User, "queued:input-1"),
+            message => store.AddMessageOnceAsync(message, CancellationToken.None))));
+        adds.AddRange(Enumerable.Range(0, elsewhere).Select(_ => Add(
+            "elsewhere",
+            Message(other.Id, NhAssistantMessageRoles.User, null),
+            async message =>
+            {
+                await store.AddMessageAsync(message, CancellationToken.None);
+                return null;
+            })));
+
+        var results = await RunConcurrentlyAsync(adds);
+
+        var stored = await store.GetMessagesAsync(conversation.Id, 100, CancellationToken.None);
+        var expected = turnMessages + 1 + unkeyedPosts + 1;
+        Assert.Equal(Enumerable.Range(1, expected), stored.Select(message => message.Sequence));
+        Assert.Equal(
+            Enumerable.Range(1, elsewhere),
+            (await store.GetMessagesAsync(other.Id, 100, CancellationToken.None)).Select(message => message.Sequence));
+
+        // Every add of the same client message id but one returns that one stored message.
+        foreach (var kind in new[] { "keyed", "queued" })
+        {
+            var attempts = results.Where(result => result.Kind == kind).ToArray();
+            var added = Assert.Single(attempts, attempt => attempt.Earlier is null).Sent;
+            var kept = Assert.Single(stored, message => message.ClientMessageId == added.ClientMessageId);
+            Assert.Equal((added.Id, added.Sequence), (kept.Id, kept.Sequence));
+            Assert.All(
+                attempts.Where(attempt => attempt.Earlier is not null),
+                attempt => Assert.Equal((kept.Id, kept.Sequence), (attempt.Earlier!.Id, attempt.Earlier.Sequence)));
+        }
+
+        // A message keeps the sequence number it was given when it was stored.
+        Assert.All(
+            results.Where(result => result.Earlier is null && result.Kind != "elsewhere"),
+            result => Assert.Equal(result.Sent.Id, Assert.Single(stored, message => message.Sequence == result.Sent.Sequence).Id));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_message_that_cannot_take_the_message_lock_in_time_is_not_stored(
+        AssistantTestProvider provider)
+    {
+        await using var services = await database.CreateStorageAsync(provider);
+        var store = services.GetRequiredService<INhAssistantStore>();
+        var contexts = services.GetRequiredService<NhAssistantDbContextFactory>();
+        var conversation = CreateConversation("owner-1");
+        await store.AddConversationAsync(conversation, CancellationToken.None);
+        var impatient = new NhAssistantStore(contexts, services.GetRequiredService<ILogger<NhAssistantStore>>())
+        {
+            MessageLockTimeout = TimeSpan.FromMilliseconds(200)
+        };
+
+        await using (var holder = contexts.CreateDbContext())
+        {
+            await using var held = await holder.Database.BeginTransactionAsync();
+            Assert.True(await contexts.TransactionLocks.TryAcquireAsync(
+                holder,
+                NhAssistantStore.MessageLockResource(conversation.Id),
+                TimeSpan.Zero,
+                CancellationToken.None));
+
+            // Without the lock the message could share its sequence number, so it is not stored.
+            await Assert.ThrowsAsync<TimeoutException>(() => impatient.AddMessageAsync(
+                Message(conversation.Id, NhAssistantMessageRoles.Assistant, null),
+                CancellationToken.None));
+            Assert.Empty(await store.GetMessagesAsync(conversation.Id, 10, CancellationToken.None));
+        }
+
+        var message = Message(conversation.Id, NhAssistantMessageRoles.Assistant, null);
+        await impatient.AddMessageAsync(message, CancellationToken.None);
+        Assert.Equal(1, message.Sequence);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task A_stale_tracked_status_change_is_rejected_by_the_concurrency_token(
         AssistantTestProvider provider)
     {
@@ -361,6 +477,44 @@ public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
             .OrderBy(setting => setting.Id, StringComparer.Ordinal)
             .Select(setting => (setting.Id, setting.ToolName, setting.MediaTypes, setting.MaxClassification))
             .ToArray();
+    }
+
+    private static AssistantMessage Message(Guid conversationId, string role, string? clientMessageId)
+    {
+        return new AssistantMessage
+        {
+            Id = Guid.NewGuid(),
+            ConversationId = conversationId,
+            Role = role,
+            PartsJson = "[]",
+            ClientMessageId = clientMessageId,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+    }
+
+    private static Func<Task<(string Kind, AssistantMessage Sent, AssistantMessage? Earlier)>> Add(
+        string kind,
+        AssistantMessage message,
+        Func<AssistantMessage, Task<AssistantMessage?>> add)
+    {
+        return async () => (kind, message, await add(message));
+    }
+
+    /// <summary>
+    /// Starts every add on its own thread at the same moment.
+    /// </summary>
+    private static async Task<T[]> RunConcurrentlyAsync<T>(IReadOnlyList<Func<Task<T>>> adds)
+    {
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var running = adds
+            .Select(add => Task.Run(async () =>
+            {
+                await start.Task;
+                return await add();
+            }))
+            .ToArray();
+        start.SetResult();
+        return await Task.WhenAll(running);
     }
 
     private static AssistantConversation CreateConversation(string owner)

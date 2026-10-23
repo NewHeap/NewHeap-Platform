@@ -9,7 +9,8 @@ sample cases SPM-305, SPM-310 and SPM-312 are authoritative for usage.
 ## Status
 
 Implemented on 2026-10-23 on branch `feature/chat-feedback`, with sample case SPM-312 added and
-SPM-305 and SPM-310 extended. The choices below wait for Lars's review.
+SPM-305 and SPM-310 extended. The choices below wait for Lars's review. FB11 and FB13, the two
+known races, are closed on branch `fix/sequence-lock-and-shadow-test`.
 
 ## 1. Uploads without a usable file type
 
@@ -84,9 +85,11 @@ SPM-312 shows it from the portfolio analysis.
   Alternative for threads: a new agent notification kind so the in-app channel and the policy see it.
 - **FB11 — Idempotency key optional.** With a key the conversation keeps one application message
   per key (stored as client message id `application:<key>`) and a repeated post returns the earlier
-  message with `Duplicate`, without notifying or auditing again. Two posts with the same key at the
-  same moment can both be stored: the store has no unique index on client message ids, and adding one
-  needs a migration over existing data. Without a key every post adds a message.
+  message with `Duplicate`, without publishing, notifying or auditing again. Without a key every post
+  adds a message. **Closed** on branch `fix/sequence-lock-and-shadow-test`: the look-up of an earlier
+  application message with the key and the insert run in one transaction that holds the
+  conversation's message lock (FB13), so two posts with the same key at the same moment store one
+  message. There is still no unique index on client message ids, so no migration.
 - **FB12 — Open conversation and access.** "Open" means not archived: an archived conversation is
   `assistant-conversation-not-found`, as an unknown one, and a running or waiting conversation
   accepts the message (it does not start a turn). The API checks no person's access by itself;
@@ -94,8 +97,19 @@ SPM-312 shows it from the portfolio analysis.
   owner or a participant of the same tenant, which the sample uses because the conversation id comes
   from the person's client. Posting while the assistant is disabled is `assistant-disabled`.
 - **FB13 — Ordering and the conversation list.** The message gets `max(sequence) + 1`, as every
-  message does; a post at the same moment as a turn's own message can share its sequence number,
-  as two concurrent turns could before. It moves the conversation's update time, so it rises in the
+  message does. **Closed** on branch `fix/sequence-lock-and-shadow-test`: every message insert reads
+  the highest number and inserts in one transaction that holds the conversation's message lock, the
+  platform's transaction lock that already serializes joins (`sp_getapplock` on SQL Server,
+  `pg_try_advisory_xact_lock` on PostgreSQL, resource `NhAssistant:ConversationMessages:<id>`). That
+  covers a person's message, the assistant message of every turn (chat, decision, agent run, resumed
+  and consultation turns), an agent's queued input, whose "written once" check now runs under the
+  same lock, and the application's message. No two messages of a conversation share a number,
+  including those of two concurrent turns; no unique index, no migration. Choice for review: a
+  message that waits longer than 15 seconds for the lock is not stored and the store throws a
+  `TimeoutException`, unlike a join, which continues without its lock after 5 seconds; without the
+  lock the message could share its number, and the lock is held for three short statements, so only
+  a stalled database waits that long. Alternative: continue without the lock with a warning, as a
+  join does. The application's message moves the conversation's update time, so it rises in the
   people's lists, except while a turn runs, whose update time tells an abandoned turn from a live
   one. A tab that streams a turn of that conversation ignores its live updates meanwhile, as for a
   colleague's message, so it shows an application message that arrived during the turn when it next

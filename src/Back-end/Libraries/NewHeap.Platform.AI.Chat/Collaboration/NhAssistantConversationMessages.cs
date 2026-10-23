@@ -64,13 +64,6 @@ internal sealed class NhAssistantConversationMessages(
         var clientMessageId = string.IsNullOrWhiteSpace(message.IdempotencyKey)
             ? null
             : IdempotencyPrefix + message.IdempotencyKey.Trim();
-        if (clientMessageId is not null
-            && await store.FindApplicationMessageAsync(conversation.Id, clientMessageId, cancellationToken) is { } earlier)
-        {
-            return TaskResult<NhAssistantApplicationMessageReceipt>.Succeeded(
-                new NhAssistantApplicationMessageReceipt(earlier.Id, earlier.Sequence, Duplicate: true));
-        }
-
         var text = message.Text.Trim();
         var details = new NhAssistantStoredPart(
             NhAssistantStoredPart.ApplicationType,
@@ -88,7 +81,15 @@ internal sealed class NhAssistantConversationMessages(
             ClientMessageId = clientMessageId,
             CreatedAt = DateTimeOffset.UtcNow
         };
-        await store.AddApplicationMessageAsync(stored, cancellationToken);
+
+        // The store looks for an earlier message with the key and adds this one in one transaction
+        // under the conversation's message lock, so two posts with the same key at the same moment
+        // store one message. A repeated post is neither published, notified nor audited again.
+        if (await store.AddApplicationMessageAsync(stored, cancellationToken) is { } earlier)
+        {
+            return TaskResult<NhAssistantApplicationMessageReceipt>.Succeeded(
+                new NhAssistantApplicationMessageReceipt(earlier.Id, earlier.Sequence, Duplicate: true));
+        }
 
         // Live updates are best effort: people who are not connected read the message from the snapshot.
         var view = new NhAssistantMessageView(

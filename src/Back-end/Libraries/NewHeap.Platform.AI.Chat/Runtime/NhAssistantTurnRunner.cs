@@ -1053,11 +1053,6 @@ internal sealed partial class NhAssistantTurnRunner(
     private async Task AppendInputAsync(Guid conversationId, Guid turnId, NhAssistantAgentTurnInput input)
     {
         var clientMessageId = QueuedClientMessageId(input);
-        if (await store.ClientMessageExistsAsync(conversationId, clientMessageId, CancellationToken.None))
-        {
-            return;
-        }
-
         var author = input.AuthorActorId
             ?? NhAssistantSpeakers.TriggerActorPrefix + (input.TriggerId ?? NhAssistantTriggerIds.Manual);
         var text = NhAssistantContent.Bound(input.Text, registration.Limits.MaxMessageChars);
@@ -1074,7 +1069,11 @@ internal sealed partial class NhAssistantTurnRunner(
             ClientMessageId = clientMessageId,
             CreatedAt = DateTimeOffset.UtcNow
         };
-        await store.AddMessageAsync(message, CancellationToken.None);
+        if (await store.AddMessageOnceAsync(message, CancellationToken.None) is not null)
+        {
+            return;
+        }
+
         var view = new NhAssistantMessageView(
             message.Id,
             message.Role,

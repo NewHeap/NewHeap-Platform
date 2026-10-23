@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.Notifications;
+using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Live;
 using NewHeap.Platform.AI.Chat.Notifications;
@@ -134,6 +135,72 @@ public sealed class AssistantApplicationMessageTests(AssistantDatabaseFixture da
         Assert.EndsWith($"The export of **12 projects** finished. {Injection}\n</application-message>", marked.Text, StringComparison.Ordinal);
         var order = messages.ToList();
         Assert.True(order.IndexOf(marked) > order.FindIndex(item => item.Text == "The export runs in the background."));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Concurrent_posts_and_a_turns_messages_get_distinct_sequences_and_one_idempotency_key_stores_one_message(AssistantTestProvider provider)
+    {
+        const int keyedPosts = 6;
+        const int unkeyedPosts = 4;
+        const int turnMessages = 8;
+        await using var app = await AssistantWebApplication.StartAsync(database, new NhAiScriptedChatClient(), provider: provider);
+        using var owner = app.CreateClient();
+        var id = Guid.Parse(await CreateConversationAsync(owner));
+
+        // The application posts the same message twice over and other messages while a turn writes
+        // its own, all at the same moment, each on a thread and in a scope of its own.
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var posts = Enumerable.Range(0, keyedPosts + unkeyedPosts)
+            .Select(index => Task.Run(async () =>
+            {
+                await start.Task;
+                return await PostAsync(app, id, new NhAssistantApplicationMessage($"Export {index} finished.")
+                {
+                    IdempotencyKey = index < keyedPosts ? "export-42" : null
+                });
+            }))
+            .ToArray();
+        var turn = Enumerable.Range(0, turnMessages)
+            .Select(_ => Task.Run(async () =>
+            {
+                await start.Task;
+                var message = new AssistantMessage
+                {
+                    Id = Guid.NewGuid(),
+                    ConversationId = id,
+                    TurnId = Guid.NewGuid(),
+                    Role = NhAssistantMessageRoles.Assistant,
+                    PartsJson = "[]",
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+                await using var scope = app.Services.CreateAsyncScope();
+                await scope.ServiceProvider.GetRequiredService<INhAssistantStore>().AddMessageAsync(message, CancellationToken.None);
+                return message;
+            }))
+            .ToArray();
+        start.SetResult();
+        var receipts = await Task.WhenAll(posts);
+        var written = await Task.WhenAll(turn);
+
+        Assert.All(receipts, receipt => Assert.True(receipt.Success));
+        var keyed = receipts[..keyedPosts].Select(receipt => receipt.Data!).ToArray();
+        var first = Assert.Single(keyed, receipt => !receipt.Duplicate);
+        Assert.All(keyed, receipt => Assert.Equal((first.MessageId, first.Sequence), (receipt.MessageId, receipt.Sequence)));
+        Assert.All(receipts[keyedPosts..], receipt => Assert.False(receipt.Data!.Duplicate));
+
+        await using var reading = app.Services.CreateAsyncScope();
+        var stored = await reading.ServiceProvider.GetRequiredService<INhAssistantStore>().GetMessagesAsync(id, 100, CancellationToken.None);
+        Assert.Equal(Enumerable.Range(1, 1 + unkeyedPosts + turnMessages), stored.Select(message => message.Sequence));
+        Assert.Single(stored, message => message.ClientMessageId == NhAssistantConversationMessages.IdempotencyPrefix + "export-42");
+        // Every receipt and every turn message names the number its message was stored with.
+        var given = receipts
+            .Select(receipt => (receipt.Data!.MessageId, receipt.Data.Sequence))
+            .Distinct()
+            .Concat(written.Select(message => (MessageId: message.Id, message.Sequence)))
+            .OrderBy(item => item.Sequence);
+        Assert.Equal(given, stored.Select(message => (MessageId: message.Id, message.Sequence)));
     }
 
     [Fact]
