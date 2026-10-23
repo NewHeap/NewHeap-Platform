@@ -751,6 +751,18 @@ public sealed record NhAssistantAdminAgentInputDto(
     /// on update.
     /// </summary>
     public bool? StartsInShadow { get; init; }
+
+    /// <summary>
+    /// On create only: the live agent the new agent is a data shadow variant of, within
+    /// <c>UseShadowVariantsAsData</c>. The variant receives every trigger of the live agent, always
+    /// works in shadow and is never offered in the chat. A live agent the ceiling does not allow answers
+    /// <c>409 assistant-shadow-variants-not-allowed</c>, one without a run configuration the field error
+    /// <c>shadowOf: not-found</c>, one that is no live agent <c>shadowOf: invalid</c> and one with as many
+    /// data variants as allowed <c>409 assistant-configuration-limit</c>. Ignored on update: a variant
+    /// never changes its live agent. A variant ignores <see cref="StartsInShadow"/>: it always works in
+    /// shadow.
+    /// </summary>
+    public string? ShadowOf { get; init; }
 }
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>

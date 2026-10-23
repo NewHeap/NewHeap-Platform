@@ -476,6 +476,19 @@ once; the flow's "When it runs" step names the consultations with their askers, 
 point. The mock API plays the same rules with `consultationsAsData`, `consultableAsData`,
 `consultationTools` and `dataConsultations`.
 
+Below the run configuration `nh-assistant-admin-agents` shows the agent's hand-offs
+(`nh-assistant-agent-hand-offs`) and shadow variants (`nh-assistant-agent-shadow-variants`). The
+hand-offs (`getAgentHandOffs`) list those in code read only and those defined as data with their
+version, sources, daily limit, generated tool and, out of effect, their problem; the form
+(`saveDataHandOff`, `removeDataHandOff`) offers only the kinds of object and sources the `ceiling`
+allows, says why an agent cannot accept one (no ceiling, no run settings, the ceiling's `maxHandOffs`,
+every kind of object taken) and keeps a saved source the ceiling no longer allows only to clear it. The
+shadow variants (`getShadowVariants`) list those in code and as data with whether they have run
+settings and receive the agent's events; "New shadow variant" creates an agent from the live agent's
+definition with `createAgent` and `shadowOf`, never offered in the chat, and the page continues in the
+variant's run configuration to give it run settings. The mock API plays the same rules with
+`handOffsAsData`, `shadowVariantsAsData` and `codeHandOffs`.
+
 The agent-run components refresh themselves: `NhAssistantLiveService.agentWork$` emits the
 hub's `AgentWorkChanged` for every run, proposal or feedback change on a subject the user
 belongs to, and the inbox, the thread view and the open panel session reload after a short
@@ -1083,3 +1096,13 @@ are the executable references.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs)
+- SPM-318 — An administrator connects two agents created at runtime with a hand-off as data, within the ceiling in code, without a deploy
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
+- SPM-319 — An administrator tries a shadow variant of the project planner created at runtime next to the live planner
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)

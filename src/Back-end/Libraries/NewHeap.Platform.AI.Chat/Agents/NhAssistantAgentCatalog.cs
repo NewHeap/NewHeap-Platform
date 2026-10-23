@@ -101,6 +101,13 @@ internal sealed record NhAssistantAgent(
     /// and its definition holds no usable instructions. <see langword="null"/> when they resolve.
     /// </summary>
     public string? InstructionsProblem { get; init; }
+
+    /// <summary>
+    /// The live agent an agent created in the administration is a data shadow variant of, as stored
+    /// when it was created, whether or not its run settings are in effect; <see langword="null"/> for
+    /// every other agent. A variant in code says it in its run configuration (<c>ShadowOf</c>).
+    /// </summary>
+    public string? ShadowOfAgentId { get; init; }
 }
 
 /// <summary>
@@ -261,7 +268,8 @@ internal sealed class NhAssistantAgentCatalog(
                 : NhAssistantAgentWorksOn.FromRow(row),
             DataClassification = ClassificationOf(row),
             InstructionsAsset = reference,
-            InstructionsProblem = instructionsProblem
+            InstructionsProblem = instructionsProblem,
+            ShadowOfAgentId = row.Source == NhAssistantAgentSources.Admin ? row.ShadowOfAgentId : null
         };
     }
 

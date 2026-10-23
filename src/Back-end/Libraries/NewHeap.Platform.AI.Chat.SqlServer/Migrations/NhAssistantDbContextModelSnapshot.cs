@@ -149,6 +149,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("ShadowOfAgentId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
                     b.Property<bool?>("ShadowOverride")
                         .HasColumnType("bit");
 
@@ -344,6 +348,63 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.HasIndex("GroupId");
 
                     b.ToTable("AssistantAgentGroupMember", "nhai");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentHandOffDefinition", b =>
+                {
+                    b.Property<string>("AgentId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("SubjectType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("MaxPerSubjectPerDay")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("NotifySource")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("SourcesJson")
+                        .IsRequired()
+                        .HasMaxLength(2700)
+                        .HasColumnType("nvarchar(2700)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("AgentId", "SubjectType");
+
+                    b.ToTable("AssistantAgentHandOffDefinition", "nhai");
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentMcpServer", b =>
@@ -2828,6 +2889,15 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentGroupMember", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantAgent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentHandOffDefinition", b =>
                 {
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantAgent", null)
                         .WithMany()

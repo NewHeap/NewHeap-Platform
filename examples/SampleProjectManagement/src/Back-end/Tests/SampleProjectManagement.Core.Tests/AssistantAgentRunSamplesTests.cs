@@ -3018,6 +3018,266 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task SPM_318_an_administrator_connects_two_agents_created_at_runtime_with_a_hand_off_within_the_ceiling_in_code()
+    {
+        // SPM-318
+        const string desk = "sample-project-intake-desk";
+        const string kickoff = "sample-project-kickoff-desk";
+        const string handOffFunction = "handoff_" + kickoff + "_project";
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        var project = await host.CreateProjectAsync("HANDDATA", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        // The intake desk's model hands every draft project to the kickoff desk through the tool the
+        // hand-off generates; it is offered only while the hand-off is in effect.
+        var deskModel = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(handOffFunction, new { message = "A draft project waits to be started." }, "call-handoff")
+            .RespondWithText("I handed the project to the kickoff desk.");
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "Hand every draft project to the kickoff desk"), deskModel)));
+        try
+        {
+            // Two agents created in the administration, each answering to the operations account: the
+            // intake desk works with the model and may select hand-off tools, the kickoff desk works
+            // by the kickoff rules (SPM-296).
+            await CreateRuntimeAgentAsync(administrator, desk, "Intake desk", "Hand every draft project to the kickoff desk.", ["assistant.handoff.*"]);
+            await CreateRuntimeAgentAsync(administrator, kickoff, "Kickoff desk", "Explain why you proposed to start the project.", [ProjectAiTools.ChangeStatusToolId]);
+            await SaveRuntimeRunSettingsAsync(desk, ruleHandler: null);
+            await SaveRuntimeRunSettingsAsync(kickoff, SampleProjectStarterComposition.KickoffRules);
+
+            // The ceiling in code decides who may be connected: agents created in the administration
+            // accept hand-offs about projects from each other and from the planner, nobody else.
+            var handOffs = (await administrator.GetFromJsonAsync<NhAssistantAgentHandOffsDto>($"/api/assistant/admin/agents/{kickoff}/hand-offs", Json))!;
+            var allowance = Assert.Single(handOffs.Ceiling!.SubjectTypes);
+            Assert.Equal((ProjectSubjects.Type, true, SampleAgentLinksAsDataComposition.MaxHandOffsPerProjectPerDay),
+                (allowance.SubjectType, allowance.SourcesCreatedInAdministration, handOffs.Ceiling.MaxPerSubjectPerDay));
+            Assert.Contains(desk, allowance.Sources);
+            Assert.Contains(SampleProjectPlannerComposition.AgentId, allowance.Sources);
+            Assert.DoesNotContain(SampleStatusAdvisorComposition.AgentId, allowance.Sources);
+            using (var outside = await administrator.PutAsJsonAsync(
+                       $"/api/assistant/admin/agents/{kickoff}/hand-offs/{ProjectSubjects.Type}",
+                       new NhAssistantDataHandOffRequest([SampleStatusAdvisorComposition.AgentId]),
+                       Json))
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, outside.StatusCode);
+                Assert.Contains("not-allowed", await outside.Content.ReadAsStringAsync());
+            }
+            using (var closer = await administrator.PutAsJsonAsync(
+                       $"/api/assistant/admin/agents/{SampleProjectCloserComposition.AgentId}/hand-offs/{ProjectSubjects.Type}",
+                       new NhAssistantDataHandOffRequest([desk]),
+                       Json))
+            {
+                Assert.Equal(HttpStatusCode.Conflict, closer.StatusCode);
+                Assert.Contains(NhAssistantErrorCodes.HandOffsNotAllowed, await closer.Content.ReadAsStringAsync());
+            }
+
+            // Within the ceiling the hand-off is in effect at once, without a deploy.
+            using var saved = await administrator.PutAsJsonAsync(
+                $"/api/assistant/admin/agents/{kickoff}/hand-offs/{ProjectSubjects.Type}",
+                new NhAssistantDataHandOffRequest([desk], "Starts draft projects that are ready to start.", NotifySource: true, MaxPerSubjectPerDay: 2, Reason: "Connect the intake"),
+                Json);
+            Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+            var handOff = (await saved.Content.ReadFromJsonAsync<NhAssistantDataHandOffDto>(Json))!;
+            Assert.Equal((1, true, "assistant.handoff." + kickoff + "." + ProjectSubjects.Type), (handOff.Version, handOff.InEffect, handOff.ToolId));
+
+            // The intake desk's run hands the project over; the kickoff desk works on it in its own
+            // thread, by its rules, and proposes to start it for the project's approvers.
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var started = await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>().StartAsync(
+                    desk,
+                    ProjectSubjects.For(project),
+                    host.OwnerId.ToString("D"),
+                    "Look at this draft project.");
+                Assert.NotEqual(NhAssistantTriggerOutcomes.Rejected, started.Outcome);
+            }
+            var kickoffThread = await WaitForThreadAsync(colleague, project, kickoff, host.AdvanceToNextAgentRetryAsync);
+            var handedOff = await WaitForRunWithTriggerAsync(colleague, kickoffThread, NhAssistantTriggerIds.HandOff, host.AdvanceToNextAgentRetryAsync);
+            Assert.True(
+                handedOff.Status == NhAssistantRunStatuses.Completed && handedOff.RequestedByAgentId == desk && handedOff.HandOffDepth == 1,
+                $"Expected the kickoff desk's run completed, handed off at depth 1 by {desk}; found {Describe(handedOff)}, handed off by {handedOff.RequestedByAgentId ?? "nobody"} at depth {handedOff.HandOffDepth}.");
+            var proposal = await WaitForProposalAsync(colleague, kickoffThread, NhAssistantApprovalStatuses.Pending);
+            Assert.Equal(ProjectAiTools.ChangeStatusToolId, proposal.ToolId);
+            var tools = deskModel.Requests[0].Options?.Tools?.Select(tool => tool.Name).ToArray() ?? [];
+            Assert.Contains(handOffFunction, tools);
+            Assert.Contains(host.Services.GetRequiredService<SampleAssistantAuditLog>().Events, evt =>
+                evt.Kind == NhAssistantAuditEventKind.AdminAgentHandOffDefinitionChanged && evt.AgentId == kickoff && evt.ResultCode == "created");
+
+            // The hand-off keeps the kickoff desk's run settings; removed, its tool is gone.
+            Assert.Equal(NhAssistantErrorCodes.RunSettingsInUse, Code(await ConfigureAsync(configuration => configuration.RemoveRunSettingsAsync(kickoff, null, host.OwnerId.ToString("D")))));
+            using var removed = await administrator.DeleteAsync($"/api/assistant/admin/agents/{kickoff}/hand-offs/{ProjectSubjects.Type}?expectedVersion=1");
+            Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+            Assert.Empty((await administrator.GetFromJsonAsync<NhAssistantAgentHandOffsDto>($"/api/assistant/admin/agents/{kickoff}/hand-offs", Json))!.DataHandOffs);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+            await RemoveRuntimeAgentAsync(administrator, desk);
+            await RemoveRuntimeAgentAsync(administrator, kickoff);
+        }
+    }
+
+    [Fact]
+    public async Task SPM_319_an_administrator_tries_a_shadow_variant_of_the_planner_created_at_runtime_next_to_the_live_planner()
+    {
+        // SPM-319
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string trial = "sample-project-planner-trial";
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var from = DateTimeOffset.UtcNow.AddSeconds(-1);
+        try
+        {
+            // The variant starts from the planner's definition and tries progress notes by rule. It
+            // names its live agent once, within the ceiling in code; other agents get no variants.
+            using (var refused = await administrator.PostAsJsonAsync("/api/assistant/admin/agents", VariantOf(SampleProjectCloserComposition.AgentId, "sample-project-closer-trial"), Json))
+            {
+                Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+                Assert.Contains(NhAssistantErrorCodes.ShadowVariantsNotAllowed, await refused.Content.ReadAsStringAsync());
+            }
+            using (var created = await administrator.PostAsJsonAsync("/api/assistant/admin/agents", VariantOf(planner, trial), Json))
+            {
+                Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+                var agent = await created.Content.ReadFromJsonAsync<JsonElement>(Json);
+                // A variant is never offered in the chat.
+                Assert.Equal((planner, false), (agent.GetProperty("shadowOf").GetString(), agent.GetProperty("offeredInChat").GetBoolean()));
+            }
+            await SaveRuntimeRunSettingsAsync(trial, SampleProjectPlannerComposition.ProgressNoteRules);
+
+            var variants = (await administrator.GetFromJsonAsync<NhAssistantShadowVariantsDto>($"/api/assistant/admin/agents/{planner}/shadow-variants", Json))!;
+            Assert.Equal((true, SampleAgentLinksAsDataComposition.MaxVariantsPerAgent), (variants.AllowsDataVariants, variants.MaxDataVariants));
+            Assert.Contains(variants.Variants, variant => variant.AgentId == SampleProjectPlannerVariantComposition.AgentId && variant.Source == NhAssistantShadowVariantSources.Code);
+            var data = Assert.Single(variants.Variants, variant => variant.Source == NhAssistantShadowVariantSources.Data);
+            Assert.Equal((trial, true, true, (string?)null), (data.AgentId, data.HasRunSettings, data.InEffect, data.Problem));
+
+            // It always works in shadow; its mode cannot change.
+            using (var live = await administrator.PostAsJsonAsync($"/api/assistant/admin/agents/{trial}/shadow", new { mode = "live" }, Json))
+            {
+                Assert.Equal(HttpStatusCode.Conflict, live.StatusCode);
+                Assert.Contains(NhAssistantErrorCodes.ShadowVariant, await live.Content.ReadAsStringAsync());
+            }
+
+            // A completed task starts the planner; the variant receives the same event in a shadow
+            // thread only administrators see.
+            var project = await host.CreateProjectAsync("TRIAL", ownerId: host.OwnerId, status: ProjectStatus.Active);
+            await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+            var task = await host.CreateTaskAsync(project, "Prepare the trial");
+            await host.CreateTaskAsync(project, "Close the trial");
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(task, host.ParticipantId));
+            var plannerThread = await WaitForThreadAsync(colleague, project, planner, host.AdvanceToNextAgentRetryAsync);
+            var liveRun = await WaitForRunWithTriggerAsync(colleague, plannerThread, SampleProjectPlannerComposition.TaskTriggerId, host.AdvanceToNextAgentRetryAsync);
+            var trialThread = await WaitForThreadAsync(administrator, project, trial, host.AdvanceToNextAgentRetryAsync);
+            var shadowRun = await WaitForRunWithTriggerAsync(administrator, trialThread, SampleProjectPlannerComposition.TaskTriggerId, host.AdvanceToNextAgentRetryAsync);
+            Assert.True(
+                shadowRun.Shadow && shadowRun.Status == NhAssistantRunStatuses.Completed && shadowRun.Kind == NhAssistantRunKinds.Rule,
+                $"Expected the variant's run completed by rule in shadow; found {Describe(shadowRun)}.");
+            Assert.Equal(HttpStatusCode.NotFound, (await colleague.GetAsync($"/api/assistant/threads/{trialThread}/runs")).StatusCode);
+
+            // The evaluation pairs the runs that handled the same event, as for the variant in code.
+            var period = $"from={Uri.EscapeDataString(from.ToString("O"))}&to={Uri.EscapeDataString(DateTimeOffset.UtcNow.AddSeconds(1).ToString("O"))}";
+            var report = (await administrator.GetFromJsonAsync<NhAssistantEvaluationDto>(
+                $"/api/assistant/admin/agents/{planner}/evaluation?variant={trial}&{period}",
+                Json))!;
+            Assert.True(report.Runs.Paired >= 1, $"The comparison paired no runs of {liveRun.Id}: {JsonSerializer.Serialize(report.Runs, Json)}.");
+            Assert.Contains(host.Services.GetRequiredService<SampleAssistantAuditLog>().Events, evt =>
+                evt.Kind == NhAssistantAuditEventKind.AdminAgentCreated && evt.ObjectId == trial && evt.LiveAgentId == planner);
+        }
+        finally
+        {
+            await RemoveRuntimeAgentAsync(administrator, trial);
+        }
+    }
+
+    /// <summary>
+    /// SPM-319: a variant of the live agent as an administrator creates it from the agent's definition.
+    /// </summary>
+    private static object VariantOf(string liveAgentId, string variantId)
+    {
+        return new
+        {
+            id = variantId,
+            displayName = "Planner trial",
+            description = "Tries progress notes by rule next to the live planner.",
+            instructions = "Note the progress of the project.",
+            toolSelectors = new[] { ProjectAiTools.ChangeStatusToolId },
+            mcpServerIds = Array.Empty<string>(),
+            requiredPolicy = SampleAssistantComposition.AccessPolicy,
+            autonomy = "execute",
+            worksOnSubjectTypes = new[] { ProjectSubjects.Type },
+            worksOnAllSubjects = false,
+            shadowOf = liveAgentId
+        };
+    }
+
+    /// <summary>
+    /// SPM-318: an agent created in the administration that works on projects and is not offered in the chat.
+    /// </summary>
+    private static async Task CreateRuntimeAgentAsync(HttpClient administrator, string agentId, string name, string instructions, string[] toolSelectors)
+    {
+        using var created = await administrator.PostAsJsonAsync("/api/assistant/admin/agents", new
+        {
+            id = agentId,
+            displayName = name,
+            description = name + " of the sample.",
+            instructions,
+            toolSelectors,
+            mcpServerIds = Array.Empty<string>(),
+            requiredPolicy = SampleAssistantComposition.AccessPolicy,
+            autonomy = "execute",
+            offeredInChat = false,
+            worksOnSubjectTypes = new[] { ProjectSubjects.Type },
+            worksOnAllSubjects = false
+        }, Json);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+    }
+
+    /// <summary>
+    /// SPM-318 and SPM-319: run settings that answer to the operations account, by the rules named or
+    /// with the model.
+    /// </summary>
+    private async Task SaveRuntimeRunSettingsAsync(string agentId, string? ruleHandler)
+    {
+        var saved = await ConfigureAsync(configuration => configuration.SaveRunSettingsAsync(
+            agentId,
+            new NhAssistantAgentRunSettingsRequest(
+                NhAssistantAccountabilities.ServiceAccount,
+                host.OperationsAccountId.ToString("D"),
+                ApprovalPolicy: SampleIntakeReviewerComposition.ApprovalPolicyId,
+                RuleHandler: ruleHandler,
+                Reason: "Try it at runtime"),
+            host.OwnerId.ToString("D")));
+        Assert.True(saved.Success, string.Join("; ", saved.GetResultItems().Select(item => item.Name)));
+    }
+
+    /// <summary>
+    /// SPM-318 and SPM-319: removes an agent created in a test, with its run settings and hand-offs.
+    /// </summary>
+    private async Task RemoveRuntimeAgentAsync(HttpClient administrator, string agentId)
+    {
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var actor = host.OwnerId.ToString("D");
+            await scope.ServiceProvider.GetRequiredService<INhAssistantDataHandOffs>()
+                .RemoveAsync(agentId, ProjectSubjects.Type, null, actor, cancellationToken: CancellationToken.None);
+            await scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>()
+                .RemoveRunSettingsAsync(agentId, null, actor, cancellationToken: CancellationToken.None);
+        }
+        using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{agentId}");
+    }
+
+    private async Task<T> ConfigureAsync<T>(Func<INhAssistantAgentConfiguration, Task<T>> action)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await action(scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>());
+    }
+
+    private static string? Code(TaskResult result)
+    {
+        return result.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
+    }
+
+    [Fact]
     public async Task A_participant_starts_the_status_advisor_which_uses_their_rights_and_waits_inline_for_their_approval()
     {
         // SPM-272 and SPM-273
@@ -5301,6 +5561,8 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         services.AddSampleProjectPlanner();
         services.AddSampleProjectPlannerVariant();
         services.AddSampleProjectStarterBlocks();
+        // SPM-318 and SPM-319: hand-offs and shadow variants as data, as in Program.cs.
+        services.AddSampleAgentLinksAsData();
         // SPM-320: the planner's risk review takes its instructions from the sample's own text asset.
         services.AddSampleInstructionAssets();
         services.AddScoped<SampleInstructionAssetService>();

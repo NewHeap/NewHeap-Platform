@@ -76,7 +76,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("agents", CreateAgentAsync)
             .WithName("NhAssistantAdminCreateAgent")
             .WithSummary("Create an agent")
-            .WithDescription("Creates an administrator agent, which starts active. isEnabled is accepted and ignored.")
+            .WithDescription("Creates an administrator agent, which starts active. With shadowOf it is a data shadow variant of that live agent within UseShadowVariantsAsData: it receives the live agent's triggers, always works in shadow and is never offered in the chat (409 assistant-shadow-variants-not-allowed outside the ceiling, 409 assistant-configuration-limit beyond its number of variants, field errors shadowOf not-found or invalid). isEnabled is accepted and ignored.")
             .Produces<NhAssistantAdminAgentDto>(StatusCodes.Status201Created)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
@@ -159,6 +159,7 @@ internal static class NhAssistantAdminEndpoints
         AgentRuns.NhAssistantProposalFeedbackEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentEvaluationEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentConfigurationEndpoints.MapAdmin(admin);
+        AgentRuns.NhAssistantHandOffsAsDataEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantRunHistoryEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantBoardEndpoints.MapAdmin(admin);
         admin.MapDelete("agents/{id}", DeleteAgentAsync)
@@ -1019,7 +1020,10 @@ internal static class NhAssistantAdminEndpoints
             string.IsNullOrWhiteSpace(body.DataClassification) ? null : body.DataClassification.Trim(),
             body.Metadata,
             body.InstructionsAsset,
-            body.StartsInShadow == true), errors);
+            body.StartsInShadow == true)
+        {
+            ShadowOf = body.ShadowOf
+        }, errors);
     }
 
     private static (NhAssistantMcpServerInput? Input, NhAssistantValidationErrors Errors) ToInput(
@@ -1145,7 +1149,8 @@ internal static class NhAssistantAdminEndpoints
             state.WaitingInputs)
         {
             Skills = state.Skills,
-            ShadowOf = state.ShadowOf,
+            // A data shadow variant names its live agent also while its run settings are out of effect.
+            ShadowOf = state.ShadowOf ?? agent.ShadowOfAgentId,
             Shadow = state.Shadow,
             ServiceAccount = state.ServiceAccount,
             OfferedInChat = agent.OfferedInChat,

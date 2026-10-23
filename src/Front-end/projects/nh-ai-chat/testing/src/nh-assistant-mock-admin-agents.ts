@@ -71,6 +71,11 @@ export interface NhAssistantMockAgentRules {
    * count for its route switches as consultations in code do.
    */
   dataConsultations(agentId: string): { subjectType: string; routes: NhAssistantConsultationRoute[] }[];
+  /**
+   * Why a new agent may not be a data shadow variant of its `shadowOf` (`UseShadowVariantsAsData`), or
+   * `null`; without it the mock creates no data variants.
+   */
+  shadowVariantRefusal?(input: AdminAgentInput): NhAssistantMockResult | null;
   /** The application's text assets, which an agent created here may take its instructions from. */
   instructionAssets?(): NhAssistantMockInstructionAssets;
 }
@@ -101,9 +106,10 @@ export class NhAssistantMockAdminAgents {
     // How an agent runs, in code or as data, belongs to its run configuration, not to the agent.
     for (const {
       source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, consultations, consultationDescriptions,
-      codeRunSettings: _, runConfiguration: __, consultableAsData: ___, dataConsultations: ____, consultationTools: _____, ...input
+      codeRunSettings: _, runConfiguration: __, consultableAsData: ___, dataConsultations: ____, consultationTools: _____, codeHandOffs: ______, ...input
     } of agents) {
-      const agentShadow = shadowOf !== undefined || shadow === true;
+      const variant = typeof shadowOf === 'string';
+      const agentShadow = variant || shadow === true;
       const initial = this.toAgent(input, source, 1, false);
       this.agents.set(input.id, {
         agent: {
@@ -112,7 +118,7 @@ export class NhAssistantMockAdminAgents {
           ...(source === 'code' ? { ...(mockWorksOnFromInput(input) ?? mockUndeclaredWorksOn), worksOnDeclared: worksOnDeclared ?? mockWorksOnFromInput(input) !== null } : {}),
           knownSubjectTypes: knownSubjectTypes ?? [],
           shadowOf: shadowOf ?? null,
-          shadow: shadowState(agentShadow, shadowOf !== undefined || shadow === true, null, shadowOf !== undefined),
+          shadow: shadowState(agentShadow, variant || shadow === true, null, variant),
           serviceAccount: serviceAccount === undefined
             ? null
             : { actorId: serviceAccount, configuredActorId: serviceAccount, overridden: false, changedAt: null, changedBy: null, reason: null },
@@ -130,7 +136,7 @@ export class NhAssistantMockAdminAgents {
             dailyTokens: null,
             cancelledRuns: 0,
             startedRuns: 0,
-            shadow: shadowState(agentShadow || skill.shadow === true, skill.shadow === true, null, shadowOf !== undefined)
+            shadow: shadowState(agentShadow || skill.shadow === true, skill.shadow === true, null, variant)
           }))
         },
         codeDefinition: source === 'code' ? structuredClone(input) : null,
@@ -219,8 +225,22 @@ export class NhAssistantMockAdminAgents {
       if (this.agents.has(input.id)) {
         return failure('assistant-agent-exists');
       }
+      const shadowOf = typeof input.shadowOf === 'string' && input.shadowOf.trim().length > 0 ? input.shadowOf.trim() : null;
+      // Without the application's ceiling the mock creates no data variants, as the server refuses them.
+      const refused = shadowOf === null
+        ? null
+        : this.rules.shadowVariantRefusal
+          ? this.rules.shadowVariantRefusal({ ...input, shadowOf })
+          : failure('assistant-shadow-variants-not-allowed');
+      if (refused) {
+        return refused;
+      }
 
-      const agent = this.toAgent(input, 'admin', 1, false);
+      const created = this.toAgent(input, 'admin', 1, false);
+      // A data shadow variant always works in shadow and is never offered in the chat.
+      const agent: AdminAgent = shadowOf === null
+        ? created
+        : { ...created, shadowOf, offeredInChat: false, shadow: shadowState(true, false, null, true) };
       this.agents.set(agent.id, { agent, codeDefinition: null, consultations: noSwitches(null) });
       return { status: 201, body: agent };
     }
@@ -280,7 +300,9 @@ export class NhAssistantMockAdminAgents {
       }
 
       const { expectedVersion, ...definition } = input;
-      stored.agent = this.toAgent(definition, stored.agent.source, stored.agent.version + 1, stored.agent.source === 'code', stored.agent);
+      const updated = this.toAgent(definition, stored.agent.source, stored.agent.version + 1, stored.agent.source === 'code', stored.agent);
+      // A data shadow variant keeps its live agent and stays out of the chat.
+      stored.agent = stored.agent.source === 'admin' && stored.agent.shadowOf ? { ...updated, offeredInChat: false } : updated;
       return { status: 200, body: stored.agent };
     }
     if (method === 'DELETE') {

@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, take the instructions of data skills and agents created in the administration from the application's own text assets, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, take the instructions of data skills and agents created in the administration from the application's own text assets, let administrators connect agents with hand-offs and try shadow variants as data within ceilings in code, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
 
 ## Preferred approach
 
@@ -1016,6 +1016,24 @@ from, whose payload is an `NhAssistantHandOffResult` with the outcome and propos
 target's summary only when both worked on the same subject and the target read nothing restricted
 with its own grant.
 
+Let administrators connect agents with hand-offs as data only within a ceiling in code. Call
+`UseHandOffsAsData(handOffs => handOffs.Allow(subjectType, rule => rule.To(...).From(...)).MaxPerSubjectPerDay(n))`:
+each `Allow` names, per subject type, the agents that may accept hand-offs as data (`To`, or every
+agent created in the administration with `ToAgentsCreatedInAdministration`) and the agents that may
+hand off (`From`, or `FromAgentsCreatedInAdministration`), and startup applies the checks of
+`AcceptHandOffs` to the agents in code it names. Save a hand-off with
+`INhAssistantDataHandOffs.SaveAsync` (or `PUT admin/agents/{id}/hand-offs/{subjectType}`) with
+`NhAssistantDataHandOffRequest`: the sources, a description, `NotifySource` and a daily limit within
+the ceiling's; at most `NhAssistantDataHandOffLimits.MaxHandOffsPerAgent` per agent, one per subject
+type, and never one the agent accepts in code (`assistant-handoff-in-code`). The target and every source
+need a run configuration in effect and the target must work on the type, as in code. Once saved it
+works as a hand-off in code: the same generated tool with the source's tool selectors as its second
+key, the same depth, scope, daily limit and shadow rules, and the audit
+`AdminAgentHandOffDefinitionChanged`. Every load checks it again: one that no longer fits the ceiling or
+the code (`outside-ceiling`, `unknown-source`, `unknown-agent`, `not-worked-on`, `conflicts-with-code`,
+`limit-above-ceiling`, `invalid`) is out of effect as a whole with a problem of kind `hand-off`, and is
+never used with less than it was saved with.
+
 Evaluate a change to an agent's instructions, profile, skills or triage before it goes live with a
 shadow variant: register the changed agent with its own id and `ConfigureAgent(variant, agent =>
 agent.ShadowOf(liveAgentId))`. Every event, scheduled and webhook trigger of the live agent then
@@ -1029,6 +1047,20 @@ decided about the live ones, with cost and routing of both; counts, ids and thre
 fires the recorded runs of a period into a shadow agent, oldest first and against today's state, at
 most 500 runs and one replay at a time, until the variant's state, budget or run limits stop it.
 Decide from the report; nothing promotes a variant automatically.
+
+Let administrators create shadow variants as data only within a ceiling in code:
+`UseShadowVariantsAsData(variants => variants.Of(liveAgentId).OfAgentsCreatedInAdministration().MaxPerAgent(n))`
+names the live agents in code that may get them, which startup checks as it checks `ShadowOf`. A data
+variant is an agent created in the administration with `shadowOf` (`POST admin/agents`, or
+`NhAssistantAgentRequest.ShadowOf` of `CreateAgentAsync`) that names its live agent once and never
+changes it. It has its own definition, run settings and data skills, which the administration starts
+from the live agent's definition; once it has run settings it receives the live agent's triggers, with
+a trigger's skill when it has one of that id, but never its hand-offs or consultations. It is never
+offered in the chat, always works in shadow (`assistant-shadow-variant` for its mode and its groups)
+and is compared and replayed as a variant in code is. `GET admin/agents/{id}/shadow-variants` lists the
+variants in code and as data. A variant that no longer fits (`outside-ceiling`, `unknown-live-agent`,
+`live-agent-not-live`, `too-many-variants`) has its run settings out of effect and never runs, live or
+in shadow.
 
 Give an agent continuity with `Memory<TMemory>(schemaVersion)`: the model reads and
 changes a working memory per thread through the internal `memory_get` and
@@ -1421,6 +1453,10 @@ entry's name and the version only.
   `MaxHandOffDepth` without a reason.
 - Accepting hand-offs from every agent, letting a source wait inside its run for the target, or
   passing a target's results to the source beyond its summary.
+- Opening every agent created in the administration to every agent in `UseHandOffsAsData` when the
+  application means a few connections, or expecting a stored hand-off to keep working with fewer
+  sources or a lower limit after a deploy narrowed the ceiling: it goes out of effect.
+- Expecting a data shadow variant to go live: its mode never changes; create the live agent separately.
 - Registering an agent's triggers twice to evaluate a variant; use `ShadowOf`. Promoting a variant
   on percentages of a few runs, or reading a replay as the past: it ran against today's state.
 - Requiring a reason before a person may reject a proposal, or counting `not-now` and
@@ -1707,7 +1743,12 @@ variant receives every event, tick and webhook of the live agent once, notifies 
 evaluation pairs runs of the same event, counts agreed, live-only and variant-only proposals with the
 live decisions and holds no message or argument; and that a replay fires the recorded inputs oldest
 first, records the runs it replays, stops at the variant's budget and refuses a live agent and a
-second replay, on both providers. Assert that a headless run with retrieved context retrieves once
+second replay, on both providers. Assert that a hand-off defined as data is saved only within
+`UseHandOffsAsData` and as `AcceptHandOffs` checks code, that a stored one that no longer fits is out of
+effect with its problem, that in effect it offers the generated tool and keeps the depth, scope, daily
+limit and shadow-to-live rules, and that a data shadow variant receives the live agent's triggers in
+shadow, cannot change its mode and is paired by the evaluation, on both providers; people who do not
+administer neither read nor change them. Assert that a headless run with retrieved context retrieves once
 with its inputs and subject, as the agent with the subject's scopes, on both providers. Assert that
 a run with gateway reads records `DelegatedRead`, reads with its starter's rights when a person
 started it, shows the result only to the person whose rights it used, also with `ElevatedReads.Deny`,

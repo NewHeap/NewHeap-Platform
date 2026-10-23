@@ -415,6 +415,55 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Lets administrators define hand-offs between agents as data, within this ceiling: per subject
+    /// type which agents may accept hand-offs as data (<c>To</c>, or every agent created in the
+    /// administration) and from which agents (<c>From</c>, likewise), and the highest daily limit of
+    /// one hand-off. A hand-off defined as data works as one in code (<c>AcceptHandOffs</c>): the same
+    /// generated tool <c>assistant.handoff.{agentId}.{subjectType}</c>, depth, scope key, daily limit
+    /// and shadow rules. It is checked as startup checks code on every save and every load; one that no
+    /// longer fits the ceiling or the code is out of effect with a problem the administration shows.
+    /// Data never changes a hand-off in code. Without this call hand-offs exist in code only.
+    /// </summary>
+    public NhAssistantBuilder UseHandOffsAsData(Action<NhAssistantHandOffCeilingBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var ceiling = new NhAssistantHandOffCeiling();
+        configure(new NhAssistantHandOffCeilingBuilder(ceiling));
+        if (ceiling.Rules.Count == 0)
+        {
+            throw new InvalidOperationException("UseHandOffsAsData allows no hand-off; name them with Allow.");
+        }
+
+        _state.HandOffsAsData = ceiling;
+        return this;
+    }
+
+    /// <summary>
+    /// Lets administrators create shadow variants of live agents as data, within this ceiling: which
+    /// live agents may get them (<c>Of</c>, or every agent created in the administration) and how many
+    /// each. A data variant is an agent created in the administration that names its live agent when it
+    /// is created and never changes it: every trigger of the live agent also fires for it, it always
+    /// works in shadow in threads only administrators see, notifies nobody, executes nothing and is
+    /// compared with the live agent in the evaluation, as a variant in code (<c>ShadowOf</c>) is. One
+    /// that no longer fits the ceiling or the code is out of effect with a problem. Without this call
+    /// shadow variants exist in code only.
+    /// </summary>
+    public NhAssistantBuilder UseShadowVariantsAsData(Action<NhAssistantShadowVariantCeilingBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var ceiling = new NhAssistantShadowVariantCeiling();
+        configure(new NhAssistantShadowVariantCeilingBuilder(ceiling));
+        if (ceiling.LiveAgents.Count == 0 && !ceiling.OfAgentsCreatedInAdministration)
+        {
+            throw new InvalidOperationException(
+                "UseShadowVariantsAsData allows no live agent; name them with Of or OfAgentsCreatedInAdministration.");
+        }
+
+        _state.ShadowVariantsAsData = ceiling;
+        return this;
+    }
+
+    /// <summary>
     /// Registers a named approval policy that agents, tools and triggers can reference.
     /// </summary>
     public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure)
@@ -1060,6 +1109,18 @@ internal sealed class NhAssistantRegistrationState
         return _agents.ContainsKey(agentId) ? null : application;
     }
 
+    /// <summary>
+    /// The application's ceiling of hand-offs defined as data; <see langword="null"/> while hand-offs
+    /// exist in code only.
+    /// </summary>
+    public NhAssistantHandOffCeiling? HandOffsAsData { get; set; }
+
+    /// <summary>
+    /// The application's ceiling of shadow variants created as data; <see langword="null"/> while
+    /// shadow variants exist in code only.
+    /// </summary>
+    public NhAssistantShadowVariantCeiling? ShadowVariantsAsData { get; set; }
+
     public IReadOnlyDictionary<string, NhAssistantSubjectSetDefinition> SubjectSets => _subjectSets;
 
     public IReadOnlyDictionary<string, NhAssistantRuleHandlerDefinition> RuleHandlers => _ruleHandlers;
@@ -1588,6 +1649,9 @@ internal sealed class NhAssistantRegistrationState
             ValidatePolicyReference(policy.EscalationPolicyId!, $"approval policy '{policy.Id}'");
         }
 
+        ValidateHandOffCeiling();
+        ValidateShadowVariantCeiling();
+
         // The metadata values in code pass the checks a save applies to data.
         Volatile.Write(ref _codeMetadata, CheckCodeMetadata());
     }
@@ -1667,6 +1731,60 @@ internal sealed class NhAssistantRegistrationState
         {
             throw new InvalidOperationException(
                 $"Agent '{options.AgentId}' may be consulted as data with proposals that execute with its own rights, but it answers for itself without grants, so it has no rights of its own. Leave subject-agent-rights out of ConsultableAsData, or grant tools.");
+        }
+    }
+
+    /// <summary>
+    /// The agents in code that the ceiling of hand-offs as data names pass the checks of
+    /// <c>AcceptHandOffs</c>: they are configured with <c>ConfigureAgent</c>, and a target works on the
+    /// subject type.
+    /// </summary>
+    private void ValidateHandOffCeiling()
+    {
+        if (HandOffsAsData is not { } ceiling)
+        {
+            return;
+        }
+
+        foreach (var rule in ceiling.Rules)
+        {
+            foreach (var agentId in rule.Targets.Concat(rule.Sources).Where(agentId => !_agentRuns.ContainsKey(agentId)))
+            {
+                throw new InvalidOperationException(
+                    $"UseHandOffsAsData connects agent '{agentId}' about '{rule.SubjectType}', which is not configured with ConfigureAgent.");
+            }
+            foreach (var target in rule.Targets.Where(target => !_agentRuns[target].WorksOn.Covers(rule.SubjectType)))
+            {
+                throw new InvalidOperationException(
+                    $"UseHandOffsAsData lets agent '{target}' accept hand-offs about '{rule.SubjectType}', which it does not work on. Add the type to WorksOn.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The live agents in code that the ceiling of shadow variants as data names pass the checks of
+    /// <c>ShadowOf</c>: they are configured with <c>ConfigureAgent</c> and are live agents, neither in
+    /// shadow by their code nor variants themselves.
+    /// </summary>
+    private void ValidateShadowVariantCeiling()
+    {
+        if (ShadowVariantsAsData is not { } ceiling)
+        {
+            return;
+        }
+
+        foreach (var agentId in ceiling.LiveAgents)
+        {
+            if (!_agentRuns.TryGetValue(agentId, out var live))
+            {
+                throw new InvalidOperationException(
+                    $"UseShadowVariantsAsData allows variants of '{agentId}', which is not configured with ConfigureAgent.");
+            }
+            if (live.Shadow || live.ShadowOfAgentId is not null)
+            {
+                throw new InvalidOperationException(
+                    $"UseShadowVariantsAsData allows variants of '{agentId}', which is not a live agent.");
+            }
         }
     }
 

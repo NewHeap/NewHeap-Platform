@@ -1,0 +1,160 @@
+<!-- The agent's shadow variants: in code read only, created as data within the ceiling in code. -->
+<section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()" data-shadow-variants>
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.shadow-variants.title' | translate }}</h3>
+      <p class="muted">{{ 'nh-assistant.admin.shadow-variants.description' | translate }}</p>
+    </div>
+    @if (!loading() && !loadError() && variants()?.allowsDataVariants) {
+      <button
+        class="secondary"
+        type="button"
+        data-open-form="shadow-variant"
+        [attr.aria-describedby]="closed() ? id + '-closed' : null"
+        [disabled]="busy() || closed() !== null || creating()"
+        (click)="startCreate()">
+        <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.shadow-variants.add' | translate }}
+      </button>
+    }
+  </header>
+
+  @if (loading()) {
+    <p class="state" role="status" data-shadow-variants-loading>{{ 'nh-assistant.admin.shadow-variants.loading' | translate }}</p>
+  } @else if (loadError(); as failure) {
+    <div class="form-error" role="alert" data-shadow-variants-error>
+      <nh-assistant-icon name="warning" />
+      <div>
+        <p>{{ 'nh-assistant.admin.shadow-variants.load-failed' | translate }} {{ loadErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+        <button class="secondary" type="button" (click)="load()">
+          <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.retry' | translate }}
+        </button>
+      </div>
+    </div>
+  } @else {
+    @if (closed(); as reason) {
+      <p class="muted" [id]="id + '-closed'" [attr.data-shadow-variants-closed]="reason">
+        {{ 'nh-assistant.admin.shadow-variants.closed.' + reason | translate: { max: variants()?.maxDataVariants } }}
+      </p>
+    }
+
+    @if (creating()) {
+      <form class="stack card" data-form="shadow-variant" novalidate (submit)="$event.preventDefault(); create()">
+        <h5>{{ 'nh-assistant.admin.shadow-variants.form.title' | translate }}</h5>
+        <p class="hint">{{ 'nh-assistant.admin.shadow-variants.form.copies' | translate }}</p>
+        <div class="field">
+          <label [for]="id + '-id'">{{ 'nh-assistant.admin.shadow-variants.form.id' | translate }}</label>
+          <input type="text" autocomplete="off" data-variant-id [id]="id + '-id'" [maxLength]="maxId" [value]="variantId()"
+            [attr.aria-invalid]="fieldError('id') ? true : null"
+            [attr.aria-describedby]="describedBy(id + '-id-hint', 'id', id + '-id-error')"
+            (input)="variantId.set(value($event)); touch('id')" />
+          <p class="hint" [id]="id + '-id-hint'">{{ 'nh-assistant.admin.shadow-variants.form.id-hint' | translate }}</p>
+          @if (errorKey('id'); as key) {
+            <p class="field-error" [id]="id + '-id-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('id')?.params }}</p>
+          }
+        </div>
+        <div class="field">
+          <label [for]="id + '-name'">{{ 'nh-assistant.admin.shadow-variants.form.name' | translate }}</label>
+          <input type="text" autocomplete="off" data-variant-name [id]="id + '-name'" [maxLength]="maxName" [value]="displayName()"
+            [attr.aria-invalid]="fieldError('displayName') ? true : null"
+            [attr.aria-describedby]="describedBy(null, 'displayName', id + '-name-error')"
+            (input)="displayName.set(value($event)); touch('displayName')" />
+          @if (errorKey('displayName'); as key) {
+            <p class="field-error" [id]="id + '-name-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('displayName')?.params }}</p>
+          }
+        </div>
+        <div class="field">
+          <label [for]="id + '-description'">{{ 'nh-assistant.admin.shadow-variants.form.description' | translate }}</label>
+          <textarea rows="2" [id]="id + '-description'" [value]="description()"
+            [attr.aria-invalid]="fieldError('description') ? true : null"
+            [attr.aria-describedby]="describedBy(null, 'description', id + '-description-error')"
+            (input)="description.set(value($event)); touch('description')"></textarea>
+          @if (errorKey('description'); as key) {
+            <p class="field-error" [id]="id + '-description-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('description')?.params }}</p>
+          }
+        </div>
+        <div class="field">
+          <label [for]="id + '-instructions'">{{ 'nh-assistant.admin.shadow-variants.form.instructions' | translate }}</label>
+          <textarea rows="6" data-variant-instructions [id]="id + '-instructions'" [value]="instructions()"
+            [attr.aria-invalid]="fieldError('instructions') ? true : null"
+            [attr.aria-describedby]="describedBy(id + '-instructions-hint', 'instructions', id + '-instructions-error')"
+            (input)="instructions.set(value($event)); touch('instructions')"></textarea>
+          <p class="hint" [id]="id + '-instructions-hint'">
+            <span>{{ 'nh-assistant.admin.shadow-variants.form.instructions-hint' | translate }}</span>
+            <span class="counter" [class.error-text]="instructions().length > maxInstructions">{{ 'nh-assistant.admin.characters' | translate: { count: instructions().length, max: maxInstructions } }}</span>
+          </p>
+          @if (errorKey('instructions'); as key) {
+            <p class="field-error" [id]="id + '-instructions-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('instructions')?.params }}</p>
+          }
+        </div>
+
+        @if (hasErrors()) {
+          <div class="form-error" role="alert" data-form-error>
+            <nh-assistant-icon name="warning" />
+            <div>
+              @if (serverError(); as failure) {
+                @if (failure.code === 'assistant-validation') {
+                  {{ 'nh-assistant.admin.run-config.check-fields' | translate }}
+                } @else {
+                  {{ errorKeys() | nhAssistantTranslate: failure.code }}
+                }
+              } @else {
+                {{ 'nh-assistant.admin.run-config.check-fields' | translate }}
+              }
+              @if (otherFieldErrors().length > 0) {
+                <ul>
+                  @for (field of otherFieldErrors(); track field) {
+                    <li><span class="mono">{{ field }}</span></li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
+        }
+        <div class="actions">
+          <button class="secondary" type="button" (click)="cancelCreate()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+          <button class="primary" type="submit" [disabled]="busy()">{{ (busy() ? 'nh-assistant.admin.saving' : 'nh-assistant.admin.shadow-variants.form.create') | translate }}</button>
+        </div>
+      </form>
+    }
+
+    @if ((variants()?.variants ?? []).length === 0) {
+      <p class="state" data-shadow-variants-empty>{{ 'nh-assistant.admin.shadow-variants.empty' | translate }}</p>
+    } @else {
+      <ul class="skills">
+        @for (variant of variants()?.variants ?? []; track variant.agentId) {
+          <li class="skill" [attr.data-shadow-variant]="variant.agentId" [attr.data-shadow-variant-source]="variant.source">
+            <div class="card-header">
+              <strong>{{ variant.source === 'code' ? (variant.displayName | translate) : variant.displayName }}</strong>
+              <span class="mono muted">{{ variant.agentId }}</span>
+              <span class="badge">{{ 'nh-assistant.admin.shadow-variants.source.' + variant.source | translate }}</span>
+              @if (!variant.hasRunSettings) {
+                <span class="badge" data-shadow-variant-needs-settings>{{ 'nh-assistant.admin.shadow-variants.needs-settings' | translate }}</span>
+              } @else if (variant.inEffect) {
+                <span class="badge" data-shadow-variant-in-effect>{{ 'nh-assistant.admin.shadow-variants.in-effect' | translate }}</span>
+              } @else {
+                <span class="badge danger" data-shadow-variant-out-of-effect>{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
+              }
+            </div>
+            @if (variant.problem; as problem) {
+              <p class="message warning" [attr.data-shadow-variant-problem]="problem">
+                <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.shadow-variants.problems.' + problem | translate }}
+              </p>
+            }
+            @if (variant.source === 'data') {
+              <div class="card-actions">
+                <button
+                  class="secondary"
+                  type="button"
+                  [attr.data-open-variant]="variant.agentId"
+                  [attr.aria-label]="'nh-assistant.admin.shadow-variants.open-named' | translate: { name: variant.displayName }"
+                  (click)="openVariant.emit(variant.agentId)">
+                  <nh-assistant-icon name="list" />{{ (variant.hasRunSettings ? 'nh-assistant.admin.shadow-variants.open' : 'nh-assistant.admin.shadow-variants.set-up') | translate }}
+                </button>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+    }
+  }
+</section>

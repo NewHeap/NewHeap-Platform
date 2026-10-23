@@ -1015,6 +1015,24 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    public Task HandOffDefinitionChangedAsync(
+        string agentId,
+        string subjectType,
+        int version,
+        string change,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentHandOffDefinitionChanged, Guid.Empty, Guid.Empty, actorId, agentId, version, DateTimeOffset.UtcNow)
+            {
+                ObjectId = subjectType,
+                SubjectType = subjectType,
+                ResultCode = change
+            },
+            cancellationToken);
+    }
+
     public Task EvaluationExportedAsync(string agentId, string variantId, string actorId, CancellationToken cancellationToken)
     {
         return RecordAsync(

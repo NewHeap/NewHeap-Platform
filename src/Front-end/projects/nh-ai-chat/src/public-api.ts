@@ -6,6 +6,7 @@ export * from './lib/models/assistant-sse.models';
 export * from './lib/models/assistant-live.models';
 export * from './lib/models/assistant-admin.models';
 export * from './lib/models/assistant-agent-run.models';
+export * from './lib/models/assistant-hand-off.models';
 export * from './lib/nh-assistant.config';
 export * from './lib/provide-nh-assistant';
 export * from './lib/i18n/nh-assistant-translations';

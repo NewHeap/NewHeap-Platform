@@ -19,6 +19,11 @@ internal sealed record NhAssistantStoredRunConfiguration(
     /// The consultations defined as data, ordered by agent and subject type.
     /// </summary>
     public IReadOnlyList<AssistantAgentConsultationDefinition> Consultations { get; init; } = [];
+
+    /// <summary>
+    /// The hand-offs defined as data, ordered by accepting agent and subject type.
+    /// </summary>
+    public IReadOnlyList<AssistantAgentHandOffDefinition> HandOffs { get; init; } = [];
 }
 
 /// <summary>
@@ -35,14 +40,20 @@ internal sealed record NhAssistantStoredAdminAgent(
     NhAssistantAgentWorksOn WorksOn,
     string? DataClassification = null,
     string? RequiredPolicy = null,
-    NhAssistantInstructionAssetReference? InstructionsAsset = null);
+    NhAssistantInstructionAssetReference? InstructionsAsset = null)
+{
+    /// <summary>
+    /// The live agent the agent is a data shadow variant of; <see langword="null"/> for none.
+    /// </summary>
+    public string? ShadowOfAgentId { get; init; }
+}
 
 /// <summary>
 /// Persistence of the run configuration defined as data: the versions of data skills and the data
 /// triggers. Every change also changes the stamp in the same transaction, so every host reloads.
 /// Every call uses its own short-lived context.
 /// </summary>
-internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFactory contextFactory)
+internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbContextFactory contextFactory)
 {
     /// <summary>
     /// The id of the one stamp row.
@@ -90,7 +101,8 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                     InstructionsFromAsset = agent.InstructionsFromAsset,
                     InstructionsAssetId = agent.InstructionsAssetId,
                     InstructionsAssetVersion = agent.InstructionsAssetVersion,
-                    InstructionsHash = agent.InstructionsHash
+                    InstructionsHash = agent.InstructionsHash,
+                    ShadowOfAgentId = agent.ShadowOfAgentId
                 })
                 .ToListAsync(cancellationToken))
             .ToDictionary(
@@ -100,7 +112,10 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                     NhAssistantAgentWorksOn.FromRow(agent),
                     agent.DataClassification,
                     agent.RequiredPolicy,
-                    NhAssistantInstructionAssets.ReferenceOf(agent)),
+                    NhAssistantInstructionAssets.ReferenceOf(agent))
+                {
+                    ShadowOfAgentId = agent.ShadowOfAgentId
+                },
                 StringComparer.Ordinal);
         var skills = await context.AgentSkillDefinitions
             .AsNoTracking()
@@ -123,9 +138,15 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             .OrderBy(item => item.AgentId)
             .ThenBy(item => item.SubjectType)
             .ToListAsync(cancellationToken);
+        var handOffs = await context.AgentHandOffDefinitions
+            .AsNoTracking()
+            .OrderBy(item => item.AgentId)
+            .ThenBy(item => item.SubjectType)
+            .ToListAsync(cancellationToken);
         return new NhAssistantStoredRunConfiguration(stamp, agentRuns, adminAgents, skills, triggers)
         {
-            Consultations = consultations
+            Consultations = consultations,
+            HandOffs = handOffs
         };
     }
 
@@ -207,8 +228,8 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
 
     /// <summary>
     /// Removes the run settings of an agent, which then only chats. Fails with
-    /// <see cref="NhAssistantStoreOutcome.Rejected"/> while the agent has data skills, data triggers or
-    /// data consultations.
+    /// <see cref="NhAssistantStoreOutcome.Rejected"/> while the agent has data skills, data triggers, data
+    /// consultations or hand-offs defined as data that it accepts.
     /// </summary>
     public async Task<NhAssistantStoreResult<AssistantAgentRunConfiguration>> RemoveRunSettingsAsync(
         string agentId,
@@ -230,6 +251,7 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                 item => item.AgentId == agentId && item.Status == NhAssistantSkillDefinitionStatuses.Live,
                 cancellationToken)
             || await context.AgentConsultationDefinitions.AnyAsync(item => item.AgentId == agentId, cancellationToken)
+            || await context.AgentHandOffDefinitions.AnyAsync(item => item.AgentId == agentId, cancellationToken)
             || await context.AgentSkillDefinitions.AnyAsync(
                 item => item.AgentId == agentId && item.Status != NhAssistantSkillDefinitionStatuses.Superseded,
                 cancellationToken))

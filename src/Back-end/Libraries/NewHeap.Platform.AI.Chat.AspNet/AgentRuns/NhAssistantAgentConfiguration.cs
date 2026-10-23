@@ -65,8 +65,8 @@ public interface INhAssistantAgentConfiguration
 
     /// <summary>
     /// Removes the run settings of an agent created in the administration, which then only chats.
-    /// Fails with <c>assistant-run-settings-in-use</c> while it has data skills, data triggers or data
-    /// consultations.
+    /// Fails with <c>assistant-run-settings-in-use</c> while it has data skills, data triggers, data
+    /// consultations or hand-offs defined as data that it accepts.
     /// </summary>
     Task<TaskResult> RemoveRunSettingsAsync(
         string agentId,
@@ -921,6 +921,18 @@ public sealed record NhAssistantAgentRequest(
     /// <see langword="false"/> (default) starts it live, as before.
     /// </summary>
     public bool StartsInShadow { get; init; }
+
+    /// <summary>
+    /// The live agent the new agent is a data shadow variant of, within <c>UseShadowVariantsAsData</c>:
+    /// it receives every trigger of the live agent once it has run settings, always works in shadow,
+    /// is never offered in the chat and never changes its live agent. Fails with
+    /// <c>assistant-shadow-variants-not-allowed</c> outside the ceiling,
+    /// <c>assistant-configuration-limit</c> beyond its number of variants, and field errors
+    /// <c>shadowOf: not-found</c> for a live agent without a run configuration and
+    /// <c>shadowOf: invalid</c> for one that is no live agent. A variant ignores
+    /// <see cref="StartsInShadow"/>: it always works in shadow.
+    /// </summary>
+    public string? ShadowOf { get; init; }
 }
 
 /// <param name="Name">The building block's name.</param>
@@ -1666,7 +1678,10 @@ internal sealed class NhAssistantAgentConfiguration(
                 string.IsNullOrWhiteSpace(request.DataClassification) ? null : request.DataClassification.Trim(),
                 request.Metadata,
                 request.InstructionsAsset,
-                request.StartsInShadow),
+                request.StartsInShadow)
+            {
+                ShadowOf = request.ShadowOf
+            },
             actorId,
             cancellationToken);
         if (!created.Success)
@@ -1980,7 +1995,7 @@ internal sealed class NhAssistantAgentConfiguration(
             case NhAssistantStoreOutcome.Conflict:
                 return TaskResult.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The run settings changed in the meantime.");
             case NhAssistantStoreOutcome.Rejected:
-                return TaskResult.Failed(NhAssistantErrorCodes.RunSettingsInUse, "Data skills, triggers or consultations still belong to the agent.");
+                return TaskResult.Failed(NhAssistantErrorCodes.RunSettingsInUse, "Data skills, triggers, consultations or hand-offs still belong to the agent.");
         }
 
         await events.RunSettingsChangedAsync(agentId, removed.Value!.Version, "removed", actorId, cancellationToken);

@@ -39,7 +39,15 @@ internal sealed record NhAssistantAgentInput(
     string? DataClassification = null,
     IReadOnlyDictionary<string, JsonElement>? Metadata = null,
     NhAssistantInstructionAssetReference? InstructionsAsset = null,
-    bool StartsInShadow = false);
+    bool StartsInShadow = false)
+{
+    /// <summary>
+    /// For a new agent: the live agent it is a data shadow variant of, within
+    /// <c>UseShadowVariantsAsData</c>. Set when the agent is created and never changed; an update
+    /// ignores it. A variant always works in shadow, so it ignores <see cref="StartsInShadow"/>.
+    /// </summary>
+    public string? ShadowOf { get; init; }
+}
 
 /// <summary>
 /// Creates, overrides, resets and deletes agents. Every change is versioned and reported to the
@@ -81,6 +89,16 @@ internal sealed class NhAssistantAgentAdministration(
                 NhAssistantAdminErrorCodes.ValidationFailed,
                 "Administrator agents require UseChatProfile.");
         }
+        var shadowOf = string.IsNullOrWhiteSpace(input.ShadowOf) ? null : input.ShadowOf.Trim();
+        if (shadowOf is not null && await CheckShadowVariantAsync(input.Id, shadowOf, cancellationToken) is { } refused)
+        {
+            return TaskResult<NhAssistantAgent>.Failed(refused);
+        }
+        if (shadowOf is not null)
+        {
+            // A data shadow variant always works in shadow: it stores no shadow override.
+            input = input with { StartsInShadow = false };
+        }
 
         var now = DateTimeOffset.UtcNow;
         // A new agent starts active, or off when its administrator chose so; its state changes
@@ -95,6 +113,9 @@ internal sealed class NhAssistantAgentAdministration(
             RunState = input.StartsOff ? NhAssistantAgentRunStates.Off : NhAssistantAgentRunStates.Active,
             StateChangedAt = input.StartsOff ? now : null,
             StateChangedBy = input.StartsOff ? actorId : null,
+            // A data shadow variant works for administrators only: it is never offered in the chat.
+            ShadowOfAgentId = shadowOf,
+            HiddenFromChat = shadowOf is not null,
             // In shadow from its first row: the override applies as soon as run settings exist, also
             // when they are saved right after in the same request, and no trigger reaches it live first.
             ShadowOverride = input.StartsInShadow ? true : null,
@@ -360,7 +381,8 @@ internal sealed class NhAssistantAgentAdministration(
         row.Autonomy = input.Autonomy;
         if (input.OfferedInChat is { } offered && row.Source == NhAssistantAgentSources.Admin)
         {
-            row.HiddenFromChat = !offered;
+            // A data shadow variant stays out of the chat.
+            row.HiddenFromChat = !offered || row.ShadowOfAgentId is not null;
         }
         if (input.WorksOn is { } worksOn && row.Source == NhAssistantAgentSources.Admin)
         {
@@ -417,8 +439,41 @@ internal sealed class NhAssistantAgentAdministration(
     }
 
     /// <summary>
+    /// Why a new agent may not be a data shadow variant of <paramref name="liveAgentId"/>, or
+    /// <see langword="null"/>: the checks of every load (<see cref="NhAssistantRunConfigurationValidator.CheckShadowVariant"/>)
+    /// against the configuration in effect, and the ceiling's number of variants per live agent.
+    /// </summary>
+    private async Task<TaskResult?> CheckShadowVariantAsync(string variantId, string liveAgentId, CancellationToken cancellationToken)
+    {
+        await runConfigurations.EnsureCurrentAsync(cancellationToken);
+        var problem = validator.CheckShadowVariant(variantId, liveAgentId, state.AgentRuns);
+        switch (problem)
+        {
+            case NhAssistantRunConfigurationProblems.OutsideCeiling:
+                return TaskResult.Failed(
+                    NhAssistantErrorCodes.ShadowVariantsNotAllowed,
+                    "The agent may not get shadow variants created as data.");
+            case NhAssistantRunConfigurationProblems.UnknownLiveAgent:
+                return NhAssistantValidationErrors.Failed("shadowOf", NhAssistantFieldErrors.NotFound);
+            case not null:
+                return NhAssistantValidationErrors.Failed("shadowOf", NhAssistantFieldErrors.Invalid);
+        }
+
+        var existing = await runConfigurationStore.ListShadowVariantsAsync(liveAgentId, cancellationToken);
+        if (existing.Count >= state.ShadowVariantsAsData!.MaxPerAgent)
+        {
+            return TaskResult.Failed(
+                NhAssistantErrorCodes.ConfigurationLimit,
+                "The agent has as many shadow variants created as data as allowed.");
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// The content-free event of a change of the agent, with the identity of its instructions:
-    /// <c>&lt;asset-id&gt;@&lt;version&gt;</c> and the hash, never the text.
+    /// <c>&lt;asset-id&gt;@&lt;version&gt;</c> and the hash, never the text; a data shadow variant that
+    /// was created also names its live agent.
     /// </summary>
     private async Task AuditAsync(NhAssistantAuditEventKind kind, AssistantAgent row, string actorId, CancellationToken cancellationToken)
     {
@@ -429,7 +484,8 @@ internal sealed class NhAssistantAgentAdministration(
             actorId,
             cancellationToken,
             row.InstructionsAssetId + "@" + row.InstructionsAssetVersion.ToString(CultureInfo.InvariantCulture),
-            row.InstructionsHash);
+            row.InstructionsHash,
+            kind == NhAssistantAuditEventKind.AdminAgentCreated ? row.ShadowOfAgentId : null);
     }
 
     /// <summary>
@@ -462,7 +518,8 @@ internal sealed class NhAssistantAgentAdministration(
 }
 
 /// <summary>
-/// Writes content-free administration events: event name, object id and actor only.
+/// Writes content-free administration events: event name, object id and actor only, and for a data
+/// shadow variant that was created the live agent it is a variant of.
 /// </summary>
 internal static class NhAssistantAdminAudit
 {
@@ -476,7 +533,8 @@ internal static class NhAssistantAdminAudit
         string actorId,
         CancellationToken cancellationToken,
         string? instructionsVersion = null,
-        string? instructionsHash = null)
+        string? instructionsHash = null,
+        string? liveAgentId = null)
     {
         var evt = new NhAssistantAuditEvent(
             kind,
@@ -489,7 +547,8 @@ internal static class NhAssistantAdminAudit
         {
             ObjectId = objectId,
             InstructionsVersion = instructionsVersion,
-            InstructionsHash = instructionsHash
+            InstructionsHash = instructionsHash,
+            LiveAgentId = liveAgentId
         };
         foreach (var sink in sinks)
         {

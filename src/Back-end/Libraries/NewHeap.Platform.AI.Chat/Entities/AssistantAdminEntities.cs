@@ -146,6 +146,13 @@ public sealed class AssistantAgent
     public string? ShadowReason { get; set; }
 
     /// <summary>
+    /// The live agent an agent created in the administration is a shadow variant of, set when it is
+    /// created within <c>UseShadowVariantsAsData</c> and never changed; <see langword="null"/> for an
+    /// agent that is no data variant. Agents in code take it from <c>ShadowOf</c> instead.
+    /// </summary>
+    public string? ShadowOfAgentId { get; set; }
+
+    /// <summary>
     /// The technical account an administrator set at runtime for an agent that answers to one;
     /// <see langword="null"/> uses the account in code.
     /// </summary>

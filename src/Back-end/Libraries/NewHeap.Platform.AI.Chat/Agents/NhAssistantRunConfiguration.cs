@@ -135,9 +135,10 @@ public static class NhAssistantElevatedReadNames
 /// </summary>
 /// <param name="Kind"><c>agent</c> for run settings and for the instructions an agent created in the
 /// administration takes from an asset of the application, <c>skill</c>, <c>candidate</c>,
-/// <c>trigger</c>, <c>trigger-candidate</c> or <c>consultation</c>.</param>
-/// <param name="Id">The agent id, the skill id, the trigger id or, for a consultation, its subject
-/// type. A consultation that works with less has a problem per part that no longer fits.</param>
+/// <c>trigger</c>, <c>trigger-candidate</c>, <c>consultation</c> or <c>hand-off</c>.</param>
+/// <param name="Id">The agent id, the skill id, the trigger id or, for a consultation and a hand-off,
+/// its subject type. A consultation that works with less has a problem per part that no longer
+/// fits.</param>
 /// <param name="Code">One of <see cref="NhAssistantRunConfigurationProblems"/>.</param>
 public sealed record NhAssistantRunConfigurationProblem(string AgentId, string Kind, string Id, string Code);
 
@@ -218,6 +219,41 @@ public static class NhAssistantRunConfigurationProblems
 
     /// <summary>A consultation defined as data, by its subject type.</summary>
     public const string ConsultationKind = "consultation";
+
+    /// <summary>
+    /// A hand-off defined as data, by its subject type; its agent is the agent that accepts it. A
+    /// hand-off with a problem is out of effect as a whole.
+    /// </summary>
+    public const string HandOffKind = "hand-off";
+
+    /// <summary>
+    /// A source of the hand-off has no run configuration, in code or as data, or no longer exists.
+    /// </summary>
+    public const string UnknownSource = "unknown-source";
+
+    /// <summary>
+    /// The ceiling in code no longer allows the hand-off (<c>UseHandOffsAsData</c>) or the shadow
+    /// variant (<c>UseShadowVariantsAsData</c>), or the application no longer calls it.
+    /// </summary>
+    public const string OutsideCeiling = "outside-ceiling";
+
+    /// <summary>
+    /// The live agent of a data shadow variant has no run configuration, in code or as data, or no
+    /// longer exists; the variant's run settings are out of effect.
+    /// </summary>
+    public const string UnknownLiveAgent = "unknown-live-agent";
+
+    /// <summary>
+    /// The live agent of a data shadow variant is no live agent: it starts in shadow in code or is a
+    /// shadow variant itself; the variant's run settings are out of effect.
+    /// </summary>
+    public const string LiveAgentNotLive = "live-agent-not-live";
+
+    /// <summary>
+    /// The live agent has more data shadow variants than the ceiling allows; those beyond it, in the
+    /// order of their ids, are out of effect.
+    /// </summary>
+    public const string TooManyVariants = "too-many-variants";
 
     /// <summary>The consultation's subject type has no subject access resolver.</summary>
     public const string UnknownSubjectType = "unknown-subject-type";
@@ -588,7 +624,7 @@ internal sealed record NhAssistantRunAgent(IReadOnlyCollection<string> CodeSkill
 /// Saving and loading both use it, so data that is saved fits and data that no longer fits is left
 /// out.
 /// </summary>
-internal sealed class NhAssistantRunConfigurationValidator(
+internal sealed partial class NhAssistantRunConfigurationValidator(
     NhAssistantRegistrationState registration,
     IServiceProvider services)
 {
@@ -1077,7 +1113,7 @@ internal sealed class NhAssistantRunConfigurationValidator(
 /// use, after every change in this process and whenever the stamp changed, which every fire and every
 /// run start checks at most once per second; a background refresh checks it as well.
 /// </summary>
-internal sealed class NhAssistantRunConfigurations(
+internal sealed partial class NhAssistantRunConfigurations(
     NhAssistantRegistrationState registration,
     NhAssistantRunConfigurationStore store,
     NhAssistantRunConfigurationValidator validator,
@@ -1287,6 +1323,9 @@ internal sealed class NhAssistantRunConfigurations(
             runAgents[settings.AgentId] = new NhAssistantRunAgent([], agentSelectors!);
         }
 
+        // A data shadow variant that no longer fits the ceiling or its live agent never runs.
+        RemoveVariantsOutOfEffect(stored, agentRuns, runAgents, problems);
+
         foreach (var group in stored.Skills.GroupBy(definition => definition.AgentId, StringComparer.Ordinal))
         {
             var dataSkills = new List<NhAssistantSkillOptions>();
@@ -1337,6 +1376,7 @@ internal sealed class NhAssistantRunConfigurations(
         }
 
         AddDataConsultations(stored, agentRuns, runAgents, problems);
+        AddDataHandOffs(stored, agentRuns, problems);
 
         var triggers = new Dictionary<string, NhAssistantTriggerDefinition>(registration.CodeTriggers, StringComparer.Ordinal);
         foreach (var row in stored.Triggers.Where(row => row.Status == NhAssistantSkillDefinitionStatuses.Live))
@@ -1514,6 +1554,9 @@ internal sealed class NhAssistantRunConfigurations(
             RuleHandlerType = settings.RuleHandlerName is { } handler ? registration.RuleHandlers[handler].HandlerType : null,
             ActWithAccountableRights = true,
             DataVersion = settings.Version,
+            // A data shadow variant always works in shadow, as one in code does.
+            ShadowOfAgentId = agent.ShadowOfAgentId,
+            Shadow = agent.ShadowOfAgentId is not null,
             WorksOn = agent.WorksOn,
             DataClassification = NhAssistantDataClassificationNames.TryParse(agent.DataClassification, out var classification)
                 ? classification

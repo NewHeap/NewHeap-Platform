@@ -339,6 +339,7 @@ and changes them with `NhAssistantMockBackend.setInstructionAsset` and `removeIn
 | Breaking change | Required action |
 |---|---|
 | The texts under `nh-assistant.admin.instruction-assets`, the problems `asset-*` and `no-asset-source` under `nh-assistant.admin.run-config.problems.code`, and the errors `assistant-instructions-asset-not-found`, `assistant-instructions-asset-unavailable` and `assistant-agent-instructions-unavailable` are new. | Add them to your application's translations when it overrides the library's texts (`translations: 'host'`). |
+
 ## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: trigger versions and candidates, and start states
 
 Triggers defined as data have append-only versions, as data skills do. A change is the trigger's next
@@ -400,3 +401,58 @@ does.
 |---|---|
 | `RunConfigurationProblemKind` has the new value `trigger-candidate`. | Let code that switches over the kinds of run configuration problems handle it. |
 | The texts `nh-assistant.admin.agent-editor.starts-in-shadow` and `starts-in-shadow-hint`, `nh-assistant.admin.run-config.problems.kind.trigger-candidate`, the texts under `nh-assistant.admin.run-config.triggers` for `saved-candidate`, `apply`, `apply-live`, `apply-shadow`, `versions` and `candidate`, the texts under `nh-assistant.admin.run-config.consultations` for `off-badge`, `off-explain`, `switch-on`, `switch-off`, `switched-on` and `switched-off` and their named variants, `form.starts-off`, `form.starts-off-hint` and `form.starts-off-ceiling`, and the error `assistant-trigger-candidate-not-found` are new. | Add them to your application's translations when it overrides the library's texts (`translations: 'host'`). |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: hand-offs and shadow variants as data
+
+`UseHandOffsAsData(handOffs => handOffs.Allow(subjectType, rule => rule.To(...).From(...)).MaxPerSubjectPerDay(n))`
+lets administrators connect agents with hand-offs without a deploy, only within this ceiling in code:
+per subject type the agents that may accept them (`To`, `ToAgentsCreatedInAdministration`) and the agents
+that may hand off (`From`, `FromAgentsCreatedInAdministration`), and the highest daily limit a hand-off may
+set (at most and by default 100; a hand-off without one gets 5, or the ceiling's when lower); startup
+applies the checks of `AcceptHandOffs` to the agents in code it names.
+`INhAssistantDataHandOffs` (`GetAsync`, `SaveAsync`, `RemoveAsync`) and
+`GET admin/agents/{id}/hand-offs`, `PUT` and `DELETE admin/agents/{id}/hand-offs/{subjectType}` read and
+change them with `NhAssistantDataHandOffRequest` (sources, description, `NotifySource`, daily limit,
+expected version), at most `NhAssistantDataHandOffLimits.MaxHandOffsPerAgent` (20) per agent and never one
+the agent accepts in code. A saved hand-off works as one in code: the same generated tool, depth, scope,
+daily limit and shadow rules, with `NhAssistantHandOffOptions.Source`, `DataVersion` and `IsData`. Every
+load checks it again; one that no longer fits the ceiling or the code is out of effect as a whole with a
+problem of the new kind `hand-off`, never used with less.
+
+`UseShadowVariantsAsData(variants => variants.Of(liveAgentId).OfAgentsCreatedInAdministration().MaxPerAgent(n))`
+lets administrators create shadow variants of the live agents it names (default 3, at most 10 per live
+agent): `shadowOf` of `POST admin/agents` and `NhAssistantAgentRequest.ShadowOf` of `CreateAgentAsync`
+create an agent in the administration that names its live agent once and never changes it. Once it has
+run settings it receives the live agent's triggers, always in shadow, is never offered in the chat and is
+paired by the evaluation and replays as a variant in code is. `GET admin/agents/{id}/shadow-variants`
+lists the variants in code and as data (`NhAssistantShadowVariantsDto`); `NhAssistantAdminAgentDto.ShadowOf`
+and `NhAssistantAgent.ShadowOfAgentId` name the live agent of a data variant. A variant that no longer fits
+has its run settings out of effect with a problem and never runs. Without either call nothing changes.
+
+| Breaking change | Required action |
+|---|---|
+| The `HandOffsAsData` migrations add the table `AssistantAgentHandOffDefinition` and the nullable column `AssistantAgent.ShadowOfAgentId` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
+| `NhAssistantRunConfigurationProblems` has the new kind `hand-off` with the new codes `unknown-source` and `outside-ceiling`, and for the kind `agent` of a data shadow variant the codes `outside-ceiling`, `unknown-live-agent`, `live-agent-not-live` and `too-many-variants`. | Let code that maps run configuration problems handle kinds and values it does not know. |
+| `NhAssistantErrorCodes` has the new codes `assistant-handoffs-not-allowed`, `assistant-handoff-in-code` and `assistant-shadow-variants-not-allowed` (HTTP 409) and `assistant-handoff-not-found` (HTTP 404). | Let code that maps assistant codes handle values it does not know. |
+| `NhAssistantAuditEventKind` has the new value `AdminAgentHandOffDefinitionChanged` (80), and `NhAssistantAuditEvent` the property `LiveAgentId`, set on `AdminAgentCreated` for a data shadow variant. | Let audit sinks with an exhaustive switch, or that store every property, record or ignore them. |
+| `DELETE admin/agents/{id}/run-settings` (`RemoveRunSettingsAsync`) also fails with `assistant-run-settings-in-use` while the agent accepts a hand-off defined as data. | Remove the agent's hand-offs first when it should lose its run settings. |
+
+## @newheap/platform-ai-chat: hand-offs and shadow variants as data
+
+Below the run configuration, `NhAssistantAdminAgentsComponent` of `@newheap/platform-ai-chat/admin` shows
+an agent's hand-offs (`nh-assistant-agent-hand-offs`) and shadow variants
+(`nh-assistant-agent-shadow-variants`). The hand-offs list those in code read only and those defined as
+data with their version, sources, daily limit, generated tool and problem; the form adds and changes one
+with only the kinds of object and sources the ceiling allows. The shadow variants list those in code and
+as data, and "New shadow variant" creates one from the agent's definition and continues in its run
+configuration. `NhAssistantAdminApiService.getAgentHandOffs`, `saveDataHandOff`, `removeDataHandOff` and
+`getShadowVariants`, `AgentHandOffs`, `CodeHandOff`, `DataHandOff`, `DataHandOffRequest`, `HandOffCeiling`,
+`HandOffAllowance`, `AgentShadowVariants`, `ShadowVariant` and `AdminAgentInput.shadowOf` complete the
+client. The texts have English and Dutch versions. The mock API takes `admin.handOffsAsData`,
+`admin.shadowVariantsAsData` and `codeHandOffs` of its agents and serves the new routes as the server does.
+
+| Breaking change | Required action |
+|---|---|
+| `RunConfigurationProblemKind` has the new value `hand-off`. | Let exhaustive switches and maps of your own handle it. |
+| The texts under `nh-assistant.admin.hand-offs` and `nh-assistant.admin.shadow-variants`, the kind `hand-off` and the codes `outside-ceiling`, `unknown-source`, `unknown-live-agent`, `live-agent-not-live` and `too-many-variants` under `nh-assistant.admin.run-config.problems`, and the errors `assistant-handoffs-not-allowed`, `assistant-handoff-in-code`, `assistant-handoff-not-found` and `assistant-shadow-variants-not-allowed` are new. | Add them to your application's translations when it overrides the library's texts (`translations: 'host'`). |
+| The text `nh-assistant.errors.assistant-run-settings-in-use` now names hand-offs among what keeps an agent's run settings in use, and the mock API refuses to remove the run settings of an agent that accepts a hand-off defined as data. | Update the text in your application's translations when it overrides the library's texts. |

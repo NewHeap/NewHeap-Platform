@@ -5312,6 +5312,54 @@
       ]
     },
     {
+      "id": "SPM-318",
+      "categoryId": "18",
+      "title": "An administrator connects two agents created at runtime with a hand-off as data, within the ceiling in code, without a deploy",
+      "surface": "`NhAssistantBuilder.UseHandOffsAsData` with `NhAssistantHandOffCeilingBuilder` (`Allow`, `MaxPerSubjectPerDay`), `NhAssistantHandOffCeilingRuleBuilder` (`To`, `ToAgentsCreatedInAdministration`, `From`, `FromAgentsCreatedInAdministration`), `NhAssistantHandOffCeiling` and `NhAssistantHandOffCeilingRule`, with the startup checks of `AcceptHandOffs` for the agents in code it names; `INhAssistantDataHandOffs` (`GetAsync`, `SaveAsync`, `RemoveAsync`) with `NhAssistantAgentHandOffsDto`, `NhAssistantCodeHandOffDto`, `NhAssistantDataHandOffDto`, `NhAssistantHandOffCeilingDto`, `NhAssistantHandOffAllowanceDto` and `NhAssistantDataHandOffRequest`; `GET admin/agents/{id}/hand-offs`, `PUT` and `DELETE admin/agents/{id}/hand-offs/{subjectType}`; `NhAssistantHandOffOptions.Source`, `DataVersion` and `IsData` with `NhAssistantHandOffSources` and `NhAssistantDataHandOffLimits`; the problems of kind `hand-off` of `NhAssistantRunConfigurationProblems` (`OutsideCeiling`, `UnknownSource`, `UnknownAgent`, `NotWorkedOn`, `ConflictsWithCode`, `LimitAboveCeiling`, `Invalid`), each out of effect as a whole; the codes `assistant-handoffs-not-allowed`, `assistant-handoff-in-code` and `assistant-handoff-not-found` and the field errors `sources` (`not-allowed`, `not-found`), `subjectType: not-allowed` and `maxPerSubjectPerDay: not-allowed`; `NhAssistantAuditEventKind.AdminAgentHandOffDefinitionChanged`; the HandOffsAsData migrations (`AssistantAgentHandOffDefinition`) for SQL Server and PostgreSQL; `nh-assistant-agent-hand-offs` with `nh-assistant-hand-off-form` below the run configuration of `NhAssistantAdminAgentsComponent` in `@newheap/platform-ai-chat/admin`; `NhAssistantAdminApiService.getAgentHandOffs`, `saveDataHandOff` and `removeDataHandOff` with `AgentHandOffs`, `CodeHandOff`, `DataHandOff`, `DataHandOffRequest`, `HandOffCeiling` and `HandOffAllowance`; `handOffsAsData` of `NhAssistantMockAdminScenario` and `codeHandOffs` of its agents",
+      "outcome": "SampleAgentLinksAsDataComposition lets administrators connect agents with hand-offs about projects as data: agents created in the administration may accept them, from other agents created there and from the project planner, at most five per source and project a day. An administrator creates an intake desk, which works with the model and may select hand-off tools, and a kickoff desk, which works by the kickoff rules of SPM-296, both answering to the operations account. The kickoff desk's hand-offs list what the ceiling allows: the intake desk and the planner may hand projects to it, the status advisor may not, and a hand-off to the project closer, an agent in code that the ceiling does not name, is refused with assistant-handoffs-not-allowed. Once the administrator saves the hand-off from the intake desk, with a description, a follow-up to the source and a limit of two a day, it is in effect without a deploy: the intake desk's model gets the generated tool assistant.handoff.sample-project-kickoff-desk.project and hands the draft project over, and the kickoff desk works on it in its own thread at depth 1 and proposes to start it for the project's approvers, as a hand-off in code does (SPM-287). The change is audited without its description; the kickoff desk keeps its run settings while the hand-off names it, and removing the hand-off takes its tool away. A stored hand-off that no longer fits the ceiling or the code, such as one whose source lost its run settings, is out of effect as a whole with a problem, never used with less. In the assistant administration the run configuration of an agent lists its hand-offs in code read only and as data with their problems, and adds, changes and removes them with only the kinds of object and sources the ceiling allows; in the playground the mock API keeps them within the scenario's ceiling.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.HandOffs.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.HandOffs.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantHandOffsAsDataEndpoints.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDataHandOffTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-hand-offs.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-hand-off-form.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-hand-offs.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-hand-offs-admin.spec.ts"
+      ]
+    },
+    {
+      "id": "SPM-319",
+      "categoryId": "18",
+      "title": "An administrator tries a shadow variant of the project planner created at runtime next to the live planner",
+      "surface": "`NhAssistantBuilder.UseShadowVariantsAsData` with `NhAssistantShadowVariantCeilingBuilder` (`Of`, `OfAgentsCreatedInAdministration`, `MaxPerAgent`) and `NhAssistantShadowVariantCeiling`, with the startup checks of `ShadowOf` for the agents in code it names; `shadowOf` of `POST admin/agents` (`NhAssistantAdminAgentInputDto.ShadowOf`) and `NhAssistantAgentRequest.ShadowOf` of `INhAssistantAgentConfiguration.CreateAgentAsync`; `GET admin/agents/{id}/shadow-variants` with `NhAssistantShadowVariantsDto`, `NhAssistantShadowVariantDto` and `NhAssistantShadowVariantSources`; `NhAssistantAdminAgentDto.ShadowOf` for a variant created as data; the agent problems `OutsideCeiling`, `UnknownLiveAgent`, `LiveAgentNotLive` and `TooManyVariants` of `NhAssistantRunConfigurationProblems`, which take a variant's run settings out of effect; the code `assistant-shadow-variants-not-allowed` and the field errors `shadowOf` (`not-found`, `invalid`); `assistant-shadow-variant` for its shadow mode and groups; `NhAssistantAuditEvent.LiveAgentId` of `AdminAgentCreated`; the column `AssistantAgent.ShadowOfAgentId` of the HandOffsAsData migrations for SQL Server and PostgreSQL; the evaluation and replays of SPM-288 for a variant created as data; `nh-assistant-agent-shadow-variants` below the run configuration of `NhAssistantAdminAgentsComponent` in `@newheap/platform-ai-chat/admin`; `NhAssistantAdminApiService.getShadowVariants` with `AgentShadowVariants` and `ShadowVariant`, and `AdminAgentInput.shadowOf`; `shadowVariantsAsData` of `NhAssistantMockAdminScenario`",
+      "outcome": "SampleAgentLinksAsDataComposition lets administrators create up to two shadow variants of the project planner, and of agents created in the administration, as data. An administrator creates a planner trial from the planner's definition that names the planner as its live agent; a variant of the project closer, which the ceiling does not name, is refused with assistant-shadow-variants-not-allowed. The trial is never offered in the chat, and once it has run settings it works by the progress-note rules (SPM-295) while the planner keeps its own. The planner's shadow variants list the variant in code of SPM-288 next to the trial, which receives the planner's events now. Its shadow mode cannot change: putting it live is refused with assistant-shadow-variant. When a task of a project is completed, the planner follows it up live and the trial receives the same event in a shadow thread that only administrators see, where it notifies nobody and executes nothing; the planner's evaluation pairs the two runs that handled the event, as for the variant in code. The creation is audited with the live agent it follows. A variant that no longer fits, such as one of an agent the ceiling no longer names or beyond its number of variants, is out of effect with a problem and never runs, live or in shadow. In the assistant administration the run configuration of an agent lists its shadow variants in code and as data and creates one from the agent's definition, then continues in the variant's run configuration to give it run settings; in the playground the mock API creates variants within the scenario's ceiling.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.HandOffs.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantShadowVariants.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantHandOffsAsDataEndpoints.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDataShadowVariantTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-shadow-variants.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-hand-offs.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-hand-offs-admin.spec.ts"
+      ]
+    },
+    {
       "id": "SPM-320",
       "categoryId": "18",
       "title": "The planner's risk review is a skill defined as data whose instructions are the sample's own text asset, checked by its hash at every load",

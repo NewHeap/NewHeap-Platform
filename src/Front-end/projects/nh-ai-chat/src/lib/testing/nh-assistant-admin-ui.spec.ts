@@ -836,7 +836,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await settle(fixture);
     button(view(), 'Confirm delete').click();
     await settle(fixture);
-    expect(view().querySelector('[data-run-settings] [role="alert"]')?.textContent).toContain('Skills, triggers or consultations still belong to this agent.');
+    expect(view().querySelector('[data-run-settings] [role="alert"]')?.textContent).toContain('Skills, triggers, consultations or hand-offs still belong to this agent.');
 
     // Back in the list, the skill shows among the agent's skills, in shadow.
     button(element, 'Back to agents').click();

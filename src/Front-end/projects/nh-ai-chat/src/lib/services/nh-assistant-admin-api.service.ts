@@ -65,6 +65,7 @@ import {
   UpdateMcpToolRequest
 } from '../models/assistant-admin.models';
 import { AgentRunFilter, AgentRunHistory } from '../models/assistant-agent-run.models';
+import { AgentHandOffs, AgentShadowVariants, DataHandOff, DataHandOffRequest } from '../models/assistant-hand-off.models';
 import { NhAssistantClientErrorCodes } from '../models/assistant-sse.models';
 import { NhAssistantApiService } from './nh-assistant-api.service';
 import { NhAssistantStatusCodes, NhAssistantTransport } from './nh-assistant-transport';
@@ -443,7 +444,10 @@ export class NhAssistantAdminApiService {
     return this.request<AgentRunHistory>('GET', withQuery(`${agentPath(agentId)}/runs`, filter));
   }
 
-  /** Removes the run settings; while data skills or triggers belong to the agent, `assistant-run-settings-in-use`. */
+  /**
+   * Removes the run settings; while data skills, triggers, consultations or hand-offs defined as data
+   * belong to the agent, `assistant-run-settings-in-use`.
+   */
   removeRunSettings(agentId: string, removal: RunConfigurationRemoval = {}): Observable<void> {
     return this.request<void>('DELETE', withQuery(`${agentPath(agentId)}/run-settings`, removal));
   }
@@ -551,6 +555,43 @@ export class NhAssistantAdminApiService {
     return this.request<void>('DELETE', withQuery(consultationPath(agentId, subjectType), removal));
   }
 
+  /**
+   * The hand-offs the agent accepts, in code and as data with their problems, and what the ceiling in
+   * code (`UseHandOffsAsData`) lets administrators add; `ceiling` is `null` when it may accept none.
+   */
+  getAgentHandOffs(agentId: string): Observable<AgentHandOffs> {
+    return this.request<AgentHandOffs>('GET', `${agentPath(agentId)}/hand-offs`);
+  }
+
+  /**
+   * Adds or changes the hand-off defined as data that the agent accepts about one subject type, within
+   * the ceiling: in effect once saved, as one in code. An agent the ceiling connects to no agent fails
+   * with `assistant-handoffs-not-allowed`, a type it accepts in code with `assistant-handoff-in-code`,
+   * an agent without run configuration with `assistant-agent-not-configured`, more than the ceiling's
+   * `maxHandOffs` with `assistant-configuration-limit`, a stale `expectedVersion` with
+   * `assistant-version-conflict` and invalid input with field errors, such as `sources: not-allowed`
+   * for a source outside the ceiling.
+   */
+  saveDataHandOff(agentId: string, subjectType: string, request: DataHandOffRequest): Observable<DataHandOff> {
+    return this.request<DataHandOff>('PUT', handOffPath(agentId, subjectType), request);
+  }
+
+  /**
+   * Removes a hand-off defined as data; its tool disappears from the sources' next turns. Fails with
+   * `assistant-handoff-not-found` without one and with `assistant-handoff-in-code` for one in code.
+   */
+  removeDataHandOff(agentId: string, subjectType: string, removal: RunConfigurationRemoval = {}): Observable<void> {
+    return this.request<void>('DELETE', withQuery(handOffPath(agentId, subjectType), removal));
+  }
+
+  /**
+   * The agent's shadow variants, in code and created as data, and whether administrators may create
+   * more (`UseShadowVariantsAsData`). Create a data variant with `createAgent` and `shadowOf`.
+   */
+  getShadowVariants(agentId: string): Observable<AgentShadowVariants> {
+    return this.request<AgentShadowVariants>('GET', `${agentPath(agentId)}/shadow-variants`);
+  }
+
   private download(path: string): Promise<Blob> {
     return this.transport.download(path, 'application/x-ndjson', adminStatusCodes);
   }
@@ -582,6 +623,10 @@ function triggerPath(agentId: string, triggerId: string): string {
 
 function consultationPath(agentId: string, subjectType: string): string {
   return `${agentPath(agentId)}/consultations/${encodeURIComponent(subjectType)}`;
+}
+
+function handOffPath(agentId: string, subjectType: string): string {
+  return `${agentPath(agentId)}/hand-offs/${encodeURIComponent(subjectType)}`;
 }
 
 function metadataPath(agentId: string, name: string): string {

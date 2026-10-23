@@ -46,6 +46,8 @@ export interface NhAssistantMockRunAgents {
    * `description` `null`.
    */
   setDataSkill(agentId: string, skillId: string, description: string | null, startsOff?: boolean): void;
+  /** Whether the agent accepts a hand-off defined as data, which keeps its run settings in use. */
+  acceptsDataHandOffs?(agentId: string): boolean;
 }
 
 interface StoredSkillVersion extends DataSkill {
@@ -327,7 +329,8 @@ export class NhAssistantMockRunConfiguration {
       }
       if (this.liveSkills(agent.id).length > 0
         || [...this.triggers.values()].some(trigger => this.ownerOf(trigger) === agent.id)
-        || this.consultations.has(agent.id)) {
+        || this.consultations.has(agent.id)
+        || this.agents.acceptsDataHandOffs?.(agent.id)) {
         return failure('assistant-run-settings-in-use');
       }
       this.settings.delete(agent.id);
@@ -845,7 +848,7 @@ export class NhAssistantMockRunConfiguration {
   }
 
   /** An agent in code has a run configuration; one created in the administration once it has run settings. */
-  private isConfigured(agent: AdminAgent): boolean {
+  isConfigured(agent: AdminAgent): boolean {
     return agent.source === 'code' || this.settings.has(agent.id);
   }
 

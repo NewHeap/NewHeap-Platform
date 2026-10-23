@@ -44,7 +44,7 @@ public sealed class NhAssistantAgentRunOptions
     /// </summary>
     public const int MaxSkills = 20;
     private List<NhAssistantConsultationOptions> _consultations = [];
-    private readonly List<NhAssistantHandOffOptions> _handOffs = [];
+    private List<NhAssistantHandOffOptions> _handOffs = [];
 
     internal NhAssistantAgentRunOptions(string agentId)
     {
@@ -337,9 +337,22 @@ public sealed class NhAssistantAgentRunOptions
     }
 
     /// <summary>
-    /// The subject types other agents may hand work on to this agent, one entry per type.
+    /// The subject types other agents may hand work on to this agent, one entry per type: those in
+    /// code and, in the configuration in effect, those an administrator defined as data
+    /// (<see cref="NhAssistantHandOffOptions.Source"/>).
     /// </summary>
     public IReadOnlyList<NhAssistantHandOffOptions> HandOffs => _handOffs;
+
+    /// <summary>
+    /// A copy of the options with the hand-offs defined as data next to those in code. The options in
+    /// code stay as they are.
+    /// </summary>
+    internal NhAssistantAgentRunOptions WithDataHandOffs(IEnumerable<NhAssistantHandOffOptions> dataHandOffs)
+    {
+        var copy = (NhAssistantAgentRunOptions)MemberwiseClone();
+        copy._handOffs = [.. _handOffs, .. dataHandOffs];
+        return copy;
+    }
 
     internal void AddGrants(IEnumerable<NhAiAgentGrant> grants)
     {
