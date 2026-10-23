@@ -211,6 +211,19 @@ internal sealed record NhAssistantTriggerFire(
     public int? SkillVersion { get; init; }
 
     /// <summary>
+    /// The fire evaluates the candidate version <see cref="TriggerVersion"/> of the data trigger
+    /// <see cref="TriggerId"/>: its run works in the agent's shadow thread, in the live version of its
+    /// skill, next to the live trigger's work, which it never joins.
+    /// </summary>
+    public bool TriggerCandidate { get; init; }
+
+    /// <summary>
+    /// The version of the data trigger the fire's run records; <see langword="null"/> takes the
+    /// version of <see cref="TriggerId"/> in effect, which a trigger in code does not have.
+    /// </summary>
+    public int? TriggerVersion { get; init; }
+
+    /// <summary>
     /// The further recorded inputs of the replayed run, written after the fire's own input.
     /// </summary>
     public IReadOnlyList<NhAssistantReplayedInput> ReplayedInputs { get; init; } = [];
@@ -315,7 +328,82 @@ internal sealed class NhAssistantAgentTriggers(
             }
         }
 
+        await FireTriggerCandidatesAsync(evt, refusals, cancellationToken);
         return receipts;
+    }
+
+    /// <summary>
+    /// Fires the candidate versions of data triggers on the event: each with its own filters, subject,
+    /// conflict and debounce, for the trigger's own agent only, into its shadow thread. Publishers read
+    /// the live triggers' receipts; a candidate adds none, and what becomes of it never changes the
+    /// live version's work.
+    /// </summary>
+    private async Task FireTriggerCandidatesAsync<TEvent>(
+        TEvent evt,
+        Dictionary<string, string?> refusals,
+        CancellationToken cancellationToken)
+        where TEvent : class
+    {
+        var candidates = registration.TriggerCandidates.Values
+            .Where(trigger => trigger.Source == NhAssistantTriggerSource.Event && trigger.EventType == typeof(TEvent))
+            .ToArray();
+        foreach (var candidate in candidates)
+        {
+            if (await RefuseAgentAsync(candidate, candidate.AgentId, candidate.SkillId, refusals, cancellationToken) is not null
+                || FilterRefusal(candidate, evt, out var subject) is not null)
+            {
+                continue;
+            }
+
+            var fire = CandidateFire(
+                candidate,
+                new NhAssistantTriggerFire(
+                    candidate.Id,
+                    candidate.AgentId,
+                    subject ?? candidate.Subject(evt),
+                    candidate.Initiator(evt),
+                    candidate.Message(evt),
+                    candidate.Dedupe(evt),
+                    candidate.Conflict,
+                    candidate.Debounce)
+                {
+                    PayloadJson = PayloadOf(candidate, evt),
+                    SkillId = candidate.SkillId
+                });
+            await FireOrRefuseAsync(fire, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// The fire of a trigger's candidate version: it records the candidate's version and the kind of
+    /// its source, and its dedupe key is the event's own per candidate version, so a repeated delivery
+    /// starts one candidate run as it starts one live run, and the two never deduplicate each other.
+    /// </summary>
+    private static NhAssistantTriggerFire CandidateFire(NhAssistantTriggerDefinition candidate, NhAssistantTriggerFire fire)
+    {
+        return fire with
+        {
+            TriggerCandidate = true,
+            TriggerVersion = candidate.DataVersion,
+            TriggerKind = candidate.Source == NhAssistantTriggerSource.Schedule ? NhAssistantTriggerKinds.Schedule : NhAssistantTriggerKinds.Event,
+            EventKey = TriggerCandidateKey(fire.EventKey, candidate.DataVersion)
+        };
+    }
+
+    /// <summary>
+    /// The dedupe key of a trigger candidate's fire: the event's own, per candidate version.
+    /// </summary>
+    internal static string? TriggerCandidateKey(string? eventKey, int? version)
+    {
+        if (eventKey is null)
+        {
+            return null;
+        }
+
+        var suffix = ":trigger-candidate-" + version?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return eventKey.Length + suffix.Length <= 256
+            ? eventKey + suffix
+            : NhAssistantAgentCatalog.ComputeHash(eventKey) + suffix;
     }
 
     /// <summary>
@@ -883,6 +971,18 @@ internal sealed class NhAssistantAgentTriggers(
     }
 
     /// <summary>
+    /// Fires the candidate version of a data schedule for one subject of its own tick, for the
+    /// trigger's agent only, into its shadow thread.
+    /// </summary>
+    internal Task<NhAssistantTriggerReceipt> FireScheduledCandidateAsync(
+        NhAssistantTriggerDefinition candidate,
+        NhAssistantScheduledTick tick,
+        CancellationToken cancellationToken)
+    {
+        return FireAsync(CandidateFire(candidate, Create(candidate, tick, initiatorActorId: null)), cancellationToken);
+    }
+
+    /// <summary>
     /// Fires a webhook trigger for one verified delivery whose body names a subject.
     /// </summary>
     internal Task<NhAssistantTriggerReceipt> FireWebhookAsync(
@@ -961,7 +1061,9 @@ internal sealed class NhAssistantAgentTriggers(
     /// <summary>
     /// The candidate version of the fire's data skill takes the same event as the live version, as a
     /// second run in the agent's shadow thread, where nothing it proposes executes. Only triggers that
-    /// name the skill start it; routing by rules or triage reaches the live version.
+    /// name the skill start it; routing by rules or triage reaches the live version. A trigger's
+    /// candidate evaluates its own change against the live version of its skill and starts no skill
+    /// candidate.
     /// </summary>
     private async Task FireCandidateAsync(
         NhAssistantTriggerFire fire,
@@ -969,6 +1071,7 @@ internal sealed class NhAssistantAgentTriggers(
         CancellationToken cancellationToken)
     {
         if (fire.SkillCandidate
+            || fire.TriggerCandidate
             || fire.Resume
             || fire.ReplayOfRunId is not null
             || fire.SkillId is not { } skillId
@@ -1060,6 +1163,38 @@ internal sealed class NhAssistantAgentTriggers(
                 null,
                 null,
                 NhAssistantTriggerReasons.Deduplicated);
+        }
+
+        if (request.TriggerCandidateVersion is { } candidateVersion)
+        {
+            await configurations.EnsureCurrentAsync(cancellationToken);
+            if (!registration.TriggerCandidates.TryGetValue(request.TriggerId, out var candidate)
+                || candidate.DataVersion != candidateVersion)
+            {
+                // The candidate was promoted, discarded or replaced before the commit: the live
+                // version had the event.
+                return Ignored(request.TriggerId, NhAssistantErrorCodes.TriggerCandidateNotFound);
+            }
+
+            return await FireAsync(
+                new NhAssistantTriggerFire(
+                    request.TriggerId,
+                    request.AgentId,
+                    request.Subject,
+                    request.InitiatorActorId,
+                    request.Message,
+                    request.EventKey,
+                    request.Conflict,
+                    request.Debounce)
+                {
+                    PayloadJson = request.PayloadJson,
+                    InputId = request.InputId,
+                    SkillId = candidate.SkillId,
+                    TriggerCandidate = true,
+                    TriggerVersion = candidateVersion,
+                    TriggerKind = NhAssistantTriggerKinds.Event
+                },
+                cancellationToken);
         }
 
         return await FireAsync(
@@ -1235,7 +1370,8 @@ internal sealed class NhAssistantAgentTriggers(
                 ResumeConversationId = thread.ConversationId,
                 SkillId = run.SkillId,
                 SkillChosenBy = run.SkillChosenBy,
-                TriggerKind = run.TriggerKind
+                TriggerKind = run.TriggerKind,
+                TriggerVersion = run.TriggerVersion
             },
             cancellationToken);
     }
@@ -1263,7 +1399,10 @@ internal sealed class NhAssistantAgentTriggers(
                 fire.EventKey,
                 fire.Conflict,
                 fire.Debounce,
-                fire.PayloadJson),
+                fire.PayloadJson)
+            {
+                TriggerCandidateVersion = fire.TriggerCandidate ? fire.TriggerVersion : null
+            },
             new NhBackgroundOperationEnqueueOptions
             {
                 OwnerAgentKey = NhAssistantProposalInvalidation.SystemActorId,
@@ -1355,18 +1494,19 @@ internal sealed class NhAssistantAgentTriggers(
         }
 
         // Work of an agent, a skill or a data trigger in shadow goes to the agent's shadow thread of
-        // the subject, and so does a candidate version's.
+        // the subject, and so does a candidate version's, of a skill or of a trigger.
         var shadow = NhAssistantShadowModes.IsAgentShadow(options, agent.ShadowOverride)
             || (fire.SkillId is { } shadowSkill
                 && options.Skills.TryGetValue(shadowSkill, out var skillOptions)
                 && NhAssistantShadowModes.IsSkillShadow(skillOptions, skillRow))
-            || IsTriggerShadow(fire.TriggerId)
-            || fire.SkillCandidate;
+            || (!fire.TriggerCandidate && IsTriggerShadow(fire.TriggerId))
+            || fire.SkillCandidate
+            || fire.TriggerCandidate;
 
         // A paused agent or a paused skill lets the event wait.
         var paused = (agent.RunState == NhAssistantAgentRunStates.Paused || skillState == NhAssistantAgentRunStates.Paused)
             && !fire.Resume;
-        if (paused && fire.SkillCandidate)
+        if (paused && (fire.SkillCandidate || fire.TriggerCandidate))
         {
             // A candidate evaluates work as it happens; it lets nothing wait for a resume.
             return new NhAssistantTriggerReceipt(
@@ -1425,9 +1565,14 @@ internal sealed class NhAssistantAgentTriggers(
             }
         }
 
-        // Events join a queued run of the same skill only.
-        var queued = await runs.FindQueuedRunAsync(conversationId, cancellationToken, fire.SkillId, fire.SkillCandidate);
-        var active = await runs.FindActiveRunAsync(conversationId, cancellationToken);
+        // Events join a queued run of the same skill only, and a trigger's candidate only its own.
+        var queued = await runs.FindQueuedRunAsync(
+            conversationId,
+            cancellationToken,
+            fire.SkillId,
+            fire.SkillCandidate,
+            fire.TriggerCandidate ? fire.TriggerId : null);
+        var active = await runs.FindActiveRunForConflictAsync(conversationId, fire.TriggerCandidate ? fire.TriggerId : null, cancellationToken);
         if (paused)
         {
             if (fire.Conflict == NhAssistantTriggerConflict.Ignore && active is not null)
@@ -1457,7 +1602,7 @@ internal sealed class NhAssistantAgentTriggers(
 
         var since = DateTimeOffset.UtcNow.AddDays(-1);
         if (!fire.Resume
-            && await runs.CountRunsSinceAsync(conversationId, since, cancellationToken) >= options.MaxRunsPerSubjectPerDay)
+            && await runs.CountRunsSinceAsync(conversationId, since, cancellationToken, fire.TriggerCandidate ? fire.TriggerId : null) >= options.MaxRunsPerSubjectPerDay)
         {
             return Rejected(fire, conversationId, NhAssistantTriggerReasons.RateLimited);
         }
@@ -1506,6 +1651,9 @@ internal sealed class NhAssistantAgentTriggers(
             TriggerId = fire.TriggerId,
             TriggerEventKey = fire.EventKey,
             TriggerKind = fire.TriggerKind ?? NhAssistantTriggerKinds.Of(fire.TriggerId, fire.ReplayOfRunId, registration.Triggers),
+            TriggerVersion = fire.TriggerVersion
+                ?? (fire.ReplayOfRunId is null && registration.Triggers.TryGetValue(fire.TriggerId, out var startedBy) ? startedBy.DataVersion : null),
+            TriggerCandidate = fire.TriggerCandidate,
             InitiatorActorId = fire.InitiatorActorId,
             AccountableOwnerId = accountable.Data!,
             Status = NhAssistantRunStatuses.Queued,
@@ -1639,6 +1787,7 @@ internal sealed class NhAssistantAgentTriggers(
             InitiatorActorId = fire.InitiatorActorId,
             SkillId = fire.SkillId,
             SkillCandidate = fire.SkillCandidate,
+            TriggerCandidate = fire.TriggerCandidate,
             // Only a person's message carries files: the run opens them with that person as actor.
             FilesJson = personal && fire.InitiatorActorId is not null ? NhAssistantContent.SerializeFiles(fire.Files) : null,
             CreatedAt = DateTimeOffset.UtcNow

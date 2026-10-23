@@ -290,21 +290,26 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
 
     /// <summary>
     /// The oldest queued run of the thread in <paramref name="skillId"/>; a run that the agent's
-    /// rules or triage will route has none.
+    /// rules or triage will route has none. With <paramref name="candidateTriggerId"/> only a run of
+    /// that trigger's candidate version, which never joins other work; without it no such run.
     /// </summary>
     public async Task<AssistantRun?> FindQueuedRunAsync(
         Guid conversationId,
         CancellationToken cancellationToken,
         string? skillId = null,
-        bool candidate = false)
+        bool candidate = false,
+        string? candidateTriggerId = null)
     {
         await using var context = contextFactory.CreateDbContext();
+        var triggerCandidate = candidateTriggerId is not null;
         return await context.Runs
             .AsNoTracking()
             .Where(run => run.ConversationId == conversationId
                 && run.Status == NhAssistantRunStatuses.Queued
                 && run.SkillId == skillId
-                && run.SkillCandidate == candidate)
+                && run.SkillCandidate == candidate
+                && run.TriggerCandidate == triggerCandidate
+                && (!triggerCandidate || run.TriggerId == candidateTriggerId))
             .OrderBy(run => run.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -922,6 +927,29 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// The oldest active run whose work a trigger's conflict behavior concerns: with
+    /// <paramref name="candidateTriggerId"/> a run of that trigger's candidate version, otherwise any
+    /// run but a trigger candidate's, so a candidate neither waits for, ignores, nor supersedes the
+    /// live version's work, and the live version never supersedes the candidate's.
+    /// </summary>
+    public async Task<AssistantRun?> FindActiveRunForConflictAsync(
+        Guid conversationId,
+        string? candidateTriggerId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var triggerCandidate = candidateTriggerId is not null;
+        return await context.Runs
+            .AsNoTracking()
+            .Where(run => run.ConversationId == conversationId
+                && ActiveRunStatuses.Contains(run.Status)
+                && run.TriggerCandidate == triggerCandidate
+                && (!triggerCandidate || run.TriggerId == candidateTriggerId))
+            .OrderBy(run => run.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<(IReadOnlyList<AssistantRun> Items, int Total)> ListRunsAsync(
         Guid conversationId,
         int page,
@@ -940,14 +968,24 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         return (items, total);
     }
 
+    /// <summary>
+    /// The runs of the thread since <paramref name="since"/>. With <paramref name="candidateTriggerId"/>
+    /// only the runs of that trigger's candidate version, otherwise every run but a trigger
+    /// candidate's: a candidate counts against its own limit and never uses up the live version's.
+    /// </summary>
     public async Task<int> CountRunsSinceAsync(
         Guid conversationId,
         DateTimeOffset since,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? candidateTriggerId = null)
     {
         await using var context = contextFactory.CreateDbContext();
+        var triggerCandidate = candidateTriggerId is not null;
         return await context.Runs.CountAsync(
-            run => run.ConversationId == conversationId && run.CreatedAt >= since,
+            run => run.ConversationId == conversationId
+                && run.CreatedAt >= since
+                && run.TriggerCandidate == triggerCandidate
+                && (!triggerCandidate || run.TriggerId == candidateTriggerId),
             cancellationToken);
     }
 
@@ -1459,15 +1497,20 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         Guid runId,
         CancellationToken cancellationToken,
         string? skillId = null,
-        bool candidate = false)
+        bool candidate = false,
+        string? candidateTriggerId = null)
     {
         await using var context = contextFactory.CreateDbContext();
         var now = DateTimeOffset.UtcNow;
+        var triggerCandidate = candidateTriggerId is not null;
         // A run claims the inputs without a skill and those of its own skill; the run of a candidate
-        // version claims the candidate's inputs only.
+        // version claims the candidate's inputs only, and the run of a trigger's candidate version
+        // those of that candidate only.
         await context.QueuedInputs
             .Where(input => input.ConversationId == conversationId
                 && input.ConsumedAt == null
+                && input.TriggerCandidate == triggerCandidate
+                && (!triggerCandidate || input.TriggerId == candidateTriggerId)
                 && (candidate
                     ? input.SkillCandidate && input.SkillId == skillId
                     : !input.SkillCandidate && (input.SkillId == null || input.SkillId == skillId)))
@@ -1560,6 +1603,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         // One group per thread and skill; a queued run of the same skill claims its inputs itself.
         var groups = await context.QueuedInputs
             .Where(input => input.ConsumedAt == null
+                // A trigger's candidate lets nothing wait for a resume.
+                && !input.TriggerCandidate
                 && (input.SkillId == null || !held.Contains(input.SkillId))
                 && (onlySkill == null || input.SkillId == onlySkill)
                 && !context.Runs.Any(run => run.ConversationId == input.ConversationId
@@ -1758,6 +1803,31 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .Where(run => run.SkillId == skillId
                 && run.SkillVersion != null
                 && versions.Contains(run.SkillVersion.Value)
+                && run.CreatedAt >= from
+                && run.CreatedAt < to
+                && context.Threads.Any(thread => thread.ConversationId == run.ConversationId && thread.AgentId == agentId))
+            .OrderBy(run => run.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The runs of the agent that a version of its data trigger in <paramref name="versions"/>
+    /// started in the period, live and candidate, oldest first.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantRun>> GetTriggerVersionRunsAsync(
+        string agentId,
+        string triggerId,
+        IReadOnlyCollection<int> versions,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Runs
+            .AsNoTracking()
+            .Where(run => run.TriggerId == triggerId
+                && run.TriggerVersion != null
+                && versions.Contains(run.TriggerVersion.Value)
                 && run.CreatedAt >= from
                 && run.CreatedAt < to
                 && context.Threads.Any(thread => thread.ConversationId == run.ConversationId && thread.AgentId == agentId))

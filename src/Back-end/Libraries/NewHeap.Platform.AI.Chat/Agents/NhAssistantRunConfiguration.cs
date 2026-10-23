@@ -133,8 +133,8 @@ public static class NhAssistantElevatedReadNames
 /// deploy removed the profile, policy, rule handler, event or subject set it names. The
 /// administration shows it; startup does not fail on it.
 /// </summary>
-/// <param name="Kind"><c>agent</c> for run settings, <c>skill</c>, <c>candidate</c>, <c>trigger</c> or
-/// <c>consultation</c>.</param>
+/// <param name="Kind"><c>agent</c> for run settings, <c>skill</c>, <c>candidate</c>, <c>trigger</c>,
+/// <c>trigger-candidate</c> or <c>consultation</c>.</param>
 /// <param name="Id">The agent id, the skill id, the trigger id or, for a consultation, its subject
 /// type. A consultation that works with less has a problem per part that no longer fits.</param>
 /// <param name="Code">One of <see cref="NhAssistantRunConfigurationProblems"/>.</param>
@@ -154,6 +154,13 @@ public static class NhAssistantRunConfigurationProblems
 
     /// <summary>The candidate version of a data skill.</summary>
     public const string CandidateKind = "candidate";
+
+    /// <summary>
+    /// The candidate version of a data trigger. It is checked as a live trigger is; any problem, a
+    /// filter its event no longer registers included, keeps it from firing, while the live version
+    /// keeps working.
+    /// </summary>
+    public const string TriggerCandidateKind = "trigger-candidate";
 
     /// <summary>The agent has no run configuration, in code or as data, or no longer exists.</summary>
     public const string UnknownAgent = "unknown-agent";
@@ -510,7 +517,15 @@ internal sealed record NhAssistantRunSnapshot(
     IReadOnlyDictionary<string, NhAssistantAgentRunOptions> AgentRuns,
     IReadOnlyDictionary<string, NhAssistantTriggerDefinition> Triggers,
     Guid? Stamp,
-    IReadOnlyList<NhAssistantRunConfigurationProblem> Problems);
+    IReadOnlyList<NhAssistantRunConfigurationProblem> Problems)
+{
+    /// <summary>
+    /// The candidate versions of data triggers that fit the code, by trigger id: each fires in the
+    /// agent's shadow thread next to the live version of the same id.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantTriggerDefinition> TriggerCandidates { get; init; } =
+        new Dictionary<string, NhAssistantTriggerDefinition>(StringComparer.Ordinal);
+}
 
 /// <summary>
 /// Hears every snapshot that went into effect, for example to keep the recurring jobs of data
@@ -1236,7 +1251,7 @@ internal sealed class NhAssistantRunConfigurations(
         AddDataConsultations(stored, agentRuns, runAgents, problems);
 
         var triggers = new Dictionary<string, NhAssistantTriggerDefinition>(registration.CodeTriggers, StringComparer.Ordinal);
-        foreach (var row in stored.Triggers)
+        foreach (var row in stored.Triggers.Where(row => row.Status == NhAssistantSkillDefinitionStatuses.Live))
         {
             var problem = validator.ValidateTrigger(row, agentRuns);
             if ((problem is null or NhAssistantRunConfigurationProblems.UnknownFilter) && triggers.ContainsKey(row.Id))
@@ -1260,12 +1275,32 @@ internal sealed class NhAssistantRunConfigurations(
             triggers.Add(row.Id, ToTrigger(row));
         }
 
-        return new NhAssistantRunSnapshot(agentRuns, triggers, stored.Stamp, problems);
+        // A candidate is checked as its live version is and fires next to it; it needs nothing of the
+        // live version, which keeps working whatever becomes of the candidate.
+        var triggerCandidates = new Dictionary<string, NhAssistantTriggerDefinition>(StringComparer.Ordinal);
+        foreach (var row in stored.Triggers.Where(row => row.Status == NhAssistantSkillDefinitionStatuses.Candidate))
+        {
+            var problem = registration.CodeTriggers.ContainsKey(row.Id) || triggerCandidates.ContainsKey(row.Id)
+                ? NhAssistantRunConfigurationProblems.ConflictsWithCode
+                : validator.ValidateTrigger(row, agentRuns);
+            if (problem is not null)
+            {
+                problems.Add(new NhAssistantRunConfigurationProblem(row.AgentId, NhAssistantRunConfigurationProblems.TriggerCandidateKind, row.Id, problem));
+                continue;
+            }
+
+            triggerCandidates.Add(row.Id, ToTrigger(row, candidate: true));
+        }
+
+        return new NhAssistantRunSnapshot(agentRuns, triggers, stored.Stamp, problems)
+        {
+            TriggerCandidates = triggerCandidates
+        };
     }
 
     /// <summary>
-    /// Adds the consultations defined as data that fit the code to their agents' options, checked
-    /// after the run settings and skills against the agents' own tool selectors in
+    /// Adds the consultations defined as data that fit the code and are on to their agents' options,
+    /// checked after the run settings and skills against the agents' own tool selectors in
     /// <paramref name="runAgents"/>, and lists every problem.
     /// </summary>
     private void AddDataConsultations(
@@ -1297,7 +1332,9 @@ internal sealed class NhAssistantRunConfigurations(
                 {
                     problems.Add(new NhAssistantRunConfigurationProblem(row.AgentId, NhAssistantRunConfigurationProblems.ConsultationKind, row.SubjectType, code));
                 }
-                if (check.Options is { } options)
+                // A consultation that is off is checked as every load checks it, so the administration
+                // shows what would no longer fit, and offered only once it is switched on.
+                if (check.Options is { } options && !row.Off)
                 {
                     dataConsultations.Add(options);
                 }
@@ -1427,9 +1464,13 @@ internal sealed class NhAssistantRunConfigurations(
             $"{definition.AgentId}-{definition.SkillId}-v{version}");
     }
 
-    private NhAssistantTriggerDefinition ToTrigger(AssistantAgentTriggerDefinition row)
+    /// <summary>
+    /// The trigger of a stored version. A <paramref name="candidate"/> always works in shadow.
+    /// </summary>
+    private NhAssistantTriggerDefinition ToTrigger(AssistantAgentTriggerDefinition row, bool candidate = false)
     {
         NhAssistantTriggerConflictNames.TryParse(row.Conflict, out var conflict);
+        var shadow = candidate || row.Shadow;
         if (row.Source == NhAssistantDataTriggerSources.Event)
         {
             var source = registration.TriggerEvents[row.EventName!];
@@ -1456,7 +1497,8 @@ internal sealed class NhAssistantRunConfigurations(
                 SkillId = row.SkillId,
                 DataVersion = row.Version,
                 BlockName = row.EventName,
-                Shadow = row.Shadow,
+                Shadow = shadow,
+                Candidate = candidate,
                 Filters = filters,
                 MissingFilters = names.Where(name => filters.All(filter => filter.Name != name)).ToArray()
             };
@@ -1483,7 +1525,8 @@ internal sealed class NhAssistantRunConfigurations(
             ScheduledSubjects = subjects?.Subjects,
             DataVersion = row.Version,
             BlockName = row.SubjectSetName,
-            Shadow = row.Shadow
+            Shadow = shadow,
+            Candidate = candidate
         };
     }
 }

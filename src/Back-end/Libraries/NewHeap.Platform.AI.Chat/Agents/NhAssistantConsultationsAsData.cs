@@ -54,6 +54,13 @@ public sealed class NhAssistantConsultationCeiling
     public int MaxHistoryMessages { get; internal set; } = NhAssistantConsultationBounds.MaxHistoryMessages;
 
     /// <summary>
+    /// Every new consultation defined as data starts off: it is not offered until an administrator
+    /// switches it on. Without it a new consultation is offered once saved, unless its administrator
+    /// lets it start off. Consultations that exist keep whether they are on.
+    /// </summary>
+    public bool StartsOff { get; internal set; }
+
+    /// <summary>
     /// Whether the ceiling allows <paramref name="route"/>, one of <see cref="NhAssistantConsultationRoutes"/>.
     /// </summary>
     public bool Allows(string route)
@@ -68,7 +75,7 @@ public sealed class NhAssistantConsultationCeiling
 
     /// <summary>
     /// What both ceilings allow: the routes of both, requests and MCP only when both allow them, and
-    /// the lower of each limit.
+    /// the lower of each limit. New consultations start off when either ceiling says so.
     /// </summary>
     internal NhAssistantConsultationCeiling Intersect(NhAssistantConsultationCeiling other)
     {
@@ -80,7 +87,8 @@ public sealed class NhAssistantConsultationCeiling
             MaxToolCalls = Math.Min(MaxToolCalls, other.MaxToolCalls),
             MaxTimeout = MaxTimeout < other.MaxTimeout ? MaxTimeout : other.MaxTimeout,
             MaxAnswerChars = Math.Min(MaxAnswerChars, other.MaxAnswerChars),
-            MaxHistoryMessages = Math.Min(MaxHistoryMessages, other.MaxHistoryMessages)
+            MaxHistoryMessages = Math.Min(MaxHistoryMessages, other.MaxHistoryMessages),
+            StartsOff = StartsOff || other.StartsOff
         };
         ceiling.SetRoutes(_routes.Where(other.Allows));
         return ceiling;
@@ -207,6 +215,18 @@ public sealed class NhAssistantConsultationCeilingBuilder
         _ceiling.MaxTimeout = maxTimeout;
         _ceiling.MaxAnswerChars = maxAnswerChars;
         _ceiling.MaxHistoryMessages = history;
+        return this;
+    }
+
+    /// <summary>
+    /// Every new consultation defined as data starts off, so an administrator reviews it before it is
+    /// offered and switches it on (<c>POST admin/agents/{id}/consultations/{subjectType}/state</c>).
+    /// Off by default: a new consultation is offered once saved, as before, unless its request asks it
+    /// to start off. Consultations that exist keep whether they are on.
+    /// </summary>
+    public NhAssistantConsultationCeilingBuilder StartOff(bool enabled = true)
+    {
+        _ceiling.StartsOff = enabled;
         return this;
     }
 }

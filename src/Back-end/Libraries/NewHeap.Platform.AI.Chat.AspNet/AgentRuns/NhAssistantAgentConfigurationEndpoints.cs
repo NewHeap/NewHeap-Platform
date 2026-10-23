@@ -96,7 +96,7 @@ internal static class NhAssistantAgentConfigurationEndpoints
         admin.MapPut("agents/{id}/triggers/{triggerId}", SaveTriggerAsync)
             .WithName("NhAssistantAdminSaveDataTrigger")
             .WithSummary("Add or change a trigger defined as data")
-            .WithDescription("Links a trigger event or a schedule (cron, time zone, subject set, message) to the agent, in one of its skills or routed by the agent. A new trigger starts in shadow; a change keeps its mode when expectedVersion is current, otherwise 409. Every name must be registered in code (400). A trigger in code cannot change (409).")
+            .WithDescription("Links a trigger event or a schedule (cron, time zone, subject set, message) to the agent, in one of its skills or routed by the agent. A new trigger starts in shadow. A change stores the next version when expectedVersion is the live version, otherwise 409: with apply live (default) it takes effect at once in the trigger's mode; with apply shadow it becomes the candidate that fires next to the live version, for the trigger's own agent and into its shadow threads, until it is promoted or discarded, while the live version keeps working. Every name must be registered in code (400). A trigger in code cannot change (409).")
             .Produces<NhAssistantDataTriggerDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -104,15 +104,50 @@ internal static class NhAssistantAgentConfigurationEndpoints
         admin.MapDelete("agents/{id}/triggers/{triggerId}", RemoveTriggerAsync)
             .WithName("NhAssistantAdminRemoveDataTrigger")
             .WithSummary("Remove a trigger defined as data")
-            .WithDescription("Removes the trigger; runs it started finish. A trigger in code cannot be removed (409).")
+            .WithDescription("Takes the trigger out of effect; its versions stay as history and a candidate is discarded. Runs it started finish. A trigger in code cannot be removed (409).")
             .Produces(StatusCodes.Status204NoContent)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapGet("agents/{id}/triggers/{triggerId}/versions", GetTriggerVersionsAsync)
+            .WithName("NhAssistantAdminGetDataTriggerVersions")
+            .WithSummary("List the versions of a trigger defined as data")
+            .WithDescription("Returns every version, newest first, with its status (live, candidate, superseded or discarded), its definition, who stored it when and why.")
+            .Produces<NhAssistantDataTriggerVersionDto[]>();
+        admin.MapPost("agents/{id}/triggers/{triggerId}/candidate/promote", PromoteTriggerCandidateAsync)
+            .WithName("NhAssistantAdminPromoteTriggerCandidate")
+            .WithSummary("Promote the candidate of a trigger defined as data")
+            .WithDescription("Makes the candidate of version the live version, in the trigger's mode; the live version stays as history. Runs the candidate started finish in shadow. Without a candidate 404; for another version 409.")
+            .Produces<NhAssistantDataTriggerDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPost("agents/{id}/triggers/{triggerId}/candidate/discard", DiscardTriggerCandidateAsync)
+            .WithName("NhAssistantAdminDiscardTriggerCandidate")
+            .WithSummary("Discard the candidate of a trigger defined as data")
+            .WithDescription("The candidate of version stays as history and fires no more; runs it started finish in shadow. Without a candidate 404; for another version 409.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapGet("agents/{id}/triggers/{triggerId}/candidate/comparison", CompareTriggerCandidateAsync)
+            .WithName("NhAssistantAdminCompareTriggerCandidate")
+            .WithSummary("Compare the candidate of a trigger with its live version")
+            .WithDescription("Runs, outcomes, usage and proposals per tool of the live version and of the candidate since the candidate was saved (or from), until to, with what people decided about the live version's proposals, and how many events both versions or only one of them started a run for. Counts only.")
+            .Produces<NhAssistantTriggerComparisonDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapPut("agents/{id}/consultations/{subjectType}", SaveConsultationAsync)
             .WithName("NhAssistantAdminSaveDataConsultation")
             .WithSummary("Add or change a consultation defined as data")
-            .WithDescription("Lets other assistants consult the agent about subjects of one type: description, instructions, who may ask (minimumRole and an askerPolicy listed with AddAgentPolicy), the routes of its proposals, the proposal role and approval policy, limits, the request tool, MCP exposure and the classification of its answers, within the ceiling in code (UseConsultationsAsData, and ConsultableAsData for an agent in code). It is in effect once saved and answers when an asking agent selects its generated tool. A route outside the ceiling is refused with routes not-allowed (400); an agent that may get none (409 assistant-consultations-not-allowed), an agent created in the administration without run settings (409 assistant-agent-not-configured), a type the agent allows consultation about in code (409 assistant-consultation-in-code), more than 20 per agent (409 assistant-configuration-limit) and a stale expectedVersion (409) are refused.")
+            .WithDescription("Lets other assistants consult the agent about subjects of one type: description, instructions, who may ask (minimumRole and an askerPolicy listed with AddAgentPolicy), the routes of its proposals, the proposal role and approval policy, limits, the request tool, MCP exposure and the classification of its answers, within the ceiling in code (UseConsultationsAsData, and ConsultableAsData for an agent in code). It is in effect once saved, unless it starts off (startsOff, or StartOff of the ceiling in code) until it is switched on with POST agents/{id}/consultations/{subjectType}/state, and answers when an asking agent selects its generated tool; a change keeps whether it is on, and startsOff on a change is refused with startsOff invalid (400). A route outside the ceiling is refused with routes not-allowed (400); an agent that may get none (409 assistant-consultations-not-allowed), an agent created in the administration without run settings (409 assistant-agent-not-configured), a type the agent allows consultation about in code (409 assistant-consultation-in-code), more than 20 per agent (409 assistant-configuration-limit) and a stale expectedVersion (409) are refused.")
+            .Produces<NhAssistantDataConsultationDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPost("agents/{id}/consultations/{subjectType}/state", SetConsultationStateAsync)
+            .WithName("NhAssistantAdminSetDataConsultationState")
+            .WithSummary("Switch a consultation defined as data on or off")
+            .WithDescription("state on offers the consultation; off takes its tools away from asking agents, while its recorded proposals can still be decided. A new consultation starts off when its request said startsOff or the application's ceiling starts every new one off (StartOff in code). Another state is refused with state invalid (400); without such a consultation 404 assistant-consultation-not-found; a consultation in code cannot change (409).")
             .Produces<NhAssistantDataConsultationDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -396,6 +431,127 @@ internal static class NhAssistantAgentConfigurationEndpoints
 
         var result = await configuration.RemoveTriggerAsync(id, triggerId, expectedVersion, actor, reason, httpContext.RequestAborted);
         return result.Success ? TypedResults.NoContent() : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> GetTriggerVersionsAsync(
+        string id,
+        string triggerId,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var versions = await configuration.GetTriggerVersionsAsync(id, triggerId, httpContext.RequestAborted);
+        return NhAssistantAdminEndpoints.Json(
+            versions.ToArray(),
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantDataTriggerVersionDtoArray);
+    }
+
+    private static async Task<IResult> PromoteTriggerCandidateAsync(
+        string id,
+        string triggerId,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+        var body = await NhAssistantAdminEndpoints.ReadAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSkillCandidateRequest);
+        if (body is null)
+        {
+            return NhAssistantAdminEndpoints.Validation();
+        }
+        if (body.Version is not { } version)
+        {
+            return NhAssistantAdminEndpoints.MissingField("version");
+        }
+
+        var result = await configuration.PromoteTriggerCandidateAsync(id, triggerId, version, actor, body.Reason, httpContext.RequestAborted);
+        return result.Success
+            ? NhAssistantAdminEndpoints.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantDataTriggerDto)
+            : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> DiscardTriggerCandidateAsync(
+        string id,
+        string triggerId,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+        var body = await NhAssistantAdminEndpoints.ReadAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSkillCandidateRequest);
+        if (body is null)
+        {
+            return NhAssistantAdminEndpoints.Validation();
+        }
+        if (body.Version is not { } version)
+        {
+            return NhAssistantAdminEndpoints.MissingField("version");
+        }
+
+        var result = await configuration.DiscardTriggerCandidateAsync(id, triggerId, version, actor, body.Reason, httpContext.RequestAborted);
+        return result.Success ? TypedResults.NoContent() : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> CompareTriggerCandidateAsync(
+        string id,
+        string triggerId,
+        DateTimeOffset? from,
+        DateTimeOffset? to,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var result = await configuration.CompareTriggerCandidateAsync(id, triggerId, from, to, httpContext.RequestAborted);
+        return result.Success
+            ? NhAssistantAdminEndpoints.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantTriggerComparisonDto)
+            : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> SetConsultationStateAsync(
+        string id,
+        string subjectType,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+        var body = await NhAssistantAdminEndpoints.ReadAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantConsultationStateRequest);
+        if (body is null)
+        {
+            return NhAssistantAdminEndpoints.Validation();
+        }
+        if (body.State is null)
+        {
+            return NhAssistantAdminEndpoints.MissingField("state");
+        }
+        if (body.State is not (NhAssistantConsultationStates.On or NhAssistantConsultationStates.Off))
+        {
+            return NhAssistantAdminEndpoints.Failure(NhAssistantValidationErrors.Failed("state", NhAssistantFieldErrors.Invalid));
+        }
+
+        var result = await configuration.SetConsultationStateAsync(
+            id,
+            subjectType,
+            body.State == NhAssistantConsultationStates.On,
+            actor,
+            body.Reason,
+            httpContext.RequestAborted);
+        return result.Success
+            ? NhAssistantAdminEndpoints.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantDataConsultationDto)
+            : NhAssistantAdminEndpoints.Failure(result);
     }
 
     private static async Task<IResult> SaveConsultationAsync(

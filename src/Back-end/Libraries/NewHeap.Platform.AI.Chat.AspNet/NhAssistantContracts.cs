@@ -730,7 +730,16 @@ public sealed record NhAssistantAdminAgentInputDto(
     bool? StartsOff = null,
     string? Profile = null,
     string? DataClassification = null,
-    IReadOnlyDictionary<string, JsonElement>? Metadata = null);
+    IReadOnlyDictionary<string, JsonElement>? Metadata = null)
+{
+    /// <summary>
+    /// On create only: the new agent starts in shadow, so once it has run settings, also when they are
+    /// saved right after, its runs work in its shadow threads until someone puts it live with
+    /// <c>POST admin/agents/{id}/shadow</c>. Omitted or <see langword="false"/> starts it live; ignored
+    /// on update.
+    /// </summary>
+    public bool? StartsInShadow { get; init; }
+}
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
 /// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c>, <c>off</c> or <c>configured-off</c>.</param>

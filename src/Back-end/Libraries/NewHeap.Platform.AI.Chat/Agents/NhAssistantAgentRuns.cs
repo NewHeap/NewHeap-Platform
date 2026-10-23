@@ -1186,6 +1186,13 @@ internal sealed class NhAssistantTriggerDefinition
     /// mode. Only a trigger defined as data has a mode of its own; it starts in shadow.
     /// </summary>
     public bool Shadow { get; init; }
+
+    /// <summary>
+    /// The candidate version <see cref="DataVersion"/> of a trigger defined as data: it fires next to
+    /// the live version of the same id, for the trigger's own agent only, and its runs always work in
+    /// the agent's shadow thread.
+    /// </summary>
+    public bool Candidate { get; init; }
 }
 
 /// <summary>

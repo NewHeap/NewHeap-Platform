@@ -16,7 +16,9 @@ namespace NewHeap.Platform.AI.Chat;
 /// Agents in code take them from their code. <paramref name="Metadata"/> sets values of agent
 /// metadata entries of an agent created in the administration by name, a JSON <c>null</c> removing
 /// one, with the same version as the definition; entries left out keep their values. An agent in code
-/// changes its editable entries one by one.
+/// changes its editable entries one by one. <paramref name="StartsInShadow"/> lets a new agent created
+/// in the administration start in shadow: its runs work in its shadow threads once it has run settings,
+/// until an administrator puts it live.
 /// </summary>
 internal sealed record NhAssistantAgentInput(
     string Id,
@@ -32,7 +34,8 @@ internal sealed record NhAssistantAgentInput(
     bool StartsOff = false,
     string? ProfileName = null,
     string? DataClassification = null,
-    IReadOnlyDictionary<string, JsonElement>? Metadata = null);
+    IReadOnlyDictionary<string, JsonElement>? Metadata = null,
+    bool StartsInShadow = false);
 
 /// <summary>
 /// Creates, overrides, resets and deletes agents. Every change is versioned and reported to the
@@ -87,6 +90,11 @@ internal sealed class NhAssistantAgentAdministration(
             RunState = input.StartsOff ? NhAssistantAgentRunStates.Off : NhAssistantAgentRunStates.Active,
             StateChangedAt = input.StartsOff ? now : null,
             StateChangedBy = input.StartsOff ? actorId : null,
+            // In shadow from its first row: the override applies as soon as run settings exist, also
+            // when they are saved right after in the same request, and no trigger reaches it live first.
+            ShadowOverride = input.StartsInShadow ? true : null,
+            ShadowChangedAt = input.StartsInShadow ? now : null,
+            ShadowChangedBy = input.StartsInShadow ? actorId : null,
             UpdatedAt = now,
             UpdatedBy = actorId
         };
@@ -98,6 +106,10 @@ internal sealed class NhAssistantAgentAdministration(
             return Failed(NhAssistantAdminErrorCodes.AgentExists, "An agent with this id already exists.");
         }
         await AuditAsync(NhAssistantAuditEventKind.AdminAgentCreated, row.Id, actorId, cancellationToken);
+        if (input.StartsInShadow)
+        {
+            await AuditShadowAsync(row.Id, actorId, cancellationToken);
+        }
         await metadata.AuditAsync(
             row.Id,
             rows.Select(item => new NhAssistantAgentMetadataChange(item.Name, NhAssistantAgentMetadataStore.Created, 1)).ToArray(),
@@ -367,6 +379,29 @@ internal sealed class NhAssistantAgentAdministration(
     private async Task AuditAsync(NhAssistantAuditEventKind kind, string objectId, string actorId, CancellationToken cancellationToken)
     {
         await NhAssistantAdminAudit.RecordAsync(_auditSinks, kind, objectId, actorId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Records that a new agent starts in shadow, as an administrator's shadow change records it.
+    /// </summary>
+    private async Task AuditShadowAsync(string agentId, string actorId, CancellationToken cancellationToken)
+    {
+        var evt = new NhAssistantAuditEvent(
+            NhAssistantAuditEventKind.AdminAgentShadowChanged,
+            Guid.Empty,
+            Guid.Empty,
+            actorId,
+            agentId,
+            0,
+            DateTimeOffset.UtcNow)
+        {
+            ObjectId = agentId,
+            ResultCode = "shadow"
+        };
+        foreach (var sink in _auditSinks)
+        {
+            await sink.RecordAsync(evt, cancellationToken);
+        }
     }
 
     private static TaskResult<NhAssistantAgent> Failed(string code, string message)

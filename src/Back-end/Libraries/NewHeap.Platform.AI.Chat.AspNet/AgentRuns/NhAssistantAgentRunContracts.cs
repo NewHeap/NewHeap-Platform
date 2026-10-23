@@ -129,6 +129,17 @@ public sealed record NhAssistantRunDto(
     public bool SkillCandidate { get; init; }
 
     /// <summary>
+    /// The version of the trigger defined as data that started the run; <see langword="null"/> for a
+    /// trigger in code or a reserved trigger.
+    /// </summary>
+    public int? TriggerVersion { get; init; }
+
+    /// <summary>
+    /// The run evaluated a candidate version of its data trigger in the shadow thread.
+    /// </summary>
+    public bool TriggerCandidate { get; init; }
+
+    /// <summary>
     /// The agent that handed the run's work off; <see langword="null"/> for a run no agent asked for.
     /// </summary>
     public string? RequestedByAgentId { get; init; }
@@ -967,6 +978,9 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantAgentRunSettingsRequest))]
 [JsonSerializable(typeof(NhAssistantSkillCandidateRequest))]
 [JsonSerializable(typeof(NhAssistantSkillComparisonDto))]
+[JsonSerializable(typeof(NhAssistantDataTriggerVersionDto[]))]
+[JsonSerializable(typeof(NhAssistantTriggerComparisonDto))]
+[JsonSerializable(typeof(NhAssistantConsultationStateRequest))]
 [JsonSerializable(typeof(NhAssistantServiceAccountRequest))]
 [JsonSerializable(typeof(NhAssistantConsultationRoutesRequest))]
 [JsonSerializable(typeof(NhAssistantStartAgentRequest))]
@@ -1040,6 +1054,8 @@ internal static class NhAssistantAgentRunDtoMapper
             SkillChosenBy = run.SkillChosenBy,
             SkillVersion = run.SkillVersion,
             SkillCandidate = run.SkillCandidate,
+            TriggerVersion = run.TriggerVersion,
+            TriggerCandidate = run.TriggerCandidate,
             RequestedByAgentId = run.RequestedByAgentId,
             HandOffDepth = run.HandOffDepth
         };
