@@ -3,8 +3,11 @@
     <cdk-virtual-scroll-viewport class="scroller" itemSize="120" minBufferPx="1200" maxBufferPx="2400">
       <div class="row" *cdkVirtualFor="let message of messages(); trackBy: trackMessage">
         <ng-container [ngTemplateOutlet]="messageTemplate" [ngTemplateOutletContext]="{ $implicit: message }" />
+        @if (working() && message.id === workingAfterId()) {
+          <ng-container [ngTemplateOutlet]="workingTemplate" />
+        }
       </div>
-      @if (working()) {
+      @if (working() && workingAfterId() === null) {
         <ng-container [ngTemplateOutlet]="workingTemplate" />
       }
     </cdk-virtual-scroll-viewport>
@@ -13,9 +16,13 @@
       @for (message of messages(); track message.id) {
         <div class="row">
           <ng-container [ngTemplateOutlet]="messageTemplate" [ngTemplateOutletContext]="{ $implicit: message }" />
+          <!-- The answer a turn still writes keeps the indicator under it when messages arrived after it. -->
+          @if (working() && message.id === workingAfterId()) {
+            <ng-container [ngTemplateOutlet]="workingTemplate" />
+          }
         </div>
       }
-      @if (working()) {
+      @if (working() && workingAfterId() === null) {
         <ng-container [ngTemplateOutlet]="workingTemplate" />
       }
     </div>
@@ -42,6 +49,10 @@
           <span>{{ sender }}</span>{{ ' ' }}<span class="tag">{{ 'nh-assistant.thread.application' | translate }}</span>
         } @else {
           <span>{{ 'nh-assistant.thread.application' | translate }}</span>
+        }
+        @if (message.application?.trusted) {
+          <!-- People see which of the application's messages the assistant follows as an instruction. -->
+          {{ ' ' }}<span class="tag trusted">{{ 'nh-assistant.thread.application-trusted' | translate }}</span>
         }
       </p>
       @if (message.application?.title; as title) {

@@ -210,8 +210,8 @@ export class NhAssistantMockBackend {
   /**
    * Posts a message of the application into a conversation, as `INhAssistantConversationMessages`
    * does on the server: it gets the next position in the conversation and reaches the people of the
-   * conversation as a live update. Returns the stored message, or `null` for an unknown or archived
-   * conversation.
+   * conversation as a live update. `trusted` marks an instruction for the assistant, as `Trusted`
+   * does on the server. Returns the stored message, or `null` for an unknown or archived conversation.
    */
   postApplicationMessage(
     conversationId: string,
@@ -230,7 +230,12 @@ export class NhAssistantMockBackend {
       parts: [{ type: 'text', text }],
       authorActorId: null,
       authorKind: 'application',
-      application: { title: details.title ?? null, senderName: details.senderName ?? null, link: details.link ?? null }
+      application: {
+        title: details.title ?? null,
+        senderName: details.senderName ?? null,
+        link: details.link ?? null,
+        trusted: details.trusted ?? false
+      }
     };
     this.update(conversationId, current => ({ ...current, messages: [...current.messages, message] }));
     const stored = this.conversations.get(conversationId)!.messages.find(item => item.id === message.id)!;

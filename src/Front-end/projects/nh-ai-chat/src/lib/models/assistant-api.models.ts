@@ -189,7 +189,7 @@ export interface Message {
    * application posted; missing on old servers.
    */
   authorKind?: MessageAuthorKind | null;
-  /** The title, sender and link of a message the application posted; missing for other messages. */
+  /** The title, sender, link and trusted flag of a message the application posted; missing for other messages. */
   application?: ApplicationMessageDetails | null;
 }
 
@@ -202,12 +202,18 @@ export type MessageAuthorKind = 'person' | 'trigger' | 'rule' | 'application';
 
 /**
  * What the application said about a message it posted, besides its text: an optional heading, who in
- * the application posted it and where people continue. The text is the message's `text` part.
+ * the application posted it, where people continue and whether the assistant follows it. The text is
+ * the message's `text` part.
  */
 export interface ApplicationMessageDetails {
   title: string | null;
   senderName: string | null;
   link: ApplicationMessageLink | null;
+  /**
+   * The assistant follows the message as the application's instruction (`Trusted` on the server);
+   * `false` for a message the assistant reads as information. The thread labels a trusted message.
+   */
+  trusted: boolean;
 }
 
 /** A path within the application, which the chat opens through the router, or an `https` address. */
