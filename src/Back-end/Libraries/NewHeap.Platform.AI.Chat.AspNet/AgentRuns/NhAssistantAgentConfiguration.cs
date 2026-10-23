@@ -194,7 +194,8 @@ public interface INhAssistantAgentConfiguration
     /// <see cref="NhAssistantAgentConfigurationLimits.MaxConsultationsPerAgent"/> with
     /// <c>assistant-configuration-limit</c>, a stale <c>expectedVersion</c> with
     /// <c>assistant-version-conflict</c> and invalid input with field errors, such as
-    /// <c>routes: not-allowed</c> for a route outside the ceiling.
+    /// <c>routes: not-allowed</c> for a route outside the ceiling and <c>toolSelectors: not-allowed</c>
+    /// for a tool selector the agent's own selectors do not cover.
     /// </summary>
     Task<TaskResult<NhAssistantDataConsultationDto>> SaveConsultationAsync(
         string agentId,
@@ -355,6 +356,12 @@ public sealed record NhAssistantCodeConsultationDto(
     /// The agents whose tool selectors select the consult tool now, ordered by id.
     /// </summary>
     public IReadOnlyList<string> AskingAgents { get; init; } = [];
+
+    /// <summary>
+    /// The tools the consulted agent is offered, from <c>Tools(...)</c>; <see langword="null"/> offers
+    /// every tool of the agent.
+    /// </summary>
+    public IReadOnlyList<string>? ToolSelectors { get; init; }
 }
 
 /// <summary>
@@ -409,6 +416,18 @@ public sealed record NhAssistantDataConsultationDto(
     /// route switches.
     /// </summary>
     public IReadOnlyList<string> RoutesInEffect { get; init; } = [];
+
+    /// <summary>
+    /// The tool selection as saved; <see langword="null"/> offers every tool of the agent.
+    /// </summary>
+    public IReadOnlyList<string>? ToolSelectors { get; init; }
+
+    /// <summary>
+    /// The tool selection in effect: the saved selectors the agent's own selectors still cover.
+    /// <see langword="null"/> offers every tool of the agent; empty offers none, when every selector
+    /// dropped with the problem <c>tools-not-allowed</c>, or while the consultation is out of effect.
+    /// </summary>
+    public IReadOnlyList<string>? ToolSelectorsInEffect { get; init; }
 
     /// <summary>
     /// The id of the generated consult tool, which asking agents select.
@@ -475,7 +494,16 @@ public sealed record NhAssistantDataConsultationRequest(
     bool ExposeToMcp = false,
     string? DataClassification = null,
     int? ExpectedVersion = null,
-    string? Reason = null);
+    string? Reason = null)
+{
+    /// <summary>
+    /// The tools the consulted agent is offered, by id or <c>prefix.*</c> selector, each covered by the
+    /// agent's own selectors (field error <c>toolSelectors: not-allowed</c> otherwise,
+    /// <c>toolSelectors: invalid</c> for a selector that is not one); <see langword="null"/> or empty
+    /// offers every tool of the agent.
+    /// </summary>
+    public IReadOnlyList<string>? ToolSelectors { get; init; }
+}
 
 /// <summary>
 /// File limits: the largest file in bytes, the most pages of one file, the most files of one turn and
@@ -1290,7 +1318,8 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             ConsultToolId = consultation.ConsultToolId,
             RequestToolId = consultation.AllowRequests ? consultation.RequestToolId : null,
-            AskingAgents = AskersOf(consultation.AgentId, consultation.ConsultToolId, askers)
+            AskingAgents = AskersOf(consultation.AgentId, consultation.ConsultToolId, askers),
+            ToolSelectors = consultation.ToolSelectors
         };
     }
 
@@ -2012,6 +2041,10 @@ internal sealed class NhAssistantAgentConfiguration(
         var description = Blank(request.Description);
         var instructions = Blank(request.Instructions);
         var routes = (request.Routes ?? []).Select(route => route?.Trim() ?? string.Empty).ToArray();
+        // No selection, or an empty one, offers every tool of the agent (CT2).
+        var toolSelectors = request.ToolSelectors is { Count: > 0 } requested
+            ? requested.Select(selector => selector?.Trim() ?? string.Empty).ToArray()
+            : null;
         var minimumRole = Blank(request.MinimumRole) ?? NhAssistantSubjectRoleNames.Reader;
         var proposalRole = Blank(request.ProposalRole) ?? NhAssistantSubjectRoleNames.Participant;
         var dataClassification = Blank(request.DataClassification);
@@ -2029,6 +2062,7 @@ internal sealed class NhAssistantAgentConfiguration(
             .Require(NhAssistantSubjectRoleNames.TryParse(minimumRole, out _), "minimumRole", NhAssistantFieldErrors.Invalid)
             .Require(NhAssistantSubjectRoleNames.TryParse(proposalRole, out _), "proposalRole", NhAssistantFieldErrors.Invalid)
             .Require(NhAssistantDataConsultationRoutes.IsValid(routes), "routes", NhAssistantFieldErrors.Invalid)
+            .Require(toolSelectors is null || NhAssistantDataConsultationToolSelectors.IsValid(toolSelectors), "toolSelectors", NhAssistantFieldErrors.Invalid)
             .Require(
                 maxToolCalls is >= 0 and <= NhAssistantConsultationBounds.MaxToolCalls
                 && timeoutSeconds >= NhAssistantConsultationBounds.MinTimeout.TotalSeconds
@@ -2056,6 +2090,7 @@ internal sealed class NhAssistantAgentConfiguration(
             RoutesJson = NhAssistantDataConsultationRoutes.Write(routes),
             ProposalRole = proposalRole,
             ProposalPolicyId = Blank(request.ProposalPolicy),
+            ToolSelectorsJson = NhAssistantDataConsultationToolSelectors.Write(toolSelectors),
             MaxToolCalls = maxToolCalls,
             TimeoutSeconds = timeoutSeconds,
             MaxAnswerChars = maxAnswerChars,
@@ -2069,7 +2104,7 @@ internal sealed class NhAssistantAgentConfiguration(
         };
 
         // The same check as every load, refused here instead of degraded (AC11).
-        var check = validator.CheckConsultation(row, runOptions, agent!.Definition.RequiredPolicy);
+        var check = validator.CheckConsultation(row, runOptions, agent!.Definition.RequiredPolicy, agent.Definition.ToolSelectors);
         if (check.Problems.Count > 0)
         {
             return TaskResult<NhAssistantDataConsultationDto>.Failed(ConsultationFieldErrors(check.Problems));
@@ -2214,6 +2249,7 @@ internal sealed class NhAssistantAgentConfiguration(
                 NhAssistantRunConfigurationProblems.LimitAboveCeiling => errors.Add("limits", NhAssistantFieldErrors.NotAllowed),
                 NhAssistantRunConfigurationProblems.RequestsNotAllowed => errors.Add("allowRequests", NhAssistantFieldErrors.NotAllowed),
                 NhAssistantRunConfigurationProblems.McpNotAllowed => errors.Add("exposeToMcp", NhAssistantFieldErrors.NotAllowed),
+                NhAssistantRunConfigurationProblems.ToolsNotAllowed => errors.Add("toolSelectors", NhAssistantFieldErrors.NotAllowed),
                 _ => errors.Add("subjectType", NhAssistantFieldErrors.Invalid)
             };
         }
@@ -2241,6 +2277,8 @@ internal sealed class NhAssistantAgentConfiguration(
         var consultToolId = NhAiSubjectRef.IsValidType(item.SubjectType)
             ? NhAssistantConsultationTools.ConsultToolId(item.AgentId, item.SubjectType)
             : string.Empty;
+        // A stored selection that no longer reads keeps the consultation out of effect as invalid.
+        var toolSelectors = NhAssistantDataConsultationToolSelectors.TryRead(item.ToolSelectorsJson, out var stored) ? stored : null;
         return new NhAssistantDataConsultationDto(
             item.SubjectType,
             item.Version,
@@ -2267,6 +2305,9 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             Problems = own,
             RoutesInEffect = inEffect?.AllowedRoutes ?? [],
+            ToolSelectors = toolSelectors,
+            // Out of effect, the consultation offers nothing.
+            ToolSelectorsInEffect = inEffect is null ? [] : inEffect.ToolSelectors,
             ConsultToolId = consultToolId,
             RequestToolId = inEffect is { AllowRequests: true } ? inEffect.RequestToolId : null,
             AskingAgents = consultToolId.Length == 0 ? [] : AskersOf(item.AgentId, consultToolId, askers),

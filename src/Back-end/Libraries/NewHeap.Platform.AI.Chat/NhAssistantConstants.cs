@@ -1068,6 +1068,13 @@ public static class NhAssistantErrorCodes
     public const string ConsultReadOnly = "assistant-consult-read-only";
 
     /// <summary>
+    /// The consulted agent called a tool outside the consultation's tool selection
+    /// (<see cref="NhAssistantConsultationOptions.ToolSelectors"/>); such a tool is not offered and
+    /// nothing ran.
+    /// </summary>
+    public const string ConsultToolNotSelected = "assistant-consult-tool-not-selected";
+
+    /// <summary>
     /// No route of the consultation applies to a call of the consulted agent that changes something,
     /// so nothing was proposed; the result's <c>reason</c> is one of
     /// <see cref="NhAssistantConsultationRefusalReasons"/>. A request to leave a proposal for the

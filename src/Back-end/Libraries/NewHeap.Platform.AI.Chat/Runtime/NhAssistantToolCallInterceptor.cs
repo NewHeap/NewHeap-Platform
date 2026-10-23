@@ -428,6 +428,13 @@ internal sealed class NhAssistantToolCallInterceptor(
             // Such tools are not offered; a model that names one anyway changes nothing.
             return Refusal(NhAssistantErrorCodes.ConsultReadOnly);
         }
+        if (state.Scope.Consultation is { } selecting
+            && FindMemory(context.Function) is null
+            && !selecting.Options.Selects(descriptor.Id))
+        {
+            // A tool outside the consultation's selection is not offered either; nothing runs.
+            return Refusal(NhAssistantErrorCodes.ConsultToolNotSelected);
+        }
         if (state.Scope.IncrementToolCalls() > state.Scope.Limits.MaxToolCallsPerTurn)
         {
             state.ToolCallLimitReached = true;

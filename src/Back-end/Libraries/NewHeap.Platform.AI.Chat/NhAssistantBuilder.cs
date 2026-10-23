@@ -1234,6 +1234,14 @@ internal sealed class NhAssistantRegistrationState
             foreach (var consultation in options.Consultations)
             {
                 ValidateConsultationProposals(options, consultation);
+                foreach (var selector in consultation.ToolSelectors ?? [])
+                {
+                    if (!agent.ToolSelectors.Any(agentSelector => Covers(agentSelector, selector)))
+                    {
+                        throw new InvalidOperationException(
+                            $"The consultation of agent '{agentId}' about '{consultation.SubjectType}' selects '{selector}', which the agent's own tool selectors do not cover.");
+                    }
+                }
             }
 
             if (options.ConsultationCeiling is { } consultationCeiling)

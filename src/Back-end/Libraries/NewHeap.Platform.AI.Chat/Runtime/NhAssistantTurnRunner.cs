@@ -2803,7 +2803,8 @@ internal sealed partial class NhAssistantTurnRunner(
 
     /// <summary>
     /// Discovers the agent-exposed tools the caller may see, intersects them with the agent's
-    /// selectors and caps the result. Only the count is logged.
+    /// selectors, and in a consultation with the consultation's own tool selection, and caps the
+    /// result. Only the count is logged.
     /// </summary>
     private async Task<IReadOnlyList<string>> SelectToolsAsync(
         NhAssistantAgentDefinition agent,
@@ -2816,6 +2817,8 @@ internal sealed partial class NhAssistantTurnRunner(
             cancellationToken);
         var selected = discovered
             .Where(descriptor => agent.ToolSelectors.Any(selector => IsSelected(selector, descriptor.Id)))
+            // A consultation's selection only narrows the agent's tools, consultation tools included.
+            .Where(descriptor => consultation is null || consultation.Options.Selects(descriptor.Id))
             .Where(descriptor => descriptor.Effect == NhAiToolEffect.ReadOnly || OffersEffects(agent, consultation))
             .Where(descriptor => IsOfferedInConsultation(descriptor, consultation))
             // An agent never consults itself.

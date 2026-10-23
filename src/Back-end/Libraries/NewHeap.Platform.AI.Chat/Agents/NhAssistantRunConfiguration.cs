@@ -265,6 +265,13 @@ public static class NhAssistantRunConfigurationProblems
     /// chats and agents only.
     /// </summary>
     public const string McpNotAllowed = "mcp-not-allowed";
+
+    /// <summary>
+    /// A tool selector of the consultation is no longer covered by the agent's own selectors; the
+    /// consultation stays in effect without it, and offers no tools at all when none is left, never
+    /// every tool of the agent.
+    /// </summary>
+    public const string ToolsNotAllowed = "tools-not-allowed";
 }
 
 /// <summary>
@@ -405,6 +412,67 @@ internal static class NhAssistantDataConsultationRoutes
                && routes.Distinct(StringComparer.Ordinal).Count() == routes.Count
                && !(routes.Contains(NhAssistantConsultationRoutes.SubjectAgentRights)
                     && routes.Contains(NhAssistantConsultationRoutes.SubjectAskerRights));
+    }
+}
+
+/// <summary>
+/// The tool selection a consultation defined as data stores: a JSON array of distinct valid tool
+/// selectors, or <see langword="null"/> for none, which offers every tool of the agent.
+/// </summary>
+internal static class NhAssistantDataConsultationToolSelectors
+{
+    /// <summary>
+    /// Reads the stored selectors in order into <paramref name="selectors"/>, <see langword="null"/>
+    /// for no selection; <see langword="false"/> when the stored value is not a valid list of selectors.
+    /// </summary>
+    public static bool TryRead(string? json, out IReadOnlyList<string>? selectors)
+    {
+        selectors = null;
+        if (json is null)
+        {
+            return true;
+        }
+        if (json.Length > NhAssistantLimits.MaxStoredToolSelectorCharacters)
+        {
+            return false;
+        }
+
+        string[]? stored;
+        try
+        {
+            stored = JsonSerializer.Deserialize<string[]>(json);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+
+        if (stored is null || !IsValid(stored))
+        {
+            return false;
+        }
+
+        selectors = stored;
+        return true;
+    }
+
+    /// <summary>
+    /// The value a row stores for <paramref name="selectors"/>: <see langword="null"/> for no selection.
+    /// </summary>
+    public static string? Write(IReadOnlyList<string>? selectors)
+    {
+        return selectors is null || selectors.Count == 0 ? null : JsonSerializer.Serialize(selectors);
+    }
+
+    /// <summary>
+    /// One or more valid selectors, each once, that fit the stored column.
+    /// </summary>
+    public static bool IsValid(IReadOnlyList<string> selectors)
+    {
+        return selectors.Count > 0
+               && selectors.All(NhAssistantAgentDefinition.IsValidSelector)
+               && selectors.Distinct(StringComparer.Ordinal).Count() == selectors.Count
+               && NhAssistantAgentDefinition.FitsSelectorStorage(selectors);
     }
 }
 
@@ -659,17 +727,21 @@ internal sealed class NhAssistantRunConfigurationValidator(
     /// consultation whose agent, subject type, what the agent works on or asker policy no longer fits
     /// is out of effect; a route that no longer fits is dropped (read-only when none is left), a
     /// request tool or MCP exposure the ceiling no longer allows is dropped and limits above the
-    /// ceiling are capped, each with a problem. <paramref name="runOptions"/> are the agent's options
-    /// in effect, <see langword="null"/> for an agent without runs. Without an asker policy the asker
-    /// needs <paramref name="agentRequiredPolicy"/>, the agent's own required policy, and without that
-    /// the assistant's access policy (AC14).
+    /// ceiling are capped, each with a problem. A tool selector that <paramref name="agentToolSelectors"/>,
+    /// the agent's own selectors, no longer cover is dropped (CT4); when none is left the consultation
+    /// offers no tools, never every tool of the agent. <paramref name="runOptions"/> are the agent's
+    /// options in effect, <see langword="null"/> for an agent without runs. Without an asker policy the
+    /// asker needs <paramref name="agentRequiredPolicy"/>, the agent's own required policy, and without
+    /// that the assistant's access policy (AC14).
     /// </summary>
     public NhAssistantDataConsultationCheck CheckConsultation(
         AssistantAgentConsultationDefinition row,
         NhAssistantAgentRunOptions? runOptions,
-        string? agentRequiredPolicy)
+        string? agentRequiredPolicy,
+        IReadOnlyList<string> agentToolSelectors)
     {
         ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(agentToolSelectors);
         if (runOptions is null)
         {
             return NhAssistantDataConsultationCheck.Out(NhAssistantRunConfigurationProblems.UnknownAgent);
@@ -681,6 +753,7 @@ internal sealed class NhAssistantRunConfigurationValidator(
 
         var routes = NhAssistantDataConsultationRoutes.Read(row.RoutesJson);
         if (routes is null
+            || !NhAssistantDataConsultationToolSelectors.TryRead(row.ToolSelectorsJson, out var toolSelectors)
             || !NhAiSubjectRef.IsValidType(row.SubjectType)
             || string.IsNullOrWhiteSpace(row.Description)
             || row.Description.Length > NhAssistantAgentConfigurationLimits.MaxConsultationDescriptionLength
@@ -770,6 +843,20 @@ internal sealed class NhAssistantRunConfigurationValidator(
             problems.Add(NhAssistantRunConfigurationProblems.LimitAboveCeiling);
         }
 
+        // The selection only narrows the agent's own tools; a selector they no longer cover drops,
+        // and a selection with none left offers no tools (CT4).
+        IReadOnlyList<string>? keptTools = null;
+        if (toolSelectors is not null)
+        {
+            keptTools = toolSelectors
+                .Where(selector => agentToolSelectors.Any(agentSelector => NhAssistantRegistrationState.Covers(agentSelector, selector)))
+                .ToArray();
+            if (keptTools.Count < toolSelectors.Count)
+            {
+                problems.Add(NhAssistantRunConfigurationProblems.ToolsNotAllowed);
+            }
+        }
+
         NhAssistantDataClassificationNames.TryParse(row.DataClassification, out var classification);
         var options = new NhAssistantConsultationOptions(row.AgentId, row.SubjectType)
         {
@@ -783,6 +870,7 @@ internal sealed class NhAssistantRunConfigurationValidator(
                     ? NhAssistantConsultationRights.Asker
                     : null,
             ProposalPolicyId = proposalPolicyId,
+            ToolSelectors = keptTools,
             MaxToolCalls = Math.Min(row.MaxToolCalls, ceiling.MaxToolCalls),
             Timeout = timeout < ceiling.MaxTimeout ? timeout : ceiling.MaxTimeout,
             MaxAnswerChars = Math.Min(row.MaxAnswerChars, ceiling.MaxAnswerChars),
@@ -1145,7 +1233,7 @@ internal sealed class NhAssistantRunConfigurations(
             }
         }
 
-        AddDataConsultations(stored, agentRuns, problems);
+        AddDataConsultations(stored, agentRuns, runAgents, problems);
 
         var triggers = new Dictionary<string, NhAssistantTriggerDefinition>(registration.CodeTriggers, StringComparer.Ordinal);
         foreach (var row in stored.Triggers)
@@ -1177,11 +1265,13 @@ internal sealed class NhAssistantRunConfigurations(
 
     /// <summary>
     /// Adds the consultations defined as data that fit the code to their agents' options, checked
-    /// after the run settings and skills, and lists every problem.
+    /// after the run settings and skills against the agents' own tool selectors in
+    /// <paramref name="runAgents"/>, and lists every problem.
     /// </summary>
     private void AddDataConsultations(
         NhAssistantStoredRunConfiguration stored,
         Dictionary<string, NhAssistantAgentRunOptions> agentRuns,
+        IReadOnlyDictionary<string, NhAssistantRunAgent> runAgents,
         List<NhAssistantRunConfigurationProblem> problems)
     {
         var reserved = services.GetService<INhAssistantReservedToolNames>();
@@ -1192,9 +1282,10 @@ internal sealed class NhAssistantRunConfigurations(
             var requiredPolicy = registration.TryGetAgent(group.Key, out var codeAgent)
                 ? codeAgent.RequiredPolicy
                 : stored.AdminAgents.GetValueOrDefault(group.Key)?.RequiredPolicy;
+            var agentToolSelectors = runAgents.GetValueOrDefault(group.Key)?.ToolSelectors ?? [];
             foreach (var row in group)
             {
-                var check = validator.CheckConsultation(row, runOptions, requiredPolicy);
+                var check = validator.CheckConsultation(row, runOptions, requiredPolicy, agentToolSelectors);
                 var codes = check.Problems;
                 if (check.Options is { } checkedOptions && reserved is not null && IsReserved(reserved, checkedOptions))
                 {

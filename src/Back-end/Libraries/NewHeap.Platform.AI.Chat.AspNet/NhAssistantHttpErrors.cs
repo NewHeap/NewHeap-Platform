@@ -121,6 +121,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.ConsultTimeout,
             NhAssistantErrorCodes.ConsultFailed,
             NhAssistantErrorCodes.ConsultReadOnly,
+            NhAssistantErrorCodes.ConsultToolNotSelected,
             NhAssistantErrorCodes.ReplayNotShadow,
             NhAssistantErrorCodes.EvaluationNotVariant,
             NhAssistantErrorCodes.HandOffUnavailable,

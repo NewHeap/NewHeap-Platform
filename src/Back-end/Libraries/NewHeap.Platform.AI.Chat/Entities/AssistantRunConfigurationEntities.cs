@@ -310,6 +310,12 @@ public sealed class AssistantAgentConsultationDefinition
     /// </summary>
     public string? ProposalPolicyId { get; set; }
 
+    /// <summary>
+    /// The tools the consulted agent is offered, a JSON array of tool selectors within the agent's own;
+    /// <see langword="null"/> offers every tool of the agent.
+    /// </summary>
+    public string? ToolSelectorsJson { get; set; }
+
     public int MaxToolCalls { get; set; } = 4;
 
     public int TimeoutSeconds { get; set; } = 60;

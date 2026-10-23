@@ -709,6 +709,7 @@ public sealed class NhAssistantDbContext : DbContext
             consultation.Property(item => item.RoutesJson).HasMaxLength(200).IsRequired();
             consultation.Property(item => item.ProposalRole).HasMaxLength(16).IsRequired();
             consultation.Property(item => item.ProposalPolicyId).HasMaxLength(128);
+            consultation.Property(item => item.ToolSelectorsJson).HasMaxLength(NhAssistantLimits.MaxStoredToolSelectorCharacters);
             consultation.Property(item => item.DataClassification).HasMaxLength(16);
             consultation.Property(item => item.CreatedBy).HasMaxLength(256).IsRequired();
             consultation.Property(item => item.UpdatedBy).HasMaxLength(256).IsRequired();

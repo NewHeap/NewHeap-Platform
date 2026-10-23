@@ -665,6 +665,7 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             existing.RoutesJson = consultation.RoutesJson;
             existing.ProposalRole = consultation.ProposalRole;
             existing.ProposalPolicyId = consultation.ProposalPolicyId;
+            existing.ToolSelectorsJson = consultation.ToolSelectorsJson;
             existing.MaxToolCalls = consultation.MaxToolCalls;
             existing.TimeoutSeconds = consultation.TimeoutSeconds;
             existing.MaxAnswerChars = consultation.MaxAnswerChars;
