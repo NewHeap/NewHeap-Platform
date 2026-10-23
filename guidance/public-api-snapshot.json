@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.82",
   "backEnd": {
-    "hash": "c38fcb52420605e1ac7d8beedf2fd6b8f505c1f3c757bd69d60a4b18b4d5855b",
-    "declarationCount": 10229,
+    "hash": "27f87c31fd65dd6aae4b1b1664880219e6dd87916371750feee19a4301c170b8",
+    "declarationCount": 10246,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -64,6 +64,62 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
         "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public interface INhAiAccessSource {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public sealed class NhAiAccessContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public NhAiAccessContext(IEnumerable<Claim> claims, DateTimeOffset validAt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public IReadOnlyList<Claim> Claims { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public DateTimeOffset ValidAt { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public sealed class NhAiAccessSourceOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public TimeSpan MaxAge { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public string NameClaimType { get; set; } = ClaimTypes.Name;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public string RoleClaimType { get; set; } = ClaimTypes.Role;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public static NhAiAccessSourceRegistration Create(Type sourceType, NhAiAccessSourceOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public static void RefuseOtherPrincipalFactories(IServiceCollection services, Type sourceType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public static InvalidOperationException ConflictingFactory(Type sourceType, string factoryName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public async ValueTask<ClaimsPrincipal?> CreateAsync( string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "protected override async Task ValidateAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
@@ -191,6 +247,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public NhAiAspNetBuilder UsePrincipalsFromAccessSource<TSource>(Action<NhAiAccessSourceOptions> configure) where TSource : class, INhAiAccessSource {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
         "declaration": "public interface INhAiAuthenticatedInvocationContextResolver {"
       },
       {
@@ -240,6 +300,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
         "declaration": "public string ToolInvocationPurpose { get; private set; } = \"tool-invocation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public NhAiAccessSourceRegistration? AccessSource { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public void SetAccessSource(NhAiAccessSourceRegistration registration) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
@@ -44820,7 +44888,11 @@
       "NhAiAspNetServiceCollectionExtensions",
       "NhAiSubjectAuthorizationResource",
       "INhAiPrincipalFactory",
-      "INhDivisionScopedResource"
+      "INhDivisionScopedResource",
+      "INhAiAccessSource",
+      "NhAiAccessContext",
+      "NhAiAccessSourceOptions",
+      "UsePrincipalsFromAccessSource"
     ],
     "nh-ai-assets": [
       "NhAiAssetManifest",

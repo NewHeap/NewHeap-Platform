@@ -309,7 +309,8 @@
     "SPM-310",
     "SPM-311",
     "SPM-312",
-    "SPM-313"
+    "SPM-313",
+    "SPM-315"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2941,6 +2942,16 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/metadata/nh-assistant-agent-metadata-slot.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-metadata.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-metadata.ts"
+    ],
+    "SPM-315": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAccessSourceComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAccessSourceSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpOwnerSweep.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAccessSourceTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAccessSourceTests.cs"
     ]
   }
 }

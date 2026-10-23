@@ -292,7 +292,8 @@ or takes an issuer's tenant from a claim, which can carry more than one; an issu
 passes. A resolver of the application's own (`UseAuthenticatedInvocationContextResolver`) cannot be
 checked and must return the configured tenant or none. With an issuer projection the actor id belongs
 to the issuer, so register an `INhAiPrincipalFactory` that rebuilds those people for the roles of the
-whole application. The administration (`UseAdminPolicy`: the runs view, agent control, configuration
+whole application; when their rights come from a claims transformation, register an `INhAiAccessSource`
+with `UsePrincipalsFromAccessSource` instead (see `nh-ai-aspnet-context`). The administration (`UseAdminPolicy`: the runs view, agent control, configuration
 and evaluation) administers the host as a whole and keeps no tenant rule, so in a host with several
 tenants let its policy admit only operators without a tenant.
 
@@ -597,7 +598,8 @@ hand, and consultations and requests are refused. A shadow variant always works 
 (`assistant-shadow-variant`). `SetServiceAccountAsync(agentId, actorId | null)` lets another
 technical account answer for an agent that answers to one in code (`ServiceAccount(actorId)`
 stays the default; `assistant-service-account-not-used` otherwise). The account must exist and be
-allowed to sign in according to `INhAiPrincipalFactory` (`assistant-service-account-not-found`).
+allowed to sign in according to `INhAiPrincipalFactory` (`assistant-service-account-not-found`); with
+`UsePrincipalsFromAccessSource` the access source must return a fresh context for it.
 New runs and the agent's threads answer to it; runs that started and the proposals they made keep
 the account they were made with. The account lends its rights to gateway reads: choose one with
 no more rights than the agent needs.
@@ -681,8 +683,10 @@ whom it answers to (`agent`, `subject-responsible`, or `service-account` with an
 and may sign in), its approval policy, budget, run ceiling, retries, gateway reads, triage profile and
 rule handler by name. Grants never become data: in headless runs such an agent acts with the rights
 of the person or technical account it answers to, within its tool selectors. A tool is allowed when
-that account, rebuilt with `INhAiPrincipalFactory` for every decision, passes the tool's policies
-against the subject and its capability grants cover the tool's `RequiredCapabilities`; the call,
+that account, rebuilt with `INhAiPrincipalFactory` for every decision (with
+`UsePrincipalsFromAccessSource` from the application's `INhAiAccessSource`, while its context is
+younger than `MaxAge`), passes the tool's policies against the subject and its capability grants
+cover the tool's `RequiredCapabilities`; the call,
 proposal and audit record `NhAiGrantSource.Accountable`, reads are
 shielded from thread readers without the tool's policies (or refused with `ElevatedReads` `deny`),
 and an agent that answers to itself has no rights to lend. A person's turn in the thread and a
