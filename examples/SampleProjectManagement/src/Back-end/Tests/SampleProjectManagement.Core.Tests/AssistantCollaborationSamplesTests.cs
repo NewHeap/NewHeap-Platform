@@ -1,19 +1,24 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using SampleProjectManagement.Api.Composition;
+using SampleProjectManagement.Api.Services;
 using SampleProjectManagement.DAL;
 using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
 
 /// <summary>
-/// Executable evidence for shared assistant conversations (SPM-263) and push notifications
-/// (SPM-264) in the sample composition: invitation links, the division directory, a colleague who
-/// continues the conversation with their own permissions, read state and the Development push keys.
+/// Executable evidence for shared assistant conversations (SPM-263), push notifications (SPM-264)
+/// and application messages (SPM-312) in the sample composition: invitation links, the division
+/// directory, a colleague who continues the conversation with their own permissions, read state, the
+/// Development push keys, and the portfolio analysis that tells the conversation that started it
+/// when it finished.
 /// </summary>
 public sealed class AssistantCollaborationSamplesTests(AssistantCollaborationSampleHost host)
     : IClassFixture<AssistantCollaborationSampleHost>
@@ -71,6 +76,64 @@ public sealed class AssistantCollaborationSamplesTests(AssistantCollaborationSam
         Assert.Contains(audit, evt => evt.Kind == NewHeap.Platform.AI.Chat.NhAssistantAuditEventKind.ConversationShareLinkCreated);
         Assert.Contains(audit, evt => evt.Kind == NewHeap.Platform.AI.Chat.NhAssistantAuditEventKind.ConversationParticipantJoined
             && evt.ObjectId == host.ColleagueId.ToString());
+    }
+
+    [Fact]
+    public async Task SPM_312_the_portfolio_analysis_tells_the_conversation_that_started_it_that_it_finished()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var model = new NhAiScriptedChatClient()
+            .RespondWithText("I started the portfolio analysis.")
+            .RespondWithText("The analysis finished; the message above links to it.");
+        host.Model.Use(model);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var conversationId = await host.CreateConversationAsync(owner);
+        await host.SendAsync(owner, conversationId, "Analyze the portfolio and tell me when it is done.");
+        var operationId = Guid.NewGuid();
+
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var notices = scope.ServiceProvider.GetRequiredService<ProjectAnalysisAssistantNotices>();
+            var posted = await notices.AnalysisFinishedAsync(conversationId, host.OwnerId, operationId, 12, cancellationToken);
+            // A retried last step of the operation posts nothing again.
+            var retried = await notices.AnalysisFinishedAsync(conversationId, host.OwnerId, operationId, 12, cancellationToken);
+            // Only a conversation the person who started the analysis may open hears about it.
+            var foreign = await notices.AnalysisFinishedAsync(conversationId, host.ColleagueId, Guid.NewGuid(), 12, cancellationToken);
+
+            Assert.True(posted.Success);
+            Assert.False(posted.Data!.Duplicate);
+            Assert.Equal((posted.Data.MessageId, true), (retried.Data!.MessageId, retried.Data.Duplicate));
+            Assert.False(foreign.Success);
+            Assert.Equal(NhAssistantErrorCodes.ConversationNotFound, foreign.GetResultItems().First().Name);
+        }
+
+        var conversation = await host.GetJsonAsync(owner, $"/api/assistant/conversations/{conversationId}");
+        var message = Assert.Single(
+            conversation.GetProperty("messages").EnumerateArray(),
+            item => item.GetProperty("role").GetString() == NhAssistantMessageRoles.Application);
+        var application = message.GetProperty("application");
+        Assert.Equal(
+            ("Portfolio analysis finished", "Portfolio analysis", $"/background-operations/{operationId}", "Open the analysis"),
+            (application.GetProperty("title").GetString(),
+                application.GetProperty("senderName").GetString(),
+                application.GetProperty("link").GetProperty("url").GetString(),
+                application.GetProperty("link").GetProperty("label").GetString()));
+        Assert.Contains("**12 projects**", message.GetProperty("parts")[0].GetProperty("text").GetString(), StringComparison.Ordinal);
+
+        // The next turn gives the model the message as the application's information, before the question.
+        await host.SendAsync(owner, conversationId, "Is it done?");
+        var messages = model.Requests[^1].Messages;
+        var marked = Assert.Single(messages, item => item.Text.Contains("<application-message>", StringComparison.Ordinal));
+        Assert.Equal(ChatRole.User, marked.Role);
+        Assert.StartsWith("[Application] ", marked.Text, StringComparison.Ordinal);
+        Assert.Contains("Sender: Portfolio analysis", marked.Text, StringComparison.Ordinal);
+        Assert.Equal("Is it done?", messages[^1].Text);
+
+        // The audit names the message and that the person was notified, never its text.
+        var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
+        var recorded = Assert.Single(audit, evt => evt.Kind == NhAssistantAuditEventKind.ApplicationMessagePosted
+            && evt.ConversationId == conversationId);
+        Assert.Equal(("application", "notified"), (recorded.ActorId, recorded.ResultCode));
     }
 
     [Fact]

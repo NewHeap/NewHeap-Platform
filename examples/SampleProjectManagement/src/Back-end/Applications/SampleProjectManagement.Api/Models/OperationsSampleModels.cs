@@ -55,6 +55,13 @@ public sealed class ProjectPortfolioAnalysisMutateModel
     public int DelayPerItemMilliseconds { get; set; } = 50;
 
     public bool FailFirstAttempt { get; set; }
+
+    /// <summary>
+    /// SPM-312: the caller's assistant conversation that hears when the analysis finished, as an
+    /// application message with a link to the analysis. It is posted only when the caller may open
+    /// the conversation.
+    /// </summary>
+    public Guid? AssistantConversationId { get; set; }
 }
 
 public sealed class ProjectAiPortfolioReportMutateModel

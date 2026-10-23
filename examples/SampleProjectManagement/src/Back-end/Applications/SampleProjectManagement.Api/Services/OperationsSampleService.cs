@@ -133,7 +133,10 @@ public sealed class OperationsSampleService
                 divisionId,
                 model.Passes,
                 model.DelayPerItemMilliseconds,
-                model.FailFirstAttempt),
+                model.FailFirstAttempt,
+                // SPM-312: the analysis tells this conversation, when the person may open it, that it finished.
+                model.AssistantConversationId,
+                model.AssistantConversationId is null ? null : ownerUserId),
             new NhBackgroundOperationEnqueueOptions
             {
                 OwnerUserId = ownerUserId,

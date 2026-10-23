@@ -2,15 +2,21 @@ using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.Common.Models;
+using SampleProjectManagement.Api.Services;
 using SampleProjectManagement.DAL.Entities;
 
 namespace SampleProjectManagement.Api.Jobs;
 
+/// <param name="AssistantConversationId">SPM-312: the assistant conversation of
+/// <paramref name="RequestedByUserId"/> that hears when the analysis finished; <see langword="null"/>
+/// tells no conversation.</param>
 public sealed record ProjectPortfolioAnalysisRequest(
     Guid DivisionId,
     int Passes,
     int DelayPerItemMilliseconds,
-    bool FailFirstAttempt);
+    bool FailFirstAttempt,
+    Guid? AssistantConversationId = null,
+    Guid? RequestedByUserId = null);
 
 public sealed record ProjectAnalysisChildRequest(
     Guid ProjectId,
@@ -24,10 +30,16 @@ public sealed class ProjectPortfolioAnalysisOperation :
     INhBackgroundOperationHandler<ProjectPortfolioAnalysisRequest>
 {
     private readonly IRepository<Project> _projects;
+    private readonly ProjectAnalysisAssistantNotices? _assistantNotices;
 
-    public ProjectPortfolioAnalysisOperation(IRepository<Project> projects)
+    /// <param name="assistantNotices">SPM-312: tells the assistant conversation that asked for it;
+    /// <see langword="null"/> in a host without the assistant.</param>
+    public ProjectPortfolioAnalysisOperation(
+        IRepository<Project> projects,
+        ProjectAnalysisAssistantNotices? assistantNotices = null)
     {
         _projects = projects;
+        _assistantNotices = assistantNotices;
     }
 
     public async Task<TaskResult> ExecuteAsync(
@@ -117,6 +129,20 @@ public sealed class ProjectPortfolioAnalysisOperation :
                     childCount = fanOut.Data.Total
                 }),
             cancellationToken);
+
+        // SPM-312: the person who started the analysis from the assistant reads in that conversation
+        // that it finished. A retried step posts once per operation; a refusal never fails the analysis.
+        if (request is { AssistantConversationId: { } conversationId, RequestedByUserId: { } requestedBy }
+            && _assistantNotices is not null)
+        {
+            await _assistantNotices.AnalysisFinishedAsync(
+                conversationId,
+                requestedBy,
+                context.OperationId,
+                projectIds.Count,
+                cancellationToken);
+        }
+
         return TaskResult.Succeeded();
     }
 }
