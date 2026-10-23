@@ -81,3 +81,42 @@ Texts are in English and Dutch.
 | Breaking change | Required action |
 |---|---|
 | `ApprovalDecision` also allows `'leave'` and `NhAssistantApprovalWaitingFor` also allows `'asker'`. | Add the new values to an exhaustive `switch` over these types. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: application messages and upload types
+
+`INhAssistantConversationMessages.PostAsync(conversationId, NhAssistantApplicationMessage)` is the
+supported way for an application to post its own message into a chat conversation or an agent thread,
+for example when a long-running export finished: Markdown text within `MaxMessageChars`, an optional
+title, sender name and link (a path within the application or an `https` address), `Notify` for a
+content-free Web Push to the conversation's people (never from a shadow thread), an optional
+`IdempotencyKey` and `ReadableBy` for a conversation a client named. The message gets the new role
+`application` and the next sequence number, arrives live, is audited as `ApplicationMessagePosted`
+without content, and a later turn gives it to the model as a user message marked `[Application]` whose
+`application-message` block says it is information, never instructions. There is no HTTP endpoint for
+clients. An upload without a media type, with a generic one (`application/octet-stream`) or with a type
+devices send for its extension (such as `application/vnd.ms-excel` for `.csv`) now takes the type its
+extension names when the application accepts it; the content check and the scanner still run, and a
+specific type the application does not accept stays refused.
+
+| Breaking change | Required action |
+|---|---|
+| Conversations can hold messages with role `application` (`NhAssistantMessageRoles.Application`, author kind `application`), in snapshots and in the live `message.created` event, with the new `NhAssistantMessageDto.Application`. | Render or skip the role in clients of your own that switch over message roles; the `nh-assistant-thread` component shows it. |
+| `NhAssistantAuditEventKind` has the new value `ApplicationMessagePosted` (70). | Let an audit sink with an exhaustive switch record or ignore it. |
+| Uploads that were refused for a missing or generic media type are accepted when their extension names an accepted type, such as a `.csv` sent as `application/vnd.ms-excel` when `text/csv` is accepted. | None; check the content of application-specific types in `StoreUploadAsync` or the scanner as before. |
+
+## @newheap/platform-ai-chat: application messages, upload types and the grouped inbox's description
+
+`nh-assistant-thread` shows a message the application posted (`role: 'application'`) as the
+application's, in chats and agent threads: a card with the sender, an "Application" tag, the title,
+the Markdown text and a link that opens a route through the router or an `https` address and nothing
+else (`Message.application`, `ApplicationMessageDetails`, `ApplicationMessageLink`). The composer gives
+a file without a usable type the accepted type of its extension by the server's rule, and its file
+picker offers the extensions of every accepted type it knows, so `.csv` files are listed for
+`text/csv`. With `grouped`, `nh-assistant-agent-inbox` describes the grouped order
+(`nh-assistant.agent-runs.inbox.description-grouped`). The mock API posts application messages with
+`NhAssistantMockBackend.postApplicationMessage` and derives upload types as the server does. Texts
+are in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| `Message.role` also allows `'application'` and `MessageAuthorKind` also allows `'application'`. | Add the new values to an exhaustive `switch` over these types. |

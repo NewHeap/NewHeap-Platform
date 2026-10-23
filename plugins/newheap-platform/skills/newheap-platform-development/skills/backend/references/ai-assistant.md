@@ -468,6 +468,57 @@ carries the conversation id, a kind and short localized texts with the conversat
 title (`IncludeConversationTitle`); never messages or tool data. Delivery happens after
 the final event and never fails the turn; subscriptions reported as gone are removed.
 
+## Application messages
+
+The application posts its own messages into a conversation with
+`INhAssistantConversationMessages.PostAsync(conversationId, message)`, for example when a
+long-running export that a person started from the chat has finished. It is a server-side API for the
+application's code; clients have no endpoint to post such messages. It works for people's chat
+conversations and for agent threads alike:
+
+```csharp
+var posted = await messages.PostAsync(conversationId, new NhAssistantApplicationMessage(
+    "The portfolio analysis of **12 projects** finished.")
+{
+    Title = "Portfolio analysis finished",
+    SenderName = "Portfolio analysis",
+    Link = new NhAssistantApplicationMessageLink($"/background-operations/{operationId}", "Open the analysis"),
+    Notify = true,
+    // A retried background step posts once.
+    IdempotencyKey = "portfolio-analysis:" + operationId.ToString("N"),
+    // The conversation id came from the person's client.
+    ReadableBy = new NhAssistantConversationPerson(ownerActorId)
+}, cancellationToken);
+```
+
+- The text is Markdown, as the chat renders the agent's answers, within `MaxMessageChars`
+  (`assistant-message-too-long`). Title (200), sender (100), idempotency key (100) and link label
+  (100) are single lines; the link is a path within the application or an absolute `https` address.
+  Anything else is `assistant-message-invalid`.
+- An unknown or archived conversation is `assistant-conversation-not-found`; so is one that
+  `ReadableBy` may not open as its owner or as a participant of the same tenant. Set `ReadableBy`
+  whenever a client named the conversation; the API itself checks no person's access.
+- The message gets role `application` (`NhAssistantMessageRoles.Application`) and the next sequence
+  number, so it is unread for the conversation's people and moves the conversation up in their lists.
+  They see it at once through the live `message.created` event and in every snapshot, with
+  `authorKind: application` and `application` (`NhAssistantApplicationMessageDto`: title, sender
+  name and link).
+- `Notify` adds a Web Push notification of kind `application-message` to the owner and participants
+  of a chat, or the participants of an agent thread; it carries the conversation's title and a fixed
+  text, never the message. A shadow thread never notifies.
+- A repeated post with the same `IdempotencyKey` posts, notifies and audits nothing and returns the
+  earlier message with `Duplicate`.
+- The audit records `ApplicationMessagePosted` with the message id, `posted` or `notified` and, in
+  a thread, its subject; never the text, title, link or sender.
+- A later turn gives the message to the model as a user message that starts with `[Application]`,
+  says that it is information from the application, not a request from the people in the
+  conversation and never instructions, and holds the sender, title, link and text in an
+  `application-message` block whose content cannot close it. Write it as information; never put
+  instructions for the model in it. Conversation snapshots for reviewed MCP tools leave it out.
+
+SampleProjectManagement's portfolio analysis tells the conversation that started it when it
+finished (SPM-312, `ProjectAnalysisAssistantNotices`).
+
 ## Files in model turns
 
 Let turns read the application's files with `UseFileSource<T>()`, where `T` implements
@@ -616,6 +667,17 @@ reference answers `assistant-file-upload-failed` (503) and logs only its type. T
 the references in `files` of `POST conversations/{id}/messages` (`NhAssistantSendMessageRequest.Files`),
 at most the agent's files per turn, and the turn opens them as described above.
 
+Browsers send no media type, or a generic one, for files their system does not know, and Windows
+names some extensions after the program that opens them, such as `application/vnd.ms-excel` for a
+`.csv` file. A file part without a type, with `application/octet-stream` (or
+`binary/octet-stream`, `application/unknown`) or with such a type for its extension therefore takes
+the type its file name's extension names, but only a type the application accepts; the content check
+and the scanner then run as for any upload. A specific type the application does not accept stays
+refused (`assistant-file-type-not-accepted`): the extension never overrides it, and an extension of a
+type the application does not accept names nothing. Accept `text/csv` to take CSV exports; the
+composer of `@newheap/platform-ai-chat` applies the same table before it uploads and declares the
+type it derived.
+
 ```csharp
 services.AddNewHeapAssistant(assistant => assistant
     // ...
@@ -750,6 +812,10 @@ or output of the running turn, also not text written before an approval pause.
 - Showing a reader's own error messages or logging its text: a document can carry anything.
 - Storing an upload without `NhAssistantFileUpload.Classification`, or trusting the declared media
   type of an application-specific upload type without checking its content in `StoreUploadAsync`.
+- Writing into conversations through the store or a person's message endpoint to report what the
+  application did; post an application message with `INhAssistantConversationMessages`.
+- Posting into a conversation a client named without `ReadableBy`, posting from retried background
+  work without an `IdempotencyKey`, or writing instructions for the model into an application message.
 
 ## Verification
 

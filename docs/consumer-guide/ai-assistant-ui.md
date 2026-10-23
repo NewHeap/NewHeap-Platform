@@ -171,8 +171,10 @@ People attach files to a message when the server offers uploads for the agent
 (`AgentSummary.uploads`, read as `NhAssistantStore.uploads()`): the panel's composer then shows a
 labelled attach button that opens the file picker for the accepted types. `NhAssistantStore.attach`
 checks every chosen file before it uploads it (the agent's `maxFiles`, the accepted media types,
-content and `maxFileBytes`; a browser that gives no type, as for Office documents, is read by the
-known extension), creates the conversation first in a new chat, because an upload belongs to one,
+content and `maxFileBytes`; a file the browser gives no type, the generic
+`application/octet-stream` or a type its system names after a program, such as
+`application/vnd.ms-excel` for `.csv`, takes the type its extension names when the agent accepts
+that type, as on the server, while a specific type that is not accepted stays refused), creates the conversation first in a new chat, because an upload belongs to one,
 and uploads with progress (`NhAssistantApiService.uploadFile`, `multipart/form-data` with the
 `X-NH-Assistant-Upload` header). `attachments()` lists them as `uploading` with `progress`,
 `uploaded` with the stored `FileReference`, or `failed` with the code; the composer shows each at the
@@ -295,7 +297,12 @@ everyone else waits for an approver. The panel decides a run's proposal with its
 hash through `NhAssistantAgentRunApiService` (`POST approvals/{id}/decisions`) and reloads
 the thread; a proposal of a person's own turn in the thread still resumes that turn as a
 stream. A message a trigger wrote (`authorKind: 'trigger'`) reads as an event instead of
-a participant. A custom layout passes `[approvalRights]="store.approvalRights()"` to
+a participant. A message the application posted (`role: 'application'`, SPM-312) reads as the
+application's in chats and threads alike: a card with the application's mark, the sender with an
+"Application" tag, the title, the text as Markdown and the link (`Message.application`,
+`ApplicationMessageDetails`), which opens a route through the router or an `https` address and
+nothing else; it arrives live like a colleague's message. The mock API posts one with
+`NhAssistantMockBackend.postApplicationMessage`. A custom layout passes `[approvalRights]="store.approvalRights()"` to
 `nh-assistant-thread` and handles `(approvalChoice)` with
 `store.decide(choice.decision, reason, choice.approvalId)`.
 
@@ -496,7 +503,8 @@ Give approvers an overview in `nh-assistant-agent-inbox` (SPM-310). Its inputs `
 `subjectType`, `divisionId` and `runId` filter it, and changing one, or `grouped`, reloads it from the
 first page. With `grouped` it asks the server for groups (`AgentInboxFilter.grouped`,
 `AgentInbox.groups`) and shows a header per parent, such as a division or a project, and per subject,
-with `groupByRun` also per run; each group says how many of its proposals it shows of its total and
+with `groupByRun` also per run, and its description says so: grouped by object, the group with the
+proposal that expires first on top, instead of the flat list's soonest expiry first; each group says how many of its proposals it shows of its total and
 whether it continues on another page, and "Select group" selects only the shown pending proposals of the
 group that the person may decide, never those on another page. `markNew` (on by default) marks the
 proposals made since the person's last visit of the inbox in its scope, the whole application or the
@@ -957,3 +965,8 @@ are the executable references.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts)
   - [src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html)
+- SPM-312 — The portfolio analysis tells the assistant conversation that started it that it finished, as a message from the application
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectAnalysisAssistantNotices.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectAnalysisAssistantNotices.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectPortfolioAnalysisOperation.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectPortfolioAnalysisOperation.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Models/OperationsSampleModels.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Models/OperationsSampleModels.cs)

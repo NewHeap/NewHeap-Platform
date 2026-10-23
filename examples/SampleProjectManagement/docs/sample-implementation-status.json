@@ -306,7 +306,8 @@
     "SPM-306",
     "SPM-307",
     "SPM-308",
-    "SPM-310"
+    "SPM-310",
+    "SPM-312"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2833,6 +2834,23 @@
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-result.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-overview.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-proposals.ts"
+    ],
+    "SPM-312": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectAnalysisAssistantNotices.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectPortfolioAnalysisOperation.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/OperationsSampleModels.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCollaborationSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationMessages.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantApplicationMessageText.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApplicationMessageTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/thread/nh-assistant-thread.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-message-link.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-application-messages.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-backend.ts"
     ]
   }
 }
