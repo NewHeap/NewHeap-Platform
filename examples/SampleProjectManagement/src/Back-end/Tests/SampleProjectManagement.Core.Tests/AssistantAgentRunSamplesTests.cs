@@ -2340,12 +2340,14 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Equal(0, followUp.InputTokens + followUp.OutputTokens);
 
             // The daily deadline check names no skill: triage sends it to the deadline skill, whose
-            // model sees only the status tool and proposes to put the project on hold.
+            // model sees only the status tool and proposes to put the project on hold. The tick also
+            // fires for the active projects of earlier tests, so the waits move the host's clock past
+            // a run that gives way to the planner's other runs.
             host.Services.GetRequiredService<IRecurringJobManager>()
                 .Trigger("nh-assistant-trigger-" + SampleProjectPlannerComposition.DeadlineCheckTriggerId);
-            var proposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending);
+            var proposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending, whileWaiting: host.AdvanceToNextAgentRetryAsync);
             Assert.Equal(ProjectAiTools.ChangeStatusToolId, proposal.ToolId);
-            var risk = Assert.Single(await WaitForRunCountAsync(colleague, conversationId, 2), run => run.Id == proposal.RunId);
+            var risk = Assert.Single(await WaitForRunCountAsync(colleague, conversationId, 2, host.AdvanceToNextAgentRetryAsync), run => run.Id == proposal.RunId);
             Assert.Equal(SampleProjectPlannerComposition.DeadlineRiskSkill, risk.Skill);
             Assert.Equal(NhAssistantSkillChoosers.Triage, risk.SkillChosenBy);
             var routed = triage.Requests[0];
@@ -2565,12 +2567,16 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             // The daily deadline check fires for the live planner and for its shadow variant. The
             // planner's triage sends it to the deadline skill, which proposes to put the project on
             // hold; the variant's stricter triage finds it too early and proposes nothing.
+            // The tick fires for every active project with a deadline soon on the shared host, also
+            // those of earlier tests, and the planner and its variant run two runs at a time: a run
+            // that finds both slots in use gives way for 30 seconds on the application's clock. The
+            // waits move the host's clock past such a backoff instead of waiting it out.
             host.Services.GetRequiredService<IRecurringJobManager>()
                 .Trigger("nh-assistant-trigger-" + SampleProjectPlannerComposition.DeadlineCheckTriggerId);
-            var plannerThread = await WaitForThreadAsync(colleague, project, planner);
-            var proposal = await WaitForProposalAsync(colleague, plannerThread, NhAssistantApprovalStatuses.Pending);
-            var variantThread = await WaitForThreadAsync(admin, project, variant);
-            var shadowRun = await WaitForRunWithTriggerAsync(admin, variantThread, SampleProjectPlannerComposition.DeadlineCheckTriggerId);
+            var plannerThread = await WaitForThreadAsync(colleague, project, planner, host.AdvanceToNextAgentRetryAsync);
+            var proposal = await WaitForProposalAsync(colleague, plannerThread, NhAssistantApprovalStatuses.Pending, whileWaiting: host.AdvanceToNextAgentRetryAsync);
+            var variantThread = await WaitForThreadAsync(admin, project, variant, host.AdvanceToNextAgentRetryAsync);
+            var shadowRun = await WaitForRunWithTriggerAsync(admin, variantThread, SampleProjectPlannerComposition.DeadlineCheckTriggerId, host.AdvanceToNextAgentRetryAsync);
             Assert.True(shadowRun.Shadow);
             Assert.Null(shadowRun.Skill);
             Assert.Contains("too early to judge", shadowRun.Summary);
@@ -2579,29 +2585,35 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
 
             // The approver rejects the live proposal.
             Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, proposal, "reject")).StatusCode);
+            // The comparison and the replay read ended runs: a replay leaves out a run that still
+            // works, and a run's usage is final once it ended. The live run may still write its
+            // answer after its proposal appeared, so the test waits for it to end.
+            var liveRun = await WaitForRunWithTriggerAsync(colleague, plannerThread, SampleProjectPlannerComposition.DeadlineCheckTriggerId, host.AdvanceToNextAgentRetryAsync);
+            Assert.Equal(proposal.RunId, liveRun.Id);
 
             // The comparison: the variant did not propose what people rejected.
             var period = $"from={Uri.EscapeDataString(from.ToString("O"))}&to={Uri.EscapeDataString(DateTimeOffset.UtcNow.AddSeconds(1).ToString("O"))}";
             var report = (await admin.GetFromJsonAsync<NhAssistantEvaluationDto>(
                 $"/api/assistant/admin/agents/{planner}/evaluation?variant={variant}&{period}",
                 Json))!;
-            Assert.True(report.Runs.Paired >= 1);
+            Assert.True(report.Runs.Paired >= 1, $"The comparison paired no runs: {JsonSerializer.Serialize(report.Runs, Json)}.");
             var tool = Assert.Single(report.Tools, row => row.ToolId == ProjectAiTools.ChangeStatusToolId);
-            Assert.True(tool.RejectedLiveNotProposed >= 1);
+            Assert.True(tool.RejectedLiveNotProposed >= 1, $"The comparison counts no rejected live proposal the variant left out: {JsonSerializer.Serialize(tool, Json)}.");
             Assert.Contains(report.Differences, difference => difference.LiveConversationId == plannerThread
                 && difference.Kind == NhAssistantEvaluationDifferenceKinds.LiveOnly
                 && difference.LiveStatus == NhAssistantApprovalStatuses.Rejected);
 
-            // A replay fires the planner's recorded runs of the period into the variant.
+            // A replay fires the planner's recorded runs of a period into the variant. This one
+            // starts at the live run and replays one run, so the runs that other projects on the
+            // shared host got from the same tick stay out of it.
             var started = await admin.PostAsJsonAsync(
                 $"/api/assistant/admin/agents/{variant}/replay",
-                new NhAssistantReplayRequest(planner, from, DateTimeOffset.UtcNow.AddSeconds(1), 20),
+                new NhAssistantReplayRequest(planner, liveRun.CreatedAt, DateTimeOffset.UtcNow.AddSeconds(1), 1),
                 Json);
             Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
-            var replay = await WaitForReplayAsync(admin, variant, (await started.Content.ReadFromJsonAsync<NhAssistantReplayDto>(Json))!.Id);
-            Assert.Equal(NhAssistantReplayStatuses.Completed, replay.Status);
-            Assert.True(replay.RunsReplayed >= 1);
-            await WaitForRunCountAsync(admin, variantThread, 2);
+            var replay = await WaitForReplayAsync(admin, variant, (await started.Content.ReadFromJsonAsync<NhAssistantReplayDto>(Json))!.Id, host.AdvanceToNextAgentRetryAsync);
+            Assert.Equal((NhAssistantReplayStatuses.Completed, 1, (string?)null), (replay.Status, replay.RunsReplayed, replay.StopReason));
+            await WaitForRunCountAsync(admin, variantThread, 2, host.AdvanceToNextAgentRetryAsync);
 
             // The export pairs the live run with the variant's run and with its replay, without content.
             var export = await admin.GetStringAsync(
@@ -2616,7 +2628,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Single(records, record => record.Replayed);
             Assert.Equal(NhAssistantApprovalStatuses.Rejected, Assert.Single(mirrored.Live.Proposals).Status);
             Assert.Empty(mirrored.Variant.Proposals);
-            Assert.True(mirrored.Live.ModelCalls > mirrored.Variant.ModelCalls);
+            Assert.True(
+                mirrored.Live.ModelCalls > mirrored.Variant.ModelCalls,
+                $"The live run made {mirrored.Live.ModelCalls} model calls and the variant's run {mirrored.Variant.ModelCalls}.");
             var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
             Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentReplayStarted && evt.AgentId == variant);
             Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentEvaluationExported && evt.ObjectId == variant);
@@ -3406,10 +3420,12 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         try
         {
             // The daily deadline check starts the planner without a person: it reads for the owner.
+            // The tick also fires for the active projects of earlier tests, so the waits move the
+            // host's clock past a run that gives way to the planner's other runs.
             host.Services.GetRequiredService<IRecurringJobManager>()
                 .Trigger("nh-assistant-trigger-" + SampleProjectPlannerComposition.DeadlineCheckTriggerId);
-            var conversationId = await WaitForThreadAsync(approverClient, project, planner);
-            var check = await WaitForRunAsync(approverClient, conversationId, NhAssistantRunStatuses.Completed);
+            var conversationId = await WaitForThreadAsync(approverClient, project, planner, host.AdvanceToNextAgentRetryAsync);
+            var check = await WaitForRunAsync(approverClient, conversationId, NhAssistantRunStatuses.Completed, host.AdvanceToNextAgentRetryAsync);
             Assert.Null(check.InitiatorActorId);
             Assert.Equal(SampleProjectPlannerComposition.DeadlineRiskSkill, check.Skill);
             // The skill's model is offered the gateway's read tools and never the API's own actions.
@@ -3963,7 +3979,13 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     /// <summary>
     /// Waits until the thread has at least <paramref name="count"/> runs and every run has ended.
     /// </summary>
-    private static async Task<NhAssistantRunDto[]> WaitForRunCountAsync(HttpClient client, Guid conversationId, int count)
+    /// <param name="whileWaiting">Runs between two polls, such as
+    /// <see cref="AssistantAgentRunSampleHost.AdvanceToNextAgentRetryAsync"/>.</param>
+    private static async Task<NhAssistantRunDto[]> WaitForRunCountAsync(
+        HttpClient client,
+        Guid conversationId,
+        int count,
+        Func<Task>? whileWaiting = null)
     {
         var started = DateTimeOffset.UtcNow;
         var deadline = started.AddSeconds(90);
@@ -3976,11 +3998,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return runs;
             }
 
-            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
+            await NextPollAsync(whileWaiting);
         }
 
         throw new TimeoutException(
-            $"Expected {count} ended runs in thread {conversationId}; after {Elapsed(started)} it has {runs.Length}: {string.Join("; ", runs.Select(Describe))}.");
+            $"Waited {Elapsed(started)} for {count} ended runs in thread {conversationId}; it last had {runs.Length}: {string.Join("; ", runs.Select(Describe))}.");
     }
 
     /// <summary>
@@ -3989,6 +4011,20 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     private static string Elapsed(DateTimeOffset started)
     {
         return (DateTimeOffset.UtcNow - started).TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture) + " s";
+    }
+
+    /// <summary>
+    /// What a wait does between two polls: <paramref name="whileWaiting"/> moves the work along,
+    /// such as the host's clock past a run's backoff, and the wait pauses for the poll interval.
+    /// </summary>
+    private static async Task NextPollAsync(Func<Task>? whileWaiting)
+    {
+        if (whileWaiting is not null)
+        {
+            await whileWaiting();
+        }
+
+        await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
     }
 
     /// <summary>
@@ -4031,6 +4067,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         return $"run {run.Id} of trigger {run.TriggerId}: {run.Status}"
             + (run.FailureCode is null ? string.Empty : $" ({run.FailureClass}/{run.FailureCode})")
             + $", skill {run.Skill ?? "none"} chosen by {run.SkillChosenBy ?? "nobody"}, kind {run.Kind}"
+            + $", attempt {run.Attempt}, created {run.CreatedAt:HH:mm:ss.fff}"
+            + (run.StartedAt is { } startedAt ? $", started {startedAt:HH:mm:ss.fff}" : ", not started")
             + (run.Summary is null ? ", no summary yet" : string.Empty);
     }
 
@@ -4062,10 +4100,16 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         return client.SendAsync(request);
     }
 
+    /// <summary>
+    /// Waits until the agent has a thread about the project that the client sees.
+    /// </summary>
+    /// <param name="whileWaiting">Runs between two polls, such as
+    /// <see cref="AssistantAgentRunSampleHost.AdvanceToNextAgentRetryAsync"/>.</param>
     private static async Task<Guid> WaitForThreadAsync(
         HttpClient client,
         Guid projectId,
-        string agentId = SampleIntakeReviewerComposition.AgentId)
+        string agentId = SampleIntakeReviewerComposition.AgentId,
+        Func<Task>? whileWaiting = null)
     {
         var started = DateTimeOffset.UtcNow;
         var deadline = started.AddSeconds(90);
@@ -4079,18 +4123,26 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return thread.ConversationId;
             }
 
-            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
+            await NextPollAsync(whileWaiting);
         }
 
-        throw new TimeoutException($"No thread of agent {agentId} was created for project {projectId} within {Elapsed(started)}.");
+        throw new TimeoutException(
+            $"Waited {Elapsed(started)} for a thread of agent {agentId} about project {projectId}; the last lookup found none.");
     }
 
     /// <summary>
     /// Waits until the replay ended.
     /// </summary>
-    private static async Task<NhAssistantReplayDto> WaitForReplayAsync(HttpClient client, string variantId, Guid replayId)
+    /// <param name="whileWaiting">Runs between two polls, such as
+    /// <see cref="AssistantAgentRunSampleHost.AdvanceToNextAgentRetryAsync"/>.</param>
+    private static async Task<NhAssistantReplayDto> WaitForReplayAsync(
+        HttpClient client,
+        string variantId,
+        Guid replayId,
+        Func<Task>? whileWaiting = null)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        var started = DateTimeOffset.UtcNow;
+        var deadline = started.AddSeconds(90);
         NhAssistantReplayDto? replay = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -4101,16 +4153,25 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return replay;
             }
 
-            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
+            await NextPollAsync(whileWaiting);
         }
 
-        throw new TimeoutException($"Replay {replayId} is still {replay?.Status ?? "missing"} after {replay?.RunsReplayed ?? 0} runs.");
+        var seen = replay is null
+            ? "the variant's replays do not list it"
+            : $"it is still {replay.Status} with {replay.RunsReplayed} runs replayed and {replay.RunsSkipped} skipped of at most {replay.MaxRuns}, period {replay.From:O} to {replay.To:O}";
+        throw new TimeoutException($"Waited {Elapsed(started)} for replay {replayId} into agent {variantId} to end; {seen}.");
     }
 
     /// <summary>
     /// Waits until the thread has an ended run of <paramref name="triggerId"/>.
     /// </summary>
-    private static async Task<NhAssistantRunDto> WaitForRunWithTriggerAsync(HttpClient client, Guid conversationId, string triggerId)
+    /// <param name="whileWaiting">Runs between two polls, such as
+    /// <see cref="AssistantAgentRunSampleHost.AdvanceToNextAgentRetryAsync"/>.</param>
+    private static async Task<NhAssistantRunDto> WaitForRunWithTriggerAsync(
+        HttpClient client,
+        Guid conversationId,
+        string triggerId,
+        Func<Task>? whileWaiting = null)
     {
         var started = DateTimeOffset.UtcNow;
         var deadline = started.AddSeconds(90);
@@ -4123,11 +4184,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 return found;
             }
 
-            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
+            await NextPollAsync(whileWaiting);
         }
 
         throw new TimeoutException(
-            $"Thread {conversationId} has no ended run of trigger {triggerId} after {Elapsed(started)}. Its {runs.Length} runs: {string.Join("; ", runs.Select(Describe))}.");
+            $"Waited {Elapsed(started)} for an ended run of trigger {triggerId} in thread {conversationId}; it last had {runs.Length} runs: {string.Join("; ", runs.Select(Describe))}.");
     }
 
     /// <summary>
@@ -4153,13 +4214,25 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             $"The thread has no enqueued run of trigger {triggerId} within 90 seconds. Runs of the thread: {string.Join("; ", runs.Select(Describe))}.");
     }
 
-    private static async Task<NhAssistantRunDto> WaitForRunAsync(HttpClient client, Guid conversationId, string status)
+    /// <summary>
+    /// Waits until the thread has a run in <paramref name="status"/>.
+    /// </summary>
+    /// <param name="whileWaiting">Runs between two polls, such as
+    /// <see cref="AssistantAgentRunSampleHost.AdvanceToNextAgentRetryAsync"/>.</param>
+    private static async Task<NhAssistantRunDto> WaitForRunAsync(
+        HttpClient client,
+        Guid conversationId,
+        string status,
+        Func<Task>? whileWaiting = null)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        var started = DateTimeOffset.UtcNow;
+        var deadline = started.AddSeconds(90);
         NhAssistantRunDto[] runs = [];
+        var lastRead = "none";
         while (DateTimeOffset.UtcNow < deadline)
         {
-            var response = await client.GetAsync($"/api/assistant/threads/{conversationId}/runs");
+            using var response = await client.GetAsync($"/api/assistant/threads/{conversationId}/runs");
+            lastRead = ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture);
             if (response.IsSuccessStatusCode)
             {
                 runs = (await response.Content.ReadFromJsonAsync<NhAssistantRunListDto>(Json))?.Items.ToArray() ?? [];
@@ -4169,11 +4242,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 }
             }
 
-            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
+            await NextPollAsync(whileWaiting);
         }
 
         throw new TimeoutException(
-            $"No run reached '{status}'; seen: {string.Join(", ", runs.Select(item => item.Status + "/" + item.FailureCode))}.");
+            $"Waited {Elapsed(started)} for a run in thread {conversationId} to reach '{status}'; the last read answered {lastRead} with {runs.Length} runs: {string.Join("; ", runs.Select(Describe))}.");
     }
 
     private static async Task<NhAssistantConversationDto> ReadConversationAsync(HttpClient client, Guid conversationId)
@@ -4291,18 +4364,27 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Json);
     }
 
+    /// <summary>
+    /// Waits until the thread has a proposal in <paramref name="status"/>, of
+    /// <paramref name="toolId"/> when it is given.
+    /// </summary>
+    /// <param name="whileWaiting">Runs between two polls, such as
+    /// <see cref="AssistantAgentRunSampleHost.AdvanceToNextAgentRetryAsync"/>.</param>
     private static async Task<NhAssistantProposalDto> WaitForProposalAsync(
         HttpClient client,
         Guid conversationId,
         string status,
-        string? toolId = null)
+        string? toolId = null,
+        Func<Task>? whileWaiting = null)
     {
         var started = DateTimeOffset.UtcNow;
         var deadline = started.AddSeconds(90);
         NhAssistantProposalDto[] proposals = [];
+        var lastRead = "none";
         while (DateTimeOffset.UtcNow < deadline)
         {
-            var response = await client.GetAsync($"/api/assistant/threads/{conversationId}/proposals");
+            using var response = await client.GetAsync($"/api/assistant/threads/{conversationId}/proposals");
+            lastRead = ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture);
             if (response.IsSuccessStatusCode)
             {
                 proposals = await response.Content.ReadFromJsonAsync<NhAssistantProposalDto[]>(Json) ?? [];
@@ -4312,11 +4394,28 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 }
             }
 
-            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
+            await NextPollAsync(whileWaiting);
         }
 
         throw new TimeoutException(
-            $"No proposal in thread {conversationId} reached '{status}' after {Elapsed(started)}; seen {proposals.Length}: {string.Join("; ", proposals.Select(Describe))}.");
+            $"Waited {Elapsed(started)} for a proposal{(toolId is null ? string.Empty : " of tool " + toolId)} in thread {conversationId} to reach '{status}'; "
+            + $"the last read answered {lastRead} with {proposals.Length}: {string.Join("; ", proposals.Select(Describe))}. "
+            + await DescribeRunsAsync(client, conversationId));
+    }
+
+    /// <summary>
+    /// The runs of the thread as a failure message names them, or why the client cannot read them.
+    /// </summary>
+    private static async Task<string> DescribeRunsAsync(HttpClient client, Guid conversationId)
+    {
+        using var response = await client.GetAsync($"/api/assistant/threads/{conversationId}/runs");
+        if (!response.IsSuccessStatusCode)
+        {
+            return $"Its runs could not be read ({(int)response.StatusCode}).";
+        }
+
+        var runs = (await response.Content.ReadFromJsonAsync<NhAssistantRunListDto>(Json))?.Items.ToArray() ?? [];
+        return $"Its {runs.Length} runs: {string.Join("; ", runs.Select(Describe))}.";
     }
 }
 
@@ -4642,6 +4741,46 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         var now = Clock.GetUtcNow();
         var nextMinute = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, TimeSpan.Zero).AddMinutes(1);
         Clock.Advance(nextMinute - now);
+    }
+
+    /// <summary>
+    /// The longest an agent run gives way before it tries again, as the run's operation bounds it.
+    /// </summary>
+    private static readonly TimeSpan MaxAgentRetryDelay = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Moves the host's clock to the next try of an agent run or a replay that waits on the
+    /// application's clock. A run that finds every run slot of its agent in use gives way for 30
+    /// seconds, doubling up to five minutes, and a replay tries again after five seconds while the
+    /// variant's slots are in use. A test that waits for such work calls this between its polls, so it
+    /// waits for the work itself instead of the backoff, however slow the machine is. Only a try at
+    /// most five minutes ahead counts, so the clock never jumps to a proposal's expiry or another
+    /// business deadline.
+    /// </summary>
+    public async Task AdvanceToNextAgentRetryAsync()
+    {
+        Assert.Same(Clock, Services.GetRequiredService<TimeProvider>());
+        var now = Clock.GetUtcNow();
+        var latest = now + MaxAgentRetryDelay;
+        DateTimeOffset? next;
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+            next = await dbContext.Set<NhBackgroundOperation>()
+                .AsNoTracking()
+                .Where(item => item.Status == NhBackgroundOperationStatus.RetryScheduled
+                    && (item.OperationType == NhAssistantAgentRunOperationTypes.Run
+                        || item.OperationType == NhAssistantAgentRunOperationTypes.Replay)
+                    && item.NextDispatchAt > now
+                    && item.NextDispatchAt <= latest)
+                .MinAsync(item => item.NextDispatchAt);
+        }
+
+        var remaining = next - Clock.GetUtcNow();
+        if (remaining > TimeSpan.Zero)
+        {
+            Clock.Advance(remaining.Value);
+        }
     }
 
     public async Task WaitForOperationAsync(Guid operationId, NhBackgroundOperationStatus status)
