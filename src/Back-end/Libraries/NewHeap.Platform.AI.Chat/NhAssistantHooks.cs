@@ -73,7 +73,11 @@ public enum NhAssistantAuditEventKind
     AgentRunEnded = 32,
 
     /// <summary>
-    /// An approved agent proposal finished executing. <c>ResultCode</c> is the proposal status.
+    /// An approved agent proposal finished executing. <c>ResultCode</c> is the proposal status. For a
+    /// tool the application executes, the application's report sets
+    /// <see cref="NhAssistantAuditEvent.ExecutionOutcome"/> and <see cref="NhAssistantAuditEvent.ExecutionCode"/>,
+    /// and a report deadline that passed without a report records <c>execution-unknown</c> with the
+    /// execution code <c>report-overdue</c>.
     /// </summary>
     AgentProposalExecuted = 33,
 
@@ -332,7 +336,19 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>created</c>, <c>changed</c> or <c>removed</c>.
     /// Never the value.
     /// </summary>
-    AdminAgentMetadataChanged = 71
+    AdminAgentMetadataChanged = 71,
+
+    /// <summary>
+    /// The assistant handed an approved proposal of a tool the application executes
+    /// (<see cref="NhAssistantBuilder.ExecuteInApplication"/>) to the application's
+    /// <see cref="INhAssistantProposalExecutor"/>, once per hand-off, right before the executor runs.
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>handed-off</c>. How the execution ended follows
+    /// as <see cref="AgentProposalExecuted"/>: the application's report, or its executor's refusal, with
+    /// <see cref="NhAssistantAuditEvent.ExecutionOutcome"/> and <see cref="NhAssistantAuditEvent.ExecutionCode"/>;
+    /// an executor that threw or a report deadline that passed as <c>execution-unknown</c> with the
+    /// execution code <c>hand-off-failed</c> or <c>report-overdue</c>. Never the arguments.
+    /// </summary>
+    AgentProposalHandedToApplication = 72
 }
 
 /// <summary>
@@ -594,6 +610,22 @@ public sealed record NhAssistantAuditEvent(
     /// without a key.
     /// </summary>
     public string? IdempotencyKey { get; init; }
+
+    /// <summary>
+    /// How the application said its execution of a proposal ended, on the
+    /// <see cref="NhAssistantAuditEventKind.AgentProposalExecuted"/> event of its report
+    /// (<see cref="INhAssistantProposalExecutionReports.ReportExecutionAsync"/>): <c>completed</c>,
+    /// <c>needs-attention</c> or <c>failed</c> (<see cref="NhAssistantApplicationExecutionCodes"/>). Null for
+    /// other events and for executions in the tool's function.
+    /// </summary>
+    public string? ExecutionOutcome { get; init; }
+
+    /// <summary>
+    /// The application's dash-case code of its report or of its executor's refusal, at most 64
+    /// characters, or <c>report-overdue</c> when the report deadline passed; never the summary. Null for
+    /// other events and for executions in the tool's function.
+    /// </summary>
+    public string? ExecutionCode { get; init; }
 
     /// <summary>
     /// The most characters of <see cref="FileName"/>.

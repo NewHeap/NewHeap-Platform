@@ -884,6 +884,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<Guid?>("ExecutionOperationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTimeOffset?>("ExecutionReportDueAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("ExecutionResultCode")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
@@ -1023,6 +1026,8 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.HasIndex("ProposalHash");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("Status", "ExecutionReportDueAt");
 
                     b.HasIndex("Status", "ExpiresAt");
 

@@ -638,6 +638,57 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Declares that the application executes the approved deferred proposals of tool
+    /// <paramref name="toolId"/> itself, outside the tool's function, and reports their outcome within
+    /// <paramref name="reportWithin"/>. Once such a proposal is approved, by any path, the assistant hands
+    /// it to the application's <see cref="INhAssistantProposalExecutor"/>
+    /// (<see cref="UseProposalExecutor{TExecutor}"/>, which startup requires) instead of running the tool,
+    /// and the proposal waits as <see cref="NhAssistantApprovalStatuses.AwaitingApplication"/> until the
+    /// application reports through <see cref="INhAssistantProposalExecutionReports"/>. Without a report
+    /// before the deadline, on the application's clock, the run maintenance makes it
+    /// <see cref="NhAssistantApprovalStatuses.ExecutionUnknown"/> and tells the approvers, who hand it to
+    /// the application again or mark it resolved.
+    /// <para>
+    /// The declaration is opt-in per tool: other tools keep executing in their function. A run or a
+    /// consultation always leaves a proposal of such a tool for later (deferred), at its subject, because
+    /// the application's result never reaches a waiting turn; only a person's own turn, a chat or a request
+    /// in an agent thread, still approves it inline and runs the tool's function.
+    /// </para>
+    /// </summary>
+    /// <param name="toolId">The tool's exact id, such as <c>projects.order-hardware</c>; no selector.</param>
+    /// <param name="reportWithin">How long the application may take to report after a hand-off: longer
+    /// than zero and at most 90 days.</param>
+    public NhAssistantBuilder ExecuteInApplication(string toolId, TimeSpan reportWithin)
+    {
+        if (!NhAssistantAgentDefinition.IsValidSelector(toolId) || toolId.Contains('*', StringComparison.Ordinal))
+        {
+            throw new ArgumentException("The application executes a tool named by its exact id, without a selector.", nameof(toolId));
+        }
+        if (reportWithin <= TimeSpan.Zero || reportWithin > NhAssistantApplicationExecution.MaxReportWithin)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(reportWithin),
+                reportWithin,
+                "The report deadline of a tool the application executes is longer than zero and at most 90 days.");
+        }
+
+        _state.AddApplicationExecution(new NhAssistantApplicationExecution(toolId, reportWithin));
+        return this;
+    }
+
+    /// <summary>
+    /// Registers the application's executor of the approved proposals of the tools declared with
+    /// <see cref="ExecuteInApplication"/>. A host that declares such a tool without an executor does not
+    /// start.
+    /// </summary>
+    public NhAssistantBuilder UseProposalExecutor<TExecutor>()
+        where TExecutor : class, INhAssistantProposalExecutor
+    {
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantProposalExecutor, TExecutor>());
+        return this;
+    }
+
+    /// <summary>
     /// Revalidates open agent proposals whenever the application publishes
     /// <typeparamref name="TEvent"/> through <c>INhAssistantAgentTriggers.PublishAsync</c>: the
     /// proposals about the event's subject, those that change the event's objects, or both. Publish
@@ -875,6 +926,7 @@ internal sealed class NhAssistantRegistrationState
     private readonly List<Runs.NhAssistantProposalGuardRegistration> _proposalGuards = [];
     private readonly List<NhAssistantRevalidationDefinition> _revalidations = [];
     private readonly List<NhAssistantFileReaderDefinition> _fileReaders = [];
+    private readonly Dictionary<string, NhAssistantApplicationExecution> _applicationExecutions = new(StringComparer.Ordinal);
 
     public string? AccessPolicy { get; set; }
 
@@ -1270,6 +1322,40 @@ internal sealed class NhAssistantRegistrationState
     {
         ArgumentNullException.ThrowIfNull(revalidation);
         _revalidations.Add(revalidation);
+    }
+
+    /// <summary>
+    /// The tools whose approved proposals the application executes, by tool id.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantApplicationExecution> ApplicationExecutions => _applicationExecutions;
+
+    public void AddApplicationExecution(NhAssistantApplicationExecution execution)
+    {
+        ArgumentNullException.ThrowIfNull(execution);
+        if (_applicationExecutions.TryGetValue(execution.ToolId, out var existing))
+        {
+            if (existing == execution)
+            {
+                // AddNewHeapAssistant may run more than once for the same service collection.
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"Tool '{execution.ToolId}' is already executed by the application with another report deadline.");
+        }
+
+        _applicationExecutions.Add(execution.ToolId, execution);
+    }
+
+    /// <summary>
+    /// Whether the application executes the approved proposals of <paramref name="toolId"/>, and how
+    /// long it may take to report.
+    /// </summary>
+    public bool TryGetApplicationExecution(
+        string toolId,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out NhAssistantApplicationExecution? execution)
+    {
+        return _applicationExecutions.TryGetValue(toolId, out execution);
     }
 
     /// <summary>

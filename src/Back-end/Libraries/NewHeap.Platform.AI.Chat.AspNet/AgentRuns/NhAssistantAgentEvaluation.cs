@@ -418,6 +418,7 @@ internal sealed class NhAssistantEvaluationService(
     {
         return status is NhAssistantApprovalStatuses.Approved
             or NhAssistantApprovalStatuses.Executing
+            or NhAssistantApprovalStatuses.AwaitingApplication
             or NhAssistantApprovalStatuses.Executed
             or NhAssistantApprovalStatuses.ExecutionFailed
             or NhAssistantApprovalStatuses.ExecutionUnknown
@@ -532,7 +533,9 @@ internal sealed class NhAssistantEvaluationService(
                 case NhAssistantApprovalStatuses.Pending:
                     _pending++;
                     break;
-                case NhAssistantApprovalStatuses.Approved or NhAssistantApprovalStatuses.Executing:
+                case NhAssistantApprovalStatuses.Approved
+                    or NhAssistantApprovalStatuses.Executing
+                    or NhAssistantApprovalStatuses.AwaitingApplication:
                     _approved++;
                     break;
                 case NhAssistantApprovalStatuses.Executed

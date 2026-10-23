@@ -318,9 +318,58 @@ describe('agent-run components', () => {
       fixture.detectChanges();
 
       expect(button(fixture, 'proposal.approve')).toBeUndefined();
+      expect(button(fixture, 'proposal.hand-to-application')).toBeUndefined();
       button(fixture, 'proposal.mark-resolved')!.click();
 
       expect(api.resolve).toHaveBeenCalledOnceWith('approval-1', 'mark-resolved');
+    });
+
+    it('shows a proposal the application executes as waiting for its report, without decisions', () => {
+      fixture.componentInstance.proposals.set([{
+        ...proposal('awaiting-application'),
+        decidedByActorId: 'approver-1',
+        executionReportDueAt: '2026-10-13T14:00:00Z'
+      }]);
+      fixture.componentInstance.canDecide.set(true);
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.querySelector('.card-header')!.textContent).toContain('nh-assistant.agent-runs.proposal.status.awaiting-application');
+      expect(element.querySelector('[data-proposal-awaiting-application]')!.textContent).toContain('proposal.awaiting-application-hint');
+      expect(element.querySelector('[data-proposal-report-due]')!.textContent).toContain('proposal.report-due');
+      expect(button(fixture, 'proposal.approve')).toBeUndefined();
+      expect(button(fixture, 'proposal.mark-resolved')).toBeUndefined();
+      expect(button(fixture, 'proposal.hand-to-application')).toBeUndefined();
+    });
+
+    it('hands an uncertain proposal the application executes to it again instead of running it', () => {
+      const unknown: AgentProposal = {
+        ...proposal('execution-unknown'),
+        executionResultCode: 'report-overdue',
+        executionReportDueAt: '2026-10-13T14:00:00Z'
+      };
+      api.resolve.and.returnValue(of({ ...unknown, status: 'awaiting-application' }));
+      fixture.componentInstance.proposals.set([unknown]);
+      fixture.componentInstance.canDecide.set(true);
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.querySelector('[data-proposal-unknown-application]')!.textContent).toContain('proposal.unknown-application-hint');
+      expect(button(fixture, 'proposal.re-execute')).toBeUndefined();
+      expect(button(fixture, 'proposal.mark-resolved')).toBeDefined();
+      button(fixture, 'proposal.hand-to-application')!.click();
+      fixture.detectChanges();
+
+      expect(api.resolve).toHaveBeenCalledOnceWith('approval-1', 'hand-to-application');
+      expect(fixture.componentInstance.changes).toBe(1);
+    });
+
+    it('offers no resolution of an uncertain proposal to people who may not decide', () => {
+      fixture.componentInstance.proposals.set([{ ...proposal('execution-unknown'), executionReportDueAt: '2026-10-13T14:00:00Z' }]);
+      fixture.detectChanges();
+
+      expect(button(fixture, 'proposal.hand-to-application')).toBeUndefined();
+      expect(button(fixture, 'proposal.mark-resolved')).toBeUndefined();
     });
 
     function feedbackPanels(): NhAssistantProposalFeedbackComponent[] {

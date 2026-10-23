@@ -185,6 +185,16 @@ public sealed record NhAssistantProposalDto(
     DateTimeOffset? ExecutedAt)
 {
     /// <summary>
+    /// For a proposal the application executes (<see cref="NhAssistantBuilder.ExecuteInApplication"/>),
+    /// until when its report of the latest hand-off is due, on the application's clock: while the
+    /// proposal is <c>awaiting-application</c> the deadline after which it becomes
+    /// <c>execution-unknown</c>, and afterwards the sign that an approver resolves it with
+    /// <c>hand-to-application</c> instead of <c>re-execute</c>. <see langword="null"/> for a proposal that
+    /// was never handed to the application.
+    /// </summary>
+    public DateTimeOffset? ExecutionReportDueAt { get; init; }
+
+    /// <summary>
     /// Why a stale proposal no longer fits: <c>already-done</c>, <c>changed</c> or
     /// <c>not-applicable</c>; <see langword="null"/> for other statuses. The reason code is
     /// <see cref="ExecutionResultCode"/>.
@@ -921,7 +931,9 @@ public sealed record NhAssistantDecisionOutcomeDto(
 
 public sealed record NhAssistantBulkDecisionDto(IReadOnlyList<NhAssistantDecisionOutcomeDto> Results);
 
-/// <param name="Action"><c>re-execute</c> runs the proposal again; <c>mark-resolved</c> confirms the outcome without running it.</param>
+/// <param name="Action"><c>re-execute</c> runs the proposal again; <c>hand-to-application</c> hands a
+/// proposal the application executes (one with <see cref="NhAssistantProposalDto.ExecutionReportDueAt"/>)
+/// to the application again; <c>mark-resolved</c> confirms the outcome without running it.</param>
 public sealed record NhAssistantResolveExecutionRequest(
     string? Action,
     string? Reason);
@@ -1066,6 +1078,7 @@ internal static class NhAssistantAgentRunDtoMapper
             approval.ExecutionResultCode,
             approval.ExecutedAt)
         {
+            ExecutionReportDueAt = approval.ExecutionReportDueAt,
             ConsultationId = approval.ConsultationId,
             ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource),
             StaleKind = NhAssistantConversationReader.StaleKindOf(approval),

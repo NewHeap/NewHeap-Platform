@@ -128,7 +128,11 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantProposalFeedbackService>();
             services.TryAddScoped<INhAssistantSubjectWork, NhAssistantSubjectWork>();
             services.TryAddScoped<NhAssistantProposalReads>();
-            services.TryAddScoped<NhAssistantProposalExecutor>();
+            services.TryAddScoped<NhAssistantProposalExecution>();
+            // Proposals of tools the application executes: the hand-off, the application's reports and
+            // the report deadline.
+            services.TryAddScoped<NhAssistantApplicationExecutions>();
+            services.TryAddScoped<INhAssistantProposalExecutionReports>(provider => provider.GetRequiredService<NhAssistantApplicationExecutions>());
             services.TryAddScoped<INhAiProposalPrecondition, NhAssistantSubjectVersionPrecondition>();
             services.TryAddScoped<Runs.INhAssistantInlineRunWaker, NhAssistantInlineRunWaker>();
             services.TryAddScoped<NhAssistantRunCancellation>();
@@ -311,6 +315,13 @@ internal sealed class NhAssistantStartupValidator(
         }
         // UseSingleTenant: the AI ASP.NET integration projects that tenant or none.
         NhAssistantSingleTenantChecks.Validate(state, provider.GetService<NhAiAspNetRegistrationState>());
+        // ExecuteInApplication: approved proposals of such a tool go to the application's executor.
+        if (state.ApplicationExecutions.Count > 0 && provider.GetService<INhAssistantProposalExecutor>() is null)
+        {
+            throw new InvalidOperationException(
+                $"Tool '{state.ApplicationExecutions.Keys.Order(StringComparer.Ordinal).First()}' is executed by the application (ExecuteInApplication), "
+                + "but no executor is registered. Register one with UseProposalExecutor<TExecutor>().");
+        }
 
         await registry.ValidateAsync(
             profiles,

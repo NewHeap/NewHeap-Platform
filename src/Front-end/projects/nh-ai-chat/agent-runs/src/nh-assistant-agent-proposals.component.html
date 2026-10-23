@@ -254,6 +254,9 @@
         @if (proposal.status === 'pending') {
           <span>{{ 'nh-assistant.agent-runs.proposal.expires' | translate: { date: (proposal.expiresAt | date: 'short') } }}</span>
         }
+        @if (proposal.status === 'awaiting-application' && proposal.executionReportDueAt) {
+          <span data-proposal-report-due>{{ 'nh-assistant.agent-runs.proposal.report-due' | translate: { date: (proposal.executionReportDueAt | date: 'short') } }}</span>
+        }
         @if (proposal.decidedByActorId) {
           <span
             data-proposal-decided-by
@@ -307,16 +310,33 @@
           </button>
         </div>
       }
+      @if (proposal.status === 'awaiting-application') {
+        <p class="waiting-for" data-proposal-awaiting-application><nh-assistant-icon name="clock" />{{ 'nh-assistant.agent-runs.proposal.awaiting-application-hint' | translate }}</p>
+      }
       @if (proposal.status === 'execution-unknown' && mayDecide(proposal)) {
-        <p class="message warning"><nh-assistant-icon name="warning" />{{ 'nh-assistant.agent-runs.proposal.unknown-hint' | translate }}</p>
-        <div class="card-actions">
-          <button class="secondary" type="button" [disabled]="busy()" (click)="resolve(proposal, 'mark-resolved')">
-            <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.proposal.mark-resolved' | translate }}
-          </button>
-          <button class="danger" type="button" [disabled]="busy()" (click)="resolve(proposal, 're-execute')">
-            <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.proposal.re-execute' | translate }}
-          </button>
-        </div>
+        @if (executedByApplication(proposal)) {
+          <!-- The application executes this proposal: an approver hands it to the application again,
+               never to the tool's function. -->
+          <p class="message warning" data-proposal-unknown-application><nh-assistant-icon name="warning" />{{ 'nh-assistant.agent-runs.proposal.unknown-application-hint' | translate }}</p>
+          <div class="card-actions">
+            <button class="secondary" type="button" [disabled]="busy()" (click)="resolve(proposal, 'mark-resolved')">
+              <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.proposal.mark-resolved' | translate }}
+            </button>
+            <button class="danger" type="button" data-proposal-hand-to-application [disabled]="busy()" (click)="resolve(proposal, 'hand-to-application')">
+              <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.proposal.hand-to-application' | translate }}
+            </button>
+          </div>
+        } @else {
+          <p class="message warning"><nh-assistant-icon name="warning" />{{ 'nh-assistant.agent-runs.proposal.unknown-hint' | translate }}</p>
+          <div class="card-actions">
+            <button class="secondary" type="button" [disabled]="busy()" (click)="resolve(proposal, 'mark-resolved')">
+              <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.proposal.mark-resolved' | translate }}
+            </button>
+            <button class="danger" type="button" [disabled]="busy()" (click)="resolve(proposal, 're-execute')">
+              <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.proposal.re-execute' | translate }}
+            </button>
+          </div>
+        }
       }
     </li>
   </ng-template>

@@ -609,6 +609,21 @@ public sealed partial class SampleAssistantChatClient : IChatClient
             });
         }
 
+        var equipment = EquipmentPattern().Match(text);
+        if (projectId is not null && equipment.Success)
+        {
+            // SPM-314: the intake reviewer proposes an equipment order, which the order desk executes.
+            return Call("projects_order_equipment_v1", new
+            {
+                input = new
+                {
+                    projectId = Guid.Parse(projectId),
+                    item = equipment.Groups["item"].Value,
+                    quantity = int.Parse(equipment.Groups["quantity"].Value, System.Globalization.CultureInfo.InvariantCulture)
+                }
+            });
+        }
+
         var status = StatusPattern().Match(text);
         if (projectId is not null && status.Success)
         {
@@ -754,6 +769,12 @@ public sealed partial class SampleAssistantChatClient : IChatClient
 
     [GeneratedRegex(@"complete task (?<id>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", RegexOptions.IgnoreCase)]
     private static partial Regex TaskPattern();
+
+    /// <summary>
+    /// SPM-314: an equipment order such as "order 3 laptops for project …".
+    /// </summary>
+    [GeneratedRegex(@"\border (?<quantity>[0-9]{1,3}) (?<item>[a-z][a-z ]{0,98}?) for project\b", RegexOptions.IgnoreCase)]
+    private static partial Regex EquipmentPattern();
 
     [GeneratedRegex("\\b(draft|active|onhold|completed|archived)\\b", RegexOptions.IgnoreCase)]
     private static partial Regex StatusPattern();

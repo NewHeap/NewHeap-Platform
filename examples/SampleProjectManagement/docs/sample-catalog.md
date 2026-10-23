@@ -301,6 +301,21 @@ one, finds both with `INhAssistantAgentMetadata.ListAgentsAsync` whatever the co
 that people who do not administer neither read nor change it; NewHeap itself never reads the cost
 center.
 
+The application executes some approved proposals itself (SPM-314). The intake reviewer may propose to
+order equipment for a project, and the sample's order desk works asynchronously: its supplier confirms
+an order hours later. `SampleEquipmentOrderComposition` therefore declares the order tool with
+`ExecuteInApplication` and a report deadline of eight hours and registers `SampleEquipmentOrderExecutor`
+with `UseProposalExecutor`. Once a project approver approves the proposal, the assistant hands the
+approved arguments, the proposal hash, the approver and the proposal id to the executor, which puts the
+order on `SampleEquipmentOrderDesk` instead of running the tool's function, and the proposal waits as
+`awaiting-application`. When the supplier confirms, the desk reports through
+`INhAssistantProposalExecutionReports` with its code and a short summary: the proposal closes as
+executed, failed or uncertain, the approvers are told, the summary appears in the project's thread as a
+message of the application, and the audit records the outcome and the code only. An order nobody
+confirms in time becomes `execution-unknown`, and an approver hands it to the desk again from the
+proposal's card. `AssistantAgentRunSamplesTests` runs the case, with the desk's confirmations standing
+in for the supplier's callback.
+
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
 server protects its address, from its challenge and protected resource metadata; saving the server

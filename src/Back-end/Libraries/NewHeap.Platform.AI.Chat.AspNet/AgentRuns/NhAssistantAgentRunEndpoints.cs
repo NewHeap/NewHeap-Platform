@@ -134,7 +134,7 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapPost("approvals/{approvalId:guid}/resolve", ResolveAsync)
             .WithName("NhAssistantResolveExecution")
             .WithSummary("Resolve an uncertain execution")
-            .WithDescription("Re-executes a proposal whose execution was interrupted, or confirms its outcome without running it. The caller must be an approver of the proposal.")
+            .WithDescription("Resolves a proposal whose execution has an unknown outcome (execution-unknown): action re-execute runs it again, hand-to-application hands a proposal the application executes (one with executionReportDueAt) to the application again, and mark-resolved confirms its outcome without running it. A proposal the application executes takes hand-to-application or mark-resolved, every other one re-execute or mark-resolved; another action answers 400 assistant-approval-decision-invalid. The caller must be an approver of the proposal; a proposal in another status answers 409 assistant-execution-not-uncertain.")
             .Produces<NhAssistantProposalDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
@@ -802,7 +802,9 @@ internal static class NhAssistantAgentRunEndpoints
         var request = await NhAssistantEndpointRouteBuilderExtensions.ReadBodyAsync(
             httpContext,
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantResolveExecutionRequest);
-        if (request is null || request.Action is not ("re-execute" or "mark-resolved") || request.Reason is { Length: > 500 })
+        if (request is null
+            || !NhAssistantExecutionResolutions.TryParse(request.Action, out var resolution)
+            || request.Reason is { Length: > 500 })
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
         }
@@ -811,7 +813,7 @@ internal static class NhAssistantAgentRunEndpoints
             approvalId,
             caller.Data!.ActorId,
             httpContext.User,
-            request.Action == "re-execute",
+            resolution,
             request.Reason,
             httpContext.RequestAborted,
             caller.Data.TenantId);

@@ -417,6 +417,11 @@ internal static class NhAssistantPushKinds
     public const string AgentConsultationProposalDecided = "agent-consultation-proposal-decided";
 
     /// <summary>
+    /// The application reported that it carried out, or could not carry out, an approved proposal.
+    /// </summary>
+    public const string AgentExecutionReported = "agent-execution-reported";
+
+    /// <summary>
     /// Proposals of one run wait for the recipient; the payload carries the run.
     /// </summary>
     public const string AgentRunProposals = "agent-run-proposals";
@@ -451,6 +456,7 @@ internal static class NhAssistantPushKinds
             NhAssistantAgentNotificationKind.RequestAnswered => AgentRequestAnswered,
             NhAssistantAgentNotificationKind.McpConnectionMissing => AgentMcpConnectionMissing,
             NhAssistantAgentNotificationKind.ConsultationProposalDecided => AgentConsultationProposalDecided,
+            NhAssistantAgentNotificationKind.ExecutionReported => AgentExecutionReported,
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
     }

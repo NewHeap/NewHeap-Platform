@@ -807,9 +807,11 @@ internal sealed class NhAssistantAgentRunOperation(
 
 /// <summary>
 /// Executes an approved deferred proposal: it checks the precondition, runs the exact stored
-/// invocation as the agent and records the outcome on the proposal.
+/// invocation as the agent and records the outcome on the proposal. The proposal of a tool the
+/// application executes (<see cref="NhAssistantBuilder.ExecuteInApplication"/>) passes the same checks
+/// and is then handed to the application instead (<see cref="NhAssistantApplicationExecutions"/>).
 /// </summary>
-internal sealed class NhAssistantProposalExecutor(
+internal sealed class NhAssistantProposalExecution(
     INhAssistantStore store,
     NhAssistantRunStore runs,
     NhAssistantAgentTurnFactory turns,
@@ -825,7 +827,8 @@ internal sealed class NhAssistantProposalExecutor(
     NhAssistantProposalInvalidation invalidation,
     NhAssistantRegistrationState registration,
     IOptionsMonitor<NhAssistantOptions> assistantOptions,
-    IOptions<RequestLocalizationOptions> localization)
+    IOptions<RequestLocalizationOptions> localization,
+    NhAssistantApplicationExecutions applicationExecutions)
 {
     private static readonly string[] ExecutableStatuses =
     [
@@ -910,6 +913,20 @@ internal sealed class NhAssistantProposalExecutor(
                 ExecutableStatuses,
                 NhAssistantApprovalStatuses.Approved,
                 new NhAssistantApprovalTransition { ClearExecutionOperation = true, CountExecutionAttempt = true },
+                cancellationToken);
+            return TaskResult.Succeeded();
+        }
+
+        if (registration.TryGetApplicationExecution(approval.ToolId, out var applicationExecution))
+        {
+            // The application executes the tool: it takes the approved payload and reports later.
+            await applicationExecutions.HandOffAsync(
+                approval,
+                agentTurn.Thread,
+                proposal,
+                applicationExecution,
+                ExecutableStatuses,
+                context.OperationId,
                 cancellationToken);
             return TaskResult.Succeeded();
         }
@@ -1057,7 +1074,7 @@ internal sealed class NhAssistantProposalExecutor(
     }
 }
 
-internal sealed class NhAssistantExecuteProposalOperation(NhAssistantProposalExecutor executor)
+internal sealed class NhAssistantExecuteProposalOperation(NhAssistantProposalExecution executor)
     : INhBackgroundOperationHandler<NhAssistantExecuteProposalRequest>
 {
     public Task<TaskResult> ExecuteAsync(
@@ -1113,7 +1130,7 @@ internal sealed class NhAssistantFireTriggerOperation(NhAssistantAgentTriggers t
     }
 }
 
-internal sealed class NhAssistantExecuteProposalOnceOperation(NhAssistantProposalExecutor executor)
+internal sealed class NhAssistantExecuteProposalOnceOperation(NhAssistantProposalExecution executor)
     : INhBackgroundOperationHandler<NhAssistantExecuteProposalOnceRequest>
 {
     public Task<TaskResult> ExecuteAsync(

@@ -70,7 +70,9 @@ public static class SampleIntakeReviewerComposition
                     ProjectAiTools.ChangeStatusToolId,
                     ProjectAiReviewTools.RequestReviewToolId,
                     ProjectAiReviewTools.DraftIntakeNoteToolId,
-                    ProjectTaskAiTools.CompleteToolId
+                    ProjectTaskAiTools.CompleteToolId,
+                    // SPM-314: granted and executed by the application in SampleEquipmentOrderComposition.
+                    ProjectAiEquipmentTools.OrderEquipmentToolId
                 ],
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: SampleAssistantComposition.AccessPolicy))

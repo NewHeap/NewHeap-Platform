@@ -305,6 +305,14 @@ public sealed class AssistantApproval
 
     public string? ExecutionResultCode { get; set; }
 
+    /// <summary>
+    /// Until when the application's report of its execution is due, on the application's clock: set
+    /// each time the proposal of a tool the application executes is handed to it, and kept afterwards,
+    /// so it also says that the application executes the proposal. <see langword="null"/> for a
+    /// proposal that was never handed to the application.
+    /// </summary>
+    public DateTimeOffset? ExecutionReportDueAt { get; set; }
+
     public int RemindersSent { get; set; }
 
     /// <summary>

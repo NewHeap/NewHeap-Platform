@@ -1890,7 +1890,10 @@ internal sealed class NhAssistantAgentConfiguration(
                 group.Key,
                 group.Count(item => liveIds.Contains(item.RunId)),
                 group.Count(item => candidateIds.Contains(item.RunId)),
-                group.Count(item => liveIds.Contains(item.RunId) && item.Status is NhAssistantApprovalStatuses.Approved or NhAssistantApprovalStatuses.Executed),
+                group.Count(item => liveIds.Contains(item.RunId)
+                    && item.Status is NhAssistantApprovalStatuses.Approved
+                        or NhAssistantApprovalStatuses.AwaitingApplication
+                        or NhAssistantApprovalStatuses.Executed),
                 group.Count(item => liveIds.Contains(item.RunId) && item.Status == NhAssistantApprovalStatuses.Rejected)))
             .ToArray();
         return TaskResult<NhAssistantSkillComparisonDto>.Succeeded(new NhAssistantSkillComparisonDto(

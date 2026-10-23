@@ -134,6 +134,9 @@ internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAge
             NhAssistantAgentNotificationKind.ConsultationProposalDecided => context.ProposalStatus == NhAssistantApprovalStatuses.Executed
                 ? NhUserNotificationLevel.Success
                 : NhUserNotificationLevel.Information,
+            NhAssistantAgentNotificationKind.ExecutionReported => context.ProposalStatus == NhAssistantApprovalStatuses.Executed
+                ? NhUserNotificationLevel.Success
+                : NhUserNotificationLevel.Error,
             _ => NhUserNotificationLevel.Information
         };
     }

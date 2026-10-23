@@ -5215,6 +5215,35 @@
       ]
     },
     {
+      "id": "SPM-314",
+      "categoryId": "18",
+      "title": "The order desk executes an approved equipment order and reports how the supplier answered",
+      "surface": "`NhAssistantBuilder.ExecuteInApplication` and `UseProposalExecutor<TExecutor>` with the startup check for a declared tool without an executor; `INhAssistantProposalExecutor.ExecuteAsync` with `NhAssistantProposalHandOff`; `INhAssistantProposalExecutionReports.ReportExecutionAsync` with `NhAssistantExecutionReport` (`For`, `Summary`, `TenantId`, `IsValidCode`), `NhAssistantExecutionOutcome`, `NhAssistantExecutionReportReceipt` and `NhAssistantApplicationExecutionCodes`; `NhAssistantApprovalStatuses.AwaitingApplication`, `NhAssistantProposalDto.ExecutionReportDueAt` and the `hand-to-application` action of `POST approvals/{id}/resolve`; the codes `assistant-execution-report-not-awaited` and `assistant-execution-report-invalid`; `NhAssistantAuditEventKind.AgentProposalHandedToApplication` with `NhAssistantAuditEvent.ExecutionOutcome` and `ExecutionCode`; `NhAssistantAgentNotificationKind.ExecutionReported`; `NhAssistantConsultationRefusalReasons.ApplicationExecutes`; the ApplicationExecutions migrations for SQL Server and PostgreSQL; the `awaiting-application` status, the report deadline and the hand-to-application option of `NhAssistantAgentProposalsComponent` in `@newheap/platform-ai-chat/agent-runs` with `AgentProposal.executionReportDueAt` and `AgentExecutionResolution`; `executedByApplication`, `executionReportDueAt` and `executionResultCode` of the mock scenario's proposals and `POST approvals/{id}/resolve` of the mock API",
+      "outcome": "The intake reviewer may propose to order equipment for a project, such as three laptops, which the sample's order desk executes itself: its supplier confirms an order hours later, so no run could wait for the result. The sample declares the order tool with ExecuteInApplication and a report deadline of eight hours and registers its executor. A participant asks the reviewer to order laptops; the proposal waits deferred for a project approver other than the participant. Once approved, the assistant hands the approved arguments, the proposal hash, the approver and the proposal id to the sample's executor, which puts the order on the desk without running the tool's function, and the proposal waits as awaiting-application with its deadline. When the supplier confirms, the desk reports Completed with the code order-placed and a summary: the proposal closes as executed with that code, the approvers are told, the summary appears in the project's thread as a message of the application that the model reads as information only, and a confirmation the supplier sends twice is the same report. A second order the supplier does not confirm within eight hours on the application's clock becomes execution-unknown with report-overdue; the desk's late confirmation is refused, running it again is refused, and the approver hands it to the order desk again, which keeps its order number, until the supplier's answer that it is out of stock closes it as execution-failed. Every other tool keeps executing in its function, and the audit records the outcome and the code but never the summary.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiEquipmentTools.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023185328_ApplicationExecutions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261023185335_ApplicationExecutions.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApplicationExecutionTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.html",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-application-execution.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-proposals.ts"
+      ]
+    },
+    {
       "id": "SPM-315",
       "categoryId": "18",
       "title": "A deployment whose rights come from its claims transformation lets agents work outside a request with the rights the application recorded at each person's last request, only while they are fresh",

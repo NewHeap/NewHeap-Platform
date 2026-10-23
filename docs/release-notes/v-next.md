@@ -248,3 +248,48 @@ host's export.
 |---|---|
 | A failed MCP result carries two more `_meta` keys, `newheap.com/message-format` and `newheap.com/message-arguments`. | None, unless a client rejects or snapshots unknown `_meta` keys; then accept the two keys. |
 | Only a message that reaches `TaskResult` as a `FormattableString` keeps its arguments; an interpolated string passed straight to `Failed`, `AddError` or `WithError` binds to their `string` overload and publishes its rendered text as its format, without arguments. | Declare a message that clients should translate as a `FormattableString` (`FormattableString message = $"..."`) before passing it to `TaskResult`. |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: proposals the application executes
+
+`ExecuteInApplication(toolId, reportWithin)` declares that the application executes the approved deferred
+proposals of a tool itself, outside the tool's function, and reports within `reportWithin` (at most 90
+days); `UseProposalExecutor<TExecutor>()` registers the application's `INhAssistantProposalExecutor`, and
+startup fails when a declared tool has none. Once a person approves such a proposal, by any path, the
+execution's usual checks run, the proposal becomes the new status `awaiting-application` with
+`NhAssistantProposalDto.ExecutionReportDueAt`, and the executor receives an `NhAssistantProposalHandOff`
+(approval id, the approved `NhAiProposal` with its hash, the approver, agent, subject, tenant, attempt and
+deadline). The application reports through `INhAssistantProposalExecutionReports.ReportExecutionAsync`
+with an `NhAssistantExecutionReport`: `Completed` closes the proposal as `executed`, `Failed` as
+`execution-failed` and `NeedsAttention` as `execution-unknown`, each with the application's dash-case code;
+an optional summary of at most 2,000 characters is posted into the agent's thread as an application message
+without the trusted flag. The report is audited with its outcome and code only, notifies the approvers and
+starts the follow-up run once per hand-off; the same report again is a duplicate, and a report reaches only
+the proposals of its tenant. Without a report in time the run maintenance makes the proposal
+`execution-unknown` (`report-overdue`), and `POST approvals/{id}/resolve` hands it to the application again
+with the new action `hand-to-application`. Runs and consultations always propose a declared tool deferred;
+every tool that is not declared executes in its function as before.
+
+| Breaking change | Required action |
+|---|---|
+| The `ApplicationExecutions` migrations add the nullable column `AssistantApproval.ExecutionReportDueAt` and an index on `(Status, ExecutionReportDueAt)` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
+| `NhAssistantApprovalStatuses` has the new open status `awaiting-application`, which a proposal of a tool declared with `ExecuteInApplication` takes after its approval. | Let code that switches over proposal statuses treat it as approved and not yet executed. |
+| `NhAssistantAuditEventKind` has the new value `AgentProposalHandedToApplication` (72), and `NhAssistantAuditEvent` the properties `ExecutionOutcome` and `ExecutionCode`, set on `AgentProposalExecuted` for the application's report. | Let audit sinks with an exhaustive switch, or that store every property, record or ignore them. |
+| `NhAssistantAgentNotificationKind` has the new value `ExecutionReported` (11), sent as Web Push kind `agent-execution-reported`. | Let notification policies and channels with an exhaustive switch handle it; the default policy tells the subject's approvers. |
+| `NhAssistantErrorCodes` has the new codes `assistant-execution-report-not-awaited` (HTTP 409) and `assistant-execution-report-invalid` (HTTP 400), and `NhAssistantConsultationRefusalReasons` the reason `application-executes`. | Let code that maps assistant codes or consultation refusal reasons handle values it does not know. |
+| `POST approvals/{id}/resolve` takes the action `hand-to-application` for a proposal with `executionReportDueAt` and refuses `re-execute` for it with `400 assistant-approval-decision-invalid`. | Offer `hand-to-application` and `mark-resolved` for such a proposal, `re-execute` and `mark-resolved` for every other one. |
+
+## @newheap/platform-ai-chat: proposals the application executes
+
+The proposal cards of the runs view, the thread, the proposal views and the approval inbox show the new
+status `awaiting-application` with the report deadline and a note that the application carries the
+proposal out; an `execution-unknown` proposal the application executes offers "Hand to the application
+again" next to "Mark as resolved" instead of "Run again". `AgentProposalStatus` and `ApprovalStatus` have
+the value `awaiting-application`, `AgentProposal` the field `executionReportDueAt`, and
+`AgentExecutionResolution` the value `hand-to-application`; the new texts have English and Dutch versions.
+The mock API takes `executedByApplication`, `executionReportDueAt` and `executionResultCode` for the
+proposals of its scenario and serves `POST approvals/{id}/resolve` as the server does.
+
+| Breaking change | Required action |
+|---|---|
+| `AgentProposalStatus` and `ApprovalStatus` have the new value `awaiting-application`, and `AgentExecutionResolution` the value `hand-to-application`. | Let exhaustive switches and status maps of your own handle them. |
+| The texts `nh-assistant.approval.status.awaiting-application`, `nh-assistant.agent-runs.proposal.status.awaiting-application`, `nh-assistant.agent-runs.proposal.hand-to-application`, `nh-assistant.agent-runs.proposal.unknown-application-hint`, `nh-assistant.agent-runs.proposal.awaiting-application-hint` and `nh-assistant.agent-runs.proposal.report-due` are new. | Add them to your application's translations when it overrides the library's texts (`translations: 'host'`). |

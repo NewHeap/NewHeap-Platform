@@ -326,6 +326,8 @@ builder.Services.AddSampleAiBridge();
 builder.Services.AddNewHeapPlatformAIDelegatedReads();
 builder.Services.AddSampleAssistant(builder.Environment, builder.Configuration);
 builder.Services.AddSampleIntakeReviewer();
+// SPM-314: the order desk executes the intake reviewer's approved equipment orders and reports how they went.
+builder.Services.AddSampleEquipmentOrders();
 builder.Services.AddSampleStatusAdvisor();
 // SPM-294: the closer answers to the technical account in configuration, when there is one.
 builder.Services.AddSampleProjectCloser(builder.Configuration[SampleProjectCloserComposition.ServiceAccountKey]);

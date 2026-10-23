@@ -700,6 +700,20 @@ export interface NhAssistantMockProposal {
    * with the asker's rights.
    */
   grantSource?: AgentGrantSource;
+  /**
+   * Whether the application executes the proposal's tool (`ExecuteInApplication` on the server).
+   * Default `false`. Approved, such a proposal waits as `awaiting-application` until its report is due,
+   * four hours later; an `execution-unknown` one is handed to the application again
+   * (`POST approvals/{id}/resolve` with `hand-to-application`) instead of running again.
+   */
+  executedByApplication?: boolean;
+  /**
+   * When the application's report is due, an ISO date, for a proposal listed as `awaiting-application`
+   * or `execution-unknown` that the application executes. Default four hours after it was made.
+   */
+  executionReportDueAt?: string | null;
+  /** The execution's result code, such as `report-overdue`. Default none. */
+  executionResultCode?: string | null;
 }
 
 /** One request the mock API received, for assertions in tests. */

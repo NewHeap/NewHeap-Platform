@@ -351,7 +351,8 @@ internal sealed class NhAssistantToolCallInterceptor(
     Live.NhAssistantAgentWorkUpdates? workUpdates = null,
     TimeProvider? applicationClock = null,
     NhAssistantTurnFiles? turnFiles = null,
-    NhAssistantConsultationProposals? consultationProposals = null)
+    NhAssistantConsultationProposals? consultationProposals = null,
+    NhAssistantRegistrationState? registration = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
     public const string ProposalRecordedCode = "assistant-proposal-recorded";
@@ -369,6 +370,15 @@ internal sealed class NhAssistantToolCallInterceptor(
     /// The application's clock, which a proposal's lifetime and reminders follow.
     /// </summary>
     private readonly TimeProvider _applicationClock = applicationClock ?? TimeProvider.System;
+
+    /// <summary>
+    /// Whether the application executes the approved proposals of <paramref name="toolId"/>
+    /// (<see cref="NhAssistantBuilder.ExecuteInApplication"/>).
+    /// </summary>
+    private bool ExecutedByApplication(string toolId)
+    {
+        return registration?.TryGetApplicationExecution(toolId, out _) == true;
+    }
 
     /// <summary>
     /// Registers the governed descriptors the adapter offered to the agent, keyed by function name.
@@ -1058,10 +1068,11 @@ internal sealed class NhAssistantToolCallInterceptor(
             : null;
         // A request turn cannot wait days for a decision: a person typing always decides inline. A
         // rule turn has no model to continue with a decision, so its proposals always wait deferred,
-        // as a proposal placed at another object does: the run never waits in another thread.
+        // as a proposal placed at another object does: the run never waits in another thread. Neither
+        // does a run for a tool the application executes, whose result never reaches the turn.
         var mode = policy is null || (agentTurn!.IsRequestTurn && consultation is null)
             ? NhAiApprovalMode.Inline
-            : state.RuleTurn || placed is not null
+            : state.RuleTurn || placed is not null || (route is null && ExecutedByApplication(descriptor.Id))
                 ? NhAiApprovalMode.Deferred
                 : policy.Mode;
         // A run in a shadow thread proposes only shadow proposals, which never execute; a proposal it

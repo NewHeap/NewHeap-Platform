@@ -84,7 +84,13 @@ internal sealed class NhAssistantConsultationProposals(
         var policy = policies.ResolveConsultation(agentTurn.Thread.AgentId, descriptor.Id, consultation.Options.ProposalPolicyId);
         var routing = consultation.Routing;
         string? askerRefusal = null;
-        if (routing.AskerDecides)
+        if (routing.AskerDecides && registration.TryGetApplicationExecution(descriptor.Id, out _))
+        {
+            // The application executes the tool after the approval, so its result never reaches the
+            // asking turn: the proposal waits at the subject, where the application executes it.
+            askerRefusal = NhAssistantConsultationRefusalReasons.ApplicationExecutes;
+        }
+        else if (routing.AskerDecides)
         {
             askerRefusal = await AskerRefusalAsync(consultation, agentTurn.Thread, policy, descriptor.Id, cancellationToken);
             if (askerRefusal is null)

@@ -3062,7 +3062,8 @@ internal sealed partial class NhAssistantTurnRunner(
             services.GetService<Live.NhAssistantAgentWorkUpdates>(),
             _applicationClock,
             services.GetService<NhAssistantTurnFiles>(),
-            services.GetService<NhAssistantConsultationProposals>());
+            services.GetService<NhAssistantConsultationProposals>(),
+            registration);
     }
 
     private async Task FinishWithErrorAsync(

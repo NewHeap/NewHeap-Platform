@@ -72,8 +72,9 @@ internal sealed class NhAssistantBackgroundOperationAccess(
 
 /// <summary>
 /// Keeps agent proposals and runs moving without a person: expires and escalates proposals,
-/// queues approved executions that have none, marks interrupted non-idempotent executions as
-/// <c>execution-unknown</c>, cancels runs whose trigger transaction rolled back, ends runs whose
+/// queues approved executions that have none, marks interrupted non-idempotent executions and
+/// proposals the application executes whose report deadline passed as <c>execution-unknown</c>,
+/// cancels runs whose trigger transaction rolled back, ends runs whose
 /// background operation ended without them, such as a run that waited inline for a decision when an
 /// operator cancelled its operation, and withdraws approved inline proposals that a run never
 /// executed because it ended first, such as after a person's cancel. Once an hour it removes board
@@ -148,6 +149,9 @@ internal sealed class NhAssistantRunMaintenance(
         // visits below keep the system clock.
         var proposalTime = _applicationClock.GetUtcNow();
         await ExpireAsync(runs, policies, notifier, workUpdates, proposalTime, cancellationToken, services);
+        // A proposal the application executes whose report deadline passed becomes uncertain; an
+        // approver hands it to the application again or marks it resolved.
+        await services.GetRequiredService<NhAssistantApplicationExecutions>().ExpireReportsAsync(proposalTime, BatchSize, cancellationToken);
         if (services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<NhAssistantOptions>>().CurrentValue.Enabled)
         {
             // With the assistant disabled nobody is reminded and nothing is queued for execution.
