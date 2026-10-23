@@ -120,6 +120,19 @@ public sealed class NhAssistantAgentRunOptions
     public IReadOnlyList<string> Groups { get; internal set; } = [];
 
     /// <summary>
+    /// The metadata values the agent sets in code with <c>Metadata</c>, by entry name, unchecked;
+    /// startup checks them against the entries registered with <c>AddAgentMetadata</c>.
+    /// </summary>
+    internal IReadOnlyDictionary<string, NhAssistantCodeMetadataValue> CodeMetadata => _codeMetadata;
+
+    private readonly Dictionary<string, NhAssistantCodeMetadataValue> _codeMetadata = new(StringComparer.Ordinal);
+
+    internal void SetCodeMetadata(string name, NhAssistantCodeMetadataValue value)
+    {
+        _codeMetadata[name] = value;
+    }
+
+    /// <summary>
     /// The agent starts in shadow mode: its runs work in shadow threads, where proposals are recorded
     /// as shadow proposals that nobody is notified about and that never execute. Administrators
     /// switch a live agent at runtime with <c>INhAssistantAgentControl.SetShadowAsync</c>; a shadow
@@ -921,6 +934,22 @@ public sealed class NhAssistantAgentRunBuilder
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the agent's value of an entry of agent metadata registered with <c>AddAgentMetadata</c>,
+    /// with the entry's type. Startup checks it as a save checks data: an entry that is not registered,
+    /// another type, a value above the entry's size limit or one a validator refuses fails startup.
+    /// Administrators may override it only when the entry is <c>Editable()</c>. Setting a name again
+    /// replaces the value.
+    /// </summary>
+    public NhAssistantAgentRunBuilder Metadata<TValue>(string name, TValue value)
+        where TValue : notnull
+    {
+        NhAssistantAgentMetadataEntry.ValidateName(name, nameof(name));
+        ArgumentNullException.ThrowIfNull(value);
+        _options.SetCodeMetadata(name, new NhAssistantCodeMetadataValue(typeof(TValue), value));
         return this;
     }
 

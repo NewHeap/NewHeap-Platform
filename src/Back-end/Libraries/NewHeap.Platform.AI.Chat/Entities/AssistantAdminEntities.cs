@@ -190,6 +190,44 @@ public sealed class AssistantAgentMcpServer
 }
 
 /// <summary>
+/// The stored value of one entry of agent metadata (<c>AddAgentMetadata</c>) of one agent: the value
+/// of an agent created at runtime, or an administrator's override of an editable entry of an agent in
+/// code. Values in code are not stored. A row is self-contained (entry name and JSON), so it can travel
+/// with the agent; it is removed with the agent. A row of an entry that is no longer registered is
+/// kept but not read.
+/// </summary>
+public sealed class AssistantAgentMetadata
+{
+    public string AgentId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The entry's name.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The value's JSON as the entry's type writes it (camelCase), checked on save.
+    /// </summary>
+    public string ValueJson { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The entry's searchable value (<c>IndexBy</c>), trimmed and in lowercase; <see langword="null"/>
+    /// without one. Indexed with <see cref="Name"/>.
+    /// </summary>
+    public string? IndexValue { get; set; }
+
+    /// <summary>
+    /// For an agent created at runtime the agent's version that stored the value; for an override of
+    /// an agent in code the override's own version, which starts at 1. A concurrency token.
+    /// </summary>
+    public int Version { get; set; } = 1;
+
+    public DateTimeOffset ChangedAt { get; set; }
+
+    public string ChangedBy { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// One version of the application context. The highest version is current; history is kept.
 /// </summary>
 public sealed class AssistantApplicationContext

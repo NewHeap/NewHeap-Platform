@@ -39,6 +39,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantAgentMcpServer> AgentMcpServers => Set<AssistantAgentMcpServer>();
 
+    public DbSet<AssistantAgentMetadata> AgentMetadata => Set<AssistantAgentMetadata>();
+
     public DbSet<AssistantAgentSkillState> AgentSkillStates => Set<AssistantAgentSkillState>();
 
     public DbSet<AssistantApplicationContext> ApplicationContexts => Set<AssistantApplicationContext>();
@@ -766,6 +768,24 @@ public sealed class NhAssistantDbContext : DbContext
             visit.Property(item => item.ActorId).HasMaxLength(256);
             visit.Property(item => item.GroupId).HasMaxLength(NhAssistantAgentGroupDefinition.MaxIdLength);
             visit.Property(item => item.ScopeKey).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<AssistantAgentMetadata>(metadata =>
+        {
+            metadata.ToTable("AssistantAgentMetadata");
+            metadata.HasKey(item => new { item.AgentId, item.Name });
+            metadata.Property(item => item.AgentId).HasMaxLength(128);
+            metadata.Property(item => item.Name).HasMaxLength(NhAssistantAgentMetadataLimits.MaxNameLength);
+            metadata.Property(item => item.ValueJson).IsRequired();
+            metadata.Property(item => item.IndexValue).HasMaxLength(NhAssistantAgentMetadataLimits.MaxIndexValueLength);
+            metadata.Property(item => item.ChangedBy).HasMaxLength(256).IsRequired();
+            metadata.Property(item => item.Version).IsConcurrencyToken();
+            // ListAgentsAsync finds agents by an entry's searchable value.
+            metadata.HasIndex(item => new { item.Name, item.IndexValue });
+            metadata.HasOne<AssistantAgent>()
+                .WithMany()
+                .HasForeignKey(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<AssistantAgentMcpServer>(assignment =>

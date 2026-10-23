@@ -1454,6 +1454,17 @@ public static class NhAssistantAdminErrorCodes
     public const string AgentExists = "assistant-agent-exists";
     public const string CodeAgentNotDeletable = "assistant-code-agent-not-deletable";
     public const string NotCodeAgent = "assistant-agent-not-code";
+
+    /// <summary>
+    /// No agent metadata entry with this name is registered with <c>AddAgentMetadata</c>.
+    /// </summary>
+    public const string MetadataEntryNotFound = "assistant-metadata-entry-not-found";
+
+    /// <summary>
+    /// The metadata entry of an agent in code is set in code; only an entry registered with
+    /// <c>Editable()</c> may be overridden.
+    /// </summary>
+    public const string MetadataReadOnly = "assistant-metadata-read-only";
     public const string McpServerNotFound = "assistant-mcp-server-not-found";
     public const string McpServerExists = "assistant-mcp-server-exists";
     public const string McpToolNotFound = "assistant-mcp-tool-not-found";
