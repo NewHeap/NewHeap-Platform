@@ -440,8 +440,11 @@ are read only; a consultation defined as data is saved with `saveDataConsultatio
 `removeDataConsultation`, each with the version it read. Its form offers the kinds of objects the agent
 works on, a description and instructions with counters, who may ask (a role and one of the catalog's
 `agentPolicies`), whether it only answers or also proposes, with the routes as explained choices, the
-role and approval policy its proposals need, and under Advanced its limits within the ceiling, requests
-and MCP when the ceiling allows them, and the classification of its answers. A route outside the agent's
+role and approval policy its proposals need, and under Advanced the agent's own tool selectors as check
+boxes (`toolSelectors`; none checked offers every tool of the agent), its limits within the ceiling,
+requests and MCP when the ceiling allows them, and the classification of its answers. A saved tool the
+agent's selectors no longer cover stays checked with the reason until it is cleared, and saving it is
+refused at the field, as the server's `toolSelectors: not-allowed` is. A route outside the agent's
 `consultationCeiling`, and the route with the agent's account for the whole application, for an agent
 that answers to the subject's responsible person or for an agent created here that answers for itself,
 stays disabled with the reason; the form warns when four eyes keep the person who asked from deciding,
@@ -449,11 +452,13 @@ or when only the initiator would decide a proposal made with the agent's account
 `not-allowed` field error at its field. Each row says who may ask and who decides, names the agents whose
 tool selectors select its consult tool (`askingAgents`, the second key; `openAgent` asks the host to open
 that agent's editor, which `nh-assistant-admin-agents` does before it returns to the run configuration)
-and lists its problems of kind `consultation`. The route switches (`setConsultationRoutes`) show in the
+and its tools (`toolSelectors` of a consultation in code, `toolSelectorsInEffect` of one as data: every
+tool of the agent, the selection, or none after `tools-not-allowed`), and lists its problems of kind
+`consultation`. The route switches (`setConsultationRoutes`) show in the
 section for every agent with consultations, in code or as data, and switch a route off for all of them at
 once; the flow's "When it runs" step names the consultations with their askers, problems and an entry
-point. The mock API plays the same rules with `consultationsAsData`, `consultableAsData` and
-`dataConsultations`.
+point. The mock API plays the same rules with `consultationsAsData`, `consultableAsData`,
+`consultationTools` and `dataConsultations`.
 
 The agent-run components refresh themselves: `NhAssistantLiveService.agentWork$` emits the
 hub's `AgentWorkChanged` for every run, proposal or feedback change on a subject the user

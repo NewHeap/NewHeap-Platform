@@ -133,7 +133,9 @@ consultation, the participant who asked decides it right away in their own chat,
 runs in their own request with their own rights. The project assistant also consults the
 project closer, whose proposal to complete a project waits for a project approver other
 than the person who asked and runs with the closer's own grant. Neither path rebuilds a
-person's principal outside that person's request. The consult tool only ever acts for a
+person's principal outside that person's request. The reviewer's consultation names its tools
+with `Tools(...)`: asked about a project it may only request a review, so its status and task
+tools stay with its own runs; a status change its model names anyway runs nothing. The consult tool only ever acts for a
 person: an agent created in the administration that acts with the operations account's
 rights is not offered it in a run that a created project starts, because it does not
 delegate from the person who created the project.
@@ -234,7 +236,10 @@ selects nothing until an administrator saves the starter's consultation about pr
 `SaveConsultationAsync`, as `SampleAgentConfigurationService` does; the development seeder defines it
 once. The tool then appears in the administration's tool list and the assistant's next turn. A project
 approver asks whether a draft can start, the starter answers with that person's rights and proposes to
-start it, and the person decides it on the card. The starter has `Propose` autonomy: a consultation with
+start it, and the person decides it on the card. The administrator chose the starter's status tool for
+the consultation (`ToolSelectors`); a tool outside the starter's own is refused with
+`toolSelectors: not-allowed`, and while the starter's own tools no longer cover it the consultation
+answers without any tool and reports `tools-not-allowed`. The starter has `Propose` autonomy: a consultation with
 a proposal route offers its model the status tool all the same, and nothing changes before the
 decision. A reader gets the answer only. With the asker's route
 switched off for the starter, the proposal waits for another project approver and executes with the
