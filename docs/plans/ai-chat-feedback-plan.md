@@ -14,7 +14,10 @@ SPM-305 and SPM-310 extended. FB11 and FB13, the two known races, are closed on 
 
 Decided by Lars, 2026-10-23: every choice from FB1 to FB14 is **Decided** (see the decision record).
 Lars kept FB5, FB6, FB9, FB11, FB13's lock timeout and FB14 as built, and asked for changes to FB1,
-FB2, FB3, FB4, FB7, FB8, FB10, FB12 and FB13's live updates; those changes are not built yet.
+FB2, FB3, FB4, FB7, FB8, FB10, FB12 and FB13's live updates. Those changes were built on 2026-10-23 in
+merge train 15 (`feature/upload-type-followups`, `feature/application-message-followups`,
+`fix/live-messages-while-streaming`); the lanes' own choices FB15 to FB27 and FB30 to FB32 are for Lars to
+review.
 
 ## 1. Uploads without a usable file type
 

@@ -21,8 +21,11 @@ P1 (library, migrations, sample SPM-311, guidance and release notes) was built o
 The lane's own choices are AC25 to AC34. P2 (administration UI and mock) was built on 2026-10-23 on
 `feature/admin-consultations-ui`; see [Implementation of P2](#implementation-of-p2). Its lane's choices
 are AC35 to AC45. Lars decided AC25 to AC45 on 2026-10-23: the recommendation everywhere except AC34
-(b), with additions to AC26 (an MCP test over HTTP) and AC45 (the release notes); those three are not
-built yet. The browser walk-through of the portal and the playground is open.
+(b), with additions to AC26 (an MCP test over HTTP) and AC45 (the release notes). Those three were
+built on 2026-10-23 in merge train 15 (`feature/consultation-propose-autonomy`, `test/mcp-list-changed-http`);
+the HTTP test showed that a stateless MCP server tells no client of a changed tool list, and Lars decided
+AC54 (a) to document it. The lanes' own choices AC46 to AC50, AC53 and AC55 are for Lars to review. The
+browser walk-through of the portal and the playground is open.
 
 ## Implementation of P1
 
