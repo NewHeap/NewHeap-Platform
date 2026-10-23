@@ -308,7 +308,9 @@ public enum NhAssistantAuditEventKind
     /// <see cref="INhAssistantConversationMessages.PostAsync"/>. <see cref="NhAssistantAuditEvent.ActorId"/>
     /// is <c>application</c>, <see cref="NhAssistantAuditEvent.ObjectId"/> the message and
     /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>posted</c>, or <c>notified</c> when the
-    /// conversation's people were notified too; for an agent thread
+    /// conversation's people were notified too (by Web Push, in the application's inbox or both);
+    /// <see cref="NhAssistantAuditEvent.ApplicationMessageTrusted"/> says whether the model follows it
+    /// as the application's instruction; for an agent thread
     /// <see cref="NhAssistantAuditEvent.SubjectType"/> and <see cref="NhAssistantAuditEvent.SubjectId"/>
     /// name its subject. The text, title, link and sender are never recorded. A repeated post with the
     /// same idempotency key records nothing.
@@ -500,6 +502,14 @@ public sealed record NhAssistantAuditEvent(
     /// personal connection or a forwarded sign-in, or <c>none</c>. Null for other tools.
     /// </summary>
     public string? McpConnectionOwner { get; init; }
+
+    /// <summary>
+    /// Whether the message of an <see cref="NhAssistantAuditEventKind.ApplicationMessagePosted"/> event
+    /// is trusted (<see cref="NhAssistantApplicationMessage.Trusted"/>): <see langword="true"/> when the
+    /// model follows it as the application's instruction, <see langword="false"/> when the model reads
+    /// it as information. Null for other events.
+    /// </summary>
+    public bool? ApplicationMessageTrusted { get; init; }
 
     /// <summary>
     /// The most characters of <see cref="FileName"/>.

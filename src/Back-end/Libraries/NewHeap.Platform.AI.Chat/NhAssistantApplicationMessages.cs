@@ -9,23 +9,28 @@ namespace NewHeap.Platform.AI.Chat;
 /// chat conversations and agent threads alike: it gets the next position in the conversation, the
 /// people of the conversation see it at once through the live updates, it may notify them, and the
 /// audit records it without its content. A later turn gives it to the model as information from the
-/// application, never as a person's request or as instructions.
+/// application, never as a person's request or as instructions, unless the application marked it
+/// <see cref="NhAssistantApplicationMessage.Trusted"/>.
 /// </summary>
 public interface INhAssistantConversationMessages
 {
     /// <summary>
     /// Posts <paramref name="message"/> into the conversation <paramref name="conversationId"/>.
     /// <para>
-    /// The application decides which conversation hears what. When a client named the conversation,
-    /// set <see cref="NhAssistantApplicationMessage.ReadableBy"/> to the person it is meant for, so the
-    /// message is posted only when that person may open the conversation.
+    /// The application decides which conversation hears what, and every message says whose access the
+    /// post depends on (<see cref="NhAssistantApplicationMessage.Access"/>). When a client named the
+    /// conversation, choose <see cref="NhAssistantApplicationMessageAccess.ReadableBy"/> with the
+    /// person it is meant for, so the message is posted only when that person may open the
+    /// conversation; choose <see cref="NhAssistantApplicationMessageAccess.WithoutPersonCheck"/> only
+    /// for a conversation the application chose itself.
     /// </para>
     /// <para>
     /// Fails with <c>assistant-disabled</c> while the assistant is disabled,
-    /// <c>assistant-conversation-not-found</c> for an unknown or archived conversation or one that
-    /// <see cref="NhAssistantApplicationMessage.ReadableBy"/> may not open,
-    /// <c>assistant-message-invalid</c> for an empty text or an invalid title, sender, link or
-    /// idempotency key, and <c>assistant-message-too-long</c> for a text longer than
+    /// <c>assistant-conversation-not-found</c> for an unknown or archived conversation or one that the
+    /// person of <see cref="NhAssistantApplicationMessageAccess.ReadableBy"/> may not open,
+    /// <c>assistant-message-invalid</c> for a message without an access choice, an empty text or an
+    /// invalid title, sender, link or idempotency key, and <c>assistant-message-too-long</c> for a
+    /// text longer than
     /// <see cref="NhAssistantLimits.MaxMessageChars"/>. With an
     /// <see cref="NhAssistantApplicationMessage.IdempotencyKey"/> that the conversation already
     /// received, it posts nothing and returns the earlier message with
@@ -39,10 +44,13 @@ public interface INhAssistantConversationMessages
 }
 
 /// <summary>
-/// A message of the application for <see cref="INhAssistantConversationMessages.PostAsync"/>.
+/// A message of the application for <see cref="INhAssistantConversationMessages.PostAsync"/>. It
+/// always says whose access the post depends on (<see cref="Access"/>).
 /// </summary>
 /// <param name="Text">What the message says, in Markdown as the chat renders the agent's answers; plain
-/// text is Markdown too. At most <see cref="NhAssistantLimits.MaxMessageChars"/> characters.</param>
+/// text is Markdown too. Put data people entered, such as a project name, in it with
+/// <see cref="NhAssistantMarkdown.Escape"/>, so it shows as it is. At most
+/// <see cref="NhAssistantLimits.MaxMessageChars"/> characters.</param>
 public sealed record NhAssistantApplicationMessage(string Text)
 {
     /// <summary>
@@ -78,8 +86,10 @@ public sealed record NhAssistantApplicationMessage(string Text)
 
     /// <summary>
     /// Whether the people of the conversation are notified as well: by Web Push when the server offers
-    /// it, with a short text that never carries the message. In a chat conversation they are its owner
-    /// and participants; in an agent thread the people who joined it. A shadow thread never notifies
+    /// it and, when the application turned on in-app agent notifications
+    /// (<see cref="NhAssistantBuilder.UseInAppAgentNotifications"/>), in the application's inbox, each
+    /// with a short text that never carries the message. In a chat conversation they are its owner and
+    /// participants; in an agent thread the people who joined it. A shadow thread never notifies
     /// anyone.
     /// </summary>
     public bool Notify { get; init; }
@@ -91,11 +101,68 @@ public sealed record NhAssistantApplicationMessage(string Text)
     public string? IdempotencyKey { get; init; }
 
     /// <summary>
-    /// The person the message is meant for, when a client named the conversation: the message is
-    /// posted only when this person may open the conversation, as its owner or as a participant of
-    /// the same tenant. <see langword="null"/> posts into any conversation that is not archived.
+    /// Whose access the post depends on, a choice every message makes:
+    /// <see cref="NhAssistantApplicationMessageAccess.ReadableBy"/> the person a client named the
+    /// conversation for, or explicitly <see cref="NhAssistantApplicationMessageAccess.WithoutPersonCheck"/>.
+    /// A message without one is <c>assistant-message-invalid</c>.
     /// </summary>
-    public NhAssistantConversationPerson? ReadableBy { get; init; }
+    public required NhAssistantApplicationMessageAccess Access { get; init; }
+
+    /// <summary>
+    /// Whether the model follows the message as the application's instruction. Off by default: a
+    /// later turn gives the message to the model as information from the application, never as
+    /// instructions. Turn it on only for text the application wrote itself. Never put user-generated
+    /// data, such as names, descriptions or comments people entered, into a trusted message, not even
+    /// escaped with <see cref="NhAssistantMarkdown.Escape"/>: the model would follow instructions
+    /// hidden in it. People see a trusted message as any other application message; the audit records
+    /// that it was trusted.
+    /// </summary>
+    public bool Trusted { get; init; }
+}
+
+/// <summary>
+/// Whose access an application message depends on (<see cref="NhAssistantApplicationMessage.Access"/>):
+/// <see cref="ReadableBy"/> a person, or explicitly <see cref="WithoutPersonCheck"/>. Every post makes
+/// this choice, so no message reaches a conversation that a client named without checking that the
+/// person may open it.
+/// </summary>
+public sealed record NhAssistantApplicationMessageAccess
+{
+    private static readonly NhAssistantApplicationMessageAccess Unchecked = new(person: null);
+
+    private NhAssistantApplicationMessageAccess(NhAssistantConversationPerson? person)
+    {
+        Person = person;
+    }
+
+    /// <summary>
+    /// The person who has to be able to open the conversation; <see langword="null"/> for
+    /// <see cref="WithoutPersonCheck"/>.
+    /// </summary>
+    public NhAssistantConversationPerson? Person { get; }
+
+    /// <summary>
+    /// Posts only when <paramref name="person"/> may open the conversation, as its owner or as a
+    /// participant of the same tenant; any other conversation is
+    /// <c>assistant-conversation-not-found</c>. Choose it whenever a client named the conversation.
+    /// </summary>
+    public static NhAssistantApplicationMessageAccess ReadableBy(NhAssistantConversationPerson person)
+    {
+        ArgumentNullException.ThrowIfNull(person);
+        ArgumentException.ThrowIfNullOrWhiteSpace(person.ActorId, nameof(person));
+
+        return new NhAssistantApplicationMessageAccess(person);
+    }
+
+    /// <summary>
+    /// Posts into any conversation that is not archived, without checking a person's access. Choose
+    /// it only for a conversation the application chose itself, such as the thread of an agent it
+    /// runs, never for a conversation id a client sent.
+    /// </summary>
+    public static NhAssistantApplicationMessageAccess WithoutPersonCheck()
+    {
+        return Unchecked;
+    }
 }
 
 /// <summary>

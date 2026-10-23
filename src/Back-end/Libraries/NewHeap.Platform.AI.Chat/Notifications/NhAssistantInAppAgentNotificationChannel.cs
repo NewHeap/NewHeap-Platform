@@ -56,7 +56,7 @@ internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAge
             return;
         }
 
-        var cultures = await GetCulturesAsync(recipients, cancellationToken);
+        var cultures = await NhAssistantNotificationCultures.GetAsync(_services, recipients, cancellationToken);
         foreach (var recipient in recipients)
         {
             recipient.TryGetUserId(out var userId);
@@ -97,20 +97,6 @@ internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAge
                     exception.GetType().Name);
             }
         }
-    }
-
-    private async Task<IReadOnlyDictionary<NhActorRef, string?>> GetCulturesAsync(
-        IReadOnlyCollection<NhActorRef> recipients,
-        CancellationToken cancellationToken)
-    {
-        var directory = _services.GetService<INhActorDirectory>();
-        if (directory is null)
-        {
-            return new Dictionary<NhActorRef, string?>();
-        }
-
-        var known = await directory.GetAsync(recipients, cancellationToken);
-        return known.ToDictionary(pair => pair.Key, pair => pair.Value.Culture);
     }
 
     private static NhUserNotificationLevel LevelFor(NhAssistantAgentNotificationContext context)

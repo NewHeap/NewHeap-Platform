@@ -626,10 +626,13 @@ public sealed class NhAssistantBuilder
     /// <summary>
     /// Also delivers agent notifications as in-app messages through the platform's
     /// <see cref="NewHeap.Platform.Common.Actors.INhUserNotificationSink"/>, such as NewHeap user
-    /// notifications. Off by default, so existing hosts get no new messages.
+    /// notifications, and so does an application message that asks to notify
+    /// (<see cref="NhAssistantApplicationMessage.Notify"/>), in chats and agent threads alike. Off by
+    /// default, so existing hosts get no new messages.
     /// </summary>
     public NhAssistantBuilder UseInAppAgentNotifications()
     {
+        _state.InAppNotifications = true;
         return AddAgentNotificationChannel<Notifications.NhAssistantInAppAgentNotificationChannel>();
     }
 
@@ -840,6 +843,12 @@ internal sealed class NhAssistantRegistrationState
     /// <see cref="NhAssistantBuilder.UseApplicationBudgetInTurns"/>.
     /// </summary>
     public bool ApplicationBudgetInTurns { get; set; }
+
+    /// <summary>
+    /// Agent notifications and the notifications of application messages also reach the
+    /// application's inbox; see <see cref="NhAssistantBuilder.UseInAppAgentNotifications"/>.
+    /// </summary>
+    public bool InAppNotifications { get; set; }
 
     public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Utc;
 

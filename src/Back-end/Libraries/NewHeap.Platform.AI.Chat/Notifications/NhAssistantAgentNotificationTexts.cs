@@ -1,10 +1,25 @@
 namespace NewHeap.Platform.AI.Chat.Notifications;
 
 /// <summary>
-/// Texts of agent notifications in English and Dutch, for Web Push and the in-app channel.
+/// Texts of agent notifications and of the notification of an application message in English and
+/// Dutch, for Web Push and the in-app channel.
 /// </summary>
 internal static class NhAssistantAgentNotificationTexts
 {
+    /// <summary>
+    /// The notification of an application message: the conversation's title, or "Assistant" without
+    /// one, and a fixed text; never the message itself.
+    /// </summary>
+    public static (string Title, string Body) ForApplicationMessage(string language, string? conversationTitle)
+    {
+        var dutch = language.StartsWith("nl", StringComparison.OrdinalIgnoreCase);
+        var title = string.IsNullOrWhiteSpace(conversationTitle) ? (dutch ? "Assistent" : "Assistant") : conversationTitle;
+        var body = dutch
+            ? "De applicatie heeft een bericht in het gesprek gezet."
+            : "The application posted a message in the conversation.";
+        return (title, body);
+    }
+
     public static (string Title, string Body) ForAgent(
         NhAssistantAgentNotificationKind kind,
         string language,
