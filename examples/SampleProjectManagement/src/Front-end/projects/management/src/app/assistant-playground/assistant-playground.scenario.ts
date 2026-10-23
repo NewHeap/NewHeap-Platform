@@ -107,7 +107,10 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         ],
         maxFileBytes: 20 * 1024 * 1024,
-        maxFiles: 5
+        maxFiles: 5,
+        // The API maps .jfif photos to JPEG (NhAssistantUploadOptions.MapExtension), so the picker
+        // offers them and a .jfif without a type uploads as image/jpeg.
+        mappedExtensions: [{ extension: '.jfif', mediaType: 'image/jpeg' }]
       }
     },
     {
