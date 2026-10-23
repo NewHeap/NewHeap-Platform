@@ -43,6 +43,26 @@ changed. Applications that do not call `UseConsultationsAsData` behave as before
 | With `UseConsultationsAsData`, the tools of data consultations come from the new catalog `assistant-consultations-data`, every assistant host runs the background refresh of the run configuration, and removing the run settings of an agent that has data consultations fails with `assistant-run-settings-in-use`. | Let an `INhAiToolDiscoveryPolicy` that lists exact tool ids allow the `assistant.consult.` and `assistant.request.` prefixes, and remove an agent's consultations before its run settings. |
 | The catalog of consultations in code (`assistant-consultations`) reads the consultations registered in code only. | None. |
 
+## @newheap/platform-ai-chat: consultations defined as data in the administration
+
+The run configuration of an agent lists its consultations in a Consultations section: those in code
+read only, and those defined as data, which administrators add, change and remove within the agent's
+ceiling in code (`NhAssistantAdminApiService.saveDataConsultation` and `removeDataConsultation`), with
+who may ask, the routes of its proposals, its limits, requests, MCP and the classification of its
+answers. Each row names the agents that ask it, with `openAgent` to open their editors, and its problems;
+the route switches show in the section for every agent with consultations, and the flow's when step
+names them. `AgentRunConfiguration` carries `codeConsultations`, `dataConsultations` and
+`consultationCeiling`, `RunCatalog` the application's `consultationCeiling`; the codes
+`assistant-consultation-in-code`, `assistant-consultation-not-found` and
+`assistant-consultations-not-allowed` and the field error `not-allowed` have English and Dutch texts. The
+mock API plays consultations as data with `consultationsAsData`, `consultableAsData` and
+`dataConsultations`.
+
+| Breaking change | Required action |
+|---|---|
+| `RunConfigurationProblemKind` also allows `'consultation'`. | Add the value to an exhaustive `switch` over the kinds. |
+| The route switches of an agent's consultations show inside the Consultations section for every agent with consultations, also one created in the administration, and the texts `code`, `not-allowed`, `not-allowed-hint`, `action.code`, `explain-change.code-on` and `explain-change.code-off` under `nh-assistant.admin.agents.consultation-routes` speak of the agent's consultations instead of its code. | Update your application's overrides of these translation keys. |
+
 ## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Mcp, NewHeap.Platform.AI.AgentFramework and NewHeap.Platform.AI.AspNet.Common: tool catalogs that change at runtime
 
 `INhAiChangingToolCatalog` is an attested catalog whose descriptors change while the application runs, in

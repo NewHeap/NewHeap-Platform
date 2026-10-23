@@ -44619,7 +44619,15 @@
       "NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE",
       "ApplicationMessageDetails",
       "ApplicationMessageLink",
-      "MessageAuthorKind"
+      "MessageAuthorKind",
+      "DataConsultation",
+      "DataConsultationRequest",
+      "CodeConsultation",
+      "ConsultationCeiling",
+      "ConsultationSubjectRole",
+      "ConsultationExposure",
+      "NhAssistantMockConsultationCeiling",
+      "NhAssistantMockDataConsultation"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

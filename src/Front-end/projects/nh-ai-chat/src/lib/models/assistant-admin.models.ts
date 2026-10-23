@@ -326,16 +326,16 @@ export interface AgentState {
   shadow?: AgentShadowState | null;
   serviceAccount?: AgentServiceAccountState | null;
   /**
-   * The routes of the agent's consultations, as code allows them and an administrator switched them;
-   * `null` when nobody can consult the agent: it has no consultation in code, as every agent created
-   * in the administration. Missing on older servers.
+   * The routes of the agent's consultations, as its consultations in code and as data allow them and
+   * an administrator switched them; `null` when nobody can consult the agent: it has no consultation
+   * in code and none defined as data in effect. Missing on older servers.
    */
   consultationRoutes?: AgentConsultationRoutesState | null;
 }
 
 /**
- * The routes of an agent's consultations: one entry per route, and the last change at runtime. Code
- * is the ceiling: a route no consultation in code allows can never be switched on.
+ * The routes of an agent's consultations: one entry per route, and the last change at runtime. The
+ * consultations are the ceiling: a route none of them allows can never be switched on.
  */
 export interface AgentConsultationRoutesState {
   routes: AgentConsultationRouteState[];
@@ -348,13 +348,13 @@ export interface AgentConsultationRoutesState {
 /** One route of an agent's consultations. */
 export interface AgentConsultationRouteState {
   route: NhAssistantConsultationRoute;
-  /** Whether a consultation in code allows the route: the ceiling. */
+  /** Whether a consultation of the agent, in code or as data in effect, allows the route: the ceiling. */
   allowed: boolean;
   /** The switch an administrator set: `true` on, `false` off, `null` following the code. */
   override: boolean | null;
   /** Whether consultations use the route now: allowed and not switched off. */
   on: boolean;
-  /** The subject types whose consultation in code allows the route. */
+  /** The subject types whose consultation allows the route. */
   subjectTypes: string[];
 }
 

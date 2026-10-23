@@ -236,7 +236,12 @@ start it, and the person decides it on the card. A reader gets the answer only. 
 switched off for the starter, the proposal waits for another project approver and executes with the
 operations account the starter answers to. After the consultation is removed the tool is gone, while
 the waiting proposal can still be decided. `AssistantAgentRunSamplesTests` runs the case, with a
-principal factory that refuses the people involved.
+principal factory that refuses the people involved. In the portal's assistant administration, and in
+the playground on the mock API, the starter's run configuration lists the consultation in its
+Consultations section: who may ask, who decides, the project assistant that asks it with a link to its
+editor, and the switches that turn a route off for all of the starter's consultations. Administrators
+add, change and remove consultations there with only the routes, requests and limits the ceiling and
+the agent allow, and the flow's "When it runs" step names the consultation with its problems.
 
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization

@@ -258,7 +258,8 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
           description: 'Counts the open projects and, with more than three, proposes to complete the finished ones at their projects, without a model.'
         }
       ],
-      approvalPolicies: ['project-intake', 'project-planning', 'project-closing'],
+      // SPM-311: the consultation policy lets the person who asked, or the project's approvers, decide.
+      approvalPolicies: ['project-intake', 'project-planning', 'project-closing', 'project-start-consultation'],
       profiles: ['project-assistant-chat'],
       // SPM-302: the run and view policies an agent created here may choose, as the API lists them.
       agentPolicies: [
@@ -268,6 +269,10 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       // SPM-302: the API lists the divisions of NewHeap Identity, so an agent may work per division.
       divisions: true
     },
+    // SPM-311: administrators define consultations within the API's ceiling: the person who asked
+    // decides, or a project approver other than that person decides with the agent's own rights; the
+    // route that rebuilds the asker's principal later is not named, and data may generate requests.
+    consultationsAsData: { routes: ['asker-decides', 'subject-agent-rights'], allowRequests: true },
     // The accounts the API's account search finds; agents that work on their own answer to one.
     accounts: [
       { actorId: '9c2f4c58-2d7b-4a43-9c55-1f1b4f2a6e11', displayName: 'operations@example.test', detail: 'operations@example.test' },
@@ -295,7 +300,9 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         displayName: 'Project assistant',
         description: 'Answers questions about projects and proposes status changes.',
         instructions: 'Help users with their projects. Propose status changes; never apply them without approval.',
-        toolSelectors: ['sample-api.project.*', 'projects.*'],
+        // SPM-311: it selects the consult tool of the project starter, which offers nothing until an
+        // administrator defines the starter's consultation about projects.
+        toolSelectors: ['sample-api.project.*', 'projects.*', 'assistant.consult.project-starter.project'],
         // SPM-300: each person connects their own calendar; the chat asks with a card until they do.
         mcpServerIds: ['my-calendar'],
         requiredPolicy: 'app.project.view',
@@ -374,6 +381,57 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
             }
           ]
         }
+      },
+      {
+        // SPM-298 and SPM-311: the project starter as the API's development seeder creates it: an agent
+        // created as data that answers to the operations account, starts drafts by rule, and that the
+        // project assistant consults about projects through a consultation defined as data.
+        source: 'admin',
+        id: 'project-starter',
+        displayName: 'Project starter',
+        description: 'Starts projects that were created as drafts, once the project\'s approver agrees.',
+        instructions: 'You start projects that were created as drafts. Propose to make a draft project active and explain in one sentence why it can start. Never start a project that is not a draft.',
+        toolSelectors: ['projects.change-status'],
+        mcpServerIds: [],
+        requiredPolicy: null,
+        autonomy: 'execute',
+        offeredInChat: false,
+        worksOnSubjectTypes: ['project'],
+        worksOnAllSubjects: false,
+        worksOnApplication: false,
+        runConfiguration: {
+          runSettings: {
+            accountability: 'service-account',
+            serviceAccountActorId: '9c2f4c58-2d7b-4a43-9c55-1f1b4f2a6e11',
+            approvalPolicy: 'project-intake',
+            maxRunsPerSubjectPerDay: 2,
+            reason: 'Development sample of an agent that works on its own'
+          },
+          skills: [
+            {
+              skillId: 'kickoff',
+              description: 'Starts a project that was created as a draft.',
+              ruleHandler: 'project-kickoff',
+              tools: ['projects.change-status'],
+              shadow: false
+            }
+          ],
+          triggers: [
+            { triggerId: 'project-created-kickoff', source: 'event', skill: 'kickoff', event: 'project.created', conflict: 'ignore', shadow: false }
+          ]
+        },
+        // SPM-311: the consultation the seeder defines, which the run configuration's Consultations
+        // section lists with the project assistant as the agent that asks it.
+        dataConsultations: [
+          {
+            subjectType: 'project',
+            description: 'Knows whether a draft project can start and can propose to start it.',
+            instructions: 'You are asked whether a draft project can start. Answer in one or two sentences; when it can start, propose to make it active.',
+            routes: ['asker-decides', 'subject-agent-rights'],
+            proposalPolicy: 'project-start-consultation',
+            reason: 'Let the project assistant ask the starter'
+          }
+        ]
       },
       {
         source: 'code',

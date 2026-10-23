@@ -922,7 +922,10 @@ decided. Data that no longer fits after a deploy is reported as a problem of kin
 longer fits, without the routes, requests or MCP exposure that no longer fit, or with limits
 capped at the ceiling. The route switches of `SetConsultationRoutesAsync` apply to
 consultations in code and as data alike. Run settings of an agent created in the
-administration stay while consultations belong to it.
+administration stay while consultations belong to it. The administration's run configuration
+(`NhAssistantAgentRunConfigurationComponent`) shows them in its Consultations section, with a form
+that offers only what the ceiling and the agent allow, the agents that ask each one and its
+problems.
 
 Learn from rejected proposals before letting an agent learn by itself. After a person
 rejects a proposal, offer the optional feedback of `PUT approvals/{approvalId}/feedback`:

@@ -410,6 +410,30 @@ for `openMcpServers` of the agents page; a host that places `nh-assistant-admin-
 that output. The flow keeps to its host's width: one step under the other at every width, without a
 graph library.
 
+The run configuration lists the agent's consultations (`codeConsultations`, `dataConsultations`) in a
+Consultations section. It shows for an agent with consultations and, once the run catalog reports a
+`consultationCeiling`, for every agent, saying why an agent cannot get one: an agent in code that is
+not consultable as data (`consultationCeiling: null`), an agent created here without run settings, the
+ceiling's `maxConsultations`, or every kind of object it works on already has one. Consultations in code
+are read only; a consultation defined as data is saved with `saveDataConsultation` and removed with
+`removeDataConsultation`, each with the version it read. Its form offers the kinds of objects the agent
+works on, a description and instructions with counters, who may ask (a role and one of the catalog's
+`agentPolicies`), whether it only answers or also proposes, with the routes as explained choices, the
+role and approval policy its proposals need, and under Advanced its limits within the ceiling, requests
+and MCP when the ceiling allows them, and the classification of its answers. A route outside the agent's
+`consultationCeiling`, and the route with the agent's account for the whole application, for an agent
+that answers to the subject's responsible person or for an agent created here that answers for itself,
+stays disabled with the reason; the form warns when four eyes keep the person who asked from deciding,
+or when only the initiator would decide a proposal made with the agent's account, and shows the server's
+`not-allowed` field error at its field. Each row says who may ask and who decides, names the agents whose
+tool selectors select its consult tool (`askingAgents`, the second key; `openAgent` asks the host to open
+that agent's editor, which `nh-assistant-admin-agents` does before it returns to the run configuration)
+and lists its problems of kind `consultation`. The route switches (`setConsultationRoutes`) show in the
+section for every agent with consultations, in code or as data, and switch a route off for all of them at
+once; the flow's "When it runs" step names the consultations with their askers, problems and an entry
+point. The mock API plays the same rules with `consultationsAsData`, `consultableAsData` and
+`dataConsultations`.
+
 The agent-run components refresh themselves: `NhAssistantLiveService.agentWork$` emits the
 hub's `AgentWorkChanged` for every run, proposal or feedback change on a subject the user
 belongs to, and the inbox, the thread view and the open panel session reload after a short
@@ -965,6 +989,11 @@ are the executable references.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts)
   - [src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html)
+- SPM-311 — An administrator lets the project assistant consult the project starter, an agent created at runtime, without a deploy
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
 - SPM-312 — The portfolio analysis tells the assistant conversation that started it that it finished, as a message from the application
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectAnalysisAssistantNotices.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectAnalysisAssistantNotices.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectPortfolioAnalysisOperation.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectPortfolioAnalysisOperation.cs)
