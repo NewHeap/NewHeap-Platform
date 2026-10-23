@@ -50,6 +50,9 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
     /// A new schema outside the pool, which the host migrates itself while it starts. Only for tests
     /// of the migrations at host start.
     /// </param>
+    /// <param name="map">
+    /// Maps further endpoints after the assistant's, for example an MCP server with <c>MapMcp</c>.
+    /// </param>
     public static async Task<AssistantWebApplication> StartAsync(
         AssistantDatabaseFixture database,
         IChatClient model,
@@ -58,7 +61,8 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         Action<IServiceCollection>? configure = null,
         Action<NhAssistantBuilder>? assistantBuilder = null,
         AssistantTestProvider provider = AssistantTestProvider.PostgreSql,
-        string? unmigratedSchema = null)
+        string? unmigratedSchema = null,
+        Action<WebApplication>? map = null)
     {
         var lease = unmigratedSchema is null ? await database.LeaseSchemaAsync(provider) : null;
         try
@@ -73,7 +77,8 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
                 limits,
                 configure,
                 assistantBuilder,
-                provider);
+                provider,
+                map);
             return new AssistantWebApplication(app, lease);
         }
         catch
@@ -94,7 +99,8 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         Action<NhAssistantLimits>? limits,
         Action<IServiceCollection>? configure,
         Action<NhAssistantBuilder>? assistantBuilder,
-        AssistantTestProvider provider)
+        AssistantTestProvider provider,
+        Action<WebApplication>? map)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.WebHost.UseTestServer();
@@ -166,6 +172,7 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapNewHeapAssistant("/api/assistant");
+        map?.Invoke(app);
         try
         {
             await app.StartAsync();
