@@ -238,6 +238,23 @@ export function groupRulesByReference(rules) {
   return Map.groupBy(rules, rule => rule.reference);
 }
 
+export function groupSkillRulesByReference(rules, skillName) {
+  return groupRulesByReference(rules.filter(rule => rule.skills.includes(skillName)));
+}
+
+export function skillMarkdownLinks(source) {
+  return [...source.matchAll(/\]\((?!https?:)([^)#]+\.md)(?:#[^)]+)?\)/g)].map(match => match[1].replace(/^\.\//, ''));
+}
+
+export function unlinkedSkillReferenceFailures(displayPath, source, references) {
+  const links = new Set(skillMarkdownLinks(source));
+  return [...references]
+    .sort()
+    .map(reference => `references/${reference}.md`)
+    .filter(reference => !links.has(reference))
+    .map(reference => `${displayPath} does not link its generated reference ${reference}; link it with a short note on when to read it`);
+}
+
 export function renderGuideIndex(groups, rules) {
   const items = [...groups.keys()].sort().map(reference => {
     const matching = groups.get(reference);

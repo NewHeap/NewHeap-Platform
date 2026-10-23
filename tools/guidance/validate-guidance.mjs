@@ -6,11 +6,14 @@ import {
   consumerSkillBundleRoot,
   consumerSkillNames,
   consumerSkillRoots,
+  groupSkillRulesByReference,
   loadRegistry,
   loadRules,
   maintenanceSkillRoot,
   repositoryRoot,
   sampleRoot,
+  skillMarkdownLinks,
+  unlinkedSkillReferenceFailures,
   validateRegistry,
   validateRules
 } from './lib.mjs';
@@ -152,7 +155,7 @@ for (const rule of rules) {
   }
 }
 
-async function validateSkill(skillRoot, expectedName) {
+async function validateSkill(skillRoot, expectedName, generatedReferences = []) {
   const skillPath = resolve(skillRoot, 'SKILL.md');
   const source = await readFile(skillPath, 'utf8');
   const normalizedSource = source.replaceAll('\r\n', '\n');
@@ -160,16 +163,18 @@ async function validateSkill(skillRoot, expectedName) {
   if (lines.length > 500) failures.push(`${relative(repositoryRoot, skillPath)} exceeds 500 lines`);
   if (!normalizedSource.startsWith(`---\nname: ${expectedName}\n`)) failures.push(`${relative(repositoryRoot, skillPath)} has invalid name/frontmatter`);
   if (/\[TODO|TODO:/.test(source)) failures.push(`${relative(repositoryRoot, skillPath)} contains TODO placeholders`);
-  const references = [...source.matchAll(/\]\((?!https?:)([^)#]+\.md)(?:#[^)]+)?\)/g)].map(match => match[1]);
-  for (const reference of references) {
+  for (const reference of skillMarkdownLinks(source)) {
     try { await access(resolve(skillRoot, reference)); }
     catch { failures.push(`${relative(repositoryRoot, skillPath)} references missing file ${reference}`); }
   }
+  failures.push(...unlinkedSkillReferenceFailures(relative(repositoryRoot, skillPath).replaceAll('\\', '/'), source, generatedReferences));
   const metadata = await readFile(resolve(skillRoot, 'agents', 'openai.yaml'), 'utf8');
   if (!metadata.includes(`$${expectedName}`)) failures.push(`${expectedName}: openai.yaml default_prompt must mention the skill`);
 }
 
-for (const skillName of consumerSkillNames) await validateSkill(consumerSkillRoots.get(skillName), skillName);
+for (const skillName of consumerSkillNames) {
+  await validateSkill(consumerSkillRoots.get(skillName), skillName, groupSkillRulesByReference(rules, skillName).keys());
+}
 await validateSkill(consumerSkillBundleRoot, consumerSkillBundleName);
 await validateSkill(maintenanceSkillRoot, 'newheap-library-maintenance');
 

@@ -8,14 +8,14 @@ description: Build, bootstrap, upgrade, test, debug or review applications that 
 Route the current consumer task to the smallest applicable internal module. Read that module's `SKILL.md` completely before acting:
 
 - [foundation](skills/foundation/SKILL.md) for bootstrapping, inspecting, repairing or upgrading a consumer repository;
-- [backend](skills/backend/SKILL.md) for .NET foundations, modules, models, services, controllers, Scalar contracts, partial updates and units of work;
-- [frontend](skills/frontend/SKILL.md) for Angular configuration, collections, lifecycle behavior and modals;
-- [authentication](skills/authentication/SKILL.md) for roles, claims, policies, resource permissions, two-factor authentication, passkeys and authentication overrides;
+- [backend](skills/backend/SKILL.md) for .NET foundations, modules, models, services, controllers, Scalar contracts, partial updates, units of work, and AI assistants, agents, tools and model profiles;
+- [frontend](skills/frontend/SKILL.md) for Angular configuration, collections, lifecycle behavior, modals, toasts and the assistant panel;
+- [authentication](skills/authentication/SKILL.md) for roles, claims, policies, resource permissions, two-factor authentication, passkeys, authentication overrides and the authorized AI invocation context;
 - [database](skills/database/SKILL.md) for provider-neutral queries, SQL Server and PostgreSQL behavior, and supported read-only investigation of unexpected staging or production data;
 - [media](skills/media/SKILL.md) for media contracts, storage, authorization, uploads and events;
-- [background processing](skills/background-processing/SKILL.md) for transactional events, jobs, consumers and notifications;
+- [background processing](skills/background-processing/SKILL.md) for transactional events, jobs, background operations, consumers, notifications and AI work in the background;
 - [runtime configuration](skills/runtime-configuration/SKILL.md) for appsettings, environment, secrets-path and command-line precedence;
-- [testing](skills/testing/SKILL.md) for reusable test helpers and NewHeap consumer test boundaries.
+- [testing](skills/testing/SKILL.md) for reusable test helpers, NewHeap consumer test boundaries and AI evaluations.
 
 Read multiple modules only when the requested work genuinely crosses their boundaries. Keep the router itself free of domain instructions; the focused modules and their references are the authoritative guidance.
 
