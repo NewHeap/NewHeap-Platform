@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.82",
   "backEnd": {
-    "hash": "e967c40eae0f96028d3f0583d82e28314c7b07ec2ccd9633aa182fedfb38a734",
+    "hash": "c38fcb52420605e1ac7d8beedf2fd6b8f505c1f3c757bd69d60a4b18b4d5855b",
     "declarationCount": 10229,
     "declarations": [
       {
@@ -3619,7 +3619,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalFeedbackService.cs",
-        "declaration": "public async Task<TaskResult<AssistantProposalFeedback>> GiveAsync( Guid approvalId, string actorId, string? category, string? text, bool bulk, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<TaskResult<AssistantProposalFeedback>> GiveAsync( Guid approvalId, string actorId, string? category, string? text, bool bulk, CancellationToken cancellationToken, string? tenantId = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalReads.cs",
