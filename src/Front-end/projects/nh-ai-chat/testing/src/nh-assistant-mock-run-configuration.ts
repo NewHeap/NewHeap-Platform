@@ -682,7 +682,7 @@ export class NhAssistantMockRunConfiguration {
   }
 
   /** An agent in code has a run configuration; one created in the administration once it has run settings. */
-  private isConfigured(agent: AdminAgent): boolean {
+  isConfigured(agent: AdminAgent): boolean {
     return agent.source === 'code' || this.settings.has(agent.id);
   }
 

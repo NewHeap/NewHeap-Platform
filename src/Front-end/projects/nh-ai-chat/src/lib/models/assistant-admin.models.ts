@@ -160,6 +160,16 @@ export interface AdminAgentInput {
    * Agents in code take it from their code.
    */
   dataClassification?: AssistantDataClassification | null;
+  /**
+   * On create only: the live agent the new agent is a data shadow variant of, within the ceiling in
+   * code (`UseShadowVariantsAsData`). The variant receives every trigger of the live agent once it has
+   * run settings, always works in shadow, is never offered in the chat and never changes its live
+   * agent. Outside the ceiling it fails with `assistant-shadow-variants-not-allowed`, beyond its number
+   * of variants with `assistant-configuration-limit`, and with the field errors `shadowOf: not-found`
+   * and `shadowOf: invalid` for a live agent without a run configuration or one that is no live agent.
+   * Ignored on update.
+   */
+  shadowOf?: string | null;
 }
 
 /** Body of `PUT admin/agents/{id}`. */
@@ -1159,7 +1169,7 @@ export interface AssistantAccount {
 }
 
 /** Which part of the run configuration a problem concerns. */
-export type RunConfigurationProblemKind = 'agent' | 'skill' | 'candidate' | 'trigger' | 'consultation';
+export type RunConfigurationProblemKind = 'agent' | 'skill' | 'candidate' | 'trigger' | 'consultation' | 'hand-off';
 
 /**
  * Data that is out of effect because it no longer fits the code, for example after a deploy removed

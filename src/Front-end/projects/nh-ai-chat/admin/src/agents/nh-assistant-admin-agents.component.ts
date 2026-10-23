@@ -56,6 +56,8 @@ import { NhAssistantAgentFeedbackReportComponent } from './nh-assistant-agent-fe
 import { NhAssistantAgentRunHistoryComponent } from './nh-assistant-agent-run-history.component';
 import { NhAssistantAgentRunConfigurationComponent } from './nh-assistant-agent-run-configuration.component';
 import { NhAssistantAccountPickerComponent } from './run-config/nh-assistant-account-picker.component';
+import { NhAssistantAgentHandOffsComponent } from './run-config/nh-assistant-agent-hand-offs.component';
+import { NhAssistantAgentShadowVariantsComponent } from './run-config/nh-assistant-agent-shadow-variants.component';
 
 let nextId = 0;
 
@@ -114,7 +116,9 @@ interface CatalogRead {
     NhAssistantAgentRunConfigurationComponent,
     NhAssistantAccountPickerComponent,
     NhAssistantRunNowDialogComponent,
-    NhAssistantAccountNamesErrorComponent
+    NhAssistantAccountNamesErrorComponent,
+    NhAssistantAgentHandOffsComponent,
+    NhAssistantAgentShadowVariantsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-agents.component.html',
@@ -431,6 +435,26 @@ export class NhAssistantAdminAgentsComponent {
     this.configuring.set(null);
     this.returnTo.set(agent.id);
     this.edit(asker);
+  }
+
+  /**
+   * A data shadow variant created in the agent's run configuration continues in its own run
+   * configuration's guided setup, since it receives the live agent's events only with run settings.
+   */
+  onVariantCreated(variant: AdminAgent): void {
+    this.returnTo.set(null);
+    this.onSaved(variant);
+    this.openRunConfiguration(variant, true);
+  }
+
+  /** The run configuration of a data shadow variant of the agent whose run configuration is open. */
+  variantFromRunConfiguration(variantId: string): void {
+    const variant = this.agents().find(item => item.id === variantId);
+    if (!variant) {
+      return;
+    }
+    this.returnTo.set(null);
+    this.openRunConfiguration(variant);
   }
 
   /** The flow of the agent's run configuration opens its runs; going back returns there. */

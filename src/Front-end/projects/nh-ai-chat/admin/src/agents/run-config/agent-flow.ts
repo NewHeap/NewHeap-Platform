@@ -153,6 +153,7 @@ export function problemStep(problem: RunConfigurationProblem): AgentFlowStepId {
   switch (problem.kind) {
     case 'trigger':
     case 'consultation':
+    case 'hand-off':
       return 'when';
     case 'skill':
     case 'candidate':
@@ -173,8 +174,11 @@ export function problemWarning(problem: RunConfigurationProblem, configuration: 
   const base = {
     id: `problem:${problem.kind}:${problem.id}:${problem.code}`,
     key: `nh-assistant.admin.run-config.problems.kind.${problem.kind}`,
-    params: { id: problem.kind === 'consultation' ? typeName(catalog, problem.id) : problem.id },
-    detailKey: `nh-assistant.admin.run-config.problems.code.${problem.code}`
+    params: { id: problem.kind === 'consultation' || problem.kind === 'hand-off' ? typeName(catalog, problem.id) : problem.id },
+    // A hand-off out of effect is never used with less, so it has texts of its own.
+    detailKey: problem.kind === 'hand-off'
+      ? `nh-assistant.admin.hand-offs.problems.${problem.code}`
+      : `nh-assistant.admin.run-config.problems.code.${problem.code}`
   };
   switch (problem.kind) {
     case 'consultation':
@@ -187,6 +191,9 @@ export function problemWarning(problem: RunConfigurationProblem, configuration: 
           entryKey: 'nh-assistant.admin.run-config.flow.entry.edit-consultation'
         }
         : base;
+    case 'hand-off':
+      // A hand-off is changed or removed in the hand-offs below the run configuration.
+      return base;
     case 'trigger':
       return configuration.dataTriggers.some(trigger => trigger.triggerId === problem.id)
         ? { ...base, entry: { kind: 'edit-trigger', triggerId: problem.id }, entryKey: 'nh-assistant.admin.run-config.flow.entry.edit-trigger' }

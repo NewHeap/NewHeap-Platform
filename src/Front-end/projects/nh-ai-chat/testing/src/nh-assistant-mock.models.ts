@@ -208,8 +208,11 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
    * and off with `startsOff`, as `StartsOff()` in code.
    */
   skills?: { skillId: string; description: string; shadow?: boolean; startsOff?: boolean }[];
-  /** The live agent this code agent is a shadow variant of. */
-  shadowOf?: string;
+  /**
+   * The live agent this code agent is a shadow variant of, as `ShadowOf` in code. A data variant is
+   * created with `POST admin/agents` and `shadowOf` instead.
+   */
+  shadowOf?: string | null;
   /** The agent starts in shadow, as with `Shadow()` in code. */
   shadow?: boolean;
   /** The technical account in code, as with `ServiceAccount(actorId)`. */
@@ -264,6 +267,51 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
    * the administration offers the guided setup.
    */
   runConfiguration?: NhAssistantMockRunConfigurationPreset;
+  /**
+   * The hand-offs a code agent accepts in code, as `AcceptHandOffs`; they cannot change in the
+   * administration, and a hand-off as data about the same type is refused.
+   */
+  codeHandOffs?: NhAssistantMockCodeHandOff[];
+}
+
+/** A hand-off a code agent of the scenario accepts in code. */
+export interface NhAssistantMockCodeHandOff {
+  subjectType: string;
+  sources: string[];
+  description?: string;
+  notifySource?: boolean;
+  /** 5 by default, as in code. */
+  maxPerSubjectPerDay?: number;
+}
+
+/**
+ * The ceiling in code of hand-offs defined as data, as `UseHandOffsAsData`: per subject type the
+ * agents that may accept them as data and the agents that may hand off, and the highest daily limit
+ * (100 by default).
+ */
+export interface NhAssistantMockHandOffCeiling {
+  rules: NhAssistantMockHandOffRule[];
+  maxPerSubjectPerDay?: number;
+}
+
+/** One connection of the ceiling, as `Allow(subjectType, rule => rule.To(...).From(...))`. */
+export interface NhAssistantMockHandOffRule {
+  subjectType: string;
+  to?: string[];
+  toAgentsCreatedInAdministration?: boolean;
+  from?: string[];
+  fromAgentsCreatedInAdministration?: boolean;
+}
+
+/**
+ * The ceiling in code of shadow variants created as data, as `UseShadowVariantsAsData`: the live agents
+ * in code that may get them, whether agents created in the administration may too, and how many each
+ * (3 by default).
+ */
+export interface NhAssistantMockShadowVariantCeiling {
+  of?: string[];
+  ofAgentsCreatedInAdministration?: boolean;
+  maxPerAgent?: number;
 }
 
 /**
@@ -371,6 +419,16 @@ export interface NhAssistantMockAdminScenario {
    * `consultationCeiling`. Without it consultations exist in code only.
    */
   consultationsAsData?: NhAssistantMockConsultationCeiling;
+  /**
+   * Lets administrators define hand-offs as data within this ceiling, as `UseHandOffsAsData` in code.
+   * Without it hand-offs exist in code only.
+   */
+  handOffsAsData?: NhAssistantMockHandOffCeiling;
+  /**
+   * Lets administrators create shadow variants as data within this ceiling, as
+   * `UseShadowVariantsAsData` in code. Without it shadow variants exist in code only.
+   */
+  shadowVariantsAsData?: NhAssistantMockShadowVariantCeiling;
   /**
    * The data classifications each model profile and its fallbacks permit together, by profile name.
    * An agent or skill whose classification its profile does not permit is saved with the warning

@@ -157,6 +157,11 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-consultation-in-code',
   'assistant-consultation-not-found',
   'assistant-consultations-not-allowed',
+  // Hand-offs defined as data and shadow variants created in the administration
+  'assistant-handoffs-not-allowed',
+  'assistant-handoff-in-code',
+  'assistant-handoff-not-found',
+  'assistant-shadow-variants-not-allowed',
   // Preferences and administration
   'assistant-validation',
   'assistant-instructions-too-long',

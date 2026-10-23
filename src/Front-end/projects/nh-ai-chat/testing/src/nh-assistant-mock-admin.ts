@@ -12,6 +12,7 @@ import { NhAssistantMockAdminAgent, NhAssistantMockRemoteTool, NhAssistantMockSc
 import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
 import { NhAssistantMockAdminAgents } from './nh-assistant-mock-admin-agents';
 import { NhAssistantMockAdminMcp } from './nh-assistant-mock-admin-mcp';
+import { NhAssistantMockHandOffs } from './nh-assistant-mock-hand-offs';
 import {
   NhAssistantMockResult,
   mockFailure as failure,
@@ -50,6 +51,7 @@ export class NhAssistantMockAdmin {
   private readonly mcp: NhAssistantMockAdminMcp;
   private readonly accounts: NhAssistantMockAccounts;
   private readonly runConfiguration: NhAssistantMockRunConfiguration;
+  private readonly handOffs: NhAssistantMockHandOffs;
   private readonly contextVersions: (ApplicationContextVersion & { text: string })[] = [];
   private preferences: AssistantPreferences;
   private canAdminister: boolean;
@@ -66,7 +68,8 @@ export class NhAssistantMockAdmin {
       agentPolicyNames: () => this.runConfiguration.agentPolicyNames,
       divisionsListed: () => this.runConfiguration.divisionsListed,
       profileNames: () => this.runConfiguration.profileNames,
-      dataConsultations: agentId => this.runConfiguration.consultationsInEffect(agentId)
+      dataConsultations: agentId => this.runConfiguration.consultationsInEffect(agentId),
+      shadowVariantRefusal: input => this.handOffs.shadowVariantRefusal(input)
     });
     this.accounts = new NhAssistantMockAccounts(admin);
     this.runConfiguration = new NhAssistantMockRunConfiguration(
@@ -79,6 +82,11 @@ export class NhAssistantMockAdmin {
       },
       now,
       this.accounts);
+    this.handOffs = new NhAssistantMockHandOffs(admin, {
+      find: agentId => this.agents.find(agentId),
+      all: () => this.agents.all(),
+      isConfigured: agent => this.runConfiguration.isConfigured(agent)
+    }, now);
     this.mcp = new NhAssistantMockAdminMcp(scenario, now, {
       agents: () => this.agents.all(),
       chatAgentIds: () => this.agents.chatAgents().map(agent => agent.id),
@@ -209,6 +217,12 @@ export class NhAssistantMockAdmin {
         }
         if (id !== undefined && (action === 'replay' || action === 'replays') && segments.length === 4) {
           return this.agents.agentReplay(method, id, action, body);
+        }
+        if (id !== undefined && (action === 'hand-offs' || action === 'shadow-variants')) {
+          const handed = this.handOffs.handle(method, id, segments.slice(3), body, query);
+          if (handed) {
+            return handed;
+          }
         }
         if (id !== undefined && action !== undefined) {
           const configured = this.runConfiguration.handle(method, id, segments.slice(3), body, query);

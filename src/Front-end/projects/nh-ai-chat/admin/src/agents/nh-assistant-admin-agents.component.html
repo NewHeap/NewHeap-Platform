@@ -36,6 +36,11 @@
       (changeAccount)="accountFromRunConfiguration(agent)"
       (openMcpServers)="openMcpServers.emit()"
       (openAgent)="askerFromRunConfiguration(agent, $event)" />
+    <nh-assistant-agent-hand-offs [agent]="agent" [agents]="agents()" [subjectTypes]="catalog()?.subjectTypes ?? []" />
+    <nh-assistant-agent-shadow-variants
+      [agent]="agent"
+      (created)="onVariantCreated($event)"
+      (openVariant)="variantFromRunConfiguration($event)" />
   </div>
 } @else if (viewingRuns(); as agent) {
   <div class="stack">

@@ -473,6 +473,10 @@
       "assistant-consultation-in-code": "De agent staat raadpleging over deze soort object in code toe; die kan hier niet veranderen.",
       "assistant-consultation-not-found": "De raadpleging is niet gevonden.",
       "assistant-consultations-not-allowed": "De applicatie laat beheerders geen raadplegingen aan deze agent toevoegen.",
+      "assistant-handoffs-not-allowed": "De applicatie laat beheerders geen agents aan deze agent koppelen.",
+      "assistant-handoff-in-code": "De agent neemt overdrachten over deze soort object in code aan; die kan hier niet veranderen.",
+      "assistant-handoff-not-found": "De overdracht is niet gevonden.",
+      "assistant-shadow-variants-not-allowed": "De applicatie laat beheerders geen schaduwvarianten van deze agent maken.",
       "assistant-metadata-entry-not-found": "De applicatie kent dit veld van agents niet.",
       "assistant-metadata-read-only": "De applicatie zet dit veld van de agent in haar code; het kan hier niet veranderen."
     },
@@ -1234,7 +1238,8 @@
             "skill": "Vaardigheid {{id}}:",
             "candidate": "Kandidaat van vaardigheid {{id}}:",
             "trigger": "Trigger {{id}}:",
-            "consultation": "Raadpleging over {{id}}:"
+            "consultation": "Raadpleging over {{id}}:",
+            "hand-off": "Overdracht over {{id}}:"
           },
           "code": {
             "unknown-agent": "de agent kan niet meer zelfstandig werken.",
@@ -1262,7 +1267,12 @@
             "limit-above-ceiling": "een grens ligt boven wat de applicatie toestaat, dus die van de applicatie geldt.",
             "requests-not-allowed": "de applicatie staat geen verzoeken meer toe, dus ze neemt er geen aan.",
             "mcp-not-allowed": "de applicatie biedt raadplegingen niet meer aan MCP-clients aan, dus die zien haar niet.",
-            "tools-not-allowed": "een gekozen tool hoort niet meer bij de eigen tools van de agent en valt weg; zonder tools krijgt de agent er geen enkele tool."
+            "tools-not-allowed": "een gekozen tool hoort niet meer bij de eigen tools van de agent en valt weg; zonder tools krijgt de agent er geen enkele tool.",
+            "outside-ceiling": "de applicatie staat het niet meer toe.",
+            "unknown-source": "een agent die mag overdragen kan niet meer zelfstandig werken.",
+            "unknown-live-agent": "de agent die deze schaduwvariant volgt kan niet meer zelfstandig werken.",
+            "live-agent-not-live": "de agent die deze schaduwvariant volgt is geen live agent.",
+            "too-many-variants": "de agent die hij volgt heeft meer schaduwvarianten dan de applicatie toestaat."
           }
         },
         "field-errors": {
@@ -1875,6 +1885,99 @@
             "tool-not-covered": "Hoort niet meer bij de eigen tools van de agent.",
             "in-effect": "Een raadpleging werkt zodra ze is opgeslagen; ze antwoordt zodra een agent die vraagt haar tool selecteert."
           }
+        }
+      },
+      "hand-offs": {
+        "title": "Overdrachten",
+        "description": "Andere agents kunnen in hun runs werk aan een object aan deze agent overdragen, die er dan in een eigen run met eigen goedkeuringen aan werkt. De applicatie bepaalt in haar code welke agents gekoppeld mogen worden; hier koppel je ze daarbinnen.",
+        "loading": "Overdrachten laden…",
+        "load-failed": "De overdrachten konden niet geladen worden.",
+        "add": "Overdracht toevoegen",
+        "empty": "Nog geen agent kan werk aan deze agent overdragen.",
+        "closed": {
+          "application": "De applicatie laat beheerders geen agents aan deze agent koppelen; haar overdrachten komen uit haar code.",
+          "needs-settings": "Geef de agent runinstellingen voordat je agents eraan koppelt.",
+          "limit": "Deze agent neemt zoveel overdrachten aan als toegestaan ({{max}}).",
+          "no-types": "Elke soort object waarover de applicatie deze agent laat koppelen heeft al een overdracht."
+        },
+        "notifies": "Laat de bron weten hoe het afliep",
+        "no-description": "Geen beschrijving.",
+        "from": "Van:",
+        "limit-value": "Hoogstens {{max}} per bron en object per dag",
+        "code-hint": "Aangenomen in code; dit kan hier niet veranderen.",
+        "changed": "Gewijzigd door {{user}} op {{date}}",
+        "edit-named": "De overdracht over {{type}} bewerken",
+        "remove-named": "De overdracht over {{type}} verwijderen",
+        "remove-explain": "Het hulpmiddel verdwijnt uit de volgende runs van de bronnen; runs die het startte maken het af.",
+        "added": "De overdracht is toegevoegd. Een bron gebruikt hem zodra zijn hulpmiddelen het hulpmiddel ervan selecteren.",
+        "saved": "De overdracht is opgeslagen.",
+        "removed": "De overdracht is verwijderd.",
+        "problems": {
+          "invalid": "Buiten werking: een opgeslagen waarde is niet geldig.",
+          "outside-ceiling": "Buiten werking: de applicatie laat deze agents niet meer over deze soort object koppelen.",
+          "unknown-agent": "Buiten werking: deze agent kan niet meer zelfstandig werken.",
+          "unknown-source": "Buiten werking: een agent die mag overdragen kan niet meer zelfstandig werken.",
+          "not-worked-on": "Buiten werking: deze agent werkt niet aan deze soort object.",
+          "conflicts-with-code": "Buiten werking: de applicatie neemt overdrachten over deze soort object nu in code aan.",
+          "limit-above-ceiling": "Buiten werking: de daglimiet ligt boven wat de applicatie toestaat."
+        },
+        "form": {
+          "new-title": "Nieuwe overdracht",
+          "edit-title": "Overdracht over {{type}}, versie {{version}}",
+          "subject-type": "Soort object",
+          "subject-type-hint": "De soorten object waarover de applicatie deze agent laat koppelen.",
+          "sources": "Agents die mogen overdragen",
+          "no-sources": "De applicatie staat nog geen zelfstandig werkende agent toe om over deze soort object over te dragen.",
+          "source-not-allowed": "Niet meer toegestaan; haal hem weg.",
+          "sources-hint": "Alleen de agents die de applicatie toestaat; een hier gemaakte agent telt mee zodra hij runinstellingen heeft.",
+          "sources-admin": "De applicatie staat ook agents toe die in het beheer gemaakt zijn.",
+          "description": "Beschrijving voor de bronnen",
+          "description-hint": "Wanneer een bron werk moet overdragen, in een of twee zinnen.",
+          "notify": "Geef de bron een vervolg wanneer de run van deze agent eindigt",
+          "notify-hint": "De bron hoort de uitkomst en het aantal voorstellen, en de samenvatting van de run wanneer beide aan hetzelfde object werken.",
+          "limit": "Overdrachten per bron en object per dag",
+          "limit-hint": "1 tot en met {{max}}; 5 als je het leeg laat.",
+          "in-effect": "Hij werkt zodra hij opgeslagen is. Het model van een bron krijgt het hulpmiddel ervan wanneer de hulpmiddelen van de bron het selecteren."
+        }
+      },
+      "shadow-variants": {
+        "title": "Schaduwvarianten",
+        "description": "Een schaduwvariant krijgt elke gebeurtenis van deze agent en werkt eraan in schaduw, in threads die alleen beheerders zien: hij meldt niemand iets en niets wat hij voorstelt wordt uitgevoerd. Vergelijk hem met deze agent in de evaluatie.",
+        "loading": "Schaduwvarianten laden…",
+        "load-failed": "De schaduwvarianten konden niet geladen worden.",
+        "add": "Nieuwe schaduwvariant",
+        "empty": "Deze agent heeft geen schaduwvarianten.",
+        "closed": {
+          "not-allowed": "De applicatie laat beheerders geen schaduwvarianten van deze agent maken.",
+          "limit": "Deze agent heeft zoveel schaduwvarianten als toegestaan ({{max}})."
+        },
+        "source": {
+          "code": "In code",
+          "data": "Hier gemaakt"
+        },
+        "needs-settings": "Heeft runinstellingen nodig",
+        "in-effect": "Krijgt de gebeurtenissen van deze agent",
+        "open": "Runconfiguratie",
+        "set-up": "Runs instellen",
+        "open-named": "De runconfiguratie van {{name}} openen",
+        "problems": {
+          "invalid": "Buiten werking: een opgeslagen waarde is niet geldig.",
+          "outside-ceiling": "Buiten werking: de applicatie laat beheerders geen schaduwvarianten van deze agent meer maken.",
+          "unknown-live-agent": "Buiten werking: de agent die hij volgt kan niet meer zelfstandig werken.",
+          "live-agent-not-live": "Buiten werking: de agent die hij volgt is geen live agent.",
+          "too-many-variants": "Buiten werking: de agent die hij volgt heeft meer schaduwvarianten dan de applicatie toestaat."
+        },
+        "form": {
+          "title": "Nieuwe schaduwvariant",
+          "copies": "Hij begint met de hulpmiddelen, MCP-servers en het werkgebied van deze agent; daarna volgen zijn eigen runinstellingen. Hij wordt nooit in de chat aangeboden en zijn schaduwmodus kan niet veranderen.",
+          "id": "Id",
+          "id-hint": "Kleine letters, cijfers en streepjes; dit kan later niet veranderen.",
+          "name": "Naam",
+          "default-name": "{{name}} (variant)",
+          "description": "Beschrijving",
+          "instructions": "Instructies",
+          "instructions-hint": "Ze beginnen als de instructies van deze agent; verander wat de variant moet proberen.",
+          "create": "Variant maken"
         }
       },
       "runs": {

@@ -1,0 +1,138 @@
+<!-- Which agents may hand work to this agent: in code read only, as data within the ceiling in code. -->
+<section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()" data-hand-offs>
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.hand-offs.title' | translate }}</h3>
+      <p class="muted">{{ 'nh-assistant.admin.hand-offs.description' | translate }}</p>
+    </div>
+    @if (!loading() && !loadError() && handOffs()?.ceiling) {
+      <button
+        class="secondary"
+        type="button"
+        data-open-form="hand-off"
+        [attr.aria-describedby]="closed() ? id + '-closed' : null"
+        [disabled]="busy() || closed() !== null || editing() !== undefined"
+        (click)="add()">
+        <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.hand-offs.add' | translate }}
+      </button>
+    }
+  </header>
+
+  @if (loading()) {
+    <p class="state" role="status" data-hand-offs-loading>{{ 'nh-assistant.admin.hand-offs.loading' | translate }}</p>
+  } @else if (loadError(); as failure) {
+    <div class="form-error" role="alert" data-hand-offs-error>
+      <nh-assistant-icon name="warning" />
+      <div>
+        <p>{{ 'nh-assistant.admin.hand-offs.load-failed' | translate }} {{ loadErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+        <button class="secondary" type="button" (click)="load()">
+          <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.retry' | translate }}
+        </button>
+      </div>
+    </div>
+  } @else {
+    @if (closed(); as reason) {
+      <p class="muted" [id]="id + '-closed'" [attr.data-hand-offs-closed]="reason">
+        {{ 'nh-assistant.admin.hand-offs.closed.' + reason | translate: { max: handOffs()?.ceiling?.maxHandOffs } }}
+      </p>
+    }
+    @if (message(); as key) {
+      <p class="message" role="status" data-hand-offs-message>{{ key | translate }}</p>
+    }
+
+    @if (editing() !== undefined) {
+      @if (handOffs()?.ceiling; as ceiling) {
+        <nh-assistant-hand-off-form
+          [agentId]="agent().id"
+          [ceiling]="ceiling"
+          [freeTypes]="freeTypes()"
+          [subjectTypes]="subjectTypes()"
+          [agentNames]="agentNames()"
+          [handOff]="editing() ?? null"
+          (saved)="onSaved($event)"
+          (cancelled)="cancel()" />
+      }
+    }
+
+    @if (rows().length === 0) {
+      <p class="state" data-hand-offs-empty>{{ 'nh-assistant.admin.hand-offs.empty' | translate }}</p>
+    } @else {
+      <ul class="skills">
+        @for (row of rows(); track row.origin + row.subjectType) {
+          <li class="skill" [attr.data-hand-off]="row.subjectType" [attr.data-hand-off-origin]="row.origin">
+            <div class="card-header">
+              <strong>{{ typeName(row.subjectType) }}</strong>
+              <span class="mono muted">{{ row.subjectType }}</span>
+              @if (row.data; as data) {
+                <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: data.version } }}</span>
+              } @else {
+                <span class="badge">{{ 'nh-assistant.admin.agents.source-code' | translate }}</span>
+              }
+              @if (!row.inEffect) {
+                <span class="badge danger" data-hand-off-out-of-effect>{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
+              }
+              @if (row.notifySource) {
+                <span class="badge" data-hand-off-notifies>{{ 'nh-assistant.admin.hand-offs.notifies' | translate }}</span>
+              }
+            </div>
+            <p class="muted">{{ row.description ?? ('nh-assistant.admin.hand-offs.no-description' | translate) }}</p>
+            <div class="meta" data-hand-off-sources>
+              <span>{{ 'nh-assistant.admin.hand-offs.from' | translate }}</span>
+              @for (source of row.sources; track source) {
+                <span [attr.data-hand-off-source]="source">{{ nameOf(source) }}</span>
+              }
+            </div>
+            <div class="meta">
+              <span>{{ 'nh-assistant.admin.hand-offs.limit-value' | translate: { max: row.maxPerSubjectPerDay } }}</span>
+              <span class="mono" data-hand-off-tool>{{ row.toolId }}</span>
+            </div>
+            @if (row.origin === 'code') {
+              <p class="muted">{{ 'nh-assistant.admin.hand-offs.code-hint' | translate }}</p>
+            }
+            @if (row.problem; as problem) {
+              <p class="message warning" [attr.data-hand-off-problem]="problem">
+                <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.hand-offs.problems.' + problem | translate }}
+              </p>
+            }
+            @if (row.data; as data) {
+              <div class="meta">
+                <span>{{ 'nh-assistant.admin.hand-offs.changed' | translate: { user: data.changedBy, date: (data.changedAt | date: 'medium') } }}</span>
+              </div>
+              <div class="card-actions">
+                <!-- Without a ceiling, as after a deploy took it away, the hand-off can only be removed. -->
+                @if (handOffs()?.ceiling) {
+                  <button
+                    class="secondary"
+                    type="button"
+                    [attr.aria-label]="'nh-assistant.admin.hand-offs.edit-named' | translate: { type: typeName(row.subjectType) }"
+                    [disabled]="busy() || editing() !== undefined"
+                    (click)="edit(data)">
+                    <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+                  </button>
+                }
+                @if (confirming() === row.subjectType) {
+                  <span class="muted">{{ 'nh-assistant.admin.hand-offs.remove-explain' | translate }}</span>
+                  <button class="danger" type="button" data-confirm-remove [disabled]="busy()" (click)="remove(data)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
+                  <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                } @else {
+                  <button
+                    class="danger"
+                    type="button"
+                    data-remove-hand-off
+                    [attr.aria-label]="'nh-assistant.admin.hand-offs.remove-named' | translate: { type: typeName(row.subjectType) }"
+                    [disabled]="busy()"
+                    (click)="confirm(row.subjectType)">
+                    <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
+                  </button>
+                }
+              </div>
+              @if (failedType() === row.subjectType && error(); as failure) {
+                <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+              }
+            }
+          </li>
+        }
+      </ul>
+    }
+  }
+</section>
