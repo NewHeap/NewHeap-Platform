@@ -200,3 +200,44 @@ cdk-virtual-scroll-viewport.scroller {
   0%, 80%, 100% { transform: translateY(0); opacity: .35; }
   40% { transform: translateY(-3px); opacity: 1; }
 }
+
+// A message the application posted: its own card with the application's mark, never a person's bubble.
+.message[data-author='application'] {
+  align-items: stretch;
+  border-left: 3px solid var(--nha-accent);
+  border-radius: var(--nha-radius-control);
+  padding: 8px 12px;
+  background: var(--nha-surface-strong);
+}
+
+.message[data-author='application'] .author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.message[data-author='application'] .author-icon {
+  color: var(--nha-accent);
+}
+
+.message[data-author='application'] .tag {
+  border: 1px solid var(--nha-border);
+  border-radius: 999px;
+  padding: 0 6px;
+  color: var(--nha-text-muted);
+  font-weight: 500;
+}
+
+.message[data-author='application'] .application-title {
+  margin: 0;
+  color: var(--nha-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.message[data-author='application'] .bubble {
+  max-width: none;
+  padding: 0;
+  color: var(--nha-text);
+  background: transparent;
+}

@@ -173,7 +173,10 @@ public sealed class AssistantFileSamplesTests(AssistantFileSampleHost host) : IC
         var budget = Workbook("Budget", ["Item", "Amount"], ["Hardware", "1200"]);
 
         var briefReference = await UploadAsync(owner, conversationId, "Budget brief.docx", NhAiMediaTypes.Docx, brief);
-        var budgetReference = await UploadAsync(owner, conversationId, "Budget.xlsx", NhAiMediaTypes.Xlsx, budget);
+        // A browser on a device without Excel sends the workbook as application/octet-stream; its
+        // extension names the type, which the sample accepts, and the content check still applies.
+        var budgetReference = await UploadAsync(owner, conversationId, "Budget.xlsx", "application/octet-stream", budget);
+        Assert.Equal(NhAiMediaTypes.Xlsx, budgetReference.GetProperty("mediaType").GetString());
         var events = await host.SendWithFilesAsync(owner, conversationId, "Summarize the budget.", briefReference, budgetReference);
 
         Assert.Equal("completed", events[^1].Data.GetProperty("status").GetString());

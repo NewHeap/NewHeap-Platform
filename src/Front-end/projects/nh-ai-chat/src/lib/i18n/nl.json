@@ -74,7 +74,10 @@
       "trigger": "Gebeurtenis",
       "rule": "Automatische regel",
       "files": "Bijgevoegde bestanden",
-      "file-meta": "{{type}}, {{size}}"
+      "file-meta": "{{type}}, {{size}}",
+      "application": "Applicatie",
+      "application-label": "Bericht van de applicatie",
+      "application-link": "Openen"
     },
     "composer": {
       "label": "Bericht",
@@ -1838,6 +1841,7 @@
       "inbox": {
         "title": "Voorstellen om te beslissen",
         "description": "Voorstellen van agents die op jouw besluit wachten, de eerst verlopende bovenaan.",
+        "description-grouped": "Voorstellen van agents die op jouw besluit wachten, gegroepeerd per object; de groep met het eerst verlopende voorstel staat bovenaan.",
         "empty": "Er wachten geen voorstellen op jou.",
         "select": "Dit voorstel selecteren",
         "select-all": "Alles selecteren",

@@ -33,6 +33,15 @@ internal interface INhAssistantNotifier
         NhAssistantAgentNotificationContext context,
         IReadOnlyList<string> recipientActorIds,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Tells the people of a conversation that the application posted a message into it: the owner and
+    /// participants of a chat, the participants of an agent thread. The notification never carries
+    /// the message.
+    /// </summary>
+    Task ApplicationMessageAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken);
 }
 
 internal sealed class NhAssistantNoNotifier : INhAssistantNotifier
@@ -54,6 +63,13 @@ internal sealed class NhAssistantNoNotifier : INhAssistantNotifier
     public Task AgentNotificationAsync(
         NhAssistantAgentNotificationContext context,
         IReadOnlyList<string> recipientActorIds,
+        CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
+
+    public Task ApplicationMessageAsync(
+        Guid conversationId,
         CancellationToken cancellationToken)
     {
         return Task.CompletedTask;

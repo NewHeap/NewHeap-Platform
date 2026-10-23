@@ -148,7 +148,9 @@ caller may decide each one. `NhAssistantStore.approvalRights` turns that into a 
 approval card, `decide(decision, reason, approvalId)` decides a run's proposal with its
 proposal hash through `POST approvals/{id}/decisions` and reloads the thread, and cards
 the caller may not decide say who does (`waitingFor`: an approver, or another approver
-under four-eyes). Messages a trigger wrote (`authorKind: 'trigger'`) read as an event.
+under four-eyes). Messages a trigger wrote (`authorKind: 'trigger'`) read as an event, and
+messages the application posted (`role: 'application'`) as the application's, with their sender,
+title, Markdown text and a link within the application or to an `https` address.
 Custom layouts pass `[approvalRights]` to `nh-assistant-thread` and handle
 `(approvalChoice)`, which carries the approval id.
 

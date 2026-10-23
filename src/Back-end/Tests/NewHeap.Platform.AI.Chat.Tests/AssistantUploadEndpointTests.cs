@@ -296,6 +296,56 @@ public sealed class AssistantUploadEndpointTests(AssistantDatabaseFixture databa
     }
 
     [Fact]
+    public async Task A_file_without_a_usable_type_takes_the_accepted_type_of_its_extension_and_still_passes_the_content_check()
+    {
+        await using var app = await StartAsync(configureUploads: uploads => uploads.AcceptMediaTypes(NhAiMediaTypes.Pdf, "text/csv"));
+        using var client = app.CreateClient();
+        var id = await CreateConversationAsync(client, FileAgent);
+        var store = app.Services.GetRequiredService<TestUploads>();
+        var csv = Encoding.UTF8.GetBytes("project;status\nApollo;active\n");
+
+        // The browser sent no type, the generic type, or the type Windows names after Excel.
+        using var untyped = await UploadAsync(client, id, "Projects.csv", null, csv);
+        using var generic = await UploadAsync(client, id, "Status.csv", "application/octet-stream", csv);
+        using var excel = await UploadAsync(client, id, "Export.csv", "application/vnd.ms-excel", csv);
+        // A PDF without a type is checked as a PDF.
+        using var plan = await UploadAsync(client, id, "Plan.pdf", null, PlanPdf);
+
+        Assert.Equal(
+            [HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK],
+            [untyped.StatusCode, generic.StatusCode, excel.StatusCode, plan.StatusCode]);
+        Assert.Equal("text/csv", (await ReadJsonAsync(untyped)).GetProperty("mediaType").GetString());
+        Assert.Equal(
+            [("Export.csv", "text/csv"), ("Plan.pdf", NhAiMediaTypes.Pdf), ("Projects.csv", "text/csv"), ("Status.csv", "text/csv")],
+            store.Stored.Values
+                .Select(item => (item.Upload.Name, item.Upload.MediaType))
+                .OrderBy(item => item.Name, StringComparer.Ordinal)
+                .ToArray());
+
+        // A specific type the application does not accept stays refused, whatever the extension.
+        await AssertRefusedAsync(
+            await UploadAsync(client, id, "Notes.csv", "text/plain", csv),
+            HttpStatusCode.UnsupportedMediaType,
+            NhAssistantErrorCodes.FileTypeNotAccepted);
+        // The extension only names a type the application accepts.
+        await AssertRefusedAsync(
+            await UploadAsync(client, id, "Notes.txt", null, csv),
+            HttpStatusCode.UnsupportedMediaType,
+            NhAssistantErrorCodes.FileTypeNotAccepted);
+        await AssertRefusedAsync(
+            await UploadAsync(client, id, "Setup.exe", "application/octet-stream", csv),
+            HttpStatusCode.UnsupportedMediaType,
+            NhAssistantErrorCodes.FileTypeNotAccepted);
+        // The content must still match the type the extension named.
+        await AssertRefusedAsync(
+            await UploadAsync(client, id, "Fake.pdf", "application/octet-stream", Png),
+            HttpStatusCode.UnsupportedMediaType,
+            NhAssistantErrorCodes.FileTypeNotAccepted);
+
+        Assert.Equal(4, store.Stored.Count);
+    }
+
+    [Fact]
     public async Task Without_a_scanner_nothing_is_scanned()
     {
         await using var app = await StartAsync();
@@ -364,7 +414,7 @@ public sealed class AssistantUploadEndpointTests(AssistantDatabaseFixture databa
         HttpClient client,
         string conversationId,
         string name,
-        string mediaType,
+        string? mediaType,
         byte[] content,
         bool header = true,
         (string Name, string MediaType, byte[] Content)? second = null)
@@ -387,10 +437,17 @@ public sealed class AssistantUploadEndpointTests(AssistantDatabaseFixture databa
         return await client.SendAsync(request);
     }
 
-    private static ByteArrayContent FilePart(string mediaType, byte[] content)
+    /// <summary>
+    /// A file part; without <paramref name="mediaType"/> it has no Content-Type, as a browser sends a
+    /// file whose type it does not know.
+    /// </summary>
+    private static ByteArrayContent FilePart(string? mediaType, byte[] content)
     {
         var part = new ByteArrayContent(content);
-        part.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+        if (mediaType is not null)
+        {
+            part.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+        }
         return part;
     }
 
@@ -461,6 +518,43 @@ public sealed class AssistantUploadRuleTests
     public void The_content_must_start_as_files_of_its_declared_type_do(string mediaType, string head, bool matches)
     {
         Assert.Equal(matches, Runtime.NhAssistantUploads.MatchesSignature(Encoding.Latin1.GetBytes(head), mediaType));
+    }
+
+    [Theory]
+    // A usable type counts as it is, normalized.
+    [InlineData("Plan.pdf", "Application/PDF; charset=binary", "application/pdf")]
+    [InlineData("Export.csv", "text/csv", "text/csv")]
+    // No type or a generic one: the extension names an accepted type.
+    [InlineData("Export.csv", null, "text/csv")]
+    [InlineData("Export.csv", "", "text/csv")]
+    [InlineData("Export.CSV", "application/octet-stream", "text/csv")]
+    [InlineData("Export.csv", "application/vnd.ms-excel", "text/csv")]
+    [InlineData("Export.csv", "text/x-csv", "text/csv")]
+    [InlineData("Report.docx", "application/zip", NhAiMediaTypes.Docx)]
+    [InlineData("Plan.pdf", "binary/octet-stream", "application/pdf")]
+    // The extension names a type the application does not accept, or none.
+    [InlineData("Notes.txt", null, null)]
+    [InlineData("Setup.exe", "application/octet-stream", null)]
+    [InlineData("README", null, null)]
+    // A specific type the application does not accept is never overridden by the extension.
+    [InlineData("Export.csv", "text/plain", null)]
+    [InlineData("Plan.pdf", "image/gif", null)]
+    // A type that is an alias only for another extension stays specific.
+    [InlineData("Sheet.xls", "application/vnd.ms-excel", null)]
+    public void A_missing_or_generic_type_takes_the_accepted_type_of_the_extension(string fileName, string? declared, string? expected)
+    {
+        string[] accepted = [NhAiMediaTypes.Pdf, "text/csv", NhAiMediaTypes.Docx];
+
+        Assert.Equal(expected, Runtime.NhAssistantUploadMediaTypes.Resolve(fileName, declared, accepted));
+    }
+
+    [Fact]
+    public void A_generic_type_the_application_accepts_itself_stays_when_the_extension_names_no_accepted_type()
+    {
+        string[] accepted = ["application/vnd.ms-excel"];
+
+        Assert.Equal("application/vnd.ms-excel", Runtime.NhAssistantUploadMediaTypes.Resolve("Export.csv", "application/vnd.ms-excel", accepted));
+        Assert.Equal("application/vnd.ms-excel", Runtime.NhAssistantUploadMediaTypes.Resolve("Sheet.xls", null, accepted));
     }
 
     [Fact]

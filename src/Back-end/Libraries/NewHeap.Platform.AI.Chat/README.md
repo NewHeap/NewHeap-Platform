@@ -84,6 +84,12 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
   `AssistantProposalFeedback`. The next run on the subject starts from its recent
   rejections and their feedback (`MaxRejectionsInContext`, `RejectionContextWindow`).
   `AddProposalFeedbackSink` forwards each feedback to the application's analytics.
+- **Application messages** — `INhAssistantConversationMessages.PostAsync` posts the
+  application's own message into a chat conversation or an agent thread, for example when an
+  export a person started has finished: Markdown text, an optional title, sender and link, an
+  optional content-free notification, an idempotency key and `ReadableBy` for a conversation a
+  client named. People see it live as the application's (role `application`); a later turn gives
+  it to the model as marked information from the application, never as instructions.
 - **Audit** — a content-free relay records governed outcomes and forwards
   `NhAssistantAuditEvent` values (identifiers, versions, codes, timestamps) to
   `INhAssistantBusinessAuditSink` implementations.

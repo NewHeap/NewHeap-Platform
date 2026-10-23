@@ -160,6 +160,55 @@ internal sealed class NhAssistantWebPushNotifier(
         }
     }
 
+    public async Task ApplicationMessageAsync(Guid conversationId, CancellationToken cancellationToken)
+    {
+        var push = options.CurrentValue.Push;
+        if (!push.IsConfigured)
+        {
+            return;
+        }
+
+        try
+        {
+            var conversation = await store.FindShareableConversationAsync(conversationId, cancellationToken);
+            if (conversation is null)
+            {
+                return;
+            }
+
+            var recipients = new Dictionary<string, string>(StringComparer.Ordinal);
+            // An agent thread belongs to the agent's own actor; its people are its participants.
+            if (string.Equals(conversation.Kind, NhAssistantConversationKinds.Chat, StringComparison.Ordinal))
+            {
+                recipients[conversation.OwnerActorId] = NhAssistantPushKinds.ApplicationMessage;
+            }
+            foreach (var participant in await store.GetParticipantsAsync(conversation.Id, cancellationToken))
+            {
+                recipients[participant.ActorId] = NhAssistantPushKinds.ApplicationMessage;
+            }
+            if (recipients.Count == 0)
+            {
+                return;
+            }
+
+            await DeliverAsync(
+                push,
+                conversation,
+                recipients,
+                (_, language) => NhAssistantPushTexts.ForApplicationMessage(
+                    language,
+                    push.IncludeConversationTitle ? conversation.Title : null),
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            logger.LogWarning(
+                "Assistant push for an application message in conversation {ConversationId} was not sent ({ExceptionType}).",
+                conversationId,
+                exception.GetType().Name);
+        }
+    }
+
     /// <summary>
     /// The person who started the turn hears about an approval request, which needs them, and about a
     /// long turn; everyone else only about a long turn that finished or failed. Cancelled turns and
@@ -342,6 +391,11 @@ internal static class NhAssistantPushKinds
     public const string AgentMcpConnectionMissing = "agent-mcp-connection-missing";
     public const string AgentConsultationProposalDecided = "agent-consultation-proposal-decided";
 
+    /// <summary>
+    /// The application posted a message into the conversation.
+    /// </summary>
+    public const string ApplicationMessage = "application-message";
+
     public static string ForAgent(NhAssistantAgentNotificationKind kind)
     {
         return kind switch
@@ -417,6 +471,20 @@ internal static class NhAssistantPushTexts
         var body = string.IsNullOrWhiteSpace(conversationTitle)
             ? (dutch ? "Open de assistent om mee te doen." : "Open the assistant to join in.")
             : conversationTitle;
+        return (title, body);
+    }
+
+    /// <summary>
+    /// The notification of an application message: the conversation's title, when the server includes
+    /// titles, and a fixed text; never the message itself.
+    /// </summary>
+    public static (string Title, string Body) ForApplicationMessage(string language, string? conversationTitle)
+    {
+        var dutch = IsDutch(language);
+        var title = string.IsNullOrWhiteSpace(conversationTitle) ? (dutch ? "Assistent" : "Assistant") : conversationTitle;
+        var body = dutch
+            ? "De applicatie heeft een bericht in het gesprek gezet."
+            : "The application posted a message in the conversation.";
         return (title, body);
     }
 

@@ -2,6 +2,7 @@ import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import {
   AgentConsultationList,
   AgentUploads,
+  ApplicationMessageDetails,
   ApprovalPart,
   ClientContext,
   Conversation,
@@ -204,6 +205,38 @@ export class NhAssistantMockBackend {
     await emit({ type: 'turn.started', data: { turnId: this.nextId(), userMessageId: userMessage.id, assistantMessageId } });
     const turn = this.findTurn(text, conversation.agentId, null);
     await this.playSteps(conversationId, assistantMessageId, turn?.steps ?? [], emit);
+  }
+
+  /**
+   * Posts a message of the application into a conversation, as `INhAssistantConversationMessages`
+   * does on the server: it gets the next position in the conversation and reaches the people of the
+   * conversation as a live update. Returns the stored message, or `null` for an unknown or archived
+   * conversation.
+   */
+  postApplicationMessage(
+    conversationId: string,
+    text: string,
+    details: Partial<ApplicationMessageDetails> = {}
+  ): Message | null {
+    const conversation = this.conversations.get(conversationId);
+    if (!conversation || conversation.status === 'archived') {
+      return null;
+    }
+
+    const message: Message = {
+      id: this.nextId(),
+      role: 'application',
+      createdAt: new Date().toISOString(),
+      parts: [{ type: 'text', text }],
+      authorActorId: null,
+      authorKind: 'application',
+      application: { title: details.title ?? null, senderName: details.senderName ?? null, link: details.link ?? null }
+    };
+    this.update(conversationId, current => ({ ...current, messages: [...current.messages, message] }));
+    const stored = this.conversations.get(conversationId)!.messages.find(item => item.id === message.id)!;
+    this.emitLive({ kind: 'event', data: { conversationId, actorId: 'application', type: 'message.created', data: stored } });
+    this.emitChanged(conversationId);
+    return stored;
   }
 
   /** Switches the simulated `NewHeap:AI:Assistant:Enabled` flag. */

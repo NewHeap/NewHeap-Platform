@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.81",
   "backEnd": {
-    "hash": "edbe73084f0a2d9a787c39a7968523ee8d165e87ef776c531b22c33c2de1b7b6",
-    "declarationCount": 9818,
+    "hash": "92f60e931f494ef7e1223c1b6e057a9e3b517c0040bfbeaf4f4d12b907c0d462",
+    "declarationCount": 9853,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4503,7 +4503,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantMessageDto( Guid Id, string Role, DateTimeOffset CreatedAt, IReadOnlyList<NhAssistantMessagePartDto> Parts, int Sequence = 0, string? AuthorActorId = null, string? AuthorKind = null);"
+        "declaration": "public sealed record NhAssistantMessageDto( Guid Id, string Role, DateTimeOffset CreatedAt, IReadOnlyList<NhAssistantMessagePartDto> Parts, int Sequence = 0, string? AuthorActorId = null, string? AuthorKind = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantApplicationMessageDto? Application { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantApplicationMessageDto( string? Title, string? SenderName, NhAssistantApplicationMessageLinkDto? Link);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantApplicationMessageLinkDto(string Url, string? Label);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -5227,6 +5239,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+        "declaration": "public async Task ApplicationMessageAsync(Guid conversationId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
         "declaration": "public const string TurnCompleted = \"turn-completed\";"
       },
       {
@@ -5283,6 +5299,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+        "declaration": "public const string ApplicationMessage = \"application-message\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
         "declaration": "public static string ForAgent(NhAssistantAgentNotificationKind kind) {"
       },
       {
@@ -5296,6 +5316,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
         "declaration": "public static (string Title, string Body) ForInvitation(string language, string? conversationTitle, string inviterName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+        "declaration": "public static (string Title, string Body) ForApplicationMessage(string language, string? conversationTitle) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
@@ -8674,6 +8698,10 @@
         "declaration": "public static string Normalize(string? value) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationMessages.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantApplicationMessageReceipt>> PostAsync( Guid conversationId, NhAssistantApplicationMessage message, CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantSpeakers.cs",
         "declaration": "public string OwnerActorId { get; }"
       },
@@ -8700,6 +8728,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantSpeakers.cs",
         "declaration": "public const string RuleActorPrefix = \"rule:\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantSpeakers.cs",
+        "declaration": "public const string ApplicationActorId = \"application\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantSpeakers.cs",
+        "declaration": "public bool Dutch => _dutch;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantSpeakers.cs",
@@ -11506,6 +11542,70 @@
         "declaration": "public Task<NhAssistantHandOffReceipt> HandOffAsync( string targetAgentId, NhAiSubjectRef subject, string message, object? payload = null, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public interface INhAssistantConversationMessages {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public sealed record NhAssistantApplicationMessage(string Text) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public const int MaxTitleLength = 200;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public const int MaxSenderNameLength = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public const int MaxIdempotencyKeyLength = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public string? Title { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public string? SenderName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public NhAssistantApplicationMessageLink? Link { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public bool Notify { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public string? IdempotencyKey { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public NhAssistantConversationPerson? ReadableBy { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public sealed record NhAssistantApplicationMessageLink(string Url, string? Label = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public const int MaxUrlLength = 2_048;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public const int MaxLabelLength = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public sealed record NhAssistantConversationPerson(string ActorId, string? TenantId = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
+        "declaration": "public sealed record NhAssistantApplicationMessageReceipt(Guid MessageId, int Sequence, bool Duplicate);"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public sealed class NhAssistantBuilder {"
       },
@@ -11947,6 +12047,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Application = \"application\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public static class NhAssistantAgentRunStates {"
       },
       {
@@ -12200,6 +12304,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string Tool = \"tool\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Application = \"application\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -14590,6 +14698,10 @@
         "declaration": "public Task AgentNotificationAsync( NhAssistantAgentNotificationContext context, IReadOnlyList<string> recipientActorIds, CancellationToken cancellationToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantNotifier.cs",
+        "declaration": "public Task ApplicationMessageAsync( Guid conversationId, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantPushOptions.cs",
         "declaration": "public sealed class NhAssistantPushOptions {"
       },
@@ -16075,6 +16187,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
+        "declaration": "public async Task<AssistantMessage?> FindApplicationMessageAsync( Guid conversationId, string clientMessageId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
+        "declaration": "public async Task AddApplicationMessageAsync( AssistantMessage message, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
         "declaration": "public async Task UpdateMessageAsync( Guid messageId, string partsJson, int inputTokens, int outputTokens, int toolCalls, CancellationToken cancellationToken) {"
       },
       {
@@ -17194,8 +17314,16 @@
         "declaration": "public static string Format(IReadOnlyList<NhAiApplicationMapEntry> entries, int maxCharacters, string language) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantApplicationMessageText.cs",
+        "declaration": "public static string ForModel(IReadOnlyList<NhAssistantStoredPart> parts, string text, bool dutch) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
         "declaration": "public const string TextType = \"text\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
+        "declaration": "public const string ApplicationType = \"application\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
@@ -18043,7 +18171,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public NhAssistantApplicationMessageView? Application { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
         "declaration": "public string? AuthorKind {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public static NhAssistantApplicationMessageView? From(IEnumerable<NhAssistantStoredPart> parts) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
@@ -18252,6 +18388,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
         "declaration": "public async Task<TaskResult<NhAiFileReference>> StoreAsync( Guid conversationId, NhAssistantUploadInput input, NhAssistantUploadRules rules, NhAssistantFileActor actor, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public static string? Resolve(string fileName, string? declared, IReadOnlyList<string> accepted) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Snapshots/NhAssistantConversationSnapshots.cs",
@@ -43250,7 +43390,17 @@
       "NhAssistantFilePartDto",
       "INhAssistantUploadScanner",
       "UseScanner",
-      "ReaderTextRetention"
+      "ReaderTextRetention",
+      "INhAssistantConversationMessages",
+      "NhAssistantApplicationMessage",
+      "NhAssistantApplicationMessageLink",
+      "NhAssistantConversationPerson",
+      "NhAssistantApplicationMessageReceipt",
+      "NhAssistantMessageRoles",
+      "NhAssistantMessageAuthorKinds",
+      "NhAssistantMessageDto",
+      "NhAssistantApplicationMessageDto",
+      "NhAssistantApplicationMessageLinkDto"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",
@@ -43780,7 +43930,10 @@
       "LowerFileLimits",
       "NhAssistantMessageEvent",
       "MessageQueuedEvent",
-      "NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE"
+      "NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE",
+      "ApplicationMessageDetails",
+      "ApplicationMessageLink",
+      "MessageAuthorKind"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

@@ -1,4 +1,4 @@
-import { AgentUploads, FileReference, NH_ASSISTANT_UPLOAD_HEADER } from '@newheap/platform-ai-chat';
+import { AgentUploads, FileReference, NH_ASSISTANT_UPLOAD_HEADER, ɵnhAssistantMediaTypeOf } from '@newheap/platform-ai-chat';
 import { NhAssistantMockResult, mockFailure } from './nh-assistant-mock-admin-shared';
 
 /** An upload as the application's file source receives it, after the assistant's checks. */
@@ -73,7 +73,8 @@ export class NhAssistantMockFiles {
     if (name === null || file.size === 0) {
       return mockFailure('assistant-file-upload-invalid');
     }
-    const mediaType = normalizeMediaType(file.type);
+    // A missing or generic type takes the accepted type of the file name's extension, as on the server.
+    const mediaType = normalizeMediaType(ɵnhAssistantMediaTypeOf({ name, type: file.type }, uploads.acceptedMediaTypes));
     if (mediaType === null || !uploads.acceptedMediaTypes.includes(mediaType)) {
       return mockFailure('assistant-file-type-not-accepted');
     }

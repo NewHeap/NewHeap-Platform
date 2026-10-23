@@ -84,6 +84,8 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<INhAssistantNotifier, NhAssistantNoNotifier>();
         services.TryAddScoped<NhAssistantNotificationStore>();
         services.TryAddScoped<NhAssistantCollaboration>();
+        // The application posts its own messages into conversations (SPM-312).
+        services.TryAddScoped<INhAssistantConversationMessages, NhAssistantConversationMessages>();
         services.TryAddScoped<INhAssistantDisplayNameResolver, NhAssistantClaimsDisplayNameResolver>();
 
         // Agent runs: subject threads, member snapshots and approval policies.
