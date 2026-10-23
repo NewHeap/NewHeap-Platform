@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.82",
   "backEnd": {
-    "hash": "8e862cf3f00087a360101bb2e2c3624660c3ca8891baa75f07ede02b9bb16b2d",
-    "declarationCount": 10074,
+    "hash": "dee8dce1e4fbbac513596738807c626269a2effd04f39a088557eabfb61b5d2c",
+    "declarationCount": 10093,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3458,6 +3458,58 @@
         "declaration": "public async Task<TaskResult<NhAssistantObjectAgentsDto>> ListAsync( NhAiSubjectRef subject, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public interface INhAssistantProposalDecisionService {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public sealed record NhAssistantDecidingPerson(ClaimsPrincipal User, string ActorId, string? TenantId = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public enum NhAssistantProposalDecision {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public sealed record NhAssistantProposalDecisionFacts( Guid ApprovalId, string Status, string ProposalHash, DateTimeOffset ExpiresAt, bool FourEyes, int ApprovalsNeeded, bool CanDecide, string? ReasonCode);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public sealed record NhAssistantProposalDecisionResult( Guid ApprovalId, string Status, NhAssistantProposalDecision Decision, DateTimeOffset? DecidedAt, bool Duplicate);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public static partial class NhAssistantDecisionChannels {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public const string Web = \"web\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public const int MaxLength = 50;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public const int MaxIdempotencyKeyLength = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public static bool IsValid(string? channel) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public static bool IsValidIdempotencyKey(string? idempotencyKey) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantProposalDecisionFacts>> GetDecisionFactsAsync( NhAssistantDecidingPerson person, Guid approvalId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantProposalDecisionResult>> DecideAsync( NhAssistantDecidingPerson person, Guid approvalId, string expectedProposalHash, NhAssistantProposalDecision decision, string channel, string? idempotencyKey = null, CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
         "declaration": "public Task<TaskResult> CheckAsync( AssistantApproval approval, AssistantThread thread, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
       },
@@ -3479,11 +3531,27 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
-        "declaration": "public async Task<TaskResult<AssistantApproval>> DecideAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool approve, string? expectedProposalHash, string? reason, CancellationToken cancellationToken) {"
+        "declaration": "public Task<TaskResult<AssistantApproval>> DecideAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool approve, string? expectedProposalHash, string? reason, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public async Task<TaskResult<AssistantApproval>> DecideAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool approve, string? expectedProposalHash, string? reason, NhAssistantDecisionOrigin origin, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantProposalDecisionFacts>> FactsAsync( Guid approvalId, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public async Task<AssistantApproval?> FindRepeatAsync( Guid approvalId, string actorId, bool approve, string expectedProposalHash, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
         "declaration": "public async Task<TaskResult<AssistantApproval>> ResolveExecutionAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool reExecute, string? reason, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public static NhAssistantDecisionOrigin Web { get; } = new(NhAssistantDecisionChannels.Web, null);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalFeedbackEndpoints.cs",
@@ -14772,6 +14840,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public bool? ApplicationMessageTrusted { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? Channel { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? IdempotencyKey { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -43942,6 +44018,12 @@
       "NhAssistantProposalObjectDto",
       "NhAssistantProposalLookupRequest",
       "NhAssistantProposalLookupDto",
+      "INhAssistantProposalDecisionService",
+      "NhAssistantDecidingPerson",
+      "NhAssistantProposalDecision",
+      "NhAssistantProposalDecisionFacts",
+      "NhAssistantProposalDecisionResult",
+      "NhAssistantDecisionChannels",
       "INhAssistantAgentControl",
       "NhAssistantAgentState",
       "NhAssistantAgentStateRequest",
