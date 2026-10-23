@@ -304,6 +304,66 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_data_consultation_offers_the_tools_an_administrator_chose_and_fails_closed_when_they_no_longer_fit(AssistantTestProvider provider)
+    {
+        var target = new NhAiScriptedChatClient()
+            .RespondWithText("The draft can start.")
+            .RespondWithText("The draft can start; I looked at nothing.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Can the draft start?" } }, "call-1")
+            .RespondWithText("The starter says it can start.")
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Can the draft start?" } }, "call-2")
+            .RespondWithText("The starter says it can start.");
+        await using var host = await CreateHostAsync(provider, target, asker);
+        await CreateStarterAsync(host, withRunSettings: true);
+
+        // Saving refuses a selector outside the agent's own selectors and one that is none (CT4).
+        Assert.Equal("toolSelectors", Field(await SaveAsync(host, StarterId, Read() with { ToolSelectors = ["orders.*"] }), NhAssistantFieldErrors.NotAllowed));
+        Assert.Equal("toolSelectors", Field(await SaveAsync(host, StarterId, Read() with { ToolSelectors = ["Projects Search"] }), NhAssistantFieldErrors.Invalid));
+
+        var saved = await SaveAsync(host, StarterId, Read() with { ToolSelectors = ["projects.search"] });
+        Assert.True(saved.Success);
+        Assert.Equal(["projects.search"], saved.Data!.ToolSelectors);
+        Assert.Equal(["projects.search"], saved.Data.ToolSelectorsInEffect);
+        Assert.Equal(["projects.search"], State(host).AgentRuns[StarterId].Consultations.Single().ToolSelectors);
+
+        // The consulted model sees only the chosen tool (CT1).
+        await host.SendAsync((await host.CreateConversationAsync(Member, AskingAgentId)).Id, "Can the draft project start?", Member);
+        Assert.Contains(ToolNames(target.Requests[0]), name => name == "projects_search_v1");
+        Assert.DoesNotContain(ToolNames(target.Requests[0]), name => name == ChangeStatus);
+
+        // The agent's own selectors change and no longer cover the selection: it drops with a problem
+        // and the consultation offers no tools, never every tool of the agent (CT4).
+        await UpdateStarterToolsAsync(host, [TestProjectToolCatalog.ChangeStatus.Id]);
+        var view = (await ConfigureAsync(host, configuration => configuration.GetAsync(StarterId)))!;
+        var degraded = Assert.Single(view.DataConsultations);
+        Assert.Equal((true, NhAssistantRunConfigurationProblems.ToolsNotAllowed), (degraded.InEffect, degraded.Problem));
+        Assert.Equal(["projects.search"], degraded.ToolSelectors);
+        Assert.Empty(degraded.ToolSelectorsInEffect!);
+        Assert.Contains(
+            view.Problems,
+            problem => (problem.Kind, problem.Id, problem.Code) == (NhAssistantRunConfigurationProblems.ConsultationKind, "project", NhAssistantRunConfigurationProblems.ToolsNotAllowed));
+        Assert.Empty(State(host).AgentRuns[StarterId].Consultations.Single().ToolSelectors!);
+        await host.SendAsync((await host.CreateConversationAsync(Member, AskingAgentId)).Id, "Can the draft project start?", Member);
+        Assert.DoesNotContain(ToolNames(target.Requests[^1]), name => name.StartsWith("projects_", StringComparison.Ordinal));
+
+        // A save refuses what a load drops; without a selection every tool of the agent is offered
+        // again (CT2), as the consultation's next version.
+        Assert.Equal("toolSelectors", Field(await SaveAsync(host, StarterId, Read() with { ToolSelectors = ["projects.search"], ExpectedVersion = 1 }), NhAssistantFieldErrors.NotAllowed));
+        var cleared = await SaveAsync(host, StarterId, Read() with { ToolSelectors = [], ExpectedVersion = 1 });
+        Assert.True(cleared.Success);
+        Assert.Equal((2, (IReadOnlyList<string>?)null, (IReadOnlyList<string>?)null), (cleared.Data!.Version, cleared.Data.ToolSelectors, cleared.Data.ToolSelectorsInEffect));
+        Assert.Null(State(host).AgentRuns[StarterId].Consultations.Single().ToolSelectors);
+        Assert.Equal(
+            [1, 2],
+            host.Business.Events
+                .Where(evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentConsultationDefinitionChanged)
+                .Select(evt => evt.ConsultationVersion ?? 0));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task An_administration_agent_with_propose_autonomy_proposes_through_its_data_consultation_on_each_route(AssistantTestProvider provider)
     {
         // AC34 (b): the starter keeps Propose autonomy. A data consultation with a route offers it the
@@ -532,6 +592,33 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
         {
             await SaveRunSettingsAsync(host, NhAssistantAccountabilities.ServiceAccount, KnownAccountPrincipalFactory.First, null);
         }
+    }
+
+    /// <summary>
+    /// Changes the starter's own tool selectors, as an administrator does in its editor.
+    /// </summary>
+    private static async Task UpdateStarterToolsAsync(AssistantTestHost host, IReadOnlyList<string> toolSelectors)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var updated = await scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>().UpdateAsync(
+            new NhAssistantAgentInput(
+                StarterId,
+                "Project starter",
+                "Starts draft projects.",
+                "Say whether a draft project can start.",
+                toolSelectors,
+                [],
+                null,
+                NhAiAutonomyLevel.Execute),
+            1,
+            Admin,
+            CancellationToken.None);
+        Assert.True(updated.Success);
+    }
+
+    private static IReadOnlyList<string> ToolNames(NhAiRecordedChatRequest request)
+    {
+        return request.Options?.Tools?.Select(tool => tool.Name).ToArray() ?? [];
     }
 
     private static async Task SaveRunSettingsAsync(AssistantTestHost host, string accountability, string? serviceAccount, int? expectedVersion)
