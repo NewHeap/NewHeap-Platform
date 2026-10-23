@@ -26,10 +26,13 @@ internal sealed record NhAssistantStoredRunConfiguration(
 /// </summary>
 /// <param name="DataClassification">The classification of its model calls, one of
 /// <see cref="NhAssistantDataClassificationNames"/>; <see langword="null"/> for none.</param>
+/// <param name="RequiredPolicy">The policy a person needs to use the agent; a consultation defined as
+/// data without an asker policy requires it of the asker.</param>
 internal sealed record NhAssistantStoredAdminAgent(
     string ToolSelectorsJson,
     NhAssistantAgentWorksOn WorksOn,
-    string? DataClassification = null);
+    string? DataClassification = null,
+    string? RequiredPolicy = null);
 
 /// <summary>
 /// Persistence of the run configuration defined as data: the versions of data skills and the data
@@ -79,7 +82,8 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                     PerDivision = agent.PerDivision,
                     RunPolicy = agent.RunPolicy,
                     ViewPolicy = agent.ViewPolicy,
-                    DataClassification = agent.DataClassification
+                    DataClassification = agent.DataClassification,
+                    RequiredPolicy = agent.RequiredPolicy
                 })
                 .ToListAsync(cancellationToken))
             .ToDictionary(
@@ -87,7 +91,8 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                 agent => new NhAssistantStoredAdminAgent(
                     agent.ToolSelectorsJson,
                     NhAssistantAgentWorksOn.FromRow(agent),
-                    agent.DataClassification),
+                    agent.DataClassification,
+                    agent.RequiredPolicy),
                 StringComparer.Ordinal);
         var skills = await context.AgentSkillDefinitions
             .AsNoTracking()

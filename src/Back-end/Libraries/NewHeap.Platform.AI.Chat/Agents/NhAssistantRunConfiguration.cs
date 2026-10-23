@@ -660,11 +660,14 @@ internal sealed class NhAssistantRunConfigurationValidator(
     /// is out of effect; a route that no longer fits is dropped (read-only when none is left), a
     /// request tool or MCP exposure the ceiling no longer allows is dropped and limits above the
     /// ceiling are capped, each with a problem. <paramref name="runOptions"/> are the agent's options
-    /// in effect, <see langword="null"/> for an agent without runs.
+    /// in effect, <see langword="null"/> for an agent without runs. Without an asker policy the asker
+    /// needs <paramref name="agentRequiredPolicy"/>, the agent's own required policy, and without that
+    /// the assistant's access policy (AC14).
     /// </summary>
     public NhAssistantDataConsultationCheck CheckConsultation(
         AssistantAgentConsultationDefinition row,
-        NhAssistantAgentRunOptions? runOptions)
+        NhAssistantAgentRunOptions? runOptions,
+        string? agentRequiredPolicy)
     {
         ArgumentNullException.ThrowIfNull(row);
         if (runOptions is null)
@@ -796,7 +799,7 @@ internal sealed class NhAssistantRunConfigurationValidator(
             Source = NhAssistantConsultationSources.Data,
             DataVersion = row.Version
         };
-        if (row.AskerPolicy is { } policy)
+        if ((row.AskerPolicy ?? agentRequiredPolicy) is { } policy)
         {
             options.AddPolicies([policy]);
         }
@@ -1186,9 +1189,12 @@ internal sealed class NhAssistantRunConfigurations(
         {
             var runOptions = agentRuns.GetValueOrDefault(group.Key);
             var dataConsultations = new List<NhAssistantConsultationOptions>();
+            var requiredPolicy = registration.TryGetAgent(group.Key, out var codeAgent)
+                ? codeAgent.RequiredPolicy
+                : stored.AdminAgents.GetValueOrDefault(group.Key)?.RequiredPolicy;
             foreach (var row in group)
             {
-                var check = validator.CheckConsultation(row, runOptions);
+                var check = validator.CheckConsultation(row, runOptions, requiredPolicy);
                 var codes = check.Problems;
                 if (check.Options is { } checkedOptions && reserved is not null && IsReserved(reserved, checkedOptions))
                 {

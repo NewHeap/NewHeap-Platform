@@ -436,7 +436,9 @@ internal sealed class NhAssistantAgentEvents(
                 ToolCallCount = consultation.ToolCalls,
                 InputTokens = consultation.InputTokens,
                 OutputTokens = consultation.OutputTokens,
-                ProposalCount = consultation.ProposalCount
+                ProposalCount = consultation.ProposalCount,
+                ConsultationSource = consultation.ConsultationSource,
+                ConsultationVersion = consultation.ConsultationVersion
             },
             cancellationToken);
     }
@@ -646,6 +648,28 @@ internal sealed class NhAssistantAgentEvents(
                 ObjectId = triggerId,
                 TriggerId = triggerId,
                 SkillId = skillId,
+                ResultCode = change
+            },
+            cancellationToken);
+    }
+
+    public Task ConsultationDefinitionChangedAsync(
+        string agentId,
+        string subjectType,
+        int version,
+        string? instructionsHash,
+        string change,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentConsultationDefinitionChanged, Guid.Empty, Guid.Empty, actorId, agentId, version, DateTimeOffset.UtcNow)
+            {
+                ObjectId = subjectType,
+                SubjectType = subjectType,
+                InstructionsHash = instructionsHash,
+                ConsultationSource = NhAssistantConsultationSources.Data,
+                ConsultationVersion = version,
                 ResultCode = change
             },
             cancellationToken);

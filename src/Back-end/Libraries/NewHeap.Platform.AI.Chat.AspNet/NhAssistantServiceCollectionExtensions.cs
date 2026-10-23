@@ -163,7 +163,29 @@ public static class NhAssistantServiceCollectionExtensions
         }
 
         configure(new NhAssistantBuilder(services, state));
+        if (state.ConsultationsAsData is not null)
+        {
+            AddDataConsultations(services);
+        }
+
         return services;
+    }
+
+    /// <summary>
+    /// Consultations defined as data: their catalog, which follows every snapshot, and the tool names
+    /// it may not take. Their tools act for a person like those in code
+    /// (<see cref="NhAssistantConsultationPersonRightsTools"/> names them by their prefixes).
+    /// </summary>
+    private static void AddDataConsultations(IServiceCollection services)
+    {
+        services.TryAddSingleton<NhAssistantDataConsultationToolCatalog>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiToolCatalog, NhAssistantDataConsultationToolCatalog>(
+            provider => provider.GetRequiredService<NhAssistantDataConsultationToolCatalog>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiChangingToolCatalog, NhAssistantDataConsultationToolCatalog>(
+            provider => provider.GetRequiredService<NhAssistantDataConsultationToolCatalog>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAssistantRunSnapshotListener, NhAssistantDataConsultationToolCatalog>(
+            provider => provider.GetRequiredService<NhAssistantDataConsultationToolCatalog>()));
+        services.TryAddSingleton<INhAssistantReservedToolNames, NhAssistantReservedToolNames>();
     }
 }
 
@@ -460,7 +482,7 @@ internal sealed class NhAssistantStartupValidator(
             return;
         }
 
-        foreach (var consultation in state.AgentRuns.Values.SelectMany(run => run.Consultations))
+        foreach (var consultation in state.CodeAgentRuns.Values.SelectMany(run => run.Consultations))
         {
             if (!subjectTypes.IsKnownType(consultation.SubjectType))
             {

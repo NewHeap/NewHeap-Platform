@@ -365,9 +365,17 @@ internal static class NhAssistantAdminEndpoints
         NhAssistantAdminStore store)
     {
         var entries = new List<NhAssistantToolCatalogEntryDto>();
-        foreach (var catalog in catalogs)
+        foreach (var listed in catalogs)
         {
-            var source = catalog is INhAiAttestedToolCatalog ? "bridge" : "local";
+            // A catalog that changes at runtime, such as the tools of consultations defined as data,
+            // reads its source first, so the agent editor lists what is in effect now (AC23).
+            if (listed is INhAiChangingToolCatalog changing)
+            {
+                await changing.RefreshAsync(httpContext.RequestAborted);
+            }
+
+            var catalog = NhAiToolCatalogViews.Of(listed);
+            var source = listed is INhAiAttestedToolCatalog ? "bridge" : "local";
             entries.AddRange(catalog.Descriptors
                 .Where(descriptor => (descriptor.Exposure & NhAiToolExposure.Agent) != 0)
                 .Select(descriptor => new NhAssistantToolCatalogEntryDto(descriptor.Id, source, EffectName(descriptor.Effect), descriptor.Description)

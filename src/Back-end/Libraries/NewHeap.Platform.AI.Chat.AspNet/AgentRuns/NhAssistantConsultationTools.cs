@@ -21,19 +21,17 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// <c>AllowConsultation</c> registration: <c>assistant.consult.{agentId}.{subjectType}</c> and, when
 /// requests are allowed, <c>assistant.request.{agentId}.{subjectType}</c>. Every call runs through the
 /// shared invoker; neither an agent grant nor the accountable account's rights can cover them, so they
-/// always use a person's own rights.
+/// always use a person's own rights. The catalog holds the consultations in code only and is built
+/// once; those defined as data are in <see cref="NhAssistantDataConsultationToolCatalog"/>.
 /// </summary>
 internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCatalog
 {
     public const string CatalogId = "assistant-consultations";
 
-    private const int ContractVersion = 1;
     public const int MaxQuestionChars = 2_000;
     public const int MaxRequestChars = 4_000;
 
-    private const int MaxExportNameLength = 64;
-
-    private readonly Lazy<CatalogModel> _model;
+    private readonly Lazy<NhAssistantConsultationCatalogView> _model;
 
     public NhAssistantConsultationToolCatalog(
         NhAssistantRegistrationState registration,
@@ -41,8 +39,12 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
     {
         ArgumentNullException.ThrowIfNull(registration);
         ArgumentNullException.ThrowIfNull(options);
-        _model = new Lazy<CatalogModel>(
-            () => Build(registration, options.Value),
+        _model = new Lazy<NhAssistantConsultationCatalogView>(
+            () => NhAssistantConsultationCatalogView.Create(
+                CatalogId,
+                registration.CodeAgentRuns.Values.SelectMany(run => run.Consultations),
+                consultation => NhAssistantConsultationCatalogView.PoliciesOf(registration, options.Value, consultation),
+                lateBinding: false),
             LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
@@ -52,26 +54,156 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
 
     public NhAiToolCatalogManifest Manifest => _model.Value.Manifest;
 
-    public string AttestationHash => _model.Value.Manifest.SchemaHash;
+    public string AttestationHash => _model.Value.AttestationHash;
+
+    public IReadOnlyList<AIFunction> CreateFunctions(IServiceProvider services)
+    {
+        return _model.Value.CreateFunctions(services);
+    }
+}
+
+/// <summary>
+/// One immutable view of generated consultation tools: their descriptors, manifest and attestation
+/// hash, and the governed functions bound to them. A view of consultations in code binds each function
+/// to the options it was built from; a view of consultations defined as data binds late: the function
+/// knows its agent, subject type and contract hash and finds the consultation in effect when it is
+/// called, failing closed when it is gone or its contract changed (AC12).
+/// </summary>
+internal sealed class NhAssistantConsultationCatalogView : INhAiAttestedToolCatalog
+{
+    private readonly bool _lateBinding;
+
+    private NhAssistantConsultationCatalogView(
+        IReadOnlyList<NhAiToolDescriptor> descriptors,
+        IReadOnlyDictionary<string, ConsultationTool> tools,
+        NhAiToolCatalogManifest manifest,
+        bool lateBinding)
+    {
+        Descriptors = descriptors;
+        Tools = tools;
+        Manifest = manifest;
+        _lateBinding = lateBinding;
+    }
+
+    public static NhAssistantConsultationCatalogView Empty(string catalogId)
+    {
+        return Create(catalogId, [], _ => [], lateBinding: true);
+    }
+
+    public NhAiToolCatalogGovernance Governance => NhAiToolCatalogGovernance.SharedInvoker;
+
+    public IReadOnlyList<NhAiToolDescriptor> Descriptors { get; }
+
+    public NhAiToolCatalogManifest Manifest { get; }
+
+    public string AttestationHash => Manifest.SchemaHash;
+
+    /// <summary>
+    /// The consultation of every generated tool, by tool id.
+    /// </summary>
+    public IReadOnlyDictionary<string, ConsultationTool> Tools { get; }
+
+    /// <summary>
+    /// What a listing shows of every tool: its id, contract, exposure and description. A change of it
+    /// changes the tool list MCP clients and agents see.
+    /// </summary>
+    public string ListingHash => Hash(string.Join(
+        "\n",
+        Descriptors.Select(descriptor => string.Join(
+            "|",
+            descriptor.Id,
+            descriptor.ContractHash,
+            ((int)descriptor.Exposure).ToString(CultureInfo.InvariantCulture),
+            descriptor.Description))));
 
     public IReadOnlyList<AIFunction> CreateFunctions(IServiceProvider services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        var model = _model.Value;
-        return model.Descriptors
-            .Select(descriptor => CreateFunction(descriptor, model.Tools[descriptor.Id], services))
+        return Descriptors
+            .Select(descriptor => CreateFunction(descriptor, Tools[descriptor.Id], services))
             .ToArray();
     }
 
-    private static AIFunction CreateFunction(NhAiToolDescriptor descriptor, ConsultationTool tool, IServiceProvider services)
+    /// <summary>
+    /// The policies the asker must pass: the consultation's own, else the agent's required policy, else
+    /// the assistant's access policy.
+    /// </summary>
+    public static IReadOnlyList<string> PoliciesOf(
+        NhAssistantRegistrationState registration,
+        NhAssistantOptions options,
+        NhAssistantConsultationOptions consultation)
     {
+        if (consultation.Policies.Count > 0)
+        {
+            return consultation.Policies;
+        }
+
+        var agent = registration.Agents.FirstOrDefault(item => string.Equals(item.Id, consultation.AgentId, StringComparison.Ordinal));
+        return [agent?.RequiredPolicy ?? NhAssistantEndpointOptions.ResolveAccessPolicy(registration, options)];
+    }
+
+    public static NhAssistantConsultationCatalogView Create(
+        string catalogId,
+        IEnumerable<NhAssistantConsultationOptions> consultations,
+        Func<NhAssistantConsultationOptions, IReadOnlyList<string>> policiesOf,
+        bool lateBinding)
+    {
+        var tools = new Dictionary<string, ConsultationTool>(StringComparer.Ordinal);
+        var descriptors = new List<NhAiToolDescriptor>();
+        foreach (var consultation in consultations)
+        {
+            var policies = policiesOf(consultation);
+            var consult = CreateConsultDescriptor(catalogId, consultation, policies);
+            descriptors.Add(consult);
+            tools.Add(consult.Id, new ConsultationTool(consultation, false, consult.ContractHash));
+            if (consultation.AllowRequests)
+            {
+                var request = CreateRequestDescriptor(catalogId, consultation, policies);
+                descriptors.Add(request);
+                tools.Add(request.Id, new ConsultationTool(consultation, true, request.ContractHash));
+            }
+        }
+
+        var ordered = descriptors
+            .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
+            .ToArray();
+        var attestationHash = Hash(string.Join(
+            "\n",
+            ordered.Select(descriptor => descriptor.Id + "@"
+                + descriptor.Version.ToString(CultureInfo.InvariantCulture) + ":" + descriptor.ContractHash)));
+        var manifest = new NhAiToolCatalogManifest(
+            catalogId,
+            NhAssistantConsultationTools.ContractVersion,
+            attestationHash,
+            ordered
+                .Select(descriptor => new NhAiToolManifestEntry(
+                    descriptor.Id,
+                    descriptor.Version,
+                    descriptor.SchemaHash,
+                    descriptor.ContractHash)
+                {
+                    ExportName = descriptor.ExportName
+                })
+                .ToArray());
+        return new NhAssistantConsultationCatalogView(ordered, tools, manifest, lateBinding);
+    }
+
+    private AIFunction CreateFunction(NhAiToolDescriptor descriptor, ConsultationTool tool, IServiceProvider services)
+    {
+        var options = tool.Options;
+        var agentId = options.AgentId;
+        var subjectType = options.SubjectType;
+        var contractHash = descriptor.ContractHash;
+        var lateBinding = _lateBinding;
         AIFunction inner = tool.IsRequest
             ? AIFunctionFactory.Create(
                 (JsonElement input, CancellationToken cancellationToken) => InvokeAsync(
                     descriptor,
                     services,
                     input,
-                    (handler, context, token) => handler.RequestAsync(tool.Options, input, context, token),
+                    (handler, context, token) => lateBinding
+                        ? handler.RequestDataAsync(agentId, subjectType, contractHash, input, context, token)
+                        : handler.RequestAsync(options, input, context, token),
                     cancellationToken),
                 CreateFunctionOptions<NhAssistantAgentRequestReceipt>(descriptor))
             : AIFunctionFactory.Create(
@@ -79,7 +211,9 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
                     descriptor,
                     services,
                     input,
-                    (handler, context, token) => handler.ConsultAsync(tool.Options, input, context, token),
+                    (handler, context, token) => lateBinding
+                        ? handler.ConsultDataAsync(agentId, subjectType, contractHash, input, context, token)
+                        : handler.ConsultAsync(options, input, context, token),
                     cancellationToken),
                 CreateFunctionOptions<NhAssistantConsultationAnswer>(descriptor));
         return NhAiGovernedAIFunction.Create(
@@ -125,64 +259,22 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
         TypeInfoResolver = AIJsonUtilities.DefaultOptions.TypeInfoResolver
     };
 
-    private static CatalogModel Build(NhAssistantRegistrationState registration, NhAssistantOptions options)
-    {
-        var accessPolicy = NhAssistantEndpointOptions.ResolveAccessPolicy(registration, options);
-        var tools = new Dictionary<string, ConsultationTool>(StringComparer.Ordinal);
-        var descriptors = new List<NhAiToolDescriptor>();
-        foreach (var consultation in registration.AgentRuns.Values.SelectMany(run => run.Consultations))
-        {
-            var agent = registration.Agents.FirstOrDefault(item => string.Equals(item.Id, consultation.AgentId, StringComparison.Ordinal));
-            var policies = consultation.Policies.Count > 0
-                ? consultation.Policies
-                : [agent?.RequiredPolicy ?? accessPolicy];
-            descriptors.Add(CreateConsultDescriptor(consultation, policies));
-            tools.Add(consultation.ConsultToolId, new ConsultationTool(consultation, false));
-            if (consultation.AllowRequests)
-            {
-                descriptors.Add(CreateRequestDescriptor(consultation, policies));
-                tools.Add(consultation.RequestToolId, new ConsultationTool(consultation, true));
-            }
-        }
-
-        var ordered = descriptors
-            .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
-            .ToArray();
-        var attestationHash = Hash(string.Join(
-            "\n",
-            ordered.Select(descriptor => descriptor.Id + "@"
-                + descriptor.Version.ToString(CultureInfo.InvariantCulture) + ":" + descriptor.ContractHash)));
-        var manifest = new NhAiToolCatalogManifest(
-            CatalogId,
-            ContractVersion,
-            attestationHash,
-            ordered
-                .Select(descriptor => new NhAiToolManifestEntry(
-                    descriptor.Id,
-                    descriptor.Version,
-                    descriptor.SchemaHash,
-                    descriptor.ContractHash)
-                {
-                    ExportName = descriptor.ExportName
-                })
-                .ToArray());
-        return new CatalogModel(ordered, tools, manifest);
-    }
-
     private static NhAiToolDescriptor CreateConsultDescriptor(
+        string catalogId,
         NhAssistantConsultationOptions consultation,
         IReadOnlyList<string> policies)
     {
         var inputSchema = ObjectSchema(
             ("subjectId", StringSchema(NhAiSubjectRef.MaxIdLength, $"The id of the {consultation.SubjectType}, exactly as the application shows it.")),
-            ("question", StringSchema(MaxQuestionChars, "A self-contained question for the agent.")));
+            ("question", StringSchema(NhAssistantConsultationToolCatalog.MaxQuestionChars, "A self-contained question for the agent.")));
         var outputSchema = """{"type":"object","properties":{"consultationId":{"type":"string","format":"uuid"},"answer":{"type":"string"},"proposalCount":{"type":"integer"},"decision":{"type":["string","null"],"description":"asker when the person decides the proposal now in this conversation, subject when it waits for the subject approvers"},"approvalIds":{"type":"array","items":{"type":"string","format":"uuid"}}},"required":["consultationId","answer","proposalCount"]}""";
         var description = (consultation.Description is null ? string.Empty : consultation.Description + " ")
             + $"Ask the agent '{consultation.AgentId}' about one {consultation.SubjectType} and get its answer now. "
             + ProposalsText(consultation);
         return CreateDescriptor(
+            catalogId,
             consultation.ConsultToolId,
-            "consult_" + consultation.AgentId + "_" + consultation.SubjectType,
+            NhAssistantConsultationTools.ExportNameOf(false, consultation.AgentId, consultation.SubjectType),
             description,
             typeof(NhAssistantConsultationAnswer),
             NhAiToolEffect.ReadOnly,
@@ -217,18 +309,20 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
     }
 
     private static NhAiToolDescriptor CreateRequestDescriptor(
+        string catalogId,
         NhAssistantConsultationOptions consultation,
         IReadOnlyList<string> policies)
     {
         var inputSchema = ObjectSchema(
             ("subjectId", StringSchema(NhAiSubjectRef.MaxIdLength, $"The id of the {consultation.SubjectType}, exactly as the application shows it.")),
-            ("message", StringSchema(MaxRequestChars, "What the agent should work on.")));
+            ("message", StringSchema(NhAssistantConsultationToolCatalog.MaxRequestChars, "What the agent should work on.")));
         var outputSchema = """{"type":"object","properties":{"outcome":{"type":"string"},"runId":{"type":["string","null"],"format":"uuid"},"threadId":{"type":["string","null"],"format":"uuid"}},"required":["outcome","runId","threadId"]}""";
         var description = $"Ask the agent '{consultation.AgentId}' to work on one {consultation.SubjectType} in a run of its own. "
             + "It answers later in its thread about the " + consultation.SubjectType + ", and the person is notified.";
         return CreateDescriptor(
+            catalogId,
             consultation.RequestToolId,
-            "request_" + consultation.AgentId + "_" + consultation.SubjectType,
+            NhAssistantConsultationTools.ExportNameOf(true, consultation.AgentId, consultation.SubjectType),
             description,
             typeof(NhAssistantAgentRequestReceipt),
             NhAiToolEffect.IdempotentMutation,
@@ -245,6 +339,7 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
     }
 
     private static NhAiToolDescriptor CreateDescriptor(
+        string catalogId,
         string id,
         string exportName,
         string description,
@@ -258,7 +353,7 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
         var effectCode = effect.ToString();
         return new NhAiToolDescriptor(
             id,
-            ContractVersion,
+            NhAssistantConsultationTools.ContractVersion,
             NhAssistantContent.Bound(description, 1_024),
             typeof(JsonElement),
             outputType,
@@ -267,9 +362,9 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
             true,
             policies.ToArray())
         {
-            ExportName = ToBoundedExportName(exportName + "_v" + ContractVersion.ToString(CultureInfo.InvariantCulture)),
-            CatalogId = CatalogId,
-            CatalogVersion = ContractVersion,
+            ExportName = exportName,
+            CatalogId = catalogId,
+            CatalogVersion = NhAssistantConsultationTools.ContractVersion,
             DeclaringAssembly = typeof(NhAssistantConsultationToolCatalog).Assembly.GetName().Name ?? string.Empty,
             InputSchemaJson = inputSchema,
             OutputSchemaJson = outputSchema,
@@ -327,33 +422,13 @@ internal sealed class NhAssistantConsultationToolCatalog : INhAiAttestedToolCata
         return JsonSerializer.SerializeToElement(schema);
     }
 
-    /// <summary>
-    /// Keeps an export name within the 64 characters model providers accept, with a stable hash
-    /// suffix when it has to be shortened.
-    /// </summary>
-    private static string ToBoundedExportName(string value)
-    {
-        var name = value.Replace('.', '_');
-        if (name.Length <= MaxExportNameLength)
-        {
-            return name;
-        }
-
-        var suffix = Hash(name)[..12];
-        return name[..(MaxExportNameLength - suffix.Length - 1)].TrimEnd('_', '-') + "_" + suffix;
-    }
-
     private static string Hash(string value)
     {
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     }
 
-    private sealed record ConsultationTool(NhAssistantConsultationOptions Options, bool IsRequest);
-
-    private sealed record CatalogModel(
-        IReadOnlyList<NhAiToolDescriptor> Descriptors,
-        IReadOnlyDictionary<string, ConsultationTool> Tools,
-        NhAiToolCatalogManifest Manifest);
+    /// <param name="ContractHash">The contract hash of the tool's descriptor in this view.</param>
+    internal sealed record ConsultationTool(NhAssistantConsultationOptions Options, bool IsRequest, string ContractHash);
 
     /// <summary>
     /// Publishes the tool's input schema inside the shared <c>input</c> envelope instead of the
@@ -411,6 +486,55 @@ internal sealed class NhAssistantConsultationToolHandler(
     {
         UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow
     };
+
+    /// <summary>
+    /// Consults the agent under the consultation defined as data in effect now, when it still has the
+    /// contract the calling function was built with; a removed or changed consultation fails closed.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantConsultationAnswer>> ConsultDataAsync(
+        string agentId,
+        string subjectType,
+        string contractHash,
+        JsonElement input,
+        NhAiInvocationContext context,
+        CancellationToken cancellationToken)
+    {
+        if (ResolveData(agentId, subjectType, request: false, contractHash) is not { } options)
+        {
+            return TaskResult<NhAssistantConsultationAnswer>.Failed(
+                NhAssistantErrorCodes.ConsultAgentUnavailable,
+                "The agent cannot be consulted this way any more.");
+        }
+
+        return await ConsultAsync(options, input, context, cancellationToken);
+    }
+
+    /// <summary>
+    /// Requests the agent's work under the consultation defined as data in effect now; see
+    /// <see cref="ConsultDataAsync"/>.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantAgentRequestReceipt>> RequestDataAsync(
+        string agentId,
+        string subjectType,
+        string contractHash,
+        JsonElement input,
+        NhAiInvocationContext context,
+        CancellationToken cancellationToken)
+    {
+        if (ResolveData(agentId, subjectType, request: true, contractHash) is not { } options)
+        {
+            return TaskResult<NhAssistantAgentRequestReceipt>.Failed(
+                NhAssistantErrorCodes.ConsultAgentUnavailable,
+                "The agent cannot be asked this way any more.");
+        }
+
+        return await RequestAsync(options, input, context, cancellationToken);
+    }
+
+    private NhAssistantConsultationOptions? ResolveData(string agentId, string subjectType, bool request, string contractHash)
+    {
+        return services.GetService<NhAssistantDataConsultationToolCatalog>()?.Resolve(agentId, subjectType, request, contractHash);
+    }
 
     public async Task<TaskResult<NhAssistantConsultationAnswer>> ConsultAsync(
         NhAssistantConsultationOptions options,
