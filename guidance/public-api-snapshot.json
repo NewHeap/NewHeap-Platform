@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.82",
   "backEnd": {
-    "hash": "c38fcb52420605e1ac7d8beedf2fd6b8f505c1f3c757bd69d60a4b18b4d5855b",
-    "declarationCount": 10229,
+    "hash": "35be20ed252590c36f4cccd5ef3781e846754637053d1c045883fc349a76dbc1",
+    "declarationCount": 10289,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2627,6 +2627,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public DateTimeOffset? ExecutionReportDueAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
         "declaration": "public string? StaleKind { get; init; }"
       },
       {
@@ -3274,6 +3278,18 @@
         "declaration": "public async Task<IReadOnlyList<NhAssistantWatchedWork>> WatchableAsync( string actorId, string? tenantId, CancellationToken cancellationToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
+        "declaration": "public async Task HandOffAsync( AssistantApproval approval, AssistantThread thread, NhAiProposal proposal, NhAssistantApplicationExecution execution, IReadOnlyCollection<string> fromStatuses, Guid operationId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantExecutionReportReceipt>> ReportExecutionAsync( NhAssistantExecutionReport report, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
+        "declaration": "public async Task<int> ExpireReportsAsync(DateTimeOffset now, int maximum, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantBoardEndpoints.cs",
         "declaration": "public static void Map(RouteGroupBuilder group) {"
       },
@@ -3599,7 +3615,27 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
-        "declaration": "public async Task<TaskResult<AssistantApproval>> ResolveExecutionAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool reExecute, string? reason, CancellationToken cancellationToken, string? tenantId = null)"
+        "declaration": "public async Task<TaskResult<AssistantApproval>> ResolveExecutionAsync( Guid approvalId, string actorId, ClaimsPrincipal user, NhAssistantExecutionResolution resolution, string? reason, CancellationToken cancellationToken, string? tenantId = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public const string ReExecute = \"re-execute\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public const string MarkResolved = \"mark-resolved\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public const string HandToApplication = \"hand-to-application\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public static bool TryParse(string? action, out NhAssistantExecutionResolution resolution) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public static string Of(NhAssistantExecutionResolution resolution) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
@@ -5667,6 +5703,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+        "declaration": "public const string AgentExecutionReported = \"agent-execution-reported\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
         "declaration": "public const string AgentRunProposals = \"agent-run-proposals\";"
       },
       {
@@ -6410,6 +6450,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261023185335_ApplicationExecutions.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261023185335_ApplicationExecutions.cs",
+        "declaration": "public partial class ApplicationExecutions : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261023185335_ApplicationExecutions.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261023185335_ApplicationExecutions.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -7147,6 +7203,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023153150_AgentMetadata.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023185328_ApplicationExecutions.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023185328_ApplicationExecutions.cs",
+        "declaration": "public partial class ApplicationExecutions : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023185328_ApplicationExecutions.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023185328_ApplicationExecutions.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -9052,6 +9124,110 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
         "declaration": "public async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> ListAsync( IReadOnlyCollection<string>? agentIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public interface INhAssistantProposalExecutor {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public sealed record NhAssistantProposalHandOff( Guid ApprovalId, NhAiProposal Proposal, string DecidedByActorId, DateTimeOffset DecidedAt, string AgentId, NhAiSubjectRef Subject, string? TenantId, int Attempt, DateTimeOffset ReportDueAt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public Guid ProposalId => Proposal.ProposalId;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public string ProposalHash => Proposal.ProposalHash;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public string ToolId => Proposal.ToolId;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public interface INhAssistantProposalExecutionReports {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public enum NhAssistantExecutionOutcome {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public sealed partial record NhAssistantExecutionReport( Guid ApprovalId, string ProposalHash, NhAssistantExecutionOutcome Outcome, string Code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public const int MaxCodeLength = 64;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public const int MaxSummaryLength = 2_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public string? Summary { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public string? TenantId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public static NhAssistantExecutionReport For( NhAssistantProposalHandOff handOff, NhAssistantExecutionOutcome outcome, string code, string? summary = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public static bool IsValidCode(string? code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public sealed record NhAssistantExecutionReportReceipt(Guid ApprovalId, string Status, bool Duplicate);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public static class NhAssistantApplicationExecutionCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public const string Completed = \"completed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public const string NeedsAttention = \"needs-attention\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public const string Failed = \"failed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public const string HandedOff = \"handed-off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public const string HandOffFailed = \"hand-off-failed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public const string HandOffRefused = \"hand-off-refused\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public const string ReportOverdue = \"report-overdue\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public static string Of(NhAssistantExecutionOutcome outcome) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public static string StatusOf(NhAssistantExecutionOutcome outcome) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public static readonly TimeSpan MaxReportWithin = TimeSpan.FromDays(90);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantClassificationChecks.cs",
@@ -11799,6 +11975,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
+        "declaration": "public DateTimeOffset? ExecutionReportDueAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
         "declaration": "public int RemindersSent { get; set; }"
       },
       {
@@ -12959,6 +13139,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder ExecuteInApplication(string toolId, TimeSpan reportWithin) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseProposalExecutor<TExecutor>() where TExecutor : class, INhAssistantProposalExecutor {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddProposalRevalidation<TEvent>(Action<NhAssistantRevalidationBuilder<TEvent>> configure) where TEvent : class {"
       },
       {
@@ -13208,6 +13396,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public void AddRevalidation(NhAssistantRevalidationDefinition revalidation) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public IReadOnlyDictionary<string, NhAssistantApplicationExecution> ApplicationExecutions => _applicationExecutions;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public void AddApplicationExecution(NhAssistantApplicationExecution execution) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public bool TryGetApplicationExecution( string toolId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out NhAssistantApplicationExecution? execution) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -13503,6 +13703,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ApplicationExecutes = \"application-executes\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public static class NhAssistantQueuedInputKinds {"
       },
       {
@@ -13708,6 +13912,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string ExecutionUnknown = \"execution-unknown\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string AwaitingApplication = \"awaiting-application\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -14220,6 +14428,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string ExecutionNotUncertain = \"assistant-execution-not-uncertain\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ExecutionReportNotAwaited = \"assistant-execution-report-not-awaited\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ExecutionReportInvalid = \"assistant-execution-report-invalid\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -15324,6 +15540,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public string? IdempotencyKey { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? ExecutionOutcome { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? ExecutionCode { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -17375,6 +17599,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantApproval>> GetOverdueExecutionReportsAsync( DateTimeOffset now, int maximum, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<IReadOnlyList<AssistantApproval>> GetDueRemindersAsync( DateTimeOffset now, int maximum, CancellationToken cancellationToken) {"
       },
       {
@@ -17471,7 +17699,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public bool ClearExecutedAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public string? ExecutionResultCode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public DateTimeOffset? ExecutionReportDueAt { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -17936,6 +18172,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
         "declaration": "public Task ProposalAsync( NhAssistantAuditEventKind kind, AssistantThread thread, AssistantApproval approval, string actorId, string resultCode, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public Task ProposalAsync( NhAssistantAuditEventKind kind, AssistantThread thread, AssistantApproval approval, string actorId, string resultCode, string? executionOutcome, string? executionCode, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
@@ -44754,7 +44994,16 @@
       "NhAssistantAgentMetadataRequest",
       "GetMetadataAsync",
       "SaveMetadataAsync",
-      "RemoveMetadataAsync"
+      "RemoveMetadataAsync",
+      "ExecuteInApplication",
+      "UseProposalExecutor",
+      "INhAssistantProposalExecutor",
+      "NhAssistantProposalHandOff",
+      "INhAssistantProposalExecutionReports",
+      "NhAssistantExecutionReport",
+      "NhAssistantExecutionOutcome",
+      "NhAssistantExecutionReportReceipt",
+      "NhAssistantApplicationExecutionCodes"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

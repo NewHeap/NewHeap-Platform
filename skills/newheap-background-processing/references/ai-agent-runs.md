@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
 
 ## Preferred approach
 
@@ -45,6 +45,40 @@ that clock, and an inline run's wait expires on it too. `CreatedAt`, which propo
 guards receive as `ProposedAt`, executions and audit events keep the system clock.
 A test lets a proposal expire by moving its clock past the lifetime instead of
 shortening it or waiting.
+
+When the application itself executes what a tool proposes, for example an order that a purchasing
+system's supplier confirms hours later, declare the tool with `ExecuteInApplication(toolId, reportWithin)`
+and register the application's `INhAssistantProposalExecutor` with `UseProposalExecutor<TExecutor>()`;
+startup fails when a declared tool has no executor. The declaration is opt-in per tool, so every other
+tool keeps executing in its function. A run or a consultation always leaves a proposal of a declared tool
+deferred, at its subject, because the application's result never reaches a waiting turn; only a person's
+own turn, a chat or a request in an agent thread, still approves it inline and runs the function. Once a
+person approves it, through the decision endpoints, `INhAssistantProposalDecisionService` or a
+consultation's proposal at its subject, the checks of every execution run (the subject version under
+`RequireUnchangedSubject` and the proposal guards), the proposal becomes `awaiting-application` with
+`ExecutionReportDueAt`, and `ExecuteAsync` receives an `NhAssistantProposalHandOff`: the approval id,
+the approved `NhAiProposal` with its arguments and hash, the approver, the agent, the subject, the
+thread's tenant, the attempt and the report deadline. Accept the work and return; key it by the approval
+id, because an approver may hand the same proposal over again. A failed result refuses it
+(`execution-failed` with the result's code), and an exception leaves it `execution-unknown`
+(`hand-off-failed`). Report with `INhAssistantProposalExecutionReports.ReportExecutionAsync`, built with
+`NhAssistantExecutionReport.For(handOff, outcome, code, summary)`: `NhAssistantExecutionOutcome.Completed`
+closes the proposal as `executed`, `Failed` as `execution-failed` and `NeedsAttention` as
+`execution-unknown`, each with the application's dash-case code of at most 64 characters as its
+execution result. The content-free audit records `AgentProposalHandedToApplication` and then
+`AgentProposalExecuted` with `ExecutionOutcome` and `ExecutionCode`, never the summary; the approvers are
+notified (`NhAssistantAgentNotificationKind.ExecutionReported`, or `ExecutionUnknown` for a report that
+needs attention); the summary of at most 2,000 characters is posted into the agent's thread as an
+application message without the trusted flag, which the follow-up run reads as information, never as
+instructions; and the follow-up run starts with the outcome and the code when the policy asks for one,
+once per hand-off. A report reaches only a proposal of its `TenantId`, or of the whole application for a
+reporter without a tenant or of the single-tenant mode's tenant; any other reads as
+`assistant-approval-not-found`. The same report again returns the proposal with `Duplicate`, and a report
+on a proposal that does not wait for one is `assistant-execution-report-not-awaited`. Without a report
+before the deadline, on the application's clock, the maintenance job makes the proposal
+`execution-unknown` (`report-overdue`) and tells the approvers, who resolve it with
+`hand-to-application` or `mark-resolved`; `re-execute` is refused for it, as `hand-to-application` is for
+a proposal the application does not execute.
 
 A proposal that nobody decided in time expires, and the policy's `OnExpiry` says what
 happens to its run. `NhAiApprovalExpiryAction.FailRun` fails the run with
@@ -1258,6 +1292,12 @@ entry's name and the version only.
   transaction; it reads `deferred` until the commit.
 - Treating `execution-unknown` as failed and executing a non-idempotent tool
   again automatically.
+- Waiting for an asynchronous system inside a tool's function, or polling it from an agent run, instead of
+  declaring the tool with `ExecuteInApplication` and reporting through
+  `INhAssistantProposalExecutionReports` when the system answers.
+- Starting the work of a hand-off twice for one approval id, reporting without the hand-off's
+  `TenantId`, putting free text or people's data into a report's code, or putting into its summary what
+  the model must follow; the summary is information, the code goes to the audit.
 - Cancelling an agent run's background operation to stop the run instead of `POST runs/{id}/cancel`.
 - Accepting unsigned webhook calls, sharing one secret between triggers, or passing
   free text from a webhook body to the agent as instructions.
@@ -1654,7 +1694,14 @@ it now; that a caller of another tenant and a person without the agent's view po
 without the mode the same people neither see the work nor decide, resolve, start, open or read it by id
 (also through the decision service), while an operator without a tenant who passes the policies does;
 and that startup refuses another fixed tenant or a tenant claim.
-SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304 and SPM-310 are the
+For a tool the application executes, on both providers assert that an approved proposal is handed over
+with its payload, hash, approver and deadline and waits as `awaiting-application` without running the
+tool's function, that each outcome closes it with its status and code, that the audit carries the outcome
+and code but never the summary, that the summary reaches the thread without the trusted flag, that the
+same report again is a duplicate and a late one is refused, that a report of another tenant reads as
+unknown, that the deadline makes it `execution-unknown` and `hand-to-application` hands it over again
+with a higher attempt, and that a host that declares such a tool without an executor does not start.
+SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304, SPM-310 and SPM-314 are the
 executable references.
 
 ## Optional source evidence

@@ -309,7 +309,8 @@
     "SPM-310",
     "SPM-311",
     "SPM-312",
-    "SPM-313"
+    "SPM-313",
+    "SPM-314"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2941,6 +2942,27 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/metadata/nh-assistant-agent-metadata-slot.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-metadata.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-metadata.ts"
+    ],
+    "SPM-314": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiEquipmentTools.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023185328_ApplicationExecutions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261023185335_ApplicationExecutions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApplicationExecutionTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-application-execution.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-proposals.ts"
     ]
   }
 }
