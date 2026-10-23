@@ -2,7 +2,8 @@
   <header class="section-header">
     <div>
       <h3 id="nh-assistant-agent-inbox-title">{{ 'nh-assistant.agent-runs.inbox.title' | translate }}</h3>
-      <p class="muted">{{ 'nh-assistant.agent-runs.inbox.description' | translate }}</p>
+      <!-- The order the description names follows the view: groups by their first expiry, or proposals by expiry. -->
+      <p class="muted" data-inbox-description>{{ (grouped() ? 'nh-assistant.agent-runs.inbox.description-grouped' : 'nh-assistant.agent-runs.inbox.description') | translate }}</p>
       @if (items().length > 0) {
         @if (previousVisit(); as visitedAt) {
           <p class="muted" data-inbox-last-visit>{{ 'nh-assistant.agent-runs.inbox.last-visit' | translate: { date: (visitedAt | date: 'medium') } }}</p>

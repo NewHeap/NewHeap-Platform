@@ -1838,6 +1838,7 @@
       "inbox": {
         "title": "Proposals to decide",
         "description": "Proposals of agents that wait for your decision, the ones that expire first on top.",
+        "description-grouped": "Proposals of agents that wait for your decision, grouped by object; the group with the proposal that expires first is on top.",
         "empty": "No proposals wait for you.",
         "select": "Select this proposal",
         "select-all": "Select all",

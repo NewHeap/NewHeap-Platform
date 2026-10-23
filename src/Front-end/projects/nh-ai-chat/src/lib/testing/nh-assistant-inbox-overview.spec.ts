@@ -237,6 +237,19 @@ describe('the inbox overview', () => {
       expect(api.getInbox.calls.mostRecent().args[0]).toEqual(jasmine.objectContaining({ runId: 'run-7', grouped: true, page: 1 }));
     });
 
+    it('describes the order of the view it shows: proposals by expiry, or groups by their first expiry', () => {
+      api.getInbox.and.returnValue(of({ items: [proposal('a')], total: 1 }));
+      const fixture = TestBed.createComponent(InboxHostComponent);
+      fixture.detectChanges();
+      const element = fixture.nativeElement as HTMLElement;
+      const description = () => text(element.querySelector('[data-inbox-description]'));
+      expect(description()).toBe('nh-assistant.agent-runs.inbox.description');
+
+      fixture.componentInstance.grouped.set(true);
+      fixture.detectChanges();
+      expect(description()).toBe('nh-assistant.agent-runs.inbox.description-grouped');
+    });
+
     it('shows a header per group and per subject, how many it shows of the group, and that a group goes on', () => {
       const own = proposal('own', { subjectType: 'project', subjectId: 'apollo', subjectDisplayName: 'Apollo', subjectTypeName: 'Project' });
       const first = proposal('first', { parent: apollo, runId: 'run-1' });
