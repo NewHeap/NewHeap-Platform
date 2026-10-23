@@ -9,8 +9,12 @@ sample cases SPM-305, SPM-310 and SPM-312 are authoritative for usage.
 ## Status
 
 Implemented on 2026-10-23 on branch `feature/chat-feedback`, with sample case SPM-312 added and
-SPM-305 and SPM-310 extended. The choices below wait for Lars's review. FB11 and FB13, the two
-known races, are closed on branch `fix/sequence-lock-and-shadow-test`.
+SPM-305 and SPM-310 extended. FB11 and FB13, the two known races, are closed on branch
+`fix/sequence-lock-and-shadow-test`.
+
+Decided by Lars, 2026-10-23: every choice from FB1 to FB14 is **Decided** (see the decision record).
+Lars kept FB5, FB6, FB9, FB11, FB13's lock timeout and FB14 as built, and asked for changes to FB1,
+FB2, FB3, FB4, FB7, FB8, FB10, FB12 and FB13's live updates; those changes are not built yet.
 
 ## 1. Uploads without a usable file type
 
@@ -129,3 +133,22 @@ Built: `nh-assistant-agent-inbox` shows `nh-assistant.agent-runs.inbox.descripti
 the proposal that expires first is on top.", with the Dutch translation Lars gave. The flat inbox
 keeps its text. The board and the subject suggestions show other texts and do not group, so
 they stay as they are.
+
+## Decision record
+
+| Choice | Decision | To build |
+|---|---|---|
+| FB1 | (b) An application can map its own extensions: `NhAssistantUploadOptions.MapExtension(extension, mediaType)`. | The server's derivation uses the mapping; the upload rules give it to the composer, so client and server derive alike. |
+| FB2 | Kept, plus `text/xml` as an alias of `.xml`: browsers send `text/xml`, the table names `application/xml`. | The alias in the server's and the client's table, with tests. |
+| FB3 | Kept. | The release notes' breaking change also says that an application that accepts both types now receives a `.csv` as `text/csv` instead of `application/vnd.ms-excel`. |
+| FB4 | (b) Text types are refused when their content starts with a known binary signature. | For `text/*`, `application/json` and `application/xml`: OLE2 (`D0 CF 11 E0`), ZIP, PDF, PNG, JPEG and GIF. No NUL-byte check, which would refuse UTF-16 text. Also a fix found in the review: `.pptx` gets the ZIP signature check that `.docx` and `.xlsx` have, so FB2's ZIP aliases hold for it. |
+| FB5 | Kept. | — |
+| FB6 | Kept. | — |
+| FB7 | (b) An opt-in `NhAssistantApplicationMessage.Trusted`: the model follows a trusted message as the application's instruction; the application guarantees that it carries no user-generated data. | Its own marker and sentence for the model, the flag in the `application` part (no migration), the flag in the audit, MCP snapshots still leave application messages out, and guidance and release notes warn against user data in trusted text. |
+| FB8 | (b) Text stays Markdown; a public `NhAssistantMarkdown.Escape(string)` lets applications put user data into it without formatting. | The helper, its tests and guidance. |
+| FB9 | Kept. | — |
+| FB10 | (b) Web Push and, when the application turned on in-app agent notifications (`UseInAppAgentNotifications`), an in-app message through `INhUserNotificationSink`, for chats and threads alike; no new agent notification kind. | Its own category, one group per conversation, a fixed text without the message, the recipient's culture from `INhActorDirectory`, never for a shadow thread; `ResultCode` `notified` covers both. |
+| FB11 | Kept: a repeated key returns the earlier message with `Duplicate`, whatever its content. | — |
+| FB12 | The access choice is required: a post names `ReadableBy(person)` or explicitly `WithoutPersonCheck()`, otherwise `assistant-message-invalid`; the rest as built. Not breaking, the API is not released yet. | The builder methods, the check, the sample and its test, guidance. |
+| FB13 | Lock timeout kept: after 15 seconds the message is not stored (`TimeoutException`). Live updates changed: a tab that streams a turn applies `message.created` meanwhile. | The client places an application's or a colleague's message that arrives during the turn before the answer that is still being written, where its sequence number puts it. |
+| FB14 | Kept: 70. | The audit carries FB7's trusted flag. |
