@@ -3036,6 +3036,99 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task SPM_314_the_order_desk_executes_an_approved_equipment_order_and_reports_how_the_supplier_answered()
+    {
+        // SPM-314: the application executes approved equipment orders itself and reports within eight hours.
+        var project = await host.CreateProjectAsync("EQUIP", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var desk = host.Services.GetRequiredService<SampleEquipmentOrderDesk>();
+
+        var conversationId = await StartIntakeReviewerAsync(participant, project, $"Please order 3 laptops for project {project:D}.");
+        var proposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        Assert.Equal(NhAssistantApprovalModes.Deferred, proposal.Mode);
+        Assert.Null(proposal.ExecutionReportDueAt);
+        Assert.DoesNotContain(desk.Orders, order => order.ProjectId == project);
+
+        // Approved, the proposal goes to the order desk instead of the tool's function and waits for its report.
+        Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, proposal, "approve")).StatusCode);
+        var waiting = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.AwaitingApplication, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        Assert.InRange(
+            waiting.ExecutionReportDueAt!.Value - host.Clock.GetUtcNow(),
+            SampleEquipmentOrderComposition.ReportWithin - TimeSpan.FromMinutes(1),
+            SampleEquipmentOrderComposition.ReportWithin);
+        var order = Assert.Single(desk.Orders, item => item.ProjectId == project);
+        Assert.Equal((3, "laptops"), (order.Quantity, order.Item));
+        Assert.Equal(
+            (waiting.ApprovalId, waiting.ProposalHash, host.ColleagueId.ToString(), 1),
+            (order.HandOff!.ApprovalId, order.HandOff.ProposalHash, order.HandOff.DecidedByActorId, order.HandOff.Attempt));
+
+        // The supplier confirms: the desk reports, and the proposal closes with the supplier's code.
+        var reported = await desk.ConfirmAsync(order.OrderNumber, NhAssistantExecutionOutcome.Completed, "order-placed");
+        Assert.True(reported.Success);
+        Assert.Equal(NhAssistantApprovalStatuses.Executed, reported.Data!.Status);
+        var executed = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Executed, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        Assert.Equal("order-placed", executed.ExecutionResultCode);
+        // People of the thread read the desk's summary as a message of the application, its Markdown escaped.
+        var thread = await ReadConversationAsync(colleague, conversationId);
+        Assert.Contains(thread.Messages, message => message.Role == NhAssistantMessageRoles.Application
+            && TextOf(message).Contains(NhAssistantMarkdown.Escape(order.OrderNumber), StringComparison.Ordinal));
+        // A confirmation the supplier sends twice is the same report.
+        Assert.True((await desk.ConfirmAsync(order.OrderNumber, NhAssistantExecutionOutcome.Completed, "order-placed")).Data!.Duplicate);
+
+        // A second order the supplier does not confirm in time becomes uncertain on the application's
+        // clock; a project approver hands it to the order desk again, which keeps its order number.
+        var second = await StartIntakeReviewerAsync(participant, project, $"Please order 2 monitors for project {project:D}.");
+        var pending = await WaitForProposalAsync(colleague, second, NhAssistantApprovalStatuses.Pending, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, pending, "approve")).StatusCode);
+        await WaitForProposalAsync(colleague, second, NhAssistantApprovalStatuses.AwaitingApplication, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        var monitors = Assert.Single(desk.Orders, item => item.HandOff?.ApprovalId == pending.ApprovalId);
+
+        host.Clock.Advance(SampleEquipmentOrderComposition.ReportWithin);
+
+        var overdue = await WaitForProposalAsync(colleague, second, NhAssistantApprovalStatuses.ExecutionUnknown, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        Assert.Equal("report-overdue", overdue.ExecutionResultCode);
+        var late = await desk.ConfirmAsync(monitors.OrderNumber, NhAssistantExecutionOutcome.Completed, "order-placed");
+        Assert.Equal("assistant-execution-report-not-awaited", late.GetResultItems().First().Name);
+        var runAgain = await colleague.PostAsJsonAsync(
+            $"/api/assistant/approvals/{overdue.ApprovalId}/resolve",
+            new NhAssistantResolveExecutionRequest("re-execute", null),
+            Json);
+        Assert.Equal(HttpStatusCode.BadRequest, runAgain.StatusCode);
+        var handBack = await colleague.PostAsJsonAsync(
+            $"/api/assistant/approvals/{overdue.ApprovalId}/resolve",
+            new NhAssistantResolveExecutionRequest("hand-to-application", "The supplier lost the first order."),
+            Json);
+        Assert.Equal(HttpStatusCode.OK, handBack.StatusCode);
+        await WaitForProposalAsync(colleague, second, NhAssistantApprovalStatuses.AwaitingApplication, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        var again = Assert.Single(desk.Orders, item => item.HandOff?.ApprovalId == pending.ApprovalId);
+        Assert.Equal((monitors.OrderNumber, 2), (again.OrderNumber, again.HandOff!.Attempt));
+        Assert.True((await desk.ConfirmAsync(again.OrderNumber, NhAssistantExecutionOutcome.Failed, "supplier-out-of-stock")).Success);
+        var failed = await WaitForProposalAsync(colleague, second, NhAssistantApprovalStatuses.ExecutionFailed, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        Assert.Equal("supplier-out-of-stock", failed.ExecutionResultCode);
+    }
+
+    /// <summary>
+    /// A participant starts the intake reviewer on the project with <paramref name="message"/>; the
+    /// agent's thread.
+    /// </summary>
+    private static async Task<Guid> StartIntakeReviewerAsync(HttpClient participant, Guid project, string message)
+    {
+        var started = await participant.PostAsJsonAsync(
+            "/api/assistant/threads/start",
+            new NhAssistantStartAgentRequest(
+                SampleIntakeReviewerComposition.AgentId,
+                ProjectSubjects.Type,
+                project.ToString("D"),
+                message),
+            Json);
+        Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+        return (await started.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!.ConversationId!.Value;
+    }
+
+    [Fact]
     public async Task A_signed_webhook_a_weekly_schedule_and_the_kill_switch_control_the_intake_reviewer()
     {
         // SPM-275
@@ -5091,6 +5184,8 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
     {
         services.AddSingleton<IProjectReviewRequestService>(Reviews);
         services.AddSampleIntakeReviewer();
+        // SPM-314: the order desk executes approved equipment orders, as in Program.cs.
+        services.AddSampleEquipmentOrders();
         services.AddSampleStatusAdvisor();
         // SPM-294: the closer answers to the technical account in configuration.
         services.AddSampleProjectCloser(TechnicalAccountId.ToString("D"));
