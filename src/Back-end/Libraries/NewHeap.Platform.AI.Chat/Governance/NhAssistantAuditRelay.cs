@@ -84,18 +84,31 @@ internal enum NhAssistantToolOutcomeKind
 }
 
 /// <summary>
-/// Content-free classification of a governed tool outcome.
+/// Content-free classification of a governed tool outcome. A failure that the audit records with its
+/// own result code, such as a refusal of the invocation gate or a missing capability, keeps that code;
+/// otherwise the outcome kind names it.
 /// </summary>
 internal sealed record NhAssistantToolOutcome(NhAssistantToolOutcomeKind Kind, string Code)
 {
     public static NhAssistantToolOutcome FromAudit(NhAiAuditRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
+        if (record.Outcome == NhAiOutcomeKind.Succeeded)
+        {
+            return new(NhAssistantToolOutcomeKind.Succeeded, "succeeded");
+        }
+        if (record.Outcome == NhAiOutcomeKind.ApprovalRequired && record.ApprovalCode is null)
+        {
+            // A missing approval becomes the proposal; it is no failure of its own.
+            return new(NhAssistantToolOutcomeKind.ApprovalMissing, NhAiToolFailureCodes.ApprovalRequired);
+        }
+        if (!string.IsNullOrWhiteSpace(record.ResultCode))
+        {
+            return new(NhAssistantToolOutcomeKind.Failed, record.ResultCode);
+        }
+
         return record.Outcome switch
         {
-            NhAiOutcomeKind.Succeeded => new(NhAssistantToolOutcomeKind.Succeeded, "succeeded"),
-            NhAiOutcomeKind.ApprovalRequired when record.ApprovalCode is null =>
-                new(NhAssistantToolOutcomeKind.ApprovalMissing, NhAiToolFailureCodes.ApprovalRequired),
             NhAiOutcomeKind.ApprovalRequired =>
                 new(NhAssistantToolOutcomeKind.Failed, NhAiToolFailureCodes.ApprovalInvalid),
             NhAiOutcomeKind.BudgetExhausted =>
@@ -108,8 +121,7 @@ internal sealed record NhAssistantToolOutcome(NhAssistantToolOutcomeKind Kind, s
                 new(NhAssistantToolOutcomeKind.Failed, record.IdempotencyCode ?? NhAiToolFailureCodes.ConcurrencyLimited),
             _ => new(
                 NhAssistantToolOutcomeKind.Failed,
-                record.ResultCode
-                    ?? (record.VerificationCode is not null ? NhAiToolFailureCodes.VerificationFailed : NhAiToolFailureCodes.Failed))
+                record.VerificationCode is not null ? NhAiToolFailureCodes.VerificationFailed : NhAiToolFailureCodes.Failed)
         };
     }
 }

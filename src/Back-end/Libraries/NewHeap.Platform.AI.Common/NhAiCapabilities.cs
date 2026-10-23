@@ -56,6 +56,21 @@ internal sealed class NhAiInvocationContextCapabilityResolver : INhAiCapabilityR
         return ValueTask.FromResult(CreateResolution(descriptor, context, grants, now));
     }
 
+    /// <summary>
+    /// Whether <paramref name="capabilities"/>, the capability grants an invocation context would
+    /// carry, cover every capability <paramref name="descriptor"/> requires: the comparison
+    /// <see cref="ResolveAsync"/> makes, by ordinal name and only for valid capability names. The
+    /// agent invocation gate chooses a source of rights only when its capabilities cover the tool's.
+    /// </summary>
+    internal static bool Covers(NhAiToolDescriptor descriptor, IReadOnlySet<string> capabilities)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        ArgumentNullException.ThrowIfNull(capabilities);
+        return descriptor.RequiredCapabilities.All(required =>
+            NhAiNames.IsSegment(required)
+            && capabilities.Contains(required));
+    }
+
     internal static NhAiCapabilityResolution CreateResolution(
         NhAiToolDescriptor descriptor,
         NhAiInvocationContext context,
