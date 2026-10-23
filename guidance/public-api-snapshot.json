@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.81",
   "backEnd": {
-    "hash": "f9c2df3e92006c98bdf6bd1e59bbc4b3769006211ef2afcf7621ad505cb87cef",
-    "declarationCount": 10021,
+    "hash": "8308ad651ca512ea583a8af3877f70e2a1aa41edac85ded2f0c52f3af961ea82",
+    "declarationCount": 10026,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4687,7 +4687,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantAgentUploadsDto( IReadOnlyList<string> AcceptedMediaTypes, int MaxFileBytes, int MaxFiles);"
+        "declaration": "public sealed record NhAssistantAgentUploadsDto( IReadOnlyList<string> AcceptedMediaTypes, int MaxFileBytes, int MaxFiles) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public IReadOnlyList<NhAssistantUploadExtensionDto> MappedExtensions { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantUploadExtensionDto( string Extension, string MediaType);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -14395,6 +14403,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public const int MaxMappedExtensions = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
         "declaration": "public NhAiDataClassification DefaultClassification { get; set; } = NhAiDataClassification.Confidential;"
       },
       {
@@ -14404,6 +14416,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
         "declaration": "public NhAssistantUploadOptions AcceptMediaTypes(params string[] mediaTypes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public IReadOnlyDictionary<string, string> MappedExtensions => _extensions;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public NhAssistantUploadOptions MapExtension(string extension, string mediaType) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
@@ -19047,7 +19067,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
-        "declaration": "public static string? Resolve(string fileName, string? declared, IReadOnlyList<string> accepted) {"
+        "declaration": "public static string? Resolve( string fileName, string? declared, IReadOnlyList<string> accepted, IReadOnlyDictionary<string, string>? mappedExtensions = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Snapshots/NhAssistantConversationSnapshots.cs",
@@ -44071,6 +44091,7 @@
       "ConfigureUploads",
       "NhAssistantUploadOptions",
       "NhAssistantAgentUploadsDto",
+      "NhAssistantUploadExtensionDto",
       "NhAssistantFilePartDto",
       "INhAssistantUploadScanner",
       "UseScanner",
@@ -44603,6 +44624,7 @@
       "NhAssistantComposerComponent",
       "NhAssistantAttachment",
       "AgentUploads",
+      "AgentUploadExtension",
       "FileReference",
       "FilePart",
       "NhAssistantUploadEvent",
