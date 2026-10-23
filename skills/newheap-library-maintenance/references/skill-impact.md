@@ -17,6 +17,8 @@ Update the closest atomic rule. Its frontmatter must name implemented sample cas
 
 Add a new rule only when the behavior has a distinct trigger or verification boundary. Do not create one large wiki page: the generator groups atomic rules into task-oriented references so an agent can load only what it needs.
 
+A new `reference` value, or a skill added to a rule's `skills`, generates a reference for each module named. Link it from that module's hand-written `SKILL.md` with a short note on when to read it; `npm run guidance:validate` fails for a generated reference that its module's router does not link.
+
 Any change to consumer rules, the canonical consumer skill suite, its portable installer or its executable case contract is a distributable guidance change. Keep `guidance/version.json`, the `newheap-platform` plugin manifest and `release/manifest.json` on the last published version throughout feature review. Regeneration updates the suite content hash and package compatibility metadata without stamping a future release across every skill reference. The protected `Prepare release` workflow is the only normal writer of the next semantic version and refreshes the centralized immutable-evidence catalog in its generated release commit. CI rejects manual version edits outside that release path.
 
 If a public change is truly internal and has no observable impact, the snapshot may change without a new consumer rule only when the declaration itself is not consumer-facing. Record deliberate exceptions in `guidance/impact-exceptions.json` with scoped path prefixes, an owner, rationale and expiry; permanent blanket exceptions are invalid.
