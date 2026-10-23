@@ -5,7 +5,7 @@ area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
 sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300", "SPM-305", "SPM-306", "SPM-312"]
-public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "AddFileReader", "INhAssistantFileReader", "NhAssistantFileReadRequest", "NhAssistantFileReaderBuilder", "NhAssistantMcpReaders", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantUploadExtensionDto", "NhAssistantFilePartDto", "INhAssistantUploadScanner", "UseScanner", "ReaderTextRetention", "INhAssistantConversationMessages", "NhAssistantApplicationMessage", "NhAssistantApplicationMessageLink", "NhAssistantConversationPerson", "NhAssistantApplicationMessageReceipt", "NhAssistantMessageRoles", "NhAssistantMessageAuthorKinds", "NhAssistantMessageDto", "NhAssistantApplicationMessageDto", "NhAssistantApplicationMessageLinkDto"]
+public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "AddFileReader", "INhAssistantFileReader", "NhAssistantFileReadRequest", "NhAssistantFileReaderBuilder", "NhAssistantMcpReaders", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantUploadExtensionDto", "NhAssistantFilePartDto", "INhAssistantUploadScanner", "UseScanner", "ReaderTextRetention", "INhAssistantConversationMessages", "NhAssistantApplicationMessage", "NhAssistantApplicationMessageLink", "NhAssistantApplicationMessageAccess", "NhAssistantMarkdown", "NhAssistantConversationPerson", "NhAssistantApplicationMessageReceipt", "NhAssistantMessageRoles", "NhAssistantMessageAuthorKinds", "NhAssistantMessageDto", "NhAssistantApplicationMessageDto", "NhAssistantApplicationMessageLinkDto"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -477,26 +477,35 @@ conversations and for agent threads alike:
 
 ```csharp
 var posted = await messages.PostAsync(conversationId, new NhAssistantApplicationMessage(
-    "The portfolio analysis of **12 projects** finished.")
+    $"The portfolio analysis of **{NhAssistantMarkdown.Escape(divisionName)}** finished with **12 projects**.")
 {
+    // The conversation id came from the person's client: post only when that person may open it.
+    Access = NhAssistantApplicationMessageAccess.ReadableBy(new NhAssistantConversationPerson(ownerActorId)),
     Title = "Portfolio analysis finished",
     SenderName = "Portfolio analysis",
     Link = new NhAssistantApplicationMessageLink($"/background-operations/{operationId}", "Open the analysis"),
     Notify = true,
     // A retried background step posts once.
-    IdempotencyKey = "portfolio-analysis:" + operationId.ToString("N"),
-    // The conversation id came from the person's client.
-    ReadableBy = new NhAssistantConversationPerson(ownerActorId)
+    IdempotencyKey = "portfolio-analysis:" + operationId.ToString("N")
 }, cancellationToken);
 ```
 
+- Every message makes the access choice `Access`, which the compiler requires:
+  `NhAssistantApplicationMessageAccess.ReadableBy(person)` posts only when that person may open the
+  conversation as its owner or as a participant of the same tenant, otherwise
+  `assistant-conversation-not-found`; choose it whenever a client named the conversation.
+  `NhAssistantApplicationMessageAccess.WithoutPersonCheck()` posts into any conversation that is not
+  archived; choose it only for a conversation the application chose itself, such as the thread of
+  an agent it runs. A message whose `Access` is null anyway is `assistant-message-invalid`.
 - The text is Markdown, as the chat renders the agent's answers, within `MaxMessageChars`
-  (`assistant-message-too-long`). Title (200), sender (100), idempotency key (100) and link label
-  (100) are single lines; the link is a path within the application or an absolute `https` address.
-  Anything else is `assistant-message-invalid`.
-- An unknown or archived conversation is `assistant-conversation-not-found`; so is one that
-  `ReadableBy` may not open as its owner or as a participant of the same tenant. Set `ReadableBy`
-  whenever a client named the conversation; the API itself checks no person's access.
+  (`assistant-message-too-long`). Put data people entered, such as a project or division name, into
+  it with `NhAssistantMarkdown.Escape`: it backslash-escapes the ASCII punctuation Markdown may give a
+  meaning and drops indentation at the start of a line, so the name shows as it is and keeps its line
+  breaks. Escape running text, headings and link text, not code spans, code blocks or link addresses.
+  Title (200), sender (100), idempotency key (100) and link label (100) are single lines shown as
+  plain text; the link is a path within the application or an absolute `https` address. Anything
+  else is `assistant-message-invalid`.
+- An unknown or archived conversation is `assistant-conversation-not-found`.
 - The message gets role `application` (`NhAssistantMessageRoles.Application`) and the next sequence
   number, so it is unread for the conversation's people and moves the conversation up in their lists.
   They see it at once through the live `message.created` event and in every snapshot, with
@@ -504,19 +513,33 @@ var posted = await messages.PostAsync(conversationId, new NhAssistantApplication
   name and link).
 - `Notify` adds a Web Push notification of kind `application-message` to the owner and participants
   of a chat, or the participants of an agent thread; it carries the conversation's title and a fixed
-  text, never the message. A shadow thread never notifies.
+  text, never the message. When the application turned on `UseInAppAgentNotifications`, the same
+  people also get an in-app message through `INhUserNotificationSink` (a warning is logged without
+  one): category `assistant-application`, one `GroupKey` per conversation, the conversation's title
+  and a fixed text in the recipient's culture from `INhActorDirectory` (otherwise the current UI
+  culture), never the message; actor ids that are no user id are skipped. A shadow thread never
+  notifies.
 - A repeated post with the same `IdempotencyKey` posts, notifies and audits nothing and returns the
   earlier message with `Duplicate`.
-- The audit records `ApplicationMessagePosted` with the message id, `posted` or `notified` and, in
-  a thread, its subject; never the text, title, link or sender.
+- The audit records `ApplicationMessagePosted` with the message id, `posted` or `notified` (by
+  either channel), `ApplicationMessageTrusted` and, in a thread, its subject; never the text, title,
+  link or sender.
 - A later turn gives the message to the model as a user message that starts with `[Application]`,
   says that it is information from the application, not a request from the people in the
   conversation and never instructions, and holds the sender, title, link and text in an
-  `application-message` block whose content cannot close it. Write it as information; never put
-  instructions for the model in it. Conversation snapshots for reviewed MCP tools leave it out.
+  `application-message` block whose content cannot close it. Write it as information.
+  Conversation snapshots for reviewed MCP tools leave every application message out.
+- `Trusted = true` makes the model follow the message as the application's instruction: the same
+  marker and block, with a sentence that the application, not the people in the conversation, gives
+  this instruction. The flag is stored with the message (no migration) and audited; clients do not
+  see it. **Never put user-generated data into a trusted message**: no names, descriptions, comments,
+  file names or anything else people or other systems entered, not even escaped with
+  `NhAssistantMarkdown.Escape`, because the model would follow instructions hidden in it. Write
+  trusted text entirely in code or from the application's own configuration.
 
 SampleProjectManagement's portfolio analysis tells the conversation that started it when it
-finished (SPM-312, `ProjectAnalysisAssistantNotices`).
+finished (SPM-312, `ProjectAnalysisAssistantNotices`): `ReadableBy` the person who started it, the
+division's name escaped, untrusted because of that name, by Web Push and in its test host's inbox.
 
 ## Files in model turns
 
@@ -837,8 +860,11 @@ or output of the running turn, also not text written before an approval pause.
   type of an application-specific upload type without checking its content in `StoreUploadAsync`.
 - Writing into conversations through the store or a person's message endpoint to report what the
   application did; post an application message with `INhAssistantConversationMessages`.
-- Posting into a conversation a client named without `ReadableBy`, posting from retried background
-  work without an `IdempotencyKey`, or writing instructions for the model into an application message.
+- Choosing `WithoutPersonCheck()` for a conversation a client named instead of `ReadableBy`, posting
+  from retried background work without an `IdempotencyKey`, or writing instructions for the model
+  into an application message that is not `Trusted`.
+- Putting user-generated data into a `Trusted` application message, escaped or not, or putting
+  people's data into an application message's Markdown without `NhAssistantMarkdown.Escape`.
 
 ## Verification
 

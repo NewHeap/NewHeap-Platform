@@ -18,14 +18,16 @@ internal sealed record NhAssistantStoredPart(
     string? Title = null,
     string? LinkUrl = null,
     string? LinkLabel = null,
-    string? Sender = null)
+    string? Sender = null,
+    bool? Trusted = null)
 {
     public const string TextType = "text";
 
     /// <summary>
     /// What the application said about a message it posted, besides its text: the
     /// <see cref="Title"/>, the link (<see cref="LinkUrl"/>, <see cref="LinkLabel"/>) and the name of
-    /// the <see cref="Sender"/>, each optional.
+    /// the <see cref="Sender"/>, each optional, and <see cref="Trusted"/> <see langword="true"/> for a
+    /// message the model follows as the application's instruction (absent for any other).
     /// </summary>
     public const string ApplicationType = "application";
     public const string ToolCallType = "tool-call";

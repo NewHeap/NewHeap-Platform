@@ -176,16 +176,9 @@ internal sealed class NhAssistantWebPushNotifier(
                 return;
             }
 
-            var recipients = new Dictionary<string, string>(StringComparer.Ordinal);
-            // An agent thread belongs to the agent's own actor; its people are its participants.
-            if (string.Equals(conversation.Kind, NhAssistantConversationKinds.Chat, StringComparison.Ordinal))
-            {
-                recipients[conversation.OwnerActorId] = NhAssistantPushKinds.ApplicationMessage;
-            }
-            foreach (var participant in await store.GetParticipantsAsync(conversation.Id, cancellationToken))
-            {
-                recipients[participant.ActorId] = NhAssistantPushKinds.ApplicationMessage;
-            }
+            var participants = await store.GetParticipantsAsync(conversation.Id, cancellationToken);
+            var recipients = NhAssistantApplicationMessageRecipients.Of(conversation, participants)
+                .ToDictionary(actorId => actorId, _ => NhAssistantPushKinds.ApplicationMessage, StringComparer.Ordinal);
             if (recipients.Count == 0)
             {
                 return;
@@ -480,12 +473,7 @@ internal static class NhAssistantPushTexts
     /// </summary>
     public static (string Title, string Body) ForApplicationMessage(string language, string? conversationTitle)
     {
-        var dutch = IsDutch(language);
-        var title = string.IsNullOrWhiteSpace(conversationTitle) ? (dutch ? "Assistent" : "Assistant") : conversationTitle;
-        var body = dutch
-            ? "De applicatie heeft een bericht in het gesprek gezet."
-            : "The application posted a message in the conversation.";
-        return (title, body);
+        return NhAssistantAgentNotificationTexts.ForApplicationMessage(language, conversationTitle);
     }
 
     public static (string Title, string Body) ForAgent(

@@ -4470,12 +4470,6 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
     /// </summary>
     public SampleTestClock Clock { get; } = new();
 
-    /// <summary>
-    /// SPM-251: the application's inbox, which the assistant's agent notifications reach through
-    /// <c>UseInAppAgentNotifications</c>.
-    /// </summary>
-    public SampleInbox Inbox { get; } = new();
-
     public const string ReviewBoardSecret = "sample-review-board-secret-for-tests-only";
 
     /// <summary>
@@ -4670,9 +4664,8 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
             .ConfigurePrimaryHttpMessageHandler(() => new SelfHttpHandler(this));
         services.AddNewHeapPlatformAIDelegatedReads();
         // SPM-251: agent notifications, such as a server a background run left out for want of the
-        // person's consent, also reach the application's inbox.
-        services.AddSingleton<INhUserNotificationSink>(Inbox);
-        services.AddNewHeapAssistant(assistant => assistant.UseInAppAgentNotifications());
+        // person's consent, also reach the application's inbox (Inbox), which the base host turns on.
+        base.ConfigureServices(services);
     }
 
     private sealed class SelectedControllers(params Type[] controllers) : ControllerFeatureProvider

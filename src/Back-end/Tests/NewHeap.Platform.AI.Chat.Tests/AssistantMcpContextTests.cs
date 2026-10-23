@@ -39,6 +39,18 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
         await ConnectResearchServerAsync(host, ResearchUrl, NhAssistantMcpToolEffects.ReadOnly);
         var conversation = await host.CreateConversationAsync();
         await host.SendAsync(conversation.Id, "What is the scope of Alpha?");
+        // An application message, even a trusted one, stays between the application and the assistant.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var posted = await scope.ServiceProvider.GetRequiredService<INhAssistantConversationMessages>().PostAsync(
+                conversation.Id,
+                new NhAssistantApplicationMessage("The application's export of Alpha finished.")
+                {
+                    Access = NhAssistantApplicationMessageAccess.WithoutPersonCheck(),
+                    Trusted = true
+                });
+            Assert.True(posted.Success);
+        }
 
         var turn = await host.SendAsync(conversation.Id, "Ask research which risks block Alpha.");
 
@@ -68,8 +80,9 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
             ["assistant:Alpha migrates the CRM.", "user:Ask research which risks block Alpha."],
             snapshot["recentMessages"]!.AsArray().Select(item => $"{item!["role"]}:{item["text"]}"));
         Assert.Equal(0, snapshot["omittedMessages"]!.GetValue<int>());
-        // Instructions, tool calls and the running answer never leave the assistant.
+        // Instructions, application messages, tool calls and the running answer never leave the assistant.
         Assert.DoesNotContain("Research is queued", context.ToJsonString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("export of Alpha", context.ToJsonString(), StringComparison.Ordinal);
         Assert.DoesNotContain("tool-call", context.ToJsonString(), StringComparison.Ordinal);
     }
 

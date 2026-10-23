@@ -139,6 +139,7 @@ public sealed class ProjectPortfolioAnalysisOperation :
                 conversationId,
                 requestedBy,
                 context.OperationId,
+                request.DivisionId,
                 projectIds.Count,
                 cancellationToken);
         }

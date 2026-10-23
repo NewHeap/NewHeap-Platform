@@ -13,14 +13,16 @@ namespace NewHeap.Platform.AI.Chat.Collaboration;
 /// Posts the application's messages into conversations (<see cref="INhAssistantConversationMessages"/>):
 /// checks the message and the conversation, stores the message with the next sequence number under
 /// the <see cref="NhAssistantMessageRoles.Application"/> role, shows it to the conversation's people
-/// through the live updates, notifies them when the application asks for it and records a
-/// content-free audit event. Nothing here logs the message.
+/// through the live updates, notifies them when the application asks for it (by Web Push and, when the
+/// application turned on in-app notifications, in its inbox) and records a content-free audit event.
+/// Nothing here logs the message.
 /// </summary>
 internal sealed class NhAssistantConversationMessages(
     INhAssistantStore store,
     NhAssistantRunStore runs,
     NhAssistantLivePublisher live,
     INhAssistantNotifier notifier,
+    NhAssistantInAppApplicationMessageNotifier inAppNotifier,
     NhAssistantRegistrationState registration,
     IOptionsMonitor<NhAssistantOptions> options,
     IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
@@ -39,10 +41,6 @@ internal sealed class NhAssistantConversationMessages(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
-        if (message.ReadableBy is { } reader)
-        {
-            ArgumentException.ThrowIfNullOrWhiteSpace(reader.ActorId, nameof(message));
-        }
 
         if (!options.CurrentValue.Enabled)
         {
@@ -53,7 +51,7 @@ internal sealed class NhAssistantConversationMessages(
             return invalid;
         }
 
-        var conversation = message.ReadableBy is { } person
+        var conversation = message.Access.Person is { } person
             ? (await store.FindAccessAsync(conversationId, person.ActorId, person.TenantId, cancellationToken))?.Conversation
             : await store.FindShareableConversationAsync(conversationId, cancellationToken);
         if (conversation is null)
@@ -65,12 +63,14 @@ internal sealed class NhAssistantConversationMessages(
             ? null
             : IdempotencyPrefix + message.IdempotencyKey.Trim();
         var text = message.Text.Trim();
+        // An untrusted message stores no flag, as before trusted messages existed.
         var details = new NhAssistantStoredPart(
             NhAssistantStoredPart.ApplicationType,
             Title: Optional(message.Title),
             LinkUrl: message.Link?.Url.Trim(),
             LinkLabel: Optional(message.Link?.Label),
-            Sender: Optional(message.SenderName));
+            Sender: Optional(message.SenderName),
+            Trusted: message.Trusted ? true : null);
         var stored = new AssistantMessage
         {
             Id = Guid.NewGuid(),
@@ -115,9 +115,14 @@ internal sealed class NhAssistantConversationMessages(
         if (notified)
         {
             await notifier.ApplicationMessageAsync(conversation.Id, CancellationToken.None);
+            // Next to Web Push, the application's inbox, when it turned on in-app agent notifications.
+            if (registration.InAppNotifications)
+            {
+                await inAppNotifier.DeliverAsync(conversation, CancellationToken.None);
+            }
         }
 
-        await AuditAsync(conversation, thread, stored.Id, notified ? "notified" : "posted", cancellationToken);
+        await AuditAsync(conversation, thread, stored.Id, notified ? "notified" : "posted", message.Trusted, cancellationToken);
         logger.LogInformation(
             "The application posted message {MessageId} into conversation {ConversationId}.",
             stored.Id,
@@ -127,11 +132,18 @@ internal sealed class NhAssistantConversationMessages(
     }
 
     /// <summary>
-    /// The refusal of a message that is empty or too long, or whose title, sender, link or
-    /// idempotency key is not usable; <see langword="null"/> when it may be posted.
+    /// The refusal of a message without an access choice, that is empty or too long, or whose title,
+    /// sender, link or idempotency key is not usable; <see langword="null"/> when it may be posted.
     /// </summary>
     private TaskResult<NhAssistantApplicationMessageReceipt>? Validate(NhAssistantApplicationMessage message)
     {
+        // The compiler requires the choice; null reaches here only past it, such as through null!.
+        if (message.Access is null)
+        {
+            return Failed(
+                NhAssistantErrorCodes.MessageInvalid,
+                "An application message needs an access choice: ReadableBy(person) or WithoutPersonCheck().");
+        }
         if (string.IsNullOrWhiteSpace(message.Text))
         {
             return Failed(NhAssistantErrorCodes.MessageInvalid, "An application message needs a text.");
@@ -202,6 +214,7 @@ internal sealed class NhAssistantConversationMessages(
         AssistantThread? thread,
         Guid messageId,
         string resultCode,
+        bool trusted,
         CancellationToken cancellationToken)
     {
         var evt = new NhAssistantAuditEvent(
@@ -216,7 +229,8 @@ internal sealed class NhAssistantConversationMessages(
             ObjectId = messageId.ToString(),
             ResultCode = resultCode,
             SubjectType = thread?.SubjectType,
-            SubjectId = thread?.SubjectId
+            SubjectId = thread?.SubjectId,
+            ApplicationMessageTrusted = trusted
         };
         foreach (var sink in _auditSinks)
         {
