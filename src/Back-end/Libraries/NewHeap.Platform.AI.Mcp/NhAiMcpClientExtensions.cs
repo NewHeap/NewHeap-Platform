@@ -1,4 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -197,6 +199,17 @@ internal sealed record NhAiMcpToolFailureDetail(
     string? Message,
     string? EvidenceReference)
 {
+    /// <summary>
+    /// The composite format of <see cref="Message"/>, when the server published it with its
+    /// arguments.
+    /// </summary>
+    public string? MessageFormat { get; init; }
+
+    /// <summary>
+    /// The arguments of <see cref="MessageFormat"/>; empty without a format.
+    /// </summary>
+    public IReadOnlyList<JsonElement> MessageArguments { get; init; } = [];
+
     public static NhAiMcpToolFailureDetail From(CallToolResult result)
     {
         var code = ReadMeta(result, NhAiMcpResultMetadata.CodeKey);
@@ -211,7 +224,63 @@ internal sealed record NhAiMcpToolFailureDetail(
             evidenceReference ??= ReadString(content, "evidenceReference");
         }
 
-        return new NhAiMcpToolFailureDetail(code, message, evidenceReference);
+        var detail = new NhAiMcpToolFailureDetail(code, message, evidenceReference);
+        if (TryReadMessageFormat(result, out var format, out var arguments))
+        {
+            detail = detail with
+            {
+                MessageFormat = format,
+                MessageArguments = arguments
+            };
+        }
+        return detail;
+    }
+
+    /// <summary>
+    /// Reads the message format and its arguments together, within the bounds a NewHeap export
+    /// publishes; a format without valid arguments, or arguments without a format, read as neither.
+    /// </summary>
+    private static bool TryReadMessageFormat(
+        CallToolResult result,
+        [NotNullWhen(true)] out string? format,
+        [NotNullWhen(true)] out IReadOnlyList<JsonElement>? arguments)
+    {
+        format = ReadMeta(result, NhAiMcpResultMetadata.MessageFormatKey);
+        arguments = null;
+        if (format is null
+            || format.Length > NhAiMcpResultMetadata.MaxMessageFormatLength
+            || result.Meta is null
+            || !result.Meta.TryGetPropertyValue(NhAiMcpResultMetadata.MessageArgumentsKey, out var node)
+            || node is not JsonArray published
+            || published.Count > NhAiMcpResultMetadata.MaxMessageArguments)
+        {
+            format = null;
+            return false;
+        }
+
+        var values = new List<JsonElement>(published.Count);
+        foreach (var item in published)
+        {
+            var kind = item?.GetValueKind() ?? JsonValueKind.Null;
+            if (kind is JsonValueKind.Object or JsonValueKind.Array)
+            {
+                format = null;
+                return false;
+            }
+
+            using var document = JsonDocument.Parse(item?.ToJsonString() ?? "null");
+            var value = document.RootElement.Clone();
+            if (kind == JsonValueKind.String
+                && value.GetString()!.Length > NhAiMcpResultMetadata.MaxMessageArgumentLength)
+            {
+                format = null;
+                return false;
+            }
+            values.Add(value);
+        }
+
+        arguments = values;
+        return true;
     }
 
     /// <summary>
@@ -286,6 +355,8 @@ public class NhAiMcpToolException : McpException
         Result = result;
         Code = detail.Code;
         FailureMessage = detail.Message;
+        FailureMessageFormat = detail.MessageFormat;
+        FailureMessageArguments = detail.MessageArguments;
         EvidenceReference = detail.EvidenceReference;
         PayloadJson = payloadJson;
     }
@@ -299,6 +370,22 @@ public class NhAiMcpToolException : McpException
 
     /// <summary>The safe failure message published by the tool, without the tool name or code.</summary>
     public string? FailureMessage { get; }
+
+    /// <summary>
+    /// The composite format of <see cref="FailureMessage"/>, such as
+    /// <c>Project '{0}' has {1} open tasks.</c>, when the server published it
+    /// (<see cref="NhAiMcpResultMetadata.MessageFormatKey"/>). Translate it and fill in
+    /// <see cref="FailureMessageArguments"/> to show the failure in another language; a fixed
+    /// message is its own format without arguments.
+    /// </summary>
+    public string? FailureMessageFormat { get; }
+
+    /// <summary>
+    /// The arguments of <see cref="FailureMessageFormat"/> as JSON values: strings, numbers,
+    /// booleans and null, with dates as ISO 8601 strings. Empty when the format has no arguments or
+    /// the server published no format.
+    /// </summary>
+    public IReadOnlyList<JsonElement> FailureMessageArguments { get; }
 
     /// <summary>The bounded evidence reference attached to the failure, when the server published one.</summary>
     public string? EvidenceReference { get; }

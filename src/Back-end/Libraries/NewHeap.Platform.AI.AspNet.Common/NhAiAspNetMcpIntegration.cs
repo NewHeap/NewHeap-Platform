@@ -217,6 +217,15 @@ internal static class NhAiMcpRequestHandlers
 
     private static CallToolResult Error(string code, string message)
     {
+        var meta = new System.Text.Json.Nodes.JsonObject
+        {
+            [NhAiMcpResultMetadata.CodeKey] = code,
+            [NhAiMcpResultMetadata.MessageKey] = message
+        };
+        // A refusal of the export publishes its fixed text as its format, without arguments; what
+        // the resolver reported stays shielded.
+        NhAiMcpResultMetadata.ApplyFixedMessageFormat(meta, message);
+
         return new CallToolResult
         {
             IsError = true,
@@ -224,11 +233,7 @@ internal static class NhAiMcpRequestHandlers
             StructuredContent = JsonSerializer.SerializeToElement(
                 new NhAiMcpError(code, message),
                 SerializerOptions),
-            Meta = new System.Text.Json.Nodes.JsonObject
-            {
-                [NhAiMcpResultMetadata.CodeKey] = code,
-                [NhAiMcpResultMetadata.MessageKey] = message
-            }
+            Meta = meta
         };
     }
 }

@@ -214,6 +214,39 @@ public static class NhAiMcpResultMetadata
     /// </summary>
     public const string TypedPayloadKey = "newheap.com/typed-payload";
 
+    /// <summary>
+    /// The composite format of the failure message, such as
+    /// <c>Project '{0}' has {1} open tasks.</c>, so a client can translate it and fill in
+    /// <see cref="MessageArgumentsKey"/>. Published together with the arguments, next to
+    /// <see cref="MessageKey"/>, when the message is one message that its format and arguments
+    /// render exactly; a fixed message is its own format without arguments. A message that joins
+    /// several messages carries neither key.
+    /// </summary>
+    public const string MessageFormatKey = "newheap.com/message-format";
+
+    /// <summary>
+    /// The arguments of <see cref="MessageFormatKey"/> as a JSON array of the values the message
+    /// shows, and nothing else: strings, numbers, booleans and <c>null</c>, dates as ISO 8601
+    /// strings, and the shown text for an argument with a format specifier or of another type.
+    /// </summary>
+    public const string MessageArgumentsKey = "newheap.com/message-arguments";
+
+    /// <summary>
+    /// The longest format, in characters, that <see cref="MessageFormatKey"/> carries.
+    /// </summary>
+    public const int MaxMessageFormatLength = 1_024;
+
+    /// <summary>
+    /// The most arguments <see cref="MessageArgumentsKey"/> carries.
+    /// </summary>
+    public const int MaxMessageArguments = 16;
+
+    /// <summary>
+    /// The longest argument, in characters as the message shows it, that
+    /// <see cref="MessageArgumentsKey"/> carries.
+    /// </summary>
+    public const int MaxMessageArgumentLength = 256;
+
     private const string DefaultFailureMessage = "The AI tool invocation failed.";
 
     private static readonly JsonSerializerOptions ErrorSerializerOptions = new(JsonSerializerDefaults.Web)
@@ -229,9 +262,18 @@ public static class NhAiMcpResultMetadata
     internal static CallToolResult CreateDatalessFailure(
         string code,
         string? message,
-        string? evidenceReference)
+        string? evidenceReference,
+        FormattableString? messageSource)
     {
-        var safeMessage = string.IsNullOrWhiteSpace(message) ? DefaultFailureMessage : message;
+        var safeMessage = message;
+        var safeSource = messageSource;
+        if (string.IsNullOrWhiteSpace(safeMessage))
+        {
+            // NewHeap's own text replaces a missing message, as a fixed message of its own.
+            safeMessage = DefaultFailureMessage;
+            safeSource = NhAiMcpMessageFormat.Fixed(DefaultFailureMessage);
+        }
+
         var result = new CallToolResult
         {
             IsError = true,
@@ -240,16 +282,21 @@ public static class NhAiMcpResultMetadata
                 new NhAiMcpToolError(code, safeMessage, evidenceReference),
                 ErrorSerializerOptions)
         };
-        ApplyFailure(result, code, safeMessage, evidenceReference, typedPayload: false);
+        ApplyFailure(result, code, safeMessage, evidenceReference, typedPayload: false, safeSource);
         return result;
     }
 
+    /// <param name="messageSource">
+    /// The one message <paramref name="message"/> was rendered from; its format and arguments are
+    /// published only when they render <paramref name="message"/> exactly.
+    /// </param>
     internal static void ApplyFailure(
         CallToolResult result,
         string code,
         string? message,
         string? evidenceReference,
-        bool typedPayload)
+        bool typedPayload,
+        FormattableString? messageSource)
     {
         var meta = result.Meta ?? new JsonObject();
         meta[CodeKey] = code;
@@ -257,12 +304,35 @@ public static class NhAiMcpResultMetadata
         if (!string.IsNullOrWhiteSpace(message))
         {
             meta[MessageKey] = message;
+            ApplyMessageFormat(meta, message, messageSource);
         }
         if (!string.IsNullOrWhiteSpace(evidenceReference))
         {
             meta[EvidenceReferenceKey] = evidenceReference;
         }
         result.Meta = meta;
+    }
+
+    /// <summary>
+    /// Adds the format of a fixed message, such as a refusal of the MCP export, to its metadata: the
+    /// text itself, without arguments. Nothing a resolver or gate reported in its place is published.
+    /// </summary>
+    internal static void ApplyFixedMessageFormat(JsonObject meta, string message)
+    {
+        ArgumentNullException.ThrowIfNull(meta);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        ApplyMessageFormat(meta, message, NhAiMcpMessageFormat.Fixed(message));
+    }
+
+    private static void ApplyMessageFormat(JsonObject meta, string message, FormattableString? messageSource)
+    {
+        if (!NhAiMcpMessageFormat.TryCreate(messageSource, message, out var format, out var arguments))
+        {
+            return;
+        }
+
+        meta[MessageFormatKey] = format;
+        meta[MessageArgumentsKey] = arguments;
     }
 
     internal static bool TryGetEnvelopeProperty(
@@ -386,10 +456,11 @@ internal sealed class NhAiFlatSchemaMcpServerTool : McpServerTool
             ? capture.Code ?? NhAiToolFailureCodes.Failed
             : NhAiToolFailureCodes.Failed;
         var message = capture.Recorded ? capture.Message : null;
+        var messageSource = capture.Recorded ? capture.MessageSource : null;
         var evidenceReference = capture.Recorded ? capture.EvidenceReference : null;
         if (!hasData)
         {
-            return NhAiMcpResultMetadata.CreateDatalessFailure(code, message, evidenceReference);
+            return NhAiMcpResultMetadata.CreateDatalessFailure(code, message, evidenceReference, messageSource);
         }
 
         var failure = new CallToolResult
@@ -398,7 +469,13 @@ internal sealed class NhAiFlatSchemaMcpServerTool : McpServerTool
             Content = [new TextContentBlock { Text = dataText! }],
             StructuredContent = data
         };
-        NhAiMcpResultMetadata.ApplyFailure(failure, code, message, evidenceReference, typedPayload: true);
+        NhAiMcpResultMetadata.ApplyFailure(
+            failure,
+            code,
+            message,
+            evidenceReference,
+            typedPayload: true,
+            messageSource);
         return failure;
     }
 
@@ -487,17 +564,24 @@ internal sealed class NhAiOutcomeAwareMcpServerTool(
             ? capture.Code ?? NhAiToolFailureCodes.Failed
             : NhAiToolFailureCodes.Failed;
         var message = capture.Recorded ? capture.Message : null;
+        var messageSource = capture.Recorded ? capture.MessageSource : null;
         var evidenceReference = capture.Recorded ? capture.EvidenceReference : null;
         var hasData = NhAiMcpResultMetadata.TryGetEnvelopeProperty(content, "data", out var data)
             && data.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);
         if (!hasData)
         {
-            return NhAiMcpResultMetadata.CreateDatalessFailure(code, message, evidenceReference);
+            return NhAiMcpResultMetadata.CreateDatalessFailure(code, message, evidenceReference, messageSource);
         }
 
         // A failed result with data keeps the shared tool result as structured content.
         result.IsError = true;
-        NhAiMcpResultMetadata.ApplyFailure(result, code, message, evidenceReference, typedPayload: true);
+        NhAiMcpResultMetadata.ApplyFailure(
+            result,
+            code,
+            message,
+            evidenceReference,
+            typedPayload: true,
+            messageSource);
         return result;
     }
 }
