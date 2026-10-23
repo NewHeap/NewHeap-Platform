@@ -7,7 +7,8 @@ run an agent's tools reliably. It is a plan, not usage documentation.
 
 ## Status
 
-Decided by Lars on 2026-10-23: TA1 to TA3, every one as recommended. Not built yet.
+Decided by Lars on 2026-10-23: TA1 to TA3, every one as recommended. Built on 2026-10-23 in merge train
+16 (`fix/agent-account-capabilities`); the lane's own choices TA4 to TA8 are for Lars to review.
 
 ## Problem
 
