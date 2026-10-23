@@ -52,9 +52,17 @@ internal sealed class NhAiMcpToolAdapter(
         var result = new List<McpServerTool>(visible.Count);
         var exportNames = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var catalog in catalogs.OrderBy(item => item.Manifest.CatalogId, StringComparer.Ordinal))
+        // Static catalogs first: a tool that exists since startup keeps its export name.
+        var ordered = catalogs
+            .OrderBy(item => item is INhAiChangingToolCatalog ? 1 : 0)
+            .ThenBy(item => item.Manifest.CatalogId, StringComparer.Ordinal);
+        foreach (var listed in ordered)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            // A catalog that changes at runtime is exported from one view, which must pass its own
+            // attestation; a view that does not stays out of the export instead of failing it.
+            var changing = listed as INhAiChangingToolCatalog;
+            var catalog = changing?.Current ?? listed;
             var descriptors = catalog.Descriptors;
             if (!descriptors.Any(descriptor => descriptor.Exposure.HasFlag(NhAiToolExposure.Mcp)))
             {
@@ -64,14 +72,19 @@ internal sealed class NhAiMcpToolAdapter(
             }
 
             // Generated catalogs are governed by construction; attested runtime catalogs are
-            // validated with NhAiToolCatalogAttestation at startup. Every function of both is
-            // re-checked against its descriptor below.
+            // validated with NhAiToolCatalogAttestation at startup, and every view of a changing
+            // catalog once. Every function of both is re-checked against its descriptor below.
             if (catalog is not (INhAiGeneratedToolCatalog or INhAiAttestedToolCatalog)
                 || catalog.Governance != NhAiToolCatalogGovernance.SharedInvoker)
             {
                 throw new InvalidOperationException(
                     $"AI catalog '{catalog.Manifest.CatalogId}' is not a generated or attested catalog governed by INhAiToolInvoker.");
             }
+            if (changing is not null && !NhAiMcpViewAttestations.Holds(catalog, services))
+            {
+                continue;
+            }
+
             var functions = catalog.CreateFunctions(services);
             if (descriptors.Count != functions.Count)
             {
@@ -104,6 +117,12 @@ internal sealed class NhAiMcpToolAdapter(
                 }
                 if (!exportNames.Add(descriptor.ExportName))
                 {
+                    if (changing is not null)
+                    {
+                        // A runtime tool never takes an export name another tool already has.
+                        continue;
+                    }
+
                     throw new InvalidOperationException(
                         $"AI MCP export name '{descriptor.ExportName}' is registered more than once.");
                 }
@@ -132,6 +151,37 @@ internal sealed class NhAiMcpToolAdapter(
         }
 
         return result;
+    }
+}
+
+/// <summary>
+/// Remembers which views of catalogs that change at runtime passed
+/// <see cref="NhAiToolCatalogAttestation.Validate"/>, so every view is attested once before it enters
+/// the MCP export and a view that fails stays out of it.
+/// </summary>
+internal static class NhAiMcpViewAttestations
+{
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<INhAiToolCatalog, object> Attested = new();
+    private static readonly object Holding = new();
+
+    public static bool Holds(INhAiToolCatalog view, IServiceProvider services)
+    {
+        if (Attested.TryGetValue(view, out _))
+        {
+            return true;
+        }
+
+        try
+        {
+            NhAiToolCatalogAttestation.Validate(view, services);
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+
+        Attested.AddOrUpdate(view, Holding);
+        return true;
     }
 }
 
