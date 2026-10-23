@@ -193,6 +193,42 @@
   <details class="advanced" data-consultation-advanced [open]="advancedOpen()" (toggle)="advancedOpen.set(isOpen($event))">
     <summary>{{ 'nh-assistant.admin.run-config.consultations.form.advanced' | translate }}</summary>
     <div class="stack">
+      <!-- The agent's own tools, as a skill offers them; none checked offers every tool of the agent. -->
+      <fieldset class="field" data-consultation-tools [attr.aria-describedby]="describedBy(id + '-tools-hint', 'toolSelectors', id + '-tools-error')">
+        <legend>{{ 'nh-assistant.admin.run-config.consultations.form.tools' | translate }}</legend>
+        <p class="hint" [id]="id + '-tools-hint'">{{ 'nh-assistant.admin.run-config.consultations.form.tools-hint' | translate }}</p>
+        <!-- In their own block: a label right under the field would take the field's label style. -->
+        <div class="checks">
+          @for (choice of toolChoices(); track choice.selector) {
+            <label class="check described" [attr.data-tool-choice]="choice.selector" [class.blocked]="!choice.covered">
+              <input
+                type="checkbox"
+                [checked]="tools().includes(choice.selector)"
+                [disabled]="!choice.covered && !tools().includes(choice.selector)"
+                [attr.aria-invalid]="fieldError('toolSelectors') || (!choice.covered && tools().includes(choice.selector)) ? true : null"
+                [attr.aria-describedby]="choice.covered ? null : toolBlockId(choice.selector)"
+                (change)="toggleTool(choice.selector, checked($event))" />
+              <span class="tool-choice">
+                <span class="mono">{{ choice.selector }}</span>
+                @if (choice.description) {
+                  <span class="muted block">{{ choice.description }}</span>
+                } @else if (choice.matches !== null) {
+                  <span class="muted block">{{ 'nh-assistant.admin.run-config.skills.tools-pattern' | translate: { count: choice.matches } }}</span>
+                }
+                @if (!choice.covered) {
+                  <span class="error-text" [id]="toolBlockId(choice.selector)" data-tool-not-covered>{{ 'nh-assistant.admin.run-config.consultations.form.tool-not-covered' | translate }}</span>
+                }
+              </span>
+            </label>
+          } @empty {
+            <p class="muted">{{ 'nh-assistant.admin.agent-editor.no-selectors' | translate }}</p>
+          }
+        </div>
+        @if (toolsErrorKey(); as key) {
+          <p class="field-error" [id]="id + '-tools-error'"><nh-assistant-icon name="warning" />{{ key | translate }}</p>
+        }
+      </fieldset>
+
       <fieldset class="field" data-consultation-limits [attr.aria-describedby]="describedBy(id + '-limits-hint', 'limits', id + '-limits-error')">
         <legend>{{ 'nh-assistant.admin.run-config.consultations.form.limits' | translate }}</legend>
         <p class="hint" [id]="id + '-limits-hint'">{{ 'nh-assistant.admin.run-config.consultations.form.limits-hint' | translate }}</p>

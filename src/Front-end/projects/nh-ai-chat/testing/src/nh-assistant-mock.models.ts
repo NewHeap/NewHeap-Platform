@@ -202,6 +202,11 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
    */
   consultationDescriptions?: Record<string, string>;
   /**
+   * The tool selections of a code agent's consultations in code, by subject type, as `Tools` in
+   * `AllowConsultation`; a type without one offers every tool of the agent.
+   */
+  consultationTools?: Record<string, string[]>;
+  /**
    * The ceiling of a code agent that administrators may make consultable as data, as
    * `ConsultableAsData` in code; it applies together with the scenario's `consultationsAsData`. `{}`
    * allows answers only, as `ConsultableAsData()` without a configuration does. Without it a code

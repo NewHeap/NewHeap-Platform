@@ -425,6 +425,7 @@
       "assistant-consult-timeout": "De agent antwoordde niet op tijd.",
       "assistant-consult-failed": "De agent kon niet antwoorden.",
       "assistant-consult-read-only": "Een raadpleging kan niets wijzigen.",
+      "assistant-consult-tool-not-selected": "Deze raadpleging biedt die tool niet aan, dus er is niets uitgevoerd.",
       "assistant-consult-proposal-refused": "Geen route bij het onderwerp neemt dit voorstel nog aan. Keur het hier goed of af.",
       "assistant-consult-asker-decides": "Degene die het vroeg, beslist over dit voorstel in de eigen chat.",
       "assistant-consult-route-not-allowed": "Geen van de raadplegingen van de agent staat deze route toe, dus die kan niet aan.",
@@ -1240,7 +1241,8 @@
             "no-approver": "de route met het account van de agent valt weg, omdat het goedkeuringsbeleid alleen degene die een voorstel veroorzaakte laat beslissen.",
             "limit-above-ceiling": "een grens ligt boven wat de applicatie toestaat, dus die van de applicatie geldt.",
             "requests-not-allowed": "de applicatie staat geen verzoeken meer toe, dus ze neemt er geen aan.",
-            "mcp-not-allowed": "de applicatie biedt raadplegingen niet meer aan MCP-clients aan, dus die zien haar niet."
+            "mcp-not-allowed": "de applicatie biedt raadplegingen niet meer aan MCP-clients aan, dus die zien haar niet.",
+            "tools-not-allowed": "een gekozen tool hoort niet meer bij de eigen tools van de agent en valt weg; zonder tools krijgt de agent er geen enkele tool."
           }
         },
         "field-errors": {
@@ -1259,7 +1261,8 @@
           "megabytes-up-to": "Vul een grootte in boven 0 en hooguit {{max}} MB.",
           "megabytes-positive": "Vul een grootte in boven 0 MB.",
           "not-allowed": "De applicatie staat dit niet toe.",
-          "routes-required": "Kies minstens één route, of laat hem alleen antwoorden."
+          "routes-required": "Kies minstens één route, of laat hem alleen antwoorden.",
+          "tools-not-allowed": "Een gekozen tool valt buiten de eigen tools van de agent. Haal het vinkje weg, of voeg de tool eerst aan de agent toe."
         },
         "settings": {
           "title": "Runinstellingen",
@@ -1752,6 +1755,9 @@
           "no-askers": "Nog geen agent vraagt het. Selecteer de tool bij de tools van een agent die het moet vragen.",
           "code-hint": "Toegestaan in code; hier veranderen alleen de routeschakelaars hieronder iets.",
           "limits-value": "Hooguit {{calls}} toolaanroepen, {{seconds}} seconden, {{chars}} tekens en {{history}} berichten uit de thread",
+          "tools-label": "Tools:",
+          "tools-all": "alle tools van de agent",
+          "tools-none": "geen, want geen gekozen tool hoort nog bij de eigen tools van de agent",
           "edit-named": "De raadpleging over {{type}} bewerken",
           "remove-named": "De raadpleging over {{type}} verwijderen",
           "remove-explain": "Haar tools verdwijnen; voorstellen die ze deed, kunnen nog worden beslist.",
@@ -1833,7 +1839,7 @@
               "four-eyes": "Dit goedkeuringsbeleid vraagt vier ogen, dus degene die het vroeg kan het eigen voorstel niet in de eigen chat beslissen; die route geldt dan niet.",
               "initiator-only": "Dit goedkeuringsbeleid laat alleen degene die een voorstel veroorzaakte erover beslissen, dus de route met het technische account van de agent wordt geweigerd."
             },
-            "advanced": "Geavanceerd: grenzen, verzoeken en classificatie",
+            "advanced": "Geavanceerd: tools, grenzen, verzoeken en classificatie",
             "limits": "Grenzen van één raadpleging",
             "limits-hint": "Leeg begint bij de standaard binnen wat de applicatie toestaat.",
             "limit-range": "Van {{min}} tot en met {{max}}.",
@@ -1844,6 +1850,9 @@
             "mcp-hint": "Externe MCP-clients mogen hem ook raadplegen, met de rechten van hun persoon.",
             "mcp-closed": "De applicatie biedt raadplegingen niet aan MCP-clients aan.",
             "classification-hint": "Hoe gevoelig zijn antwoorden zijn in het gesprek dat vroeg. Zonder geldt de classificatie van de agent.",
+            "tools": "Tools die hij mag gebruiken",
+            "tools-hint": "De eigen tools van de agent; selecteer er een paar om ze voor deze raadpleging te beperken. Niets geselecteerd: alle tools van de agent. Wijzigingen hebben nog steeds een route nodig.",
+            "tool-not-covered": "Hoort niet meer bij de eigen tools van de agent.",
             "in-effect": "Een raadpleging werkt zodra ze is opgeslagen; ze antwoordt zodra een agent die vraagt haar tool selecteert."
           }
         }

@@ -1505,6 +1505,11 @@ export interface CodeConsultation {
   requestToolId: string | null;
   /** The agents whose tool selectors select the consult tool now, by id. */
   askingAgents: string[];
+  /**
+   * The tools the consulted agent is offered, from `Tools(...)` in code; `null` offers every tool of the
+   * agent. Missing on older servers.
+   */
+  toolSelectors?: string[] | null;
 }
 
 /**
@@ -1555,6 +1560,14 @@ export interface DataConsultation {
   problems: string[];
   /** The routes in effect: those saved that still fit the ceiling and the agent, before its route switches. */
   routesInEffect: NhAssistantConsultationRoute[];
+  /** The tool selection as saved; `null` offers every tool of the agent. Missing on older servers. */
+  toolSelectors?: string[] | null;
+  /**
+   * The tool selection in effect: the saved selectors the agent's own selectors still cover. `null`
+   * offers every tool of the agent; empty offers none, when every selector dropped with the problem
+   * `tools-not-allowed`, or while the consultation is out of effect. Missing on older servers.
+   */
+  toolSelectorsInEffect?: string[] | null;
   /** The id of the generated consult tool, which asking agents select. */
   consultToolId: string;
   /** The id of the generated request tool while requests are in effect. */
@@ -1588,6 +1601,12 @@ export interface DataConsultationRequest {
   proposalRole?: ConsultationSubjectRole | null;
   /** A registered approval policy; `null` uses the agent's. */
   proposalPolicy?: string | null;
+  /**
+   * The tools the consulted agent is offered, by id or `prefix.*` selector, each covered by the
+   * agent's own selectors; one outside them fails with `toolSelectors: not-allowed`. `null` or empty
+   * offers every tool of the agent.
+   */
+  toolSelectors?: string[] | null;
   /** 0 to 32, at most the ceiling's. */
   maxToolCalls?: number | null;
   /** 1 to 600, at most the ceiling's. */

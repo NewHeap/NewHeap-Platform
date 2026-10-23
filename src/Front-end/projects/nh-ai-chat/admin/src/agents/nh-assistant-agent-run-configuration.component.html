@@ -428,6 +428,8 @@
               [worksOn]="agent()"
               [accountability]="accountability()"
               [agentApprovalPolicy]="approvalPolicy()"
+              [toolSelectors]="config.toolSelectors"
+              [toolCatalog]="tools()"
               [consultation]="editingConsultation()"
               [takenTypes]="consultationTypes()"
               (saved)="onConsultationSaved($event)"
@@ -480,6 +482,19 @@
                     <span data-consultation-no-askers>{{ 'nh-assistant.admin.run-config.consultations.no-askers' | translate }}</span>
                   }
                   <span class="mono" data-consultation-tool>{{ row.consultToolId }}</span>
+                </div>
+                <!-- The consulted agent's tools: every tool of the agent, the selection, or none when no chosen tool fits any more. -->
+                <div class="meta" data-consultation-tools [attr.data-tools]="row.toolSelectors === null ? 'all' : row.toolSelectors.length === 0 ? 'none' : 'selected'">
+                  <span>{{ 'nh-assistant.admin.run-config.consultations.tools-label' | translate }}</span>
+                  @if (row.toolSelectors === null) {
+                    <span>{{ 'nh-assistant.admin.run-config.consultations.tools-all' | translate }}</span>
+                  } @else if (row.toolSelectors.length === 0) {
+                    <span>{{ 'nh-assistant.admin.run-config.consultations.tools-none' | translate }}</span>
+                  } @else {
+                    @for (selector of row.toolSelectors; track selector) {
+                      <span class="mono" [attr.data-consultation-tool-selector]="selector">{{ selector }}</span>
+                    }
+                  }
                 </div>
                 @if (row.code) {
                   <p class="muted">{{ 'nh-assistant.admin.run-config.consultations.code-hint' | translate }}</p>
