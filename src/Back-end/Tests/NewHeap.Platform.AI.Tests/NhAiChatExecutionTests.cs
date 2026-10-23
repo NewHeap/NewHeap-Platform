@@ -237,6 +237,33 @@ public sealed class NhAiChatExecutionTests
         Assert.Equal(2, client.Calls);
     }
 
+    [Fact]
+    public async Task Each_model_call_has_one_id_that_its_retries_reservation_and_usage_record_share()
+    {
+        var client = new FlakyChatClient(HttpStatusCode.TooManyRequests, failures: 1);
+        var usageSink = new NhAiCapturedUsageSink();
+        var services = CreateServices(client, usageSink, retryEligible: true);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var executor = scope.ServiceProvider.GetRequiredService<INhAiChatExecutor>();
+        var request = CreateRequest("model-call-id-prompt");
+
+        // The first call is retried once; the second runs in the same invocation context.
+        Assert.True((await executor.GetResponseAsync(request)).Success);
+        Assert.True((await executor.GetResponseAsync(request)).Success);
+
+        Assert.Equal(3, client.Calls);
+        var records = usageSink.Records;
+        Assert.Equal(2, records.Count);
+        Assert.All(records, record => Assert.NotEqual(Guid.Empty, record.ModelCallId));
+        Assert.NotEqual(records[0].ModelCallId, records[1].ModelCallId);
+        // The invocation context's id stays the same for every call of the context.
+        Assert.All(records, record => Assert.Equal(request.InvocationContext.InvocationId, record.InvocationId));
+        // Each reservation names the call its usage record describes.
+        var budget = (NhAiTestBudgetManager)scope.ServiceProvider.GetRequiredService<INhAiBudgetManager>();
+        Assert.Equal(records.Select(record => record.ModelCallId), budget.Requests.Select(reserved => reserved.ModelCallId));
+    }
+
     [Theory]
     [InlineData(true, HttpStatusCode.BadRequest)]
     [InlineData(false, HttpStatusCode.ServiceUnavailable)]

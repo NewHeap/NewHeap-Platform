@@ -146,6 +146,11 @@ public interface INhAiAuditSink
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// The content-free usage of one governed model call. <see cref="InvocationId"/> is the id of the
+/// invocation context the call ran in, which several calls share; <see cref="ModelCallId"/> names
+/// this one call.
+/// </summary>
 public sealed record NhAiUsageRecord(
     Guid InvocationId,
     string ProfileName,
@@ -156,6 +161,13 @@ public sealed record NhAiUsageRecord(
     TimeSpan Duration,
     DateTimeOffset Timestamp)
 {
+    /// <summary>
+    /// The id of this model call: new for every call, the same for its retries, and the one its
+    /// budget reservation (<see cref="NhAiBudgetRequest.ModelCallId"/>) and its
+    /// <c>ai.model.invoke</c> activity (<c>newheap.ai.model_call_id</c>) carry.
+    /// </summary>
+    public Guid ModelCallId { get; init; }
+
     public string? RunId { get; init; }
     public string? AgentId { get; init; }
     public string? ToolId { get; init; }
@@ -220,6 +232,13 @@ public sealed record NhAiBudgetRequest(
     /// What the call is for: one of <see cref="NhAiBudgetPurposes"/>.
     /// </summary>
     public string? Purpose { get; init; }
+
+    /// <summary>
+    /// The model call the reservation is for, the same id as its usage record's
+    /// <see cref="NhAiUsageRecord.ModelCallId"/>; <see cref="Guid.Empty"/> for a reservation that is
+    /// no model call, such as a tool call or embeddings.
+    /// </summary>
+    public Guid ModelCallId { get; init; }
 }
 
 /// <summary>

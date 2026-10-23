@@ -119,3 +119,22 @@ again; anything else gets the ordinary refusal. No migration; the decision endpo
 | Breaking change | Required action |
 |---|---|
 | `NhAssistantAuditEvent` has the new properties `Channel` and `IdempotencyKey`; `ApprovalApproved` and `ApprovalRejected` of agent proposals carry `Channel` `web` from the decision endpoints, or the service's channel and key. | Let audit sinks that map every property of the event store or ignore the two new values. |
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: run facts for content-free usage
+
+`AgentRunEnded` carries the content-free facts an application needs to count runs from its business
+audit sink alone: `TriggerKind`, what started the run as one of the new `NhAssistantTriggerKinds`
+(`event`, `schedule`, `webhook`, `manual`, `message`, `request`, `hand-off`, `follow-up`, `replay`),
+recorded on the run when it is created; `Shadow`; `SkillVersion` of a skill defined as data;
+`ModelCallCount`, every governed model call of the run across its turns and attempts, triage included;
+and `RunStatus` and `RunFailureCode` apart, while `ResultCode` keeps `status:code`. A run counts each
+model call when its budget is reserved, so a turn that fails, is cancelled or is retried keeps its calls,
+and a run by rules alone stays at 0. Every governed model call gets its own `NhAiUsageRecord.ModelCallId`,
+which its retries, its budget reservation (`NhAiBudgetRequest.ModelCallId`) and its `ai.model.invoke`
+activity (`newheap.ai.model_call_id`) share; `InvocationId` still names the invocation context.
+
+| Breaking change | Required action |
+|---|---|
+| The `RunTriggerKinds` migrations add the nullable column `AssistantRun.TriggerKind` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
+| `AssistantRun.ModelCalls`, and with it the run history's and the evaluation's model calls, also counts the calls of turns that failed, were cancelled or were retried. | Expect higher counts than before for runs with such turns; compare periods across the upgrade with that in mind. |
+| `NhAssistantAuditEvent` has the new properties `TriggerKind`, `SkillVersion`, `Shadow`, `ModelCallCount`, `RunStatus` and `RunFailureCode`, set on `AgentRunEnded`. | Let audit sinks that store every property accept them; count runs from them instead of parsing `ResultCode`. |
+| `NhAiUsageRecord` and `NhAiBudgetRequest` have the new property `ModelCallId`; a reservation that is no model call keeps `Guid.Empty`. | Count and correlate model calls by `ModelCallId` instead of `InvocationId`. |

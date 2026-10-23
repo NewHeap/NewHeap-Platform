@@ -1011,6 +1011,10 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         return updated == 1;
     }
 
+    /// <summary>
+    /// Adds what a turn of the run used. Its model calls are not among them: the assistant's budget
+    /// manager counts each on the run when its budget is reserved.
+    /// </summary>
     public async Task RecordRunUsageAsync(
         Guid runId,
         int toolCalls,
@@ -1019,8 +1023,7 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         int proposals,
         CancellationToken cancellationToken,
         string? kind = null,
-        bool usedRestrictedResults = false,
-        int modelCalls = 0)
+        bool usedRestrictedResults = false)
     {
         await using var context = contextFactory.CreateDbContext();
         await context.Runs
@@ -1028,7 +1031,6 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(run => run.ToolCalls, run => run.ToolCalls + toolCalls)
-                    .SetProperty(run => run.ModelCalls, run => run.ModelCalls + modelCalls)
                     .SetProperty(run => run.InputTokens, run => run.InputTokens + inputTokens)
                     .SetProperty(run => run.OutputTokens, run => run.OutputTokens + outputTokens)
                     .SetProperty(run => run.ProposalCount, run => run.ProposalCount + proposals)

@@ -2757,7 +2757,12 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentWorkWatchTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-work-watch.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-board.component.html",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-overview.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-overview.spec.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentRunFacts.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantBudgetManager.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRunFactsTests.cs"
     ],
     "SPM-305": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs",

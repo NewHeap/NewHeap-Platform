@@ -241,6 +241,9 @@ public sealed class AssistantRegistrationTests
                     // and the application's idempotency key of that decision: printable characters
                     // without white space, at most 100 (DA1 and DA2 of the agent runs adoption plan).
                     or "Channel" or "IdempotencyKey"
+                    // What started an ended run, its status and its failure code: codes of
+                    // NhAssistantTriggerKinds, NhAssistantRunStatuses and the failure codes.
+                    or "TriggerKind" or "RunStatus" or "RunFailureCode"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }

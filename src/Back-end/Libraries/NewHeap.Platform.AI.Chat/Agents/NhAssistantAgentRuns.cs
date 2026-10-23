@@ -1732,3 +1732,106 @@ public static class NhAssistantTriggerIds
         return triggerId is Manual or QueuedMessage or AgentRequest;
     }
 }
+
+/// <summary>
+/// What started an agent run, as <see cref="NhAssistantAuditEvent.TriggerKind"/> of
+/// <see cref="NhAssistantAuditEventKind.AgentRunEnded"/> names it: a small set of stable codes, so an
+/// audit sink counts runs by what started them without knowing the application's trigger ids. A run
+/// records its kind when it is created, from its trigger as it was registered then.
+/// </summary>
+public static class NhAssistantTriggerKinds
+{
+    /// <summary>
+    /// An application event: a trigger added with <c>AddTrigger</c>, or a trigger defined as data on
+    /// a trigger event.
+    /// </summary>
+    public const string Event = "event";
+
+    /// <summary>
+    /// A tick of a scheduled trigger, in code (<c>AddScheduledTrigger</c>) or defined as data.
+    /// </summary>
+    public const string Schedule = "schedule";
+
+    /// <summary>
+    /// A signed call of a webhook trigger (<c>AddWebhookTrigger</c>).
+    /// </summary>
+    public const string Webhook = "webhook";
+
+    /// <summary>
+    /// A person started the agent on a subject, or ran it now (<see cref="NhAssistantTriggerIds.Manual"/>).
+    /// </summary>
+    public const string Manual = "manual";
+
+    /// <summary>
+    /// A person's message in the agent's thread that waited for the run
+    /// (<see cref="NhAssistantTriggerIds.QueuedMessage"/>).
+    /// </summary>
+    public const string Message = "message";
+
+    /// <summary>
+    /// Another assistant asked the agent to work on a subject through the generated request tool
+    /// (<see cref="NhAssistantTriggerIds.AgentRequest"/>).
+    /// </summary>
+    public const string Request = "request";
+
+    /// <summary>
+    /// Another agent handed work on a subject to the agent (<see cref="NhAssistantTriggerIds.HandOff"/>).
+    /// </summary>
+    public const string HandOff = "hand-off";
+
+    /// <summary>
+    /// The agent follows up on its own earlier work: a proposal was decided or executed
+    /// (<see cref="NhAssistantTriggerIds.ProposalDecided"/>, <see cref="NhAssistantTriggerIds.ProposalExecuted"/>)
+    /// or a run it handed work to ended (<see cref="NhAssistantTriggerIds.HandOffEnded"/>).
+    /// </summary>
+    public const string FollowUp = "follow-up";
+
+    /// <summary>
+    /// An administrator replayed the recorded inputs of another agent's run into a shadow variant.
+    /// </summary>
+    public const string Replay = "replay";
+
+    /// <summary>
+    /// The kind of a run started by <paramref name="triggerId"/>: a replay when it replays another
+    /// run, the kind of a reserved trigger id, and the source of a registered trigger otherwise;
+    /// <see langword="null"/> for a trigger that is no longer registered.
+    /// </summary>
+    internal static string? Of(
+        string triggerId,
+        Guid? replayOfRunId,
+        IReadOnlyDictionary<string, NhAssistantTriggerDefinition> triggers)
+    {
+        if (replayOfRunId is not null)
+        {
+            return Replay;
+        }
+
+        switch (triggerId)
+        {
+            case NhAssistantTriggerIds.Manual:
+                return Manual;
+            case NhAssistantTriggerIds.QueuedMessage:
+                return Message;
+            case NhAssistantTriggerIds.AgentRequest:
+                return Request;
+            case NhAssistantTriggerIds.HandOff:
+                return HandOff;
+            case NhAssistantTriggerIds.ProposalDecided:
+            case NhAssistantTriggerIds.ProposalExecuted:
+            case NhAssistantTriggerIds.HandOffEnded:
+                return FollowUp;
+        }
+
+        if (!triggers.TryGetValue(triggerId, out var trigger))
+        {
+            return null;
+        }
+
+        return trigger.Source switch
+        {
+            NhAssistantTriggerSource.Schedule => Schedule,
+            NhAssistantTriggerSource.Webhook => Webhook,
+            _ => Event
+        };
+    }
+}

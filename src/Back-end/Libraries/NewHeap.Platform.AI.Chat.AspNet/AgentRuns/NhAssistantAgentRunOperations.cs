@@ -790,8 +790,7 @@ internal sealed class NhAssistantAgentRunOperation(
             cancellationToken,
             // A resumed turn is the model's; it keeps the kind the run started with.
             result.Kind == NhAssistantRunKinds.Model ? null : result.Kind,
-            result.UsedRestrictedResults,
-            result.ModelCalls);
+            result.UsedRestrictedResults);
     }
 
     private static NhAssistantAgentTurnInput ToInput(AssistantQueuedInput input)

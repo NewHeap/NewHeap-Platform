@@ -309,6 +309,7 @@ public sealed class NhAssistantDbContext : DbContext
             run.Property(item => item.Id).ValueGeneratedNever();
             run.Property(item => item.TriggerId).HasMaxLength(128).IsRequired();
             run.Property(item => item.TriggerEventKey).HasMaxLength(256);
+            run.Property(item => item.TriggerKind).HasMaxLength(16);
             run.Property(item => item.InitiatorActorId).HasMaxLength(256);
             run.Property(item => item.AccountableOwnerId).HasMaxLength(256).IsRequired();
             run.Property(item => item.Status).HasMaxLength(32).IsRequired();

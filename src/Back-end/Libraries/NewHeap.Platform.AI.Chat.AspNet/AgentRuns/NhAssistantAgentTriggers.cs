@@ -214,6 +214,13 @@ internal sealed record NhAssistantTriggerFire(
     /// The further recorded inputs of the replayed run, written after the fire's own input.
     /// </summary>
     public IReadOnlyList<NhAssistantReplayedInput> ReplayedInputs { get; init; } = [];
+
+    /// <summary>
+    /// What started the work, one of <see cref="NhAssistantTriggerKinds"/>, when the fire continues
+    /// the work of an earlier run, which recorded it; <see langword="null"/> takes the kind of
+    /// <see cref="TriggerId"/>.
+    /// </summary>
+    public string? TriggerKind { get; init; }
 }
 
 /// <summary>
@@ -1198,7 +1205,8 @@ internal sealed class NhAssistantAgentTriggers(
                 Resume = true,
                 ResumeConversationId = thread.ConversationId,
                 SkillId = run.SkillId,
-                SkillChosenBy = run.SkillChosenBy
+                SkillChosenBy = run.SkillChosenBy,
+                TriggerKind = run.TriggerKind
             },
             cancellationToken);
     }
@@ -1468,6 +1476,7 @@ internal sealed class NhAssistantAgentTriggers(
             ConversationId = conversationId,
             TriggerId = fire.TriggerId,
             TriggerEventKey = fire.EventKey,
+            TriggerKind = fire.TriggerKind ?? NhAssistantTriggerKinds.Of(fire.TriggerId, fire.ReplayOfRunId, registration.Triggers),
             InitiatorActorId = fire.InitiatorActorId,
             AccountableOwnerId = accountable.Data!,
             Status = NhAssistantRunStatuses.Queued,

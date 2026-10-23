@@ -120,6 +120,12 @@ administration's agent cards offer "Runs": every run of the follow-up with its t
 proposals, usage and duration, filtered by kind of object, object, the whole application, status and
 period, each opened with its whole result rendered as safe Markdown. The playground lists earlier runs
 of the follow-up through the mock.
+The sample also counts what its agents' runs did from the content-free `AgentRunEnded` events alone
+(SPM-304), as a usage report or billing would: `SampleAgentRunFacts`, fed by a business audit sink,
+counts runs, runs without a model call, shadow runs, failed runs, model calls and what started them
+(`NhAssistantTriggerKinds`) per agent and skill, without reading the assistant's tables. A project
+manager's run of the follow-up counts as one more live run of its completion skill, started by hand and
+done by its rules without a model call.
 The portal's Project management page shows the board of the "Project management" group of agents
 (SPM-304), which the sample registers in code with English and Dutch names: the project closer and the
 project planner join it in code, and the development seeder puts the follow-up, created as data, in it
