@@ -426,7 +426,7 @@
       "assistant-consult-read-only": "Een raadpleging kan niets wijzigen.",
       "assistant-consult-proposal-refused": "Geen route bij het onderwerp neemt dit voorstel nog aan. Keur het hier goed of af.",
       "assistant-consult-asker-decides": "Degene die het vroeg, beslist over dit voorstel in de eigen chat.",
-      "assistant-consult-route-not-allowed": "De raadplegingen van de agent in code staan deze route niet toe, dus die kan niet aan.",
+      "assistant-consult-route-not-allowed": "Geen van de raadplegingen van de agent staat deze route toe, dus die kan niet aan.",
       "assistant-consult-proposal-moved": "Het voorstel is aan de goedkeurders van het onderwerp gelaten.",
       "assistant-moved-to-shadow": "Het werk is naar de schaduwthread van de agent gegaan, waar een run in schaduw het oppakt.",
       "assistant-shadow-variant": "Een schaduwvariant werkt altijd in schaduw.",
@@ -436,9 +436,9 @@
       "assistant-trigger-in-code": "Deze trigger staat in de code en kan hier niet veranderen.",
       "assistant-trigger-filter-not-found": "De gebeurtenis heeft geen filter met deze naam. Kies uit de filters die de gebeurtenis biedt.",
       "assistant-skill-in-use": "Een trigger start deze vaardigheid nog. Pas de trigger eerst aan of verwijder hem.",
-      "assistant-configuration-limit": "Deze agent heeft al zoveel vaardigheden of triggers als is toegestaan.",
+      "assistant-configuration-limit": "Deze agent heeft al zoveel vaardigheden, triggers of raadplegingen als is toegestaan.",
       "assistant-run-settings-in-code": "Deze agent staat in de code; daar is ingesteld hoe hij werkt.",
-      "assistant-run-settings-in-use": "Er horen nog vaardigheden of triggers bij deze agent. Verwijder die eerst.",
+      "assistant-run-settings-in-use": "Er horen nog vaardigheden, triggers of raadplegingen bij deze agent. Verwijder die eerst.",
       "assistant-skill-candidate-not-found": "Van deze vaardigheid wordt geen versie in schaduw beoordeeld.",
       "assistant-skill-version-gone": "De versie van de vaardigheid waarvoor deze run was, wordt niet meer beoordeeld.",
       "assistant-account-search-unavailable": "De applicatie biedt geen accountzoeker; vul de id van het account in.",
@@ -466,7 +466,10 @@
       "assistant-file-type-not-accepted": "Dit type bestand kan niet worden bijgevoegd.",
       "assistant-file-upload-refused": "De applicatie heeft dit bestand geweigerd.",
       "assistant-file-upload-failed": "Het bestand kon nu niet worden opgeslagen. Probeer het zo opnieuw.",
-      "assistant-file-scan-refused": "Het bestand is niet door de scan op schadelijke inhoud gekomen en is niet opgeslagen."
+      "assistant-file-scan-refused": "Het bestand is niet door de scan op schadelijke inhoud gekomen en is niet opgeslagen.",
+      "assistant-consultation-in-code": "De agent staat raadpleging over deze soort object in code toe; die kan hier niet veranderen.",
+      "assistant-consultation-not-found": "De raadpleging is niet gevonden.",
+      "assistant-consultations-not-allowed": "De applicatie laat beheerders geen raadplegingen aan deze agent toevoegen."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
@@ -715,7 +718,7 @@
         },
         "consultation-routes": {
           "title": "Routes van raadplegingen",
-          "description": "Wanneer een andere assistent deze agent raadpleegt en de agent een wijziging voorstelt, bepaalt een route wie erover beslist en met wiens rechten het loopt.",
+          "description": "Zet een route in één keer uit voor alle raadplegingen van deze agent, in code en in het beheer. Wanneer een andere assistent deze agent raadpleegt en de agent een wijziging voorstelt, bepaalt een route wie erover beslist en met wiens rechten het loopt.",
           "load-failed": "De routes van raadplegingen konden niet worden gelezen.",
           "route": {
             "asker-decides": "Degene die het vroeg, beslist",
@@ -729,21 +732,21 @@
           },
           "on": "Aan",
           "off": "Uit",
-          "code": "Ingesteld in code",
+          "code": "Zoals de raadplegingen toestaan",
           "overridden": "Overschreven",
-          "not-allowed": "Niet toegestaan in code",
-          "not-allowed-hint": "Geen raadpleging in code staat deze route toe, dus die blijft uit en kan niet aan.",
+          "not-allowed": "Niet toegestaan",
+          "not-allowed-hint": "Geen raadpleging van deze agent staat deze route toe, dus die blijft uit en kan niet aan.",
           "subject-types": "Voor: {{types}}",
           "action": {
             "on": "Aanzetten",
             "off": "Uitzetten",
-            "code": "Terug naar de instelling in code"
+            "code": "Terug naar wat de raadplegingen toestaan"
           },
           "explain-change": {
             "on": "Raadplegingen gebruiken deze route weer voor nieuwe voorstellen. Voorstellen die er al zijn, houden hun route.",
             "off": "Raadplegingen gebruiken deze route niet meer voor nieuwe voorstellen; met alle routes uit lezen de raadplegingen van de agent alleen. Voorstellen die er al zijn, houden hun route.",
-            "code-on": "De instelling in code beslist weer: code staat deze route toe, dus die staat aan.",
-            "code-off": "De instelling in code beslist weer: code staat deze route niet toe, dus die blijft uit."
+            "code-on": "De raadplegingen beslissen weer: een ervan staat deze route toe, dus die staat aan.",
+            "code-off": "De raadplegingen beslissen weer: geen ervan staat deze route toe, dus die blijft uit."
           },
           "confirm": {
             "on": "Aanzetten bevestigen",
@@ -1208,7 +1211,8 @@
             "agent": "Runinstellingen:",
             "skill": "Vaardigheid {{id}}:",
             "candidate": "Kandidaat van vaardigheid {{id}}:",
-            "trigger": "Trigger {{id}}:"
+            "trigger": "Trigger {{id}}:",
+            "consultation": "Raadpleging over {{id}}:"
           },
           "code": {
             "unknown-agent": "de agent kan niet meer zelfstandig werken.",
@@ -1224,7 +1228,18 @@
             "unknown-skill": "de vaardigheid bestaat niet meer.",
             "invalid-schedule": "het schema of de tijdzone is niet geldig.",
             "invalid": "een waarde is niet geldig.",
-            "not-worked-on": "het gaat over een soort object, of de hele applicatie, waaraan de agent niet werkt."
+            "not-worked-on": "het gaat over een soort object, of de hele applicatie, waaraan de agent niet werkt.",
+            "unknown-subject-type": "de soort object bestaat niet meer.",
+            "unknown-agent-policy": "het beleid dat vragers nodig hebben, wordt niet meer aangeboden.",
+            "conflicts-with-tool": "een andere tool heeft al de naam van haar tool.",
+            "not-consultable": "de applicatie laat beheerders geen raadplegingen meer aan deze agent toevoegen.",
+            "route-not-allowed": "een route is niet meer toegestaan en valt weg.",
+            "agent-answers-to-person": "de route met het account van de agent valt weg, omdat de agent verantwoording aflegt aan de verantwoordelijke van het object.",
+            "agent-has-no-rights": "de route met het account van de agent valt weg, omdat de agent voor zichzelf antwoordt en geen eigen rechten heeft.",
+            "no-approver": "de route met het account van de agent valt weg, omdat het goedkeuringsbeleid alleen degene die een voorstel veroorzaakte laat beslissen.",
+            "limit-above-ceiling": "een grens ligt boven wat de applicatie toestaat, dus die van de applicatie geldt.",
+            "requests-not-allowed": "de applicatie staat geen verzoeken meer toe, dus ze neemt er geen aan.",
+            "mcp-not-allowed": "de applicatie biedt raadplegingen niet meer aan MCP-clients aan, dus die zien haar niet."
           }
         },
         "field-errors": {
@@ -1241,7 +1256,9 @@
           "instructions-for-model": "Zonder vaste regels werkt het model met deze instructies; beschrijf wat het moet doen.",
           "application-not-worked-on": "De agent werkt niet aan de hele applicatie. Kies een verzameling objecten, of laat de agent eerst aan de hele applicatie werken.",
           "megabytes-up-to": "Vul een grootte in boven 0 en hooguit {{max}} MB.",
-          "megabytes-positive": "Vul een grootte in boven 0 MB."
+          "megabytes-positive": "Vul een grootte in boven 0 MB.",
+          "not-allowed": "De applicatie staat dit niet toe.",
+          "routes-required": "Kies minstens één route, of laat hem alleen antwoorden."
         },
         "settings": {
           "title": "Runinstellingen",
@@ -1619,7 +1636,14 @@
               "configured-off": "Nu uitvoeren: niet zolang de code van de applicatie de agent uitschakelt.",
               "no-settings": "Nu uitvoeren: pas als de agent runinstellingen heeft.",
               "no-catalog": "Nu uitvoeren: pas als de runcatalogus gelezen kan worden."
-            }
+            },
+            "consultations": "Als een andere assistent hem raadpleegt",
+            "no-consultations": "Nog geen andere assistent kan hem raadplegen.",
+            "consultation-proposes": "Antwoordt en stelt voor",
+            "consultation-answers": "Antwoordt alleen",
+            "asked-by-none": "Nog geen agent vraagt het",
+            "asked-by-one": "Gevraagd door 1 agent",
+            "asked-by": "Gevraagd door {{count}} agents"
           },
           "skills": {
             "code-rules": "Vaste regels in de code van de applicatie",
@@ -1702,7 +1726,124 @@
             "edit-trigger": "Trigger wijzigen",
             "edit-skill": "Vaardigheid wijzigen",
             "edit-trigger-named": "Trigger {{trigger}} bewerken",
-            "edit-skill-named": "Vaardigheid {{skill}} bewerken"
+            "edit-skill-named": "Vaardigheid {{skill}} bewerken",
+            "edit-consultation": "Raadpleging wijzigen",
+            "edit-consultation-named": "De raadpleging over {{type}} bewerken"
+          }
+        },
+        "consultations": {
+          "title": "Raadplegingen",
+          "description": "Andere assistenten mogen deze agent raadplegen over een object. Hij antwoordt met de rechten van degene die het vroeg en stelt, waar dat mag, wijzigingen voor. Een raadpleging werkt pas als een agent die vraagt haar tool selecteert.",
+          "add": "Raadpleging toevoegen",
+          "empty": "Niemand kan deze agent nog raadplegen.",
+          "closed": {
+            "application": "De applicatie laat beheerders geen raadplegingen toevoegen; die komen uit haar code.",
+            "agent": "Deze agent staat in de code en laat beheerders geen raadplegingen toevoegen.",
+            "needs-settings": "Geef de agent runinstellingen voordat je raadplegingen toevoegt.",
+            "limit": "Deze agent heeft al zoveel raadplegingen als is toegestaan ({{max}}).",
+            "no-types": "Elke soort object waaraan deze agent werkt, heeft al een raadpleging."
+          },
+          "requests": "Neemt verzoeken aan",
+          "mcp": "Aangeboden aan MCP-clients",
+          "no-description": "Geen beschrijving.",
+          "askers": "Gevraagd door:",
+          "open-asker": "De editor van {{agent}} openen",
+          "no-askers": "Nog geen agent vraagt het. Selecteer de tool bij de tools van een agent die het moet vragen.",
+          "code-hint": "Toegestaan in code; hier veranderen alleen de routeschakelaars hieronder iets.",
+          "limits-value": "Hooguit {{calls}} toolaanroepen, {{seconds}} seconden, {{chars}} tekens en {{history}} berichten uit de thread",
+          "edit-named": "De raadpleging over {{type}} bewerken",
+          "remove-named": "De raadpleging over {{type}} verwijderen",
+          "remove-explain": "Haar tools verdwijnen; voorstellen die ze deed, kunnen nog worden beslist.",
+          "added": "De raadpleging is toegevoegd. Ze antwoordt zodra een agent die vraagt haar tool selecteert.",
+          "saved": "De raadpleging is opgeslagen.",
+          "removed": "De raadpleging is verwijderd.",
+          "roles": {
+            "reader": "Lezer",
+            "participant": "Deelnemer",
+            "approver": "Goedkeurder"
+          },
+          "roles-lower": {
+            "reader": "lezer",
+            "participant": "deelnemer",
+            "approver": "goedkeurder"
+          },
+          "summary": {
+            "ask": "Mensen die minstens {{role}} van het object zijn, mogen het vragen.",
+            "asker-policy": "Ze hebben ook {{policy}} nodig.",
+            "asker-policy-agent": "Ze hebben ook het beleid nodig dat de agent vereist, of anders toegang tot de assistent.",
+            "read-only": "De agent antwoordt alleen en stelt niets voor.",
+            "proposes": "De agent mag wijzigingen voorstellen als degene die het vroeg minstens {{role}} is: {{routes}}.",
+            "proposes-code": "De agent mag wijzigingen voorstellen: {{routes}}."
+          },
+          "routes": {
+            "asker-decides": "Degene die het vroeg, beslist in de eigen chat",
+            "subject-asker-rights": "De goedkeurders van het object beslissen, met de rechten van degene die het vroeg",
+            "subject-agent-rights": "De goedkeurders van het object beslissen, met het technische account van deze agent"
+          },
+          "routes-hint": {
+            "asker-decides": "Goedkeuren voert het meteen uit met diens eigen rechten.",
+            "subject-asker-rights": "Het wacht bij het object en loopt later met de rechten van degene die het vroeg.",
+            "subject-agent-rights": "Het wacht bij het object op een goedkeurder anders dan degene die het vroeg en loopt met de eigen rechten van de agent."
+          },
+          "route-blocks": {
+            "not-in-ceiling": "De applicatie staat deze route niet toe.",
+            "system": "Niet voor de hele applicatie.",
+            "agent-answers-to-person": "Niet voor een agent die verantwoording aflegt aan de verantwoordelijke van het object.",
+            "agent-has-no-rights": "Niet voor een agent die voor zichzelf antwoordt: hij heeft geen eigen rechten om uit te lenen."
+          },
+          "limits": {
+            "tool-calls": "Toolaanroepen",
+            "timeout-seconds": "Tijdslimiet in seconden",
+            "answer-chars": "Langste antwoord in tekens",
+            "history-messages": "Berichten uit de thread die hij leest"
+          },
+          "form": {
+            "new-title": "Nieuwe raadpleging",
+            "edit-title": "Raadpleging over {{type}}, versie {{version}}",
+            "what": "Waarover mogen andere assistenten hem raadplegen?",
+            "subject-type": "Soort object",
+            "subject-type-hint": "Alleen soorten objecten waaraan de agent werkt en waarover hij nog geen raadpleging heeft.",
+            "description": "Wanneer je hem raadpleegt",
+            "description-hint": "De assistent die vraagt, leest dit om te bepalen wanneer hij deze agent raadpleegt.",
+            "instructions": "Instructies bij een raadpleging",
+            "instructions-hint": "Optioneel. Waar de agent op let als hij antwoordt, na de eigen regels van het platform voor raadplegingen.",
+            "who": "Wie mag het vragen?",
+            "minimum-role": "Degene die het vraagt is minstens",
+            "role-hint": {
+              "reader": "Iedereen die het object mag lezen.",
+              "participant": "Mensen die aan het object werken.",
+              "approver": "Mensen die wijzigingen aan het object goedkeuren."
+            },
+            "asker-policy": "Beleid dat de persoon nodig heeft",
+            "asker-policy-agent": "Het beleid dat de agent vereist",
+            "asker-policy-hint": "Een van de beleidsregels die de applicatie aanbiedt. Zonder geldt het eigen beleid van de agent, of anders toegang tot de assistent.",
+            "do": "Wat mag hij doen?",
+            "answer": "Alleen antwoorden",
+            "answer-hint": "Hij antwoordt met de rechten van degene die het vroeg en stelt niets voor.",
+            "propose": "Antwoorden en wijzigingen voorstellen",
+            "propose-hint": "Hij mag ook wijzigingen voorstellen; de routes hieronder bepalen wie erover beslist.",
+            "answers-only": "De applicatie laat raadplegingen alleen antwoorden.",
+            "routes": "Wie beslist over zijn voorstellen?",
+            "routes-hint": "Kies er minstens één. Van de twee routes bij het object kies je er hooguit één.",
+            "proposal-role": "Rol nodig voor voorstellen",
+            "proposal-role-hint": "Degene die het vroeg heeft minstens deze rol op het object nodig voordat de agent iets mag voorstellen; met een lagere rol krijgt die het antwoord zonder voorstellen.",
+            "agent-policy": "Het goedkeuringsbeleid van de agent",
+            "policy-warning": {
+              "four-eyes": "Dit goedkeuringsbeleid vraagt vier ogen, dus degene die het vroeg kan het eigen voorstel niet in de eigen chat beslissen; die route geldt dan niet.",
+              "initiator-only": "Dit goedkeuringsbeleid laat alleen degene die een voorstel veroorzaakte erover beslissen, dus de route met het technische account van de agent wordt geweigerd."
+            },
+            "advanced": "Geavanceerd: grenzen, verzoeken en classificatie",
+            "limits": "Grenzen van één raadpleging",
+            "limits-hint": "Leeg begint bij de standaard binnen wat de applicatie toestaat.",
+            "limit-range": "Van {{min}} tot en met {{max}}.",
+            "requests": "Ook verzoeken aannemen",
+            "requests-hint": "De assistent die vraagt, mag deze agent ook vragen een run te starten, met de persoon als initiatiefnemer.",
+            "requests-closed": "De applicatie staat geen verzoeken toe.",
+            "mcp": "Aanbieden aan MCP-clients",
+            "mcp-hint": "Externe MCP-clients mogen hem ook raadplegen, met de rechten van hun persoon.",
+            "mcp-closed": "De applicatie biedt raadplegingen niet aan MCP-clients aan.",
+            "classification-hint": "Hoe gevoelig zijn antwoorden zijn in het gesprek dat vroeg. Zonder geldt de classificatie van de agent.",
+            "in-effect": "Een raadpleging werkt zodra ze is opgeslagen; ze antwoordt zodra een agent die vraagt haar tool selecteert."
           }
         }
       },

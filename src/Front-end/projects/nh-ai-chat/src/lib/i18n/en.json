@@ -426,7 +426,7 @@
       "assistant-consult-read-only": "A consultation cannot change anything.",
       "assistant-consult-proposal-refused": "No route at the subject takes this proposal any more. Approve or reject it here.",
       "assistant-consult-asker-decides": "The person who asked decides this proposal in their own chat.",
-      "assistant-consult-route-not-allowed": "The agent's consultations in code do not allow this route, so it cannot be switched on.",
+      "assistant-consult-route-not-allowed": "None of the agent's consultations allows this route, so it cannot be switched on.",
       "assistant-consult-proposal-moved": "The proposal was left for the subject's approvers.",
       "assistant-moved-to-shadow": "The work went to the agent's shadow thread, where a run in shadow takes it.",
       "assistant-shadow-variant": "A shadow variant always works in shadow.",
@@ -436,9 +436,9 @@
       "assistant-trigger-in-code": "This trigger is part of the code and cannot change here.",
       "assistant-trigger-filter-not-found": "The event has no filter with this name. Choose from the filters the event offers.",
       "assistant-skill-in-use": "A trigger still starts this skill. Change or remove the trigger first.",
-      "assistant-configuration-limit": "This agent already has as many skills or triggers as allowed.",
+      "assistant-configuration-limit": "This agent already has as many skills, triggers or consultations as allowed.",
       "assistant-run-settings-in-code": "This agent is part of the code; its runs are configured there.",
-      "assistant-run-settings-in-use": "Skills or triggers still belong to this agent. Remove them first.",
+      "assistant-run-settings-in-use": "Skills, triggers or consultations still belong to this agent. Remove them first.",
       "assistant-skill-candidate-not-found": "This skill has no version being evaluated in shadow.",
       "assistant-skill-version-gone": "The skill version this run was for is no longer evaluated.",
       "assistant-account-search-unavailable": "The application offers no account search; enter the account's id.",
@@ -466,7 +466,10 @@
       "assistant-file-type-not-accepted": "This type of file cannot be attached.",
       "assistant-file-upload-refused": "The application refused this file.",
       "assistant-file-upload-failed": "The file could not be stored right now. Try again in a moment.",
-      "assistant-file-scan-refused": "The file did not pass the scan for harmful content and was not stored."
+      "assistant-file-scan-refused": "The file did not pass the scan for harmful content and was not stored.",
+      "assistant-consultation-in-code": "The agent allows consultation about this kind of object in code; it cannot change here.",
+      "assistant-consultation-not-found": "The consultation was not found.",
+      "assistant-consultations-not-allowed": "The application does not let administrators add consultations to this agent."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",
@@ -715,7 +718,7 @@
         },
         "consultation-routes": {
           "title": "Consultation routes",
-          "description": "When another assistant consults this agent and the agent proposes a change, a route decides who decides it and whose rights run it.",
+          "description": "Switch a route off for all consultations of this agent at once, in code and in the administration. When another assistant consults this agent and the agent proposes a change, a route decides who decides it and whose rights run it.",
           "load-failed": "The consultation routes could not be read.",
           "route": {
             "asker-decides": "The person who asked decides",
@@ -729,21 +732,21 @@
           },
           "on": "On",
           "off": "Off",
-          "code": "Set in code",
+          "code": "As the consultations allow",
           "overridden": "Overridden",
-          "not-allowed": "Not allowed in code",
-          "not-allowed-hint": "No consultation in code allows this route, so it stays off and cannot be switched on.",
+          "not-allowed": "Not allowed",
+          "not-allowed-hint": "No consultation of this agent allows this route, so it stays off and cannot be switched on.",
           "subject-types": "For: {{types}}",
           "action": {
             "on": "Switch on",
             "off": "Switch off",
-            "code": "Back to the code setting"
+            "code": "Back to what the consultations allow"
           },
           "explain-change": {
             "on": "Consultations use this route for new proposals again. Proposals already recorded keep their route.",
             "off": "Consultations no longer use this route for new proposals; with every route off, the agent's consultations only read. Proposals already recorded keep their route.",
-            "code-on": "The setting in code decides again: code allows this route, so it is on.",
-            "code-off": "The setting in code decides again: code does not allow this route, so it stays off."
+            "code-on": "The consultations decide again: one of them allows this route, so it is on.",
+            "code-off": "The consultations decide again: none of them allows this route, so it stays off."
           },
           "confirm": {
             "on": "Confirm switching on",
@@ -1208,7 +1211,8 @@
             "agent": "Run settings:",
             "skill": "Skill {{id}}:",
             "candidate": "Candidate of skill {{id}}:",
-            "trigger": "Trigger {{id}}:"
+            "trigger": "Trigger {{id}}:",
+            "consultation": "Consultation about {{id}}:"
           },
           "code": {
             "unknown-agent": "the agent can no longer run on its own.",
@@ -1224,7 +1228,18 @@
             "unknown-skill": "the skill no longer exists.",
             "invalid-schedule": "the schedule or its time zone is not valid.",
             "invalid": "a value is not valid.",
-            "not-worked-on": "it concerns a kind of object, or the whole application, that the agent does not work on."
+            "not-worked-on": "it concerns a kind of object, or the whole application, that the agent does not work on.",
+            "unknown-subject-type": "the kind of object no longer exists.",
+            "unknown-agent-policy": "the policy the people who ask need is no longer listed.",
+            "conflicts-with-tool": "another tool already has the name of its tool.",
+            "not-consultable": "the application no longer lets administrators add consultations to this agent.",
+            "route-not-allowed": "a route is no longer allowed, so it is left out.",
+            "agent-answers-to-person": "the route with the agent's account is left out, because the agent answers to the object's responsible person.",
+            "agent-has-no-rights": "the route with the agent's account is left out, because the agent answers for itself and has no rights of its own.",
+            "no-approver": "the route with the agent's account is left out, because the approval policy lets only the person who caused a proposal decide it.",
+            "limit-above-ceiling": "a limit is above what the application allows, so the application's applies.",
+            "requests-not-allowed": "the application no longer allows requests, so it takes none.",
+            "mcp-not-allowed": "the application no longer offers consultations to MCP clients, so they do not see it."
           }
         },
         "field-errors": {
@@ -1241,7 +1256,9 @@
           "instructions-for-model": "Without fixed rules the model works from these instructions; describe what it should do.",
           "application-not-worked-on": "The agent does not work on the whole application. Choose a set of objects, or let the agent work on the whole application first.",
           "megabytes-up-to": "Enter a size above 0 and at most {{max}} MB.",
-          "megabytes-positive": "Enter a size above 0 MB."
+          "megabytes-positive": "Enter a size above 0 MB.",
+          "not-allowed": "The application does not allow this.",
+          "routes-required": "Choose at least one route, or let it only answer."
         },
         "settings": {
           "title": "Run settings",
@@ -1619,7 +1636,14 @@
               "configured-off": "Run now: not while the application's code switches the agent off.",
               "no-settings": "Run now: only once the agent has run settings.",
               "no-catalog": "Run now: not until the run catalog can be read."
-            }
+            },
+            "consultations": "When another assistant consults it",
+            "no-consultations": "No other assistant can consult it yet.",
+            "consultation-proposes": "Answers and proposes",
+            "consultation-answers": "Only answers",
+            "asked-by-none": "No agent asks it yet",
+            "asked-by-one": "Asked by 1 agent",
+            "asked-by": "Asked by {{count}} agents"
           },
           "skills": {
             "code-rules": "Fixed rules in the application's code",
@@ -1702,7 +1726,124 @@
             "edit-trigger": "Change the trigger",
             "edit-skill": "Change the skill",
             "edit-trigger-named": "Edit trigger {{trigger}}",
-            "edit-skill-named": "Edit skill {{skill}}"
+            "edit-skill-named": "Edit skill {{skill}}",
+            "edit-consultation": "Change the consultation",
+            "edit-consultation-named": "Edit the consultation about {{type}}"
+          }
+        },
+        "consultations": {
+          "title": "Consultations",
+          "description": "Other assistants may consult this agent about an object. It answers with the rights of the person who asked and, where allowed, proposes changes. A consultation works only once an agent that asks selects its tool.",
+          "add": "Add consultation",
+          "empty": "Nobody can consult this agent yet.",
+          "closed": {
+            "application": "The application does not let administrators add consultations; they come from its code.",
+            "agent": "This agent is defined in code and does not let administrators add consultations to it.",
+            "needs-settings": "Give the agent run settings before you add consultations.",
+            "limit": "This agent has as many consultations as allowed ({{max}}).",
+            "no-types": "Every kind of object this agent works on already has a consultation."
+          },
+          "requests": "Takes requests",
+          "mcp": "Offered to MCP clients",
+          "no-description": "No description.",
+          "askers": "Asked by:",
+          "open-asker": "Open the editor of {{agent}}",
+          "no-askers": "No agent asks it yet. Select its tool in the tools of an agent that should ask it.",
+          "code-hint": "Allowed in code; here only the route switches below change it.",
+          "limits-value": "At most {{calls}} tool calls, {{seconds}} seconds, {{chars}} characters and {{history}} thread messages",
+          "edit-named": "Edit the consultation about {{type}}",
+          "remove-named": "Delete the consultation about {{type}}",
+          "remove-explain": "Its tools disappear; proposals it made can still be decided.",
+          "added": "The consultation was added. It answers once an agent that asks selects its tool.",
+          "saved": "The consultation was saved.",
+          "removed": "The consultation was removed.",
+          "roles": {
+            "reader": "Reader",
+            "participant": "Participant",
+            "approver": "Approver"
+          },
+          "roles-lower": {
+            "reader": "reader",
+            "participant": "participant",
+            "approver": "approver"
+          },
+          "summary": {
+            "ask": "People who are at least {{role}} of the object may ask.",
+            "asker-policy": "They also need {{policy}}.",
+            "asker-policy-agent": "They also need the policy the agent requires, or else access to the assistant.",
+            "read-only": "The agent only answers and proposes nothing.",
+            "proposes": "The agent may propose changes when the person who asked is at least {{role}}: {{routes}}.",
+            "proposes-code": "The agent may propose changes: {{routes}}."
+          },
+          "routes": {
+            "asker-decides": "The person who asked decides in their chat",
+            "subject-asker-rights": "The object's approvers decide, with the rights of the person who asked",
+            "subject-agent-rights": "The object's approvers decide, with this agent's technical account"
+          },
+          "routes-hint": {
+            "asker-decides": "Approving runs it at once with that person's own rights.",
+            "subject-asker-rights": "It waits at the object and runs later with the rights of the person who asked.",
+            "subject-agent-rights": "It waits at the object for an approver other than the person who asked and runs with the agent's own rights."
+          },
+          "route-blocks": {
+            "not-in-ceiling": "The application does not allow this route.",
+            "system": "Not for the whole application.",
+            "agent-answers-to-person": "Not for an agent that answers to the object's responsible person.",
+            "agent-has-no-rights": "Not for an agent that answers for itself: it has no rights of its own to lend."
+          },
+          "limits": {
+            "tool-calls": "Tool calls",
+            "timeout-seconds": "Time limit in seconds",
+            "answer-chars": "Longest answer in characters",
+            "history-messages": "Thread messages it reads"
+          },
+          "form": {
+            "new-title": "New consultation",
+            "edit-title": "Consultation about {{type}}, version {{version}}",
+            "what": "What may other assistants consult it about?",
+            "subject-type": "Kind of object",
+            "subject-type-hint": "Only kinds of objects the agent works on and has no consultation about yet.",
+            "description": "When to consult it",
+            "description-hint": "The assistant that asks reads this to decide when to consult this agent.",
+            "instructions": "Instructions when consulted",
+            "instructions-hint": "Optional. What the agent keeps in mind when it answers, after the platform's own rules for consultations.",
+            "who": "Who may ask?",
+            "minimum-role": "The person who asks is at least",
+            "role-hint": {
+              "reader": "Anyone who may read the object.",
+              "participant": "People who work on the object.",
+              "approver": "People who approve changes to the object."
+            },
+            "asker-policy": "Policy the person needs",
+            "asker-policy-agent": "The policy the agent requires",
+            "asker-policy-hint": "One of the policies the application lists. Without one, the agent's own policy applies, or else access to the assistant.",
+            "do": "What may it do?",
+            "answer": "Only answer",
+            "answer-hint": "It answers with the rights of the person who asked and proposes nothing.",
+            "propose": "Answer and propose changes",
+            "propose-hint": "It may also propose changes; the routes below decide who decides them.",
+            "answers-only": "The application lets consultations only answer.",
+            "routes": "Who decides its proposals?",
+            "routes-hint": "Choose at least one. Of the two routes at the object, choose one at most.",
+            "proposal-role": "Role needed for proposals",
+            "proposal-role-hint": "The person who asked needs at least this role on the object before the agent may propose; with a lower role they get the answer without proposals.",
+            "agent-policy": "The agent's approval policy",
+            "policy-warning": {
+              "four-eyes": "This approval policy uses four eyes, so the person who asked cannot decide their own proposal in their chat; that route does not apply.",
+              "initiator-only": "This approval policy lets only the person who caused a proposal decide it, so the route with the agent's technical account is refused."
+            },
+            "advanced": "Advanced: limits, requests and classification",
+            "limits": "Limits of one consultation",
+            "limits-hint": "Empty starts at the default within what the application allows.",
+            "limit-range": "From {{min}} to {{max}}.",
+            "requests": "Also take requests",
+            "requests-hint": "The assistant that asks may also ask this agent to start a run, with the person as its initiator.",
+            "requests-closed": "The application does not allow requests.",
+            "mcp": "Offer to MCP clients",
+            "mcp-hint": "External MCP clients may consult it too, with the rights of their person.",
+            "mcp-closed": "The application does not offer consultations to MCP clients.",
+            "classification-hint": "How sensitive its answers are in the conversation that asked. Without one, the agent's classification applies.",
+            "in-effect": "A consultation is in effect once saved; it answers once an agent that asks selects its tool."
           }
         }
       },

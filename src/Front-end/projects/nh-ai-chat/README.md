@@ -330,6 +330,14 @@ run for the whole application instead of a set of objects (sent as `subjectSet: 
 division for an agent that works per division); the trigger list names it, and subject links name the
 whole application (`nh-system`, `isSystem` in the run catalog) once.
 
+An agent's run configuration lists its consultations: those in code read only, and those defined as
+data, which administrators add, change and remove within the agent's `consultationCeiling`
+(`saveDataConsultation`, `removeDataConsultation`), with only the routes, requests and limits that
+ceiling and the agent allow. Each consultation names the agents that ask it, with a link to their
+editors, and its problems; the route switches turn a route off for all consultations of the agent, and
+the flow's "When it runs" step names them. The mock API plays them with the scenario's
+`consultationsAsData`, an agent's `consultableAsData` and its `dataConsultations`.
+
 With live updates the inbox, the thread view and its tabs reload by themselves when the hub
 reports `AgentWorkChanged` for work they show, debounced, and after every reconnect. The
 update names the thread, its subject (`subjectType`, `subjectId`) and whether a run, a

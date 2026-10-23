@@ -152,6 +152,10 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-consult-asker-decides',
   'assistant-consult-route-not-allowed',
   'assistant-consult-proposal-moved',
+  // Consultations defined as data in the administration
+  'assistant-consultation-in-code',
+  'assistant-consultation-not-found',
+  'assistant-consultations-not-allowed',
   // Preferences and administration
   'assistant-validation',
   'assistant-instructions-too-long',

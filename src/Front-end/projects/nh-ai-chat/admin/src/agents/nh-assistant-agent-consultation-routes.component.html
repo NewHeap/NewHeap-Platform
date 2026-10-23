@@ -1,7 +1,7 @@
 @if (loadFailed()) {
   <section class="subsection" [attr.aria-labelledby]="id + '-title'" data-consultation-routes>
     <header class="section-header">
-      <h4 [id]="id + '-title'">{{ 'nh-assistant.admin.agents.consultation-routes.title' | translate }}</h4>
+      <h5 [id]="id + '-title'">{{ 'nh-assistant.admin.agents.consultation-routes.title' | translate }}</h5>
     </header>
     <div class="state" role="alert">
       <p>{{ 'nh-assistant.admin.agents.consultation-routes.load-failed' | translate }}</p>
@@ -9,10 +9,10 @@
     </div>
   </section>
 } @else if (routes(); as current) {
-  <!-- Only an agent that can be consulted has routes; code allows them and administrators switch them. -->
+  <!-- Only an agent that can be consulted has routes; its consultations allow them and administrators switch them off. -->
   <section class="subsection" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading() || busy()" data-consultation-routes>
     <header class="section-header">
-      <h4 [id]="id + '-title'">{{ 'nh-assistant.admin.agents.consultation-routes.title' | translate }}</h4>
+      <h5 [id]="id + '-title'">{{ 'nh-assistant.admin.agents.consultation-routes.title' | translate }}</h5>
     </header>
     <p class="muted">{{ 'nh-assistant.admin.agents.consultation-routes.description' | translate }}</p>
     <nh-assistant-account-names-error [names]="accountNames" />

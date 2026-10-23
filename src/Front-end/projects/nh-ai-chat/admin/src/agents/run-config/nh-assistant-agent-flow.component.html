@@ -106,6 +106,51 @@
                   <span class="muted">{{ 'nh-assistant.admin.run-config.flow.when.run-now-unavailable.' + now.reason | translate }}</span>
                 }
               </p>
+              @if (consultations().length > 0 || canAddConsultation()) {
+                <!-- When another assistant consults the agent: in code, or as data with the asking agents as its second key. -->
+                <div class="tools" data-flow-consultations>
+                  <p class="flow-label">{{ 'nh-assistant.admin.run-config.flow.when.consultations' | translate }}</p>
+                  @if (consultations().length === 0) {
+                    <p class="muted" data-flow-no-consultations>{{ 'nh-assistant.admin.run-config.flow.when.no-consultations' | translate }}</p>
+                  } @else {
+                    <ul class="items compact">
+                      @for (consultation of consultations(); track consultation.origin + consultation.subjectType) {
+                        <li [attr.data-flow-consultation]="consultation.subjectType">
+                          <div class="item-head">
+                            <strong>{{ typeName(consultation.subjectType) }}</strong>
+                            @if (consultation.origin === 'code') {
+                              <span class="badge">{{ 'nh-assistant.admin.agents.source-code' | translate }}</span>
+                            }
+                            @if (!consultation.inEffect) {
+                              <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
+                            }
+                          </div>
+                          <div class="meta">
+                            <span>{{ (consultation.routes.length > 0 ? 'nh-assistant.admin.run-config.flow.when.consultation-proposes' : 'nh-assistant.admin.run-config.flow.when.consultation-answers') | translate }}</span>
+                            <span data-flow-consultation-askers>
+                              {{ (consultation.askingAgents.length === 0
+                                ? 'nh-assistant.admin.run-config.flow.when.asked-by-none'
+                                : consultation.askingAgents.length === 1 ? 'nh-assistant.admin.run-config.flow.when.asked-by-one' : 'nh-assistant.admin.run-config.flow.when.asked-by') | translate: { count: consultation.askingAgents.length } }}
+                            </span>
+                          </div>
+                          @if (consultation.origin === 'data' && configuration().consultationCeiling) {
+                            <div class="item-actions">
+                              <button
+                                class="secondary small"
+                                type="button"
+                                [attr.aria-label]="'nh-assistant.admin.run-config.flow.entry.edit-consultation-named' | translate: { type: typeName(consultation.subjectType) }"
+                                [disabled]="busy()"
+                                (click)="open({ kind: 'edit-consultation', subjectType: consultation.subjectType })">
+                                <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+                              </button>
+                            </div>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  }
+                </div>
+              }
             }
 
             @case ('skills') {
@@ -389,6 +434,11 @@
                 @if (runNow().available) {
                   <button class="secondary" type="button" aria-haspopup="dialog" data-flow-entry="run-now" [disabled]="busy()" (click)="openRunNow()">
                     <nh-assistant-icon name="send" />{{ 'nh-assistant.admin.agents.run-now' | translate }}
+                  </button>
+                }
+                @if (canAddConsultation()) {
+                  <button class="secondary" type="button" data-flow-entry="add-consultation" [disabled]="busy()" (click)="open({ kind: 'add-consultation' })">
+                    <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.run-config.consultations.add' | translate }}
                   </button>
                 }
               }

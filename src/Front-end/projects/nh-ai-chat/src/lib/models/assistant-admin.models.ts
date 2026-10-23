@@ -4,7 +4,7 @@
  * Literal translation of the assistant API contract (preferences and `admin/*`). Keep the
  * field names identical to the JSON the server returns.
  */
-import { AgentProposalFeedbackCategory, AgentProposalFeedbackGroup, AgentProposalStatus } from './assistant-agent-run.models';
+import { AgentProposalFeedbackCategory, AgentProposalFeedbackGroup, AgentProposalStatus, AgentSubjectRole } from './assistant-agent-run.models';
 import { ApprovalPresentation, NhAssistantConsultationRoute, StaleKind } from './assistant-api.models';
 
 export type AssistantStyle = 'default' | 'direct' | 'personal' | 'detailed';
@@ -326,16 +326,16 @@ export interface AgentState {
   shadow?: AgentShadowState | null;
   serviceAccount?: AgentServiceAccountState | null;
   /**
-   * The routes of the agent's consultations, as code allows them and an administrator switched them;
-   * `null` when nobody can consult the agent: it has no consultation in code, as every agent created
-   * in the administration. Missing on older servers.
+   * The routes of the agent's consultations, as its consultations in code and as data allow them and
+   * an administrator switched them; `null` when nobody can consult the agent: it has no consultation
+   * in code and none defined as data in effect. Missing on older servers.
    */
   consultationRoutes?: AgentConsultationRoutesState | null;
 }
 
 /**
- * The routes of an agent's consultations: one entry per route, and the last change at runtime. Code
- * is the ceiling: a route no consultation in code allows can never be switched on.
+ * The routes of an agent's consultations: one entry per route, and the last change at runtime. The
+ * consultations are the ceiling: a route none of them allows can never be switched on.
  */
 export interface AgentConsultationRoutesState {
   routes: AgentConsultationRouteState[];
@@ -348,13 +348,13 @@ export interface AgentConsultationRoutesState {
 /** One route of an agent's consultations. */
 export interface AgentConsultationRouteState {
   route: NhAssistantConsultationRoute;
-  /** Whether a consultation in code allows the route: the ceiling. */
+  /** Whether a consultation of the agent, in code or as data in effect, allows the route: the ceiling. */
   allowed: boolean;
   /** The switch an administrator set: `true` on, `false` off, `null` following the code. */
   override: boolean | null;
   /** Whether consultations use the route now: allowed and not switched off. */
   on: boolean;
-  /** The subject types whose consultation in code allows the route. */
+  /** The subject types whose consultation allows the route. */
   subjectTypes: string[];
 }
 
@@ -973,6 +973,35 @@ export interface RunCatalog {
    * can only lower them; missing on older servers.
    */
   fileLimits?: FileLimits | null;
+  /**
+   * The application's ceiling of consultations defined as data (`UseConsultationsAsData`): what agents
+   * created here may be consulted with. `null` while consultations exist in code only; missing on
+   * older servers.
+   */
+  consultationCeiling?: ConsultationCeiling | null;
+}
+
+/**
+ * A ceiling in code of consultations defined as data: the routes their proposals may use (empty allows
+ * answers only), whether they may generate the request tool and be seen by MCP clients, and their
+ * highest limits.
+ */
+export interface ConsultationCeiling {
+  routes: NhAssistantConsultationRoute[];
+  allowRequests: boolean;
+  allowMcp: boolean;
+  /** The most tool calls of one consultation. */
+  maxToolCalls: number;
+  /** The longest consultation, in seconds. */
+  maxTimeoutSeconds: number;
+  /** The longest answer, in characters. */
+  maxAnswerChars: number;
+  /** The most thread messages a consulted agent reads. */
+  maxHistoryMessages: number;
+  /** The most consultations defined as data of one agent. */
+  maxConsultations: number;
+  /** The longest instructions of a consultation defined as data. */
+  maxInstructionsLength: number;
 }
 
 /**
@@ -1063,16 +1092,17 @@ export interface AssistantAccount {
 }
 
 /** Which part of the run configuration a problem concerns. */
-export type RunConfigurationProblemKind = 'agent' | 'skill' | 'candidate' | 'trigger';
+export type RunConfigurationProblemKind = 'agent' | 'skill' | 'candidate' | 'trigger' | 'consultation';
 
 /**
  * Data that is out of effect because it no longer fits the code, for example after a deploy removed
- * a profile, policy, rule handler, event or subject set it names.
+ * a profile, policy, rule handler, event or subject set it names. A consultation defined as data may
+ * also stay in effect without the parts that no longer fit, each with a problem.
  */
 export interface RunConfigurationProblem {
   agentId: string;
   kind: RunConfigurationProblemKind;
-  /** The agent, skill or trigger id. */
+  /** The agent, skill or trigger id; the subject type of a consultation. */
   id: string;
   /** Such as `unknown-event` or `tool-not-covered`. */
   code: string;
@@ -1416,7 +1446,7 @@ export interface DataTriggerShadowRequest {
   reason?: string | null;
 }
 
-/** Query of the removals of run settings, data skills and data triggers. */
+/** Query of the removals of run settings, data skills, data triggers and data consultations. */
 export interface RunConfigurationRemoval {
   expectedVersion?: number | null;
   reason?: string | null;
@@ -1440,4 +1470,140 @@ export interface AgentRunConfiguration {
   runSettings: AgentRunSettings | null;
   /** How an agent in code runs, as its code says; `null` for an agent created here, missing on older servers. */
   codeRunSettings?: CodeRunSettings | null;
+  /** The consultations the agent allows in code, read-only, by subject type; missing on older servers. */
+  codeConsultations?: CodeConsultation[];
+  /** The consultations of the agent defined as data, by subject type; missing on older servers. */
+  dataConsultations?: DataConsultation[];
+  /**
+   * The ceiling within which the agent may get consultations as data: the application's for an agent
+   * created here, the application's and its own together for an agent in code that is consultable as
+   * data. `null` when it may get none; missing on older servers.
+   */
+  consultationCeiling?: ConsultationCeiling | null;
+}
+
+/** The role a person needs on the subject: to ask a consulted agent, or before it may propose. */
+export type ConsultationSubjectRole = Exclude<AgentSubjectRole, 'none'>;
+
+/** Where the generated tools of a consultation are offered. */
+export type ConsultationExposure = 'local' | 'agent' | 'mcp';
+
+/**
+ * A consultation the agent allows in code with `AllowConsultation`; it cannot change here, apart from
+ * the agent's route switches.
+ */
+export interface CodeConsultation {
+  subjectType: string;
+  description: string | null;
+  /** The routes its registration allows, before the agent's route switches. */
+  allowedRoutes: NhAssistantConsultationRoute[];
+  allowRequests: boolean;
+  exposure: ConsultationExposure[];
+  /** The id of the generated consult tool, which asking agents select. */
+  consultToolId: string;
+  /** The id of the generated request tool; `null` without requests. */
+  requestToolId: string | null;
+  /** The agents whose tool selectors select the consult tool now, by id. */
+  askingAgents: string[];
+}
+
+/**
+ * A consultation defined as data: other assistants may consult the agent about subjects of one type.
+ * It is in effect once saved and answers only when an asking agent selects its consult tool.
+ */
+export interface DataConsultation {
+  subjectType: string;
+  version: number;
+  /** What the asking model reads about when to consult the agent. */
+  description: string;
+  /** Extra instructions of the consulted agent. */
+  instructions: string | null;
+  instructionsHash: string | null;
+  /** The role the asking person needs on the subject. */
+  minimumRole: ConsultationSubjectRole;
+  /**
+   * The policy the asking person must pass, one the application lists with `AddAgentPolicy`; `null`
+   * uses the agent's required policy, else the assistant's access policy.
+   */
+  askerPolicy: string | null;
+  /** The routes as saved; empty for a consultation that only answers. */
+  routes: NhAssistantConsultationRoute[];
+  /** The role the asking person needs before the agent may propose. */
+  proposalRole: ConsultationSubjectRole;
+  /** The approval policy of its proposals; `null` uses the agent's. */
+  proposalPolicy: string | null;
+  maxToolCalls: number;
+  timeoutSeconds: number;
+  maxAnswerChars: number;
+  maxHistoryMessages: number;
+  allowRequests: boolean;
+  /** MCP clients may see its tools, while the ceiling allows MCP. */
+  exposeToMcp: boolean;
+  /** The classification of its answers; `null` uses the agent's. */
+  dataClassification: AssistantDataClassification | null;
+  changedAt: string;
+  changedBy: string;
+  reason: string | null;
+  /** `false` with `problem` when the consultation no longer fits the code. */
+  inEffect: boolean;
+  /** The first problem: the reason it is out of effect when it is. */
+  problem: string | null;
+  /**
+   * Every problem: the reason it is out of effect, or each part that no longer fits and was dropped or
+   * capped, such as `route-not-allowed` or `limit-above-ceiling`.
+   */
+  problems: string[];
+  /** The routes in effect: those saved that still fit the ceiling and the agent, before its route switches. */
+  routesInEffect: NhAssistantConsultationRoute[];
+  /** The id of the generated consult tool, which asking agents select. */
+  consultToolId: string;
+  /** The id of the generated request tool while requests are in effect. */
+  requestToolId: string | null;
+  /** The agents whose tool selectors select the consult tool now, by id: the consultation's second key. */
+  askingAgents: string[];
+  createdAt: string;
+  createdBy: string;
+}
+
+/**
+ * Body of `PUT admin/agents/{id}/consultations/{subjectType}`. Limits left out start at the code's
+ * defaults within the ceiling.
+ */
+export interface DataConsultationRequest {
+  /** Required, at most 1,000 characters. */
+  description: string;
+  /** At most the ceiling's `maxInstructionsLength`, 4,000 characters. */
+  instructions?: string | null;
+  /** `reader` by default. */
+  minimumRole?: ConsultationSubjectRole | null;
+  /** A policy of the run catalog's `agentPolicies`; `null` uses the agent's required policy. */
+  askerPolicy?: string | null;
+  /**
+   * `asker-decides` and at most one of `subject-asker-rights` and `subject-agent-rights`, within the
+   * ceiling; empty keeps the consultation read-only. A route outside the ceiling fails with
+   * `routes: not-allowed`.
+   */
+  routes?: NhAssistantConsultationRoute[];
+  /** `participant` by default. */
+  proposalRole?: ConsultationSubjectRole | null;
+  /** A registered approval policy; `null` uses the agent's. */
+  proposalPolicy?: string | null;
+  /** 0 to 32, at most the ceiling's. */
+  maxToolCalls?: number | null;
+  /** 1 to 600, at most the ceiling's. */
+  timeoutSeconds?: number | null;
+  /** 200 to 32,000, at most the ceiling's. */
+  maxAnswerChars?: number | null;
+  /** 0 to 200, at most the ceiling's. */
+  maxHistoryMessages?: number | null;
+  /** Also generates the request tool; only when the ceiling allows requests. */
+  allowRequests?: boolean;
+  /** MCP clients may see its tools; only when the ceiling allows MCP. */
+  exposeToMcp?: boolean;
+  /** `null` uses the agent's. */
+  dataClassification?: AssistantDataClassification | null;
+  /** The consultation's current version; `null` for a new consultation. */
+  expectedVersion?: number | null;
+  /** Optional, at most 500 characters. */
+  reason?: string | null;
 }

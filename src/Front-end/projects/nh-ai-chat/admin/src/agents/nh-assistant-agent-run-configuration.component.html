@@ -392,12 +392,151 @@
       }
     </section>
 
-    @if (config.source === 'code') {
-      <!-- Who decides what the agent proposes when another assistant consults it; agents created here are never consulted. -->
-      <nh-assistant-agent-consultation-routes
-        [agentId]="config.agentId"
-        [subjectTypes]="catalog()?.subjectTypes ?? []"
-        (changed)="changed.emit()" />
+    @if (showConsultations()) {
+      <!-- What other assistants may consult the agent about: in code read only, as data within the ceiling in code. -->
+      <section class="subsection" [attr.aria-labelledby]="id + '-consultations-title'" data-consultations>
+        <header class="section-header">
+          <div>
+            <h4 [id]="id + '-consultations-title'">{{ 'nh-assistant.admin.run-config.consultations.title' | translate }}</h4>
+            <p class="muted">{{ 'nh-assistant.admin.run-config.consultations.description' | translate }}</p>
+          </div>
+          @if (consultationCeiling()) {
+            <button
+              class="secondary"
+              type="button"
+              data-open-form="consultation"
+              [attr.aria-describedby]="consultationsClosed() ? id + '-consultations-closed' : null"
+              [disabled]="busy() || consultationsClosed() !== null || form() === 'consultation'"
+              (click)="addConsultation()">
+              <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.run-config.consultations.add' | translate }}
+            </button>
+          }
+        </header>
+        @if (consultationsClosed(); as closed) {
+          <p class="muted" [id]="id + '-consultations-closed'" [attr.data-consultations-closed]="closed">
+            {{ 'nh-assistant.admin.run-config.consultations.closed.' + closed | translate: { max: consultationCeiling()?.maxConsultations } }}
+          </p>
+        }
+
+        @if (form() === 'consultation') {
+          @if (consultationCeiling(); as ceiling) {
+            <nh-assistant-consultation-form
+              [agentId]="config.agentId"
+              [agentSource]="config.source"
+              [catalog]="catalog()"
+              [ceiling]="ceiling"
+              [worksOn]="agent()"
+              [accountability]="accountability()"
+              [agentApprovalPolicy]="approvalPolicy()"
+              [consultation]="editingConsultation()"
+              [takenTypes]="consultationTypes()"
+              (saved)="onConsultationSaved($event)"
+              (cancelled)="cancel()" />
+          }
+        }
+
+        @if (consultationRows().length === 0) {
+          <p class="state" data-consultations-empty>{{ 'nh-assistant.admin.run-config.consultations.empty' | translate }}</p>
+        } @else {
+          <ul class="skills">
+            @for (row of consultationRows(); track row.origin + row.subjectType) {
+              <li class="skill" [attr.data-consultation]="row.subjectType" [attr.data-consultation-origin]="row.origin">
+                <div class="card-header">
+                  <strong>{{ typeName(row.subjectType) }}</strong>
+                  <span class="mono muted">{{ row.subjectType }}</span>
+                  @if (row.data; as data) {
+                    <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: data.version } }}</span>
+                  } @else {
+                    <span class="badge">{{ 'nh-assistant.admin.agents.source-code' | translate }}</span>
+                  }
+                  @if (!row.inEffect) {
+                    <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
+                  }
+                  @if (row.requests) {
+                    <span class="badge" data-consultation-requests>{{ 'nh-assistant.admin.run-config.consultations.requests' | translate }}</span>
+                  }
+                  @if (row.mcp) {
+                    <span class="badge" data-consultation-mcp>{{ 'nh-assistant.admin.run-config.consultations.mcp' | translate }}</span>
+                  }
+                </div>
+                <p class="muted">{{ row.description ?? ('nh-assistant.admin.run-config.consultations.no-description' | translate) }}</p>
+                @if (askSentence(row); as sentence) {
+                  <p class="summary" data-consultation-ask>{{ sentence }}</p>
+                }
+                <p class="summary" data-consultation-decides>{{ decideSentence(row) }}</p>
+                <!-- The second key: the agents whose tool selectors select the consult tool now. -->
+                <div class="meta" data-consultation-askers>
+                  @if (row.askingAgents.length > 0) {
+                    <span>{{ 'nh-assistant.admin.run-config.consultations.askers' | translate }}</span>
+                    @for (asker of row.askingAgents; track asker) {
+                      <button
+                        class="link"
+                        type="button"
+                        [attr.data-asker]="asker"
+                        [attr.aria-label]="'nh-assistant.admin.run-config.consultations.open-asker' | translate: { agent: agentNameOf(asker) }"
+                        (click)="openAgent.emit(asker)">{{ agentNameOf(asker) }}</button>
+                    }
+                  } @else {
+                    <span data-consultation-no-askers>{{ 'nh-assistant.admin.run-config.consultations.no-askers' | translate }}</span>
+                  }
+                  <span class="mono" data-consultation-tool>{{ row.consultToolId }}</span>
+                </div>
+                @if (row.code) {
+                  <p class="muted">{{ 'nh-assistant.admin.run-config.consultations.code-hint' | translate }}</p>
+                }
+                @for (problem of row.problems; track problem) {
+                  <p class="message warning" [attr.data-consultation-problem]="problem">
+                    <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.problems.code.' + problem | translate }}
+                  </p>
+                }
+                @if (row.data; as data) {
+                  <div class="meta">
+                    <span>{{ 'nh-assistant.admin.run-config.consultations.limits-value' | translate: { calls: data.maxToolCalls, seconds: data.timeoutSeconds, chars: data.maxAnswerChars, history: data.maxHistoryMessages } }}</span>
+                    <span [attr.title]="accountTitle(data.changedBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(data.changedBy), date: (data.changedAt | date: 'medium') } }}</span>
+                  </div>
+                  <div class="card-actions">
+                    <!-- Without a ceiling, as after a deploy took it away, the consultation can only be removed. -->
+                    @if (consultationCeiling()) {
+                      <button
+                        class="secondary"
+                        type="button"
+                        [attr.aria-label]="'nh-assistant.admin.run-config.consultations.edit-named' | translate: { type: typeName(row.subjectType) }"
+                        [disabled]="busy()"
+                        (click)="editConsultation(data)">
+                        <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+                      </button>
+                    }
+                    @if (isConfirming('remove-consultation', row.subjectType)) {
+                      <span class="muted">{{ 'nh-assistant.admin.run-config.consultations.remove-explain' | translate }}</span>
+                      <button class="danger" type="button" [disabled]="busy()" (click)="removeConsultation(data)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
+                      <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                    } @else {
+                      <button
+                        class="danger"
+                        type="button"
+                        [attr.aria-label]="'nh-assistant.admin.run-config.consultations.remove-named' | translate: { type: typeName(row.subjectType) }"
+                        [disabled]="busy()"
+                        (click)="confirm('remove-consultation', row.subjectType)">
+                        <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
+                      </button>
+                    }
+                  </div>
+                  @if (failed('consultation:' + row.subjectType)) {
+                    <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: error()!.code }}</p>
+                  }
+                }
+              </li>
+            }
+          </ul>
+
+          <!-- Switch a route off for every consultation of the agent, in code and as data, in one action. -->
+          <nh-assistant-agent-consultation-routes
+            [agentId]="config.agentId"
+            [subjectTypes]="catalog()?.subjectTypes ?? []"
+            [refresh]="loads()"
+            (changed)="changed.emit()" />
+        }
+      </section>
     }
   }
 </section>

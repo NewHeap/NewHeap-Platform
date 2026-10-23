@@ -19,6 +19,7 @@ import { Observable, Subscription, forkJoin, map, startWith } from 'rxjs';
 import {
   AdminAgent,
   AgentRunConfiguration,
+  DataConsultation,
   DataSkill,
   DataSkillVersion,
   DataTrigger,
@@ -35,9 +36,11 @@ import {
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountLabelComponent, NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
-import { codeTextKeys, readableId, skillDescriptionKeys, skillNameKeys, warningKeys } from './agent-texts';
+import { codeTextKeys, policyKeys, readableId, skillDescriptionKeys, skillNameKeys, warningKeys } from './agent-texts';
 import { NhAssistantAgentConsultationRoutesComponent } from './nh-assistant-agent-consultation-routes.component';
-import { AgentFlowEntry } from './run-config/agent-flow';
+import { AgentFlowEntry, flowAccountability, typeName } from './run-config/agent-flow';
+import { ConsultationRow, agentApprovalPolicy, consultationRows, consultationsClosed, showsConsultations } from './run-config/consultations';
+import { ConsultationFormSaved, NhAssistantConsultationFormComponent } from './run-config/nh-assistant-consultation-form.component';
 import { NhAssistantAgentFlowComponent } from './run-config/nh-assistant-agent-flow.component';
 import { NhAssistantAgentWorkSetupComponent } from './run-config/nh-assistant-agent-work-setup.component';
 import { NhAssistantRunSettingsFormComponent } from './run-config/nh-assistant-run-settings-form.component';
@@ -47,11 +50,11 @@ import { describePolicy, runConfigLimits } from './run-config/run-config-shared'
 
 let nextId = 0;
 
-type Form = 'setup' | 'settings' | 'skill' | 'trigger';
+type Form = 'setup' | 'settings' | 'skill' | 'trigger' | 'consultation';
 
 /** A removal, promotion or discard that waits for its confirmation. */
 interface Confirmation {
-  action: 'remove-settings' | 'remove-skill' | 'remove-trigger' | 'promote' | 'discard';
+  action: 'remove-settings' | 'remove-skill' | 'remove-trigger' | 'remove-consultation' | 'promote' | 'discard';
   id: string;
 }
 
@@ -67,9 +70,11 @@ interface Confirmation {
  * they compare with the live version and promote or discard; they add data triggers on the
  * application's events or on a schedule and put them live; a schedule without a subject set runs for
  * the whole application, or for every division of an agent that works per division. New skills and
- * triggers start in shadow; `changed` tells the agents page to reload the agent's skill states. An
- * agent in code that other assistants can consult also shows the routes of its consultations, which
- * administrators switch within what code allows.
+ * triggers start in shadow; `changed` tells the agents page to reload the agent's skill states. Its
+ * consultations (AC20) show what other assistants may consult it about: those in code read only, and
+ * those defined as data, which administrators add, change and remove within the agent's ceiling in
+ * code, each with the agents that ask it (`openAgent` opens the editor of one) and its problems,
+ * followed by the switches that turn a route off for all of its consultations.
  */
 @Component({
   selector: 'nh-assistant-agent-run-configuration',
@@ -85,6 +90,7 @@ interface Confirmation {
     NhAssistantRunSettingsFormComponent,
     NhAssistantSkillFormComponent,
     NhAssistantTriggerFormComponent,
+    NhAssistantConsultationFormComponent,
     NhAssistantAccountNamesErrorComponent,
     NhAssistantAccountLabelComponent,
     NhAssistantAgentConsultationRoutesComponent
@@ -114,6 +120,8 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
    * `null` while unknown.
    */
   readonly servers = input<readonly McpServer[] | null>(null);
+  /** Every agent of the administration, to name the agents that ask the agent's consultations. */
+  readonly agents = input<readonly AdminAgent[]>([]);
   /** A change of the run configuration changed the agent's skills or state. */
   readonly changed = output<void>();
   /** The flow asks to open the agent editor: what it works on, its tools, MCP servers and groups. */
@@ -124,6 +132,8 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   readonly openRuns = output<void>();
   /** The flow asks to open the MCP servers, whose background use decides what runs without a person use. */
   readonly openMcpServers = output<void>();
+  /** Opens the editor of an agent that asks one of the agent's consultations, by its id. */
+  readonly openAgent = output<string>();
 
   readonly id = `nh-assistant-run-configuration-${nextId++}`;
   readonly maxReason = runConfigLimits.reason;
@@ -174,6 +184,10 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   readonly editingSkill = signal<DataSkill | null>(null);
   /** The trigger being changed; `null` with the trigger form open adds a new trigger. */
   readonly editingTrigger = signal<DataTrigger | null>(null);
+  /** The consultation being changed; `null` with the consultation form open adds a new one. */
+  readonly editingConsultation = signal<DataConsultation | null>(null);
+  /** Counts the loads, so the route switches read the agent's routes again after a change. */
+  readonly loads = signal(0);
   readonly comparison = signal<{ skillId: string; result: SkillComparison | null; failed: boolean } | null>(null);
   readonly versions = signal<{ skillId: string; items: DataSkillVersion[] | null; failed: boolean } | null>(null);
 
@@ -207,6 +221,33 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     return configuration ? [...configuration.codeTriggers, ...configuration.dataTriggers].map(trigger => trigger.triggerId) : [];
   });
   readonly problems = computed(() => this.configuration()?.problems ?? []);
+  /** The consultations in code and as data, by subject type. */
+  readonly consultationRows = computed(() => {
+    const configuration = this.configuration();
+    return configuration ? consultationRows(configuration) : [];
+  });
+  readonly showConsultations = computed(() => {
+    const configuration = this.configuration();
+    return configuration !== null && showsConsultations(configuration, this.catalog());
+  });
+  /** The ceiling within which administrators may define the agent's consultations; `null` for none. */
+  readonly consultationCeiling = computed(() => this.configuration()?.consultationCeiling ?? null);
+  /** Why administrators cannot add a consultation now, or `null` when they can. */
+  readonly consultationsClosed = computed(() => {
+    const configuration = this.configuration();
+    return configuration ? consultationsClosed(configuration, this.catalog(), this.agent()) : null;
+  });
+  /** The subject types the agent already has a consultation about. */
+  readonly consultationTypes = computed(() => this.consultationRows().map(row => row.subjectType));
+  /** Whom the agent answers to, which decides whether a consultation may lend its rights. */
+  readonly accountability = computed(() => {
+    const configuration = this.configuration();
+    return configuration ? flowAccountability(configuration)?.accountability ?? null : null;
+  });
+  readonly approvalPolicy = computed(() => {
+    const configuration = this.configuration();
+    return configuration ? agentApprovalPolicy(configuration) : null;
+  });
   /** What the run settings' approval policy means, in a sentence. */
   readonly settingsPolicy = computed(() => {
     this.language();
@@ -236,10 +277,12 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
         this.catalog.set(catalog);
         this.configuration.set(configuration);
         this.loading.set(false);
+        this.loads.update(count => count + 1);
         this.accountNames.load([
           configuration.runSettings?.serviceAccountActorId,
           this.agent().serviceAccount?.actorId,
-          ...configuration.dataSkills.map(skill => skill.changedBy)
+          ...configuration.dataSkills.map(skill => skill.changedBy),
+          ...(configuration.dataConsultations ?? []).map(consultation => consultation.changedBy)
         ]);
         if (openSetup && configuration.source === 'admin' && configuration.runSettings === null) {
           this.open('setup');
@@ -361,6 +404,69 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
       `trigger:${trigger.triggerId}`);
   }
 
+  addConsultation(): void {
+    this.editingConsultation.set(null);
+    this.open('consultation');
+  }
+
+  editConsultation(consultation: DataConsultation): void {
+    this.editingConsultation.set(consultation);
+    this.open('consultation');
+  }
+
+  removeConsultation(consultation: DataConsultation): void {
+    this.run(
+      this.admin.removeDataConsultation(this.agent().id, consultation.subjectType, { expectedVersion: consultation.version }),
+      'nh-assistant.admin.run-config.consultations.removed',
+      `consultation:${consultation.subjectType}`);
+  }
+
+  onConsultationSaved(result: ConsultationFormSaved): void {
+    this.finish(result.added ? 'nh-assistant.admin.run-config.consultations.added' : 'nh-assistant.admin.run-config.consultations.saved');
+  }
+
+  /** The name of a subject type, as the run catalog names it in the reader's language. */
+  typeName(subjectType: string): string {
+    return typeName(this.catalog(), subjectType);
+  }
+
+  /** An agent's name: the translation of an agent in code, the administrator's text, or its id. */
+  agentNameOf(agentId: string): string {
+    const agent = this.agents().find(item => item.id === agentId);
+    return agent ? this.translated(codeTextKeys(agent.source, agent.displayName), agent.displayName) : agentId;
+  }
+
+  /** Who may ask a consultation defined as data, in a sentence; `null` for one in code, whose code says it. */
+  askSentence(row: ConsultationRow): string | null {
+    const data = row.data;
+    if (!data) {
+      return null;
+    }
+    const base = 'nh-assistant.admin.run-config.consultations.summary';
+    const role = this.translate.instant(`nh-assistant.admin.run-config.consultations.roles-lower.${data.minimumRole}`) as string;
+    const ask = this.translate.instant(`${base}.ask`, { role }) as string;
+    const policy = data.askerPolicy
+      ? this.translate.instant(`${base}.asker-policy`, { policy: this.translated(policyKeys(data.askerPolicy), data.askerPolicy) }) as string
+      : this.translate.instant(`${base}.asker-policy-agent`) as string;
+    return `${ask} ${policy}`;
+  }
+
+  /** What the consultation may do and who decides its proposals, by the routes in effect. */
+  decideSentence(row: ConsultationRow): string {
+    const base = 'nh-assistant.admin.run-config.consultations.summary';
+    if (row.routes.length === 0) {
+      return this.translate.instant(`${base}.read-only`) as string;
+    }
+    const routes = row.routes
+      .map(route => this.translate.instant(`nh-assistant.admin.agents.consultation-routes.route.${route}`) as string)
+      .join('; ');
+    if (!row.data) {
+      return this.translate.instant(`${base}.proposes-code`, { routes }) as string;
+    }
+    const role = this.translate.instant(`nh-assistant.admin.run-config.consultations.roles-lower.${row.data.proposalRole}`) as string;
+    return this.translate.instant(`${base}.proposes`, { role, routes }) as string;
+  }
+
   /** A form saved: show what happened and reload, which every change may affect. */
   onSetupCompleted(live: boolean): void {
     this.finish(live ? 'nh-assistant.admin.run-config.setup.saved-live' : 'nh-assistant.admin.run-config.setup.saved-shadow');
@@ -425,6 +531,16 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
         const trigger = this.configuration()?.dataTriggers.find(item => item.triggerId === entry.triggerId);
         if (trigger) {
           this.openFromFlow(opener, () => this.editTrigger(trigger));
+        }
+        return;
+      }
+      case 'add-consultation':
+        this.openFromFlow(opener, () => this.addConsultation());
+        return;
+      case 'edit-consultation': {
+        const consultation = this.configuration()?.dataConsultations?.find(item => item.subjectType === entry.subjectType);
+        if (consultation) {
+          this.openFromFlow(opener, () => this.editConsultation(consultation));
         }
         return;
       }

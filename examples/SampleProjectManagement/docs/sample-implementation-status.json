@@ -2854,7 +2854,14 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDataConsultationTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationContractTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChangingToolCatalogTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChangingToolCatalogTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "src/Front-end/projects/management/src/app/assistant-administration/assistant-administration-page.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-run-configuration.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-consultation-form.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/consultations.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-consultations.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-consultations-admin.spec.ts"
     ],
     "SPM-312": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectAnalysisAssistantNotices.cs",

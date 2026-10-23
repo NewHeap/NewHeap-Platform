@@ -67,6 +67,30 @@ describe('error translations', () => {
     expect(required.filter(code => !NH_ASSISTANT_ERROR_CODES.includes(code))).toEqual([]);
   });
 
+  it('explains the codes of consultations defined as data in en and nl', () => {
+    // The problems of kind consultation, as the server lists them, and the field error of a value
+    // the ceiling in code does not allow.
+    const problems = [
+      'unknown-agent', 'invalid', 'not-worked-on', 'unknown-subject-type', 'unknown-agent-policy', 'conflicts-with-code',
+      'conflicts-with-tool', 'not-consultable', 'route-not-allowed', 'agent-answers-to-person', 'agent-has-no-rights',
+      'no-approver', 'unknown-policy', 'limit-above-ceiling', 'requests-not-allowed', 'mcp-not-allowed'
+    ];
+    for (const language of ['en', 'nl'] as const) {
+      const keys = flatten(NH_ASSISTANT_TRANSLATIONS[language]);
+      const missing = [
+        'nh-assistant.admin.run-config.problems.kind.consultation',
+        'nh-assistant.admin.run-config.field-errors.not-allowed',
+        ...problems.map(code => `nh-assistant.admin.run-config.problems.code.${code}`),
+        ...['assistant-consultation-in-code', 'assistant-consultation-not-found', 'assistant-consultations-not-allowed']
+          .map(code => `nh-assistant.errors.${code}`)
+      ].filter(key => !keys.has(key));
+      expect(missing).withContext(language).toEqual([]);
+    }
+    expect(NH_ASSISTANT_ERROR_CODES).toEqual(jasmine.arrayContaining([
+      'assistant-consultation-in-code', 'assistant-consultation-not-found', 'assistant-consultations-not-allowed'
+    ]));
+  });
+
   it('has no error text without a known code', () => {
     const texts = [...flatten(NH_ASSISTANT_TRANSLATIONS.en).keys()]
       .filter(key => key.startsWith('nh-assistant.errors.') && key !== 'nh-assistant.errors.generic')

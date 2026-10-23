@@ -14,10 +14,13 @@ import {
   DataTriggerRequest,
   FileLimits,
   LowerFileLimits,
+  NhAssistantConsultationRoute,
   RunCatalog,
-  SkillComparison
+  SkillComparison,
+  ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
+import { NhAssistantMockConsultations } from './nh-assistant-mock-consultations';
 import { NhAssistantMockAdminScenario } from './nh-assistant-mock.models';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
 import { mockClassificationWarnings, mockFailure as failure } from './nh-assistant-mock-admin-shared';
@@ -31,6 +34,10 @@ interface MockResult {
 /** What the run configuration reads of the mock's agents and changes in them. */
 export interface NhAssistantMockRunAgents {
   find(agentId: string): AdminAgent | undefined;
+  /** Every agent, to tell which of them select the tool of a consultation. */
+  all(): AdminAgent[];
+  /** The subject types a consultation can be about: the scenario's types and the whole application. */
+  knownSubjectTypes(): string[];
   /**
    * Adds the state of a data skill to the agent, off with `startsOff`, or removes it with
    * `description` `null`.
@@ -77,6 +84,7 @@ export class NhAssistantMockRunConfiguration {
   private readonly settings = new Map<string, AgentRunSettings>();
   private readonly skills = new Map<string, StoredSkillVersion[]>();
   private readonly triggers = new Map<string, DataTrigger>();
+  private readonly consultations: NhAssistantMockConsultations;
   private readonly catalog: RunCatalog;
   private readonly codeTriggers: (CodeTrigger & { agentId: string })[];
   /** How the scenario's agents in code run, as their code would say. */
@@ -91,6 +99,17 @@ export class NhAssistantMockRunConfiguration {
     private readonly accounts: NhAssistantMockAccounts = new NhAssistantMockAccounts(scenario)
   ) {
     const approvalPolicies = scenario.runCatalog?.approvalPolicies ?? scenario.policies ?? [];
+    this.consultations = new NhAssistantMockConsultations(scenario.consultationsAsData, scenario.agents ?? [], {
+      find: agentId => this.agents.find(agentId),
+      all: () => this.agents.all(),
+      knownSubjectTypes: () => this.agents.knownSubjectTypes(),
+      isConfigured: agent => this.isConfigured(agent),
+      accountabilityOf: agent => agent.source === 'admin' ? this.settings.get(agent.id)?.accountability ?? null : this.codeSettingsOf(agent).accountability,
+      approvalPolicyOf: agent => agent.source === 'admin' ? this.settings.get(agent.id)?.approvalPolicy ?? null : this.codeSettingsOf(agent).approvalPolicy,
+      approvalPolicies: () => this.catalog.approvalPolicies,
+      approvalPolicySummaries: () => this.catalog.approvalPolicySummaries ?? [],
+      agentPolicyNames: () => this.agentPolicyNames
+    }, now);
     this.catalog = {
       // A trigger event lists its named filters, none unless the scenario's application registers some.
       triggerEvents: (scenario.runCatalog?.triggerEvents ?? []).map(event => ({ ...event, filters: event.filters ?? [] })),
@@ -110,7 +129,8 @@ export class NhAssistantMockRunConfiguration {
       agentPolicies: scenario.runCatalog?.agentPolicies ?? [],
       divisions: scenario.runCatalog?.divisions ?? false,
       // The platform's default file limits, unless the scenario's application chose its own.
-      fileLimits: scenario.runCatalog?.fileLimits ?? defaultFileLimits
+      fileLimits: scenario.runCatalog?.fileLimits ?? defaultFileLimits,
+      consultationCeiling: this.consultations.applicationCeiling
     };
     this.codeTriggers = (scenario.codeTriggers ?? []).map(trigger => ({
       ...trigger,
@@ -138,14 +158,28 @@ export class NhAssistantMockRunConfiguration {
     return [...this.catalog.profiles];
   }
 
+  /**
+   * The agent's consultations defined as data in effect with their routes in effect, which count for
+   * its route switches.
+   */
+  consultationsInEffect(agentId: string): { subjectType: string; routes: NhAssistantConsultationRoute[] }[] {
+    return this.consultations.inEffect(agentId);
+  }
+
+  /** The generated consult and request tools of the data consultations in effect. */
+  consultationTools(): ToolCatalogEntry[] {
+    return this.consultations.tools();
+  }
+
   /** `GET admin/run-catalog`. */
   runCatalog(method: string): MockResult {
     return method === 'GET' ? { status: 200, body: this.catalog } : { status: 405 };
   }
 
   /**
-   * `admin/agents/{id}/configuration`, `run-settings`, `skills/{skillId}[/...]` and
-   * `triggers/{triggerId}[/shadow]`; `segments` start after the agent id.
+   * `admin/agents/{id}/configuration`, `run-settings`, `skills/{skillId}[/...]`,
+   * `triggers/{triggerId}[/shadow]` and `consultations/{subjectType}`; `segments` start after the
+   * agent id.
    */
   handle(method: string, agentId: string, segments: string[], body: unknown, query: URLSearchParams): MockResult | null {
     const agent = this.agents.find(agentId);
@@ -174,6 +208,9 @@ export class NhAssistantMockRunConfiguration {
       }
       return action === 'shadow' ? this.triggerShadow(method, agent, id, body) : this.trigger(method, agent, id, body, query);
     }
+    if (area === 'consultations' && id !== undefined && segments.length === 2) {
+      return agent ? this.consultations.handle(method, agent, id, body, query) : failure('assistant-agent-not-found');
+    }
     return null;
   }
 
@@ -195,12 +232,18 @@ export class NhAssistantMockRunConfiguration {
       dataSkills,
       codeTriggers: this.codeTriggers.filter(trigger => trigger.agentId === agent.id).map(({ agentId, ...trigger }) => trigger),
       dataTriggers,
-      problems: dataTriggers
-        .filter(trigger => trigger.problem !== null)
-        .map(trigger => ({ agentId: agent.id, kind: 'trigger' as const, id: trigger.triggerId, code: trigger.problem! })),
+      problems: [
+        ...dataTriggers
+          .filter(trigger => trigger.problem !== null)
+          .map(trigger => ({ agentId: agent.id, kind: 'trigger' as const, id: trigger.triggerId, code: trigger.problem! })),
+        ...this.consultations.problems(agent)
+      ],
       source: agent.source,
       runSettings: agent.source === 'admin' ? this.settings.get(agent.id) ?? null : null,
-      codeRunSettings: agent.source === 'code' ? this.codeSettingsOf(agent) : null
+      codeRunSettings: agent.source === 'code' ? this.codeSettingsOf(agent) : null,
+      codeConsultations: this.consultations.codeConsultations(agent),
+      dataConsultations: this.consultations.dataConsultations(agent),
+      consultationCeiling: this.consultations.ceilingOf(agent)
     };
   }
 
@@ -250,7 +293,9 @@ export class NhAssistantMockRunConfiguration {
       if (!versionMatches(query, current.version)) {
         return failure('assistant-version-conflict');
       }
-      if (this.liveSkills(agent.id).length > 0 || [...this.triggers.values()].some(trigger => this.ownerOf(trigger) === agent.id)) {
+      if (this.liveSkills(agent.id).length > 0
+        || [...this.triggers.values()].some(trigger => this.ownerOf(trigger) === agent.id)
+        || this.consultations.has(agent.id)) {
         return failure('assistant-run-settings-in-use');
       }
       this.settings.delete(agent.id);

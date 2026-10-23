@@ -33,6 +33,8 @@ export type AgentFlowEntry =
   | { kind: 'edit-skill'; skillId: string }
   | { kind: 'add-trigger' }
   | { kind: 'edit-trigger'; triggerId: string }
+  | { kind: 'add-consultation' }
+  | { kind: 'edit-consultation'; subjectType: string }
   | { kind: 'edit-agent' }
   | { kind: 'account' }
   | { kind: 'runs' }
@@ -150,6 +152,7 @@ export function flowAccountability(configuration: AgentRunConfiguration): AgentF
 export function problemStep(problem: RunConfigurationProblem): AgentFlowStepId {
   switch (problem.kind) {
     case 'trigger':
+    case 'consultation':
       return 'when';
     case 'skill':
     case 'candidate':
@@ -162,15 +165,28 @@ export function problemStep(problem: RunConfigurationProblem): AgentFlowStepId {
   }
 }
 
-/** A problem as a warning on its step, with the form that fixes it. */
-export function problemWarning(problem: RunConfigurationProblem, configuration: AgentRunConfiguration): AgentFlowWarning {
+/**
+ * A problem as a warning on its step, with the form that fixes it. A consultation's problem names its
+ * subject type as the run catalog names it.
+ */
+export function problemWarning(problem: RunConfigurationProblem, configuration: AgentRunConfiguration, catalog: RunCatalog | null = null): AgentFlowWarning {
   const base = {
     id: `problem:${problem.kind}:${problem.id}:${problem.code}`,
     key: `nh-assistant.admin.run-config.problems.kind.${problem.kind}`,
-    params: { id: problem.id },
+    params: { id: problem.kind === 'consultation' ? typeName(catalog, problem.id) : problem.id },
     detailKey: `nh-assistant.admin.run-config.problems.code.${problem.code}`
   };
   switch (problem.kind) {
+    case 'consultation':
+      // A consultation the agent may no longer get can only be removed, below in the section.
+      return (configuration.consultationCeiling ?? null) !== null
+        && (configuration.dataConsultations ?? []).some(consultation => consultation.subjectType === problem.id)
+        ? {
+          ...base,
+          entry: { kind: 'edit-consultation', subjectType: problem.id },
+          entryKey: 'nh-assistant.admin.run-config.flow.entry.edit-consultation'
+        }
+        : base;
     case 'trigger':
       return configuration.dataTriggers.some(trigger => trigger.triggerId === problem.id)
         ? { ...base, entry: { kind: 'edit-trigger', triggerId: problem.id }, entryKey: 'nh-assistant.admin.run-config.flow.entry.edit-trigger' }
