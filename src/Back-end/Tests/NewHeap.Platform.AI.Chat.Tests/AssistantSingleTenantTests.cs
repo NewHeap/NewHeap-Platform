@@ -139,6 +139,27 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
         Assert.NotEqual(HttpStatusCode.OK, (await reader.PostAsJsonAsync($"/api/assistant/approvals/{approvalId}/decisions", rejection)).StatusCode);
         var decided = await ReadJsonAsync(await admin.PostAsJsonAsync($"/api/assistant/approvals/{approvalId}/decisions", rejection));
         Assert.Equal(NhAssistantApprovalStatuses.Rejected, decided.GetProperty("status").GetString());
+
+        // The application's own channel decides through the decision service with the person's tenant,
+        // under the same rule: a person of another tenant finds the proposal unknown, the approver of the
+        // tenant reads its facts and decides it.
+        var replied = await AddProposalAsync(app, thread.ConversationId, runId);
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<INhAssistantProposalDecisionService>();
+            var other = new NhAssistantDecidingPerson(Principal(Admin), ActorOf(Admin), OtherTenant);
+            Assert.Equal(NhAssistantErrorCodes.ApprovalNotFound, CodeOf(await service.GetDecisionFactsAsync(other, replied.Id, CancellationToken.None)));
+            Assert.Equal(
+                NhAssistantErrorCodes.ApprovalNotFound,
+                CodeOf(await service.DecideAsync(other, replied.Id, replied.ProposalHash, NhAssistantProposalDecision.Reject, "messaging-reply", "reply-1", CancellationToken.None)));
+
+            var person = new NhAssistantDecidingPerson(Principal(Admin), ActorOf(Admin), Tenant);
+            var facts = await service.GetDecisionFactsAsync(person, replied.Id, CancellationToken.None);
+            Assert.True(facts.Data!.CanDecide);
+            var viaChannel = await service.DecideAsync(person, replied.Id, replied.ProposalHash, NhAssistantProposalDecision.Reject, "messaging-reply", "reply-2", CancellationToken.None);
+            Assert.True(viaChannel.Success);
+            Assert.Equal((NhAssistantApprovalStatuses.Rejected, false), (viaChannel.Data!.Status, viaChannel.Data.Duplicate));
+        }
     }
 
     [Theory]
@@ -310,11 +331,22 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
         };
         await services.GetRequiredService<NhAssistantRunStore>().AddRunAsync(run, CancellationToken.None);
 
-        await using var context = services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        var approval = await AddProposalAsync(app, thread.ConversationId, run.Id);
+        return (thread, run.Id, approval.Id);
+    }
+
+    /// <summary>
+    /// Adds a pending deferred proposal of the run to the thread.
+    /// </summary>
+    private static async Task<AssistantApproval> AddProposalAsync(AssistantWebApplication app, Guid conversationId, Guid runId)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        await using var context = scope.ServiceProvider.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        var createdAt = DateTimeOffset.UtcNow.AddMinutes(-4);
         var approval = new AssistantApproval
         {
             Id = Guid.NewGuid(),
-            ConversationId = thread.ConversationId,
+            ConversationId = conversationId,
             TurnId = Guid.NewGuid(),
             ToolInvocationId = Guid.NewGuid(),
             ProposalId = Guid.NewGuid(),
@@ -324,15 +356,15 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
             Summary = "Complete the finished projects.",
             ArgumentsPreview = "{}",
             Status = NhAssistantApprovalStatuses.Pending,
-            CreatedAt = createdAt.AddSeconds(20),
+            CreatedAt = createdAt,
             ExpiresAt = createdAt.AddDays(1),
-            RunId = run.Id,
+            RunId = runId,
             Mode = NhAssistantApprovalModes.Deferred,
             ConcurrencyStamp = Guid.NewGuid()
         };
         context.Approvals.Add(approval);
         await context.SaveChangesAsync();
-        return (thread, run.Id, approval.Id);
+        return approval;
     }
 
     /// <summary>

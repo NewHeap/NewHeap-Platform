@@ -14,6 +14,7 @@ import {
   consumerSkillNames,
   consumerSkillRoots,
   groupRulesByReference,
+  groupSkillRulesByReference,
   loadRegistry,
   loadRules,
   maintenanceSkillRoot,
@@ -62,7 +63,7 @@ for (const [reference, matchingRules] of [...groups.entries()].sort(([left], [ri
 
 const referencesBySkill = new Map();
 for (const skillName of consumerSkillNames) {
-  const skillGroups = groupRulesByReference(rules.filter(rule => rule.skills.includes(skillName)));
+  const skillGroups = groupSkillRulesByReference(rules, skillName);
   referencesBySkill.set(skillName, skillGroups);
   for (const [reference, matchingRules] of [...skillGroups.entries()].sort(([left], [right]) => left.localeCompare(right))) {
     const title = reference.split('-').map(word => word[0].toUpperCase() + word.slice(1)).join(' ');

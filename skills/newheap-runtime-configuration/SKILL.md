@@ -1,6 +1,6 @@
 ---
 name: newheap-runtime-configuration
-description: Configure or troubleshoot NewHeap consumer appsettings, secrets directories, environment variables, command-line overrides and design-time configuration across local, hosted and CI environments.
+description: Configure or troubleshoot NewHeap consumer appsettings, secrets directories, environment variables, command-line overrides, telemetry exporter settings and design-time configuration across local, hosted and CI environments.
 ---
 
 # NewHeap runtime configuration
@@ -8,6 +8,8 @@ description: Configure or troubleshoot NewHeap consumer appsettings, secrets dir
 Read [runtime configuration](references/runtime-configuration.md) before changing NewHeap configuration composition or automation overrides.
 
 Read [database diagnostics](references/database-diagnostics.md) when configuring or troubleshooting a `newheap-db` profile, target environment, application configuration path or secrets-based connection-string resolution.
+
+Read [logging and observability](references/observability-logging.md) when configuring OpenTelemetry exporters such as `OTEL_EXPORTER_OTLP_ENDPOINT`, the deployment environment name or other logging and telemetry settings of a host.
 
 Use the same appsettings and NewHeap secrets-file model on every host. Allow environment variables and explicitly supplied command-line arguments to override host-specific values with the supported precedence.
 

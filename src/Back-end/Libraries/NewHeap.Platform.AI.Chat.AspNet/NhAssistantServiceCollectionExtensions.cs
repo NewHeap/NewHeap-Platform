@@ -123,6 +123,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddSingleton<NhAssistantSystemRoleCache>();
             services.TryAddScoped<NhAssistantAgentWorkWatchers>();
             services.TryAddScoped<NhAssistantProposalDecisions>();
+            // The same decision for the application's own channels, such as a messaging reply.
+            services.TryAddScoped<INhAssistantProposalDecisionService, NhAssistantProposalDecisionService>();
             services.TryAddScoped<NhAssistantProposalFeedbackService>();
             services.TryAddScoped<INhAssistantSubjectWork, NhAssistantSubjectWork>();
             services.TryAddScoped<NhAssistantProposalReads>();

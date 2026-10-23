@@ -1,11 +1,13 @@
 ---
 name: newheap-database-development
-description: Implement, review or debug NewHeap consumer EF Core queries, provider wiring, migrations, raw SQL and relational behavior across SQL Server and PostgreSQL. Use also to investigate unexpected staging or production API and persisted-data behavior with supported read-only database diagnostics.
+description: Implement, review or debug NewHeap consumer EF Core queries, provider wiring, migrations, raw SQL, bulk upserts and relational behavior across SQL Server and PostgreSQL. Use also to investigate unexpected staging or production API and persisted-data behavior with supported read-only database diagnostics.
 ---
 
 # NewHeap database development
 
 Read [database providers](references/database-providers.md) for every query, schema, migration, raw SQL or provider-composition change.
+
+Read [bulk upsert](references/database-bulk-upsert.md) for large, immediate and untracked imports through provider-native `ExecuteUpsertAsync`, including explicitly selected one-to-one and one-to-many dependents.
 
 Read [database diagnostics](references/database-diagnostics.md) when a task investigates unexpected persisted state, missing or incorrect records, an API/database discrepancy, or unexplained staging or production behavior for which database evidence could answer the question. Do not wait for the user to name `newheap-db`, and do not stop after offering it: take the supported read-only route directly when the requested scope authorizes that local diagnostic. Do not use it for a bug that database evidence cannot materially clarify.
 

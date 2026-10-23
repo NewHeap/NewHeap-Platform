@@ -181,11 +181,15 @@ internal sealed class NhAssistantProposalDecisions(
 
     private INhBackgroundOperationSignalService Signals => services.GetRequiredService<INhBackgroundOperationSignalService>();
 
+    /// <summary>
+    /// Decides the proposal as the decision endpoints do: through the <c>web</c> channel, without an
+    /// idempotency key.
+    /// </summary>
     /// <param name="tenantId">
     /// The caller's tenant; with the single-tenant mode a caller of another tenant finds no proposal of
     /// the whole application (<see cref="NhAssistantWholeApplicationTenancy"/>).
     /// </param>
-    public async Task<TaskResult<AssistantApproval>> DecideAsync(
+    public Task<TaskResult<AssistantApproval>> DecideAsync(
         Guid approvalId,
         string actorId,
         ClaimsPrincipal user,
@@ -195,6 +199,36 @@ internal sealed class NhAssistantProposalDecisions(
         CancellationToken cancellationToken,
         string? tenantId = null)
     {
+        return DecideAsync(
+            approvalId,
+            actorId,
+            user,
+            approve,
+            expectedProposalHash,
+            reason,
+            NhAssistantDecisionOrigin.Web,
+            cancellationToken,
+            tenantId);
+    }
+
+    /// <summary>
+    /// The one decision of a proposal of an agent thread, for the decision endpoints and
+    /// <see cref="INhAssistantProposalDecisionService"/> alike: the checks, the transition, the audit
+    /// with <paramref name="origin"/>'s channel and key, and what follows the decision.
+    /// </summary>
+    /// <param name="tenantId">The deciding person's tenant, as for the web decision above.</param>
+    public async Task<TaskResult<AssistantApproval>> DecideAsync(
+        Guid approvalId,
+        string actorId,
+        ClaimsPrincipal user,
+        bool approve,
+        string? expectedProposalHash,
+        string? reason,
+        NhAssistantDecisionOrigin origin,
+        CancellationToken cancellationToken,
+        string? tenantId = null)
+    {
+        ArgumentNullException.ThrowIfNull(origin);
         var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
         if (approval is null
@@ -263,7 +297,7 @@ internal sealed class NhAssistantProposalDecisions(
         }
 
         approval = (await store.FindApprovalAsync(approval.Id, cancellationToken))!;
-        await RecordAsync(approval, thread, actorId, approve, cancellationToken);
+        await RecordAsync(approval, thread, actorId, approve, origin, cancellationToken);
         if (approval.Mode == NhAssistantApprovalModes.Deferred)
         {
             if (approve)
@@ -338,10 +372,116 @@ internal sealed class NhAssistantProposalDecisions(
     }
 
     /// <summary>
+    /// What a decision of the person would meet now, without deciding: the proposal's hash and
+    /// expiry, whether four eyes apply, how many approvals it still needs and whether the person may
+    /// decide it, with the code a decision would be refused with. It makes the checks of
+    /// <see cref="DecideAsync(Guid, string, ClaimsPrincipal, bool, string?, string?, NhAssistantDecisionOrigin, CancellationToken, string?)"/>
+    /// in the same order without their effects: an expired proposal is not closed and the proposal
+    /// guards do not run, so a decision may still be refused as stale. A proposal the person may not
+    /// see is unknown, as for a decision, also one of the whole application that the single-tenant mode
+    /// keeps from a person of another tenant.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantProposalDecisionFacts>> FactsAsync(
+        Guid approvalId,
+        string actorId,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        string? tenantId = null)
+    {
+        var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
+        var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
+        if (approval is null
+            || thread is null
+            || NhAssistantWholeApplicationTenancy.KeepsOut(registration, thread, tenantId)
+            || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
+        {
+            return TaskResult<NhAssistantProposalDecisionFacts>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
+        }
+
+        var now = _applicationClock.GetUtcNow();
+        var policy = approval.PolicyJson is null
+            ? NhAiApprovalPolicy.TriggerDefault
+            : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
+        var waiting = approval.Status == NhAssistantApprovalStatuses.Pending && approval.ExpiresAt > now;
+        var refusal = await RefusalOfAsync(approval, thread, actorId, user, now, cancellationToken);
+        return TaskResult<NhAssistantProposalDecisionFacts>.Succeeded(new NhAssistantProposalDecisionFacts(
+            approval.Id,
+            approval.Status,
+            approval.ProposalHash,
+            approval.ExpiresAt,
+            policy.FourEyes,
+            waiting ? 1 : 0,
+            refusal is null,
+            refusal));
+    }
+
+    /// <summary>
+    /// The code a decision of the person would be refused with now, in the order of the decision's
+    /// checks after the proposal hash; <see langword="null"/> when the person may decide it.
+    /// </summary>
+    private async Task<string?> RefusalOfAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        string actorId,
+        ClaimsPrincipal user,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (approval.Status != NhAssistantApprovalStatuses.Pending)
+        {
+            return NhAssistantErrorCodes.ApprovalNotPending;
+        }
+        if (approval.Mode == NhAssistantApprovalModes.Inline && approval.RunId is null)
+        {
+            return approval.ConsultationId is null
+                ? NhAssistantErrorCodes.ApprovalDecisionInvalid
+                : NhAssistantErrorCodes.ConsultAskerDecides;
+        }
+        if (approval.ExpiresAt <= now)
+        {
+            return NhAssistantErrorCodes.ApprovalExpired;
+        }
+
+        var check = await approvers.CheckAsync(approval, thread, actorId, user, cancellationToken);
+        return check.Success ? null : NhAssistantResults.CodeOf(check, NhAssistantErrorCodes.ApprovalPolicyDenied);
+    }
+
+    /// <summary>
+    /// The person's earlier decision of the proposal when a decision with <paramref name="approve"/>
+    /// and <paramref name="expectedProposalHash"/> repeats it: the proposal is recorded as decided by
+    /// <paramref name="actorId"/>, with the same hash, and its status still says that decision
+    /// (approved, executing, executed, failed or uncertain for an approval; rejected for a rejection).
+    /// Otherwise <see langword="null"/>, and the repeat gets the ordinary refusal.
+    /// </summary>
+    public async Task<AssistantApproval?> FindRepeatAsync(
+        Guid approvalId,
+        string actorId,
+        bool approve,
+        string expectedProposalHash,
+        CancellationToken cancellationToken)
+    {
+        var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
+        if (approval?.DecidedAt is null
+            || !string.Equals(approval.DecidedByActorId, actorId, StringComparison.Ordinal)
+            || !string.Equals(approval.ProposalHash, expectedProposalHash, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var approved = approval.Status is NhAssistantApprovalStatuses.Approved
+            or NhAssistantApprovalStatuses.Executing
+            or NhAssistantApprovalStatuses.Executed
+            or NhAssistantApprovalStatuses.ExecutionFailed
+            or NhAssistantApprovalStatuses.ExecutionUnknown;
+        var rejected = approval.Status == NhAssistantApprovalStatuses.Rejected;
+        return (approve && approved) || (!approve && rejected) ? approval : null;
+    }
+
+    /// <summary>
     /// Resolves an execution whose outcome is unknown: run it again with a new idempotency key, or
     /// confirm the outcome without running it.
     /// </summary>
-    /// <param name="tenantId">The caller's tenant, as for <see cref="DecideAsync"/>.</param>
+    /// <param name="tenantId">The caller's tenant, as for a decision.</param>
     public async Task<TaskResult<AssistantApproval>> ResolveExecutionAsync(
         Guid approvalId,
         string actorId,
@@ -498,6 +638,7 @@ internal sealed class NhAssistantProposalDecisions(
         AssistantThread thread,
         string actorId,
         bool approve,
+        NhAssistantDecisionOrigin origin,
         CancellationToken cancellationToken)
     {
         var evt = new NhAssistantAuditEvent(
@@ -521,11 +662,25 @@ internal sealed class NhAssistantProposalDecisions(
             SubjectId = thread.SubjectId,
             InitiatorActorId = approval.InitiatorActorId,
             ConsultationId = approval.ConsultationId,
-            ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource)
+            ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource),
+            Channel = origin.Channel,
+            IdempotencyKey = origin.IdempotencyKey
         };
         foreach (var sink in _businessSinks)
         {
             await sink.RecordAsync(evt, cancellationToken);
         }
     }
+}
+
+/// <summary>
+/// Where a decision of a proposal comes from: the channel the content-free audit records and the
+/// application's idempotency key of the delivery that decided it, which only the audit records.
+/// </summary>
+internal sealed record NhAssistantDecisionOrigin(string Channel, string? IdempotencyKey)
+{
+    /// <summary>
+    /// The decision endpoints of the assistant.
+    /// </summary>
+    public static NhAssistantDecisionOrigin Web { get; } = new(NhAssistantDecisionChannels.Web, null);
 }

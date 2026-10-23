@@ -45,6 +45,7 @@ using NewHeap.Platform.Common.Events;
 using NewHeap.Platform.Common.Models;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Events;
+using SampleProjectManagement.Api.Models;
 using SampleProjectManagement.Api.Services;
 using SampleProjectManagement.Core;
 using SampleProjectManagement.Core.Events;
@@ -163,6 +164,80 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Equal(host.ColleagueId.ToString(), executed.DecidedByActorId);
         Assert.Contains(host.Projects.StatusChanges, change => change.ProjectId == project && change.Status == ProjectStatus.Active);
         Assert.Empty((await ReadConversationAsync(colleague, conversationId)).Thread!.Decisions);
+    }
+
+    [Fact]
+    public async Task An_approver_answers_the_intake_reviewers_proposal_with_a_messaging_reply_that_decides_as_that_approver()
+    {
+        // SPM-268: a channel of the application decides through INhAssistantProposalDecisionService.
+        var project = await host.CreateProjectAsync("REPLY", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var receipt = Assert.Single(await host.PublishProjectCreatedAsync(project, createdBy: host.OwnerId));
+        var conversationId = receipt.ConversationId!.Value;
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var messaging = host.CreateAnonymousClient();
+        var proposal = await WaitForProposalAsync(owner, conversationId, NhAssistantApprovalStatuses.Pending);
+
+        // The application asks only people who may decide: four eyes keep the project's creator out,
+        // and someone outside the project is no approver.
+        TaskResult<SampleApprovalReplyOffer> ownerOffer;
+        TaskResult<SampleApprovalReplyOffer> outsiderOffer;
+        TaskResult<SampleApprovalReplyOffer> offer;
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var channel = scope.ServiceProvider.GetRequiredService<SampleApprovalReplyChannel>();
+            ownerOffer = await channel.OfferAsync(proposal.ApprovalId, host.OwnerId, CancellationToken.None);
+            outsiderOffer = await channel.OfferAsync(proposal.ApprovalId, host.OutsiderId, CancellationToken.None);
+            offer = await channel.OfferAsync(proposal.ApprovalId, host.ColleagueId, CancellationToken.None);
+        }
+        Assert.Equal(NhAssistantErrorCodes.FourEyesRequired, FirstCode(ownerOffer));
+        Assert.Equal(NhAssistantErrorCodes.ApprovalPolicyDenied, FirstCode(outsiderOffer));
+        Assert.True(offer.Success);
+        Assert.Equal(proposal.ExpiresAt, offer.Data!.ExpiresAt);
+
+        // A token the application did not issue, or an answer that is neither yes nor no, decides
+        // nothing.
+        using (var forged = await ReplyAsync(messaging, "delivery-forged", "not-a-token", "yes"))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, forged.StatusCode);
+            Assert.Equal(SampleApprovalReplyChannel.ReplyInvalidCode, (await forged.Content.ReadFromJsonAsync<ApprovalReplyErrorViewModel>(Json))!.Code);
+        }
+        using (var unclear = await ReplyAsync(messaging, "delivery-unclear", offer.Data.Token, "maybe"))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, unclear.StatusCode);
+        }
+
+        // The reply approves as the colleague, and the provider's second delivery of it returns that
+        // decision; another answer afterwards is refused as for any decided proposal.
+        using (var approved = await ReplyAsync(messaging, "delivery-1", offer.Data.Token, "yes"))
+        {
+            Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
+            var decided = (await approved.Content.ReadFromJsonAsync<ApprovalReplyViewModel>(Json))!;
+            Assert.Equal((proposal.ApprovalId, "approve", false), (decided.ApprovalId, decided.Decision, decided.Duplicate));
+        }
+        using (var redelivered = await ReplyAsync(messaging, "delivery-1", offer.Data.Token, "yes"))
+        {
+            Assert.Equal(HttpStatusCode.OK, redelivered.StatusCode);
+            Assert.True((await redelivered.Content.ReadFromJsonAsync<ApprovalReplyViewModel>(Json))!.Duplicate);
+        }
+        using (var changedMind = await ReplyAsync(messaging, "delivery-2", offer.Data.Token, "no"))
+        {
+            Assert.Equal(HttpStatusCode.Conflict, changedMind.StatusCode);
+            Assert.Equal(NhAssistantErrorCodes.ApprovalNotPending, (await changedMind.Content.ReadFromJsonAsync<ApprovalReplyErrorViewModel>(Json))!.Code);
+        }
+
+        // The approved proposal executes once, decided by the colleague, and the audit names the
+        // channel and the delivery without the proposal's content.
+        var executed = await WaitForProposalAsync(owner, conversationId, NhAssistantApprovalStatuses.Executed);
+        Assert.Equal(host.ColleagueId.ToString(), executed.DecidedByActorId);
+        Assert.Contains(host.Projects.StatusChanges, change => change.ProjectId == project && change.Status == ProjectStatus.Active);
+        var audited = Assert.Single(
+            host.Services.GetRequiredService<SampleAssistantAuditLog>().Events,
+            evt => evt.Kind is NhAssistantAuditEventKind.ApprovalApproved or NhAssistantAuditEventKind.ApprovalRejected
+                && evt.ApprovalId == proposal.ApprovalId);
+        Assert.Equal(
+            (NhAssistantAuditEventKind.ApprovalApproved, SampleApprovalReplyChannel.Channel, "delivery-1"),
+            (audited.Kind, audited.Channel, audited.IdempotencyKey));
     }
 
     [Fact]
@@ -4551,6 +4626,23 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     /// <summary>
+    /// Delivers a reply as the messaging provider does, without a sign-in.
+    /// </summary>
+    private static Task<HttpResponseMessage> ReplyAsync(HttpClient client, string deliveryId, string token, string text)
+    {
+        return client.PostAsJsonAsync(
+            "/approval-replies",
+            new ApprovalReplyMutateModel { DeliveryId = deliveryId, Token = token, Text = text },
+            Json);
+    }
+
+    private static string? FirstCode(TaskResult result)
+    {
+        Assert.False(result.Success);
+        return result.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
+    }
+
+    /// <summary>
     /// Waits until the thread has a proposal in <paramref name="status"/>, of
     /// <paramref name="toolId"/> when it is given.
     /// </summary>
@@ -4824,6 +4916,8 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         // SPM-284: the operator pauses, stops and resumes the closer through the maintenance page.
         services.AddScoped<SampleAgentMaintenanceService>();
         services.AddScoped<SampleAgentConfigurationService>();
+        // SPM-268: approvers answer proposals with a messaging reply, delivered to POST approval-replies.
+        services.AddScoped<SampleApprovalReplyChannel>();
         services.AddSingleton(Substitute.For<INhEventPublisher>());
         services.AddSingleton<SampleEventLog>();
         // SPM-290: the planner reads the project's tasks through the gateway over this host's own
@@ -4837,7 +4931,8 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
                 manager.FeatureProviders.Add(new SelectedControllers(
                     typeof(ProjectController),
                     typeof(ProjectTaskController),
-                    typeof(ProjectMemberController)));
+                    typeof(ProjectMemberController),
+                    typeof(ApprovalReplyController)));
             });
         services.AddSampleAiBridge();
         services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
