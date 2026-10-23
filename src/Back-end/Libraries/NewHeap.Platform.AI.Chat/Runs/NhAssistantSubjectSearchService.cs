@@ -5,9 +5,12 @@ namespace NewHeap.Platform.AI.Chat.Runs;
 /// <summary>
 /// Searches the subjects of one type for a person through the type's <see cref="INhAiSubjectSearch"/>
 /// and keeps only what that person may see: a live role of at least reader from the resolver and
-/// the person's own tenant, as for threads and proposals.
+/// the person's own tenant, as for threads and proposals. The whole application's divisions belong to
+/// no tenant; with the single-tenant mode its tenant's people find them as well.
 /// </summary>
-internal sealed class NhAssistantSubjectSearchService(NhAssistantSubjectAccessService subjects)
+internal sealed class NhAssistantSubjectSearchService(
+    NhAssistantSubjectAccessService subjects,
+    NhAssistantRegistrationState registration)
 {
     /// <summary>
     /// The search reads at most this many results per result it may show, so a search that returns
@@ -73,8 +76,9 @@ internal sealed class NhAssistantSubjectSearchService(NhAssistantSubjectAccessSe
     }
 
     /// <summary>
-    /// A subject the caller may see: in the caller's tenant, as threads and proposals are, and with
-    /// at least the reader role from the live resolver.
+    /// A subject the caller may see: in the caller's tenant, as threads and proposals are, or of the
+    /// whole application for a caller who takes part in it, and with at least the reader role from the
+    /// live resolver.
     /// </summary>
     private async Task<bool> IsVisibleAsync(
         NhAiSubjectInfo info,
@@ -82,7 +86,7 @@ internal sealed class NhAssistantSubjectSearchService(NhAssistantSubjectAccessSe
         string? tenantId,
         CancellationToken cancellationToken)
     {
-        if (!string.Equals(info.TenantId, tenantId, StringComparison.Ordinal))
+        if (!NhAssistantWholeApplicationTenancy.Reaches(registration, info.TenantId, info.Subject.Type, tenantId))
         {
             return false;
         }

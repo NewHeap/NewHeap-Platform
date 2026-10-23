@@ -138,3 +138,22 @@ activity (`newheap.ai.model_call_id`) share; `InvocationId` still names the invo
 | `AssistantRun.ModelCalls`, and with it the run history's and the evaluation's model calls, also counts the calls of turns that failed, were cancelled or were retried. | Expect higher counts than before for runs with such turns; compare periods across the upgrade with that in mind. |
 | `NhAssistantAuditEvent` has the new properties `TriggerKind`, `SkillVersion`, `Shadow`, `ModelCallCount`, `RunStatus` and `RunFailureCode`, set on `AgentRunEnded`. | Let audit sinks that store every property accept them; count runs from them instead of parsing `ResultCode`. |
 | `NhAiUsageRecord` and `NhAiBudgetRequest` have the new property `ModelCallId`; a reservation that is no model call keeps `Guid.Empty`. | Count and correlate model calls by `ModelCallId` instead of `InvocationId`. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a single-tenant mode for the whole application
+
+The whole application's work (`nh-system`) belongs to no tenant, so a caller bound to a tenant saw none
+of it. `NhAssistantBuilder.UseSingleTenant(tenantId)` declares that every person of the host belongs to
+that one tenant: people of that tenant then take part in it as callers without a tenant do, in the
+approval inbox, deciding (also through `INhAssistantProposalDecisionService` with
+`NhAssistantDecidingPerson.TenantId`), boards and division visits, `WatchAgentWork`, its threads and
+their conversations, the run history, the subject's work and summary, the division search and runs by
+hand. A caller of any other tenant finds that work unknown. The policies of `UseSystemSubject` and the
+agents' run and view policies still decide. The work stays stored without a tenant: no migration, and
+switching the mode off leaves the data valid. Startup fails when the AI ASP.NET integration projects
+another fixed tenant or takes an issuer's tenant from a claim; pair the mode with
+`UseAuthenticatedClaimsForSingleTenant(issuer, tenantId)` for the same tenant. A resolver of the
+application's own must return that tenant or none. Without the mode nothing changes.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |

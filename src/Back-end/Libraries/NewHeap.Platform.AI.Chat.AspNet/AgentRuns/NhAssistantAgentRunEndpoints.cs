@@ -159,7 +159,7 @@ internal static class NhAssistantAgentRunEndpoints
         {
             return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
         }
-        if (!TryReadSubject(agentId, subjectType, subjectId, registration, subjects, out var subject, out var error))
+        if (!TryReadSubject(agentId, subjectType, subjectId, caller.Data!.TenantId, registration, subjects, out var subject, out var error))
         {
             return error!;
         }
@@ -217,7 +217,7 @@ internal static class NhAssistantAgentRunEndpoints
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
-        if (!TryReadSubject(request.AgentId, request.SubjectType, request.SubjectId, registration, subjects, out var subject, out var error))
+        if (!TryReadSubject(request.AgentId, request.SubjectType, request.SubjectId, caller.Data!.TenantId, registration, subjects, out var subject, out var error))
         {
             return error!;
         }
@@ -739,7 +739,8 @@ internal static class NhAssistantAgentRunEndpoints
             request.Decision == "approve",
             request.ExpectedProposalHash,
             request.Reason,
-            httpContext.RequestAborted);
+            httpContext.RequestAborted,
+            caller.Data.TenantId);
         return await ProposalResultAsync(decided, caller.Data.ActorId, runs, subjects, httpContext.RequestAborted);
     }
 
@@ -772,7 +773,8 @@ internal static class NhAssistantAgentRunEndpoints
                 request.Decision == "approve",
                 null,
                 request.Reason,
-                httpContext.RequestAborted);
+                httpContext.RequestAborted,
+                caller.Data.TenantId);
             results.Add(new NhAssistantDecisionOutcomeDto(
                 approvalId,
                 decided.Success,
@@ -811,7 +813,8 @@ internal static class NhAssistantAgentRunEndpoints
             httpContext.User,
             request.Action == "re-execute",
             request.Reason,
-            httpContext.RequestAborted);
+            httpContext.RequestAborted,
+            caller.Data.TenantId);
         return await ProposalResultAsync(resolved, caller.Data.ActorId, runs, subjects, httpContext.RequestAborted);
     }
 
@@ -838,8 +841,9 @@ internal static class NhAssistantAgentRunEndpoints
         {
             if (!readable.TryGetValue(conversationId, out var may))
             {
-                // A hidden shadow thread is checked before access, which records participants.
-                var access = await IsHiddenAsync(httpContext, conversationId)
+                // A hidden shadow thread is checked before access, which records participants. A link
+                // only names the source's thread; opening it checks the caller's tenant.
+                var access = await IsHiddenAsync(httpContext, conversationId, tenantId: null)
                     ? null
                     : await threads.ResolveAccessAsync(conversationId, actorId, null, httpContext.RequestAborted);
                 may = access is not null && access.Role >= NhAiSubjectRole.Reader;
@@ -855,13 +859,27 @@ internal static class NhAssistantAgentRunEndpoints
     }
 
     /// <summary>
-    /// Whether the conversation is a shadow thread hidden from the caller.
+    /// Whether the conversation is a shadow thread hidden from the caller, or a thread of the whole
+    /// application that the single-tenant mode keeps from a caller of <paramref name="tenantId"/>,
+    /// another tenant than its own.
     /// </summary>
-    private static async Task<bool> IsHiddenAsync(HttpContext httpContext, Guid conversationId)
+    private static async Task<bool> IsHiddenAsync(HttpContext httpContext, Guid conversationId, string? tenantId)
     {
         var thread = await httpContext.RequestServices.GetRequiredService<NhAssistantRunStore>()
             .FindThreadByConversationAsync(conversationId, httpContext.RequestAborted);
-        return thread is not null && await NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, thread);
+        if (thread is null)
+        {
+            return false;
+        }
+        if (NhAssistantWholeApplicationTenancy.KeepsOut(
+                httpContext.RequestServices.GetRequiredService<NhAssistantRegistrationState>(),
+                thread,
+                tenantId))
+        {
+            return true;
+        }
+
+        return await NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, thread);
     }
 
     /// <summary>
@@ -879,8 +897,9 @@ internal static class NhAssistantAgentRunEndpoints
             return (null, null, NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable());
         }
 
-        // A hidden shadow thread is checked before access, which records participants.
-        var access = await IsHiddenAsync(httpContext, conversationId)
+        // A hidden shadow thread, and a thread of the whole application the single-tenant mode keeps
+        // from the caller, is checked before access, which records participants.
+        var access = await IsHiddenAsync(httpContext, conversationId, caller.Data!.TenantId)
             ? null
             : await threads.ResolveAccessAsync(conversationId, caller.Data!.ActorId, null, httpContext.RequestAborted);
         if (access is null)
@@ -925,10 +944,16 @@ internal static class NhAssistantAgentRunEndpoints
         };
     }
 
+    /// <summary>
+    /// Reads the agent and subject of a request about an agent's thread. The whole application reads
+    /// as unknown to a caller of another tenant than the single-tenant mode's
+    /// (<see cref="NhAssistantWholeApplicationTenancy"/>).
+    /// </summary>
     internal static bool TryReadSubject(
         string? agentId,
         string? subjectType,
         string? subjectId,
+        string? tenantId,
         NhAssistantRegistrationState registration,
         NhAssistantSubjectAccessService subjects,
         out NhAiSubjectRef? subject,
@@ -955,7 +980,14 @@ internal static class NhAssistantAgentRunEndpoints
             return false;
         }
 
-        subject = new NhAiSubjectRef(subjectType!, subjectId);
+        var read = new NhAiSubjectRef(subjectType!, subjectId);
+        if (NhAssistantWholeApplicationTenancy.KeepsOut(registration, read, tenantId))
+        {
+            error = NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectNotFound);
+            return false;
+        }
+
+        subject = read;
         return true;
     }
 

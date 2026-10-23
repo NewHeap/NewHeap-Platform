@@ -309,6 +309,8 @@ internal sealed class NhAssistantStartupValidator(
                     $"The {kind} policy '{systemPolicy}' of the whole application (UseSystemSubject) is not registered.");
             }
         }
+        // UseSingleTenant: the AI ASP.NET integration projects that tenant or none.
+        NhAssistantSingleTenantChecks.Validate(state, provider.GetService<NhAiAspNetRegistrationState>());
 
         await registry.ValidateAsync(
             profiles,

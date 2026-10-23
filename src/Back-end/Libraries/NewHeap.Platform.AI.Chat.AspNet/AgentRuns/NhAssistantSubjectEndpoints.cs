@@ -85,6 +85,7 @@ internal static class NhAssistantSubjectEndpoints
         string type,
         string id,
         HttpContext httpContext,
+        NhAssistantRegistrationState registration,
         NhAssistantObjectAgents objectAgents)
     {
         if (!NhAiSubjectRef.IsValidType(type)
@@ -100,7 +101,14 @@ internal static class NhAssistantSubjectEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
         }
 
-        var result = await objectAgents.ListAsync(new NhAiSubjectRef(type, id), caller.Data!.ActorId, httpContext.User, httpContext.RequestAborted);
+        var subject = new NhAiSubjectRef(type, id);
+        // The whole application reads as unknown to a caller of another tenant than the single tenant's.
+        if (NhAssistantWholeApplicationTenancy.KeepsOut(registration, subject, caller.Data!.TenantId))
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectNotFound);
+        }
+
+        var result = await objectAgents.ListAsync(subject, caller.Data!.ActorId, httpContext.User, httpContext.RequestAborted);
         if (!result.Success)
         {
             return Failure(result);
@@ -196,7 +204,7 @@ internal static class NhAssistantSubjectEndpoints
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectInvalid);
         }
-        if (!NhAssistantAgentRunEndpoints.TryReadSubject(request.AgentId, request.SubjectType, request.SubjectId, registration, subjects, out var subject, out var error))
+        if (!NhAssistantAgentRunEndpoints.TryReadSubject(request.AgentId, request.SubjectType, request.SubjectId, caller.Data!.TenantId, registration, subjects, out var subject, out var error))
         {
             return error!;
         }

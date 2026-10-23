@@ -201,7 +201,7 @@ internal sealed class NhAssistantProposalDecisionService(NhAssistantProposalDeci
     {
         ValidatePerson(person);
 
-        return await decisions.FactsAsync(approvalId, person.ActorId, person.User, cancellationToken);
+        return await decisions.FactsAsync(approvalId, person.ActorId, person.User, cancellationToken, person.TenantId);
     }
 
     public async Task<TaskResult<NhAssistantProposalDecisionResult>> DecideAsync(
@@ -243,7 +243,8 @@ internal sealed class NhAssistantProposalDecisionService(NhAssistantProposalDeci
             expectedProposalHash,
             reason: null,
             new NhAssistantDecisionOrigin(channel, idempotencyKey),
-            cancellationToken);
+            cancellationToken,
+            person.TenantId);
         if (decided.Success)
         {
             return TaskResult<NhAssistantProposalDecisionResult>.Succeeded(ResultOf(decided.Data!, decision, duplicate: false));

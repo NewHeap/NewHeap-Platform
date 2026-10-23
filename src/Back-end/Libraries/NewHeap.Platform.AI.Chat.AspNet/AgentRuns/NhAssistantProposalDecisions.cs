@@ -185,6 +185,10 @@ internal sealed class NhAssistantProposalDecisions(
     /// Decides the proposal as the decision endpoints do: through the <c>web</c> channel, without an
     /// idempotency key.
     /// </summary>
+    /// <param name="tenantId">
+    /// The caller's tenant; with the single-tenant mode a caller of another tenant finds no proposal of
+    /// the whole application (<see cref="NhAssistantWholeApplicationTenancy"/>).
+    /// </param>
     public Task<TaskResult<AssistantApproval>> DecideAsync(
         Guid approvalId,
         string actorId,
@@ -192,7 +196,8 @@ internal sealed class NhAssistantProposalDecisions(
         bool approve,
         string? expectedProposalHash,
         string? reason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? tenantId = null)
     {
         return DecideAsync(
             approvalId,
@@ -202,7 +207,8 @@ internal sealed class NhAssistantProposalDecisions(
             expectedProposalHash,
             reason,
             NhAssistantDecisionOrigin.Web,
-            cancellationToken);
+            cancellationToken,
+            tenantId);
     }
 
     /// <summary>
@@ -210,6 +216,7 @@ internal sealed class NhAssistantProposalDecisions(
     /// <see cref="INhAssistantProposalDecisionService"/> alike: the checks, the transition, the audit
     /// with <paramref name="origin"/>'s channel and key, and what follows the decision.
     /// </summary>
+    /// <param name="tenantId">The deciding person's tenant, as for the web decision above.</param>
     public async Task<TaskResult<AssistantApproval>> DecideAsync(
         Guid approvalId,
         string actorId,
@@ -218,12 +225,16 @@ internal sealed class NhAssistantProposalDecisions(
         string? expectedProposalHash,
         string? reason,
         NhAssistantDecisionOrigin origin,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? tenantId = null)
     {
         ArgumentNullException.ThrowIfNull(origin);
         var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
-        if (approval is null || thread is null || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
+        if (approval is null
+            || thread is null
+            || NhAssistantWholeApplicationTenancy.KeepsOut(registration, thread, tenantId)
+            || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
         }
@@ -364,20 +375,25 @@ internal sealed class NhAssistantProposalDecisions(
     /// What a decision of the person would meet now, without deciding: the proposal's hash and
     /// expiry, whether four eyes apply, how many approvals it still needs and whether the person may
     /// decide it, with the code a decision would be refused with. It makes the checks of
-    /// <see cref="DecideAsync(Guid, string, ClaimsPrincipal, bool, string?, string?, NhAssistantDecisionOrigin, CancellationToken)"/>
+    /// <see cref="DecideAsync(Guid, string, ClaimsPrincipal, bool, string?, string?, NhAssistantDecisionOrigin, CancellationToken, string?)"/>
     /// in the same order without their effects: an expired proposal is not closed and the proposal
     /// guards do not run, so a decision may still be refused as stale. A proposal the person may not
-    /// see is unknown, as for a decision.
+    /// see is unknown, as for a decision, also one of the whole application that the single-tenant mode
+    /// keeps from a person of another tenant.
     /// </summary>
     public async Task<TaskResult<NhAssistantProposalDecisionFacts>> FactsAsync(
         Guid approvalId,
         string actorId,
         ClaimsPrincipal user,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? tenantId = null)
     {
         var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
-        if (approval is null || thread is null || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
+        if (approval is null
+            || thread is null
+            || NhAssistantWholeApplicationTenancy.KeepsOut(registration, thread, tenantId)
+            || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<NhAssistantProposalDecisionFacts>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
         }
@@ -465,17 +481,22 @@ internal sealed class NhAssistantProposalDecisions(
     /// Resolves an execution whose outcome is unknown: run it again with a new idempotency key, or
     /// confirm the outcome without running it.
     /// </summary>
+    /// <param name="tenantId">The caller's tenant, as for a decision.</param>
     public async Task<TaskResult<AssistantApproval>> ResolveExecutionAsync(
         Guid approvalId,
         string actorId,
         ClaimsPrincipal user,
         bool reExecute,
         string? reason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? tenantId = null)
     {
         var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
-        if (approval is null || thread is null || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
+        if (approval is null
+            || thread is null
+            || NhAssistantWholeApplicationTenancy.KeepsOut(registration, thread, tenantId)
+            || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
         }

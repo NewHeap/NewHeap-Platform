@@ -299,6 +299,39 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Declares that every person of this host belongs to one tenant, <paramref name="tenantId"/>, so
+    /// people of that tenant take part in the work of the whole application
+    /// (<see cref="NhAiSubjectRef.SystemType"/>): its approval inbox, deciding its proposals, boards,
+    /// live watches, its threads, run history and subject work, and running agents for it by hand.
+    /// Without it, and for a caller of any other tenant, only callers without a tenant do. The whole
+    /// application's threads, runs and proposals stay stored without a tenant, so switching the mode off
+    /// leaves the data valid. The policies of <see cref="UseSystemSubject"/> and the agent's run and view
+    /// policies still decide what such a person sees and decides. Startup fails when the AI ASP.NET
+    /// integration projects another tenant or a tenant claim, which can carry more than one; a resolver
+    /// of the application's own (<c>UseAuthenticatedInvocationContextResolver</c>) cannot be checked and
+    /// must return this tenant or none. The mode is never derived from the projection. Calling it again
+    /// with the same tenant keeps it; another tenant is refused.
+    /// </summary>
+    public NhAssistantBuilder UseSingleTenant(string tenantId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        if (tenantId.Length > NhAssistantRegistrationState.MaxTenantIdLength || tenantId.Trim() != tenantId)
+        {
+            throw new ArgumentException(
+                $"A tenant id has at most {NhAssistantRegistrationState.MaxTenantIdLength} characters without surrounding whitespace.",
+                nameof(tenantId));
+        }
+        if (_state.SingleTenantId is { } existing && !string.Equals(existing, tenantId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "UseSingleTenant was already called with another tenant. A host serves one tenant.");
+        }
+
+        _state.SingleTenantId = tenantId;
+        return this;
+    }
+
+    /// <summary>
     /// Registers a group of agents, such as <c>project-management</c>, with its name per language and
     /// an optional description, for a page of the application that shows the group with the
     /// <c>nh-assistant-agent-board</c> component. Agents join it in code with
@@ -830,6 +863,17 @@ internal sealed class NhAssistantRegistrationState
     /// <see langword="null"/> uses the administration policy.
     /// </summary>
     public string? SystemApprovePolicy { get; set; }
+
+    /// <summary>
+    /// The longest tenant id, as callers' tenants and stored tenants are.
+    /// </summary>
+    public const int MaxTenantIdLength = 256;
+
+    /// <summary>
+    /// The one tenant of a single-tenant host (<see cref="NhAssistantBuilder.UseSingleTenant"/>), whose
+    /// people take part in the work of the whole application; <see langword="null"/> without the mode.
+    /// </summary>
+    public string? SingleTenantId { get; set; }
 
     public NhAiTextAsset? DefaultApplicationContext { get; set; }
 

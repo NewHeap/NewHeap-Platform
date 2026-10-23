@@ -2687,7 +2687,12 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantAgentNotificationTexts.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantInAppAgentNotificationChannel.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPlatformActorTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPlatformActorTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleSingleTenantComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSingleTenantSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSingleTenantChecks.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSingleTenantTests.cs"
     ],
     "SPM-303": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",

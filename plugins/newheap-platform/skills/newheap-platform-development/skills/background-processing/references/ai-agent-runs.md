@@ -270,6 +270,26 @@ listed divisions `GET subjects/nh-system/search` finds the
 divisions a person works in by name (`Searchable` in the run catalog), as the subjects of a
 per-division agent.
 
+The whole application belongs to no tenant: its threads, runs and proposals are stored without one, and
+a caller bound to a tenant takes part in none of its work. A host whose people all belong to one tenant,
+such as a deployment per customer that projects them with `UseAuthenticatedClaimsForSingleTenant`,
+declares that explicitly with `UseSingleTenant(tenantId)` on the assistant builder; the mode is never
+derived from the projection. People of that tenant then take part as callers without a tenant do: the
+approval inbox, deciding (also through `INhAssistantProposalDecisionService` with the person's
+`TenantId`), boards and division visits, `WatchAgentWork`, the thread and its conversation, the run
+history and `GET runs/{id}`, the subject's work and summary, `GET subjects/nh-system/search`, and
+running an agent by hand; schedules without a subject set need nothing more, their runs land in the
+whole application's threads. A caller of any other tenant sees none of it and finds its proposals,
+threads and subjects unknown (`404`), also where a host without the mode compares no tenant. The read
+and approve policies of `UseSystemSubject` and the agent's run and view policies still decide. Nothing
+is migrated: the data stays tenantless, so switching the mode off leaves it valid and hides it again
+from people with a tenant. Startup fails when the AI ASP.NET integration projects another fixed tenant
+or takes an issuer's tenant from a claim, which can carry more than one; an issuer without a tenant
+passes. A resolver of the application's own (`UseAuthenticatedInvocationContextResolver`) cannot be
+checked and must return the configured tenant or none. With an issuer projection the actor id belongs
+to the issuer, so register an `INhAiPrincipalFactory` that rebuilds those people for the roles of the
+whole application.
+
 Run an agent now, by hand, with `POST threads/start` (`agentId`, `subjectType`, `subjectId`, optional
 `message`; the caller is the initiator and the trigger `manual`). One rule decides who may, also for a
 new thread of `POST threads/open` and every `canStart`: the agent works on the subject and, for the
@@ -403,7 +423,8 @@ theirs watches it: the hub method `WatchAgentWork()` joins the connection to the
 scope, of every agent whose thread of the whole application the person reads (the read role and the
 view policy), also before its first run, at most 200, and answers `NhAssistantLiveWatchDto` with
 `RefreshAfterSeconds` (300); renewing the watch leaves what the person may no longer read, and
-`UnwatchAgentWork()` stops it. A person bound to a tenant watches nothing. Watchers receive the same
+`UnwatchAgentWork()` stops it. A person bound to a tenant watches nothing, unless `UseSingleTenant`
+names that tenant. Watchers receive the same
 content-free `AgentWorkChanged` as the people of the thread.
 
 Group agents on boards (K15, K16). Register a group in code with `AddAgentGroup("project-management",
@@ -1304,6 +1325,9 @@ profile and instructions that answer questions about the rules' proposals from t
 - Selecting or deciding the proposals of a group on pages the approver has not seen; a group's total
   may span pages, and only the proposals shown may be selected.
 - Registering a group id that starts with `nh-`; the platform reserves those ids.
+- Storing the whole application's work under the host's tenant, or giving every person no tenant, to
+  let one customer's people see it; call `UseSingleTenant` with the tenant that
+  `UseAuthenticatedClaimsForSingleTenant` projects.
 
 ## Verification
 
@@ -1578,6 +1602,12 @@ run placed at objects, and that a board of another division or an unknown group 
 type of a tool with `[NhAiSubject]` and `null` for one without and for MCP tools, that a schedule in
 code without subjects reports `nh-system` and an untyped trigger `null`, and that an agent in code
 reports its accountability, approval policy and rules while an agent created as data reports none.
+For `UseSingleTenant`, on both providers assert that a person projected into the tenant finds the whole
+application's proposal in the inbox and decides it, through the endpoint and the decision service, sees
+the agent on its board, in the run history, its thread and the subject's work, and that the approver runs
+it now; that a caller of another tenant and a person without the agent's view policy see nothing; that
+without the mode the same people see nothing; and that startup refuses another fixed tenant or a tenant
+claim.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304 and SPM-310 are the
 executable references.
 

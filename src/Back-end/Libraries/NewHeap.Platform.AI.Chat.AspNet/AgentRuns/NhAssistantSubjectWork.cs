@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
@@ -41,7 +42,9 @@ public interface INhAssistantSubjectWork
 }
 
 /// <summary>
-/// Reads the agent work on a subject for the caller of the current request.
+/// Reads the agent work on a subject for the caller of the current request. With the single-tenant mode
+/// (<c>UseSingleTenant</c>) the whole application reads as unknown to a caller of another tenant; its
+/// counts are zero.
 /// </summary>
 public static class NhAssistantSubjectWorkExtensions
 {
@@ -53,10 +56,15 @@ public static class NhAssistantSubjectWorkExtensions
     {
         ArgumentNullException.ThrowIfNull(work);
         ArgumentNullException.ThrowIfNull(httpContext);
+        ArgumentNullException.ThrowIfNull(subject);
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
         if (!caller.Success)
         {
             return TaskResult<NhAssistantSubjectWorkDto>.Failed(NhAssistantErrorCodes.ContextUnavailable, "The caller is not available.");
+        }
+        if (NhAssistantWholeApplicationTenancy.KeepsOut(RegistrationOf(httpContext), subject, caller.Data!.TenantId))
+        {
+            return TaskResult<NhAssistantSubjectWorkDto>.Failed(NhAssistantErrorCodes.SubjectNotFound, "The subject was not found.");
         }
 
         return await work.GetAsync(subject, caller.Data!.ActorId, httpContext.User, agentId, httpContext.RequestAborted);
@@ -76,7 +84,28 @@ public static class NhAssistantSubjectWorkExtensions
             return TaskResult<NhAssistantSubjectSummaryListDto>.Failed(NhAssistantErrorCodes.ContextUnavailable, "The caller is not available.");
         }
 
-        return await work.SummarizeAsync(subjectType, subjectIds, caller.Data!.ActorId, httpContext.User, httpContext.RequestAborted);
+        var summary = await work.SummarizeAsync(subjectType, subjectIds, caller.Data!.ActorId, httpContext.User, httpContext.RequestAborted);
+        if (summary.Success
+            && NhAssistantWholeApplicationTenancy.KeepsOut(
+                RegistrationOf(httpContext),
+                new NhAiSubjectRef(subjectType, NhAiSystemSubjects.GlobalId),
+                caller.Data.TenantId))
+        {
+            // The caller sees none of the whole application's work: every subject counts zero.
+            return TaskResult<NhAssistantSubjectSummaryListDto>.Succeeded(summary.Data! with
+            {
+                Items = summary.Data.Items
+                    .Select(item => new NhAssistantSubjectSummaryDto(item.SubjectId, 0, 0, false))
+                    .ToArray()
+            });
+        }
+
+        return summary;
+    }
+
+    private static NhAssistantRegistrationState RegistrationOf(HttpContext httpContext)
+    {
+        return httpContext.RequestServices.GetRequiredService<NhAssistantRegistrationState>();
     }
 }
 

@@ -21,7 +21,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// an app-wide agent on every board of its group, a per-division agent on the board of a division. An
 /// agent without work for the whole application in the board's scope shows by its required policy,
 /// without a result or a start. Shadow variants and agents without run settings never show; a person
-/// bound to a tenant sees no work of the whole application, which belongs to no tenant. One board reads
+/// bound to a tenant sees no work of the whole application, which belongs to no tenant, unless the
+/// single-tenant mode names that tenant (<see cref="NhAssistantWholeApplicationTenancy"/>). One board reads
 /// the group's choices, the agents, the threads of at most two subjects, their latest runs, their open
 /// proposals and the visit, each in one query.
 /// </remarks>
@@ -285,7 +286,7 @@ internal sealed class NhAssistantAgentBoards(
 
         var info = await subjects.DescribeAsync(NhAiSystemSubjects.ForDivision(id), cancellationToken);
         if (info is null
-            || reader.TenantId is not null
+            || !TakesPart(reader)
             || services.GetService<INhDivisionAccess>() is not { } access
             || !await access.HasAccessAsync(new NhActorRef(NhActorKinds.User, reader.ActorId), id, cancellationToken))
         {
@@ -319,7 +320,7 @@ internal sealed class NhAssistantAgentBoards(
         NhAssistantRunReader reader,
         CancellationToken cancellationToken)
     {
-        if (reader.TenantId is not null)
+        if (!TakesPart(reader))
         {
             return false;
         }
@@ -329,12 +330,21 @@ internal sealed class NhAssistantAgentBoards(
     }
 
     /// <summary>
+    /// Whether the reader takes part in the whole application's work at all: without a tenant, or as a
+    /// person of the single-tenant mode's tenant.
+    /// </summary>
+    private bool TakesPart(NhAssistantRunReader reader)
+    {
+        return NhAssistantWholeApplicationTenancy.TakesPart(registration, reader.TenantId);
+    }
+
+    /// <summary>
     /// Whether the reader may open the agent's thread: the read role of the whole application and the
     /// agent's view policy, as the thread endpoints decide.
     /// </summary>
     private async Task<bool> ReadsThreadAsync(AssistantThread thread, NhAssistantRunReader reader, CancellationToken cancellationToken)
     {
-        if (!string.Equals(thread.TenantId, reader.TenantId, StringComparison.Ordinal))
+        if (!NhAssistantWholeApplicationTenancy.Reaches(registration, thread, reader.TenantId))
         {
             return false;
         }
@@ -417,8 +427,9 @@ internal sealed class NhAssistantAgentBoards(
                 return await boards._agentAccess.CanUseAsync(reader.User, working.Agent.Definition);
             }
 
-            // The whole application belongs to no tenant; its results follow the agent's view policy.
-            return reader.TenantId is null
+            // The whole application belongs to no tenant, but to the single tenant in the single-tenant
+            // mode; its results follow the agent's view policy.
+            return boards.TakesPart(reader)
                 && boards._resolvers.OfType<NhAssistantSystemSubjectResolver>().FirstOrDefault() is { } resolver
                 && await resolver.MayViewAgentAsync(subject, agentId, reader.ActorId, cancellationToken);
         }

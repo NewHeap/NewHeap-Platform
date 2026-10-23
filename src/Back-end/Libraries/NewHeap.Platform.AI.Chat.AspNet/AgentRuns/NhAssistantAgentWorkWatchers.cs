@@ -39,7 +39,8 @@ internal sealed class NhAssistantAgentWorkWatchers(
     /// it app-wide, also before its first run, and of every live thread of an agent there, such as an
     /// agent's work in a division; each only when the agent still works on it and the person reads the
     /// agent's thread there. A person bound to a tenant follows none, as the whole application belongs
-    /// to no tenant.
+    /// to no tenant, unless the single-tenant mode names that tenant
+    /// (<see cref="NhAssistantWholeApplicationTenancy"/>).
     /// </summary>
     public async Task<IReadOnlyList<NhAssistantWatchedWork>> WatchableAsync(
         string actorId,
@@ -47,7 +48,7 @@ internal sealed class NhAssistantAgentWorkWatchers(
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
-        if (tenantId is not null)
+        if (!NhAssistantWholeApplicationTenancy.TakesPart(registration, tenantId))
         {
             return [];
         }
