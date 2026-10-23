@@ -78,6 +78,9 @@ public sealed class NhAiMcpPublicationTests
             result.StructuredContent!.Value.GetRawText());
         Assert.Equal("ai-tool-authorization-denied", Meta(result, NhAiMcpResultMetadata.CodeKey));
         Assert.DoesNotContain("{0}", Text(result), StringComparison.Ordinal);
+        // A fixed refusal is its own format, without arguments.
+        Assert.Equal("AI tool authorization was denied.", Meta(result, NhAiMcpResultMetadata.MessageFormatKey));
+        Assert.Equal("[]", PublishedArguments(result));
 
         var exception = await Assert.ThrowsAnyAsync<NhAiMcpToolException>(async () =>
         {
@@ -96,6 +99,8 @@ public sealed class NhAiMcpPublicationTests
         });
         Assert.Equal("ai-tool-authorization-denied", exception.Code);
         Assert.Equal("AI tool authorization was denied.", exception.FailureMessage);
+        Assert.Equal("AI tool authorization was denied.", exception.FailureMessageFormat);
+        Assert.Empty(exception.FailureMessageArguments);
         Assert.Null(exception.PayloadJson);
         Assert.Equal(
             $"NewHeap tool '{toolName}' failed with code 'ai-tool-authorization-denied': AI tool authorization was denied.",
@@ -112,6 +117,113 @@ public sealed class NhAiMcpPublicationTests
         Assert.True(result.IsError);
         Assert.Equal("engine-unavailable: The engine returned no receipt.", Text(result));
         Assert.Equal("engine-unavailable", result.StructuredContent!.Value.GetProperty("code").GetString());
+    }
+
+    [Theory]
+    [InlineData("publication.flat-receipt")]
+    [InlineData("publication.enveloped-receipt")]
+    public async Task A_tool_failure_publishes_its_message_format_and_arguments_next_to_the_unchanged_text(string toolName)
+    {
+        await using var host = await PublicationHost.StartAsync();
+
+        var result = await host.Tool(toolName).CallAsync(ToolArguments(toolName, "expired", "n"));
+
+        const string message = "Grant 'expired' expired 3 days ago.";
+        Assert.True(result.IsError);
+        Assert.Equal("approval-grant-expired: " + message, Text(result));
+        Assert.Equal(
+            "{\"code\":\"approval-grant-expired\",\"message\":\"Grant \\u0027expired\\u0027 expired 3 days ago.\"}",
+            result.StructuredContent!.Value.GetRawText());
+        Assert.Equal(message, Meta(result, NhAiMcpResultMetadata.MessageKey));
+        Assert.Equal("Grant '{0}' expired {1} days ago.", Meta(result, NhAiMcpResultMetadata.MessageFormatKey));
+        Assert.Equal("""["expired",3]""", PublishedArguments(result));
+
+        var exception = await Assert.ThrowsAnyAsync<NhAiMcpToolException>(async () =>
+            await CallThroughClientAsync(host, toolName, new PublicationRequest("expired", "n")));
+        Assert.Equal(message, exception.FailureMessage);
+        Assert.Equal("Grant '{0}' expired {1} days ago.", exception.FailureMessageFormat);
+        Assert.Equal(
+            new[] { "\"expired\"", "3" },
+            exception.FailureMessageArguments.Select(argument => argument.GetRawText()).ToArray());
+        Assert.Equal(
+            $"NewHeap tool '{toolName}' failed with code 'approval-grant-expired': {message}",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task An_interpolated_string_passed_as_a_string_is_a_text_of_its_own()
+    {
+        await using var host = await PublicationHost.StartAsync();
+
+        var result = await host.Tool("publication.flat-receipt").CallAsync(Arguments("rendered", "n"));
+
+        // TaskResult keeps the rendered text as the message's own format, as its localizer sees it.
+        Assert.Equal("approval-grant-expired: Grant 'rendered' expired 3 days ago.", Text(result));
+        Assert.Equal("Grant 'rendered' expired 3 days ago.", Meta(result, NhAiMcpResultMetadata.MessageFormatKey));
+        Assert.Equal("[]", PublishedArguments(result));
+    }
+
+    [Fact]
+    public async Task A_typed_failure_publishes_its_message_format_next_to_its_payload()
+    {
+        await using var host = await PublicationHost.StartAsync();
+
+        var exception = await Assert.ThrowsAsync<NhAiMcpToolException<PublicationReceipt>>(async () =>
+            await host.Client.CallNewHeapFlatToolAsync<PublicationRequest, PublicationReceipt>(
+                "publication.flat-receipt",
+                new PublicationRequest("expired-receipt", "n")));
+
+        Assert.Equal("approval-grant-expired", exception.Code);
+        Assert.Equal("Grant 'expired-receipt' expired 3 days ago.", exception.FailureMessage);
+        Assert.Equal("Grant '{0}' expired {1} days ago.", exception.FailureMessageFormat);
+        Assert.Equal(
+            new[] { "\"expired-receipt\"", "3" },
+            exception.FailureMessageArguments.Select(argument => argument.GetRawText()).ToArray());
+        Assert.Equal("deny", exception.Payload!.Execution);
+        Assert.True(exception.Result.Meta![NhAiMcpResultMetadata.TypedPayloadKey]!.GetValue<bool>());
+        Assert.Equal(
+            "{\"execution\":\"deny\",\"evidenceReference\":\"grant:expired\",\"status\":\"Rejected\",\"note\":\"n\"}",
+            Text(exception.Result));
+    }
+
+    [Theory]
+    [InlineData("busy", "engine-busy: Engine 1 is busy. Engine 2 is busy.")]
+    [InlineData("named", "ai-tool-failed: Note: Note 'n' is too short.")]
+    public async Task Several_messages_or_a_field_name_keep_the_joined_text_without_a_format(string grant, string text)
+    {
+        await using var host = await PublicationHost.StartAsync();
+
+        var result = await host.Tool("publication.flat-receipt").CallAsync(Arguments(grant, "n"));
+        var exception = await Assert.ThrowsAnyAsync<NhAiMcpToolException>(async () =>
+            await host.Client.CallNewHeapFlatToolAsync<PublicationRequest, PublicationReceipt>(
+                "publication.flat-receipt",
+                new PublicationRequest(grant, "n")));
+
+        Assert.True(result.IsError);
+        Assert.Equal(text, Text(result));
+        Assert.Equal(text[(text.IndexOf(": ", StringComparison.Ordinal) + 2)..], Meta(result, NhAiMcpResultMetadata.MessageKey));
+        Assert.False(result.Meta!.ContainsKey(NhAiMcpResultMetadata.MessageFormatKey));
+        Assert.False(result.Meta.ContainsKey(NhAiMcpResultMetadata.MessageArgumentsKey));
+        Assert.Null(exception.FailureMessageFormat);
+        Assert.Empty(exception.FailureMessageArguments);
+    }
+
+    [Fact]
+    public async Task An_argument_binding_refusal_keeps_its_literal_braces_without_a_format()
+    {
+        await using var host = await PublicationHost.StartAsync();
+
+        var result = await host.Tool("publication.enveloped-receipt").CallAsync(new Dictionary<string, object?>
+        {
+            ["input"] = new PublicationRequest("valid", "n"),
+            ["extra"] = "x"
+        });
+
+        Assert.True(result.IsError);
+        Assert.Equal(NhAiToolFailureCodes.InputInvalid, Meta(result, NhAiMcpResultMetadata.CodeKey));
+        Assert.Contains("{\"input\": {...}}", Text(result), StringComparison.Ordinal);
+        Assert.False(result.Meta!.ContainsKey(NhAiMcpResultMetadata.MessageFormatKey));
+        Assert.False(result.Meta.ContainsKey(NhAiMcpResultMetadata.MessageArgumentsKey));
     }
 
     [Fact]
@@ -252,6 +364,32 @@ public sealed class NhAiMcpPublicationTests
         return result.Meta?[key]?.GetValue<string>();
     }
 
+    private static string? PublishedArguments(CallToolResult result)
+    {
+        return result.Meta?[NhAiMcpResultMetadata.MessageArgumentsKey]?.ToJsonString();
+    }
+
+    private static Dictionary<string, object?> ToolArguments(string toolName, string grant, string note)
+    {
+        return toolName.Contains("flat", StringComparison.Ordinal)
+            ? Arguments(grant, note)
+            : new Dictionary<string, object?> { ["input"] = new PublicationRequest(grant, note) };
+    }
+
+    private static async Task CallThroughClientAsync(
+        PublicationHost host,
+        string toolName,
+        PublicationRequest request)
+    {
+        if (toolName.Contains("flat", StringComparison.Ordinal))
+        {
+            await host.Client.CallNewHeapFlatToolAsync<PublicationRequest, PublicationReceipt>(toolName, request);
+            return;
+        }
+
+        await host.Client.CallNewHeapToolAsync<PublicationRequest, PublicationReceipt>(toolName, request);
+    }
+
     private sealed class PublicationHost : IAsyncDisposable
     {
         private readonly ServiceProvider _provider;
@@ -365,6 +503,8 @@ public sealed record PublicationReceipt(
 
 internal static class PublicationEngine
 {
+    public const int ExpiredDays = 3;
+
     public static Task<TaskResult<PublicationReceipt>> ApplyAsync(PublicationRequest input)
     {
         if (string.Equals(input.Grant, "empty", StringComparison.Ordinal))
@@ -372,6 +512,46 @@ internal static class PublicationEngine
             return Task.FromResult(TaskResult<PublicationReceipt>.Failed(
                 "engine-unavailable",
                 "The engine returned no receipt."));
+        }
+        // A FormattableString keeps its format and arguments; an interpolated string passed straight
+        // to Failed binds to the string overload and is a text of its own.
+        FormattableString expired = $"Grant '{input.Grant}' expired {ExpiredDays} days ago.";
+        if (string.Equals(input.Grant, "expired", StringComparison.Ordinal))
+        {
+            return Task.FromResult(TaskResult<PublicationReceipt>.Failed("approval-grant-expired", expired));
+        }
+        if (string.Equals(input.Grant, "rendered", StringComparison.Ordinal))
+        {
+            return Task.FromResult(TaskResult<PublicationReceipt>.Failed(
+                "approval-grant-expired",
+                $"Grant '{input.Grant}' expired {ExpiredDays} days ago."));
+        }
+        if (string.Equals(input.Grant, "expired-receipt", StringComparison.Ordinal))
+        {
+            return Task.FromResult(
+                TaskResult<PublicationReceipt>
+                    .Failed("approval-grant-expired", expired)
+                    .WithData(new PublicationReceipt(
+                        "deny",
+                        "grant:expired",
+                        PublicationStatus.Rejected,
+                        input.Note)));
+        }
+        if (string.Equals(input.Grant, "busy", StringComparison.Ordinal))
+        {
+            var first = 1;
+            var second = 2;
+            FormattableString firstBusy = $"Engine {first} is busy.";
+            FormattableString secondBusy = $"Engine {second} is busy.";
+            return Task.FromResult(TaskResult<PublicationReceipt>
+                .Failed("engine-busy", firstBusy)
+                .AddError("engine-busy", secondBusy));
+        }
+        if (string.Equals(input.Grant, "named", StringComparison.Ordinal))
+        {
+            // A result without a code names the field its message belongs to.
+            FormattableString tooShort = $"Note '{input.Note}' is too short.";
+            return Task.FromResult(new TaskResult<PublicationReceipt>().AddError("Note", tooShort));
         }
         if (string.Equals(input.Grant, "deny", StringComparison.Ordinal))
         {

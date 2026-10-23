@@ -112,6 +112,11 @@ public sealed class NhAiAspNetMcpTests
         Assert.Equal(
             "ai-tool-not-authorized",
             mismatchedCall.StructuredContent!.Value.GetProperty("code").GetString());
+        // A refusal of the export is its own format, without arguments.
+        Assert.Equal(
+            "The requested AI tool is not available.",
+            mismatchedCall.Meta![NhAiMcpResultMetadata.MessageFormatKey]!.GetValue<string>());
+        Assert.Equal("[]", mismatchedCall.Meta[NhAiMcpResultMetadata.MessageArgumentsKey]!.ToJsonString());
         var actorBTools = await client.ListToolsAsync();
         Assert.Equal(2, actorBTools.Count);
         var actorBTool = Assert.Single(actorBTools, tool =>
