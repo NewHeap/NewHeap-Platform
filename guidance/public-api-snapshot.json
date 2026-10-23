@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.82",
   "backEnd": {
-    "hash": "c38fcb52420605e1ac7d8beedf2fd6b8f505c1f3c757bd69d60a4b18b4d5855b",
-    "declarationCount": 10229,
+    "hash": "494470a7a61d7bbe485e22c954d802778f64810e4a45362f5c918b104b8c1ab1",
+    "declarationCount": 10241,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -22975,6 +22975,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public FormattableString? MessageSource { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
         "declaration": "public static NhAiToolOutcomeCapture Begin() {"
       },
       {
@@ -23443,6 +23447,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public string? MessageFormat { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public IReadOnlyList<JsonElement> MessageArguments { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
         "declaration": "public static NhAiMcpToolFailureDetail From(CallToolResult result) {"
       },
       {
@@ -23468,6 +23480,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
         "declaration": "public string? FailureMessage { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public string? FailureMessageFormat { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public IReadOnlyList<JsonElement> FailureMessageArguments { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
@@ -23722,6 +23742,14 @@
         "declaration": "public static async Task<TaskResult<JsonObject>> BindAsync( INhAiMcpInvocationBinder binder, NhAiMcpInvocationBindingContext context, CancellationToken cancellationToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpMessageFormat.cs",
+        "declaration": "public static bool TryCreate( FormattableString? source, string? text, [NotNullWhen(true)] out string? format, [NotNullWhen(true)] out JsonArray? arguments) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpMessageFormat.cs",
+        "declaration": "public static FormattableString Fixed(string text) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
         "declaration": "public interface INhAiMcpToolAdapter {"
       },
@@ -23760,6 +23788,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
         "declaration": "public const string TypedPayloadKey = \"newheap.com/typed-payload\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public const string MessageFormatKey = \"newheap.com/message-format\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public const string MessageArgumentsKey = \"newheap.com/message-arguments\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public const int MaxMessageFormatLength = 1_024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public const int MaxMessageArguments = 16;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public const int MaxMessageArgumentLength = 256;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",

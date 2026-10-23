@@ -203,3 +203,27 @@ mock API takes `admin.agentMetadata` and the agents' `metadata` of its scenario.
 | Breaking change | Required action |
 |---|---|
 | The agent editor shows a section of application fields below its form when the application registers entries of agent metadata. | Register an editor per entry with `provideNhAssistantAgentMetadataEditors`; an entry without one says that the application shows no editor. |
+
+## NewHeap.Platform.AI.Mcp and NewHeap.Platform.AI.AspNet.Common: MCP error messages keep their format and arguments
+
+A failed result of the MCP export (`WithNewHeapPlatformAITools`, flat and enveloped, with or without a
+typed payload) carries the composite format of its message and its arguments in `_meta` next to
+`newheap.com/message`, so a client can translate the failure:
+`NhAiMcpResultMetadata.MessageFormatKey` (`newheap.com/message-format`, such as
+`Project '{0}' has {1} open tasks.`) and `MessageArgumentsKey` (`newheap.com/message-arguments`). The
+arguments are exactly the values the text shows: strings, booleans and numbers as JSON primitives,
+`DateTime`, `DateTimeOffset` and `DateOnly` as ISO 8601 to the second with the invariant culture, and the
+shown text for an argument with a format specifier or of another type. Both keys come together, and only
+when the format filled with the arguments gives the text exactly within `MaxMessageArguments` (16),
+`MaxMessageArgumentLength` (256 characters) and `MaxMessageFormatLength` (1,024 characters); a message that
+joins several messages or starts with a field name carries neither. A fixed message, such as a pipeline
+refusal or a refusal of the export itself, is its own format without arguments; what an application's
+resolver reports in place of a refusal stays shielded. The text `code: message`, the structured
+`{ code, message }` and `newheap.com/message` do not change. `NhAiMcpToolException` exposes the keys as
+`FailureMessageFormat` and `FailureMessageArguments` to a client, also a NewHeap host calling another
+host's export.
+
+| Breaking change | Required action |
+|---|---|
+| A failed MCP result carries two more `_meta` keys, `newheap.com/message-format` and `newheap.com/message-arguments`. | None, unless a client rejects or snapshots unknown `_meta` keys; then accept the two keys. |
+| Only a message that reaches `TaskResult` as a `FormattableString` keeps its arguments; an interpolated string passed straight to `Failed`, `AddError` or `WithError` binds to their `string` overload and publishes its rendered text as its format, without arguments. | Declare a message that clients should translate as a `FormattableString` (`FormattableString message = $"..."`) before passing it to `TaskResult`. |

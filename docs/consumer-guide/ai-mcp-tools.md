@@ -87,6 +87,36 @@ consumer failure keeps its own result code. Both client helpers throw
 `PayloadJson`, or `NhAiMcpToolException<TPayload>` with the typed `Payload` when
 the failure carried one. Catch the base type unless the typed payload is needed.
 
+A failed result also carries the format and arguments of its message, so a client
+can translate it. `NhAiMcpResultMetadata.MessageFormatKey`
+(`newheap.com/message-format`) holds the message's composite format, such as
+`Project '{0}' has {1} open tasks.`, and `MessageArgumentsKey`
+(`newheap.com/message-arguments`) a JSON array of exactly the values the text
+shows. Strings, booleans and numbers stay JSON primitives; a `DateTime` or
+`DateTimeOffset` becomes ISO 8601 to the second and a `DateOnly` `yyyy-MM-dd`, with
+the invariant culture; an argument with a format specifier such as `{0:N2}`, and an
+argument of any other type, becomes the text it shows. The text `code: message`,
+the structured `{ code, message }` and `MessageKey` do not change. Both keys are
+published together, for flat and enveloped exports and next to a typed payload
+alike, and only when the format filled with the arguments gives the text exactly,
+with at most `MaxMessageArguments` (16) arguments of at most
+`MaxMessageArgumentLength` (256) characters and a format of at most
+`MaxMessageFormatLength` (1,024) characters; otherwise neither is. A message that
+joins several messages, or starts with the field name of a result without a code,
+carries neither. A fixed message, such as a pipeline refusal or a refusal of the
+export itself, is its own format without arguments; the export never publishes
+what the application's resolver reported in its place. A failed imported MCP tool
+keeps the remote result, its `_meta` included, as `data` under its own fixed message.
+
+Declare a message that a client should translate as a `FormattableString` before
+passing it to `TaskResult`: an interpolated string passed straight to `Failed`,
+`AddError` or `WithError` binds to their `string` overload, so its rendered text
+becomes its own format without arguments, as NewHeap's string localizer sees it
+too. Both client helpers expose the keys as `NhAiMcpToolException.FailureMessageFormat`
+and `FailureMessageArguments`; look up the client's own text for the format, fill in
+the arguments with the client's culture, and fall back to `FailureMessage` when the
+format is unknown.
+
 MCP annotation hints follow the governance effect. When a client-facing hint must
 be more cautious than the effect, declare `ReadOnlyHint`, `DestructiveHint`,
 `IdempotentHint` or `OpenWorldHint` on the tool. An override may only narrow: it
@@ -142,6 +172,11 @@ from a stale list fails with `ai-tool-not-authorized` and runs nothing.
   declare a narrowing hint override instead.
 - Parsing failure text or message templates for a code; read the result code from
   `_meta` or the client exception.
+- Parsing failure text for its values, or translating it by its rendered text; read
+  the message format and arguments from `_meta` or the client exception.
+- Passing an interpolated message that clients should translate straight to
+  `TaskResult.Failed`; declare it as a `FormattableString` so its format and
+  arguments survive.
 - Calling independently registered MCP tools through the NewHeap client helper.
 - Publishing a NewHeap tool both through its generated catalog and through SDK tool registration.
 - Giving an external MCP tool the same wire name as a NewHeap-managed export.
@@ -173,7 +208,11 @@ and without a declared context, including a null property. Deny the invocation g
 and assert both flat and enveloped exports publish `{ code, message }`, the text
 `code: message` and the code in `_meta`. Assert the client exception exposes the
 code, message, evidence reference and typed payload, that a narrowing hint is
-listed and audited, and that a widening hint fails with `NHAI013`. SPM-222 and SPM-240 are the executable
+listed and audited, and that a widening hint fails with `NHAI013`. Fail a tool with
+a `FormattableString` message and assert that the text stays `code: message` while
+`_meta` and the client exception carry its format and arguments, also over
+Streamable HTTP, that joined messages carry neither, and that a refusal of the
+export carries its fixed text without arguments. SPM-222 and SPM-240 are the executable
 references.
 
 ## Executable evidence

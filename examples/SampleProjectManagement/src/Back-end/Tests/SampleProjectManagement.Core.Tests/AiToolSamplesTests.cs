@@ -259,16 +259,20 @@ public sealed class AiToolSamplesTests
                 tool.Name,
                 new ProjectAiSearchInput(tooLong, 5),
                 TestContext.Current.CancellationToken));
-        var dutch = new Dictionary<string, string>(StringComparer.Ordinal)
+        // The client's own text for the format, as its translation files would hold it.
+        var clientTexts = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["A project search query has at most {0} characters; this one has {1}."] =
-                "Een zoekopdracht naar projecten heeft hooguit {0} tekens; deze heeft er {1}."
+                "Shorten your search to {0} characters; it has {1} now."
         };
 
         Assert.Equal(ProjectAiTools.SearchQueryTooLongCode, failure.Code);
         Assert.Equal(
-            "Een zoekopdracht naar projecten heeft hooguit 200 tekens; deze heeft er 240.",
-            Translate(failure, dutch, System.Globalization.CultureInfo.GetCultureInfo("nl-NL")));
+            "Shorten your search to 200 characters; it has 240 now.",
+            Translate(failure, clientTexts, System.Globalization.CultureInfo.GetCultureInfo("en-GB")));
+        Assert.Equal(
+            failure.FailureMessage,
+            Translate(failure, new Dictionary<string, string>(), System.Globalization.CultureInfo.InvariantCulture));
     }
 
     /// <summary>

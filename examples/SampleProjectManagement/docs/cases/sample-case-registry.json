@@ -3142,8 +3142,8 @@
       "id": "SPM-222",
       "categoryId": "18",
       "title": "Generated tool over MCP",
-      "surface": "`WithNewHeapPlatformAITools`, `INhAiMcpToolAdapter`, `CallNewHeapToolAsync<TInput, TOutput>`, official ASP.NET Streamable HTTP and in-memory MCP transports, generated `AIFunction`, and the shared discovery/invocation pipeline",
-      "outcome": "The API publishes the same generated project search implementation through the official stateless ASP.NET MCP transport. Every list and call resolves the current authenticated request independently; actor- and tenant-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` errors remain in the shared NewHeap pipeline. A typed .NET client passes generated input directly through the official helper, which creates the `input` envelope, honors explicit JSON options including omitted optional null properties, returns the typed `TaskResult<T>.data` value, and preserves failed MCP tool results in `NhAiMcpToolException`. Only generated catalogs and attested runtime catalogs (see SPM-243) enter the NewHeap export path; a catalog without MCP exposure, such as a run-scoped imported catalog (see SPM-228), is skipped. Independently governed external SDK tools can coexist under distinct wire names and continue using the official SDK directly, while duplicate NewHeap publication and export-name collisions fail at startup.",
+      "surface": "`WithNewHeapPlatformAITools`, `INhAiMcpToolAdapter`, `CallNewHeapToolAsync<TInput, TOutput>`, official ASP.NET Streamable HTTP and in-memory MCP transports, generated `AIFunction`, the shared discovery/invocation pipeline, and the message format of a failed result: `NhAiMcpResultMetadata.MessageFormatKey` and `MessageArgumentsKey` with their bounds, and `NhAiMcpToolException.FailureMessageFormat` and `FailureMessageArguments`",
+      "outcome": "The API publishes the same generated project search implementation through the official stateless ASP.NET MCP transport. Every list and call resolves the current authenticated request independently; actor- and tenant-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` errors remain in the shared NewHeap pipeline. A typed .NET client passes generated input directly through the official helper, which creates the `input` envelope, honors explicit JSON options including omitted optional null properties, returns the typed `TaskResult<T>.data` value, and preserves failed MCP tool results in `NhAiMcpToolException`. A search query longer than 200 characters fails with `project-search-query-too-long` and a message declared as a `FormattableString`; the failed result keeps the text `code: message` and also carries the message's format and arguments in `_meta` (`newheap.com/message-format`, `newheap.com/message-arguments` with `[200,240]`), which the client exception exposes and the sample test renders with the client's own text for that format and its own culture, falling back to the server's text for a format it does not know. Only generated catalogs and attested runtime catalogs (see SPM-243) enter the NewHeap export path; a catalog without MCP exposure, such as a run-scoped imported catalog (see SPM-228), is skipped. Independently governed external SDK tools can coexist under distinct wire names and continue using the official SDK directly, while duplicate NewHeap publication and export-name collisions fail at startup.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
@@ -3151,9 +3151,13 @@
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpMessageFormat.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpMessageFormatTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpPublicationTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/NhAiMcpHttpMessageFormatTests.cs"
       ]
     },
     {
