@@ -48,9 +48,11 @@ import {
   flowTriggers,
   problemStep,
   problemWarning,
+  typeName,
   unavailableServerUses
 } from './agent-flow';
 import { NhAssistantAccountLabelComponent } from '../../nh-assistant-account-names';
+import { consultationRows, consultationsClosed } from './consultations';
 import { describePolicy } from './run-config-shared';
 
 let nextId = 0;
@@ -69,7 +71,8 @@ interface FlowPolicy {
 
 /**
  * The flow view of an agent at the top of its run configuration: what it works on, when it runs (its
- * triggers with what each runs for, and run now), how it works (its way of working, skills and tools,
+ * triggers with what each runs for, run now, and the consultations through which other assistants
+ * consult it), how it works (its way of working, skills and tools,
  * with where a run's proposals of each tool wait and whether its MCP servers are used in runs without
  * a person), whom it answers to, who approves its proposals, and its results (its groups and latest
  * runs). Problems show at the step they concern with the entry point that fixes them. The flow edits
@@ -140,6 +143,10 @@ export class NhAssistantAgentFlowComponent implements OnInit {
     return { ...summary, only: summary.all ? 'all' : summary.types.length > 0 ? 'types' : 'application' };
   });
   readonly triggers = computed(() => flowTriggers(this.configuration(), this.catalog(), this.agent()));
+  /** When another assistant consults the agent: its consultations in code and as data. */
+  readonly consultations = computed(() => consultationRows(this.configuration()));
+  /** Administrators may add a consultation to the agent now. */
+  readonly canAddConsultation = computed(() => consultationsClosed(this.configuration(), this.catalog()) === null);
   readonly runNow = computed(() => flowRunNow(this.agent(), this.configuration(), this.catalog()));
   /**
    * What people run the agent for by hand, as the run-now dialog offers it: the whole application (one
@@ -219,7 +226,7 @@ export class NhAssistantAgentFlowComponent implements OnInit {
       results: []
     };
     for (const problem of configuration.problems) {
-      result[problemStep(problem)].push(problemWarning(problem, configuration));
+      result[problemStep(problem)].push(problemWarning(problem, configuration, this.catalog()));
     }
     for (const selector of this.agentTools().unmatched) {
       result.skills.push({
@@ -292,6 +299,11 @@ export class NhAssistantAgentFlowComponent implements OnInit {
   /** A skill's name: the application's translation, or a readable form of its id. */
   skillName(skillId: string | null | undefined): string {
     return skillId ? this.translated(skillNameKeys(this.agent().id, skillId), readableId(skillId)) : '';
+  }
+
+  /** The name of an object type, as the run catalog names it in the reader's language. */
+  typeName(subjectType: string): string {
+    return typeName(this.catalog(), subjectType);
   }
 
   /** The text of a step's warning count. */

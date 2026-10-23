@@ -418,6 +418,21 @@ export class NhAssistantAdminAgentsComponent {
     this.edit(agent);
   }
 
+  /**
+   * A consultation of the agent's run configuration opens the editor of an agent that asks it, whose
+   * tool selectors are the consultation's second key; saving or cancelling returns to the run
+   * configuration it came from.
+   */
+  askerFromRunConfiguration(agent: AdminAgent, askerId: string): void {
+    const asker = this.agents().find(item => item.id === askerId);
+    if (!asker) {
+      return;
+    }
+    this.configuring.set(null);
+    this.returnTo.set(agent.id);
+    this.edit(asker);
+  }
+
   /** The flow of the agent's run configuration opens its runs; going back returns there. */
   runsFromRunConfiguration(agent: AdminAgent): void {
     this.configuring.set(null);
@@ -446,14 +461,18 @@ export class NhAssistantAdminAgentsComponent {
     this.returnToRunConfiguration(agentId);
   }
 
-  /** Opens the run configuration again when its flow opened what closes now; `false` otherwise. */
+  /**
+   * Opens the run configuration again when its flow, or one of its consultations, opened what closes
+   * now; `false` otherwise. The editor of an agent that asks a consultation returns to the consulted
+   * agent's run configuration.
+   */
   private returnToRunConfiguration(agentId: string | undefined, saved?: AdminAgent): boolean {
     const returnTo = this.returnTo();
     this.returnTo.set(null);
-    if (returnTo === null || returnTo !== agentId) {
+    if (returnTo === null || agentId === undefined) {
       return false;
     }
-    const agent = saved ?? this.agents().find(item => item.id === returnTo);
+    const agent = saved?.id === returnTo ? saved : this.agents().find(item => item.id === returnTo);
     if (!agent) {
       return false;
     }

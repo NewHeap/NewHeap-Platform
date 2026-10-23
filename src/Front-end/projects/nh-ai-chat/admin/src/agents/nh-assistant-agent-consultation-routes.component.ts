@@ -54,13 +54,16 @@ interface RouteChange {
 }
 
 /**
- * The routes of an agent's consultations (internal to the run configuration): when another assistant
- * consults the agent and the agent proposes a change, a route says who decides it and whose rights
- * run it. Shown only for an agent that can be consulted (`AgentState.consultationRoutes`). Each route
- * says whether it is on, whether that is the setting in code or an administrator's, and when code does
- * not allow it, which keeps it off. Administrators switch a route on or off, or back to the setting in
- * code, each with an optional reason; a refusal, such as a route code no longer allows, shows with the
- * routes. `changed` emits the agent's state after a change.
+ * The routes of an agent's consultations (internal to the run configuration's Consultations section):
+ * when another assistant consults the agent and the agent proposes a change, a route says who decides
+ * it and whose rights run it. Shown only for an agent that can be consulted
+ * (`AgentState.consultationRoutes`), through a consultation in code or one defined as data. Each route
+ * says whether it is on, whether that is what the consultations allow or an administrator's switch,
+ * and when no consultation allows it, which keeps it off. Administrators switch a route off for all
+ * consultations of the agent at once, or on, or back to what the consultations allow, each with an
+ * optional reason; a refusal, such as a route no consultation allows any more, shows with the routes.
+ * `refresh` reads the routes again after the consultations changed; `changed` emits the agent's state
+ * after a change.
  */
 @Component({
   selector: 'nh-assistant-agent-consultation-routes',
@@ -68,7 +71,7 @@ interface RouteChange {
   imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAccountNamesErrorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-consultation-routes.component.html',
-  styleUrl: '../nh-assistant-admin-shared.scss'
+  styleUrls: ['../nh-assistant-admin-shared.scss', './run-config/run-config-forms.scss']
 })
 export class NhAssistantAgentConsultationRoutesComponent {
   private readonly admin = inject(NhAssistantAdminApiService);
@@ -81,6 +84,8 @@ export class NhAssistantAgentConsultationRoutesComponent {
   readonly agentId = input.required<string>();
   /** The object types of the run catalog, to name the types whose consultation allows a route. */
   readonly subjectTypes = input<readonly { id: string; name: string; pluralName?: string | null }[]>([]);
+  /** Changes when the agent's consultations changed, so the routes they allow are read again. */
+  readonly refresh = input(0);
   /** The agent's state after its routes changed. */
   readonly changed = output<AgentState>();
 
@@ -105,6 +110,7 @@ export class NhAssistantAgentConsultationRoutesComponent {
     });
     effect(() => {
       this.agentId();
+      this.refresh();
       untracked(() => this.load());
     });
   }
@@ -125,7 +131,7 @@ export class NhAssistantAgentConsultationRoutesComponent {
     });
   }
 
-  /** The types whose consultation in code allows the route, by name. */
+  /** The types whose consultation allows the route, by name. */
   typeNames(route: AgentConsultationRouteState): string {
     const names = new Map(this.subjectTypes().map(type => [type.id, type.pluralName ?? type.name]));
     return route.subjectTypes.map(type => names.get(type) ?? type).join(', ');
@@ -136,7 +142,7 @@ export class NhAssistantAgentConsultationRoutesComponent {
     return route.on ? 'off' : 'on';
   }
 
-  /** The explanation of a change in its form: what returning to the code means depends on whether code allows the route. */
+  /** The explanation of a change in its form: what dropping the switch means depends on whether a consultation allows the route. */
   explainKey(change: RouteChange): string {
     const action = change.action === 'code' ? (change.allowed ? 'code-on' : 'code-off') : change.action;
     return `nh-assistant.admin.agents.consultation-routes.explain-change.${action}`;
@@ -147,7 +153,7 @@ export class NhAssistantAgentConsultationRoutesComponent {
     return change?.route === route && change.action === action;
   }
 
-  /** Opens the reason form of a change of one route. A route code does not allow cannot be switched on. */
+  /** Opens the reason form of a change of one route. A route no consultation allows cannot be switched on. */
   ask(route: AgentConsultationRouteState, action: AgentConsultationRouteSwitch): void {
     if (this.busy() || (action === 'on' && !route.allowed)) {
       return;

@@ -30,10 +30,12 @@
       [startSetup]="setupOnOpen()"
       [tools]="tools()"
       [servers]="servers()"
+      [agents]="agents()"
       (editAgent)="editFromRunConfiguration(agent)"
       (openRuns)="runsFromRunConfiguration(agent)"
       (changeAccount)="accountFromRunConfiguration(agent)"
-      (openMcpServers)="openMcpServers.emit()" />
+      (openMcpServers)="openMcpServers.emit()"
+      (openAgent)="askerFromRunConfiguration(agent, $event)" />
   </div>
 } @else if (viewingRuns(); as agent) {
   <div class="stack">

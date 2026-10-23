@@ -308,7 +308,7 @@ describe('consultation routes of an agent in the administration', () => {
     it('explains each route, shows its state and keeps a route code does not allow off', async () => {
       const { element } = await render();
 
-      expect(element.querySelector('h4')!.textContent).toContain('Consultation routes');
+      expect(element.querySelector('h5')!.textContent).toContain('Consultation routes');
       const askerDecides = route(element, 'asker-decides');
       expect(askerDecides.querySelector('[data-route-explain]')!.textContent)
         .toContain('The person who asked decides in their own chat; it runs with their own rights.');
@@ -317,14 +317,14 @@ describe('consultation routes of an agent in the administration', () => {
       expect(route(element, 'subject-asker-rights').querySelector('[data-route-explain]')!.textContent)
         .toContain('The subject\'s approvers decide; it runs later with the rights of the person who asked.');
       expect(askerDecides.querySelector('[data-route-state]')!.textContent).toContain('On');
-      expect(askerDecides.querySelector('[data-route-source]')!.textContent).toContain('Set in code');
+      expect(askerDecides.querySelector('[data-route-source]')!.textContent).toContain('As the consultations allow');
       expect(askerDecides.querySelector('[data-route-types]')!.textContent).toContain('For: Projects');
       expect(route(element, 'subject-asker-rights').querySelector('[data-route-types]')!.textContent).toContain('For: Projects, Task');
       expect(askerDecides.querySelector('[data-route-action="code"]')).toBeNull();
 
       const notAllowed = route(element, 'subject-agent-rights');
       expect(notAllowed.querySelector('[data-route-state]')!.textContent).toContain('Off');
-      expect(notAllowed.querySelector('[data-route-source]')!.textContent).toContain('Not allowed in code');
+      expect(notAllowed.querySelector('[data-route-source]')!.textContent).toContain('Not allowed');
       const switchOn = notAllowed.querySelector('[data-route-action="on"]') as HTMLButtonElement;
       expect(switchOn.disabled).toBeTrue();
       expect(switchOn.getAttribute('aria-describedby')).toBe(notAllowed.querySelector('[data-route-not-allowed]')!.id);
@@ -358,12 +358,12 @@ describe('consultation routes of an agent in the administration', () => {
 
       (route(element, 'asker-decides').querySelector('[data-route-action="code"]') as HTMLButtonElement).click();
       await settle(fixture);
-      expect(form().textContent).toContain('code allows this route, so it is on');
+      expect(form().textContent).toContain('one of them allows this route, so it is on');
       button(form(), 'Confirm').click();
       await settle(fixture);
 
       expect(requestBodies('POST', 'admin/agents/planner/consultation-routes').at(-1)).toEqual({ askerDecides: 'code', reason: null });
-      expect(route(element, 'asker-decides').querySelector('[data-route-source]')!.textContent).toContain('Set in code');
+      expect(route(element, 'asker-decides').querySelector('[data-route-source]')!.textContent).toContain('As the consultations allow');
       expect(route(element, 'asker-decides').querySelector('[data-route-action="code"]')).toBeNull();
     }, formFlowTimeout);
 
@@ -388,7 +388,7 @@ describe('consultation routes of an agent in the administration', () => {
       expect(admin.setConsultationRoutes).toHaveBeenCalledOnceWith('planner', { subjectAskerRights: 'off', reason: null });
       const error = element.querySelector('[data-routes-error]') as HTMLElement;
       expect(error.getAttribute('role')).toBe('alert');
-      expect(error.textContent).toContain('The agent\'s consultations in code do not allow this route, so it cannot be switched on.');
+      expect(error.textContent).toContain('None of the agent\'s consultations allows this route, so it cannot be switched on.');
       expect(route(element, 'subject-asker-rights').querySelector('[data-route-form]')).not.toBeNull();
       expect(route(element, 'subject-asker-rights').querySelector('[data-route-state]')!.textContent).toContain('On');
     }, formFlowTimeout);

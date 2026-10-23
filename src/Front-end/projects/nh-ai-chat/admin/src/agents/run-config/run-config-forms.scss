@@ -196,3 +196,25 @@ h5 {
   max-width: 100%;
   overflow-x: auto;
 }
+
+// A sentence that says what a consultation allows: who may ask and who decides its proposals.
+.summary {
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+// The routes of a consultation's proposals: long explanations, one under the other.
+.checks.routes {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+// A route the ceiling or the agent rules out stays readable, with its reason.
+.check.blocked {
+  cursor: not-allowed;
+
+  > span > span:first-child {
+    color: var(--nha-text-muted);
+  }
+}
