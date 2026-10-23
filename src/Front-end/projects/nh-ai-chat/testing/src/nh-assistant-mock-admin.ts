@@ -83,7 +83,8 @@ export class NhAssistantMockAdmin {
         find: agentId => this.agents.find(agentId),
         all: () => this.agents.all(),
         knownSubjectTypes: () => [...(scenario.subjectTypes ?? []).map(type => type.id), mockSystemSubjectType],
-        setDataSkill: (agentId, skillId, description, startsOff) => this.agents.setDataSkill(agentId, skillId, description, startsOff)
+        setDataSkill: (agentId, skillId, description, startsOff) => this.agents.setDataSkill(agentId, skillId, description, startsOff),
+        acceptsDataHandOffs: agentId => this.handOffs.acceptsDataHandOffs(agentId)
       },
       now,
       this.accounts,

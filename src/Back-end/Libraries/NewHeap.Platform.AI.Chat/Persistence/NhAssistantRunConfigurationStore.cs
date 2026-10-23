@@ -225,8 +225,8 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
 
     /// <summary>
     /// Removes the run settings of an agent, which then only chats. Fails with
-    /// <see cref="NhAssistantStoreOutcome.Rejected"/> while the agent has data skills, data triggers or
-    /// data consultations.
+    /// <see cref="NhAssistantStoreOutcome.Rejected"/> while the agent has data skills, data triggers, data
+    /// consultations or hand-offs defined as data that it accepts.
     /// </summary>
     public async Task<NhAssistantStoreResult<AssistantAgentRunConfiguration>> RemoveRunSettingsAsync(
         string agentId,

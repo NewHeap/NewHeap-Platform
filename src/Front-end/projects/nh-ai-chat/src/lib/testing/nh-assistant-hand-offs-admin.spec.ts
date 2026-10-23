@@ -177,6 +177,19 @@ describe('Hand-offs and shadow variants as data in the mock API', () => {
     expect([inCode.status, inCode.body.code]).toEqual([409, 'assistant-handoff-in-code']);
   });
 
+  it('keeps the run settings of an agent created here in use while it accepts a hand-off as data', async () => {
+    TestBed.resetTestingModule();
+    const script = scenario();
+    script.admin!.handOffsAsData!.rules.push({ subjectType: 'project', toAgentsCreatedInAdministration: true, from: ['planner'] });
+    await configure(script);
+
+    expect((await call('PUT', 'admin/agents/helper/hand-offs/project', { sources: ['planner'] })).status).toBe(200);
+    const inUse = await call('DELETE', 'admin/agents/helper/run-settings');
+    expect([inUse.status, inUse.body.code]).toEqual([409, 'assistant-run-settings-in-use']);
+    expect((await call('DELETE', 'admin/agents/helper/hand-offs/project?expectedVersion=1')).status).toBe(204);
+    expect((await call('DELETE', 'admin/agents/helper/run-settings')).status).toBe(204);
+  });
+
   it('creates a data shadow variant within the ceiling, always in shadow and never in the chat', async () => {
     const definition = {
       id: 'planner-v2', displayName: 'Planner v2', description: 'Plans strictly.', instructions: 'Plan strictly.',

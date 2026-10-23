@@ -441,7 +441,7 @@
       "assistant-skill-in-use": "A trigger still starts this skill. Change or remove the trigger first.",
       "assistant-configuration-limit": "This agent already has as many skills, triggers or consultations as allowed.",
       "assistant-run-settings-in-code": "This agent is part of the code; its runs are configured there.",
-      "assistant-run-settings-in-use": "Skills, triggers or consultations still belong to this agent. Remove them first.",
+      "assistant-run-settings-in-use": "Skills, triggers, consultations or hand-offs still belong to this agent. Remove them first.",
       "assistant-skill-candidate-not-found": "This skill has no version being evaluated in shadow.",
       "assistant-skill-version-gone": "The skill version this run was for is no longer evaluated.",
       "assistant-account-search-unavailable": "The application offers no account search; enter the account's id.",

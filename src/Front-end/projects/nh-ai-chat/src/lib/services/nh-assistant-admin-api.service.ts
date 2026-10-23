@@ -440,7 +440,10 @@ export class NhAssistantAdminApiService {
     return this.request<AgentRunHistory>('GET', withQuery(`${agentPath(agentId)}/runs`, filter));
   }
 
-  /** Removes the run settings; while data skills or triggers belong to the agent, `assistant-run-settings-in-use`. */
+  /**
+   * Removes the run settings; while data skills, triggers, consultations or hand-offs defined as data
+   * belong to the agent, `assistant-run-settings-in-use`.
+   */
   removeRunSettings(agentId: string, removal: RunConfigurationRemoval = {}): Observable<void> {
     return this.request<void>('DELETE', withQuery(`${agentPath(agentId)}/run-settings`, removal));
   }

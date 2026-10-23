@@ -65,8 +65,8 @@ public interface INhAssistantAgentConfiguration
 
     /// <summary>
     /// Removes the run settings of an agent created in the administration, which then only chats.
-    /// Fails with <c>assistant-run-settings-in-use</c> while it has data skills, data triggers or data
-    /// consultations.
+    /// Fails with <c>assistant-run-settings-in-use</c> while it has data skills, data triggers, data
+    /// consultations or hand-offs defined as data that it accepts.
     /// </summary>
     Task<TaskResult> RemoveRunSettingsAsync(
         string agentId,
@@ -1785,7 +1785,7 @@ internal sealed class NhAssistantAgentConfiguration(
             case NhAssistantStoreOutcome.Conflict:
                 return TaskResult.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The run settings changed in the meantime.");
             case NhAssistantStoreOutcome.Rejected:
-                return TaskResult.Failed(NhAssistantErrorCodes.RunSettingsInUse, "Data skills, triggers or consultations still belong to the agent.");
+                return TaskResult.Failed(NhAssistantErrorCodes.RunSettingsInUse, "Data skills, triggers, consultations or hand-offs still belong to the agent.");
         }
 
         await events.RunSettingsChangedAsync(agentId, removed.Value!.Version, "removed", actorId, cancellationToken);

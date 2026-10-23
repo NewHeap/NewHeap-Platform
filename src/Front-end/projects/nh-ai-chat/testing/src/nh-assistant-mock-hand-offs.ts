@@ -78,6 +78,11 @@ export class NhAssistantMockHandOffs {
     return { status: 405 };
   }
 
+  /** Whether the agent accepts a hand-off defined as data, which keeps its run settings in use. */
+  acceptsDataHandOffs(agentId: string): boolean {
+    return [...this.stored.values()].some(handOff => handOff.agentId === agentId);
+  }
+
   /**
    * Why `input` may not create a data shadow variant, as `POST admin/agents` with `shadowOf` answers,
    * or `null`.
