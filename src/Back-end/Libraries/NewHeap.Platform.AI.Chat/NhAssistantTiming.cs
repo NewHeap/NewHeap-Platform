@@ -18,4 +18,10 @@ internal sealed class NhAssistantTiming
     /// stamp again.
     /// </summary>
     internal TimeSpan RunConfigurationCheckInterval { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// How long an instruction asset that the application's source failed to return stays unavailable
+    /// before a read or a check of the run configuration asks the source again.
+    /// </summary>
+    internal TimeSpan InstructionAssetRetryInterval { get; init; } = TimeSpan.FromSeconds(30);
 }

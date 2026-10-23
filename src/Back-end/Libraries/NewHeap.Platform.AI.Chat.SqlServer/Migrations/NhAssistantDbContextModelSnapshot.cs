@@ -87,6 +87,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<int>("InstructionsAssetVersion")
                         .HasColumnType("int");
 
+                    b.Property<bool>("InstructionsFromAsset")
+                        .HasColumnType("bit");
+
                     b.Property<string>("InstructionsHash")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -610,6 +613,13 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<string>("Instructions")
                         .HasMaxLength(20000)
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("InstructionsAssetId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int?>("InstructionsAssetVersion")
+                        .HasColumnType("int");
 
                     b.Property<string>("InstructionsHash")
                         .HasMaxLength(64)

@@ -316,6 +316,18 @@ confirms in time becomes `execution-unknown`, and an approver hands it to the de
 proposal's card. `AssistantAgentRunSamplesTests` runs the case, with the desk's confirmations standing
 in for the supplier's callback.
 
+A skill defined as data may take its instructions from the application's own text assets instead of
+text an administrator writes (SPM-320). `SampleInstructionAssetComposition` registers
+`SampleInstructionAssets` with `UseTextAssetSource`: the planner's risk review in two published
+versions, fixed in code. `SampleInstructionAssetService` adds the risk review to the project planner
+naming version 1 of the asset by its id, version and hash; the skill stores that reference, never the
+text, and the assistant checks the hash whenever it loads the text, so a changed or missing text takes
+the skill out of effect with a problem instead of being followed. Version 2 takes effect only when it
+is saved as the skill's next version. In the assistant administration, and in the playground on the
+mock API, the skill form offers "The application's text" next to "Written here", lists the texts and
+shows the chosen one read-only with its hash. `AssistantInstructionAssetSamplesTests` runs the case,
+including the refusal of a reference whose hash differs from the text's.
+
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
 server protects its address, from its challenge and protected resource metadata; saving the server

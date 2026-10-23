@@ -39,7 +39,8 @@ internal sealed partial class NhAssistantTurnRunner
         NhAssistantSkillOptions? skill,
         NhAiDataClassification classification = NhAiDataClassification.Internal)
     {
-        if (skill is null)
+        // An agent without available instructions keeps its placeholder, which no prompt is composed from.
+        if (skill is null || NhAssistantInstructionAssets.IsUnavailable(agent.Instructions))
         {
             return agent;
         }

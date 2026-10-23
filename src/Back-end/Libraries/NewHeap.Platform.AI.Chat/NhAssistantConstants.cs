@@ -782,6 +782,14 @@ public static class NhAssistantErrorCodes
     public const string AgentConfiguredOff = "assistant-agent-configured-off";
 
     /// <summary>
+    /// The agent created in the administration takes its instructions from an asset of the
+    /// application that is missing, no longer has the hash it was saved with or cannot be read, so it
+    /// starts no model turn: no message, run, decision that continues its turn or consultation. Its
+    /// approved proposals still execute. The administration shows the problem.
+    /// </summary>
+    public const string AgentInstructionsUnavailable = "assistant-agent-instructions-unavailable";
+
+    /// <summary>
     /// A queued run did not start because its agent is paused; its events wait for the resume.
     /// </summary>
     public const string AgentPaused = "assistant-agent-paused";
@@ -1612,6 +1620,18 @@ public static class NhAssistantAdminErrorCodes
     /// later.
     /// </summary>
     public const string McpSecretUnavailable = "assistant-mcp-secret-unavailable";
+
+    /// <summary>
+    /// The application's text asset source (<c>UseTextAssetSource</c>) has no asset with the asked id
+    /// and version, or the application registers none.
+    /// </summary>
+    public const string InstructionsAssetNotFound = "assistant-instructions-asset-not-found";
+
+    /// <summary>
+    /// The application's text asset source failed while a save or the administration read an asset;
+    /// nothing was saved, and it may work again later.
+    /// </summary>
+    public const string InstructionsAssetUnavailable = "assistant-instructions-asset-unavailable";
 
     public const string InstructionsTooLong = "assistant-instructions-too-long";
     public const string ContextNotFound = "assistant-context-not-found";

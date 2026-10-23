@@ -57,20 +57,30 @@
         <p class="field-error" [id]="id + '-skill-rules-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('ruleHandler')?.params }}</p>
       }
     </div>
-    <div class="field">
-      <label [for]="id + '-skill-instructions'">{{ 'nh-assistant.admin.run-config.skills.instructions' | translate }}</label>
-      <textarea rows="5" [id]="id + '-skill-instructions'" [value]="instructions()"
-        [attr.aria-invalid]="fieldError('instructions') ? true : null"
-        [attr.aria-describedby]="describedBy(id + '-skill-instructions-hint', 'instructions', id + '-skill-instructions-error')"
-        (input)="instructions.set(value($event)); touch('instructions')"></textarea>
-      <p class="hint" [id]="id + '-skill-instructions-hint'">
-        <span>{{ 'nh-assistant.admin.run-config.skills.instructions-hint' | translate }} {{ 'nh-assistant.admin.run-config.skills.background-hint' | translate }}</span>
-        <span class="counter" [class.error-text]="instructions().length > maxInstructions">{{ 'nh-assistant.admin.characters' | translate: { count: instructions().length, max: maxInstructions } }}</span>
-      </p>
-      @if (errorKey('instructions'); as key) {
-        <p class="field-error" [id]="id + '-skill-instructions-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('instructions')?.params }}</p>
-      }
-    </div>
+    <nh-assistant-instructions-asset
+      [idPrefix]="id + '-skill-instructions'"
+      [available]="assetsAvailable()"
+      [(source)]="instructionsSource"
+      [(reference)]="instructionsAsset"
+      [problem]="assetProblem()"
+      [error]="fieldError('instructionsAsset')"
+      (touched)="touch('instructionsAsset'); touch('instructions')" />
+    @if (instructionsSource() === 'inline') {
+      <div class="field">
+        <label [for]="id + '-skill-instructions'">{{ 'nh-assistant.admin.run-config.skills.instructions' | translate }}</label>
+        <textarea rows="5" [id]="id + '-skill-instructions'" [value]="instructions()"
+          [attr.aria-invalid]="fieldError('instructions') ? true : null"
+          [attr.aria-describedby]="describedBy(id + '-skill-instructions-hint', 'instructions', id + '-skill-instructions-error')"
+          (input)="instructions.set(value($event)); touch('instructions')"></textarea>
+        <p class="hint" [id]="id + '-skill-instructions-hint'">
+          <span>{{ 'nh-assistant.admin.run-config.skills.instructions-hint' | translate }} {{ 'nh-assistant.admin.run-config.skills.background-hint' | translate }}</span>
+          <span class="counter" [class.error-text]="instructions().length > maxInstructions">{{ 'nh-assistant.admin.characters' | translate: { count: instructions().length, max: maxInstructions } }}</span>
+        </p>
+        @if (errorKey('instructions'); as key) {
+          <p class="field-error" [id]="id + '-skill-instructions-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('instructions')?.params }}</p>
+        }
+      </div>
+    }
     <fieldset class="field" [attr.aria-describedby]="id + '-tools-hint'">
       <legend>{{ 'nh-assistant.admin.run-config.skills.tools' | translate }}</legend>
       <p class="hint" [id]="id + '-tools-hint'">{{ 'nh-assistant.admin.run-config.skills.tools-hint' | translate }}</p>

@@ -156,6 +156,10 @@ internal sealed partial class NhAssistantTurnRunner(
         {
             return Failed(NhAssistantErrorCodes.AgentNotFound, "The assistant agent is no longer available.");
         }
+        if (effectiveAgent.InstructionsProblem is not null)
+        {
+            return Failed(NhAssistantErrorCodes.AgentInstructionsUnavailable, "The assistant agent's instructions are not available.");
+        }
         var agent = effectiveAgent.Definition;
         if (!string.IsNullOrWhiteSpace(request.ClientMessageId)
             && await store.ClientMessageExistsAsync(conversation.Id, request.ClientMessageId, cancellationToken))
@@ -247,6 +251,10 @@ internal sealed partial class NhAssistantTurnRunner(
         if (effectiveAgent is null)
         {
             return Failed(NhAssistantErrorCodes.AgentNotFound, "The assistant agent is no longer available.");
+        }
+        if (effectiveAgent.InstructionsProblem is not null)
+        {
+            return Failed(NhAssistantErrorCodes.AgentInstructionsUnavailable, "The assistant agent's instructions are not available.");
         }
         var agent = effectiveAgent.Definition;
         if (string.Equals(actorId, agent.ActorId, StringComparison.Ordinal))
@@ -376,6 +384,10 @@ internal sealed partial class NhAssistantTurnRunner(
         if (effectiveAgent is null)
         {
             return NhAssistantAgentTurnResult.Failed(NhAssistantErrorCodes.AgentNotFound);
+        }
+        if (effectiveAgent.InstructionsProblem is not null)
+        {
+            return NhAssistantAgentTurnResult.Failed(NhAssistantErrorCodes.AgentInstructionsUnavailable);
         }
 
         var turnId = Guid.NewGuid();
@@ -588,6 +600,10 @@ internal sealed partial class NhAssistantTurnRunner(
         if (effectiveAgent is null)
         {
             return NhAssistantAgentTurnResult.Failed(NhAssistantErrorCodes.AgentNotFound);
+        }
+        if (effectiveAgent.InstructionsProblem is not null)
+        {
+            return NhAssistantAgentTurnResult.Failed(NhAssistantErrorCodes.AgentInstructionsUnavailable);
         }
 
         var actorId = agentTurn.InitiatorActorId ?? effectiveAgent.Definition.ActorId;
@@ -864,7 +880,7 @@ internal sealed partial class NhAssistantTurnRunner(
         var effectiveAgent = conversation is null
             ? null
             : await agents.FindAsync(conversation.AgentId, includeDisabled: false, cancellationToken);
-        if (conversation is null || effectiveAgent is null)
+        if (conversation is null || effectiveAgent is null || effectiveAgent.InstructionsProblem is not null)
         {
             return new NhAssistantConsultationTurnResult(
                 NhAssistantTurnStatuses.Failed,
@@ -3026,6 +3042,11 @@ internal sealed partial class NhAssistantTurnRunner(
         NhAssistantClientContext? clientContext,
         NhAssistantSpeakers? speakers)
     {
+        if (NhAssistantInstructionAssets.IsUnavailable(agent.Instructions))
+        {
+            throw new InvalidOperationException($"Assistant agent '{agent.Id}' has no available instructions; its turn must be refused before a prompt is composed.");
+        }
+
         var applicationContext = await personalization.GetApplicationContextAsync(CancellationToken.None);
         var preferences = await personalization.GetPreferencesAsync(callerContext.ActorId, CancellationToken.None);
         var facts = await turnContext.CollectAsync(callerContext, language, CancellationToken.None);

@@ -730,7 +730,20 @@ public sealed record NhAssistantAdminAgentInputDto(
     bool? StartsOff = null,
     string? Profile = null,
     string? DataClassification = null,
-    IReadOnlyDictionary<string, JsonElement>? Metadata = null);
+    IReadOnlyDictionary<string, JsonElement>? Metadata = null)
+{
+    /// <summary>
+    /// For an agent created in the administration: the asset of the application its instructions come
+    /// from, instead of <see cref="Instructions"/>, which is then empty or omitted
+    /// (<c>instructions: not-allowed</c> otherwise). The save asks the application's text asset source:
+    /// <c>instructionsAsset: not-allowed</c> without a source or for an agent in code,
+    /// <c>instructionsAsset: not-found</c> for an asset or version it does not have,
+    /// <c>instructionsAsset.hash: invalid</c> for another hash, <c>instructionsAsset: invalid</c> for an
+    /// asset that cannot be instructions, and <c>503 assistant-instructions-asset-unavailable</c> when the
+    /// source fails. Omitted or <see langword="null"/> keeps or makes the instructions text.
+    /// </summary>
+    public NhAssistantInstructionAssetReference? InstructionsAsset { get; init; }
+}
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
 /// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c>, <c>off</c> or <c>configured-off</c>.</param>
@@ -872,6 +885,23 @@ public sealed record NhAssistantAdminAgentDto(
     /// otherwise (<see cref="NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState.OffBeforeStop"/>).
     /// </summary>
     public bool OffBeforeStop { get; init; }
+
+    /// <summary>
+    /// The asset of the application an agent created in the administration takes its instructions
+    /// from; <see langword="null"/> when they are text. <see cref="Instructions"/> then holds the
+    /// asset's verified text, read-only, and <see cref="InstructionsHash"/> the hash the agent was saved
+    /// with.
+    /// </summary>
+    public NhAssistantInstructionAssetReference? InstructionsAsset { get; init; }
+
+    /// <summary>
+    /// Why the instructions of <see cref="InstructionsAsset"/> are not available, as
+    /// <c>no-asset-source</c>, <c>asset-missing</c>, <c>asset-changed</c>, <c>asset-invalid</c> or
+    /// <c>asset-unavailable</c>: the agent then starts no model turn
+    /// (<c>assistant-agent-instructions-unavailable</c>) and <see cref="Instructions"/> is empty.
+    /// <see langword="null"/> when they resolve.
+    /// </summary>
+    public string? InstructionsProblem { get; init; }
 }
 
 /// <summary>

@@ -311,7 +311,8 @@
     "SPM-312",
     "SPM-313",
     "SPM-314",
-    "SPM-315"
+    "SPM-315",
+    "SPM-320"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2978,6 +2979,24 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpOwnerSweep.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAccessSourceTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAccessSourceTests.cs"
+    ],
+    "SPM-320": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleInstructionAssetComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleInstructionAssetService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantInstructionAssetSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionAssets.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfigurationEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInstructionAssetTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-instructions-asset.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-instruction-assets.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-instruction-assets-admin.spec.ts"
     ]
   }
 }

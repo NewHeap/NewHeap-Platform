@@ -66,6 +66,9 @@ public sealed class AssistantHttpErrorTests
     [InlineData(NhAssistantAdminErrorCodes.MetadataReadOnly, StatusCodes.Status409Conflict)]
     [InlineData(NhAssistantErrorCodes.ExecutionReportNotAwaited, StatusCodes.Status409Conflict)]
     [InlineData(NhAssistantErrorCodes.ExecutionReportInvalid, StatusCodes.Status400BadRequest)]
+    [InlineData(NhAssistantAdminErrorCodes.InstructionsAssetNotFound, StatusCodes.Status404NotFound)]
+    [InlineData(NhAssistantAdminErrorCodes.InstructionsAssetUnavailable, StatusCodes.Status503ServiceUnavailable)]
+    [InlineData(NhAssistantErrorCodes.AgentInstructionsUnavailable, StatusCodes.Status409Conflict)]
     [InlineData("application-own-code", StatusCodes.Status400BadRequest)]
     public void A_code_answers_its_one_status(string code, int status)
     {

@@ -1,0 +1,29 @@
+// The choice of an application's text asset as instructions. Scoped to the component, after the
+// shared administration and form styles.
+
+.actions.start {
+  justify-content: flex-start;
+}
+
+.asset-text {
+  max-height: 240px;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 10px 12px;
+  background: var(--nha-surface);
+  font-family: inherit;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.asset-text:focus-visible {
+  outline: 2px solid var(--nha-highlight);
+  outline-offset: 2px;
+}
+
+.field-error button {
+  margin-left: 8px;
+}

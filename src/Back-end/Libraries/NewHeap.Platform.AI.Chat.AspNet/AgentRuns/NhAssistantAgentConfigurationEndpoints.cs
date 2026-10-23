@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
@@ -21,6 +22,19 @@ internal static class NhAssistantAgentConfigurationEndpoints
             .WithSummary("List the building blocks of agent runs")
             .WithDescription("Returns the trigger events, subject sets and rule handlers registered in code, the approval policies and the chat profiles that skills and triggers defined as data can name, and the subject types with their names in the request's language, entity, link template and whether they can be searched.")
             .Produces<NhAssistantRunCatalogDto>();
+        admin.MapGet("instruction-assets", ListInstructionAssetsAsync)
+            .WithName("NhAssistantAdminListInstructionAssets")
+            .WithSummary("List the application's text assets for instructions")
+            .WithDescription("Returns whether the application registered a text asset source (UseTextAssetSource) and the trusted system instructions it lists for administrators to choose, with id, version and the hash its manifest states, never their content. An application that lists none answers an empty list; an administrator then names the id and version. A source that fails answers 503 assistant-instructions-asset-unavailable.")
+            .Produces<NhAssistantInstructionAssetListDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status503ServiceUnavailable);
+        admin.MapGet("instruction-assets/{id}/versions/{version:int}", ReadInstructionAssetAsync)
+            .WithName("NhAssistantAdminReadInstructionAsset")
+            .WithSummary("Read the text of one of the application's text assets")
+            .WithDescription("Returns the asset's text read-only with the SHA-256 of its content, which a data skill version or an agent created in the administration stores as instructionsAsset.hash, and problem asset-invalid for an asset that cannot be instructions. Without a source or without such an asset 404 assistant-instructions-asset-not-found; a source that fails 503 assistant-instructions-asset-unavailable.")
+            .Produces<NhAssistantInstructionAssetTextDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status503ServiceUnavailable);
         admin.MapGet("accounts", GetAccountsAsync)
             .WithName("NhAssistantAdminGetAccounts")
             .WithSummary("Find the accounts an agent can answer to")
@@ -162,6 +176,67 @@ internal static class NhAssistantAgentConfigurationEndpoints
         return NhAssistantAdminEndpoints.Json(
             configuration.GetCatalog(),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantRunCatalogDto);
+    }
+
+    private static async Task<IResult> ListInstructionAssetsAsync(
+        HttpContext httpContext,
+        NhAssistantInstructionAssets instructionAssets,
+        ILogger<NhAssistantInstructionAssets> logger)
+    {
+        IReadOnlyList<NhAiAssetManifest>? manifests;
+        try
+        {
+            manifests = await instructionAssets.ListAsync(httpContext.RequestAborted);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            logger.LogWarning("The application's text asset source failed to list its assets ({ExceptionType}).", exception.GetType().Name);
+            return NhAssistantHttpErrors.Error(NhAssistantAdminErrorCodes.InstructionsAssetUnavailable);
+        }
+
+        // Only what may be instructions is offered: trusted system instructions of the application.
+        var assets = (manifests ?? [])
+            .Where(manifest => manifest is { Role: NhAiAssetRole.SystemInstructions, Trust: NhAiContextTrust.TrustedApplication })
+            .Select(manifest => new NhAssistantInstructionAssetDto(manifest.Id, manifest.Version, manifest.ContentHash)
+            {
+                ReplacedByAssetId = manifest.ReplacedByAssetId,
+                DeprecatedAt = manifest.DeprecatedAt
+            })
+            .ToArray();
+        return NhAssistantAdminEndpoints.Json(
+            new NhAssistantInstructionAssetListDto(manifests is not null, assets),
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantInstructionAssetListDto);
+    }
+
+    private static async Task<IResult> ReadInstructionAssetAsync(
+        string id,
+        int version,
+        HttpContext httpContext,
+        NhAssistantInstructionAssets instructionAssets,
+        ILogger<NhAssistantInstructionAssets> logger)
+    {
+        NhAssistantResolvedInstructions? read;
+        try
+        {
+            read = await instructionAssets.ReadAsync(id, version, httpContext.RequestAborted);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            logger.LogWarning("The application's text asset source failed to read an asset ({ExceptionType}).", exception.GetType().Name);
+            return NhAssistantHttpErrors.Error(NhAssistantAdminErrorCodes.InstructionsAssetUnavailable);
+        }
+
+        if (read?.Asset is not { } asset)
+        {
+            return NhAssistantHttpErrors.Error(NhAssistantAdminErrorCodes.InstructionsAssetNotFound);
+        }
+
+        return NhAssistantAdminEndpoints.Json(
+            new NhAssistantInstructionAssetTextDto(id, version, NhAssistantInstructionAssets.HashOf(asset.Content), asset.Content)
+            {
+                Problem = read.Problem
+            },
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantInstructionAssetTextDto);
     }
 
     private static async Task<IResult> GetAccountsAsync(

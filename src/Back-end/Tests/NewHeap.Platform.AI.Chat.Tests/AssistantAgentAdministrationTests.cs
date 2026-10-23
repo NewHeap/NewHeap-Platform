@@ -366,6 +366,7 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
             services.AddLogging();
             services.AddSingleton<NhAssistantRunConfigurationStore>();
             services.AddSingleton<NhAssistantRunConfigurationValidator>();
+            services.AddSingleton<NhAssistantInstructionAssets>();
             services.AddSingleton<NhAssistantRunConfigurations>();
             services.AddSingleton<CapturedBusinessAuditSink>();
             services.AddScoped<INhAssistantBusinessAuditSink, CapturedBusinessAuditSinkAdapter>();
