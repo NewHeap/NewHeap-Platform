@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.81",
   "backEnd": {
-    "hash": "e03e5fd34467e4a28b11d8a405cba6c554764c503b70c415be66ef863d4a06dc",
+    "hash": "d6ea41ebd85e0d10a0987ecb86b5b8b4a179d8efc668a59e8b2d9c129c35240c",
     "declarationCount": 10040,
     "declarations": [
       {
@@ -4739,7 +4739,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantApplicationMessageDto( string? Title, string? SenderName, NhAssistantApplicationMessageLinkDto? Link);"
+        "declaration": "public sealed record NhAssistantApplicationMessageDto( string? Title, string? SenderName, NhAssistantApplicationMessageLinkDto? Link, bool Trusted);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
