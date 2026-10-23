@@ -292,7 +292,9 @@ or takes an issuer's tenant from a claim, which can carry more than one; an issu
 passes. A resolver of the application's own (`UseAuthenticatedInvocationContextResolver`) cannot be
 checked and must return the configured tenant or none. With an issuer projection the actor id belongs
 to the issuer, so register an `INhAiPrincipalFactory` that rebuilds those people for the roles of the
-whole application.
+whole application. The administration (`UseAdminPolicy`: the runs view, agent control, configuration
+and evaluation) administers the host as a whole and keeps no tenant rule, so in a host with several
+tenants let its policy admit only operators without a tenant.
 
 Run an agent now, by hand, with `POST threads/start` (`agentId`, `subjectType`, `subjectId`, optional
 `message`; the caller is the initiator and the trigger `manual`). One rule decides who may, also for a
