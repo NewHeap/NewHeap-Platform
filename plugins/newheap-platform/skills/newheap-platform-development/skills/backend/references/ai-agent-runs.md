@@ -271,7 +271,11 @@ divisions a person works in by name (`Searchable` in the run catalog), as the su
 per-division agent.
 
 The whole application belongs to no tenant: its threads, runs and proposals are stored without one, and
-a caller bound to a tenant takes part in none of its work. A host whose people all belong to one tenant,
+a caller bound to a tenant takes part in none of its work, neither in listings nor by id: deciding,
+resolving, giving feedback, the decision facts of `INhAssistantProposalDecisionService`, `POST
+threads/start` and `threads/open`, the thread with its conversation, runs, proposals and files, and the
+subject's work and agents answer as unknown (`404`). Only callers without a tenant, such as the host's
+operators, decide and run it. A host whose people all belong to one tenant,
 such as a deployment per customer that projects them with `UseAuthenticatedClaimsForSingleTenant`,
 declares that explicitly with `UseSingleTenant(tenantId)` on the assistant builder; the mode is never
 derived from the projection. People of that tenant then take part as callers without a tenant do: the
@@ -279,8 +283,8 @@ approval inbox, deciding (also through `INhAssistantProposalDecisionService` wit
 `TenantId`), boards and division visits, `WatchAgentWork`, the thread and its conversation, the run
 history and `GET runs/{id}`, the subject's work and summary, `GET subjects/nh-system/search`, and
 running an agent by hand; schedules without a subject set need nothing more, their runs land in the
-whole application's threads. A caller of any other tenant sees none of it and finds its proposals,
-threads and subjects unknown (`404`), also where a host without the mode compares no tenant. The read
+whole application's threads. A caller of any other tenant still sees none of it and finds its
+proposals, threads and subjects unknown (`404`). The read
 and approve policies of `UseSystemSubject` and the agent's run and view policies still decide. Nothing
 is migrated: the data stays tenantless, so switching the mode off leaves it valid and hides it again
 from people with a tenant. Startup fails when the AI ASP.NET integration projects another fixed tenant
@@ -1355,6 +1359,9 @@ entry's name and the version only.
 - Storing the whole application's work under the host's tenant, or giving every person no tenant, to
   let one customer's people see it; call `UseSingleTenant` with the tenant that
   `UseAuthenticatedClaimsForSingleTenant` projects.
+- Leaving `NhAssistantDecidingPerson.TenantId` empty for a person who has a tenant, so a channel
+  decides whole-application work the person may not take part in; pass the tenant the context
+  resolver gives the person.
 
 ## Verification
 
@@ -1642,8 +1649,9 @@ For `UseSingleTenant`, on both providers assert that a person projected into the
 application's proposal in the inbox and decides it, through the endpoint and the decision service, sees
 the agent on its board, in the run history, its thread and the subject's work, and that the approver runs
 it now; that a caller of another tenant and a person without the agent's view policy see nothing; that
-without the mode the same people see nothing; and that startup refuses another fixed tenant or a tenant
-claim.
+without the mode the same people neither see the work nor decide, resolve, start, open or read it by id
+(also through the decision service), while an operator without a tenant who passes the policies does;
+and that startup refuses another fixed tenant or a tenant claim.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304 and SPM-310 are the
 executable references.
 

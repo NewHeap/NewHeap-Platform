@@ -102,7 +102,7 @@ internal static class NhAssistantSubjectEndpoints
         }
 
         var subject = new NhAiSubjectRef(type, id);
-        // The whole application reads as unknown to a caller of another tenant than the single tenant's.
+        // The whole application reads as unknown to a caller bound to a tenant the mode does not name.
         if (NhAssistantWholeApplicationTenancy.KeepsOut(registration, subject, caller.Data!.TenantId))
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectNotFound);

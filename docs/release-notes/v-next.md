@@ -152,11 +152,13 @@ agents' run and view policies still decide. The work stays stored without a tena
 switching the mode off leaves the data valid. Startup fails when the AI ASP.NET integration projects
 another fixed tenant or takes an issuer's tenant from a claim; pair the mode with
 `UseAuthenticatedClaimsForSingleTenant(issuer, tenantId)` for the same tenant. A resolver of the
-application's own must return that tenant or none. Without the mode nothing changes.
+application's own must return that tenant or none. Without the mode only callers without a tenant, such
+as the host's operators, take part, now also where the work is reached by its id.
 
 | Breaking change | Required action |
 |---|---|
-| None. | None. |
+| A caller bound to a tenant can no longer decide, resolve, give feedback on or read the decision facts of a whole-application (`nh-system`) proposal by its id, start or open an agent's thread of the whole application, or read that thread, its runs, proposals and files or the subject's work and agents, unless `UseSingleTenant` names exactly that tenant; it answers `404` with the codes of unknown work. | Decide and run the whole application's work as an operator without a tenant, or call `UseSingleTenant(tenantId)` in a host whose people all belong to that tenant. |
+
 ## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: extensible agent metadata
 
 `AddAgentMetadata<T>(name, entry => entry.MaxBytes(...).Validate(...).IndexBy(...).Editable())`
