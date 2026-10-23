@@ -87,6 +87,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<int>("InstructionsAssetVersion")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("InstructionsFromAsset")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("InstructionsHash")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -610,6 +613,13 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<string>("Instructions")
                         .HasMaxLength(20000)
                         .HasColumnType("character varying(20000)");
+
+                    b.Property<string>("InstructionsAssetId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int?>("InstructionsAssetVersion")
+                        .HasColumnType("integer");
 
                     b.Property<string>("InstructionsHash")
                         .HasMaxLength(64)
