@@ -158,8 +158,8 @@ then takes the scope's initiator as the asker, whatever the grant source, and th
 that person's principal. A trigger whose event names an initiator (for example the creator of a
 project) can thus make such an agent consult another agent, about any subject that person may read,
 with that person's rights, and write the answer into its own thread, which other people read. Agents created in the
-administration can already select consult tools today. A focused test should confirm the path before
-it is closed (AC1).
+administration can already select consult tools today. A focused test confirmed the path, and it was
+closed in the same train (AC1, `AssistantConsultationDelegationTests`).
 
 ## How run configuration became data
 
@@ -477,7 +477,7 @@ Each line: the question, the options, the recommendation and the status.
 
 | # | Question | Options | Recommendation | Status |
 |---|---|---|---|---|
-| AC1 | Is the accountable path for consultation tools closed first? | (a) yes: the gate never allows `assistant.consult.*` and `assistant.request.*` through the accountable account's rights, and the handler refuses a call in an agent scope whose grant source is not `delegated`, as a separate fix with a test; (b) document it and leave it. | (a): the consultation plan promised that a turn without a delegating initiator never sees these tools, and agents created in the administration can already select them today. | Decided by Lars (2026-10-23): (a), being built in this train |
+| AC1 | Is the accountable path for consultation tools closed first? | (a) yes: the gate never allows `assistant.consult.*` and `assistant.request.*` through the accountable account's rights, and the handler refuses a call in an agent scope whose grant source is not `delegated`, as a separate fix with a test; (b) document it and leave it. | (a): the consultation plan promised that a turn without a delegating initiator never sees these tools, and agents created in the administration can already select them today. | Decided by Lars (2026-10-23): (a); done: the gap was real and is closed (fix/consult-accountable-path) |
 | AC2 | Which agents can get consultations as data? | (a) only agents created in the administration; (b) every agent with a run configuration once the application opts in; (c) agents created in the administration, plus agents in code that opt in with `ConsultableAsData`. | (c): a developer decides whether people reach a code agent's memory and tools through other assistants, as `AllowConsultation` does today; administration agents are data anyway. | Decided by Lars (2026-10-23): (c) |
 | AC3 | What is the ceiling in code? | (a) one application ceiling for everything; (b) an application ceiling (`UseConsultationsAsData`: routes, requests, maximum limits) for administration agents, and a per-agent ceiling for code agents that intersects with it; (c) no ceiling, only the platform's rules. | (b): the application decides what data may do at all; a code agent can narrow it. | Decided by Lars (2026-10-23): (b) |
 | AC4 | Which routes may data use by default, and when B? | (a) the ceiling names its routes explicitly, read-only always allowed; B for administration agents only with a technical account, for code agents only through their own ceiling; (b) every route by default; (c) read-only only. | (a): today's route needs an application that rebuilds people's principals and B lends an agent's rights; both are the application's choice. | Decided by Lars (2026-10-23): (a) |
