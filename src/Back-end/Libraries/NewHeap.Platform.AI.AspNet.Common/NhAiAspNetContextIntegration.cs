@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.AspNet.Common;
 
@@ -330,6 +331,47 @@ public sealed class NhAiAspNetBuilder
         _services.Replace(ServiceDescriptor.Scoped<
             INhAiAuthenticatedInvocationContextResolver,
             TResolver>());
+        return this;
+    }
+
+    /// <summary>
+    /// Builds every principal outside a person's request from the application's access source
+    /// <typeparamref name="TSource"/>: agent runs that delegate from their initiator and their follow-up
+    /// runs, consultations, the account an agent answers to, MCP connections used in the background and the
+    /// people of the whole application all ask <see cref="INhAiPrincipalFactory"/>, which this registers in
+    /// place of the built-in factory that reads the NewHeap user store. Use it when people's rights come
+    /// from a claims transformation per request, such as an OIDC host that adds the application's own
+    /// permissions: the source returns the claims the application last knew and when they were valid, and a
+    /// context older than <see cref="NhAiAccessSourceOptions.MaxAge"/>, or none, yields no principal, so the
+    /// work is refused as for a person who may no longer sign in. NewHeap stores nothing.
+    /// </summary>
+    /// <remarks>
+    /// <typeparamref name="TSource"/> is registered as a scoped service unless the host registered it
+    /// already, for example as a singleton that keeps contexts in memory. A principal factory of the host's
+    /// own cannot be combined with it: registering one before this call fails here, and one registered
+    /// after it fails the host's start. The MCP owner sweep does not remove connections on the access
+    /// source's answer, because a missing or stale context does not mean that the person was removed;
+    /// connections still lose their tokens after their retention.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// <see cref="NhAiAccessSourceOptions.MaxAge"/> is not positive, a claim type is blank, another access
+    /// source or other options were registered, or the host registered its own principal factory.
+    /// </exception>
+    public NhAiAspNetBuilder UsePrincipalsFromAccessSource<TSource>(Action<NhAiAccessSourceOptions> configure)
+        where TSource : class, INhAiAccessSource
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var options = new NhAiAccessSourceOptions();
+        configure(options);
+        var registration = NhAiAccessSourceRegistration.Create(typeof(TSource), options);
+        NhAiAccessSourceRegistration.RefuseOtherPrincipalFactories(_services, typeof(TSource));
+        _state.SetAccessSource(registration);
+
+        _services.TryAddScoped<TSource>();
+        _services.Replace(ServiceDescriptor.Scoped<INhAiAccessSource>(provider => provider.GetRequiredService<TSource>()));
+        _services.RemoveAll<INhAiPrincipalFactory>();
+        _services.AddScoped<INhAiPrincipalFactory, NhAiAccessSourcePrincipalFactory>();
+        _services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAiAccessSourceStartupCheck>());
         return this;
     }
 }
@@ -808,6 +850,23 @@ internal sealed class NhAiAspNetRegistrationState
     public IReadOnlyCollection<NhAiAspNetScopeCapabilityRegistration> ScopeCapabilities =>
         _scopeCapabilities.Values;
     public string ToolInvocationPurpose { get; private set; } = "tool-invocation";
+
+    /// <summary>
+    /// The access source that builds principals outside a request, or <see langword="null"/> when the
+    /// host keeps the built-in or its own principal factory.
+    /// </summary>
+    public NhAiAccessSourceRegistration? AccessSource { get; private set; }
+
+    public void SetAccessSource(NhAiAccessSourceRegistration registration)
+    {
+        ArgumentNullException.ThrowIfNull(registration);
+        if (AccessSource is not null && AccessSource != registration)
+        {
+            throw new InvalidOperationException(
+                "The ASP.NET AI access source is already registered with a different source or options.");
+        }
+        AccessSource = registration;
+    }
 
     public void SetActiveDivision(NhAiAspNetActiveDivisionRegistration registration)
     {

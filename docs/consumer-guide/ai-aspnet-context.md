@@ -77,6 +77,33 @@ header, and without both a request and a resource the requirement does not
 succeed. Discovery inside an agent scope uses the same decision through
 `INhAiAgentToolAuthorizer`, so the model is offered exactly the tools it may call.
 
+When people's rights come from a claims transformation per request, as in an OIDC host
+that adds the application's own permissions, the user store cannot rebuild them. Implement
+`INhAiAccessSource.GetAsync(actorId, subject)`, which returns an `NhAiAccessContext` with the
+claims the application last knew and when they were valid (`ValidAt`), or `null`, and call
+`UsePrincipalsFromAccessSource<TSource>(o => o.MaxAge = ...)`. It replaces the built-in factory,
+so every decision outside a person's request gets these claims: runs that delegate from their
+initiator and their follow-up runs, consultations, the account an agent answers to, MCP
+connections in the background and the whole application's people. `MaxAge` is required and
+positive (there is no default; zero or a negative value fails at startup) and is measured on the
+application's clock, the registered `TimeProvider`; date `ValidAt` on the same clock. No
+context, a context older than `MaxAge`, or one dated further ahead than `MaxAge` yields no
+principal, so the work is refused with the usual codes (`ai-tool-agent-not-granted`) and the
+tool is not offered, until the person is back. The principal is one authenticated identity of
+type `nh-ai-delegation` with exactly the context's claims: NewHeap adds no actor id, tenant or
+right, so key the contexts by the platform's actor id that the registered resolver resolves in
+the person's request (an `oidc:` id for an issuer projection, not the `sub` claim), and record
+the claims the application's policies read. Where the integration takes tenants from a claim
+(`UseAuthenticatedClaims`), a subject of a tenant needs exactly one tenant claim with that tenant;
+with one fixed tenant (`UseAuthenticatedClaimsForSingleTenant`, the single-tenant mode) no tenant
+claim is read. Set `NameClaimType` and `RoleClaimType` to the host's when inbound claim mapping is
+off. NewHeap stores nothing: the application decides whether and where it keeps contexts (next
+to its sessions, a distributed cache), forgets them at sign-out and answers for technical
+accounts too, typically from live data with `ValidAt` now. A principal factory of the host's own
+cannot be combined with it: one registered before the call fails it, one registered after fails
+the host's start. The MCP owner sweep removes no connection on the source's answer, because a
+missing or stale context does not mean that the person was removed.
+
 Keep claim hydration, division membership, roles, resource permissions, and
 removed-user handling in the existing NewHeap authentication flow. The AI
 context contains opaque IDs and safe correlation metadata, not a
@@ -98,6 +125,8 @@ an ASP.NET dependency.
 - Authorizing a headless agent call with a cached principal or with the request header of whoever triggered the run.
 - Deciding that a request is a person's own by comparing a claim such as `NameIdentifier` with an actor id; compare with the actor id the registered resolver resolves.
 - Pairing `UseSingleTenant` with a tenant-claim projection or with another fixed tenant; startup refuses it, and a host with many tenants keeps the whole application's work for callers without one.
+- Writing an `INhAiPrincipalFactory` that caches a person's claims without a bound, or combining one with `UsePrincipalsFromAccessSource`; return the claims from an `INhAiAccessSource` with a `MaxAge`.
+- Adding rights, an actor id or a tenant to an access context that the person's request did not carry, or keying contexts by the `sub` claim where the actor id is an issuer's `oidc:` id.
 
 ## Verification
 
@@ -120,7 +149,12 @@ the consulted agent the tools the asker may use.
 With `UseSingleTenant`, verify that startup refuses a projection of another tenant
 and a tenant claim, and that a person projected into the tenant sees the whole
 application's work.
-SPM-223 is the executable reference; SPM-302 shows the single-tenant deployment.
+With `UsePrincipalsFromAccessSource`, verify with a test clock that a fresh context lends
+the initiator's and the accountable account's rights, that no context, a context older
+than `MaxAge` and a context without the tool's policy are refused, and that startup refuses
+a missing `MaxAge` and a principal factory of the host's own.
+SPM-223 is the executable reference; SPM-302 shows the single-tenant deployment and SPM-315
+the access source.
 
 ## Executable evidence
 
@@ -139,3 +173,8 @@ SPM-223 is the executable reference; SPM-302 shows the single-tenant deployment.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+- SPM-315 — A deployment whose rights come from its claims transformation lets agents work outside a request with the rights the application recorded at each person's last request, only while they are fresh
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAccessSourceComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAccessSourceComposition.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAccessSourceSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAccessSourceSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs)

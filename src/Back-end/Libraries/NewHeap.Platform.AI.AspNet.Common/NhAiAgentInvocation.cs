@@ -32,6 +32,13 @@ public sealed record NhAiSubjectAuthorizationResource(
 /// can act with the person's rights in a background run. The principal is used for one
 /// authorization decision and never stored.
 /// </summary>
+/// <remarks>
+/// By default the principal comes from the NewHeap user store. A host whose rights come from a claims
+/// transformation per request, such as an OIDC host, implements <see cref="INhAiAccessSource"/> and
+/// registers it with <see cref="NhAiAspNetBuilder.UsePrincipalsFromAccessSource{TSource}"/> instead of
+/// writing a factory of its own: the principal then carries the claims the application last knew, only
+/// while they are younger than <see cref="NhAiAccessSourceOptions.MaxAge"/>.
+/// </remarks>
 public interface INhAiPrincipalFactory
 {
     /// <summary>
@@ -47,7 +54,9 @@ public interface INhAiPrincipalFactory
 /// <summary>
 /// Rebuilds a principal from the NewHeap user store, from the same claims a sign-in issues.
 /// Hosts without the NewHeap user manager, or with claims restored through an
-/// <c>IClaimsTransformation</c>, register their own <see cref="INhAiPrincipalFactory"/>.
+/// <c>IClaimsTransformation</c>, register an <see cref="INhAiAccessSource"/> with
+/// <see cref="NhAiAspNetBuilder.UsePrincipalsFromAccessSource{TSource}"/>, which replaces this factory,
+/// or their own <see cref="INhAiPrincipalFactory"/>.
 /// </summary>
 internal sealed class NhAiUserManagerPrincipalFactory(IServiceProvider services) : INhAiPrincipalFactory
 {

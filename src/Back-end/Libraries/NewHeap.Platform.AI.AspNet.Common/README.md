@@ -40,3 +40,12 @@ uses the operation idempotency key, and stores a content-free completion
 checkpoint. Re-entry returns the checkpointed result without re-reading the
 source or generating embeddings again; a mismatched document or collection
 fails closed.
+
+Agents that act with a person's rights outside the person's request ask
+`INhAiPrincipalFactory`, which by default rebuilds the person from the NewHeap
+user store. A host whose rights come from a claims transformation per request
+implements `INhAiAccessSource` and calls
+`UsePrincipalsFromAccessSource<TSource>(o => o.MaxAge = ...)`: the source returns
+the claims the application last knew and when they were valid, and a missing
+context or one older than `MaxAge` yields no principal. NewHeap stores nothing;
+the application decides whether and where it keeps contexts.

@@ -328,7 +328,9 @@ invalid run filter. Clients map the code, never the status, to a text.
   whole application as subject, in batches of 100 and a pass at most every hour: a person it no longer
   resolves (removed, or no longer allowed to sign in) loses the tokens the same way, audited as
   `McpConnectionDisconnected` with `owner-unresolved`. A host with its own principal factory resolves
-  every person who may use the assistant for that subject too. `ToolInvoked` names whose credential a call carried in
+  every person who may use the assistant for that subject too. With `UsePrincipalsFromAccessSource` the
+  sweep asks nobody, because a missing or stale context does not mean the person was removed; retention
+  still applies. `ToolInvoked` names whose credential a call carried in
   `McpConnectionOwner`.
 - Every administration change is a content-free audit event
   (`AdminContextUpdated`, `AdminAgent*`, `AdminMcpServer*`, `AdminMcpToolUpdated`).
