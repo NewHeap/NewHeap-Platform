@@ -455,6 +455,72 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
         Assert.Empty(await McpToolNamesAsync(open));
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_consultation_that_starts_off_is_not_offered_until_an_administrator_switches_it_on(AssistantTestProvider provider)
+    {
+        // The application lets every new consultation start off (S8-2).
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), new NhAiScriptedChatClient(), startOff: true);
+        await CreateStarterAsync(host, withRunSettings: true);
+        var catalog = host.Services.GetRequiredService<NhAssistantDataConsultationToolCatalog>();
+        Assert.True((await ConfigureAsync(host, configuration => configuration.GetAsync(StarterId)))!.ConsultationCeiling!.StartsOff);
+
+        // Saved, it is checked as every save checks it, and stays out of the tool lists.
+        var saved = await SaveAsync(host, StarterId, Read());
+        Assert.Equal((1, true, false, (string?)null), (saved.Data!.Version, saved.Data.Off, saved.Data.InEffect, saved.Data.Problem));
+        Assert.Empty(State(host).AgentRuns[StarterId].Consultations);
+        Assert.Empty(catalog.Descriptors);
+
+        // Only a new consultation starts off; a change keeps it off.
+        Assert.Equal("startsOff", Field(await SaveAsync(host, StarterId, Read() with { ExpectedVersion = 1, StartsOff = true }), NhAssistantFieldErrors.Invalid));
+        var changed = await SaveAsync(host, StarterId, Read() with { Instructions = "Name the budget.", ExpectedVersion = 1 });
+        Assert.Equal((2, true), (changed.Data!.Version, changed.Data.Off));
+        Assert.Empty(catalog.Descriptors);
+
+        // Switched on, asking agents get its tool; switched off again, a call built before fails closed.
+        var on = await ConfigureAsync(host, configuration => configuration.SetConsultationStateAsync(StarterId, "project", true, Admin, "Reviewed"));
+        Assert.Equal((2, false, true), (on.Data!.Version, on.Data.Off, on.Data.InEffect));
+        Assert.Single(State(host).AgentRuns[StarterId].Consultations);
+        var descriptor = Assert.Single(catalog.Descriptors);
+        Assert.Equal(ConsultToolId, descriptor.Id);
+        Assert.True((await ConfigureAsync(host, configuration => configuration.SetConsultationStateAsync(StarterId, "project", false, Admin))).Data!.Off);
+        Assert.Empty(catalog.Descriptors);
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var refused = await scope.ServiceProvider.GetRequiredService<NhAssistantConsultationToolHandler>()
+                .ConsultDataAsync(StarterId, "project", descriptor.ContractHash, Question(), PersonContext(), CancellationToken.None);
+            Assert.Contains(refused.GetResultItems(), item => item.Name == NhAssistantErrorCodes.ConsultAgentUnavailable);
+        }
+
+        // Switching what is already so changes nothing; unknown and code consultations are refused.
+        Assert.True((await ConfigureAsync(host, configuration => configuration.SetConsultationStateAsync(StarterId, "project", false, Admin))).Success);
+        Assert.Equal(NhAssistantErrorCodes.ConsultationNotFound, Code(await ConfigureAsync(host, configuration => configuration.SetConsultationStateAsync(StarterId, "order", true, Admin))));
+        Assert.Equal(NhAssistantErrorCodes.ConsultationInCode, Code(await ConfigureAsync(host, configuration => configuration.SetConsultationStateAsync(PlannerId, "project", true, Admin))));
+        var audited = host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentConsultationDefinitionChanged).ToArray();
+        Assert.Equal(["created", "off", "changed", "on", "off"], audited.Select(evt => evt.ResultCode));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Without_the_applications_choice_a_new_consultation_is_offered_unless_its_administrator_lets_it_start_off(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), new NhAiScriptedChatClient());
+        await CreateStarterAsync(host, withRunSettings: true);
+        Assert.False((await ConfigureAsync(host, configuration => configuration.GetAsync(StarterId)))!.ConsultationCeiling!.StartsOff);
+
+        // As before, a consultation is offered once saved.
+        var offered = await SaveAsync(host, StarterId, Read());
+        Assert.Equal((false, true), (offered.Data!.Off, offered.Data.InEffect));
+        Assert.True((await ConfigureAsync(host, configuration => configuration.RemoveConsultationAsync(StarterId, "project", 1, Admin))).Success);
+
+        // An administrator lets a new one start off, as a skill may.
+        var off = await SaveAsync(host, StarterId, Read() with { StartsOff = true });
+        Assert.Equal((true, false), (off.Data!.Off, off.Data.InEffect));
+        Assert.Empty(host.Services.GetRequiredService<NhAssistantDataConsultationToolCatalog>().Descriptors);
+    }
+
     [Fact]
     public void The_ceiling_of_an_agent_in_code_stays_within_the_applications_and_needs_rights_of_its_own_for_its_rights()
     {
@@ -505,7 +571,8 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
         NhAiScriptedChatClient target,
         NhAiScriptedChatClient asker,
         NhAssistantTiming? timing = null,
-        bool allowMcp = true)
+        bool allowMcp = true,
+        bool startOff = false)
     {
         // The agent created in the administration works with the application's chat profile, so the
         // host's model is the consulted agent's; the asking agent has a model of its own.
@@ -547,6 +614,10 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
                         .AllowRequests(allowMcp)
                         .MaxLimits(maxToolCalls: 8, timeout: TimeSpan.FromSeconds(120), maxAnswerChars: 8_000, history: 40);
                     data.AllowMcp(allowMcp);
+                    if (startOff)
+                    {
+                        data.StartOff();
+                    }
                 })
                 .AddAgent(AssistantTestData.Agent(AskingAgentId) with
                 {

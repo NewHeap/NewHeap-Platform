@@ -161,6 +161,53 @@ public sealed class AssistantTriggerTransactionTests(AssistantDatabaseFixture da
         Assert.True(await OperationExistsAsync(host, recovered.BackgroundOperationId));
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_trigger_candidate_published_inside_the_transaction_fires_in_shadow_after_the_commit_and_not_once_it_is_gone(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        const string dataTrigger = "order-data-changed";
+        var trigger = new NhAssistantDataTriggerRequest(NhAssistantDataTriggerSources.Event, Event: "order.changed", Conflict: NhAssistantTriggerConflictNames.Queue);
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+            Assert.True((await configuration.SaveTriggerAsync(AgentId, dataTrigger, trigger, "admin-1")).Success);
+            Assert.True((await configuration.SetTriggerShadowAsync(AgentId, dataTrigger, false, "admin-1")).Success);
+            Assert.True((await configuration.SaveTriggerAsync(
+                AgentId,
+                dataTrigger,
+                trigger with { DebounceSeconds = 0, ExpectedVersion = 1, Apply = NhAssistantSkillApplyModes.Shadow },
+                "admin-1")).Success);
+        }
+
+        // The live version and the candidate both wait for the commit, the candidate with its version.
+        var projectId = Guid.NewGuid();
+        await PublishAsync(host, new OrderChanged(projectId, "order-1:v1", "created"), commit: true);
+        var deferred = (await DeferredAsync(host, projectId)).Where(request => request.TriggerId == dataTrigger).ToArray();
+        Assert.Equal([null, 2], deferred.Select(request => request.TriggerCandidateVersion));
+        var live = await FireAsync(host, deferred[0]);
+        var candidate = await FireAsync(host, deferred[1]);
+        Assert.Equal((NhAssistantTriggerOutcomes.Started, NhAssistantTriggerOutcomes.Started), (live.Outcome, candidate.Outcome));
+        Assert.NotEqual(live.ConversationId, candidate.ConversationId);
+        var candidateRun = Assert.Single(await RunsAsync(host, candidate.ConversationId!.Value));
+        Assert.Equal((true, true, (int?)2, "order-1:v1:trigger-candidate-2"), (candidateRun.Shadow, candidateRun.TriggerCandidate, candidateRun.TriggerVersion, candidateRun.TriggerEventKey));
+        Assert.True(Assert.Single(await InputsAsync(host, candidate.ConversationId!.Value)).TriggerCandidate);
+
+        // A candidate discarded before its operation ran fires nothing; the live version had the event.
+        var otherProject = Guid.NewGuid();
+        await PublishAsync(host, new OrderChanged(otherProject, "order-2:v1", "created"), commit: true);
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            Assert.True((await scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>()
+                .DiscardTriggerCandidateAsync(AgentId, dataTrigger, 2, "admin-1")).Success);
+        }
+        var late = Assert.Single(await DeferredAsync(host, otherProject), request => request.TriggerCandidateVersion == 2);
+        var ignored = await FireAsync(host, late);
+        Assert.Equal((NhAssistantTriggerOutcomes.Ignored, NhAssistantErrorCodes.TriggerCandidateNotFound), (ignored.Outcome, ignored.ReasonCode));
+        Assert.All(await ThreadsAsync(host, otherProject), thread => Assert.False(thread.Shadow));
+    }
+
     private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider)
     {
         // The application's database differs from the assistant's: deferring needs neither a shared
@@ -209,6 +256,12 @@ public sealed class AssistantTriggerTransactionTests(AssistantDatabaseFixture da
             assistantBuilder: assistant => assistant
                 .AddSubjectType<TestSubjectResolver>()
                 .ConfigureAgent(AgentId, agent => agent.Grant("projects.*"))
+                // The same event for triggers defined as data, with their versions and candidates.
+                .AddTriggerEvent<OrderChanged>("order.changed", evt => evt
+                    .Description("An order changed.")
+                    .Subject(change => Subject(change.ProjectId))
+                    .Message(change => "Order " + change.Change)
+                    .Dedupe(change => change.Key))
                 .AddTrigger<OrderChanged>(TriggerId, trigger => trigger
                     .StartAgent(AgentId)
                     .Subject(evt => Subject(evt.ProjectId))
