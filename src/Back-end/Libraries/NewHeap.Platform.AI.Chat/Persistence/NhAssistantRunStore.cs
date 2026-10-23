@@ -2157,10 +2157,15 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                         approval => approval.ExecutionAttempts + (decision.CountExecutionAttempt ? 1 : 0))
                     .SetProperty(
                         approval => approval.ExecutedAt,
-                        approval => decision.ExecutedAt ?? approval.ExecutedAt)
+                        approval => decision.ClearExecutedAt
+                            ? null
+                            : decision.ExecutedAt ?? approval.ExecutedAt)
                     .SetProperty(
                         approval => approval.ExecutionResultCode,
                         approval => decision.ExecutionResultCode ?? approval.ExecutionResultCode)
+                    .SetProperty(
+                        approval => approval.ExecutionReportDueAt,
+                        approval => decision.ExecutionReportDueAt ?? approval.ExecutionReportDueAt)
                     .SetProperty(
                         approval => approval.ExpiresAt,
                         approval => decision.ExpiresAt ?? approval.ExpiresAt)
@@ -2216,6 +2221,9 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 or NhAssistantApprovalStatuses.Withdrawn
                 or NhAssistantApprovalStatuses.Stale => NhAssistantToolCallStatuses.NotExecuted,
             NhAssistantApprovalStatuses.ExecutionFailed => NhAssistantToolCallStatuses.Failed,
+            // Only the application's report ends a call that still waits: an execution in the tool's
+            // function ended its call before the proposal closed.
+            NhAssistantApprovalStatuses.Executed => NhAssistantToolCallStatuses.Succeeded,
             _ => null
         };
     }
@@ -2265,6 +2273,27 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                     .SetProperty(approval => approval.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
         return updated == 1;
+    }
+
+    /// <summary>
+    /// Proposals that wait for the application's report and whose report deadline
+    /// <paramref name="now"/> of the application's clock reached, earliest deadline first.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantApproval>> GetOverdueExecutionReportsAsync(
+        DateTimeOffset now,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Approvals
+            .AsNoTracking()
+            .Where(approval => approval.Status == NhAssistantApprovalStatuses.AwaitingApplication
+                && approval.ExecutionReportDueAt != null
+                && approval.ExecutionReportDueAt <= now)
+            .OrderBy(approval => approval.ExecutionReportDueAt)
+            .ThenBy(approval => approval.Id)
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>
@@ -2419,7 +2448,7 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
 
     /// <summary>
     /// The oldest pending, approved or executing proposal of the agent within the scope that has the
-    /// same identity, or <see langword="null"/>.
+    /// same identity, also one that waits for the application's report, or <see langword="null"/>.
     /// </summary>
     public async Task<AssistantApproval?> FindOpenProposalAsync(
         string scopeKey,
@@ -2566,7 +2595,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     [
         NhAssistantApprovalStatuses.Pending,
         NhAssistantApprovalStatuses.Approved,
-        NhAssistantApprovalStatuses.Executing
+        NhAssistantApprovalStatuses.Executing,
+        NhAssistantApprovalStatuses.AwaitingApplication
     ];
 
     private static IQueryable<AssistantApproval> AgentProposals(NhAssistantDbContext context, string scopeKey, string agentId)
@@ -2971,7 +3001,17 @@ internal sealed record NhAssistantApprovalTransition
     public bool ClearExecutionOperation { get; init; }
     public bool CountExecutionAttempt { get; init; }
     public DateTimeOffset? ExecutedAt { get; init; }
+
+    /// <summary>
+    /// Forgets when an earlier execution ended, as a new hand-off to the application starts one.
+    /// </summary>
+    public bool ClearExecutedAt { get; init; }
     public string? ExecutionResultCode { get; init; }
+
+    /// <summary>
+    /// Until when the application's report is due, set when the proposal is handed to the application.
+    /// </summary>
+    public DateTimeOffset? ExecutionReportDueAt { get; init; }
     public DateTimeOffset? ExpiresAt { get; init; }
     public string? PolicyJson { get; init; }
     public DateTimeOffset? EscalatedAt { get; init; }

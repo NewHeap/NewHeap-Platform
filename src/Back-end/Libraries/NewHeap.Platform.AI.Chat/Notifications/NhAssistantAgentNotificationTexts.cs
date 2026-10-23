@@ -110,9 +110,21 @@ internal static class NhAssistantAgentNotificationTexts
             NhAssistantAgentNotificationKind.RequestAnswered => dutch ? "De agent heeft je verzoek afgerond." : "The agent finished your request.",
             NhAssistantAgentNotificationKind.McpConnectionMissing => McpConnectionMissing(dutch, mcpServerDisplayName, code),
             NhAssistantAgentNotificationKind.ConsultationProposalDecided => ConsultationProposalDecided(dutch, proposalStatus),
+            NhAssistantAgentNotificationKind.ExecutionReported => ExecutionReported(dutch, proposalStatus),
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
         return (title, body);
+    }
+
+    /// <summary>
+    /// The application's report of a proposal it executed: done, or not done. The code and the summary
+    /// are never part of the text.
+    /// </summary>
+    private static string ExecutionReported(bool dutch, string? status)
+    {
+        return status == NhAssistantApprovalStatuses.Executed
+            ? (dutch ? "De applicatie heeft een goedgekeurd voorstel uitgevoerd." : "The application carried out an approved proposal.")
+            : (dutch ? "De applicatie kon een goedgekeurd voorstel niet uitvoeren." : "The application could not carry out an approved proposal.");
     }
 
     /// <summary>

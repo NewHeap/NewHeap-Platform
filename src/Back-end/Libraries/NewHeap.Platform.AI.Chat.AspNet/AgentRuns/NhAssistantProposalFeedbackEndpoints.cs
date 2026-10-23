@@ -323,6 +323,7 @@ internal static class NhAssistantProposalFeedbackEndpoints
             var approved = Count(
                 NhAssistantApprovalStatuses.Approved,
                 NhAssistantApprovalStatuses.Executing,
+                NhAssistantApprovalStatuses.AwaitingApplication,
                 NhAssistantApprovalStatuses.Executed,
                 NhAssistantApprovalStatuses.ExecutionFailed,
                 NhAssistantApprovalStatuses.ExecutionUnknown,

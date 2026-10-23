@@ -669,7 +669,7 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
             CancellationToken.None));
         await using var scope = host.Services.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>().HttpContext = null;
-        var result = await scope.ServiceProvider.GetRequiredService<NhAssistantProposalExecutor>().ExecuteAsync(
+        var result = await scope.ServiceProvider.GetRequiredService<NhAssistantProposalExecution>().ExecuteAsync(
             approval.Id,
             Substitute.For<INhBackgroundOperationContext>(),
             fenced: false,

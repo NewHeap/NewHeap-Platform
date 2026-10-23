@@ -450,7 +450,8 @@ internal sealed class NhAssistantProposalDecisions(
     /// The person's earlier decision of the proposal when a decision with <paramref name="approve"/>
     /// and <paramref name="expectedProposalHash"/> repeats it: the proposal is recorded as decided by
     /// <paramref name="actorId"/>, with the same hash, and its status still says that decision
-    /// (approved, executing, executed, failed or uncertain for an approval; rejected for a rejection).
+    /// (approved, executing, awaiting the application, executed, failed or uncertain for an approval;
+    /// rejected for a rejection).
     /// Otherwise <see langword="null"/>, and the repeat gets the ordinary refusal.
     /// </summary>
     public async Task<AssistantApproval?> FindRepeatAsync(
@@ -470,6 +471,7 @@ internal sealed class NhAssistantProposalDecisions(
 
         var approved = approval.Status is NhAssistantApprovalStatuses.Approved
             or NhAssistantApprovalStatuses.Executing
+            or NhAssistantApprovalStatuses.AwaitingApplication
             or NhAssistantApprovalStatuses.Executed
             or NhAssistantApprovalStatuses.ExecutionFailed
             or NhAssistantApprovalStatuses.ExecutionUnknown;
@@ -478,15 +480,17 @@ internal sealed class NhAssistantProposalDecisions(
     }
 
     /// <summary>
-    /// Resolves an execution whose outcome is unknown: run it again with a new idempotency key, or
-    /// confirm the outcome without running it.
+    /// Resolves an execution whose outcome is unknown: run it again with a new idempotency key, hand a
+    /// proposal the application executes to the application again, or confirm the outcome without
+    /// running it. A proposal that was handed to the application is handed to it again, never run in the
+    /// tool's function, and only such a proposal is handed to the application.
     /// </summary>
     /// <param name="tenantId">The caller's tenant, as for a decision.</param>
     public async Task<TaskResult<AssistantApproval>> ResolveExecutionAsync(
         Guid approvalId,
         string actorId,
         ClaimsPrincipal user,
-        bool reExecute,
+        NhAssistantExecutionResolution resolution,
         string? reason,
         CancellationToken cancellationToken,
         string? tenantId = null)
@@ -513,16 +517,35 @@ internal sealed class NhAssistantProposalDecisions(
             return TaskResult<AssistantApproval>.Failed(check);
         }
 
+        // The application executes a proposal it was handed: an approver hands it again, and never
+        // runs it in the tool's function; any other proposal runs again in its function.
+        var handedToApplication = approval.ExecutionReportDueAt is not null;
+        if ((resolution == NhAssistantExecutionResolution.HandToApplication && !handedToApplication)
+            || (resolution == NhAssistantExecutionResolution.ReExecute && handedToApplication))
+        {
+            return TaskResult<AssistantApproval>.Failed(
+                NhAssistantErrorCodes.ApprovalDecisionInvalid,
+                handedToApplication
+                    ? "The application executes this proposal; hand it to the application again."
+                    : "Only a proposal the application executes is handed to it again.");
+        }
+
+        var executeAgain = resolution != NhAssistantExecutionResolution.MarkResolved;
         var resolved = await runs.TryTransitionApprovalAsync(
             approval.Id,
             [NhAssistantApprovalStatuses.ExecutionUnknown],
-            reExecute ? NhAssistantApprovalStatuses.Approved : NhAssistantApprovalStatuses.Resolved,
+            executeAgain ? NhAssistantApprovalStatuses.Approved : NhAssistantApprovalStatuses.Resolved,
             new NhAssistantApprovalTransition
             {
                 Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
-                ExecutionResultCode = reExecute ? "re-execution-acknowledged" : "resolved-by-approver",
+                ExecutionResultCode = resolution switch
+                {
+                    NhAssistantExecutionResolution.ReExecute => "re-execution-acknowledged",
+                    NhAssistantExecutionResolution.HandToApplication => "hand-off-acknowledged",
+                    _ => "resolved-by-approver"
+                },
                 DecidedByActorId = actorId,
-                ClearExecutionOperation = reExecute
+                ClearExecutionOperation = executeAgain
             },
             cancellationToken);
         if (!resolved)
@@ -538,9 +561,9 @@ internal sealed class NhAssistantProposalDecisions(
             thread,
             approval,
             actorId,
-            reExecute ? "re-execute" : "mark-resolved",
+            NhAssistantExecutionResolutions.Of(resolution),
             cancellationToken);
-        if (reExecute)
+        if (executeAgain)
         {
             await EnqueueExecutionAsync(approval, thread, cancellationToken);
         }
@@ -670,6 +693,53 @@ internal sealed class NhAssistantProposalDecisions(
         {
             await sink.RecordAsync(evt, cancellationToken);
         }
+    }
+}
+
+/// <summary>
+/// How an approver resolves an execution whose outcome is unknown.
+/// </summary>
+internal enum NhAssistantExecutionResolution
+{
+    /// <summary>Run the proposal again in the tool's function.</summary>
+    ReExecute = 0,
+
+    /// <summary>Confirm the outcome without running it.</summary>
+    MarkResolved = 1,
+
+    /// <summary>Hand a proposal the application executes to the application again.</summary>
+    HandToApplication = 2
+}
+
+/// <summary>
+/// The actions of <c>POST approvals/{approvalId}/resolve</c>, as the request and the audit name them.
+/// </summary>
+internal static class NhAssistantExecutionResolutions
+{
+    public const string ReExecute = "re-execute";
+    public const string MarkResolved = "mark-resolved";
+    public const string HandToApplication = "hand-to-application";
+
+    public static bool TryParse(string? action, out NhAssistantExecutionResolution resolution)
+    {
+        resolution = action switch
+        {
+            ReExecute => NhAssistantExecutionResolution.ReExecute,
+            MarkResolved => NhAssistantExecutionResolution.MarkResolved,
+            HandToApplication => NhAssistantExecutionResolution.HandToApplication,
+            _ => (NhAssistantExecutionResolution)(-1)
+        };
+        return Enum.IsDefined(resolution);
+    }
+
+    public static string Of(NhAssistantExecutionResolution resolution)
+    {
+        return resolution switch
+        {
+            NhAssistantExecutionResolution.ReExecute => ReExecute,
+            NhAssistantExecutionResolution.HandToApplication => HandToApplication,
+            _ => MarkResolved
+        };
     }
 }
 

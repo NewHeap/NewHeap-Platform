@@ -98,7 +98,9 @@ internal sealed class NhAssistantAgentNotifier(
                 McpServerId = mcpConnection?.ServerId,
                 McpServerDisplayName = mcpConnection?.ServerDisplayName,
                 McpConnectionPersonId = mcpConnection?.PersonActorId,
-                ProposalStatus = kind == NhAssistantAgentNotificationKind.ConsultationProposalDecided ? approval?.Status : null
+                ProposalStatus = kind is NhAssistantAgentNotificationKind.ConsultationProposalDecided or NhAssistantAgentNotificationKind.ExecutionReported
+                    ? approval?.Status
+                    : null
             };
             var recipients = await RecipientsAsync(context, thread, cancellationToken);
             if (recipients.Length == 0)
@@ -597,6 +599,24 @@ internal sealed class NhAssistantAgentEvents(
         string resultCode,
         CancellationToken cancellationToken)
     {
+        return ProposalAsync(kind, thread, approval, actorId, resultCode, null, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Records a proposal event with how the application said its execution ended: the outcome
+    /// (<see cref="NhAssistantApplicationExecutionCodes"/>) and the application's code, or the
+    /// assistant's own execution code such as <c>report-overdue</c>; never a summary.
+    /// </summary>
+    public Task ProposalAsync(
+        NhAssistantAuditEventKind kind,
+        AssistantThread thread,
+        AssistantApproval approval,
+        string actorId,
+        string resultCode,
+        string? executionOutcome,
+        string? executionCode,
+        CancellationToken cancellationToken)
+    {
         return RecordAsync(
             new NhAssistantAuditEvent(
                 kind,
@@ -619,7 +639,9 @@ internal sealed class NhAssistantAgentEvents(
                 GrantSource = approval.GrantSource,
                 ApprovalPolicyId = approval.PolicyId,
                 ConsultationId = approval.ConsultationId,
-                ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource)
+                ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource),
+                ExecutionOutcome = executionOutcome,
+                ExecutionCode = executionCode
             },
             cancellationToken);
     }

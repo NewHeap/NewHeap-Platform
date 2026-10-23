@@ -258,6 +258,8 @@ public sealed class NhAssistantDbContext : DbContext
             // Serves the maintenance job: pending and executing proposals by expiry.
             approval.HasIndex(item => new { item.Status, item.ExpiresAt });
             approval.HasIndex(item => new { item.Status, item.NextReminderAt });
+            // Serves the maintenance job: proposals that wait for the application's report by deadline.
+            approval.HasIndex(item => new { item.Status, item.ExecutionReportDueAt });
             approval.HasOne<AssistantConversation>()
                 .WithMany()
                 .HasForeignKey(item => item.ConversationId)

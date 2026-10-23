@@ -244,6 +244,13 @@ public static class NhAssistantConsultationRefusalReasons
     /// open proposals at the subject that execute with the agent's rights.
     /// </summary>
     public const string OpenLimit = "open-limit";
+
+    /// <summary>
+    /// The application executes the tool's approved proposals itself
+    /// (<see cref="NhAssistantBuilder.ExecuteInApplication"/>), so the asking person cannot decide the
+    /// call in their own conversation; it waits at the subject when a route there applies.
+    /// </summary>
+    public const string ApplicationExecutes = "application-executes";
 }
 
 public static class NhAssistantQueuedInputKinds
@@ -432,6 +439,14 @@ public static class NhAssistantApprovalStatuses
     /// happened. An approver re-executes or resolves it.
     /// </summary>
     public const string ExecutionUnknown = "execution-unknown";
+
+    /// <summary>
+    /// The approved deferred proposal of a tool the application executes
+    /// (<see cref="NhAssistantBuilder.ExecuteInApplication"/>) was handed to the application's
+    /// <see cref="INhAssistantProposalExecutor"/> and waits for its report
+    /// (<see cref="INhAssistantProposalExecutionReports"/>) until the tool's report deadline.
+    /// </summary>
+    public const string AwaitingApplication = "awaiting-application";
 
     /// <summary>
     /// An approver confirmed the outcome of an uncertain execution.
@@ -967,6 +982,20 @@ public static class NhAssistantErrorCodes
     public const string ApprovalPolicyDenied = "assistant-approval-policy-denied";
     public const string FourEyesRequired = "assistant-four-eyes-required";
     public const string ExecutionNotUncertain = "assistant-execution-not-uncertain";
+
+    /// <summary>
+    /// A report of the application's execution (<see cref="INhAssistantProposalExecutionReports"/>)
+    /// about a proposal that does not wait for one: it was never handed to the application, another
+    /// report or its report deadline closed it, or an approver resolved it. Nothing changed.
+    /// </summary>
+    public const string ExecutionReportNotAwaited = "assistant-execution-report-not-awaited";
+
+    /// <summary>
+    /// A report of the application's execution carries a summary longer than
+    /// <see cref="NhAssistantExecutionReport.MaxSummaryLength"/> characters. Nothing changed.
+    /// </summary>
+    public const string ExecutionReportInvalid = "assistant-execution-report-invalid";
+
     public const string ProposalStale = "assistant-proposal-stale";
 
     /// <summary>

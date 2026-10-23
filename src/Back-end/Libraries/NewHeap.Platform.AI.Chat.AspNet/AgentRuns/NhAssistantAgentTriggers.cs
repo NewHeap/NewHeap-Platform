@@ -815,15 +815,23 @@ internal sealed class NhAssistantAgentTriggers(
             ? skill
             : null;
         var executed = approval.Status is not (NhAssistantApprovalStatuses.Approved or NhAssistantApprovalStatuses.Rejected);
-        var outcome = approval.Status switch
-        {
-            NhAssistantApprovalStatuses.Rejected => "rejected",
-            NhAssistantApprovalStatuses.Executed => "approved and executed",
-            NhAssistantApprovalStatuses.ExecutionFailed => "approved, but its execution failed",
-            NhAssistantApprovalStatuses.ExecutionUnknown => "approved, but the outcome of its execution is unknown",
-            NhAssistantApprovalStatuses.Stale => "approved, but closed as stale because the subject changed",
-            _ => approval.Status
-        };
+        // The application executes the proposal: each hand-off follows up once with its own outcome,
+        // so a proposal handed to the application again follows up again.
+        var byApplication = approval.ExecutionReportDueAt is not null && executed;
+        var outcome = byApplication
+            ? ApplicationOutcomeOf(approval)
+            : approval.Status switch
+            {
+                NhAssistantApprovalStatuses.Rejected => "rejected",
+                NhAssistantApprovalStatuses.Executed => "approved and executed",
+                NhAssistantApprovalStatuses.ExecutionFailed => "approved, but its execution failed",
+                NhAssistantApprovalStatuses.ExecutionUnknown => "approved, but the outcome of its execution is unknown",
+                NhAssistantApprovalStatuses.Stale => "approved, but closed as stale because the subject changed",
+                _ => approval.Status
+            };
+        var eventKey = byApplication
+            ? approval.Id.ToString("N") + "-" + approval.ExecutionAttempts.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : approval.Id.ToString("N");
         return await FireAsync(
             new NhAssistantTriggerFire(
                 executed ? NhAssistantTriggerIds.ProposalExecuted : NhAssistantTriggerIds.ProposalDecided,
@@ -831,13 +839,34 @@ internal sealed class NhAssistantAgentTriggers(
                 new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
                 actorId,
                 $"Proposal {approval.ProposalId:N} for tool {approval.ToolId} was {outcome}.",
-                approval.Id.ToString("N"),
+                eventKey,
                 NhAssistantTriggerConflict.Coalesce,
                 TimeSpan.FromSeconds(30))
             {
                 SkillId = skillId
             },
             cancellationToken);
+    }
+
+    /// <summary>
+    /// How the execution of a proposal the application executes ended, for the follow-up run: the
+    /// status with its execution code, which is a dash-case code (the application's code is checked when
+    /// it reports). The application's summary is not part of it: it waits in the thread as an
+    /// application message, which the model reads as information, never as instructions.
+    /// </summary>
+    private static string ApplicationOutcomeOf(AssistantApproval approval)
+    {
+        var code = approval.ExecutionResultCode is { } resultCode && NhAssistantExecutionReport.IsValidCode(resultCode)
+            ? $" (code {resultCode})"
+            : string.Empty;
+        return approval.Status switch
+        {
+            NhAssistantApprovalStatuses.Executed => $"approved and executed by the application{code}",
+            NhAssistantApprovalStatuses.ExecutionFailed => $"approved, but the application could not execute it{code}",
+            NhAssistantApprovalStatuses.ExecutionUnknown => $"approved, but the application did not confirm its execution, so an approver has to look at it{code}",
+            NhAssistantApprovalStatuses.Stale => "approved, but closed as stale because the subject changed",
+            _ => approval.Status
+        };
     }
 
     /// <summary>

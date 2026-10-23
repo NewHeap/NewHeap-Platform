@@ -31,7 +31,8 @@ internal sealed class NhAssistantProposalDuplicates(NhAssistantRunStore runs, Ti
     [
         NhAssistantApprovalStatuses.Pending,
         NhAssistantApprovalStatuses.Approved,
-        NhAssistantApprovalStatuses.Executing
+        NhAssistantApprovalStatuses.Executing,
+        NhAssistantApprovalStatuses.AwaitingApplication
     ];
 
     private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;

@@ -83,7 +83,17 @@ public enum NhAssistantAgentNotificationKind
     /// maintenance pass. One notification per person and run, with
     /// <see cref="NhAssistantAgentNotificationContext.Objects"/>.
     /// </summary>
-    RunProposalsEscalated = 10
+    RunProposalsEscalated = 10,
+
+    /// <summary>
+    /// The application reported that its execution of an approved proposal ended
+    /// (<see cref="INhAssistantProposalExecutionReports.ReportExecutionAsync"/>):
+    /// <see cref="NhAssistantAgentNotificationContext.ProposalStatus"/> is <c>executed</c> or
+    /// <c>execution-failed</c> and <see cref="NhAssistantAgentNotificationContext.FailureCode"/> the
+    /// application's code. A report that needs attention, and a report deadline that passed, notify as
+    /// <see cref="ExecutionUnknown"/>.
+    /// </summary>
+    ExecutionReported = 11
 }
 
 /// <summary>
@@ -148,8 +158,10 @@ public sealed record NhAssistantAgentNotificationContext(
     public DateTimeOffset? ExpiresAt { get; init; }
 
     /// <summary>
-    /// The failure code of a failed run, or for <see cref="NhAssistantAgentNotificationKind.McpConnectionMissing"/>
-    /// the code why the server was left out.
+    /// The failure code of a failed run, for <see cref="NhAssistantAgentNotificationKind.McpConnectionMissing"/>
+    /// the code why the server was left out, and for <see cref="NhAssistantAgentNotificationKind.ExecutionReported"/>
+    /// and an <see cref="NhAssistantAgentNotificationKind.ExecutionUnknown"/> of a tool the application
+    /// executes the execution's code, such as the application's code of its report.
     /// </summary>
     public string? FailureCode { get; init; }
 
@@ -167,7 +179,8 @@ public sealed record NhAssistantAgentNotificationContext(
 
     /// <summary>
     /// How the proposal ended, one of <see cref="NhAssistantApprovalStatuses"/>, for
-    /// <see cref="NhAssistantAgentNotificationKind.ConsultationProposalDecided"/>.
+    /// <see cref="NhAssistantAgentNotificationKind.ConsultationProposalDecided"/> and
+    /// <see cref="NhAssistantAgentNotificationKind.ExecutionReported"/>.
     /// </summary>
     public string? ProposalStatus { get; init; }
 }
@@ -208,7 +221,8 @@ public interface INhAssistantAgentNotificationChannel
 }
 
 /// <summary>
-/// The default recipients: the subject's approvers for proposals and uncertain executions, the
+/// The default recipients: the subject's approvers for proposals, uncertain executions and the
+/// application's execution reports, the
 /// approvers plus the initiator for a failed run, only the initiator for an answered request and for
 /// the end of a consultation proposal that waited at the subject, and only
 /// the person whose consent or connection is missing for a left-out MCP server. Shadow runs never
