@@ -51,12 +51,14 @@ public sealed class AssistantDataShadowVariantTests(AssistantDatabaseFixture dat
             return NhAssistantRuleResult.Done("Planned.");
         };
 
-        var created = await ConfigureAsync(host, configuration => configuration.CreateAgentAsync(VariantRequest(Variant), Admin));
+        // A variant always works in shadow, so starting it in shadow stores no override of its own.
+        var created = await ConfigureAsync(host, configuration => configuration.CreateAgentAsync(VariantRequest(Variant) with { StartsInShadow = true }, Admin));
         Assert.True(created.Success);
         var agent = (await host.Services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(Variant, includeDisabled: true, CancellationToken.None))!;
         Assert.Equal((NhAssistantAgentSources.Admin, Planner, false), (agent.Source, agent.ShadowOfAgentId, agent.OfferedInChat));
         var audit = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentCreated && evt.ObjectId == Variant);
         Assert.Equal(Planner, audit.LiveAgentId);
+        Assert.DoesNotContain(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentShadowChanged && evt.AgentId == Variant);
 
         // Without run settings the variant receives nothing.
         var before = Guid.NewGuid();
