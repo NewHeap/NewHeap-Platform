@@ -841,7 +841,13 @@ required policy or the assistant's access policy), and keep the defaults unless 
 subject needs others: `MinimumRole(Reader)` to ask, `Proposals(true, Participant)` before
 tools that change anything are offered, `Limits(4 calls, 60 seconds, 4,000 characters)`
 and `Exposure(Local | Agent)`; add `NhAiToolExposure.Mcp` only when MCP clients may run
-consultations. A consult answers in the same turn: the agent reads its working memory,
+consultations. Name the consultation's tools with `Tools(params string[] toolSelectors)`, by id or
+`prefix.*`, when the agent's own tools reach beyond the subject: the consulted model then sees only
+those, a call of another tool runs nothing (`assistant-consult-tool-not-selected`), and a
+consultation tool of another agent (`assistant.consult.*`, `assistant.request.*`) is offered only
+when a selector names it. Each selector must be covered by the agent's own selectors, as a skill's
+tools are, or startup fails; the selection only narrows, so effects, routes and the depth limit still
+apply. Without `Tools` a consultation offers every tool of the agent. A consult answers in the same turn: the agent reads its working memory,
 earlier summaries, recent thread history and the artifacts the asker may read, with its
 tools under the asker's rights only. Anything it would change becomes a proposal in its
 thread with `consultationId`; it never executes during the consultation, because
@@ -911,8 +917,10 @@ and saving it is refused for one that answers for itself. Save a consultation wi
 `INhAssistantAgentConfiguration.SaveConsultationAsync` (or `PUT admin/agents/{id}/consultations/{subjectType}`)
 with `NhAssistantDataConsultationRequest`: a description, optional instructions, who may
 ask (`minimumRole` and an `askerPolicy` listed with `AddAgentPolicy`), the routes, the
-proposal role and approval policy, limits within the bounds of `AllowConsultation` and the
-ceiling, requests, MCP and the classification of the answers; at most
+proposal role and approval policy, the tools (`ToolSelectors`, within the agent's own selectors,
+refused otherwise with `toolSelectors: not-allowed`; none offers every tool of the agent), limits
+within the bounds of `AllowConsultation` and the ceiling, requests, MCP and the classification of
+the answers; at most
 `NhAssistantAgentConfigurationLimits.MaxConsultationsPerAgent` per agent. A consultation is
 in effect once saved, versioned like a data trigger, audited with
 `AdminAgentConsultationDefinitionChanged` and never changes one in code
@@ -930,11 +938,14 @@ is refused by the export with `ai-tool-not-authorized` before the agent is consu
 longer fits after a deploy is reported as a problem of kind
 `consultation`: out of effect when its agent, subject type, works-on or asker policy no
 longer fits, without the routes, requests or MCP exposure that no longer fit, or with limits
-capped at the ceiling. The route switches of `SetConsultationRoutesAsync` apply to
+capped at the ceiling. A tool selector the agent's own selectors no longer cover drops with
+`tools-not-allowed`; when none is left the consultation offers no tools, never every tool of the
+agent (`ToolSelectorsInEffect` is then empty). The route switches of `SetConsultationRoutesAsync` apply to
 consultations in code and as data alike. Run settings of an agent created in the
 administration stay while consultations belong to it. The administration's run configuration
 (`NhAssistantAgentRunConfigurationComponent`) shows them in its Consultations section, with a form
-that offers only what the ceiling and the agent allow, the agents that ask each one and its
+that offers only what the ceiling and the agent allow, the agent's own tools as check boxes under
+Advanced (none checked offers every tool), the agents that ask each one, its tools and its
 problems.
 
 Learn from rejected proposals before letting an agent learn by itself. After a person
@@ -1118,6 +1129,8 @@ profile and instructions that answer questions about the rules' proposals from t
   leaving a deleted subject's agent threads behind.
 - Letting a consulted agent use its own grants, execute changes or update its memory, or
   writing the asking person's question and the answer into the consulted agent's thread.
+- Offering a consulted agent every tool it has when the consultation concerns one kind of object,
+  or narrowing them with a second agent or a skill instead of `Tools(...)` on the consultation.
 - Rebuilding a person's principal outside their request to execute a consultation's proposal in
   an application that cannot do so safely, instead of `AskerDecides()` or
   `AtSubject(NhAssistantConsultationRights.Agent)`; letting the asker approve a proposal that runs
@@ -1244,7 +1257,10 @@ consultation's proposal waits deferred and executes with the asker's rights only
 agent's grant, with a principal factory that refuses people and counts calls, that every refusal
 reason reaches the model and that the maintenance job expires both kinds, that a
 loop or a deeper chain is refused and that consultations count in the agent's daily
-usage on both providers. Reject a proposal and assert that only its decider and the
+usage on both providers. Give a consultation `Tools(...)` and assert that a tool outside it is
+neither offered nor executed when the model names it; save a data consultation with a tool outside
+the agent's selectors and assert `toolSelectors: not-allowed`, then narrow the agent's selectors and
+assert `tools-not-allowed` with no tools offered, on both providers. Reject a proposal and assert that only its decider and the
 subject's approvers may give feedback, that a pending or approved proposal refuses it,
 that a second feedback replaces the first, that the next run's continuity lists the
 rejection with the feedback on one line, that the report counts statuses, categories and

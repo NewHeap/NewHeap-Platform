@@ -293,6 +293,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<int>("TimeoutSeconds")
                         .HasColumnType("int");
 
+                    b.Property<string>("ToolSelectorsJson")
+                        .HasMaxLength(8000)
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 

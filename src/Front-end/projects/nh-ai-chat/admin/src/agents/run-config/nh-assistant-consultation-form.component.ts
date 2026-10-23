@@ -10,6 +10,7 @@ import {
   NhAssistantAdminApiService,
   NhAssistantConsultationRoute,
   RunCatalog,
+  ToolCatalogEntry,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
   ɵNhAssistantPickerOption as NhAssistantPickerOption,
@@ -23,6 +24,7 @@ import {
   consultationRoles,
   consultationRouteBlock,
   consultationRoutes,
+  consultationToolChoices,
   consultationTypeOptions,
   initiatorOnly,
   maxConsultationDescription,
@@ -47,7 +49,7 @@ let nextId = 0;
 
 /** The fields under Advanced. */
 const advancedFields: readonly string[] = [
-  'limits', 'maxToolCalls', 'timeoutSeconds', 'maxAnswerChars', 'maxHistoryMessages', 'allowRequests', 'exposeToMcp', 'dataClassification'
+  'toolSelectors', 'limits', 'maxToolCalls', 'timeoutSeconds', 'maxAnswerChars', 'maxHistoryMessages', 'allowRequests', 'exposeToMcp', 'dataClassification'
 ];
 
 /** What a saved consultation form tells its host. */
@@ -68,9 +70,11 @@ interface RouteChoice {
  * about and when (the subject type and a description for the asking model), what the agent keeps in
  * mind (instructions), who may ask (a role on the subject and a policy the application lists), what
  * it may do (only answer, or also propose with routes within the ceiling, with the role and approval
- * policy its proposals need) and, under Advanced, its limits within the ceiling, the request tool,
- * MCP and the classification of its answers. Routes and options the ceiling or the agent rule out are
- * shown disabled with the reason. A consultation is in effect once saved.
+ * policy its proposals need) and, under Advanced, the agent's tools it may use (none checked: every
+ * tool of the agent), its limits within the ceiling, the request tool, MCP and the classification of
+ * its answers. Routes and options the ceiling or the agent rule out are shown disabled with the
+ * reason, and a saved tool the agent no longer has can only be cleared. A consultation is in effect
+ * once saved.
  */
 @Component({
   selector: 'nh-assistant-consultation-form',
@@ -94,6 +98,10 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
   readonly accountability = input<AgentAccountability | null>(null);
   /** The agent's own approval policy, which its proposals use without one of the consultation. */
   readonly agentApprovalPolicy = input<string | null>(null);
+  /** The agent's own tool selectors; a consultation's tools stay within them. */
+  readonly toolSelectors = input<readonly string[]>([]);
+  /** The tool catalog, to show what each of the agent's tool selectors offers. */
+  readonly toolCatalog = input<readonly ToolCatalogEntry[]>([]);
   /** The consultation to change; `null` adds one. */
   readonly consultation = input<DataConsultation | null>(null);
   /** The subject types the agent already has a consultation about, in code or as data. */
@@ -107,7 +115,7 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
   readonly roles = consultationRoles;
   protected readonly fields = [
     'subjectType', 'description', 'instructions', 'minimumRole', 'askerPolicy', 'routes', 'proposalRole', 'proposalPolicy',
-    'limits', 'maxToolCalls', 'timeoutSeconds', 'maxAnswerChars', 'maxHistoryMessages', 'allowRequests', 'exposeToMcp',
+    'toolSelectors', 'limits', 'maxToolCalls', 'timeoutSeconds', 'maxAnswerChars', 'maxHistoryMessages', 'allowRequests', 'exposeToMcp',
     'dataClassification', 'reason'
   ];
 
@@ -121,6 +129,8 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
   readonly routes = signal<readonly NhAssistantConsultationRoute[]>([]);
   readonly proposalRole = signal<ConsultationSubjectRole>('participant');
   readonly proposalPolicy = signal('');
+  /** The tool selectors chosen; none offers every tool of the agent. */
+  readonly tools = signal<readonly string[]>([]);
   /** The limits as typed, by field; empty starts at the code's default within the ceiling. */
   readonly limits = signal<Record<ConsultationLimit['field'], string>>({ maxToolCalls: '', timeoutSeconds: '', maxAnswerChars: '', maxHistoryMessages: '' });
   readonly allowRequests = signal(false);
@@ -191,6 +201,8 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
     }
     return warnings;
   });
+  /** The agent's own tool selectors, and the saved selectors that are none of them. */
+  readonly toolChoices = computed(() => consultationToolChoices(this.toolSelectors(), this.toolCatalog(), this.consultation()?.toolSelectors ?? []));
   readonly limitFields = computed(() => consultationLimits.map(limit => ({
     ...limit,
     highest: Math.min(limit.max, limit.ceiling(this.ceiling())),
@@ -216,6 +228,7 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
     this.mode.set((consultation?.routes.length ?? 0) > 0 ? 'propose' : 'answer');
     this.proposalRole.set(consultation?.proposalRole ?? 'participant');
     this.proposalPolicy.set(consultation?.proposalPolicy ?? '');
+    this.tools.set([...(consultation?.toolSelectors ?? [])]);
     this.limits.set({
       maxToolCalls: numberText(consultation?.maxToolCalls),
       timeoutSeconds: numberText(consultation?.timeoutSeconds),
@@ -254,6 +267,25 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
     this.touch('routes');
   }
 
+  toggleTool(selector: string, selected: boolean): void {
+    this.tools.update(tools => selected
+      ? [...tools.filter(tool => tool !== selector), selector]
+      : tools.filter(tool => tool !== selector));
+    this.touch('toolSelectors');
+  }
+
+  /** The text of the tools' error: a selector outside the agent's own tools has its own. */
+  toolsErrorKey(): string | null {
+    return this.fieldError('toolSelectors')?.code === 'not-allowed'
+      ? 'nh-assistant.admin.run-config.field-errors.tools-not-allowed'
+      : this.errorKey('toolSelectors');
+  }
+
+  /** The id of the text that says why a saved tool can no longer be chosen. */
+  toolBlockId(selector: string): string {
+    return `${this.id}-tool-${selector.replace(/[^a-z0-9-]/g, '_')}-block`;
+  }
+
   setLimit(field: ConsultationLimit['field'], value: string): void {
     this.limits.update(limits => ({ ...limits, [field]: value }));
     this.touch(field);
@@ -283,6 +315,10 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
     } else if (this.routeChoices().some(choice => choice.checked && choice.block !== null && propose)) {
       errors['routes'] = { code: 'not-allowed' };
     }
+    const tools = this.orderedTools();
+    if (this.toolChoices().some(choice => !choice.covered && tools.includes(choice.selector))) {
+      errors['toolSelectors'] = { code: 'tools-not-allowed' };
+    }
     for (const limit of this.limitFields()) {
       checkWhole(errors, limit.field, this.limits()[limit.field], limit.min, limit.highest);
     }
@@ -296,6 +332,8 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
       routes,
       proposalRole: this.proposalRole(),
       proposalPolicy: propose ? blank(this.proposalPolicy()) : null,
+      // None chosen offers every tool of the agent.
+      toolSelectors: tools.length > 0 ? tools : null,
       maxToolCalls: toNumber(this.limits().maxToolCalls),
       timeoutSeconds: toNumber(this.limits().timeoutSeconds),
       maxAnswerChars: toNumber(this.limits().maxAnswerChars),
@@ -331,6 +369,12 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
     const [key] = policyKeys(policy);
     const translated = this.t(key);
     return translated && translated !== key ? translated : policy;
+  }
+
+  /** The chosen tool selectors in the order the form offers them. */
+  private orderedTools(): string[] {
+    const chosen = this.tools();
+    return this.toolChoices().map(choice => choice.selector).filter(selector => chosen.includes(selector));
   }
 
   /** The chosen routes in the order the form offers them. */

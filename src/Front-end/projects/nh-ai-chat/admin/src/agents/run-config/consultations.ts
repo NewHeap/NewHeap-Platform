@@ -8,9 +8,10 @@ import {
   ConsultationSubjectRole,
   DataConsultation,
   NhAssistantConsultationRoute,
-  RunCatalog
+  RunCatalog,
+  ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
-import { WorksOnStatement, systemSubjectType, worksOnCovers } from './run-config-shared';
+import { ToolChoice, WorksOnStatement, systemSubjectType, toolChoices, worksOnCovers } from './run-config-shared';
 
 /**
  * Consultations in the run configuration (AC20): other assistants consult an agent about a subject
@@ -66,6 +67,11 @@ export interface ConsultationRow {
   askingAgents: string[];
   inEffect: boolean;
   problems: string[];
+  /**
+   * The tools the consulted agent is offered: the selection in code, or the one of the data that the
+   * agent's own selectors still cover. `null` offers every tool of the agent; empty offers none.
+   */
+  toolSelectors: string[] | null;
   /** The consultation defined as data; `null` for one in code. */
   data: DataConsultation | null;
   code: CodeConsultation | null;
@@ -84,6 +90,7 @@ export function consultationRows(configuration: AgentRunConfiguration): Consulta
     askingAgents: consultation.askingAgents,
     inEffect: true,
     problems: [],
+    toolSelectors: consultation.toolSelectors ? [...consultation.toolSelectors] : null,
     data: null,
     code: consultation
   }));
@@ -98,10 +105,44 @@ export function consultationRows(configuration: AgentRunConfiguration): Consulta
     askingAgents: consultation.askingAgents,
     inEffect: consultation.inEffect,
     problems: consultation.problems.length > 0 ? consultation.problems : consultation.problem ? [consultation.problem] : [],
+    toolSelectors: toolSelectionInEffect(consultation),
     data: consultation,
     code: null
   }));
   return [...code, ...data].sort((left, right) => left.subjectType.localeCompare(right.subjectType));
+}
+
+/** The tool selection of a consultation defined as data in effect; servers before it offer every tool. */
+function toolSelectionInEffect(consultation: DataConsultation): string[] | null {
+  const selection = consultation.toolSelectorsInEffect === undefined ? consultation.toolSelectors : consultation.toolSelectorsInEffect;
+  return selection ? [...selection] : null;
+}
+
+/** Whether one of the agent's own tool selectors covers a selector: the same tool, or a prefix that includes it. */
+export function selectorCovers(agentSelector: string, selector: string): boolean {
+  return agentSelector === selector || (agentSelector.endsWith('.*') && selector.startsWith(agentSelector.slice(0, -1)));
+}
+
+/** A tool selector the consultation form offers, with what it selects and whether the agent still has it. */
+export interface ConsultationToolChoice extends ToolChoice {
+  /** The agent's own selectors cover it; a saved selector they no longer cover can only be cleared. */
+  covered: boolean;
+}
+
+/**
+ * The tools the consultation form offers as check boxes: the agent's own selectors, as a skill's form
+ * offers them, followed by the saved selectors that are none of them, such as a single tool under a
+ * prefix the agent selects or a selector the agent no longer covers.
+ */
+export function consultationToolChoices(
+  agentSelectors: readonly string[],
+  catalog: readonly ToolCatalogEntry[],
+  saved: readonly string[]
+): ConsultationToolChoice[] {
+  const own = toolChoices(agentSelectors, catalog).map(choice => ({ ...choice, covered: true }));
+  const extra = toolChoices(saved.filter(selector => !agentSelectors.includes(selector)), catalog)
+    .map(choice => ({ ...choice, covered: agentSelectors.some(agentSelector => selectorCovers(agentSelector, choice.selector)) }));
+  return [...own, ...extra];
 }
 
 /**

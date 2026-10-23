@@ -246,6 +246,71 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_consultation_with_a_tool_selection_offers_and_runs_only_the_selected_tools(AssistantTestProvider provider)
+    {
+        // CT1, CT5: the consultation names its tools; the agent's other tools are not offered, and a
+        // model that names one anyway changes and proposes nothing.
+        var projectId = Guid.NewGuid();
+        var target = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId, status = "active" } }, "c-1")
+            .RespondWithText("I can only search the project; nothing changed.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Activate it if it is ready." } }, "call-1")
+            .RespondWithText("The reviewer could not activate it.");
+        await using var host = await CreateHostAsync(provider, target, asker, consult: consult => consult.Tools("projects.search"));
+        var conversation = await host.CreateConversationAsync(Member, AskingAgentId);
+
+        var turn = await host.SendAsync(conversation.Id, "Ask the reviewer to activate the project.", Member);
+
+        Assert.Equal(NhAssistantTurnStatuses.Completed, turn.Single<NhAssistantTurnCompletedEvent>().Status);
+        var tools = ToolNames(target.Requests[0]);
+        Assert.Contains(tools, name => name == "projects_search_v1");
+        Assert.DoesNotContain(tools, name => name == "projects_change_status_v1");
+        Assert.Empty(host.Tools.StatusChanges);
+        var consultation = await SingleConsultationAsync(host);
+        Assert.Equal((NhAssistantConsultationStatuses.Completed, 0), (consultation.Status, consultation.ProposalCount));
+        Assert.Empty(await Runs(host).GetConsultationApprovalsAsync(consultation.Id, CancellationToken.None));
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        Assert.DoesNotContain(await context.ToolInvocations.ToListAsync(), invocation => invocation.ToolId == "projects.change-status");
+    }
+
+    [Fact]
+    public void A_consultations_tool_selection_stays_within_the_agents_own_selectors()
+    {
+        var state = new NhAssistantRegistrationState();
+        state.AddAgent(AssistantTestData.Agent(TargetAgentId) with { ToolSelectors = ["projects.*", "assistant.consult.*"] });
+        var agent = new NhAssistantAgentRunBuilder(state.GetOrAddAgentRun(TargetAgentId));
+        Assert.Throws<ArgumentException>(() => agent.AllowConsultation("order", consult => consult.Tools()));
+        Assert.Throws<ArgumentException>(() => agent.AllowConsultation("task", consult => consult.Tools("Projects Search")));
+        agent.AllowConsultation("project", consult => consult.Tools("projects.search", "assistant.consult.intake-reviewer.*", "projects.search"));
+        state.ValidateAgentRuns();
+
+        // Without a selection a consultation offers every tool of the agent (CT2); with one only
+        // what it names, consultation tools included (CT3).
+        var selected = state.CodeAgentRuns[TargetAgentId].Consultations.Single(item => item.SubjectType == "project");
+        Assert.Equal(["projects.search", "assistant.consult.intake-reviewer.*"], selected.ToolSelectors);
+        Assert.True(selected.Selects("projects.search"));
+        Assert.False(selected.Selects("projects.change-status"));
+        Assert.True(selected.Selects("assistant.consult.intake-reviewer.project"));
+        Assert.False(selected.Selects("assistant.consult.project-closer.project"));
+        state.AddAgent(AssistantTestData.Agent("other-agent"));
+        new NhAssistantAgentRunBuilder(state.GetOrAddAgentRun("other-agent")).AllowConsultation("project");
+        var unselected = state.CodeAgentRuns["other-agent"].Consultations.Single();
+        Assert.Null(unselected.ToolSelectors);
+        Assert.True(unselected.Selects("projects.change-status"));
+
+        // A selector the agent's own selectors do not cover fails startup, as for a skill.
+        var outside = new NhAssistantRegistrationState();
+        outside.AddAgent(AssistantTestData.Agent(TargetAgentId));
+        new NhAssistantAgentRunBuilder(outside.GetOrAddAgentRun(TargetAgentId))
+            .AllowConsultation("project", consult => consult.Tools("projects.search", "orders.*"));
+        var refused = Assert.Throws<InvalidOperationException>(outside.ValidateAgentRuns);
+        Assert.Contains("selects 'orders.*', which the agent's own tool selectors do not cover", refused.Message);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task A_reader_gets_a_read_only_consultation_without_what_the_agent_obtained_with_its_own_grant(AssistantTestProvider provider)
     {
         var target = new NhAiScriptedChatClient()

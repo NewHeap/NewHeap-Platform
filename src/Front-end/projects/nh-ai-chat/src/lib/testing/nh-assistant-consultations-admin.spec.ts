@@ -48,7 +48,8 @@ function scenario(): NhAssistantMockScenario {
           source: 'code', id: 'reviewer', displayName: 'Intake reviewer', description: 'Reviews intakes.', instructions: 'Review.',
           toolSelectors: [], mcpServerIds: [], requiredPolicy: null, autonomy: 'propose', isEnabled: true,
           consultations: { 'asker-decides': ['task'] },
-          consultationDescriptions: { task: 'Reviews the intake of a task.' }
+          consultationDescriptions: { task: 'Reviews the intake of a task.' },
+          consultationTools: { task: ['tasks.list'] }
         },
         {
           source: 'code', id: 'closer', displayName: 'Project closer', description: 'Closes projects.', instructions: 'Close.',
@@ -59,7 +60,7 @@ function scenario(): NhAssistantMockScenario {
         },
         {
           source: 'admin', id: 'starter', displayName: 'Project starter', description: 'Starts projects.', instructions: 'Start.',
-          toolSelectors: [], mcpServerIds: [], requiredPolicy: null, autonomy: 'execute', isEnabled: true,
+          toolSelectors: ['projects.*', 'tasks.list'], mcpServerIds: [], requiredPolicy: null, autonomy: 'execute', isEnabled: true,
           worksOnSubjectTypes: ['project'], worksOnAllSubjects: false, worksOnApplication: false,
           runConfiguration: { runSettings: { accountability: 'service-account', serviceAccountActorId: 'operations', approvalPolicy: 'project-review' } },
           dataConsultations: [{
@@ -181,6 +182,14 @@ async function configuration(agentId: string): Promise<AgentRunConfiguration> {
   return (await call('GET', `admin/agents/${agentId}/configuration`)).body as AgentRunConfiguration;
 }
 
+/** Changes the starter's own tool selectors, as an administrator does in its editor. */
+async function changeStarterTools(toolSelectors: string[]): Promise<void> {
+  const agents = (await call('GET', 'admin/agents')).body as { id: string; version: number }[];
+  const { version, ...definition } = agents.find(item => item.id === 'starter')!;
+  const changed = await call('PUT', 'admin/agents/starter', { ...definition, toolSelectors, expectedVersion: version });
+  expect(changed.status).toBe(200);
+}
+
 /** Opens the run configuration of the agent on the agents page and returns it. */
 async function openRunConfiguration(fixture: ComponentFixture<unknown>, element: HTMLElement, agentId: string): Promise<HTMLElement> {
   (element.querySelector(`[data-run-config-agent="${agentId}"]`) as HTMLButtonElement).click();
@@ -229,6 +238,9 @@ describe('Consultations defined as data in the mock API', () => {
       problem: null,
       problems: [],
       routesInEffect: ['asker-decides'],
+      // No selection offers every tool of the agent.
+      toolSelectors: null,
+      toolSelectorsInEffect: null,
       consultToolId: 'assistant.consult.starter.project',
       requestToolId: null,
       askingAgents: ['projects']
@@ -245,7 +257,8 @@ describe('Consultations defined as data in the mock API', () => {
       exposure: ['local', 'agent'],
       consultToolId: 'assistant.consult.reviewer.task',
       requestToolId: null,
-      askingAgents: []
+      askingAgents: [],
+      toolSelectors: ['tasks.list']
     }]);
     expect(reviewer.consultationCeiling).toBeNull();
     const closer = await configuration('closer');
@@ -322,6 +335,43 @@ describe('Consultations defined as data in the mock API', () => {
       routesInEffect: ['asker-decides']
     }));
     expect(starter.problems).toContain({ agentId: 'starter', kind: 'consultation', id: 'project', code: 'agent-has-no-rights' });
+  });
+
+  it('keeps the tools of a consultation within the agent\'s own and offers none when they no longer fit', async () => {
+    const save = (body: object) => call('PUT', 'admin/agents/starter/consultations/project', {
+      description: 'Says whether a draft project can start.',
+      routes: ['asker-decides'],
+      proposalPolicy: 'asker-only',
+      expectedVersion: 1,
+      ...body
+    });
+    const outcome = async (request: Promise<{ status: number; body: any }>) => {
+      const result = await request;
+      return [result.status, result.body?.errors ?? null];
+    };
+
+    // Saving refuses a tool outside the agent's own and a selector that is none.
+    expect(await outcome(save({ toolSelectors: ['orders.*'] }))).toEqual([400, { toolSelectors: ['not-allowed'] }]);
+    expect(await outcome(save({ toolSelectors: ['Projects List'] }))).toEqual([400, { toolSelectors: ['invalid'] }]);
+    const saved = await save({ toolSelectors: ['projects.list'] });
+    expect([saved.status, saved.body.version, saved.body.toolSelectors, saved.body.toolSelectorsInEffect])
+      .toEqual([200, 2, ['projects.list'], ['projects.list']]);
+
+    // The agent's own tools change: the selection drops with a problem and offers no tools, never all.
+    await changeStarterTools(['tasks.list']);
+    const starter = await configuration('starter');
+    expect(starter.dataConsultations![0]).toEqual(jasmine.objectContaining({
+      inEffect: true,
+      problems: ['tools-not-allowed'],
+      toolSelectors: ['projects.list'],
+      toolSelectorsInEffect: []
+    }));
+    expect(starter.problems).toContain({ agentId: 'starter', kind: 'consultation', id: 'project', code: 'tools-not-allowed' });
+    expect(await outcome(save({ toolSelectors: ['projects.list'], expectedVersion: 2 }))).toEqual([400, { toolSelectors: ['not-allowed'] }]);
+
+    // Without a selection, or an empty one, every tool of the agent again.
+    const cleared = await save({ toolSelectors: [], expectedVersion: 2 });
+    expect([cleared.status, cleared.body.toolSelectors, cleared.body.toolSelectorsInEffect, cleared.body.problems]).toEqual([200, null, null, []]);
   });
 
   it('removes a consultation; its tool and its routes go with it', async () => {
@@ -485,6 +535,7 @@ describe('The Consultations section of the run configuration', () => {
       routes: ['asker-decides'],
       proposalRole: 'participant',
       proposalPolicy: null,
+      toolSelectors: null,
       maxToolCalls: 6,
       timeoutSeconds: null,
       maxAnswerChars: null,
@@ -565,6 +616,79 @@ describe('The Consultations section of the run configuration', () => {
     expect(text(view.querySelector('[data-saved]'))).toBe('The consultation was removed.');
     expect(view.querySelector('[data-consultation="project"]')).toBeNull();
     expect(view.querySelector('[data-consultations] nh-assistant-agent-consultation-routes')).toBeNull();
+  }, formFlowTimeout);
+
+  it('chooses the agent\'s tools under Advanced and shows a tool the agent no longer has until it is cleared', async () => {
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const view = await openRunConfiguration(fixture, element, 'starter');
+    const row = () => view.querySelector('[data-consultation="project"]') as HTMLElement;
+    expect(row().querySelector('[data-consultation-tools]')!.getAttribute('data-tools')).toBe('all');
+    expect(text(row().querySelector('[data-consultation-tools]'))).toContain('every tool of the agent');
+
+    // The agent's own selectors as check boxes, with what each offers; none checked offers all.
+    button(row(), 'Edit').click();
+    await settle(fixture);
+    const form = () => view.querySelector('[data-form="consultation"]') as HTMLElement;
+    const tools = () => form().querySelector('[data-consultation-tools]') as HTMLElement;
+    expect(text(form().querySelector('[data-consultation-advanced] summary'))).toBe('Advanced: tools, limits, requests and classification');
+    expect(Array.from(tools().querySelectorAll('[data-tool-choice]')).map(choice => choice.getAttribute('data-tool-choice'))).toEqual(['projects.*', 'tasks.list']);
+    expect(text(tools().querySelector('[data-tool-choice="projects.*"]'))).toContain('All tools that match: 1 now.');
+    expect(Array.from(tools().querySelectorAll('input')).every(input => !(input as HTMLInputElement).checked)).toBeTrue();
+    (tools().querySelector('[data-tool-choice="projects.*"] input') as HTMLInputElement).click();
+    await settle(fixture);
+    button(form(), 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/starter/consultations/project').at(-1)).toEqual(jasmine.objectContaining({ toolSelectors: ['projects.*'] }));
+    expect(row().querySelector('[data-consultation-tools]')!.getAttribute('data-tools')).toBe('selected');
+    expect(text(row().querySelector('[data-consultation-tool-selector="projects.*"]'))).toBe('projects.*');
+
+    // The agent no longer selects the project tools: the consultation offers none, with the problem.
+    await changeStarterTools(['tasks.list']);
+    button(element, 'Back to agents').click();
+    await settle(fixture);
+    const reopened = await openRunConfiguration(fixture, element, 'starter');
+    const consultation = reopened.querySelector('[data-consultation="project"]') as HTMLElement;
+    expect(consultation.querySelector('[data-consultation-tools]')!.getAttribute('data-tools')).toBe('none');
+    expect(text(consultation.querySelector('[data-consultation-problem="tools-not-allowed"]')))
+      .toContain("a chosen tool is no longer among the agent's own tools");
+
+    // In the form the saved tool stays checked with why, so it can be cleared, and saving it is refused.
+    button(consultation, 'Edit').click();
+    await settle(fixture);
+    const edit = reopened.querySelector('[data-form="consultation"]') as HTMLElement;
+    const stale = edit.querySelector('[data-tool-choice="projects.*"] input') as HTMLInputElement;
+    expect([stale.checked, stale.disabled]).toEqual([true, false]);
+    expect(text(edit.querySelector(`#${CSS.escape(stale.getAttribute('aria-describedby')!)}`))).toBe("No longer among the agent's own tools.");
+    const sent = requestBodies('PUT', 'admin/agents/starter/consultations/project').length;
+    button(edit, 'Save').click();
+    await settle(fixture);
+    expect((edit.querySelector('[data-consultation-advanced]') as HTMLDetailsElement).open).toBeTrue();
+    expect(text(edit.querySelector('[data-consultation-tools] .field-error')))
+      .toBe("A chosen tool is outside the agent's own tools. Clear it, or add the tool to the agent first.");
+    expect(requestBodies('PUT', 'admin/agents/starter/consultations/project').length).toBe(sent);
+    stale.click();
+    await settle(fixture);
+    button(edit, 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/starter/consultations/project').at(-1)).toEqual(jasmine.objectContaining({ toolSelectors: null }));
+    expect(text(reopened.querySelector('[data-consultation="project"] [data-consultation-tools]'))).toContain('every tool of the agent');
+  }, formFlowTimeout);
+
+  it('says at the tools when the server refuses a tool outside the agent\'s own', async () => {
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const view = await openRunConfiguration(fixture, element, 'starter');
+    spyOn(TestBed.inject(NhAssistantAdminApiService), 'saveDataConsultation').and.returnValue(throwError(() => new NhAssistantApiError(
+      400, 'assistant-validation', 'nh-assistant.errors.assistant-validation', { toolSelectors: ['not-allowed'] })));
+    button(view.querySelector('[data-consultation="project"]') as HTMLElement, 'Edit').click();
+    await settle(fixture);
+    const form = view.querySelector('[data-form="consultation"]') as HTMLElement;
+    button(form, 'Save').click();
+    await settle(fixture);
+
+    const tools = form.querySelector('[data-consultation-tools]') as HTMLElement;
+    expect((form.querySelector('[data-consultation-advanced]') as HTMLDetailsElement).open).toBeTrue();
+    expect(text(tools.querySelector('.field-error'))).toBe("A chosen tool is outside the agent's own tools. Clear it, or add the tool to the agent first.");
+    expect(tools.getAttribute('aria-describedby')).toContain(tools.querySelector('.field-error')!.id);
   }, formFlowTimeout);
 
   it('shows a refusal of the server at its field', async () => {

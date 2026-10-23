@@ -293,6 +293,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<int>("TimeoutSeconds")
                         .HasColumnType("integer");
 
+                    b.Property<string>("ToolSelectorsJson")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 

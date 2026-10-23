@@ -110,6 +110,26 @@ public sealed class NhAssistantConsultationOptions
     public int MaxToolCalls { get; internal set; } = 4;
 
     /// <summary>
+    /// The tools the consulted agent is offered in this consultation, by id or <c>prefix.*</c>
+    /// selector, each covered by the agent's own selectors; <see langword="null"/> offers every tool
+    /// of the agent. The selection only narrows: the rules on effects, routes and depth still apply,
+    /// and a consultation tool of another agent (<c>assistant.consult.*</c>, <c>assistant.request.*</c>)
+    /// is offered only when a selector names it. An empty selection offers no tools: a consultation
+    /// defined as data whose every selector no longer fits the agent's selectors.
+    /// </summary>
+    public IReadOnlyList<string>? ToolSelectors { get; internal set; }
+
+    /// <summary>
+    /// Whether the consultation offers the consulted agent <paramref name="toolId"/>: every tool of the
+    /// agent without a selection, otherwise only a tool a selector names.
+    /// </summary>
+    internal bool Selects(string toolId)
+    {
+        return ToolSelectors is not { } selectors
+               || selectors.Any(selector => NhAssistantRegistrationState.Covers(selector, toolId));
+    }
+
+    /// <summary>
     /// How long one consultation may take. The asking turn's own deadline caps it.
     /// </summary>
     public TimeSpan Timeout { get; internal set; } = TimeSpan.FromSeconds(60);
@@ -293,6 +313,26 @@ public sealed class NhAssistantConsultationBuilder
         _options.MaxToolCalls = maxToolCalls;
         _options.Timeout = timeout ?? _options.Timeout;
         _options.MaxAnswerChars = maxAnswerChars;
+        return this;
+    }
+
+    /// <summary>
+    /// The tools the consulted agent is offered in this consultation, by id or <c>prefix.*</c>
+    /// selector; each must be covered by the agent's own selectors, or startup fails, as for a skill's
+    /// tools. The consulted model sees only these tools, and a call of another tool runs nothing; the
+    /// rules on effects, routes and depth still apply. A consultation tool of another agent
+    /// (<c>assistant.consult.*</c>, <c>assistant.request.*</c>) is offered only when a selector names
+    /// it. Without <c>Tools</c> the consultation offers every tool of the agent.
+    /// </summary>
+    public NhAssistantConsultationBuilder Tools(params string[] toolSelectors)
+    {
+        ArgumentNullException.ThrowIfNull(toolSelectors);
+        if (toolSelectors.Length == 0 || toolSelectors.Any(selector => !NhAssistantAgentDefinition.IsValidSelector(selector)))
+        {
+            throw new ArgumentException("A consultation names one or more valid tool selectors.", nameof(toolSelectors));
+        }
+
+        _options.ToolSelectors = toolSelectors.Distinct(StringComparer.Ordinal).ToArray();
         return this;
     }
 

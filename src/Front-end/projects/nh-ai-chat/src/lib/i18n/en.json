@@ -425,6 +425,7 @@
       "assistant-consult-timeout": "The agent did not answer in time.",
       "assistant-consult-failed": "The agent could not answer.",
       "assistant-consult-read-only": "A consultation cannot change anything.",
+      "assistant-consult-tool-not-selected": "This consultation does not offer that tool, so nothing ran.",
       "assistant-consult-proposal-refused": "No route at the subject takes this proposal any more. Approve or reject it here.",
       "assistant-consult-asker-decides": "The person who asked decides this proposal in their own chat.",
       "assistant-consult-route-not-allowed": "None of the agent's consultations allows this route, so it cannot be switched on.",
@@ -1240,7 +1241,8 @@
             "no-approver": "the route with the agent's account is left out, because the approval policy lets only the person who caused a proposal decide it.",
             "limit-above-ceiling": "a limit is above what the application allows, so the application's applies.",
             "requests-not-allowed": "the application no longer allows requests, so it takes none.",
-            "mcp-not-allowed": "the application no longer offers consultations to MCP clients, so they do not see it."
+            "mcp-not-allowed": "the application no longer offers consultations to MCP clients, so they do not see it.",
+            "tools-not-allowed": "a chosen tool is no longer among the agent's own tools, so it is left out; with none left the agent gets no tools in it."
           }
         },
         "field-errors": {
@@ -1259,7 +1261,8 @@
           "megabytes-up-to": "Enter a size above 0 and at most {{max}} MB.",
           "megabytes-positive": "Enter a size above 0 MB.",
           "not-allowed": "The application does not allow this.",
-          "routes-required": "Choose at least one route, or let it only answer."
+          "routes-required": "Choose at least one route, or let it only answer.",
+          "tools-not-allowed": "A chosen tool is outside the agent's own tools. Clear it, or add the tool to the agent first."
         },
         "settings": {
           "title": "Run settings",
@@ -1752,6 +1755,9 @@
           "no-askers": "No agent asks it yet. Select its tool in the tools of an agent that should ask it.",
           "code-hint": "Allowed in code; here only the route switches below change it.",
           "limits-value": "At most {{calls}} tool calls, {{seconds}} seconds, {{chars}} characters and {{history}} thread messages",
+          "tools-label": "Tools:",
+          "tools-all": "every tool of the agent",
+          "tools-none": "none, because no chosen tool is among the agent's own tools any more",
           "edit-named": "Edit the consultation about {{type}}",
           "remove-named": "Delete the consultation about {{type}}",
           "remove-explain": "Its tools disappear; proposals it made can still be decided.",
@@ -1833,7 +1839,7 @@
               "four-eyes": "This approval policy uses four eyes, so the person who asked cannot decide their own proposal in their chat; that route does not apply.",
               "initiator-only": "This approval policy lets only the person who caused a proposal decide it, so the route with the agent's technical account is refused."
             },
-            "advanced": "Advanced: limits, requests and classification",
+            "advanced": "Advanced: tools, limits, requests and classification",
             "limits": "Limits of one consultation",
             "limits-hint": "Empty starts at the default within what the application allows.",
             "limit-range": "From {{min}} to {{max}}.",
@@ -1844,6 +1850,9 @@
             "mcp-hint": "External MCP clients may consult it too, with the rights of their person.",
             "mcp-closed": "The application does not offer consultations to MCP clients.",
             "classification-hint": "How sensitive its answers are in the conversation that asked. Without one, the agent's classification applies.",
+            "tools": "Tools it may use",
+            "tools-hint": "The agent's own tools; select some to narrow them for this consultation. None selected: every tool of the agent. Changes still need a route.",
+            "tool-not-covered": "No longer among the agent's own tools.",
             "in-effect": "A consultation is in effect once saved; it answers once an agent that asks selects its tool."
           }
         }

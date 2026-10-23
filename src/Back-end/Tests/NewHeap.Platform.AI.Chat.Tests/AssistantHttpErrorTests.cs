@@ -61,6 +61,7 @@ public sealed class AssistantHttpErrorTests
     [InlineData(NhAssistantErrorCodes.ConsultationInCode, StatusCodes.Status409Conflict)]
     [InlineData(NhAssistantErrorCodes.ConsultationsNotAllowed, StatusCodes.Status409Conflict)]
     [InlineData(NhAssistantErrorCodes.ConsultationNotFound, StatusCodes.Status404NotFound)]
+    [InlineData(NhAssistantErrorCodes.ConsultToolNotSelected, StatusCodes.Status400BadRequest)]
     [InlineData("application-own-code", StatusCodes.Status400BadRequest)]
     public void A_code_answers_its_one_status(string code, int status)
     {

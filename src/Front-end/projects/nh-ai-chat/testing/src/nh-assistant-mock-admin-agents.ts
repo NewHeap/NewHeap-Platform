@@ -96,7 +96,7 @@ export class NhAssistantMockAdminAgents {
     // How an agent runs, in code or as data, belongs to its run configuration, not to the agent.
     for (const {
       source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, consultations, consultationDescriptions,
-      codeRunSettings: _, runConfiguration: __, consultableAsData: ___, dataConsultations: ____, ...input
+      codeRunSettings: _, runConfiguration: __, consultableAsData: ___, dataConsultations: ____, consultationTools: _____, ...input
     } of agents) {
       const agentShadow = shadowOf !== undefined || shadow === true;
       const initial = this.toAgent(input, source, 1, false);

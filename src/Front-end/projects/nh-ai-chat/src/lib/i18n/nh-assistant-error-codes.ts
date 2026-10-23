@@ -148,6 +148,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-consult-timeout',
   'assistant-consult-failed',
   'assistant-consult-read-only',
+  'assistant-consult-tool-not-selected',
   'assistant-consult-proposal-refused',
   'assistant-consult-asker-decides',
   'assistant-consult-route-not-allowed',

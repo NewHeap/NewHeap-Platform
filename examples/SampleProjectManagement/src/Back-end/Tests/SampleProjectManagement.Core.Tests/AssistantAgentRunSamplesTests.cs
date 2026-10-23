@@ -3126,6 +3126,60 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_intake_reviewer_is_offered_only_the_tools_its_consultation_names()
+    {
+        // SPM-278: the consultation about projects names its tools with Tools(...). The participant may
+        // propose, yet the reviewer's status tool is not offered, and when its model names it anyway
+        // nothing runs and nothing waits for a decision.
+        const string consultTool = "consult_sample-project-intake-reviewer_project_v1";
+        var participantId = await host.CreatePersonAsync();
+        var project = await host.CreateProjectAsync("TOOLS", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, participantId, ProjectMemberRole.Participant);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var participant = host.CreateClient(participantId.ToString());
+        var reviewer = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = project, status = "Active" } }, "call-status")
+            .RespondWithText("I cannot activate the project in a consultation; I can request a review.");
+        var assistant = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(consultTool, new { input = new { subjectId = project.ToString("D"), question = "Activate the project if its intake is complete." } }, "call-consult")
+            .RespondWithText("The intake reviewer cannot activate it, but can request a review.");
+        var assistantInstructions = ProjectAiAssets.ProjectAgentInstructions.Content.Split('\n')[0].Trim();
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, assistantInstructions), assistant),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You are being consulted"), reviewer)));
+        try
+        {
+            var chat = await host.CreateConversationAsync(participant);
+            var events = await host.SendAsync(participant, chat, "Can the intake reviewer activate my project?");
+
+            Assert.Equal(NhAssistantTurnStatuses.Completed, events.Single(evt => evt.Name == "turn.completed").Data.GetProperty("status").GetString());
+            var offered = (reviewer.Requests[0].Options?.Tools ?? []).Select(tool => tool.Name).ToArray();
+            Assert.Equal(["projects_request_review_v1"], offered.Where(name => name.StartsWith("project", StringComparison.Ordinal)));
+            Assert.DoesNotContain(events, evt => evt.Name == "approval.required");
+            Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == project);
+
+            // The consultation completed without proposals; the reviewer's own runs keep their tools.
+            var thread = await WaitForThreadAsync(owner, project);
+            var consultations = await owner.GetFromJsonAsync<NhAssistantConsultationListDto>($"/api/assistant/threads/{thread}/consultations", Json);
+            var record = Assert.Single(consultations!.Items);
+            Assert.Equal((NhAssistantConsultationStatuses.Completed, 0), (record.Status, record.ProposalCount));
+            Assert.Empty((await owner.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{thread}/proposals", Json))!);
+
+            // The administration shows the selection of the consultation in code, read only.
+            using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+            var configured = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>(
+                $"/api/assistant/admin/agents/{SampleIntakeReviewerComposition.AgentId}/configuration",
+                Json))!;
+            Assert.Equal([ProjectAiReviewTools.RequestReviewToolId], Assert.Single(configured.CodeConsultations).ToolSelectors);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
+    [Fact]
     public async Task Another_approver_decides_what_the_closer_proposes_in_a_consultation_and_it_runs_with_the_closers_rights()
     {
         // SPM-278, option B: four-eyes at the project, the agent's own rights, no person's principal.
@@ -3211,7 +3265,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             .RespondWithText("The draft can start. I proposed to make it active, which you decide now.")
             .RespondWithText("The draft can start; a project participant can ask me to propose it.")
             .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = later, status = "Active" } }, "call-start-later")
-            .RespondWithText("The draft can start. I proposed to make it active for another project approver.");
+            .RespondWithText("The draft can start. I proposed to make it active for another project approver.")
+            .RespondWithText("The draft can start; I have no tool to propose it now.");
         var assistant = new NhAiScriptedChatClient()
             .RespondWithFunctionCall(consultTool, new { input = new { subjectId = now.ToString("D"), question = "Can the draft project start?" } }, "call-consult")
             .RespondWithText("The project starter proposed to start the project; decide it on the card.")
@@ -3219,6 +3274,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             .RespondWithText("The draft can start.")
             .RespondWithFunctionCall(consultTool, new { input = new { subjectId = later.ToString("D"), question = "Can the draft project start?" } }, "call-consult-later")
             .RespondWithText("The project starter proposed it for another project approver.")
+            .RespondWithFunctionCall(consultTool, new { input = new { subjectId = later.ToString("D"), question = "Can the draft project start?" } }, "call-consult-without-tools")
+            .RespondWithText("The project starter answered, but cannot propose anything now.")
             .RespondWithText("I cannot ask the project starter any more.");
         var assistantInstructions = ProjectAiAssets.ProjectAgentInstructions.Content.Split('\n')[0].Trim();
         host.Model.Use(new RoutingChatClient(
@@ -3248,6 +3305,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Equal((ProjectSubjects.Type, 1, true, consultToolId), (consultation.SubjectType, consultation.Version, consultation.InEffect, consultation.ConsultToolId));
             Assert.Equal([NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights], consultation.RoutesInEffect);
             Assert.Contains(SampleAssistantComposition.AgentId, consultation.AskingAgents);
+            // The administrator chose the starter's tools for the consultation, within its own.
+            Assert.Equal([ProjectAiTools.ChangeStatusToolId], consultation.ToolSelectors);
+            Assert.Equal([ProjectAiTools.ChangeStatusToolId], consultation.ToolSelectorsInEffect);
             Assert.Equal(
                 [NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights],
                 configured.ConsultationCeiling!.Routes);
@@ -3270,6 +3330,20 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 Assert.Equal(HttpStatusCode.BadRequest, outside.StatusCode);
                 var error = await outside.Content.ReadFromJsonAsync<JsonElement>(Json);
                 Assert.Equal("not-allowed", error.GetProperty("errors").GetProperty("routes")[0].GetString());
+            }
+            // A tool outside the starter's own is refused too (CT4).
+            using (var outsideTools = await administrator.PutAsJsonAsync(
+                $"/api/assistant/admin/agents/{starter}/consultations/{ProjectSubjects.Type}",
+                SampleAgentConfigurationService.StarterConsultation() with
+                {
+                    ToolSelectors = [ProjectTaskAiTools.CompleteToolId],
+                    ExpectedVersion = 1
+                },
+                Json))
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, outsideTools.StatusCode);
+                var error = await outsideTools.Content.ReadFromJsonAsync<JsonElement>(Json);
+                Assert.Equal("not-allowed", error.GetProperty("errors").GetProperty("toolSelectors")[0].GetString());
             }
             await using (var scope = host.Services.CreateAsyncScope())
             {
@@ -3322,6 +3396,20 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Equal((NhAssistantConsultationRoutes.SubjectAgentRights, "accountable"), (waiting.ConsultationRoute, waiting.GrantSource));
             Assert.Equal(HttpStatusCode.Forbidden, (await DecideAsync(asker, waiting, "approve")).StatusCode);
 
+            // The starter's own tools change and no longer cover the chosen one: the consultation
+            // keeps answering with the problem tools-not-allowed, offering no tool at all instead of
+            // every tool of the agent (CT4), until the tool is the starter's again.
+            await ChangeAgentToolsAsync(administrator, starter, [ProjectDocumentAiTools.ReadToolId]);
+            var narrowed = Assert.Single((await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>(
+                $"/api/assistant/admin/agents/{starter}/configuration",
+                Json))!.DataConsultations);
+            Assert.Equal((true, NhAssistantRunConfigurationProblems.ToolsNotAllowed), (narrowed.InEffect, narrowed.Problem));
+            Assert.Equal([ProjectAiTools.ChangeStatusToolId], narrowed.ToolSelectors);
+            Assert.Empty(narrowed.ToolSelectorsInEffect!);
+            await host.SendAsync(asker, chat, "Ask the starter about STARTLATER once more.");
+            Assert.DoesNotContain(starterModel.Requests[^1].Options?.Tools ?? [], tool => tool.Name.StartsWith("project", StringComparison.Ordinal));
+            await ChangeAgentToolsAsync(administrator, starter, [ProjectAiTools.ChangeStatusToolId]);
+
             // Removing the consultation takes the tool away from the next turn; the waiting proposal
             // can still be decided.
             Assert.True((await ConfigureAgentsAsync(service => service.RemoveStarterConsultationAsync(starter, host.OwnerId, CancellationToken.None))).Success);
@@ -3351,6 +3439,30 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 Assert.True(deleted.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.NotFound);
             }
         }
+    }
+
+    /// <summary>
+    /// SPM-311: changes the tool selectors of an agent created in the administration, as its editor
+    /// does; what it works on and whether it is offered in chat stay.
+    /// </summary>
+    private static async Task ChangeAgentToolsAsync(HttpClient administrator, string agentId, string[] toolSelectors)
+    {
+        var stored = (await administrator.GetFromJsonAsync<JsonElement>("/api/assistant/admin/agents", Json)).EnumerateArray()
+            .Single(agent => agent.GetProperty("id").GetString() == agentId);
+        var input = new Dictionary<string, object?>
+        {
+            ["id"] = agentId,
+            ["displayName"] = stored.GetProperty("displayName").GetString(),
+            ["description"] = stored.GetProperty("description").GetString(),
+            ["instructions"] = stored.GetProperty("instructions").GetString(),
+            ["toolSelectors"] = toolSelectors,
+            ["mcpServerIds"] = Array.Empty<string>(),
+            ["requiredPolicy"] = null,
+            ["autonomy"] = stored.GetProperty("autonomy").GetString(),
+            ["expectedVersion"] = stored.GetProperty("version").GetInt32()
+        };
+        using var updated = await administrator.PutAsJsonAsync($"/api/assistant/admin/agents/{agentId}", input);
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
     }
 
     /// <summary>

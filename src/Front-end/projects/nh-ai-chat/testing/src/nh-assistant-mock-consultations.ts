@@ -46,6 +46,8 @@ interface StoredConsultation {
   routes: NhAssistantConsultationRoute[];
   proposalRole: ConsultationSubjectRole;
   proposalPolicy: string | null;
+  /** The tool selection as saved; `null` offers every tool of the agent. */
+  toolSelectors: string[] | null;
   maxToolCalls: number;
   timeoutSeconds: number;
   maxAnswerChars: number;
@@ -66,6 +68,8 @@ interface ConsultationCheck {
   problems: string[];
   routes: NhAssistantConsultationRoute[];
   allowRequests: boolean;
+  /** The selectors the agent's own still cover; `null` offers every tool, empty none. */
+  toolSelectors: string[] | null;
 }
 
 /** The bounds of `AllowConsultation`, within which a ceiling may only lower the maxima. */
@@ -83,6 +87,8 @@ const roles: readonly ConsultationSubjectRole[] = ['reader', 'participant', 'app
 const allRoutes: readonly NhAssistantConsultationRoute[] = ['asker-decides', 'subject-agent-rights', 'subject-asker-rights'];
 const classifications = ['public', 'internal', 'confidential', 'restricted'];
 const subjectTypePattern = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+/** A tool id or a prefix ending in `.*`, as an agent's tool selectors are. */
+const selectorPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)*(?:\.\*)?$/;
 
 /**
  * Consultations of the mock API's agents: those in code from the scenario, read-only, and those
@@ -90,13 +96,15 @@ const subjectTypePattern = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
  * (`consultationsAsData` for the application, `consultableAsData` for an agent in code). A save
  * checks a consultation as the server does and refuses with the same codes and field errors; every
  * read checks it again, so a consultation that no longer fits, for example after the run settings
- * changed whom the agent answers to, stays with its problems. Data consultations in effect generate
- * their consult and request tools in the tool list and count for the agent's route switches.
+ * changed whom the agent answers to or the agent's own tools no longer cover its tool selection,
+ * stays with its problems. Data consultations in effect generate their consult and request tools in
+ * the tool list and count for the agent's route switches.
  */
 export class NhAssistantMockConsultations {
   private readonly stored = new Map<string, StoredConsultation>();
   private readonly codeAllowed = new Map<string, Partial<Record<NhAssistantConsultationRoute, string[]>>>();
   private readonly codeDescriptions = new Map<string, Record<string, string>>();
+  private readonly codeTools = new Map<string, Record<string, string[]>>();
   private readonly agentCeilings = new Map<string, NhAssistantMockConsultationCeiling>();
 
   /** The application's ceiling; `null` while consultations exist in code only. */
@@ -116,6 +124,7 @@ export class NhAssistantMockConsultations {
       if (agent.consultations !== undefined || agent.consultationDescriptions !== undefined) {
         this.codeAllowed.set(agent.id, agent.consultations ?? {});
         this.codeDescriptions.set(agent.id, agent.consultationDescriptions ?? {});
+        this.codeTools.set(agent.id, agent.consultationTools ?? {});
       }
       if (agent.consultableAsData !== undefined) {
         this.agentCeilings.set(agent.id, agent.consultableAsData);
@@ -159,6 +168,7 @@ export class NhAssistantMockConsultations {
       return [];
     }
     const descriptions = this.codeDescriptions.get(agent.id) ?? {};
+    const tools = this.codeTools.get(agent.id) ?? {};
     const types = new Set([...Object.values(allowed).flat(), ...Object.keys(descriptions)]);
     return [...types].sort().map(subjectType => {
       const consultToolId = consultToolOf(agent.id, subjectType);
@@ -170,7 +180,8 @@ export class NhAssistantMockConsultations {
         exposure: ['local', 'agent'],
         consultToolId,
         requestToolId: null,
-        askingAgents: this.askersOf(agent.id, consultToolId)
+        askingAgents: this.askersOf(agent.id, consultToolId),
+        toolSelectors: tools[subjectType] ? [...tools[subjectType]] : null
       };
     });
   }
@@ -255,6 +266,10 @@ export class NhAssistantMockConsultations {
     const minimumRole = (text(request.minimumRole) ?? 'reader') as ConsultationSubjectRole;
     const proposalRole = (text(request.proposalRole) ?? 'participant') as ConsultationSubjectRole;
     const routes = (request.routes ?? []).map(route => (typeof route === 'string' ? route.trim() : '')) as NhAssistantConsultationRoute[];
+    // No selection, or an empty one, offers every tool of the agent.
+    const toolSelectors = Array.isArray(request.toolSelectors) && request.toolSelectors.length > 0
+      ? request.toolSelectors.map(selector => (typeof selector === 'string' ? selector.trim() : ''))
+      : null;
     const classification = text(request.dataClassification);
     const limits = {
       maxToolCalls: request.maxToolCalls ?? Math.min(bounds.toolCalls.initial, ceiling.maxToolCalls),
@@ -286,6 +301,9 @@ export class NhAssistantMockConsultations {
     if (!validRoutes(routes)) {
       add('routes', 'invalid');
     }
+    if (toolSelectors !== null && !validSelectors(toolSelectors)) {
+      add('toolSelectors', 'invalid');
+    }
     if (!within(limits.maxToolCalls, bounds.toolCalls)
       || !within(limits.timeoutSeconds, bounds.timeoutSeconds)
       || !within(limits.maxAnswerChars, bounds.answerChars)
@@ -312,6 +330,7 @@ export class NhAssistantMockConsultations {
       routes,
       proposalRole,
       proposalPolicy: text(request.proposalPolicy),
+      toolSelectors,
       ...limits,
       allowRequests: request.allowRequests === true,
       exposeToMcp: request.exposeToMcp === true,
@@ -367,7 +386,7 @@ export class NhAssistantMockConsultations {
    * no longer fit and with limits capped at the ceiling, each with a problem.
    */
   private check(agent: AdminAgent, row: StoredConsultation): ConsultationCheck {
-    const out = (problem: string): ConsultationCheck => ({ inEffect: false, problems: [problem], routes: [], allowRequests: false });
+    const out = (problem: string): ConsultationCheck => ({ inEffect: false, problems: [problem], routes: [], allowRequests: false, toolSelectors: [] });
     const ceiling = this.ceilingOf(agent);
     if (!ceiling) {
       return out('not-consultable');
@@ -435,7 +454,16 @@ export class NhAssistantMockConsultations {
       || row.maxHistoryMessages > ceiling.maxHistoryMessages) {
       problems.push('limit-above-ceiling');
     }
-    return { inEffect: true, problems, routes: kept, allowRequests };
+    // The selection only narrows the agent's own tools; one they no longer cover drops, and a
+    // selection with none left offers no tools, never every tool of the agent.
+    let toolSelectors: string[] | null = null;
+    if (row.toolSelectors !== null) {
+      toolSelectors = row.toolSelectors.filter(selector => agent.toolSelectors.some(own => selectorCovers(own, selector)));
+      if (toolSelectors.length < row.toolSelectors.length) {
+        problems.push('tools-not-allowed');
+      }
+    }
+    return { inEffect: true, problems, routes: kept, allowRequests, toolSelectors };
   }
 
   private namesOnlyTheInitiator(policy: string): boolean {
@@ -450,6 +478,8 @@ export class NhAssistantMockConsultations {
     return {
       ...stored,
       routes: [...row.routes],
+      toolSelectors: row.toolSelectors ? [...row.toolSelectors] : null,
+      toolSelectorsInEffect: check.toolSelectors ? [...check.toolSelectors] : null,
       instructionsHash: row.instructions === null ? null : hashText(row.instructions),
       inEffect: check.inEffect,
       problem: check.problems[0] ?? null,
@@ -516,7 +546,8 @@ function fieldFailure(problems: readonly string[]): NhAssistantMockResult {
     'no-approver': ['proposalPolicy', 'invalid'],
     'limit-above-ceiling': ['limits', 'not-allowed'],
     'requests-not-allowed': ['allowRequests', 'not-allowed'],
-    'mcp-not-allowed': ['exposeToMcp', 'not-allowed']
+    'mcp-not-allowed': ['exposeToMcp', 'not-allowed'],
+    'tools-not-allowed': ['toolSelectors', 'not-allowed']
   };
   const errors: Record<string, string[]> = {};
   for (const problem of problems) {
@@ -531,6 +562,17 @@ function validRoutes(routes: readonly string[]): boolean {
   return routes.every(route => (allRoutes as readonly string[]).includes(route))
     && new Set(routes).size === routes.length
     && !(routes.includes('subject-agent-rights') && routes.includes('subject-asker-rights'));
+}
+
+/** Valid selectors, each once. */
+function validSelectors(selectors: readonly string[]): boolean {
+  return selectors.every(selector => selector.length <= 128 && selectorPattern.test(selector))
+    && new Set(selectors).size === selectors.length;
+}
+
+/** The agent's selector covers a consultation's selector: the same tool, or a prefix that includes it. */
+function selectorCovers(agentSelector: string, selector: string): boolean {
+  return agentSelector === selector || (agentSelector.endsWith('.*') && selector.startsWith(agentSelector.slice(0, -1)));
 }
 
 function within(value: number, range: { min: number; max: number }): boolean {
