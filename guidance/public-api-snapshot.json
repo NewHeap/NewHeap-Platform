@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.82",
   "backEnd": {
-    "hash": "d6fafe905b43285e74963ae116f56fa6ed2cc4e59b3fba877dd1325e21f1f29e",
-    "declarationCount": 10053,
+    "hash": "a58ac4ea1b34c5228286befbced5eb981cf55e7d7074d5664f3fcb31ec75313b",
+    "declarationCount": 10054,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -17236,6 +17236,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
         "declaration": "public IReadOnlyList<AssistantApproval> Approvals => _approvals;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public string Key => $\"{Context.ConversationId:N}:{ProposalCount}:\""
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",

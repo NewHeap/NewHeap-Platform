@@ -211,8 +211,8 @@ internal sealed class NhAssistantAgentNotifier(
                 .Select(conversationId => shares[conversationId])
                 .ToArray();
             var opened = OpenedBy(recipient, runInitiatorActorId, runConversationId, shares, objects);
-            var key = string.Join(';', objects.Select(share => $"{share.Context.ConversationId:N}:{share.ProposalCount}"))
-                + ">" + opened.Context.ConversationId.ToString("N");
+            // The same objects with the same proposals, and the same object to open.
+            var key = string.Join(';', objects.Select(share => share.Key)) + ">" + opened.Context.ConversationId.ToString("N");
             if (!groups.TryGetValue(key, out var group))
             {
                 group = (Bundle(bundledKind, runId, runInitiatorActorId, opened, objects), []);
@@ -491,6 +491,12 @@ internal sealed class NhAssistantWaitingShare(NhAssistantAgentNotificationContex
     public int ProposalCount { get; private set; }
 
     public IReadOnlyList<AssistantApproval> Approvals => _approvals;
+
+    /// <summary>
+    /// The object, its count and its proposals: recipients with the same keys share a notification.
+    /// </summary>
+    public string Key => $"{Context.ConversationId:N}:{ProposalCount}:"
+        + string.Join(',', _approvals.Select(approval => approval.Id.ToString("N")).Order(StringComparer.Ordinal));
 
     public void Add(NhAssistantProposalNotice notice)
     {
