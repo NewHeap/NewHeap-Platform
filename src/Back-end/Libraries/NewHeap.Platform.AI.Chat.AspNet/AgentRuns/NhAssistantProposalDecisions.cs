@@ -186,8 +186,8 @@ internal sealed class NhAssistantProposalDecisions(
     /// idempotency key.
     /// </summary>
     /// <param name="tenantId">
-    /// The caller's tenant; with the single-tenant mode a caller of another tenant finds no proposal of
-    /// the whole application (<see cref="NhAssistantWholeApplicationTenancy"/>).
+    /// The caller's tenant; a caller bound to a tenant that the single-tenant mode does not name finds
+    /// no proposal of the whole application (<see cref="NhAssistantWholeApplicationTenancy"/>).
     /// </param>
     public Task<TaskResult<AssistantApproval>> DecideAsync(
         Guid approvalId,
@@ -378,8 +378,8 @@ internal sealed class NhAssistantProposalDecisions(
     /// <see cref="DecideAsync(Guid, string, ClaimsPrincipal, bool, string?, string?, NhAssistantDecisionOrigin, CancellationToken, string?)"/>
     /// in the same order without their effects: an expired proposal is not closed and the proposal
     /// guards do not run, so a decision may still be refused as stale. A proposal the person may not
-    /// see is unknown, as for a decision, also one of the whole application that the single-tenant mode
-    /// keeps from a person of another tenant.
+    /// see is unknown, as for a decision, also one of the whole application for a person bound to a
+    /// tenant that the single-tenant mode does not name.
     /// </summary>
     public async Task<TaskResult<NhAssistantProposalDecisionFacts>> FactsAsync(
         Guid approvalId,

@@ -93,7 +93,8 @@ internal static class NhAssistantProposalFeedbackEndpoints
             request.Category,
             request.Text,
             bulk: false,
-            httpContext.RequestAborted);
+            httpContext.RequestAborted,
+            caller.Data.TenantId);
         if (!given.Success)
         {
             return NhAssistantHttpErrors.Failure(given);
@@ -130,7 +131,8 @@ internal static class NhAssistantProposalFeedbackEndpoints
                 request.Category,
                 request.Text,
                 bulk: true,
-                httpContext.RequestAborted);
+                httpContext.RequestAborted,
+                caller.Data.TenantId);
             results.Add(new NhAssistantFeedbackOutcomeDto(approvalId, given.Success, given.Success ? null : NhAssistantResults.CodeOf(given, NhAssistantErrorCodes.TurnFailed)));
         }
 

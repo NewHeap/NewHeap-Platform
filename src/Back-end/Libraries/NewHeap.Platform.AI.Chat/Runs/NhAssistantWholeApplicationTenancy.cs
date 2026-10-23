@@ -6,7 +6,8 @@ namespace NewHeap.Platform.AI.Chat.Runs;
 /// Who takes part in the work of the whole application (<see cref="NhAiSubjectRef.SystemType"/>), whose
 /// threads, runs and proposals are stored without a tenant. A caller without a tenant always does. With
 /// <see cref="NhAssistantBuilder.UseSingleTenant"/> a caller of the configured tenant does as well; a
-/// caller of any other tenant never does. The rule only says who may take part: the read and approve
+/// caller of any other tenant never does, with or without the mode, neither in listings nor by id. The
+/// rule only says who may take part: the read and approve
 /// policies of the whole application and the agent's run and view policies still decide what such a
 /// caller sees and decides.
 /// </summary>
@@ -14,8 +15,7 @@ internal static class NhAssistantWholeApplicationTenancy
 {
     /// <summary>
     /// Whether a caller bound to <paramref name="tenantId"/> takes part in the whole application's
-    /// work: without a tenant always, with the single-tenant mode also as a caller of its tenant. The
-    /// checks that kept every caller with a tenant out before the mode existed ask this.
+    /// work: without a tenant always, with the single-tenant mode also as a caller of its tenant.
     /// </summary>
     public static bool TakesPart(NhAssistantRegistrationState registration, string? tenantId)
     {
@@ -25,15 +25,14 @@ internal static class NhAssistantWholeApplicationTenancy
     }
 
     /// <summary>
-    /// Whether the single-tenant mode keeps a caller out of the whole application's work in the checks
-    /// that compared no tenant before the mode existed, such as deciding a proposal by its id, starting
-    /// an agent by hand and the agent's thread: with the mode a caller of another tenant, without it
-    /// nobody, so those checks keep their behavior in a host without the mode.
+    /// Whether a caller is kept out of the whole application's work where it is reached by id, such as
+    /// deciding a proposal, reading its decision facts, starting or opening an agent's thread and the
+    /// thread itself: a caller bound to a tenant, unless the single-tenant mode names exactly that
+    /// tenant. Without the mode only callers without a tenant, such as the host's operators, take part.
     /// </summary>
     public static bool KeepsOut(NhAssistantRegistrationState registration, string? tenantId)
     {
-        ArgumentNullException.ThrowIfNull(registration);
-        return registration.SingleTenantId is not null && !TakesPart(registration, tenantId);
+        return !TakesPart(registration, tenantId);
     }
 
     /// <summary>
@@ -70,8 +69,9 @@ internal static class NhAssistantWholeApplicationTenancy
     }
 
     /// <summary>
-    /// Whether the single-tenant mode keeps the caller from the whole application's thread
-    /// (<see cref="KeepsOut"/>); a thread of the application's own subjects is never kept out here.
+    /// Whether the caller is kept from the whole application's thread: bound to a tenant that the
+    /// single-tenant mode does not name. A thread of the application's own subjects is never kept out
+    /// here; its tenant and resolver decide.
     /// </summary>
     public static bool KeepsOut(NhAssistantRegistrationState registration, AssistantThread thread, string? tenantId)
     {
@@ -80,8 +80,8 @@ internal static class NhAssistantWholeApplicationTenancy
     }
 
     /// <summary>
-    /// Whether the single-tenant mode keeps the caller from the subject: the whole application, for a
-    /// caller of another tenant (<see cref="KeepsOut"/>).
+    /// Whether the caller is kept from the subject: the whole application, for a caller bound to a
+    /// tenant that the single-tenant mode does not name.
     /// </summary>
     public static bool KeepsOut(NhAssistantRegistrationState registration, NhAiSubjectRef subject, string? tenantId)
     {

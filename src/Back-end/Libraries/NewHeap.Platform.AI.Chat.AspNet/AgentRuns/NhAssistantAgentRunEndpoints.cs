@@ -860,8 +860,8 @@ internal static class NhAssistantAgentRunEndpoints
 
     /// <summary>
     /// Whether the conversation is a shadow thread hidden from the caller, or a thread of the whole
-    /// application that the single-tenant mode keeps from a caller of <paramref name="tenantId"/>,
-    /// another tenant than its own.
+    /// application kept from a caller bound to <paramref name="tenantId"/>, a tenant the single-tenant
+    /// mode does not name.
     /// </summary>
     private static async Task<bool> IsHiddenAsync(HttpContext httpContext, Guid conversationId, string? tenantId)
     {
@@ -897,8 +897,8 @@ internal static class NhAssistantAgentRunEndpoints
             return (null, null, NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable());
         }
 
-        // A hidden shadow thread, and a thread of the whole application the single-tenant mode keeps
-        // from the caller, is checked before access, which records participants.
+        // A hidden shadow thread, and a thread of the whole application kept from a caller bound to a
+        // tenant, is checked before access, which records participants.
         var access = await IsHiddenAsync(httpContext, conversationId, caller.Data!.TenantId)
             ? null
             : await threads.ResolveAccessAsync(conversationId, caller.Data!.ActorId, null, httpContext.RequestAborted);
@@ -946,7 +946,7 @@ internal static class NhAssistantAgentRunEndpoints
 
     /// <summary>
     /// Reads the agent and subject of a request about an agent's thread. The whole application reads
-    /// as unknown to a caller of another tenant than the single-tenant mode's
+    /// as unknown to a caller bound to a tenant that the single-tenant mode does not name
     /// (<see cref="NhAssistantWholeApplicationTenancy"/>).
     /// </summary>
     internal static bool TryReadSubject(

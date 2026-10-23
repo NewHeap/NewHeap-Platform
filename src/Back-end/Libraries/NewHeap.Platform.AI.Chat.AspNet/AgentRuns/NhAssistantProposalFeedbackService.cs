@@ -20,6 +20,7 @@ internal sealed class NhAssistantProposalFeedbackService(
     NhAssistantSubjectAccessService subjects,
     NhAssistantAgentEvents events,
     NhAssistantAgentWorkUpdates workUpdates,
+    NhAssistantRegistrationState registration,
     IEnumerable<INhAssistantProposalFeedbackSink> feedbackSinks,
     ILogger<NhAssistantProposalFeedbackService> logger)
 {
@@ -41,13 +42,18 @@ internal sealed class NhAssistantProposalFeedbackService(
                 && string.Equals(approval.DecidedByActorId, actorId, StringComparison.Ordinal));
     }
 
+    /// <param name="tenantId">
+    /// The person's tenant: a person bound to a tenant that the single-tenant mode does not name finds no
+    /// proposal of the whole application (<see cref="NhAssistantWholeApplicationTenancy"/>).
+    /// </param>
     public async Task<TaskResult<AssistantProposalFeedback>> GiveAsync(
         Guid approvalId,
         string actorId,
         string? category,
         string? text,
         bool bulk,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? tenantId = null)
     {
         var trimmed = string.IsNullOrWhiteSpace(text) ? null : text.Trim();
         if (!NhAssistantProposalFeedbackCategories.IsKnown(category)
@@ -62,7 +68,8 @@ internal sealed class NhAssistantProposalFeedbackService(
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
         if (approval is null
             || thread is null
-            || actorId.StartsWith(NhAssistantAgentEvents.AgentActorPrefix, StringComparison.Ordinal))
+            || actorId.StartsWith(NhAssistantAgentEvents.AgentActorPrefix, StringComparison.Ordinal)
+            || NhAssistantWholeApplicationTenancy.KeepsOut(registration, thread, tenantId))
         {
             return TaskResult<AssistantProposalFeedback>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
         }

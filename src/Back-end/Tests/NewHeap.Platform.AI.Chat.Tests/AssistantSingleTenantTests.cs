@@ -37,6 +37,8 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
     internal const string Issuer = "https://identity.example.test";
+    internal const string OperatorIssuer = "https://operators.example.test";
+    internal const string Operator = "operator-1";
     private const string Tenant = "tenant-1";
     private const string OtherTenant = "tenant-2";
     private const string Statistics = "weekly-statistics";
@@ -165,27 +167,69 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
-    public async Task Without_the_mode_a_person_with_a_tenant_sees_nothing_of_the_whole_application(AssistantTestProvider provider)
+    public async Task Without_the_mode_a_person_with_a_tenant_takes_no_part_and_an_operator_without_one_does(AssistantTestProvider provider)
     {
         await using var app = await StartAsync(provider, singleTenant: false);
         var (thread, runId, approvalId) = await SeedAsync(app);
         using var admin = app.CreateClient(Admin, admin: true);
         using var reader = app.CreateClient(Reader);
+        using var operatorClient = app.CreateClient(Operator, admin: true);
 
-        // The same people, projected into the tenant, keep the behavior of a host with many tenants.
+        // The people projected into the tenant are bound to it, as in a host with many tenants: they
+        // neither find the whole application's work in listings nor reach it by its id.
         var inbox = await ReadJsonAsync(await admin.GetAsync("/api/assistant/approvals/inbox"));
         Assert.DoesNotContain(approvalId, inbox.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("approvalId").GetGuid()));
         Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync($"/api/assistant/approvals/{approvalId}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await reader.GetAsync($"/api/assistant/boards/{Group}")).StatusCode);
         Assert.Empty((await ReadJsonAsync(await reader.GetAsync("/api/assistant/runs"))).GetProperty("items").EnumerateArray());
         Assert.Equal(HttpStatusCode.NotFound, (await reader.GetAsync($"/api/assistant/runs/{runId}")).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await reader.GetAsync($"/api/assistant/conversations/{thread.ConversationId}")).StatusCode);
+        var lookup = $"/api/assistant/threads?agentId={Statistics}&subjectType={NhAiSubjectRef.SystemType}&subjectId={NhAiSystemSubjects.GlobalId}";
+        foreach (var path in new[]
+        {
+            lookup,
+            $"/api/assistant/conversations/{thread.ConversationId}",
+            $"/api/assistant/threads/{thread.ConversationId}/runs",
+            $"/api/assistant/threads/{thread.ConversationId}/proposals",
+            "/api/assistant/subjects/nh-system/global/work",
+            "/api/assistant/subjects/nh-system/global/agents"
+        })
+        {
+            using var refused = await admin.GetAsync(path);
+            Assert.True(refused.StatusCode == HttpStatusCode.NotFound, $"{path} answered {refused.StatusCode}.");
+        }
+        var start = new { agentId = Statistics, subjectType = NhAiSubjectRef.SystemType, subjectId = NhAiSystemSubjects.GlobalId, message = "Count the open projects." };
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync("/api/assistant/threads/start", start)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync("/api/assistant/threads/open", start)).StatusCode);
+        var rejection = new { decision = "reject", reason = "Not this week." };
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync($"/api/assistant/approvals/{approvalId}/decisions", rejection)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync($"/api/assistant/approvals/{approvalId}/resolve", new { action = "mark-resolved" })).StatusCode);
+        Assert.Empty(app.Services.GetRequiredService<RecordingOperations>().Enqueued);
 
-        await using var scope = app.Services.CreateAsyncScope();
-        var watchers = scope.ServiceProvider.GetRequiredService<NhAssistantAgentWorkWatchers>();
-        Assert.Empty(await watchers.WatchableAsync(ActorOf(Reader), Tenant, CancellationToken.None));
-        // A caller without a tenant still takes part, by the same policies.
-        Assert.Single(await watchers.WatchableAsync(ActorOf(Reader), null, CancellationToken.None));
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var watchers = scope.ServiceProvider.GetRequiredService<NhAssistantAgentWorkWatchers>();
+            Assert.Empty(await watchers.WatchableAsync(ActorOf(Reader), Tenant, CancellationToken.None));
+            var service = scope.ServiceProvider.GetRequiredService<INhAssistantProposalDecisionService>();
+            var bound = new NhAssistantDecidingPerson(Principal(Admin), ActorOf(Admin), Tenant);
+            Assert.Equal(NhAssistantErrorCodes.ApprovalNotFound, CodeOf(await service.GetDecisionFactsAsync(bound, approvalId, CancellationToken.None)));
+            var proposal = (await scope.ServiceProvider.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approvalId, CancellationToken.None))!;
+            Assert.Equal(
+                NhAssistantErrorCodes.ApprovalNotFound,
+                CodeOf(await service.DecideAsync(bound, approvalId, proposal.ProposalHash, NhAssistantProposalDecision.Reject, "messaging-reply", "reply-1", CancellationToken.None)));
+
+            // An operator without a tenant takes part by the same policies, through the channel as well.
+            var operatorPerson = new NhAssistantDecidingPerson(Principal(Operator, OperatorIssuer), OperatorActor, null);
+            Assert.True((await service.GetDecisionFactsAsync(operatorPerson, approvalId, CancellationToken.None)).Data!.CanDecide);
+        }
+
+        // The operator finds the proposal, reads the thread, runs the agent now and decides the proposal.
+        var operatorInbox = await ReadJsonAsync(await operatorClient.GetAsync("/api/assistant/approvals/inbox"));
+        Assert.Contains(approvalId, operatorInbox.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("approvalId").GetGuid()));
+        Assert.Equal(HttpStatusCode.OK, (await operatorClient.GetAsync($"/api/assistant/conversations/{thread.ConversationId}")).StatusCode);
+        var receipt = await ReadJsonAsync(await operatorClient.PostAsJsonAsync("/api/assistant/threads/start", start), HttpStatusCode.Accepted);
+        Assert.Equal(thread.ConversationId, receipt.GetProperty("conversationId").GetGuid());
+        var decided = await ReadJsonAsync(await operatorClient.PostAsJsonAsync($"/api/assistant/approvals/{approvalId}/decisions", rejection));
+        Assert.Equal(NhAssistantApprovalStatuses.Rejected, decided.GetProperty("status").GetString());
     }
 
     [Fact]
@@ -229,11 +273,12 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
         Assert.Throws<ArgumentException>(() => builder.UseSingleTenant(" tenant-1"));
         Assert.Throws<ArgumentException>(() => builder.UseSingleTenant(new string('t', 257)));
 
-        // Without the mode only callers without a tenant take part, and nobody is kept out where no
-        // tenant was compared before.
+        // Without the mode only callers without a tenant take part; every caller with a tenant is kept
+        // out, also where the whole application is reached by id.
         Assert.True(NhAssistantWholeApplicationTenancy.TakesPart(state, null));
         Assert.False(NhAssistantWholeApplicationTenancy.TakesPart(state, Tenant));
-        Assert.False(NhAssistantWholeApplicationTenancy.KeepsOut(state, OtherTenant));
+        Assert.True(NhAssistantWholeApplicationTenancy.KeepsOut(state, Tenant));
+        Assert.False(NhAssistantWholeApplicationTenancy.KeepsOut(state, null));
 
         builder.UseSingleTenant(Tenant).UseSingleTenant(Tenant);
         var another = Assert.Throws<InvalidOperationException>(() => builder.UseSingleTenant(OtherTenant));
@@ -242,6 +287,7 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
         Assert.True(NhAssistantWholeApplicationTenancy.TakesPart(state, null));
         Assert.False(NhAssistantWholeApplicationTenancy.TakesPart(state, OtherTenant));
         Assert.True(NhAssistantWholeApplicationTenancy.KeepsOut(state, OtherTenant));
+        Assert.False(NhAssistantWholeApplicationTenancy.KeepsOut(state, Tenant));
         // The mode never keeps anyone from the application's own subjects; their tenants decide there.
         Assert.False(NhAssistantWholeApplicationTenancy.KeepsOut(state, new NhAiSubjectRef("project", "1"), OtherTenant));
         Assert.True(NhAssistantWholeApplicationTenancy.KeepsOut(state, NhAiSystemSubjects.Global, OtherTenant));
@@ -265,9 +311,14 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
         return "oidc:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Issuer + "\n" + subject)));
     }
 
-    private static ClaimsPrincipal Principal(string subject)
+    /// <summary>
+    /// The operator's actor id at the operators' issuer, which projects no tenant.
+    /// </summary>
+    internal static string OperatorActor => "oidc:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(OperatorIssuer + "\n" + Operator)));
+
+    private static ClaimsPrincipal Principal(string subject, string issuer = Issuer)
     {
-        return new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", subject), new Claim("iss", Issuer)], "test"));
+        return new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", subject), new Claim("iss", issuer)], "test"));
     }
 
     private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider, bool singleTenant)
@@ -277,11 +328,14 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
             new NhAiScriptedChatClient(),
             configure: services =>
             {
-                // Every person signs in at one issuer and belongs to one tenant, as in a host with an
-                // external identity provider per customer.
+                // The customer's people sign in at one issuer and belong to one tenant, as in a host with
+                // an external identity provider per customer; the host's operators sign in at an issuer
+                // of their own without a tenant.
                 services.AddAuthentication(SingleTenantAuthentication.SchemeName)
                     .AddScheme<AuthenticationSchemeOptions, SingleTenantAuthentication>(SingleTenantAuthentication.SchemeName, _ => { });
-                services.AddNewHeapPlatformAIAspNet(ai => ai.UseAuthenticatedClaimsForSingleTenant(Issuer, Tenant));
+                services.AddNewHeapPlatformAIAspNet(ai => ai
+                    .UseAuthenticatedClaimsForSingleTenant(Issuer, Tenant)
+                    .UseAuthenticatedClaimsWithoutTenant(OperatorIssuer));
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, TenantPrincipals>());
                 services.AddAuthorization(options => options.AddPolicy(ResultsPolicy, policy => policy.RequireClaim("permission", ResultsPolicy)));
                 services.AddSingleton<RecordingOperations>();
@@ -431,7 +485,8 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
         {
             [ActorOf(Admin)] = ["assistant", "assistant-admin", ResultsPolicy],
             [ActorOf(Reader)] = ["assistant", ResultsPolicy],
-            [ActorOf(Viewer)] = ["assistant"]
+            [ActorOf(Viewer)] = ["assistant"],
+            [OperatorActor] = ["assistant", "assistant-admin", ResultsPolicy]
         };
 
         public ValueTask<ClaimsPrincipal?> CreateAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken = default)
@@ -466,7 +521,7 @@ internal sealed class SingleTenantAuthentication(
 
         var claims = new List<Claim>
         {
-            new("iss", AssistantSingleTenantTests.Issuer),
+            new("iss", user == AssistantSingleTenantTests.Operator ? AssistantSingleTenantTests.OperatorIssuer : AssistantSingleTenantTests.Issuer),
             new("sub", user),
             new(ClaimTypes.NameIdentifier, user)
         };

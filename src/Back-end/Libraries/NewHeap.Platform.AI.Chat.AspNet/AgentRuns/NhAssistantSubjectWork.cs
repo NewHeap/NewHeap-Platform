@@ -42,9 +42,9 @@ public interface INhAssistantSubjectWork
 }
 
 /// <summary>
-/// Reads the agent work on a subject for the caller of the current request. With the single-tenant mode
-/// (<c>UseSingleTenant</c>) the whole application reads as unknown to a caller of another tenant; its
-/// counts are zero.
+/// Reads the agent work on a subject for the caller of the current request. The whole application
+/// reads as unknown to a caller bound to a tenant, unless the single-tenant mode (<c>UseSingleTenant</c>)
+/// names exactly that tenant; its counts are zero.
 /// </summary>
 public static class NhAssistantSubjectWorkExtensions
 {
