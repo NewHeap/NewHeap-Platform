@@ -8,8 +8,11 @@ administration panel, SQLite storage and YARP forwarding.
 ## Overview
 
 Version one is functionally complete for single-instance deployments with local
-SQLite storage. See the [completion record](../../../../docs/plans/newheap-proxy-design.md#version-one-completion)
-for accepted scope, implementation choices and future-work boundaries.
+SQLite storage. Multiple destinations, load balancing, failover, session affinity,
+distributed storage and SQL Server or PostgreSQL providers are outside its scope, as
+are external redirect-cycle analysis, live connectivity probes and previews of
+external YARP configuration sources; host option changes require a restart. Sample
+cases SPM-238 and SPM-239 hold its executable evidence.
 
 - Redirect moved pages using exact paths or regular expressions.
 - Forward requests to backend services with path, header and query transforms.

@@ -18,7 +18,7 @@ This dependency is development-only and is absent from the published NewHeap npm
 
 ## Document reading in the sample only
 
-SampleProjectManagement's example reading tool, `OfficeDocumentReader`, turns Word and Excel documents into text for the assistant with `DocumentFormat.OpenXml` 3.5.1 (MIT) and its `DocumentFormat.OpenXml.Framework` dependency (MIT). Only the sample's API references it; the NewHeap packages carry no document library (decision F10 of the [files in model turns plan](../plans/ai-files-in-model-turns-plan.md)), so applications copy the example with a library of their choice or use a document-reading MCP server.
+SampleProjectManagement's example reading tool, `OfficeDocumentReader`, turns Word and Excel documents into text for the assistant with `DocumentFormat.OpenXml` 3.5.1 (MIT) and its `DocumentFormat.OpenXml.Framework` dependency (MIT). Only the sample's API references it; the NewHeap packages deliberately carry no document library, so applications copy the example with a library of their choice or use a document-reading MCP server.
 
 The reader runs in the application's process on files whose size the assistant's limits already bound, and it bounds what one package part may unpack with `OpenSettings.MaxCharactersInPart`, so a document that compresses well cannot exhaust memory. A damaged or oversized document fails the file instead of returning partial text. Review the pin with the sample's other dependencies; a replacement must keep a permissive licence.
 
