@@ -23,6 +23,13 @@ namespace SampleProjectManagement.Api.Services;
 /// as it is, and the message stays untrusted (no <see cref="NhAssistantApplicationMessage.Trusted"/>),
 /// because the model must never follow instructions hidden in a name.
 /// </para>
+/// <para>
+/// A second message then tells the assistant what to do with the finished analysis. It is
+/// <see cref="NhAssistantApplicationMessage.Trusted"/>, so the model follows it as the application's
+/// instruction, and therefore it is fixed text that the application wrote itself
+/// (<see cref="AssistantInstruction"/>), without the division's name or any other data people
+/// entered. People see it too, labelled as an instruction for the assistant.
+/// </para>
 /// </summary>
 public sealed class ProjectAnalysisAssistantNotices(
     INhAssistantConversationMessages messages,
@@ -30,9 +37,19 @@ public sealed class ProjectAnalysisAssistantNotices(
     ILogger<ProjectAnalysisAssistantNotices> logger)
 {
     /// <summary>
+    /// The application's instruction to the assistant after an analysis finished: fixed text, never
+    /// people's data, because the model follows it.
+    /// </summary>
+    public const string AssistantInstruction =
+        "When the person asks about this portfolio analysis, first offer a short summary of its outcome "
+        + "and point to the analysis link in the message before this one for the outcome per project. "
+        + "Start no new analysis unless the person asks for one.";
+
+    /// <summary>
     /// Posts that the analysis <paramref name="operationId"/> of <paramref name="projectCount"/>
     /// projects of <paramref name="divisionId"/> finished into <paramref name="conversationId"/> for
-    /// <paramref name="ownerUserId"/>. An expected refusal, such as a conversation the person deleted
+    /// <paramref name="ownerUserId"/>, followed by the trusted <see cref="AssistantInstruction"/>, and
+    /// returns the receipt of the first. An expected refusal, such as a conversation the person deleted
     /// meanwhile, is logged by its code and returned; it never fails the analysis.
     /// </summary>
     public async Task<TaskResult<NhAssistantApplicationMessageReceipt>> AnalysisFinishedAsync(
@@ -52,12 +69,13 @@ public sealed class ProjectAnalysisAssistantNotices(
         var analysis = string.IsNullOrWhiteSpace(divisionName)
             ? "The portfolio analysis"
             : $"The portfolio analysis of **{NhAssistantMarkdown.Escape(divisionName)}**";
+        // The conversation id came from the person's client.
+        var access = NhAssistantApplicationMessageAccess.ReadableBy(new NhAssistantConversationPerson(ownerUserId.ToString()));
         var message = new NhAssistantApplicationMessage(string.Create(
             CultureInfo.InvariantCulture,
             $"{analysis} finished with **{projectCount} projects**. Open it to see the outcome per project."))
         {
-            // The conversation id came from the person's client.
-            Access = NhAssistantApplicationMessageAccess.ReadableBy(new NhAssistantConversationPerson(ownerUserId.ToString())),
+            Access = access,
             Title = "Portfolio analysis finished",
             SenderName = "Portfolio analysis",
             Link = new NhAssistantApplicationMessageLink($"/background-operations/{operationId}", "Open the analysis"),
@@ -73,8 +91,41 @@ public sealed class ProjectAnalysisAssistantNotices(
                 operationId,
                 conversationId,
                 posted.GetResultItems().FirstOrDefault()?.Name);
+            return posted;
         }
 
+        await PostInstructionAsync(conversationId, access, operationId, cancellationToken);
         return posted;
+    }
+
+    /// <summary>
+    /// Posts the trusted <see cref="AssistantInstruction"/> after the analysis message, with an
+    /// idempotency key of its own per operation and without a notification: the person was notified of
+    /// the analysis already.
+    /// </summary>
+    private async Task PostInstructionAsync(
+        Guid conversationId,
+        NhAssistantApplicationMessageAccess access,
+        Guid operationId,
+        CancellationToken cancellationToken)
+    {
+        var instruction = new NhAssistantApplicationMessage(AssistantInstruction)
+        {
+            Access = access,
+            SenderName = "Portfolio analysis",
+            // Fixed text the application wrote itself; never put people's data into a trusted message.
+            Trusted = true,
+            IdempotencyKey = "portfolio-analysis-instruction:" + operationId.ToString("N")
+        };
+
+        var posted = await messages.PostAsync(conversationId, instruction, cancellationToken);
+        if (!posted.Success)
+        {
+            logger.LogWarning(
+                "The portfolio analysis {OperationId} could not give conversation {ConversationId} its instruction for the assistant ({Code}).",
+                operationId,
+                conversationId,
+                posted.GetResultItems().FirstOrDefault()?.Name);
+        }
     }
 }
