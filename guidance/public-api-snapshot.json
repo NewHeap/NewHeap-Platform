@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.81",
   "backEnd": {
-    "hash": "9b011932b11c98bf68d0d92b4bf9ca5a83c6de0020425e30a3fe1c887f5ff756",
+    "hash": "f9c2df3e92006c98bdf6bd1e59bbc4b3769006211ef2afcf7621ad505cb87cef",
     "declarationCount": 10021,
     "declarations": [
       {
@@ -16831,11 +16831,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
-        "declaration": "public async Task<AssistantMessage?> FindApplicationMessageAsync( Guid conversationId, string clientMessageId, CancellationToken cancellationToken) {"
+        "declaration": "public Task<AssistantMessage?> AddMessageOnceAsync( AssistantMessage message, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
-        "declaration": "public async Task AddApplicationMessageAsync( AssistantMessage message, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<AssistantMessage?> AddApplicationMessageAsync( AssistantMessage message, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
