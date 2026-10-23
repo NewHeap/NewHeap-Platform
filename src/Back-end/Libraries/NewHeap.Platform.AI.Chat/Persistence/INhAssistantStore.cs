@@ -99,26 +99,31 @@ internal interface INhAssistantStore
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Adds a message with the next per-conversation sequence number.
+    /// Adds a message with the next per-conversation sequence number. The messages of one
+    /// conversation take turns under its message lock, so no two get the same number.
     /// </summary>
     Task AddMessageAsync(
         AssistantMessage message,
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// The first message the application posted into the conversation with
-    /// <paramref name="clientMessageId"/>, or <see langword="null"/>.
+    /// Adds a message with the next sequence number unless the conversation already holds a message
+    /// of its role with its client message id. The check and the insert happen under the
+    /// conversation's message lock, so concurrent adds of the same message store it once. Returns the
+    /// earlier message, or <see langword="null"/> when this one was added.
     /// </summary>
-    Task<AssistantMessage?> FindApplicationMessageAsync(
-        Guid conversationId,
-        string clientMessageId,
+    Task<AssistantMessage?> AddMessageOnceAsync(
+        AssistantMessage message,
         CancellationToken cancellationToken);
 
     /// <summary>
     /// Adds a message the application posted with the next sequence number and moves the
-    /// conversation's update time to it, unless a turn runs.
+    /// conversation's update time to it, unless a turn runs. A message with a client message id (the
+    /// application's idempotency key) is added once, as <see cref="AddMessageOnceAsync"/> adds it:
+    /// returns the earlier application message with that id, or <see langword="null"/> when this one
+    /// was added.
     /// </summary>
-    Task AddApplicationMessageAsync(
+    Task<AssistantMessage?> AddApplicationMessageAsync(
         AssistantMessage message,
         CancellationToken cancellationToken);
 

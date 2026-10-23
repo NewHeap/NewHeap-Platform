@@ -17,6 +17,15 @@ internal sealed class NhAssistantStore(
 
     internal TimeSpan ParticipantLockTimeout { get; init; } = DefaultParticipantLockTimeout;
 
+    /// <summary>
+    /// How long a message waits for the other messages of its conversation. A message holds the lock
+    /// for a few short statements, so only a stalled database makes another message wait this long.
+    /// The bound stays below the default command timeout, so the wait ends as a lock timeout.
+    /// </summary>
+    internal static readonly TimeSpan DefaultMessageLockTimeout = TimeSpan.FromSeconds(15);
+
+    internal TimeSpan MessageLockTimeout { get; init; } = DefaultMessageLockTimeout;
+
     public async Task AddConversationAsync(
         AssistantConversation conversation,
         CancellationToken cancellationToken)
@@ -289,38 +298,35 @@ internal sealed class NhAssistantStore(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(message);
-        await using var context = contextFactory.CreateDbContext();
-        var lastSequence = await context.Messages
-            .Where(item => item.ConversationId == message.ConversationId)
-            .Select(item => (int?)item.Sequence)
-            .MaxAsync(cancellationToken);
-        message.Sequence = (lastSequence ?? 0) + 1;
-        context.Messages.Add(message);
-        await context.SaveChangesAsync(cancellationToken);
+
+        await AddUnderMessageLockAsync(message, once: false, cancellationToken);
     }
 
-    public async Task<AssistantMessage?> FindApplicationMessageAsync(
-        Guid conversationId,
-        string clientMessageId,
-        CancellationToken cancellationToken)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(clientMessageId);
-        await using var context = contextFactory.CreateDbContext();
-        return await context.Messages
-            .AsNoTracking()
-            .Where(message => message.ConversationId == conversationId
-                && message.Role == NhAssistantMessageRoles.Application
-                && message.ClientMessageId == clientMessageId)
-            .OrderBy(message => message.Sequence)
-            .FirstOrDefaultAsync(cancellationToken);
-    }
-
-    public async Task AddApplicationMessageAsync(
+    public Task<AssistantMessage?> AddMessageOnceAsync(
         AssistantMessage message,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(message);
-        await AddMessageAsync(message, cancellationToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message.ClientMessageId, nameof(message));
+
+        return AddUnderMessageLockAsync(message, once: true, cancellationToken);
+    }
+
+    public async Task<AssistantMessage?> AddApplicationMessageAsync(
+        AssistantMessage message,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+
+        // Without an idempotency key every post adds a message.
+        var earlier = await AddUnderMessageLockAsync(
+            message,
+            once: message.ClientMessageId is not null,
+            cancellationToken);
+        if (earlier is not null)
+        {
+            return earlier;
+        }
 
         // The conversation moves up in its people's lists. A running turn keeps its own update time,
         // which tells an abandoned turn from a live one.
@@ -332,6 +338,75 @@ internal sealed class NhAssistantStore(
             .ExecuteUpdateAsync(
                 setters => setters.SetProperty(conversation => conversation.UpdatedAt, message.CreatedAt),
                 cancellationToken);
+        return null;
+    }
+
+    /// <summary>
+    /// Adds <paramref name="message"/> with the next sequence number of its conversation. The messages
+    /// of one conversation take turns under the platform's transaction lock: reading the highest
+    /// sequence number and inserting happen in one transaction that holds the conversation's message
+    /// lock, so a turn's message, an agent's input and a message the application posts at the same
+    /// moment never share a number. With <paramref name="once"/>, the same transaction first looks for
+    /// a message of the same role with the message's client message id and returns it instead of
+    /// adding, so concurrent adds of one message store it once.
+    /// </summary>
+    /// <exception cref="TimeoutException">
+    /// The conversation's message lock stayed taken past <see cref="MessageLockTimeout"/>. The message
+    /// is not stored: without the lock it could share its sequence number with another message.
+    /// </exception>
+    private async Task<AssistantMessage?> AddUnderMessageLockAsync(
+        AssistantMessage message,
+        bool once,
+        CancellationToken cancellationToken)
+    {
+        var conversationId = message.ConversationId;
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        if (!await contextFactory.TransactionLocks.TryAcquireAsync(
+            context,
+            MessageLockResource(conversationId),
+            MessageLockTimeout,
+            cancellationToken))
+        {
+            throw new TimeoutException(
+                $"A message of assistant conversation {conversationId} waited {MessageLockTimeout} for the conversation's message lock and was not stored.");
+        }
+
+        if (once)
+        {
+            var role = message.Role;
+            var clientMessageId = message.ClientMessageId;
+            var earlier = await context.Messages
+                .AsNoTracking()
+                .Where(item => item.ConversationId == conversationId
+                    && item.Role == role
+                    && item.ClientMessageId == clientMessageId)
+                .OrderBy(item => item.Sequence)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (earlier is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return earlier;
+            }
+        }
+
+        var lastSequence = await context.Messages
+            .Where(item => item.ConversationId == conversationId)
+            .Select(item => (int?)item.Sequence)
+            .MaxAsync(cancellationToken);
+        message.Sequence = (lastSequence ?? 0) + 1;
+        context.Messages.Add(message);
+        await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return null;
+    }
+
+    /// <summary>
+    /// The transaction lock that the messages of one conversation take.
+    /// </summary>
+    internal static string MessageLockResource(Guid conversationId)
+    {
+        return $"NhAssistant:ConversationMessages:{conversationId:N}";
     }
 
     public async Task UpdateMessageAsync(
