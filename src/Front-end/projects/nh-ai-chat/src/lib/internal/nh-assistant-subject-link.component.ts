@@ -83,33 +83,63 @@ export class NhAssistantSubjectLinkComponent {
   });
 
   open(event: MouseEvent, target: NhAssistantSubjectTarget): void {
-    if (!target.route || !this.router || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
-      return;
-    }
-
-    event.preventDefault();
-    void this.router.navigateByUrl(target.route);
+    nhAssistantOpenLink(event, target, this.router);
   }
 
   private urlTarget(url: string | null): NhAssistantSubjectTarget | null {
-    if (!url) {
-      return null;
-    }
-    if (url.startsWith('/') && !url.startsWith('//') && !url.startsWith('/\\')) {
-      return this.routeTarget(url);
-    }
-
-    return /^https:\/\/[^/\\\s]+/i.test(url) ? { href: url, route: null } : null;
+    return nhAssistantLinkTarget(url, this.router, this.locationStrategy);
   }
 
   private routeTarget(url: string | null): NhAssistantSubjectTarget | null {
-    if (!url) {
-      return null;
-    }
-
-    return {
-      href: this.locationStrategy ? this.locationStrategy.prepareExternalUrl(url) : url,
-      route: this.router ? url : null
-    };
+    return nhAssistantRouteTarget(url, this.router, this.locationStrategy);
   }
+}
+
+/**
+ * Where a link the server sent leads (internal): a path within the application, which the router
+ * opens, an `https` address elsewhere, or `null` for anything else, so no other scheme reaches an
+ * anchor. Subject links and the links of application messages follow this rule.
+ */
+export function nhAssistantLinkTarget(
+  url: string | null | undefined,
+  router: Router | null,
+  locationStrategy: LocationStrategy | null
+): NhAssistantSubjectTarget | null {
+  if (!url) {
+    return null;
+  }
+  if (url.startsWith('/') && !url.startsWith('//') && !url.startsWith('/\\')) {
+    return nhAssistantRouteTarget(url, router, locationStrategy);
+  }
+
+  return /^https:\/\/[^/\\\s]+/i.test(url) ? { href: url, route: null } : null;
+}
+
+/** A route of the application as the browser shows it and as the router opens it (internal). */
+export function nhAssistantRouteTarget(
+  url: string | null,
+  router: Router | null,
+  locationStrategy: LocationStrategy | null
+): NhAssistantSubjectTarget | null {
+  if (!url) {
+    return null;
+  }
+
+  return {
+    href: locationStrategy ? locationStrategy.prepareExternalUrl(url) : url,
+    route: router ? url : null
+  };
+}
+
+/**
+ * Opens a route of the application through the router on a plain click (internal). Ctrl-, Cmd-,
+ * Shift-, Alt- and middle-clicks, and addresses outside the application, keep the browser's behavior.
+ */
+export function nhAssistantOpenLink(event: MouseEvent, target: NhAssistantSubjectTarget, router: Router | null): void {
+  if (!target.route || !router || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+    return;
+  }
+
+  event.preventDefault();
+  void router.navigateByUrl(target.route);
 }

@@ -74,7 +74,10 @@
       "trigger": "Gebeurtenis",
       "rule": "Automatische regel",
       "files": "Bijgevoegde bestanden",
-      "file-meta": "{{type}}, {{size}}"
+      "file-meta": "{{type}}, {{size}}",
+      "application": "Applicatie",
+      "application-label": "Bericht van de applicatie",
+      "application-link": "Openen"
     },
     "composer": {
       "label": "Bericht",

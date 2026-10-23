@@ -74,7 +74,10 @@
       "trigger": "Event",
       "rule": "Automatic rule",
       "files": "Attached files",
-      "file-meta": "{{type}}, {{size}}"
+      "file-meta": "{{type}}, {{size}}",
+      "application": "Application",
+      "application-label": "Message from the application",
+      "application-link": "Open"
     },
     "composer": {
       "label": "Message",

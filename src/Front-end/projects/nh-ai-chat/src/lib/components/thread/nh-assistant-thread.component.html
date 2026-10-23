@@ -27,11 +27,26 @@
     class="message"
     [attr.data-role]="message.role"
     [attr.data-others]="isOthers(message) ? 'true' : null"
-    [attr.data-author]="isTrigger(message) ? 'trigger' : isRule(message) ? 'rule' : null">
+    [attr.data-author]="isTrigger(message) ? 'trigger' : isRule(message) ? 'rule' : isApplication(message) ? 'application' : null"
+    [attr.aria-label]="isApplication(message) ? ('nh-assistant.thread.application-label' | translate) : null">
     @if (isTrigger(message)) {
       <p class="author">{{ 'nh-assistant.thread.trigger' | translate }}</p>
     } @else if (isRule(message)) {
       <p class="author">{{ 'nh-assistant.thread.rule' | translate }}</p>
+    } @else if (isApplication(message)) {
+      <!-- The application's message reads as the application's, also when it names who in the application posted it. -->
+      <p class="author">
+        <nh-assistant-icon class="author-icon" name="bell" />
+        @if (message.application?.senderName; as sender) {
+          <!-- The space keeps the sender and the tag apart for screen readers; the flex gap shows it. -->
+          <span>{{ sender }}</span>{{ ' ' }}<span class="tag">{{ 'nh-assistant.thread.application' | translate }}</span>
+        } @else {
+          <span>{{ 'nh-assistant.thread.application' | translate }}</span>
+        }
+      </p>
+      @if (message.application?.title; as title) {
+        <p class="application-title">{{ title }}</p>
+      }
     } @else if (isOthers(message)) {
       <p class="author">{{ authorName(message) ?? ('nh-assistant.thread.participant' | translate) }}</p>
     } @else {
@@ -40,7 +55,7 @@
     @for (group of message.parts | nhAssistantPartGroups; track group.key) {
       @switch (group.kind) {
         @case ('text') {
-          @if (message.role === 'assistant' && markdown()) {
+          @if ((message.role === 'assistant' || isApplication(message)) && markdown()) {
             <div class="bubble markdown" [innerHTML]="group.part.text | nhAssistantMarkdown"></div>
           } @else {
             <div class="bubble plain">{{ group.part.text }}</div>
@@ -79,6 +94,12 @@
             (decide)="choose(group.part, $event)" />
         }
       }
+    }
+    @if (isApplication(message) && message.application?.link; as link) {
+      <nh-assistant-message-link
+        class="application-link"
+        [url]="link.url"
+        [label]="link.label || ('nh-assistant.thread.application-link' | translate)" />
     }
   </article>
 </ng-template>

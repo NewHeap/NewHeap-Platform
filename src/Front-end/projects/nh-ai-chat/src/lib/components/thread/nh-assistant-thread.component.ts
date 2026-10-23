@@ -20,6 +20,7 @@ import { ApprovalDecision, ApprovalPart, ConversationMember, FilePart, Message }
 import { nhAssistantFileTypeLabel, nhAssistantFormatFileSize } from '../../internal/nh-assistant-files';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantMarkdownPipe } from '../../internal/nh-assistant-markdown.pipe';
+import { NhAssistantMessageLinkComponent } from '../../internal/nh-assistant-message-link.component';
 import { NhAssistantPartGroupsPipe } from '../../internal/nh-assistant-part-groups';
 import { NhAssistantApprovalCardComponent } from '../approval-card/nh-assistant-approval-card.component';
 import { NhAssistantConnectionRequiredComponent } from '../connection-required/nh-assistant-connection-required.component';
@@ -42,7 +43,8 @@ const stickToBottomDistance = 120;
  * The messages of a conversation as a live log. Assistant text renders as sanitized
  * Markdown, consecutive tool calls as one collapsible group that counts along, and
  * approvals as cards. The files a person attached show by name, type and size. Messages a
- * trigger wrote into an agent thread read as events, not as a person. While a turn runs
+ * trigger wrote into an agent thread read as events, not as a person, and a message the application
+ * posted reads as the application's, with its sender, title, Markdown text and link. While a turn runs
  * without visible progress, a working indicator shows the elapsed time. The thread follows
  * new content while the user is at the bottom.
  */
@@ -55,6 +57,7 @@ const stickToBottomDistance = 120;
     TranslatePipe,
     NhAssistantIconComponent,
     NhAssistantMarkdownPipe,
+    NhAssistantMessageLinkComponent,
     NhAssistantPartGroupsPipe,
     NhAssistantToolCallGroupComponent,
     NhAssistantApprovalCardComponent,
@@ -137,7 +140,7 @@ export class NhAssistantThreadComponent {
     }
 
     const last = this.messages()[this.messages().length - 1];
-    if (!last || last.role === 'user' || last.parts.length === 0) {
+    if (!last || last.role === 'user' || last.role === 'application' || last.parts.length === 0) {
       return true;
     }
 
@@ -194,6 +197,11 @@ export class NhAssistantThreadComponent {
   /** True for a user message a trigger wrote into an agent thread. */
   isTrigger(message: Message): boolean {
     return message.role === 'user' && message.authorKind === 'trigger';
+  }
+
+  /** True for a message the application posted into the conversation. */
+  isApplication(message: Message): boolean {
+    return message.role === 'application';
   }
 
   /** True for an assistant message the agent's rules wrote without a model. */

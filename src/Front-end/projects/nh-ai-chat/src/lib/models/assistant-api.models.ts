@@ -160,7 +160,8 @@ export interface ConversationMember {
 
 export interface Message {
   id: string;
-  role: 'user' | 'assistant' | 'tool';
+  /** `application` for a message the application posted into the conversation. */
+  role: 'user' | 'assistant' | 'tool' | 'application';
   createdAt: string;
   parts: MessagePart[];
   /** Position in the conversation; missing on optimistic messages and old servers. */
@@ -169,16 +170,37 @@ export interface Message {
   authorActorId?: string | null;
   /**
    * Who wrote the message: a person or a trigger of an agent for user messages, `rule` for the
-   * summary an agent's rules wrote instead of the model; missing on old servers.
+   * summary an agent's rules wrote instead of the model, `application` for a message the
+   * application posted; missing on old servers.
    */
   authorKind?: MessageAuthorKind | null;
+  /** The title, sender and link of a message the application posted; missing for other messages. */
+  application?: ApplicationMessageDetails | null;
 }
 
 /**
  * `person` for a message a person wrote; `trigger` for one a trigger wrote into an agent thread;
- * `rule` for an assistant message the agent's rules wrote without a model.
+ * `rule` for an assistant message the agent's rules wrote without a model; `application` for a
+ * message the application posted into the conversation.
  */
-export type MessageAuthorKind = 'person' | 'trigger' | 'rule';
+export type MessageAuthorKind = 'person' | 'trigger' | 'rule' | 'application';
+
+/**
+ * What the application said about a message it posted, besides its text: an optional heading, who in
+ * the application posted it and where people continue. The text is the message's `text` part.
+ */
+export interface ApplicationMessageDetails {
+  title: string | null;
+  senderName: string | null;
+  link: ApplicationMessageLink | null;
+}
+
+/** A path within the application, which the chat opens through the router, or an `https` address. */
+export interface ApplicationMessageLink {
+  url: string;
+  /** The text of the link; the chat shows its own text without one. */
+  label: string | null;
+}
 
 export type MessagePart = TextPart | ToolCallPart | ApprovalPart | ConnectionRequiredPart | FilePart;
 
