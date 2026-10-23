@@ -285,7 +285,12 @@ public sealed class SampleAgentConfigurationService(
                 NhAssistantConsultationRoutes.SubjectAgentRights
             ],
             ProposalPolicy: SampleProjectStarterComposition.ConsultationPolicyId,
-            Reason: "Let the project assistant ask the starter");
+            Reason: "Let the project assistant ask the starter")
+        {
+            // The administrator chooses the starter's tools for this consultation, within its own
+            // selectors: a tool outside them is refused with toolSelectors: not-allowed.
+            ToolSelectors = [ProjectAiTools.ChangeStatusToolId]
+        };
     }
 
     /// <summary>

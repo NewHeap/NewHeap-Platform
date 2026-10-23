@@ -433,6 +433,9 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
             instructions: 'You are asked whether a draft project can start. Answer in one or two sentences; when it can start, propose to make it active.',
             routes: ['asker-decides', 'subject-agent-rights'],
             proposalPolicy: 'project-start-consultation',
+            // The administrator chose the starter's tools for this consultation, within its own; the
+            // form shows them under Advanced and refuses a tool the starter does not have.
+            toolSelectors: ['projects.change-status'],
             reason: 'Let the project assistant ask the starter'
           }
         ]

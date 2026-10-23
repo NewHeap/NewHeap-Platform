@@ -150,6 +150,10 @@ public static class SampleIntakeReviewerComposition
                     .Description("Knows the intake review of a project: the checks done, the last verdict and what is still missing.")
                     .Policy(SampleAssistantComposition.AccessPolicy)
                     .Instructions(ProjectAiAssets.ProjectIntakeReviewerConsultationInstructions)
+                    // Asked about a project's intake, the reviewer may only request a review: its
+                    // status and task tools stay with its own runs. The consulted model is not offered
+                    // them, and a call of one runs nothing. Each tool is one of the agent's own.
+                    .Tools(ProjectAiReviewTools.RequestReviewToolId)
                     .Limits(maxToolCalls: 2, timeout: TimeSpan.FromSeconds(45), maxAnswerChars: 2_000)
                     .Proposals(proposals => proposals
                         .MinimumRole(NhAiSubjectRole.Participant)
