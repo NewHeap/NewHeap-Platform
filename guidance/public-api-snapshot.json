@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.82",
   "backEnd": {
-    "hash": "9c4efd951fb54edda8a40be49b7bbaf4ace3cc487e81fd809912e3d38da721cf",
-    "declarationCount": 10376,
+    "hash": "dbf7a2f080ab6371644157c23e8f626f92ab1b1ab1f2fa6360e42d5b103f6487",
+    "declarationCount": 10497,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2075,6 +2075,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public string? ShadowOf { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantRunBlockDto(string Name, string Description) {"
       },
       {
@@ -3594,6 +3598,66 @@
         "declaration": "public bool IsReserved(string toolId, string exportName) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public interface INhAssistantDataHandOffs {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public sealed record NhAssistantAgentHandOffsDto( string AgentId, IReadOnlyList<NhAssistantCodeHandOffDto> CodeHandOffs, IReadOnlyList<NhAssistantDataHandOffDto> DataHandOffs, NhAssistantHandOffCeilingDto? Ceiling, bool Configured);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public sealed record NhAssistantCodeHandOffDto( string SubjectType, IReadOnlyList<string> Sources, string? Description, bool NotifySource, int MaxPerSubjectPerDay, string ToolId);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public sealed record NhAssistantDataHandOffDto( string SubjectType, int Version, IReadOnlyList<string> Sources, string? Description, bool NotifySource, int MaxPerSubjectPerDay, string ToolId, DateTimeOffset ChangedAt, string ChangedBy, string? Reason, bool InEffect, string? Problem) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public DateTimeOffset CreatedAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public string CreatedBy { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public sealed record NhAssistantHandOffCeilingDto( IReadOnlyList<NhAssistantHandOffAllowanceDto> SubjectTypes, int MaxPerSubjectPerDay) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public int MaxHandOffs { get; init; } = NhAssistantDataHandOffLimits.MaxHandOffsPerAgent;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public int MaxSources { get; init; } = NhAssistantDataHandOffLimits.MaxSources;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public int MaxDescriptionLength { get; init; } = NhAssistantDataHandOffLimits.MaxDescriptionLength;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public sealed record NhAssistantHandOffAllowanceDto( string SubjectType, IReadOnlyList<string> Sources, bool SourcesCreatedInAdministration);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public sealed record NhAssistantDataHandOffRequest( IReadOnlyList<string>? Sources, string? Description = null, bool NotifySource = false, int? MaxPerSubjectPerDay = null, int? ExpectedVersion = null, string? Reason = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public async Task<NhAssistantAgentHandOffsDto?> GetAsync(string agentId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantDataHandOffDto>> SaveAsync( string agentId, string subjectType, NhAssistantDataHandOffRequest request, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "public async Task<TaskResult> RemoveAsync( string agentId, string subjectType, int? expectedVersion, string actorId, string? reason = null, CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantHandOffs.cs",
         "declaration": "public async Task<NhAssistantHandOffReceipt> HandOffAsync( NhAssistantHandOffRequest request, CancellationToken cancellationToken) {"
       },
@@ -3604,6 +3668,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantHandOffs.cs",
         "declaration": "public async Task NotifySourcesAsync(Guid runId, AssistantThread thread, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantHandOffsAsDataEndpoints.cs",
+        "declaration": "public static void MapAdmin(RouteGroupBuilder admin) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInboxVisits.cs",
@@ -3896,6 +3964,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSchedules.cs",
         "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantShadowVariants.cs",
+        "declaration": "public sealed record NhAssistantShadowVariantsDto( string AgentId, bool AllowsDataVariants, int MaxDataVariants, IReadOnlyList<NhAssistantShadowVariantDto> Variants);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantShadowVariants.cs",
+        "declaration": "public sealed record NhAssistantShadowVariantDto( string AgentId, string DisplayName, string Source, bool HasRunSettings, bool InEffect, string? Problem);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantShadowVariants.cs",
+        "declaration": "public async Task<NhAssistantShadowVariantsDto?> ListAsync(string liveAgentId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSingleTenantChecks.cs",
@@ -5263,6 +5343,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public string? ShadowOf { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantAdminAgentDto( string Id, string DisplayName, string Description, string Instructions, IReadOnlyList<string> ToolSelectors, IReadOnlyList<string> McpServerIds, string? RequiredPolicy, string Autonomy, bool IsEnabled, int Version, string Source, bool IsOverridden, string InstructionsHash, DateTimeOffset UpdatedAt, string RunState = NhAssistantAgentRunStates.Active, DateTimeOffset? StateChangedAt = null, string? StateChangedBy = null, string? StateReason = null, int WaitingInputs = 0)"
       },
       {
@@ -6606,6 +6690,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261023205158_HandOffsAsData.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261023205158_HandOffsAsData.cs",
+        "declaration": "public partial class HandOffsAsData : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261023205158_HandOffsAsData.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261023205158_HandOffsAsData.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -7378,6 +7478,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023205154_HandOffsAsData.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023205154_HandOffsAsData.cs",
+        "declaration": "public partial class HandOffsAsData : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023205154_HandOffsAsData.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023205154_HandOffsAsData.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -7415,6 +7531,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+        "declaration": "public string? ShadowOf { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
         "declaration": "public const int MaxInstructionsLength = 20_000;"
       },
       {
@@ -7435,7 +7555,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
-        "declaration": "public static async Task RecordAsync( IReadOnlyList<INhAssistantBusinessAuditSink> sinks, NhAssistantAuditEventKind kind, string objectId, string actorId, CancellationToken cancellationToken, string? instructionsVersion = null, string? instructionsHash = null)"
+        "declaration": "public static async Task RecordAsync( IReadOnlyList<INhAssistantBusinessAuditSink> sinks, NhAssistantAuditEventKind kind, string objectId, string actorId, CancellationToken cancellationToken, string? instructionsVersion = null, string? instructionsHash = null, string? liveAgentId = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
@@ -7528,6 +7648,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
         "declaration": "public string? InstructionsProblem { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
+        "declaration": "public string? ShadowOfAgentId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
@@ -8032,6 +8156,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs",
         "declaration": "public int MaxPerSubjectPerDay { get; internal set; } = 5;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs",
+        "declaration": "public string Source { get; internal set; } = NhAssistantHandOffSources.Code;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs",
+        "declaration": "public int? DataVersion { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs",
+        "declaration": "public bool IsData => string.Equals(Source, NhAssistantHandOffSources.Data, StringComparison.Ordinal);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentHandOffs.cs",
@@ -9554,6 +9690,134 @@
         "declaration": "public static bool IsRoute(string? route) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public sealed class NhAssistantHandOffCeiling {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public IReadOnlyList<NhAssistantHandOffCeilingRule> Rules => _rules;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public int MaxPerSubjectPerDay { get; internal set; } = NhAssistantDataHandOffLimits.MaxPerSubjectPerDay;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public bool Allows( string targetAgentId, string subjectType, string sourceAgentId, Func<string, bool> createdInAdministration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public bool AllowsTarget(string targetAgentId, Func<string, bool> createdInAdministration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public sealed class NhAssistantHandOffCeilingRule {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public string SubjectType { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public IReadOnlyList<string> Targets => _targets;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public bool TargetsCreatedInAdministration { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public IReadOnlyList<string> Sources => _sources;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public bool SourcesCreatedInAdministration { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public sealed class NhAssistantHandOffCeilingBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public NhAssistantHandOffCeilingBuilder Allow(string subjectType, Action<NhAssistantHandOffCeilingRuleBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public NhAssistantHandOffCeilingBuilder MaxPerSubjectPerDay(int maxPerSubjectPerDay) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public sealed class NhAssistantHandOffCeilingRuleBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public NhAssistantHandOffCeilingRuleBuilder To(params string[] agentIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public NhAssistantHandOffCeilingRuleBuilder ToAgentsCreatedInAdministration() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public NhAssistantHandOffCeilingRuleBuilder From(params string[] agentIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public NhAssistantHandOffCeilingRuleBuilder FromAgentsCreatedInAdministration() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public static class NhAssistantHandOffSources {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public const string Code = \"code\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public const string Data = \"data\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public static class NhAssistantDataHandOffLimits {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public const int MaxHandOffsPerAgent = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public const int MaxSources = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public const int MaxDescriptionLength = 500;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public const int MaxPerSubjectPerDay = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public const int DefaultPerSubjectPerDay = 5;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public static IReadOnlyList<string>? Read(string? json) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public static string Write(IReadOnlyList<string> sources) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public static bool IsValid(IReadOnlyList<string> sources) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantHandOffsAsData.cs",
+        "declaration": "public static NhAssistantDataHandOffCheck Out(string problem) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionAssets.cs",
         "declaration": "public sealed record NhAssistantInstructionAssetReference(string AssetId, int Version, string Hash) {"
       },
@@ -9708,6 +9972,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
         "declaration": "public static void Validate(string name, string parameterName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.HandOffs.cs",
+        "declaration": "public NhAssistantDataHandOffCheck CheckHandOff( AssistantAgentHandOffDefinition row, IReadOnlyDictionary<string, NhAssistantAgentRunOptions> agentRuns) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.HandOffs.cs",
+        "declaration": "public string? CheckShadowVariant( string variantId, string liveAgentId, IReadOnlyDictionary<string, NhAssistantAgentRunOptions> agentRuns) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.HandOffs.cs",
+        "declaration": "public string? CheckLiveAgentOfVariants( string liveAgentId, IReadOnlyDictionary<string, NhAssistantAgentRunOptions> agentRuns) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
@@ -9888,6 +10164,30 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
         "declaration": "public const string ConsultationKind = \"consultation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string HandOffKind = \"hand-off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string UnknownSource = \"unknown-source\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string OutsideCeiling = \"outside-ceiling\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string UnknownLiveAgent = \"unknown-live-agent\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string LiveAgentNotLive = \"live-agent-not-live\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string TooManyVariants = \"too-many-variants\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
@@ -10088,6 +10388,62 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowModes.cs",
         "declaration": "public async Task<IReadOnlySet<string>> ShadowSkillsAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public sealed class NhAssistantShadowVariantCeiling {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public const int DefaultMaxPerAgent = 3;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public const int MaxVariantsPerAgent = 10;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public IReadOnlyList<string> LiveAgents => _liveAgents;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public bool OfAgentsCreatedInAdministration { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public int MaxPerAgent { get; internal set; } = DefaultMaxPerAgent;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public bool Allows(string liveAgentId, bool createdInAdministration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public sealed class NhAssistantShadowVariantCeilingBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public NhAssistantShadowVariantCeilingBuilder Of(params string[] liveAgentIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public NhAssistantShadowVariantCeilingBuilder OfAgentsCreatedInAdministration() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public NhAssistantShadowVariantCeilingBuilder MaxPerAgent(int maxPerAgent) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public static class NhAssistantShadowVariantSources {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public const string Code = \"code\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowVariantsAsData.cs",
+        "declaration": "public const string Data = \"data\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantTextAssets.cs",
@@ -10356,6 +10712,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
         "declaration": "public string? ShadowReason { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public string? ShadowOfAgentId { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
@@ -12442,6 +12802,62 @@
         "declaration": "public DateTimeOffset ExpiresAt { get; set; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public sealed class AssistantAgentHandOffDefinition {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public string AgentId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public string SubjectType { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public int Version { get; set; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public string SourcesJson { get; set; } = \"[]\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public string? Description { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public bool NotifySource { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public int MaxPerSubjectPerDay { get; set; } = NhAssistantDataHandOffLimits.DefaultPerSubjectPerDay;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public DateTimeOffset CreatedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public string CreatedBy { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public DateTimeOffset UpdatedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public string UpdatedBy { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public string? Reason { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantHandOffDefinitionEntities.cs",
+        "declaration": "public Guid ConcurrencyStamp { get; set; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
         "declaration": "public sealed class AssistantAgentSkillDefinition {"
       },
@@ -13367,6 +13783,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseHandOffsAsData(Action<NhAssistantHandOffCeilingBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseShadowVariantsAsData(Action<NhAssistantShadowVariantCeilingBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure) {"
       },
       {
@@ -13576,6 +14000,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantConsultationCeiling? ConsultationCeilingOf(string agentId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantHandOffCeiling? HandOffsAsData { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantShadowVariantCeiling? ShadowVariantsAsData { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -14652,6 +15084,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string ConsultationsNotAllowed = \"assistant-consultations-not-allowed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string HandOffsNotAllowed = \"assistant-handoffs-not-allowed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string HandOffInCode = \"assistant-handoff-in-code\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string HandOffNotFound = \"assistant-handoff-not-found\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ShadowVariantsNotAllowed = \"assistant-shadow-variants-not-allowed\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -15796,6 +16244,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public string? MetadataEntry { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? LiveAgentId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -17087,6 +17539,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantAgentHandOffDefinition> AgentHandOffDefinitions => Set<AssistantAgentHandOffDefinition>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
         "declaration": "public DbSet<AssistantAgentGroupMember> AgentGroupMembers => Set<AssistantAgentGroupMember>();"
       },
       {
@@ -17430,8 +17886,32 @@
         "declaration": "public IReadOnlyList<NhAssistantInvalidationCount> Invalidations { get; init; } = [];"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.HandOffs.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAgentHandOffDefinition>> ListHandOffsAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.HandOffs.cs",
+        "declaration": "public async Task<NhAssistantStoreResult<AssistantAgentHandOffDefinition>> SaveHandOffAsync( AssistantAgentHandOffDefinition handOff, int? expectedVersion, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.HandOffs.cs",
+        "declaration": "public async Task<NhAssistantStoreResult<AssistantAgentHandOffDefinition>> RemoveHandOffAsync( string agentId, string subjectType, int? expectedVersion, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.HandOffs.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantStoredShadowVariant>> ListShadowVariantsAsync( string liveAgentId, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
         "declaration": "public IReadOnlyList<AssistantAgentConsultationDefinition> Consultations { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
+        "declaration": "public IReadOnlyList<AssistantAgentHandOffDefinition> HandOffs { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
+        "declaration": "public string? ShadowOfAgentId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
@@ -18528,6 +19008,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
         "declaration": "public Task ConsultationDefinitionChangedAsync( string agentId, string subjectType, int version, string? instructionsHash, string change, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public Task HandOffDefinitionChangedAsync( string agentId, string subjectType, int version, string change, string actorId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
@@ -45357,7 +45841,27 @@
       "NhAssistantInstructionAssetReference",
       "NhAssistantInstructionAssetListDto",
       "NhAssistantInstructionAssetDto",
-      "NhAssistantInstructionAssetTextDto"
+      "NhAssistantInstructionAssetTextDto",
+      "UseHandOffsAsData",
+      "NhAssistantHandOffCeiling",
+      "NhAssistantHandOffCeilingRule",
+      "NhAssistantHandOffCeilingBuilder",
+      "NhAssistantHandOffCeilingRuleBuilder",
+      "NhAssistantHandOffSources",
+      "NhAssistantDataHandOffLimits",
+      "INhAssistantDataHandOffs",
+      "NhAssistantAgentHandOffsDto",
+      "NhAssistantCodeHandOffDto",
+      "NhAssistantDataHandOffDto",
+      "NhAssistantHandOffCeilingDto",
+      "NhAssistantHandOffAllowanceDto",
+      "NhAssistantDataHandOffRequest",
+      "UseShadowVariantsAsData",
+      "NhAssistantShadowVariantCeiling",
+      "NhAssistantShadowVariantCeilingBuilder",
+      "NhAssistantShadowVariantSources",
+      "NhAssistantShadowVariantsDto",
+      "NhAssistantShadowVariantDto"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
@@ -46107,7 +46611,19 @@
       "getAgentMetadata",
       "saveAgentMetadata",
       "removeAgentMetadata",
-      "NhAssistantMockAgentMetadataEntry"
+      "NhAssistantMockAgentMetadataEntry",
+      "AgentHandOffs",
+      "CodeHandOff",
+      "DataHandOff",
+      "DataHandOffRequest",
+      "HandOffCeiling",
+      "HandOffAllowance",
+      "AgentShadowVariants",
+      "ShadowVariant",
+      "getAgentHandOffs",
+      "saveDataHandOff",
+      "removeDataHandOff",
+      "getShadowVariants"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

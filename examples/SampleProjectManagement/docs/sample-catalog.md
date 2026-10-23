@@ -316,6 +316,21 @@ confirms in time becomes `execution-unknown`, and an approver hands it to the de
 proposal's card. `AssistantAgentRunSamplesTests` runs the case, with the desk's confirmations standing
 in for the supplier's callback.
 
+Administrators connect agents with hand-offs as data, within a ceiling in code (SPM-318).
+`SampleAgentLinksAsDataComposition` calls `UseHandOffsAsData`: agents created in the administration may
+accept hand-offs about projects from each other and from the project planner, at most five per source
+and project a day. The test creates an intake desk that works with the model and a kickoff desk that
+works by the kickoff rules, connects them with `PUT admin/agents/{id}/hand-offs/project` and sees the
+intake desk's model hand a draft project over through the generated tool; the kickoff desk proposes to
+start it in its own thread, as a hand-off in code does (SPM-287). A source or target outside the ceiling
+is refused, and a stored hand-off that no longer fits is out of effect with a problem. The same
+composition calls `UseShadowVariantsAsData` (SPM-319): an administrator creates a trial of the project
+planner with `shadowOf`, gives it run settings with the progress-note rules, and the trial receives the
+planner's events in a shadow thread, never goes live and is paired with the planner in the evaluation.
+In the assistant administration, and in the playground on the mock API, the run configuration of an
+agent lists its hand-offs and shadow variants below the flow. `AssistantAgentRunSamplesTests` runs both
+cases.
+
 A skill defined as data may take its instructions from the application's own text assets instead of
 text an administrator writes (SPM-320). `SampleInstructionAssetComposition` registers
 `SampleInstructionAssets` with `UseTextAssetSource`: the planner's risk review in two published

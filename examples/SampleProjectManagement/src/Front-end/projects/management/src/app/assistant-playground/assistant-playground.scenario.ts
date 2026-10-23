@@ -291,6 +291,20 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
     // decides, or a project approver other than that person decides with the agent's own rights; the
     // route that rebuilds the asker's principal later is not named, and data may generate requests.
     consultationsAsData: { routes: ['asker-decides', 'subject-agent-rights'], allowRequests: true },
+    // SPM-318: administrators connect agents created here with hand-offs about projects, from each
+    // other and from the planner, at most five per source and project a day (UseHandOffsAsData).
+    handOffsAsData: {
+      rules: [{
+        subjectType: 'project',
+        toAgentsCreatedInAdministration: true,
+        from: [PROJECT_PLANNER_ID],
+        fromAgentsCreatedInAdministration: true
+      }],
+      maxPerSubjectPerDay: 5
+    },
+    // SPM-319: administrators try up to two shadow variants of the planner and of agents created here
+    // (UseShadowVariantsAsData).
+    shadowVariantsAsData: { of: [PROJECT_PLANNER_ID], ofAgentsCreatedInAdministration: true, maxPerAgent: 2 },
     // SPM-320: the API's own text assets (AddSampleInstructionAssets): the planner's risk review in two
     // published versions, which a skill defined as data names instead of text an administrator writes.
     instructionAssets: [

@@ -460,6 +460,19 @@ once; the flow's "When it runs" step names the consultations with their askers, 
 point. The mock API plays the same rules with `consultationsAsData`, `consultableAsData`,
 `consultationTools` and `dataConsultations`.
 
+Below the run configuration `nh-assistant-admin-agents` shows the agent's hand-offs
+(`nh-assistant-agent-hand-offs`) and shadow variants (`nh-assistant-agent-shadow-variants`). The
+hand-offs (`getAgentHandOffs`) list those in code read only and those defined as data with their
+version, sources, daily limit, generated tool and, out of effect, their problem; the form
+(`saveDataHandOff`, `removeDataHandOff`) offers only the kinds of object and sources the `ceiling`
+allows, says why an agent cannot accept one (no ceiling, no run settings, the ceiling's `maxHandOffs`,
+every kind of object taken) and keeps a saved source the ceiling no longer allows only to clear it. The
+shadow variants (`getShadowVariants`) list those in code and as data with whether they have run
+settings and receive the agent's events; "New shadow variant" creates an agent from the live agent's
+definition with `createAgent` and `shadowOf`, never offered in the chat, and the page continues in the
+variant's run configuration to give it run settings. The mock API plays the same rules with
+`handOffsAsData`, `shadowVariantsAsData` and `codeHandOffs`.
+
 The agent-run components refresh themselves: `NhAssistantLiveService.agentWork$` emits the
 hub's `AgentWorkChanged` for every run, proposal or feedback change on a subject the user
 belongs to, and the inbox, the thread view and the open panel session reload after a short
