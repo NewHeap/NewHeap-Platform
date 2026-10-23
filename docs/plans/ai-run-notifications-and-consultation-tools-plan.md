@@ -7,7 +7,10 @@ rules, the release notes and the sample cases are authoritative once it is built
 
 ## Status
 
-Decided by Lars on 2026-10-23: RN1 to RN7 and CT1 to CT5, every one as recommended. Not built yet.
+Decided by Lars on 2026-10-23: RN1 to RN7 and CT1 to CT5, every one as recommended. Built on 2026-10-23
+in merge train 16 (`feature/run-notification-bundles`, `feature/consultation-tool-selection`, with the
+`ConsultationToolSelectors` migrations); the lanes' own choices RN8 to RN17 and CT6 to CT13 are for Lars
+to review.
 
 ## A. One notification per run
 
