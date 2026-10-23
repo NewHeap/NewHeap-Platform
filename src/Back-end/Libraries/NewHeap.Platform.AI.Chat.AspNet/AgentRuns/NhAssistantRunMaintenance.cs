@@ -197,7 +197,8 @@ internal sealed class NhAssistantRunMaintenance(
     /// application's clock reached, or escalates a deferred one once; an escalation starts the
     /// escalation policy's lifetime and reminders at that time. A deferred proposal whose policy
     /// says <see cref="NhAiApprovalExpiryAction.FailRun"/> fails its run; a run that waits inline
-    /// for its proposal is ended by its own operation, by the same policy.
+    /// for its proposal is ended by its own operation, by the same policy. The escalations of one
+    /// pass reach each person once per run (RN6).
     /// </summary>
     private static async Task ExpireAsync(
         NhAssistantRunStore runs,
@@ -208,6 +209,7 @@ internal sealed class NhAssistantRunMaintenance(
         CancellationToken cancellationToken,
         IServiceProvider services)
     {
+        var escalations = new List<(AssistantApproval Approval, AssistantThread Thread)>();
         foreach (var approval in await runs.GetPendingThreadApprovalsAsync(now, BatchSize, cancellationToken))
         {
             var policy = approval.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
@@ -240,14 +242,7 @@ internal sealed class NhAssistantRunMaintenance(
                         approval.Id,
                         approval.RunId,
                         cancellationToken);
-                    await notifier.NotifyAsync(
-                        NhAssistantAgentNotificationKind.ProposalEscalated,
-                        escalatedThread,
-                        approval.RunId,
-                        approval,
-                        approval.InitiatorActorId,
-                        shadow: false,
-                        cancellationToken);
+                    escalations.Add((approval, escalatedThread));
                 }
                 continue;
             }
@@ -289,6 +284,8 @@ internal sealed class NhAssistantRunMaintenance(
                     NhAssistantErrorCodes.ApprovalExpired);
             }
         }
+
+        await NotifyPerRunAsync(notifier, NhAssistantAgentNotificationKind.ProposalEscalated, escalations, cancellationToken);
     }
 
     /// <summary>
@@ -338,7 +335,8 @@ internal sealed class NhAssistantRunMaintenance(
 
     /// <summary>
     /// Sends the reminders of deferred proposals that still wait and are due at <paramref name="now"/>
-    /// of the application's clock, each once.
+    /// of the application's clock, each once: every proposal records its reminder, and the reminders
+    /// of one pass reach each person once per run (RN6).
     /// </summary>
     private static async Task RemindAsync(
         NhAssistantRunStore runs,
@@ -346,6 +344,7 @@ internal sealed class NhAssistantRunMaintenance(
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        var reminders = new List<(AssistantApproval Approval, AssistantThread Thread)>();
         foreach (var approval in await runs.GetDueRemindersAsync(now, BatchSize, cancellationToken))
         {
             var policy = approval.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
@@ -359,15 +358,43 @@ internal sealed class NhAssistantRunMaintenance(
 
             if (await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken) is { } thread)
             {
-                await notifier.NotifyAsync(
-                    NhAssistantAgentNotificationKind.ProposalExpiring,
-                    thread,
-                    approval.RunId,
-                    approval,
-                    approval.InitiatorActorId,
-                    shadow: false,
-                    cancellationToken);
+                reminders.Add((approval, thread));
             }
+        }
+
+        await NotifyPerRunAsync(notifier, NhAssistantAgentNotificationKind.ProposalExpiring, reminders, cancellationToken);
+    }
+
+    /// <summary>
+    /// Tells people once per run about the reminders or escalations of one pass (RN6). The policy is
+    /// asked per proposal with <paramref name="kind"/>, as before; each recipient then hears once
+    /// about the run's objects it picked them for. Proposals without a run are bundled per
+    /// consultation, and those of neither each by themselves.
+    /// </summary>
+    private static async Task NotifyPerRunAsync(
+        NhAssistantAgentNotifier notifier,
+        NhAssistantAgentNotificationKind kind,
+        IReadOnlyList<(AssistantApproval Approval, AssistantThread Thread)> due,
+        CancellationToken cancellationToken)
+    {
+        var sets = due.GroupBy(item => item.Approval.RunId is { } runId
+            ? (Set: "run", Id: runId)
+            : item.Approval.ConsultationId is { } consultationId
+                ? (Set: "consultation", Id: consultationId)
+                : (Set: "proposal", Id: item.Approval.Id));
+        foreach (var set in sets)
+        {
+            var first = set.First().Approval;
+            // The run's own thread: where its own proposals wait and where it placed the others from.
+            var runConversationId = first.RunId is null ? (Guid?)null : first.PlacedFromConversationId ?? first.ConversationId;
+            await notifier.NotifyProposalsAsync(
+                kind,
+                first.RunId,
+                runConversationId,
+                first.InitiatorActorId,
+                shadow: false,
+                set.Select(item => new NhAssistantProposalNotice(item.Thread, [item.Approval], item.Approval.InitiatorActorId, 1)).ToArray(),
+                cancellationToken);
         }
     }
 

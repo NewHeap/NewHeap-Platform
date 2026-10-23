@@ -8,7 +8,8 @@ namespace NewHeap.Platform.AI.Chat.Runs;
 /// <summary>
 /// Tells people outside a thread about agent events: it reads the subject's member snapshot,
 /// asks the notification policy for recipients and hands them to Web Push and every registered
-/// channel. Shadow runs and shadow agents never notify. A failed notification never fails a run.
+/// channel. The proposals of a run reach each person once per run (<see cref="NotifyProposalsAsync"/>).
+/// Shadow runs and shadow agents never notify. A failed notification never fails a run.
 /// </summary>
 internal sealed class NhAssistantAgentNotifier(
     NhAssistantRunStore runs,
@@ -51,6 +52,12 @@ internal sealed class NhAssistantAgentNotifier(
             cancellationToken);
     }
 
+    /// <summary>
+    /// Tells the recipients the policy picks about one agent event in <paramref name="thread"/>. The
+    /// kinds of waiting, expiring and escalated proposals go through
+    /// <see cref="NotifyProposalsAsync"/> with this one object, so the channels receive them bundled
+    /// as well.
+    /// </summary>
     public async Task NotifyAsync(
         NhAssistantAgentNotificationKind kind,
         AssistantThread thread,
@@ -63,86 +70,43 @@ internal sealed class NhAssistantAgentNotifier(
         string? failureCode = null,
         NhAssistantMcpConnectionNotice? mcpConnection = null)
     {
+        if (BundledKindOf(kind) is not null)
+        {
+            await NotifyProposalsAsync(
+                kind,
+                runId,
+                runId is null ? null : thread.ConversationId,
+                initiatorActorId,
+                shadow,
+                [new NhAssistantProposalNotice(thread, approval is null ? [] : [approval], initiatorActorId, Math.Max(proposalCount, 1))],
+                cancellationToken);
+            return;
+        }
+
         // Shadow work notifies nobody: a shadow run, a shadow proposal, a shadow thread or a variant.
-        if (shadow
-            || thread.Shadow
-            || approval?.Status == NhAssistantApprovalStatuses.Shadow
-            || (registration.AgentRuns.TryGetValue(thread.AgentId, out var options) && options.ShadowOfAgentId is not null))
+        if (shadow || IsShadow(thread, approval is null ? [] : [approval]))
         {
             return;
         }
 
         try
         {
-            var subject = new NhAiSubjectRef(thread.SubjectType, thread.SubjectId);
-            IReadOnlyList<NhAiSubjectMember> members;
-            if (NhAiSystemSubjects.IsSystem(subject))
-            {
-                members = await SystemMembersAsync(thread, subject, cancellationToken);
-            }
-            else
-            {
-                if (thread.MembersRefreshedAt is null)
-                {
-                    // The first notification of a thread fills its member snapshot.
-                    await subjects.RefreshAsync(subject, cancellationToken);
-                }
-
-                members = (await runs.GetMembersAsync(thread.ScopeKey, subject, cancellationToken))
-                    .Select(member => new NhAiSubjectMember(member.ActorId, member.Role) { DisplayName = member.DisplayName })
-                    .ToArray();
-            }
-            var context = new NhAssistantAgentNotificationContext(
-                kind,
-                thread.AgentId,
-                thread.ConversationId,
-                subject,
-                thread.SubjectDisplayName,
-                runId,
-                approval?.Id,
-                initiatorActorId,
-                members)
+            var context = (await ContextAsync(kind, thread, runId, approval, initiatorActorId, cancellationToken)) with
             {
                 ProposalCount = proposalCount,
-                ToolId = approval?.ToolId,
-                ExpiresAt = approval?.ExpiresAt,
                 FailureCode = failureCode,
                 McpServerId = mcpConnection?.ServerId,
                 McpServerDisplayName = mcpConnection?.ServerDisplayName,
                 McpConnectionPersonId = mcpConnection?.PersonActorId,
                 ProposalStatus = kind == NhAssistantAgentNotificationKind.ConsultationProposalDecided ? approval?.Status : null
             };
-            var recipients = (await policy.SelectRecipientsAsync(context, cancellationToken))
-                .Where(actorId => !string.IsNullOrWhiteSpace(actorId) && actorId.Length <= 256)
-                .Where(actorId => !actorId.StartsWith(NhAssistantAgentEvents.AgentActorPrefix, StringComparison.Ordinal))
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
-            if (NhAiSystemSubjects.IsSystem(subject))
-            {
-                // Whatever the policy picks, the whole application's work reaches only people who see it.
-                recipients = await ReadersAsync(subject, thread.AgentId, recipients, cancellationToken);
-            }
+            var recipients = await RecipientsAsync(context, thread, cancellationToken);
             if (recipients.Length == 0)
             {
                 return;
             }
 
-            await pushNotifier.AgentNotificationAsync(context, recipients, cancellationToken);
-            foreach (var channel in _channels)
-            {
-                try
-                {
-                    await channel.DeliverAsync(context, recipients, cancellationToken);
-                }
-                catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
-                {
-                    logger.LogWarning(
-                        "Agent notification channel {Channel} failed for {Kind} ({ExceptionType}).",
-                        channel.GetType().Name,
-                        kind,
-                        exception.GetType().Name);
-                }
-            }
+            await DeliverAsync(context, recipients, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {
@@ -151,6 +115,302 @@ internal sealed class NhAssistantAgentNotifier(
                 kind,
                 thread.ConversationId,
                 exception.GetType().Name);
+        }
+    }
+
+    /// <summary>
+    /// Tells people once about the proposals of one run that wait for them, or of one consultation
+    /// when <paramref name="runId"/> is <see langword="null"/> (RN1, RN3, RN6). The policy is asked
+    /// per notice with <paramref name="kind"/>, the per-object kind it has always seen; a recipient
+    /// then hears once, in the bundled kind, about every object the policy picked them for, and never
+    /// about another. One context goes to Web Push and the channels per group of recipients with the
+    /// same objects and the same object to open: the run's own thread for its initiator
+    /// (<paramref name="runInitiatorActorId"/>, when <paramref name="runConversationId"/> waits for
+    /// them), otherwise the object with the most proposals. Shadow work notifies nobody, and the
+    /// whole application's objects reach only people who see them.
+    /// </summary>
+    public async Task NotifyProposalsAsync(
+        NhAssistantAgentNotificationKind kind,
+        Guid? runId,
+        Guid? runConversationId,
+        string? runInitiatorActorId,
+        bool shadow,
+        IReadOnlyList<NhAssistantProposalNotice> notices,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(notices);
+        var bundledKind = BundledKindOf(kind)
+            ?? throw new ArgumentOutOfRangeException(nameof(kind), kind, "Only waiting, expiring and escalated proposals are bundled.");
+        if (shadow)
+        {
+            return;
+        }
+
+        // The objects in the order the notifications name them, and per recipient what waits for
+        // them at each object.
+        var order = new List<Guid>();
+        var waiting = new Dictionary<string, Dictionary<Guid, NhAssistantWaitingShare>>(StringComparer.Ordinal);
+        foreach (var notice in notices)
+        {
+            if (IsShadow(notice.Thread, notice.Approvals))
+            {
+                continue;
+            }
+
+            NhAssistantAgentNotificationContext context;
+            string[] recipients;
+            try
+            {
+                context = (await ContextAsync(kind, notice.Thread, runId, notice.Approvals.FirstOrDefault(), notice.InitiatorActorId, cancellationToken)) with
+                {
+                    ProposalCount = notice.ProposalCount
+                };
+                recipients = await RecipientsAsync(context, notice.Thread, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+            {
+                logger.LogWarning(
+                    "Agent notification {Kind} for thread {ConversationId} was not sent ({ExceptionType}).",
+                    bundledKind,
+                    notice.Thread.ConversationId,
+                    exception.GetType().Name);
+                continue;
+            }
+
+            if (!order.Contains(context.ConversationId))
+            {
+                order.Add(context.ConversationId);
+            }
+            foreach (var recipient in recipients)
+            {
+                if (!waiting.TryGetValue(recipient, out var shares))
+                {
+                    shares = [];
+                    waiting[recipient] = shares;
+                }
+                if (!shares.TryGetValue(context.ConversationId, out var share))
+                {
+                    share = new NhAssistantWaitingShare(context);
+                    shares[context.ConversationId] = share;
+                }
+                share.Add(notice);
+            }
+        }
+
+        // The run's own thread comes first in every notification that names it.
+        if (runConversationId is { } own && order.Remove(own))
+        {
+            order.Insert(0, own);
+        }
+
+        var groups = new Dictionary<string, (NhAssistantAgentNotificationContext Context, List<string> Recipients)>(StringComparer.Ordinal);
+        foreach (var (recipient, shares) in waiting)
+        {
+            var objects = order
+                .Where(shares.ContainsKey)
+                .Select(conversationId => shares[conversationId])
+                .ToArray();
+            var opened = OpenedBy(recipient, runInitiatorActorId, runConversationId, shares, objects);
+            var key = string.Join(';', objects.Select(share => $"{share.Context.ConversationId:N}:{share.ProposalCount}"))
+                + ">" + opened.Context.ConversationId.ToString("N");
+            if (!groups.TryGetValue(key, out var group))
+            {
+                group = (Bundle(bundledKind, runId, runInitiatorActorId, opened, objects), []);
+                groups[key] = group;
+            }
+            group.Recipients.Add(recipient);
+        }
+
+        foreach (var group in groups.Values)
+        {
+            try
+            {
+                await DeliverAsync(group.Context, group.Recipients, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+            {
+                logger.LogWarning(
+                    "Agent notification {Kind} for thread {ConversationId} was not sent ({ExceptionType}).",
+                    bundledKind,
+                    group.Context.ConversationId,
+                    exception.GetType().Name);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The kind the channels receive for the proposals of a run that the policy is asked about with
+    /// <paramref name="kind"/>, or <see langword="null"/> for a kind that is not bundled.
+    /// </summary>
+    internal static NhAssistantAgentNotificationKind? BundledKindOf(NhAssistantAgentNotificationKind kind)
+    {
+        return kind switch
+        {
+            NhAssistantAgentNotificationKind.RunEndedWithProposals => NhAssistantAgentNotificationKind.RunProposalsWaiting,
+            NhAssistantAgentNotificationKind.ProposalExpiring => NhAssistantAgentNotificationKind.RunProposalsExpiring,
+            NhAssistantAgentNotificationKind.ProposalEscalated => NhAssistantAgentNotificationKind.RunProposalsEscalated,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// The object a notification opens for <paramref name="recipient"/> (RN5): the run's own thread
+    /// for its initiator when proposals wait for them there, otherwise the object with the most
+    /// proposals, the first of them on a tie.
+    /// </summary>
+    private static NhAssistantWaitingShare OpenedBy(
+        string recipient,
+        string? runInitiatorActorId,
+        Guid? runConversationId,
+        IReadOnlyDictionary<Guid, NhAssistantWaitingShare> shares,
+        IReadOnlyList<NhAssistantWaitingShare> objects)
+    {
+        if (string.Equals(recipient, runInitiatorActorId, StringComparison.Ordinal)
+            && runConversationId is { } own
+            && shares.TryGetValue(own, out var ownShare))
+        {
+            return ownShare;
+        }
+
+        return objects.MaxBy(share => share.ProposalCount)!;
+    }
+
+    /// <summary>
+    /// The context of one group: the object it opens as its subject and conversation, every object
+    /// of the group with its count, and the proposal and its tool when the group counts exactly one;
+    /// the expiry is the earliest of its proposals.
+    /// </summary>
+    private static NhAssistantAgentNotificationContext Bundle(
+        NhAssistantAgentNotificationKind bundledKind,
+        Guid? runId,
+        string? runInitiatorActorId,
+        NhAssistantWaitingShare opened,
+        IReadOnlyList<NhAssistantWaitingShare> objects)
+    {
+        var approvals = objects.SelectMany(share => share.Approvals).ToArray();
+        var total = objects.Sum(share => share.ProposalCount);
+        var single = total == 1 && approvals.Length == 1 ? approvals[0] : null;
+        return opened.Context with
+        {
+            Kind = bundledKind,
+            RunId = runId,
+            ApprovalId = single?.Id,
+            InitiatorActorId = runInitiatorActorId,
+            ProposalCount = total,
+            Objects = objects
+                .Select(share => new NhAssistantAgentNotificationObject(
+                    share.Context.Subject,
+                    share.Context.SubjectDisplayName,
+                    share.Context.ConversationId,
+                    share.ProposalCount))
+                .ToArray(),
+            ToolId = single?.ToolId,
+            ExpiresAt = approvals.Length == 0 ? null : approvals.Min(approval => approval.ExpiresAt)
+        };
+    }
+
+    /// <summary>
+    /// Shadow work notifies nobody: a shadow proposal, a shadow thread or the thread of a variant.
+    /// </summary>
+    private bool IsShadow(AssistantThread thread, IReadOnlyList<AssistantApproval> approvals)
+    {
+        return thread.Shadow
+            || approvals.Any(approval => approval.Status == NhAssistantApprovalStatuses.Shadow)
+            || (registration.AgentRuns.TryGetValue(thread.AgentId, out var options) && options.ShadowOfAgentId is not null);
+    }
+
+    /// <summary>
+    /// The context of one event in <paramref name="thread"/>, with the subject's member snapshot.
+    /// </summary>
+    private async Task<NhAssistantAgentNotificationContext> ContextAsync(
+        NhAssistantAgentNotificationKind kind,
+        AssistantThread thread,
+        Guid? runId,
+        AssistantApproval? approval,
+        string? initiatorActorId,
+        CancellationToken cancellationToken)
+    {
+        var subject = new NhAiSubjectRef(thread.SubjectType, thread.SubjectId);
+        IReadOnlyList<NhAiSubjectMember> members;
+        if (NhAiSystemSubjects.IsSystem(subject))
+        {
+            members = await SystemMembersAsync(thread, subject, cancellationToken);
+        }
+        else
+        {
+            if (thread.MembersRefreshedAt is null)
+            {
+                // The first notification of a thread fills its member snapshot.
+                await subjects.RefreshAsync(subject, cancellationToken);
+            }
+
+            members = (await runs.GetMembersAsync(thread.ScopeKey, subject, cancellationToken))
+                .Select(member => new NhAiSubjectMember(member.ActorId, member.Role) { DisplayName = member.DisplayName })
+                .ToArray();
+        }
+
+        return new NhAssistantAgentNotificationContext(
+            kind,
+            thread.AgentId,
+            thread.ConversationId,
+            subject,
+            thread.SubjectDisplayName,
+            runId,
+            approval?.Id,
+            initiatorActorId,
+            members)
+        {
+            ToolId = approval?.ToolId,
+            ExpiresAt = approval?.ExpiresAt
+        };
+    }
+
+    /// <summary>
+    /// The people the policy picks for <paramref name="context"/>, without agents and unusable ids.
+    /// Whatever the policy picks, the whole application's work reaches only people who see it.
+    /// </summary>
+    private async Task<string[]> RecipientsAsync(
+        NhAssistantAgentNotificationContext context,
+        AssistantThread thread,
+        CancellationToken cancellationToken)
+    {
+        var recipients = (await policy.SelectRecipientsAsync(context, cancellationToken))
+            .Where(actorId => !string.IsNullOrWhiteSpace(actorId) && actorId.Length <= 256)
+            .Where(actorId => !actorId.StartsWith(NhAssistantAgentEvents.AgentActorPrefix, StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (NhAiSystemSubjects.IsSystem(context.Subject))
+        {
+            recipients = await ReadersAsync(context.Subject, thread.AgentId, recipients, cancellationToken);
+        }
+
+        return recipients;
+    }
+
+    /// <summary>
+    /// Hands one notification to Web Push and every channel; a channel that fails does not stop the
+    /// others.
+    /// </summary>
+    private async Task DeliverAsync(
+        NhAssistantAgentNotificationContext context,
+        IReadOnlyList<string> recipients,
+        CancellationToken cancellationToken)
+    {
+        await pushNotifier.AgentNotificationAsync(context, recipients, cancellationToken);
+        foreach (var channel in _channels)
+        {
+            try
+            {
+                await channel.DeliverAsync(context, recipients, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+            {
+                logger.LogWarning(
+                    "Agent notification channel {Channel} failed for {Kind} ({ExceptionType}).",
+                    channel.GetType().Name,
+                    context.Kind,
+                    exception.GetType().Name);
+            }
         }
     }
 
@@ -204,6 +464,39 @@ internal sealed class NhAssistantAgentNotifier(
     /// The most people of a thread of the whole application one notification considers.
     /// </summary>
     internal const int MaxSystemRecipients = 50;
+}
+
+/// <summary>
+/// One question to the notification policy about the proposals of a run: those at one object when
+/// the run ends or waits, or one proposal for a reminder or an escalation, with the initiator the
+/// policy's context names. <paramref name="ProposalCount"/> counts the proposals, also when they were
+/// not loaded.
+/// </summary>
+internal sealed record NhAssistantProposalNotice(
+    AssistantThread Thread,
+    IReadOnlyList<AssistantApproval> Approvals,
+    string? InitiatorActorId,
+    int ProposalCount);
+
+/// <summary>
+/// What waits for one recipient at one object: the object's context as the policy saw it first, and
+/// the proposals of the notices the policy picked the recipient for.
+/// </summary>
+internal sealed class NhAssistantWaitingShare(NhAssistantAgentNotificationContext context)
+{
+    private readonly List<AssistantApproval> _approvals = [];
+
+    public NhAssistantAgentNotificationContext Context { get; } = context;
+
+    public int ProposalCount { get; private set; }
+
+    public IReadOnlyList<AssistantApproval> Approvals => _approvals;
+
+    public void Add(NhAssistantProposalNotice notice)
+    {
+        ProposalCount += notice.ProposalCount;
+        _approvals.AddRange(notice.Approvals);
+    }
 }
 
 /// <summary>

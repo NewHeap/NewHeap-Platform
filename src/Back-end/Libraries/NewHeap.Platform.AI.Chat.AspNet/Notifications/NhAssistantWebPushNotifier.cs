@@ -2,11 +2,13 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Notifications;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.Notifications;
 
@@ -14,14 +16,16 @@ namespace NewHeap.Platform.AI.Chat.AspNet.Notifications;
 /// Sends Web Push notifications to the browsers of people who belong to a conversation. It runs after
 /// the final event of a turn was written, sends to every browser in parallel within
 /// <see cref="NhAssistantPushOptions.DeliveryTimeout"/> and removes subscriptions the push service
-/// reports as gone. Notifications carry the conversation id, a kind and short texts; never messages,
-/// tool data or other content. Failures are logged with status codes or exception types only.
+/// reports as gone. Notifications carry the conversation id, a kind and short texts, and the run id
+/// of a notification about the proposals of a run; never messages, tool data or other content.
+/// Failures are logged with status codes or exception types only.
 /// </summary>
 internal sealed class NhAssistantWebPushNotifier(
     INhAssistantStore store,
     NhAssistantNotificationStore notifications,
     IOptionsMonitor<NhAssistantOptions> options,
     IHttpClientFactory httpClients,
+    IServiceProvider services,
     ILogger<NhAssistantWebPushNotifier> logger) : INhAssistantNotifier
 {
     public const string HttpClientName = "NewHeap.Platform.AI.Chat.Push";
@@ -138,10 +142,32 @@ internal sealed class NhAssistantWebPushNotifier(
             }
 
             var kind = NhAssistantPushKinds.ForAgent(context.Kind);
+            var recipients = recipientActorIds.Distinct(StringComparer.Ordinal).ToDictionary(actorId => actorId, _ => kind, StringComparer.Ordinal);
+            if (NhAssistantAgentNotificationTexts.IsRunProposals(context.Kind))
+            {
+                // The proposals of a run (RN4, RN5): the click opens the conversation the context
+                // names, and the run id lets the application open its inbox of the run instead.
+                var pluralNames = NhAssistantAgentNotificationTexts.PluralNamesOf(services.GetService<NhAssistantSubjectAccessService>());
+                await DeliverAsync(
+                    push,
+                    conversation,
+                    recipients,
+                    (_, language) => NhAssistantAgentNotificationTexts.ForRunProposals(
+                        context.Kind,
+                        language,
+                        context.Objects,
+                        context.ProposalCount,
+                        push.IncludeConversationTitle ? context.SubjectDisplayName : null,
+                        pluralNames),
+                    cancellationToken,
+                    context.RunId);
+                return;
+            }
+
             await DeliverAsync(
                 push,
                 conversation,
-                recipientActorIds.Distinct(StringComparer.Ordinal).ToDictionary(actorId => actorId, _ => kind, StringComparer.Ordinal),
+                recipients,
                 (_, language) => NhAssistantPushTexts.ForAgent(
                     context.Kind,
                     language,
@@ -220,12 +246,16 @@ internal sealed class NhAssistantWebPushNotifier(
         };
     }
 
+    /// <param name="runId">The run a notification about its proposals names: its payload carries the
+    /// run, and a newer notification about the same run, not the same conversation, replaces an
+    /// undelivered older one.</param>
     private async Task DeliverAsync(
         NhAssistantPushOptions push,
         AssistantConversation conversation,
         IReadOnlyDictionary<string, string> kindsByActor,
         Func<string, string, (string Title, string Body)> texts,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? runId = null)
     {
         var subscriptions = await notifications.GetDeliverableSubscriptionsAsync(kindsByActor.Keys.ToArray(), cancellationToken);
         if (subscriptions.Count == 0)
@@ -266,7 +296,7 @@ internal sealed class NhAssistantWebPushNotifier(
             {
                 var kind = kindsByActor[item.Subscription.ActorId];
                 var (title, body) = texts(kind, item.Subscription.Language);
-                var payload = NhAssistantPushPayload.Create(kind, conversation.Id, title, body);
+                var payload = NhAssistantPushPayload.Create(kind, conversation.Id, title, body, runId);
                 var status = await SendAsync(
                     client,
                     push,
@@ -276,8 +306,9 @@ internal sealed class NhAssistantWebPushNotifier(
                     payload,
                     kind is NhAssistantPushKinds.ApprovalRequired
                         or NhAssistantPushKinds.AgentProposals
+                        or NhAssistantPushKinds.AgentRunProposals
                         or NhAssistantPushKinds.AgentExecutionUnknown ? "high" : "normal",
-                    conversation.Id,
+                    runId ?? conversation.Id,
                     token);
                 if (status is HttpStatusCode.NotFound or HttpStatusCode.Gone)
                 {
@@ -299,7 +330,7 @@ internal sealed class NhAssistantWebPushNotifier(
         string authorization,
         byte[] payload,
         string urgency,
-        Guid conversationId,
+        Guid topicId,
         CancellationToken cancellationToken)
     {
         byte[] body;
@@ -324,8 +355,9 @@ internal sealed class NhAssistantWebPushNotifier(
         request.Content.Headers.ContentEncoding.Add("aes128gcm");
         request.Headers.TryAddWithoutValidation("TTL", ((long)push.TimeToLive.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture));
         request.Headers.TryAddWithoutValidation("Urgency", urgency);
-        // A newer notification about the same conversation replaces an undelivered older one.
-        request.Headers.TryAddWithoutValidation("Topic", NhAssistantBase64Url.Encode(conversationId.ToByteArray()));
+        // A newer notification about the same conversation, or the same run, replaces an undelivered
+        // older one.
+        request.Headers.TryAddWithoutValidation("Topic", NhAssistantBase64Url.Encode(topicId.ToByteArray()));
         request.Headers.TryAddWithoutValidation("Authorization", authorization);
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -385,6 +417,21 @@ internal static class NhAssistantPushKinds
     public const string AgentConsultationProposalDecided = "agent-consultation-proposal-decided";
 
     /// <summary>
+    /// Proposals of one run wait for the recipient; the payload carries the run.
+    /// </summary>
+    public const string AgentRunProposals = "agent-run-proposals";
+
+    /// <summary>
+    /// Proposals of one run still wait for the recipient; the payload carries the run.
+    /// </summary>
+    public const string AgentRunProposalsExpiring = "agent-run-proposals-expiring";
+
+    /// <summary>
+    /// Proposals of one run were escalated to the recipient; the payload carries the run.
+    /// </summary>
+    public const string AgentRunProposalsEscalated = "agent-run-proposals-escalated";
+
+    /// <summary>
     /// The application posted a message into the conversation.
     /// </summary>
     public const string ApplicationMessage = "application-message";
@@ -396,6 +443,9 @@ internal static class NhAssistantPushKinds
             NhAssistantAgentNotificationKind.RunEndedWithProposals => AgentProposals,
             NhAssistantAgentNotificationKind.ProposalExpiring => AgentProposalExpiring,
             NhAssistantAgentNotificationKind.ProposalEscalated => AgentProposalEscalated,
+            NhAssistantAgentNotificationKind.RunProposalsWaiting => AgentRunProposals,
+            NhAssistantAgentNotificationKind.RunProposalsExpiring => AgentRunProposalsExpiring,
+            NhAssistantAgentNotificationKind.RunProposalsEscalated => AgentRunProposalsEscalated,
             NhAssistantAgentNotificationKind.ExecutionUnknown => AgentExecutionUnknown,
             NhAssistantAgentNotificationKind.RunFailed => AgentRunFailed,
             NhAssistantAgentNotificationKind.RequestAnswered => AgentRequestAnswered,
@@ -408,10 +458,13 @@ internal static class NhAssistantPushKinds
 
 /// <summary>
 /// The JSON the service worker of <c>@newheap/platform-ai-chat</c> shows. Bounded and content-free.
+/// A notification about the proposals of a run also carries <c>runId</c> and is tagged per run, so the
+/// notifications of different runs about one object stay apart and a reminder replaces the run's
+/// earlier notification.
 /// </summary>
 internal static class NhAssistantPushPayload
 {
-    public static byte[] Create(string kind, Guid conversationId, string title, string body)
+    public static byte[] Create(string kind, Guid conversationId, string title, string body, Guid? runId = null)
     {
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
@@ -420,9 +473,15 @@ internal static class NhAssistantPushPayload
             writer.WriteString("type", "nh-assistant");
             writer.WriteString("kind", kind);
             writer.WriteString("conversationId", conversationId);
+            if (runId is { } run)
+            {
+                writer.WriteString("runId", run);
+            }
             writer.WriteString("title", Bound(title, 120));
             writer.WriteString("body", Bound(body, 240));
-            writer.WriteString("tag", "nh-assistant:" + conversationId.ToString("D"));
+            writer.WriteString(
+                "tag",
+                runId is { } tagged ? "nh-assistant-run:" + tagged.ToString("D") : "nh-assistant:" + conversationId.ToString("D"));
             writer.WriteEndObject();
         }
         return stream.ToArray();
