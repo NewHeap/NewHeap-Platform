@@ -78,7 +78,7 @@ const maxOwnerLength = 100;
   styles: [`
     :host { display: block; }
     .cost-center { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; }
-    .field { display: grid; gap: 6px; min-width: 0; }
+    .field { display: grid; align-content: start; gap: 6px; min-width: 0; }
     .field span { color: var(--muted); font-size: 12px; font-weight: 700; }
     .field small { color: var(--muted); font-size: 12px; }
     .field small.error { color: var(--danger); }
@@ -96,7 +96,7 @@ const maxOwnerLength = 100;
     input[aria-invalid='true'] { border-color: var(--danger); }
     input:disabled { opacity: .6; }
     input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-    .actions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+    .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
     button {
       border: 1px solid var(--line-strong);
       border-radius: var(--radius-control);
