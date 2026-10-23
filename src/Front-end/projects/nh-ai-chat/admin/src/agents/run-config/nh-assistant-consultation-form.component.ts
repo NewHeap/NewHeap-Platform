@@ -105,7 +105,6 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
   readonly maxReason = runConfigLimits.reason;
   readonly maxDescription = maxConsultationDescription;
   readonly roles = consultationRoles;
-  readonly policyKeys = policyKeys;
   protected readonly fields = [
     'subjectType', 'description', 'instructions', 'minimumRole', 'askerPolicy', 'routes', 'proposalRole', 'proposalPolicy',
     'limits', 'maxToolCalls', 'timeoutSeconds', 'maxAnswerChars', 'maxHistoryMessages', 'allowRequests', 'exposeToMcp',
@@ -154,8 +153,15 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
       block: consultationRouteBlock(route, this.ceiling(), this.chosenType(), agent)
     }));
   });
-  readonly askerPolicies = computed<NhAssistantPickerOption[]>(() => (this.catalog()?.agentPolicies ?? [])
-    .map(policy => ({ value: policy.name, label: policy.name, description: policy.description })));
+  /** The policies the application lists for askers, by the application's name for each when it has one. */
+  readonly askerPolicies = computed<NhAssistantPickerOption[]>(() => {
+    this.language();
+    return (this.catalog()?.agentPolicies ?? []).map(policy => ({
+      value: policy.name,
+      label: this.policyName(policy.name),
+      description: policy.description
+    }));
+  });
   readonly policies = computed(() => {
     this.language();
     return policyOptions(this.catalog(), summary => describePolicy(summary, (key, params) => this.t(key, params)));
@@ -318,6 +324,13 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
     if (fields.some(field => advancedFields.includes(field))) {
       this.advancedOpen.set(true);
     }
+  }
+
+  /** A policy's name as the application translates it, or the policy itself. */
+  private policyName(policy: string): string {
+    const [key] = policyKeys(policy);
+    const translated = this.t(key);
+    return translated && translated !== key ? translated : policy;
   }
 
   /** The chosen routes in the order the form offers them. */

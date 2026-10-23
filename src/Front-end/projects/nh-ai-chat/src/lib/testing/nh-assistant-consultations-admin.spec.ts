@@ -561,7 +561,7 @@ describe('The Consultations section of the run configuration', () => {
     button(row(), 'Confirm delete').click();
     await settle(fixture);
 
-    expect(admin.removeDataConsultation).toHaveBeenCalledOnceWith('starter', 'project', { expectedVersion: 2, reason: null });
+    expect(admin.removeDataConsultation).toHaveBeenCalledOnceWith('starter', 'project', { expectedVersion: 2 });
     expect(text(view.querySelector('[data-saved]'))).toBe('The consultation was removed.');
     expect(view.querySelector('[data-consultation="project"]')).toBeNull();
     expect(view.querySelector('[data-consultations] nh-assistant-agent-consultation-routes')).toBeNull();

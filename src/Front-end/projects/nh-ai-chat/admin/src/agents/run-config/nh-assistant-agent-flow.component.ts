@@ -72,13 +72,12 @@ interface FlowPolicy {
 /**
  * The flow view of an agent at the top of its run configuration: what it works on, when it runs (its
  * triggers with what each runs for, run now, and the consultations through which other assistants
- * consult it), how it works (its way of working, skills and tools,
- * with where a run's proposals of each tool wait and whether its MCP servers are used in runs without
- * a person), whom it answers to, who approves its proposals, and its results (its groups and latest
- * runs). Problems show at the step they concern with the entry point that fixes them. The flow edits
- * nothing: every entry point opens a form of the run configuration, or asks the page that hosts it to
- * open the agent editor, the technical account, the runs view or the MCP servers (`entry`). Run now
- * opens the run-now dialog here.
+ * consult it), how it works (its way of working, skills and tools, with where a run's proposals of
+ * each tool wait and whether its MCP servers are used in runs without a person), whom it answers to,
+ * who approves its proposals, and its results (its groups and latest runs). Problems show at the step
+ * they concern with the entry point that fixes them. The flow edits nothing: every entry point opens
+ * a form of the run configuration, or asks the page that hosts it to open the agent editor, the
+ * technical account, the runs view or the MCP servers (`entry`). Run now opens the run-now dialog here.
  */
 @Component({
   selector: 'nh-assistant-agent-flow',

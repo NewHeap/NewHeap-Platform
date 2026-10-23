@@ -416,7 +416,7 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
 
   removeConsultation(consultation: DataConsultation): void {
     this.run(
-      this.admin.removeDataConsultation(this.agent().id, consultation.subjectType, { expectedVersion: consultation.version, reason: blank(this.reason()) }),
+      this.admin.removeDataConsultation(this.agent().id, consultation.subjectType, { expectedVersion: consultation.version }),
       'nh-assistant.admin.run-config.consultations.removed',
       `consultation:${consultation.subjectType}`);
   }
@@ -426,8 +426,8 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   }
 
   /** The name of a subject type, as the run catalog names it in the reader's language. */
-  typeName(subjectType: string, plural = false): string {
-    return typeName(this.catalog(), subjectType, plural);
+  typeName(subjectType: string): string {
+    return typeName(this.catalog(), subjectType);
   }
 
   /** An agent's name: the translation of an agent in code, the administrator's text, or its id. */
