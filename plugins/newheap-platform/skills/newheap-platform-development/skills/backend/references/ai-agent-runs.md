@@ -617,7 +617,9 @@ that account, rebuilt with `INhAiPrincipalFactory` for every decision, passes th
 against the subject; the call, proposal and audit record `NhAiGrantSource.Accountable`, reads are
 shielded from thread readers without the tool's policies (or refused with `ElevatedReads` `deny`),
 and an agent that answers to itself has no rights to lend. A person's turn in the thread and a
-consultation keep that person's own rights. An agent in code opts in with
+consultation keep that person's own rights, and the consult and request tools never run with the
+account's rights: such an agent's run consults and requests only when it delegates from its
+initiator, otherwise it is not offered them. An agent in code opts in with
 `ActWithAccountableRights()`; startup refuses it for an agent that answers to itself. Once it has run
 settings, the agent gets data skills and data triggers like an agent in code; its threads follow a
 change of whom it answers to, and its run settings stay while data skills or triggers belong to it
@@ -832,8 +834,10 @@ Let other assistants consult an agent with `AllowConsultation(subjectType, ...)`
 and, with `AllowRequests()`, `assistant.request.{agentId}.{subjectType}`; the asking agent
 uses them only when its own `ToolSelectors` select them (use
 `NhAssistantConsultationTools.ConsultToolId`), so both sides opt in. Neither tool can be
-granted to an agent: a consultation always runs with the asking person's rights, the
-person chatting or the initiator who delegated an agent turn. Give it a `Description` the
+granted to an agent or lent by the account an agent answers to: a consultation always runs with
+the asking person's rights, the person chatting or the initiator who delegated an agent turn, and
+a call in an agent turn that no initiator delegated is refused with
+`assistant-consult-subject-unavailable`. Give it a `Description` the
 asking model can choose by, a `Policy` the asker must pass (otherwise the agent's
 required policy or the assistant's access policy), and keep the defaults unless the
 subject needs others: `MinimumRole(Reader)` to ask, `Proposals(true, Participant)` before

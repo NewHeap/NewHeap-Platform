@@ -500,7 +500,8 @@ public sealed class NhAssistantAgentRunBuilder
     /// rebuilt with <c>INhAiPrincipalFactory</c> for every decision, so an account that may no longer
     /// sign in lends nothing. Reads are shielded from thread readers without the tool's policies, as
     /// for grants. Needs an accountable person or technical account; a person's turn in the thread
-    /// and consultations keep that person's own rights.
+    /// and consultations keep that person's own rights. The consult and request tools never run with
+    /// the account's rights: a run uses them only when it delegates from its initiator.
     /// </summary>
     public NhAssistantAgentRunBuilder ActWithAccountableRights(bool enabled = true)
     {

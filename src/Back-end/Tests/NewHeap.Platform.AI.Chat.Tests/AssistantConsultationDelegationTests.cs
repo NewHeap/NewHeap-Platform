@@ -54,10 +54,12 @@ public sealed class AssistantConsultationDelegationTests(AssistantDatabaseFixtur
         // The event names the person who opened the project; the agent does not delegate from them.
         var run = await PublishAndExecuteAsync(host);
 
-        // The technical account passes the tools' policies, yet neither tool runs: not with the
-        // account's rights and not with the rights of the person who opened the project.
+        // The technical account passes the tools' policies, yet the turn is offered neither tool and
+        // runs neither: not with the account's rights and not with the rights of the person who
+        // opened the project.
         Assert.Equal(NhAssistantRunStatuses.Completed, run.Status);
         Assert.Equal(Member, run.InitiatorActorId);
+        Assert.DoesNotContain(asker.Requests[0].Options?.Tools ?? [], tool => tool.Name is ConsultTool or RequestTool);
         Assert.Empty(target.Requests);
         Assert.Equal(2, asker.FunctionResults.Count);
         Assert.All(asker.FunctionResults, result => Assert.DoesNotContain("consultationId", result.Result?.ToString(), StringComparison.Ordinal));
@@ -87,6 +89,7 @@ public sealed class AssistantConsultationDelegationTests(AssistantDatabaseFixtur
         var run = await PublishAndExecuteAsync(host);
 
         Assert.Equal(NhAssistantRunStatuses.Completed, run.Status);
+        Assert.Contains(asker.Requests[0].Options?.Tools ?? [], tool => tool.Name == ConsultTool);
         Assert.Contains("The intake review is still open.", asker.FunctionResults[0].Result?.ToString());
         await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
         var consultation = await context.Consultations.SingleAsync();
