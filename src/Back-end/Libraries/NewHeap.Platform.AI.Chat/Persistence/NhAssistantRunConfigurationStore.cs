@@ -28,11 +28,14 @@ internal sealed record NhAssistantStoredRunConfiguration(
 /// <see cref="NhAssistantDataClassificationNames"/>; <see langword="null"/> for none.</param>
 /// <param name="RequiredPolicy">The policy a person needs to use the agent; a consultation defined as
 /// data without an asker policy requires it of the asker.</param>
+/// <param name="InstructionsAsset">The asset of the application the agent takes its instructions
+/// from; <see langword="null"/> when they are text.</param>
 internal sealed record NhAssistantStoredAdminAgent(
     string ToolSelectorsJson,
     NhAssistantAgentWorksOn WorksOn,
     string? DataClassification = null,
-    string? RequiredPolicy = null);
+    string? RequiredPolicy = null,
+    NhAssistantInstructionAssetReference? InstructionsAsset = null);
 
 /// <summary>
 /// Persistence of the run configuration defined as data: the versions of data skills and the data
@@ -83,7 +86,11 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                     RunPolicy = agent.RunPolicy,
                     ViewPolicy = agent.ViewPolicy,
                     DataClassification = agent.DataClassification,
-                    RequiredPolicy = agent.RequiredPolicy
+                    RequiredPolicy = agent.RequiredPolicy,
+                    InstructionsFromAsset = agent.InstructionsFromAsset,
+                    InstructionsAssetId = agent.InstructionsAssetId,
+                    InstructionsAssetVersion = agent.InstructionsAssetVersion,
+                    InstructionsHash = agent.InstructionsHash
                 })
                 .ToListAsync(cancellationToken))
             .ToDictionary(
@@ -92,7 +99,8 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                     agent.ToolSelectorsJson,
                     NhAssistantAgentWorksOn.FromRow(agent),
                     agent.DataClassification,
-                    agent.RequiredPolicy),
+                    agent.RequiredPolicy,
+                    NhAssistantInstructionAssets.ReferenceOf(agent)),
                 StringComparer.Ordinal);
         var skills = await context.AgentSkillDefinitions
             .AsNoTracking()

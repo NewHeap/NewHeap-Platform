@@ -985,7 +985,7 @@ internal static class NhAssistantAdminEndpoints
             .Require(body.Id is not null, "id", NhAssistantFieldErrors.Required)
             .Require(body.DisplayName is not null, "displayName", NhAssistantFieldErrors.Required)
             .Require(body.Description is not null, "description", NhAssistantFieldErrors.Required)
-            .Require(body.Instructions is not null, "instructions", NhAssistantFieldErrors.Required)
+            .Require(body.Instructions is not null || body.InstructionsAsset is not null, "instructions", NhAssistantFieldErrors.Required)
             .Require(body.ToolSelectors is not null, "toolSelectors", NhAssistantFieldErrors.Required)
             .Require(body.Autonomy is not null, "autonomy", NhAssistantFieldErrors.Required)
             .Require(body.Autonomy is null || autonomyValid, "autonomy", NhAssistantFieldErrors.Invalid);
@@ -1001,7 +1001,7 @@ internal static class NhAssistantAdminEndpoints
             body.Id!,
             body.DisplayName!,
             body.Description!,
-            body.Instructions!,
+            body.Instructions ?? string.Empty,
             body.ToolSelectors!,
             body.McpServerIds ?? [],
             requiredPolicy,
@@ -1017,7 +1017,8 @@ internal static class NhAssistantAdminEndpoints
             body.StartsOff == true,
             string.IsNullOrWhiteSpace(body.Profile) ? null : body.Profile.Trim(),
             string.IsNullOrWhiteSpace(body.DataClassification) ? null : body.DataClassification.Trim(),
-            body.Metadata), errors);
+            body.Metadata,
+            body.InstructionsAsset), errors);
     }
 
     private static (NhAssistantMcpServerInput? Input, NhAssistantValidationErrors Errors) ToInput(
@@ -1124,7 +1125,8 @@ internal static class NhAssistantAdminEndpoints
             agent.Id,
             definition.DisplayNameKey,
             definition.DescriptionKey,
-            definition.Instructions.Content,
+            // The placeholder of instructions that are not available is never shown.
+            agent.InstructionsProblem is null ? definition.Instructions.Content : string.Empty,
             definition.ToolSelectors,
             agent.McpServerIds,
             definition.RequiredPolicy,
@@ -1133,7 +1135,7 @@ internal static class NhAssistantAdminEndpoints
             definition.Version,
             agent.Source,
             agent.IsOverridden,
-            definition.Instructions.Manifest.ContentHash,
+            agent.InstructionsAsset?.Hash ?? definition.Instructions.Manifest.ContentHash,
             agent.UpdatedAt,
             state.RunState,
             state.ChangedAt,
@@ -1157,7 +1159,9 @@ internal static class NhAssistantAdminEndpoints
             RunPolicy = agent.WorksOn.RunPolicy,
             ViewPolicy = agent.WorksOn.ViewPolicy,
             WorksOnDeclared = agent.WorksOn.Declared,
-            OffBeforeStop = state.OffBeforeStop
+            OffBeforeStop = state.OffBeforeStop,
+            InstructionsAsset = agent.InstructionsAsset,
+            InstructionsProblem = agent.InstructionsProblem
         };
     }
 

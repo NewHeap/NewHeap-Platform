@@ -931,6 +931,9 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    /// <param name="instructionsVersion">The asset of the application the version takes its
+    /// instructions from, as <c>&lt;asset-id&gt;@&lt;version&gt;</c>; <see langword="null"/> for inline
+    /// instructions or none.</param>
     public Task SkillDefinitionChangedAsync(
         string agentId,
         string skillId,
@@ -938,13 +941,15 @@ internal sealed class NhAssistantAgentEvents(
         string? instructionsHash,
         string change,
         string actorId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? instructionsVersion = null)
     {
         return RecordAsync(
             new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentSkillDefinitionChanged, Guid.Empty, Guid.Empty, actorId, agentId, version, DateTimeOffset.UtcNow)
             {
                 ObjectId = skillId,
                 SkillId = skillId,
+                InstructionsVersion = instructionsVersion,
                 InstructionsHash = instructionsHash,
                 ResultCode = change
             },
