@@ -152,6 +152,10 @@ public static class NhAssistantServiceCollectionExtensions
             // schedules and the background refresh of the snapshot.
             services.TryAddScoped<NhAssistantAgentConfiguration>();
             services.TryAddScoped<INhAssistantAgentConfiguration>(provider => provider.GetRequiredService<NhAssistantAgentConfiguration>());
+            // Hand-offs as data within UseHandOffsAsData and the shadow variants of an agent.
+            services.TryAddScoped<NhAssistantDataHandOffs>();
+            services.TryAddScoped<INhAssistantDataHandOffs>(provider => provider.GetRequiredService<NhAssistantDataHandOffs>());
+            services.TryAddScoped<NhAssistantShadowVariants>();
             services.TryAddSingleton<NhAssistantDataScheduleSync>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAssistantRunSnapshotListener, NhAssistantDataScheduleSync>(
                 provider => provider.GetRequiredService<NhAssistantDataScheduleSync>()));

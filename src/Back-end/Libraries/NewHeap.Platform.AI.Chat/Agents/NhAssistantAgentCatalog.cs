@@ -88,6 +88,13 @@ internal sealed record NhAssistantAgent(
     /// <see langword="null"/> for <see cref="NhAiDataClassification.Internal"/>. A skill's own wins.
     /// </summary>
     public NhAiDataClassification? DataClassification { get; init; }
+
+    /// <summary>
+    /// The live agent an agent created in the administration is a data shadow variant of, as stored
+    /// when it was created, whether or not its run settings are in effect; <see langword="null"/> for
+    /// every other agent. A variant in code says it in its run configuration (<c>ShadowOf</c>).
+    /// </summary>
+    public string? ShadowOfAgentId { get; init; }
 }
 
 /// <summary>
@@ -212,7 +219,8 @@ internal sealed class NhAssistantAgentCatalog(
             WorksOn = row.Source == NhAssistantAgentSources.Code
                 ? registration.CodeAgentRuns.TryGetValue(row.Id, out var codeOptions) ? codeOptions.WorksOn : NhAssistantAgentWorksOn.Undeclared
                 : NhAssistantAgentWorksOn.FromRow(row),
-            DataClassification = ClassificationOf(row)
+            DataClassification = ClassificationOf(row),
+            ShadowOfAgentId = row.Source == NhAssistantAgentSources.Admin ? row.ShadowOfAgentId : null
         };
     }
 

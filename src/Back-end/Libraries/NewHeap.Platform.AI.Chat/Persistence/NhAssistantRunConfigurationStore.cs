@@ -19,6 +19,11 @@ internal sealed record NhAssistantStoredRunConfiguration(
     /// The consultations defined as data, ordered by agent and subject type.
     /// </summary>
     public IReadOnlyList<AssistantAgentConsultationDefinition> Consultations { get; init; } = [];
+
+    /// <summary>
+    /// The hand-offs defined as data, ordered by accepting agent and subject type.
+    /// </summary>
+    public IReadOnlyList<AssistantAgentHandOffDefinition> HandOffs { get; init; } = [];
 }
 
 /// <summary>
@@ -32,14 +37,20 @@ internal sealed record NhAssistantStoredAdminAgent(
     string ToolSelectorsJson,
     NhAssistantAgentWorksOn WorksOn,
     string? DataClassification = null,
-    string? RequiredPolicy = null);
+    string? RequiredPolicy = null)
+{
+    /// <summary>
+    /// The live agent the agent is a data shadow variant of; <see langword="null"/> for none.
+    /// </summary>
+    public string? ShadowOfAgentId { get; init; }
+}
 
 /// <summary>
 /// Persistence of the run configuration defined as data: the versions of data skills and the data
 /// triggers. Every change also changes the stamp in the same transaction, so every host reloads.
 /// Every call uses its own short-lived context.
 /// </summary>
-internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFactory contextFactory)
+internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbContextFactory contextFactory)
 {
     /// <summary>
     /// The id of the one stamp row.
@@ -83,7 +94,8 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                     RunPolicy = agent.RunPolicy,
                     ViewPolicy = agent.ViewPolicy,
                     DataClassification = agent.DataClassification,
-                    RequiredPolicy = agent.RequiredPolicy
+                    RequiredPolicy = agent.RequiredPolicy,
+                    ShadowOfAgentId = agent.ShadowOfAgentId
                 })
                 .ToListAsync(cancellationToken))
             .ToDictionary(
@@ -92,7 +104,10 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                     agent.ToolSelectorsJson,
                     NhAssistantAgentWorksOn.FromRow(agent),
                     agent.DataClassification,
-                    agent.RequiredPolicy),
+                    agent.RequiredPolicy)
+                {
+                    ShadowOfAgentId = agent.ShadowOfAgentId
+                },
                 StringComparer.Ordinal);
         var skills = await context.AgentSkillDefinitions
             .AsNoTracking()
@@ -112,9 +127,15 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             .OrderBy(item => item.AgentId)
             .ThenBy(item => item.SubjectType)
             .ToListAsync(cancellationToken);
+        var handOffs = await context.AgentHandOffDefinitions
+            .AsNoTracking()
+            .OrderBy(item => item.AgentId)
+            .ThenBy(item => item.SubjectType)
+            .ToListAsync(cancellationToken);
         return new NhAssistantStoredRunConfiguration(stamp, agentRuns, adminAgents, skills, triggers)
         {
-            Consultations = consultations
+            Consultations = consultations,
+            HandOffs = handOffs
         };
     }
 
@@ -217,6 +238,7 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
         }
         if (await context.AgentTriggerDefinitions.AnyAsync(item => item.AgentId == agentId, cancellationToken)
             || await context.AgentConsultationDefinitions.AnyAsync(item => item.AgentId == agentId, cancellationToken)
+            || await context.AgentHandOffDefinitions.AnyAsync(item => item.AgentId == agentId, cancellationToken)
             || await context.AgentSkillDefinitions.AnyAsync(
                 item => item.AgentId == agentId && item.Status != NhAssistantSkillDefinitionStatuses.Superseded,
                 cancellationToken))

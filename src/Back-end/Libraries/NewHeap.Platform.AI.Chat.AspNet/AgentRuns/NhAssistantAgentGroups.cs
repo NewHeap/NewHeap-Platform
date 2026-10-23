@@ -92,15 +92,17 @@ internal sealed class NhAssistantAgentGroups(
         {
             return TaskResult<NhAssistantAgentGroupMembershipDto>.Failed(errors.ToResult());
         }
-        if (await agents.FindAsync(agentId, includeDisabled: true, cancellationToken) is null)
+        var agent = await agents.FindAsync(agentId, includeDisabled: true, cancellationToken);
+        if (agent is null)
         {
             return TaskResult<NhAssistantAgentGroupMembershipDto>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
         }
 
         var wanted = groupIds.ToHashSet(StringComparer.Ordinal);
+        // A data shadow variant joins no group either, also while its run settings are out of effect.
         if (wanted.Count > 0
-            && registration.AgentRuns.TryGetValue(agentId, out var runOptions)
-            && runOptions.ShadowOfAgentId is not null)
+            && (agent.ShadowOfAgentId is not null
+                || (registration.AgentRuns.TryGetValue(agentId, out var runOptions) && runOptions.ShadowOfAgentId is not null)))
         {
             return TaskResult<NhAssistantAgentGroupMembershipDto>.Failed(
                 NhAssistantErrorCodes.ShadowVariant,

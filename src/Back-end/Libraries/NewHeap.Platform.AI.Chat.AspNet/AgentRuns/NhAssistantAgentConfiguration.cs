@@ -728,6 +728,17 @@ public sealed record NhAssistantAgentRequest(
     /// <c>metadata.&lt;name&gt;</c> (<c>not-found</c> for an entry that is not registered).
     /// </summary>
     public IReadOnlyDictionary<string, JsonElement>? Metadata { get; init; }
+
+    /// <summary>
+    /// The live agent the new agent is a data shadow variant of, within <c>UseShadowVariantsAsData</c>:
+    /// it receives every trigger of the live agent once it has run settings, always works in shadow,
+    /// is never offered in the chat and never changes its live agent. Fails with
+    /// <c>assistant-shadow-variants-not-allowed</c> outside the ceiling,
+    /// <c>assistant-configuration-limit</c> beyond its number of variants, and field errors
+    /// <c>shadowOf: not-found</c> for a live agent without a run configuration and
+    /// <c>shadowOf: invalid</c> for one that is no live agent.
+    /// </summary>
+    public string? ShadowOf { get; init; }
 }
 
 /// <param name="Name">The building block's name.</param>
@@ -1370,7 +1381,10 @@ internal sealed class NhAssistantAgentConfiguration(
                 request.StartsOff,
                 string.IsNullOrWhiteSpace(request.Profile) ? null : request.Profile.Trim(),
                 string.IsNullOrWhiteSpace(request.DataClassification) ? null : request.DataClassification.Trim(),
-                request.Metadata),
+                request.Metadata)
+            {
+                ShadowOf = request.ShadowOf
+            },
             actorId,
             cancellationToken);
         if (!created.Success)

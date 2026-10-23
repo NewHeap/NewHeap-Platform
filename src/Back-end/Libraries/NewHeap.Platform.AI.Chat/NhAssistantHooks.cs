@@ -348,7 +348,18 @@ public enum NhAssistantAuditEventKind
     /// an executor that threw or a report deadline that passed as <c>execution-unknown</c> with the
     /// execution code <c>hand-off-failed</c> or <c>report-overdue</c>. Never the arguments.
     /// </summary>
-    AgentProposalHandedToApplication = 72
+    AgentProposalHandedToApplication = 72,
+
+    /// <summary>
+    /// An administrator or the application added, changed or removed a hand-off defined as data
+    /// (<see cref="NhAssistantBuilder.UseHandOffsAsData"/>). <see cref="NhAssistantAuditEvent.AgentId"/>
+    /// is the agent that accepts it, <see cref="NhAssistantAuditEvent.SubjectType"/> and
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> its subject type,
+    /// <see cref="NhAssistantAuditEvent.AgentVersion"/> its version and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>created</c>, <c>changed</c> or <c>removed</c>.
+    /// Never its description.
+    /// </summary>
+    AdminAgentHandOffDefinitionChanged = 80
 }
 
 /// <summary>
@@ -554,6 +565,13 @@ public sealed record NhAssistantAuditEvent(
     /// <see langword="null"/> for other events.
     /// </summary>
     public string? MetadataEntry { get; init; }
+
+    /// <summary>
+    /// For an <see cref="NhAssistantAuditEventKind.AdminAgentCreated"/> event of a data shadow variant
+    /// (<see cref="NhAssistantBuilder.UseShadowVariantsAsData"/>): the live agent it is a variant of,
+    /// an agent id. <see langword="null"/> for other events.
+    /// </summary>
+    public string? LiveAgentId { get; init; }
 
     /// <summary>
     /// The run of the agent that handed work off.

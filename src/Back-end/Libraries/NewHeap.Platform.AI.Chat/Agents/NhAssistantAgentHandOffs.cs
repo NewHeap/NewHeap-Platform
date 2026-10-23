@@ -48,6 +48,47 @@ public sealed class NhAssistantHandOffOptions
     /// </summary>
     public int MaxPerSubjectPerDay { get; internal set; } = 5;
 
+    /// <summary>
+    /// Where the hand-off comes from: <see cref="NhAssistantHandOffSources.Code"/> for
+    /// <c>AcceptHandOffs</c>, <see cref="NhAssistantHandOffSources.Data"/> for one an administrator
+    /// defined within <c>UseHandOffsAsData</c>.
+    /// </summary>
+    public string Source { get; internal set; } = NhAssistantHandOffSources.Code;
+
+    /// <summary>
+    /// The version of a hand-off defined as data; <see langword="null"/> for one in code.
+    /// </summary>
+    public int? DataVersion { get; internal set; }
+
+    /// <summary>
+    /// Whether an administrator defined the hand-off as data.
+    /// </summary>
+    public bool IsData => string.Equals(Source, NhAssistantHandOffSources.Data, StringComparison.Ordinal);
+
+    /// <summary>
+    /// The options of a hand-off defined as data, after its checks.
+    /// </summary>
+    internal static NhAssistantHandOffOptions FromData(
+        string agentId,
+        string subjectType,
+        IEnumerable<string> sources,
+        string? description,
+        bool notifySource,
+        int maxPerSubjectPerDay,
+        int version)
+    {
+        var options = new NhAssistantHandOffOptions(agentId, subjectType)
+        {
+            Description = description,
+            NotifySource = notifySource,
+            MaxPerSubjectPerDay = maxPerSubjectPerDay,
+            Source = NhAssistantHandOffSources.Data,
+            DataVersion = version
+        };
+        options.AddSources(sources);
+        return options;
+    }
+
     internal void AddSources(IEnumerable<string> agentIds)
     {
         foreach (var agentId in agentIds)

@@ -99,6 +99,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantAgentConsultationDefinition> AgentConsultationDefinitions => Set<AssistantAgentConsultationDefinition>();
 
+    public DbSet<AssistantAgentHandOffDefinition> AgentHandOffDefinitions => Set<AssistantAgentHandOffDefinition>();
+
     public DbSet<AssistantAgentGroupMember> AgentGroupMembers => Set<AssistantAgentGroupMember>();
 
     public DbSet<AssistantBoardVisit> BoardVisits => Set<AssistantBoardVisit>();
@@ -551,6 +553,7 @@ public sealed class NhAssistantDbContext : DbContext
             agent.Property(item => item.StateReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
             agent.Property(item => item.ShadowChangedBy).HasMaxLength(256);
             agent.Property(item => item.ShadowReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            agent.Property(item => item.ShadowOfAgentId).HasMaxLength(128);
             agent.Property(item => item.ServiceAccountActorId).HasMaxLength(256);
             agent.Property(item => item.ServiceAccountChangedBy).HasMaxLength(256);
             agent.Property(item => item.ServiceAccountReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
@@ -721,6 +724,24 @@ public sealed class NhAssistantDbContext : DbContext
             consultation.Property(item => item.Reason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
             consultation.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             consultation.HasOne<AssistantAgent>()
+                .WithMany()
+                .HasForeignKey(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAgentHandOffDefinition>(handOff =>
+        {
+            handOff.ToTable("AssistantAgentHandOffDefinition");
+            handOff.HasKey(item => new { item.AgentId, item.SubjectType });
+            handOff.Property(item => item.AgentId).HasMaxLength(128);
+            handOff.Property(item => item.SubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength);
+            handOff.Property(item => item.SourcesJson).HasMaxLength(NhAssistantDataHandOffLimits.MaxSourcesJsonLength).IsRequired();
+            handOff.Property(item => item.Description).HasMaxLength(NhAssistantDataHandOffLimits.MaxDescriptionLength);
+            handOff.Property(item => item.CreatedBy).HasMaxLength(256).IsRequired();
+            handOff.Property(item => item.UpdatedBy).HasMaxLength(256).IsRequired();
+            handOff.Property(item => item.Reason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            handOff.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
+            handOff.HasOne<AssistantAgent>()
                 .WithMany()
                 .HasForeignKey(item => item.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);

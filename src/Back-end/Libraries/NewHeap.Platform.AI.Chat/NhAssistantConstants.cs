@@ -921,6 +921,29 @@ public static class NhAssistantErrorCodes
     public const string ConsultationsNotAllowed = "assistant-consultations-not-allowed";
 
     /// <summary>
+    /// The agent may not accept hand-offs defined as data: the application did not call
+    /// <c>UseHandOffsAsData</c>, or its ceiling connects no agent to this one.
+    /// </summary>
+    public const string HandOffsNotAllowed = "assistant-handoffs-not-allowed";
+
+    /// <summary>
+    /// The agent accepts hand-offs about this subject type in code (<c>AcceptHandOffs</c>); a hand-off
+    /// in code does not change as data.
+    /// </summary>
+    public const string HandOffInCode = "assistant-handoff-in-code";
+
+    /// <summary>
+    /// The agent has no hand-off defined as data about this subject type.
+    /// </summary>
+    public const string HandOffNotFound = "assistant-handoff-not-found";
+
+    /// <summary>
+    /// The agent may not get shadow variants created as data: the application did not call
+    /// <c>UseShadowVariantsAsData</c>, or its ceiling does not name the agent.
+    /// </summary>
+    public const string ShadowVariantsNotAllowed = "assistant-shadow-variants-not-allowed";
+
+    /// <summary>
     /// The skill has no candidate version to promote, discard or compare.
     /// </summary>
     public const string SkillCandidateNotFound = "assistant-skill-candidate-not-found";
