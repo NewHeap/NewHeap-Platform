@@ -369,6 +369,18 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
         AssertNames(reference, "id", "name", "mediaType", "size", "hash");
         AssertNames(file, "type", "name", "mediaType", "size");
         Assert.Equal("file", file.GetProperty("type").GetString());
+
+        // A message the application posted carries its details, with whether the assistant follows it.
+        var posted = JsonSerializer.SerializeToElement(
+            new NhAssistantMessageDto(Guid.NewGuid(), NhAssistantMessageRoles.Application, DateTimeOffset.UtcNow, [new NhAssistantTextPartDto("Done.")], 3, null, NhAssistantMessageAuthorKinds.Application)
+            {
+                Application = new NhAssistantApplicationMessageDto("Export finished", "Exports", new NhAssistantApplicationMessageLinkDto("/exports/42", null), Trusted: true)
+            },
+            context.NhAssistantMessageDto);
+        AssertNames(posted, "id", "role", "createdAt", "parts", "sequence", "authorActorId", "authorKind", "application");
+        AssertNames(posted.GetProperty("application"), "title", "senderName", "link", "trusted");
+        AssertNames(posted.GetProperty("application").GetProperty("link"), "url", "label");
+        Assert.True(posted.GetProperty("application").GetProperty("trusted").GetBoolean());
     }
 
     private static async Task<string> CreateConversationAsync(HttpClient client)

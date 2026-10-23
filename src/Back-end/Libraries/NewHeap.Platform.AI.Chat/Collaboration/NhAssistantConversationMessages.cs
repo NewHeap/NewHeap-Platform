@@ -100,7 +100,7 @@ internal sealed class NhAssistantConversationMessages(
         {
             Sequence = stored.Sequence,
             AuthorActorId = stored.AuthorActorId,
-            Application = new NhAssistantApplicationMessageView(details.Title, details.LinkUrl, details.LinkLabel, details.Sender)
+            Application = new NhAssistantApplicationMessageView(details.Title, details.LinkUrl, details.LinkLabel, details.Sender, message.Trusted)
         };
         await live.PublishAsync(
             new NhAssistantLiveMessageCreated(conversation.Id, NhAssistantSpeakers.ApplicationActorId, view),

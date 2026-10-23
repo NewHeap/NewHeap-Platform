@@ -201,8 +201,8 @@ public sealed record NhAssistantMessageDto(
     string? AuthorKind = null)
 {
     /// <summary>
-    /// The title, sender and link of a message the application posted; left out for other messages.
-    /// Its text is the message's <c>text</c> part.
+    /// The title, sender, link and trusted flag of a message the application posted; left out for
+    /// other messages. Its text is the message's <c>text</c> part.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NhAssistantApplicationMessageDto? Application { get; init; }
@@ -215,10 +215,14 @@ public sealed record NhAssistantMessageDto(
 /// <param name="SenderName">Who in the application posted it; the chat shows the message as the
 /// application's either way.</param>
 /// <param name="Link">Where people continue: a path within the application or an <c>https</c> address.</param>
+/// <param name="Trusted">Whether the assistant follows the message as the application's instruction
+/// (<see cref="NhAssistantApplicationMessage.Trusted"/>); <see langword="false"/> for a message the
+/// assistant reads as information. Always present, so people can see what the assistant follows.</param>
 public sealed record NhAssistantApplicationMessageDto(
     string? Title,
     string? SenderName,
-    NhAssistantApplicationMessageLinkDto? Link);
+    NhAssistantApplicationMessageLinkDto? Link,
+    bool Trusted);
 
 /// <param name="Url">A path within the application, such as <c>/exports/42</c>, or an <c>https</c> address.</param>
 /// <param name="Label">The text of the link; the chat shows its own text without one.</param>

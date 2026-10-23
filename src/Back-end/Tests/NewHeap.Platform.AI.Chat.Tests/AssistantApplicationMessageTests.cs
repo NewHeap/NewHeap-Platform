@@ -102,8 +102,8 @@ public sealed class AssistantApplicationMessageTests(AssistantDatabaseFixture da
                 details.GetProperty("senderName").GetString(),
                 details.GetProperty("link").GetProperty("url").GetString(),
                 details.GetProperty("link").GetProperty("label").GetString()));
-        // Whether the model follows a message is between the application and the model.
-        Assert.False(details.TryGetProperty("trusted", out _));
+        // People see that the assistant reads this message as information, not as an instruction.
+        Assert.False(details.GetProperty("trusted").GetBoolean());
         // Other messages carry no application details.
         Assert.All(
             conversation.GetProperty("messages").EnumerateArray().Where(item => item.GetProperty("role").GetString() != NhAssistantMessageRoles.Application),
@@ -115,8 +115,8 @@ public sealed class AssistantApplicationMessageTests(AssistantDatabaseFixture da
         // The owner saw it arrive live, once.
         var created = Assert.Single(live.For("user-1").OfType<NhAssistantLiveMessageCreated>());
         Assert.Equal(
-            (posted.Data.MessageId, NhAssistantMessageRoles.Application, "application", "Export finished"),
-            (created.Message.Id, created.Message.Role, created.ActorId, created.Message.Application?.Title));
+            (posted.Data.MessageId, NhAssistantMessageRoles.Application, "application", "Export finished", (bool?)false),
+            (created.Message.Id, created.Message.Role, created.ActorId, created.Message.Application?.Title, created.Message.Application?.Trusted));
         Assert.Contains(live.For("user-1").OfType<NhAssistantLiveConversationChanged>(), changed => changed.State.LastMessageSequence == 3);
 
         // The audit names the message, never its content.
@@ -423,11 +423,13 @@ public sealed class AssistantApplicationMessageTests(AssistantDatabaseFixture da
     {
         var model = new NhAiScriptedChatClient().RespondWithText("Here is the summary first.");
         var audit = new CapturedBusinessAuditSink();
+        var live = new CapturingLiveUpdates();
         await using var app = await AssistantWebApplication.StartAsync(
             database,
             model,
             configure: services =>
             {
+                services.Replace(ServiceDescriptor.Singleton<INhAssistantLiveUpdateTransport>(live));
                 services.AddSingleton(audit);
                 services.AddScoped<INhAssistantBusinessAuditSink, CapturedBusinessAuditSinkAdapter>();
             });
@@ -458,7 +460,7 @@ public sealed class AssistantApplicationMessageTests(AssistantDatabaseFixture da
             followed.Text);
         Assert.Contains("The export of ‹Alpha› finished.", informative.Text, StringComparison.Ordinal);
 
-        // Only the trusted message stores the flag; people see both messages alike.
+        // Only the trusted message stores the flag.
         await using (var context = app.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
         {
             var parts = context.Messages
@@ -467,10 +469,16 @@ public sealed class AssistantApplicationMessageTests(AssistantDatabaseFixture da
             Assert.Contains("\"trusted\":true", parts[instruction.Data!.MessageId], StringComparison.Ordinal);
             Assert.DoesNotContain("trusted", parts[information.Data!.MessageId], StringComparison.Ordinal);
         }
+        // People see which message the assistant follows, in the conversation and live.
         var conversation = await GetConversationAsync(owner, id);
-        Assert.All(
-            conversation.GetProperty("messages").EnumerateArray().Where(item => item.GetProperty("role").GetString() == NhAssistantMessageRoles.Application),
-            item => Assert.False(item.GetProperty("application").TryGetProperty("trusted", out _)));
+        var shown = conversation.GetProperty("messages").EnumerateArray()
+            .Where(item => item.GetProperty("role").GetString() == NhAssistantMessageRoles.Application)
+            .ToDictionary(item => Guid.Parse(item.GetProperty("id").GetString()!), item => item.GetProperty("application").GetProperty("trusted").GetBoolean());
+        Assert.Equal((false, true), (shown[information.Data.MessageId], shown[instruction.Data.MessageId]));
+        var arrived = live.For("user-1").OfType<NhAssistantLiveMessageCreated>()
+            .Where(item => item.Message.Role == NhAssistantMessageRoles.Application)
+            .ToDictionary(item => item.Message.Id, item => item.Message.Application!.Trusted);
+        Assert.Equal((false, true), (arrived[information.Data.MessageId], arrived[instruction.Data.MessageId]));
 
         // The audit records whether each message was trusted.
         var events = audit.Events.Where(item => item.Kind == NhAssistantAuditEventKind.ApplicationMessagePosted).ToArray();

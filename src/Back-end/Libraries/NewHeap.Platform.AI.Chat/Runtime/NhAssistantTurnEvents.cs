@@ -163,22 +163,27 @@ internal sealed record NhAssistantMessageView(
 
 /// <summary>
 /// What the application said about a message it posted, besides its text: an optional title, link
-/// and name of the sender.
+/// and name of the sender, and whether the model follows it as the application's instruction
+/// (<paramref name="Trusted"/>).
 /// </summary>
 internal sealed record NhAssistantApplicationMessageView(
     string? Title,
     string? LinkUrl,
     string? LinkLabel,
-    string? SenderName)
+    string? SenderName,
+    bool Trusted)
 {
     /// <summary>
     /// The view of the stored application part of a message, or <see langword="null"/> without one.
+    /// A part stored without the trusted flag is untrusted.
     /// </summary>
     public static NhAssistantApplicationMessageView? From(IEnumerable<NhAssistantStoredPart> parts)
     {
         ArgumentNullException.ThrowIfNull(parts);
         var part = parts.FirstOrDefault(item => item.Type == NhAssistantStoredPart.ApplicationType);
-        return part is null ? null : new NhAssistantApplicationMessageView(part.Title, part.LinkUrl, part.LinkLabel, part.Sender);
+        return part is null
+            ? null
+            : new NhAssistantApplicationMessageView(part.Title, part.LinkUrl, part.LinkLabel, part.Sender, part.Trusted == true);
     }
 }
 
