@@ -29,7 +29,12 @@ host metadata, never prompt text.
 The adapter resolves the named model profile and repeats actor-specific tool
 discovery for the `Agent` exposure boundary. It intersects that result with the
 descriptor's allow-list and autonomy ceiling before constructing a
-`ChatClientAgent`. Agent creation returns `TaskResult<NhAiAgentInstance>` for
+`ChatClientAgent`: reads need `Observe`, tools that change state `Execute`. A
+runtime that turns every effect into a proposal sets
+`NhAiAgentCreateRequest.EffectsAsProposals` inside an `NhAiAgentInvocationScope`
+of that agent with `RequireApprovalForEffects`; the adapter then also offers
+those tools to `Propose` and `Simulate` agents, whose calls only ask for
+approval, and throws when no such scope is current. Agent creation returns `TaskResult<NhAiAgentInstance>` for
 expected profile/policy failures. Model calls run through `INhAiChatExecutor`
 with the strict intersection of descriptor and run budgets, the request data
 classification, deadline, maximum estimated-cost reservation, usage sinks, and
@@ -66,7 +71,9 @@ upgrade starts a new lineage rather than coercing old state.
 
 Use a deterministic `IChatClient`. Verify human contexts are rejected, agent and
 model versions match, unauthorized tools are absent, observe-only autonomy hides
-mutations, execute autonomy still preserves mutation safeguards, and content-safe
+mutations, propose autonomy sees them only with `EffectsAsProposals` in a scope
+that requires approval for effects, execute autonomy still preserves mutation
+safeguards, and content-safe
 telemetry contains versions and outcomes only. Invoke the constructed agent and
 prove a budget reservation and usage record occur. Reject an ungoverned catalog
 and return a failed creation result for expected profile resolution failure.

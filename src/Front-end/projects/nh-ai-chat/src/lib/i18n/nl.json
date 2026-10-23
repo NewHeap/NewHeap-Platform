@@ -791,7 +791,7 @@
         "instructions": "Instructies",
         "instructions-hint": "Wat de agent doet en hoe hij antwoordt.",
         "autonomy": "Autonomie",
-        "autonomy-hint": "Alleen Uitvoeren staat wijzigingen toe, en elke wijziging vraagt nog steeds om goedkeuring.",
+        "autonomy-hint": "Alleen Uitvoeren staat wijzigingen toe in het eigen werk van de agent. In een raadpleging die mag voorstellen, stellen Voorstellen en Simuleren ook wijzigingen voor. Elke wijziging vraagt nog steeds om goedkeuring.",
         "required-policy": "Vereiste policy",
         "required-policy-hint": "Optioneel. Alleen gebruikers die aan deze policy voldoen zien de agent.",
         "profile": "Modelprofiel",

@@ -61,7 +61,29 @@ mock API plays consultations as data with `consultationsAsData`, `consultableAsD
 | Breaking change | Required action |
 |---|---|
 | `RunConfigurationProblemKind` also allows `'consultation'`. | Add the value to an exhaustive `switch` over the kinds. |
-| The route switches of an agent's consultations show inside the Consultations section for every agent with consultations, also one created in the administration, and the texts `code`, `not-allowed`, `not-allowed-hint`, `action.code`, `explain-change.code-on` and `explain-change.code-off` under `nh-assistant.admin.agents.consultation-routes` speak of the agent's consultations instead of its code. | Update your application's overrides of these translation keys. |
+| The route switches of an agent's consultations show inside the Consultations section for every agent with consultations, also one created in the administration, and the texts `code`, `not-allowed`, `not-allowed-hint`, `action.code`, `explain-change.code-on` and `explain-change.code-off` under `nh-assistant.admin.agents.consultation-routes` speak of the agent's consultations instead of its code; the error texts `assistant-consult-route-not-allowed`, `assistant-configuration-limit` and `assistant-run-settings-in-use` under `nh-assistant.errors` name consultations as well, and the first no longer speaks of consultations in code only. | Update your application's overrides of these translation keys. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.AgentFramework: Propose and Simulate agents propose in consultations
+
+In a consultation whose call has a proposal route in effect (the person who asked decides it, or it
+waits at the subject with the asker's or the agent's own rights), an agent with `Propose` or `Simulate`
+autonomy is now offered the tools that change state too, not only an agent with `Execute`. Every such
+call becomes a proposal on the consultation's route, as it already did for `Execute` agents, and never
+executes before it is decided. `Observe` and `Explain` agents still only read, a consultation that only
+answers offers no such tools, and an agent's own turns, runs and rules still offer them only with
+`Execute`. The agent framework adapter offers them from `Propose` on through the new
+`NhAiAgentCreateRequest.EffectsAsProposals`, off by default, which needs a current
+`NhAiAgentInvocationScope` of the agent with `RequireApprovalForEffects` and throws without one.
+
+| Breaking change | Required action |
+|---|---|
+| Agents with `Propose` or `Simulate` autonomy are offered the tools that change state, as proposals, in consultations with a proposal route in effect. | Give an agent `Explain` or `Observe` autonomy, or remove the proposal routes of its consultations, when it must not propose. |
+
+## @newheap/platform-ai-chat: the autonomy hint of the agent editor
+
+| Breaking change | Required action |
+|---|---|
+| The text `nh-assistant.admin.agent-editor.autonomy-hint` says that `Propose` and `Simulate` propose changes in a consultation that may propose. | Update your application's override of this translation key. |
 
 ## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Mcp, NewHeap.Platform.AI.AgentFramework and NewHeap.Platform.AI.AspNet.Common: tool catalogs that change at runtime
 

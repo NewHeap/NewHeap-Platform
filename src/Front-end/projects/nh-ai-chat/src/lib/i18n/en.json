@@ -791,7 +791,7 @@
         "instructions": "Instructions",
         "instructions-hint": "What the agent does and how it answers.",
         "autonomy": "Autonomy",
-        "autonomy-hint": "Only Execute allows changes, and every change still needs approval.",
+        "autonomy-hint": "Only Execute allows changes in the agent's own work. In a consultation that may propose, Propose and Simulate propose changes too. Every change still needs approval.",
         "required-policy": "Required policy",
         "required-policy-hint": "Optional. Only users who pass this policy see the agent.",
         "profile": "Model profile",
