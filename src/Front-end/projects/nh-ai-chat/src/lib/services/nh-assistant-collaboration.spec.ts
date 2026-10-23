@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { NhAssistantStore, provideNhAssistant } from '@newheap/platform-ai-chat';
+import { Conversation, NhAssistantStore, provideNhAssistant } from '@newheap/platform-ai-chat';
 import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
 
 const colleague = { actorId: 'colleague-sam', displayName: 'Sam' };
@@ -106,6 +106,25 @@ describe('NhAssistantStore collaboration', () => {
     expect(messages.some(message => message.authorActorId === 'colleague-sam')).toBeTrue();
     expect(store.members().map(member => member.displayName)).toEqual(['Robin', 'Sam']);
     expect(store.canSend()).toBeTrue();
+  });
+
+  it('shows an application message that arrives while this tab streams a turn where reading the conversation again puts it', async () => {
+    expect(await store.send('slow report')).toBeTrue();
+    const conversationId = store.activeConversation()!.id;
+    expect(store.streaming()).toBeTrue();
+
+    const posted = backend.postApplicationMessage(conversationId, 'The export finished.')!;
+    await until(() => store.activeConversation()!.messages.some(message => message.id === posted.id));
+    // It shows while the answer above it is still being written.
+    expect(store.streaming()).toBeTrue();
+    await until(() => store.activeConversation()?.status === 'idle' && !store.streaming());
+
+    const response = await backend.fetch(`/api/assistant/conversations/${conversationId}`, { method: 'GET' });
+    const snapshot = await response.json() as Conversation;
+    const messages = store.activeConversation()!.messages;
+    expect(messages.map(message => message.role)).toEqual(['user', 'assistant', 'application']);
+    expect(messages.map(message => message.id)).toEqual(snapshot.messages.map(message => message.id));
+    expect(messages[1].parts).toEqual(snapshot.messages[1].parts);
   });
 
   it('lets only the participant who started a turn decide its approval', async () => {
