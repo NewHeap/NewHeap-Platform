@@ -49,6 +49,21 @@ describe('NhAssistantMarkdownRenderer', () => {
     expect(element.textContent).toContain('pixel');
   });
 
+  it('shows data the server escaped with NhAssistantMarkdown.Escape literally, with its line breaks', () => {
+    // The project name and its escaped text of AssistantMarkdownTests on the server.
+    const projectName = '# **Launch** <b>now</b> [site](https://evil.example) _v2_ ~~old~~ | www.example.com & co';
+    const escaped = String.raw`\# \*\*Launch\*\* \<b\>now\<\/b\> \[site\]\(https\:\/\/evil\.example\) \_v2\_ \~\~old\~\~ \| www\.example\.com \& co`;
+
+    const element = toElement(renderer.render(`${escaped}\nfinished.`));
+    const paragraph = element.querySelector('p');
+
+    expect(element.children.length).toBe(1);
+    // Only the line break is markup: no heading, emphasis, link, HTML or table.
+    expect(Array.from(paragraph?.querySelectorAll('*') ?? []).map(node => node.tagName)).toEqual(['BR']);
+    expect(paragraph?.firstChild?.textContent).toBe(projectName);
+    expect(paragraph?.lastChild?.textContent).toBe('finished.');
+  });
+
   it('opens safe links in a new tab with rel="noopener noreferrer"', () => {
     const anchor = toElement(renderer.render('[docs](https://example.com/docs)')).querySelector('a');
 
