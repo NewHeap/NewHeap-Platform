@@ -693,6 +693,16 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             {
                 return (null, Error(NhAssistantErrorCodes.ConversationNotFound));
             }
+            // The single-tenant mode keeps a caller of another tenant from the whole application's
+            // threads, also before access records the caller as a participant. The store below lets the
+            // single tenant's people reach them although they are stored without a tenant.
+            if (NhAssistantWholeApplicationTenancy.KeepsOut(
+                    services.GetRequiredService<NhAssistantRegistrationState>(),
+                    thread,
+                    caller.TenantId))
+            {
+                return (null, Error(NhAssistantErrorCodes.ConversationNotFound));
+            }
 
             // Access to an agent thread follows the subject; the participant row holds read state.
             var displayName = await services.GetRequiredService<INhAssistantDisplayNameResolver>()

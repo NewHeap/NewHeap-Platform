@@ -181,6 +181,10 @@ internal sealed class NhAssistantProposalDecisions(
 
     private INhBackgroundOperationSignalService Signals => services.GetRequiredService<INhBackgroundOperationSignalService>();
 
+    /// <param name="tenantId">
+    /// The caller's tenant; with the single-tenant mode a caller of another tenant finds no proposal of
+    /// the whole application (<see cref="NhAssistantWholeApplicationTenancy"/>).
+    /// </param>
     public async Task<TaskResult<AssistantApproval>> DecideAsync(
         Guid approvalId,
         string actorId,
@@ -188,11 +192,15 @@ internal sealed class NhAssistantProposalDecisions(
         bool approve,
         string? expectedProposalHash,
         string? reason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? tenantId = null)
     {
         var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
-        if (approval is null || thread is null || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
+        if (approval is null
+            || thread is null
+            || NhAssistantWholeApplicationTenancy.KeepsOut(registration, thread, tenantId)
+            || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
         }
@@ -333,17 +341,22 @@ internal sealed class NhAssistantProposalDecisions(
     /// Resolves an execution whose outcome is unknown: run it again with a new idempotency key, or
     /// confirm the outcome without running it.
     /// </summary>
+    /// <param name="tenantId">The caller's tenant, as for <see cref="DecideAsync"/>.</param>
     public async Task<TaskResult<AssistantApproval>> ResolveExecutionAsync(
         Guid approvalId,
         string actorId,
         ClaimsPrincipal user,
         bool reExecute,
         string? reason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? tenantId = null)
     {
         var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
-        if (approval is null || thread is null || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
+        if (approval is null
+            || thread is null
+            || NhAssistantWholeApplicationTenancy.KeepsOut(registration, thread, tenantId)
+            || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
         }

@@ -4,9 +4,14 @@ using NewHeap.Platform.AI.Chat.Entities;
 
 namespace NewHeap.Platform.AI.Chat.Persistence;
 
+/// <param name="registration">
+/// The registration, for the single-tenant mode's access to the whole application's threads; a store
+/// made without it, as for audiences, applies the tenant rule alone.
+/// </param>
 internal sealed class NhAssistantStore(
     NhAssistantDbContextFactory contextFactory,
-    ILogger<NhAssistantStore> logger) : INhAssistantStore
+    ILogger<NhAssistantStore> logger,
+    NhAssistantRegistrationState? registration = null) : INhAssistantStore
 {
     /// <summary>
     /// How long a join waits for the other joins of its conversation: the default
@@ -72,8 +77,11 @@ internal sealed class NhAssistantStore(
             return new NhAssistantConversationAccess(conversation, actorId, null);
         }
 
-        // A participant never reaches a conversation of another tenant, even with a stale row.
-        if (!string.Equals(conversation.TenantId, tenantId, StringComparison.Ordinal))
+        // A participant never reaches a conversation of another tenant, even with a stale row. The
+        // whole application's threads belong to no tenant; with the single-tenant mode its tenant's
+        // people reach them as well.
+        if (!string.Equals(conversation.TenantId, tenantId, StringComparison.Ordinal)
+            && !await IsWholeApplicationThreadForAsync(context, conversation, tenantId, cancellationToken))
         {
             return null;
         }
@@ -85,6 +93,33 @@ internal sealed class NhAssistantStore(
         return participant is null
             ? null
             : new NhAssistantConversationAccess(conversation, actorId, participant);
+    }
+
+    /// <summary>
+    /// Whether the conversation is a thread of the whole application, stored without a tenant, that a
+    /// caller bound to <paramref name="tenantId"/> takes part in (<see cref="Runs.NhAssistantWholeApplicationTenancy"/>).
+    /// </summary>
+    private async Task<bool> IsWholeApplicationThreadForAsync(
+        NhAssistantDbContext context,
+        AssistantConversation conversation,
+        string? tenantId,
+        CancellationToken cancellationToken)
+    {
+        if (conversation.TenantId is not null
+            || conversation.Kind != NhAssistantConversationKinds.Thread
+            || registration is null
+            || !Runs.NhAssistantWholeApplicationTenancy.TakesPart(registration, tenantId))
+        {
+            return false;
+        }
+
+        return await context.Threads
+            .AsNoTracking()
+            .AnyAsync(
+                thread => thread.ConversationId == conversation.Id
+                    && thread.TenantId == null
+                    && thread.SubjectType == NhAiSubjectRef.SystemType,
+                cancellationToken);
     }
 
     public async Task<AssistantConversation?> FindShareableConversationAsync(

@@ -133,12 +133,15 @@ internal sealed class NhAssistantRunHistory(
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(reader);
         var (filter, page, itemsPerPage) = query;
+        // A reader of the single tenant also finds the whole application's runs, stored without one.
         var candidates = await runs.FindThreadsWithRunsAsync(
             filter,
             reader.TenantId,
             reader.Administrator,
             MaxThreads + 1,
-            cancellationToken);
+            cancellationToken,
+            includeWholeApplication: reader.TenantId is not null
+                && NhAssistantWholeApplicationTenancy.TakesPart(_registration, reader.TenantId));
         var visibility = new Visibility(this, reader);
         var visible = new List<Guid>(Math.Min(candidates.Count, MaxThreads));
         foreach (var thread in candidates.Take(MaxThreads))
@@ -296,7 +299,7 @@ internal sealed class NhAssistantRunHistory(
         }
 
         var thread = row.Thread;
-        if (!string.Equals(thread.TenantId, visibility.Reader.TenantId, StringComparison.Ordinal)
+        if (!NhAssistantWholeApplicationTenancy.Reaches(_registration, thread, visibility.Reader.TenantId)
             || !await visibility.MayViewAsync(thread, cancellationToken))
         {
             return null;

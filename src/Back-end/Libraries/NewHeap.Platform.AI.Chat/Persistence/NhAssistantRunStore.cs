@@ -1288,18 +1288,24 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     /// <summary>
     /// The threads with at least one run that matches the filter, in <paramref name="tenantId"/>'s
     /// tenant (none for a caller without one), ordered by their newest matching run, at most
-    /// <paramref name="maximum"/>. Shadow threads only with <paramref name="includeShadow"/>.
+    /// <paramref name="maximum"/>. Shadow threads only with <paramref name="includeShadow"/>. With
+    /// <paramref name="includeWholeApplication"/> the whole application's threads, stored without a
+    /// tenant, count as well, for a caller of the single tenant.
     /// </summary>
     public async Task<IReadOnlyList<AssistantThread>> FindThreadsWithRunsAsync(
         NhAssistantRunFilter filter,
         string? tenantId,
         bool includeShadow,
         int maximum,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool includeWholeApplication = false)
     {
         ArgumentNullException.ThrowIfNull(filter);
         await using var context = contextFactory.CreateDbContext();
-        var threads = FilterThreads(context, filter).Where(thread => thread.TenantId == tenantId);
+        var threads = includeWholeApplication
+            ? FilterThreads(context, filter).Where(thread => thread.TenantId == tenantId
+                || (thread.TenantId == null && thread.SubjectType == NhAiSubjectRef.SystemType))
+            : FilterThreads(context, filter).Where(thread => thread.TenantId == tenantId);
         if (!includeShadow)
         {
             threads = threads.Where(thread => !thread.Shadow);

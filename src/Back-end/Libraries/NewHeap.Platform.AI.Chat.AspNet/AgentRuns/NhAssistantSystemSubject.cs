@@ -376,7 +376,8 @@ internal sealed class NhAssistantSystemSubjectResolver(
 internal sealed class NhAssistantSystemApprovers(
     NhAssistantRunStore runs,
     NhAssistantSubjectAccessService subjects,
-    NhAssistantSystemRoleCache cache)
+    NhAssistantSystemRoleCache cache,
+    NhAssistantRegistrationState registration)
 {
     /// <summary>
     /// The most subjects of the whole application one listing evaluates: the application itself and
@@ -393,14 +394,15 @@ internal sealed class NhAssistantSystemApprovers(
     /// The threads of the whole application whose pending proposals the person's inbox lists: as an
     /// approver of the subject, or as the initiator of a run, and in both cases only when the person
     /// passes the agent's view policy. A person bound to a tenant sees none: the whole application
-    /// belongs to no tenant, as its proposals' threads do not.
+    /// belongs to no tenant, as its proposals' threads do not; with the single-tenant mode a person of
+    /// its tenant does (<see cref="NhAssistantWholeApplicationTenancy"/>).
     /// </summary>
     public async Task<NhAssistantSystemInbox> InboxAsync(
         string actorId,
         string? tenantId,
         CancellationToken cancellationToken)
     {
-        if (tenantId is not null)
+        if (!NhAssistantWholeApplicationTenancy.TakesPart(registration, tenantId))
         {
             return NhAssistantSystemInbox.None;
         }

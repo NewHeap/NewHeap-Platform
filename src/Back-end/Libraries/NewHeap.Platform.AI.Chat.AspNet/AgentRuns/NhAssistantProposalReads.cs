@@ -19,6 +19,7 @@ internal sealed class NhAssistantProposalReads(
     NhAssistantSubjectAccessService subjects,
     NhAssistantApproverCheck approvers,
     NhAssistantProposalFeedbackStore feedback,
+    NhAssistantRegistrationState registration,
     TimeProvider? timeProvider = null)
 {
     private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
@@ -45,8 +46,9 @@ internal sealed class NhAssistantProposalReads(
         foreach (var group in rows.GroupBy(row => row.Thread.ConversationId))
         {
             var thread = group.First().Thread;
-            // A thread of another tenant stays invisible, as its conversation does.
-            if (!string.Equals(thread.TenantId, tenantId, StringComparison.Ordinal))
+            // A thread of another tenant stays invisible, as its conversation does; the whole
+            // application's threads are the single tenant's in the single-tenant mode.
+            if (!NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId))
             {
                 continue;
             }

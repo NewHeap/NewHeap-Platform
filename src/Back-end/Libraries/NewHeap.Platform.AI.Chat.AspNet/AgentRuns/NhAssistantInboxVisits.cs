@@ -17,6 +17,7 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 internal sealed class NhAssistantInboxVisits(
     NhAssistantBoardStore store,
     NhAssistantSubjectAccessService subjects,
+    NhAssistantRegistrationState registration,
     IServiceProvider services)
 {
     /// <summary>
@@ -49,7 +50,7 @@ internal sealed class NhAssistantInboxVisits(
     /// <summary>
     /// Records that the person looked at the inbox of the scope now. A division must be one the
     /// application lists and the person may work in, as for boards; a person bound to a tenant has no
-    /// division scope. Fails with <see cref="NhAssistantErrorCodes.SubjectNotFound"/> otherwise, so nobody
+    /// division scope, unless the single-tenant mode names that tenant. Fails with <see cref="NhAssistantErrorCodes.SubjectNotFound"/> otherwise, so nobody
     /// stores visits of a division they cannot work in.
     /// </summary>
     public async Task<TaskResult<NhAssistantInboxVisitDto>> VisitAsync(
@@ -74,7 +75,8 @@ internal sealed class NhAssistantInboxVisits(
 
     private async Task<bool> MayWorkInAsync(string actorId, string? tenantId, Guid divisionId, CancellationToken cancellationToken)
     {
-        if (tenantId is not null || services.GetService<INhDivisionAccess>() is not { } access)
+        if (!NhAssistantWholeApplicationTenancy.TakesPart(registration, tenantId)
+            || services.GetService<INhDivisionAccess>() is not { } access)
         {
             return false;
         }
