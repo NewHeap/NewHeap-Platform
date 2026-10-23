@@ -133,7 +133,10 @@ consultation, the participant who asked decides it right away in their own chat,
 runs in their own request with their own rights. The project assistant also consults the
 project closer, whose proposal to complete a project waits for a project approver other
 than the person who asked and runs with the closer's own grant. Neither path rebuilds a
-person's principal outside that person's request.
+person's principal outside that person's request. The consult tool only ever acts for a
+person: an agent created in the administration that acts with the operations account's
+rights is not offered it in a run that a created project starts, because it does not
+delegate from the person who created the project.
 After rejecting a proposal, an approver may say what was wrong (SPM-279): a category such
 as `not-now` and a short text, never required and never asked before the decision. The
 next run of the reviewer on that project starts from the rejection and the approver's

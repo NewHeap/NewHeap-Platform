@@ -1,5 +1,24 @@
 # v-next
 
+## NewHeap.Platform.AI.AspNet.Common and NewHeap.Platform.AI.Chat.AspNet: consult and request tools only with a delegating initiator's rights
+
+Security fix. In a headless run of an agent that acts with the rights of the account it answers to
+(every agent created in the administration with run settings, or `ActWithAccountableRights()` in
+code) and that does not delegate from its initiator, the agent gate allowed the generated
+`assistant.consult.*` and `assistant.request.*` tools when that account passed their policies, and the
+call then used the run's initiator as the asker. An event that named a person could so make the agent
+consult another agent, or start its work, with that person's rights about any subject the person may
+read, and put the answer in a thread that others read. The gate now allows these tools in an agent turn
+only through the rights of the initiator the turn delegates from, never through the accountable
+account's rights, a gateway read or an agent grant, so such a turn is not offered them; the tools also
+refuse a call in an agent turn that its initiator did not delegate with
+`assistant-consult-subject-unavailable`. A person's own chat, MCP consultations, runs that delegate from
+their initiator, the routes of consultation proposals and requests by a person work as before.
+
+| Breaking change | Required action |
+|---|---|
+| A headless run of an agent that acts with its account's rights and does not delegate from its initiator no longer consults or requests other agents. | Turn on delegation from the initiator (`delegateFromInitiator` in the run settings, `DelegateFromInitiator()` in code) for agents whose runs should consult with the rights of the person who started them. |
+
 ## NewHeap.Platform.AI.AspNet.Common and NewHeap.Platform.AI.Chat.AspNet: the request's person by the platform's actor id
 
 The platform recognizes the person who sent a request by the actor id the registered

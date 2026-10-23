@@ -2229,6 +2229,8 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationProposalTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationContractTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationDelegationTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAgentScopeApprovalTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/approval-card/nh-assistant-approval-card.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-consultation-routes.component.ts",
