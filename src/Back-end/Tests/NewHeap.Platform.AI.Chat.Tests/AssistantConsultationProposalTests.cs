@@ -32,7 +32,10 @@ public sealed class AssistantConsultationProposalTests(AssistantDatabaseFixture 
     private const string TargetAgentId = "project-assistant";
     private const string AskingAgentId = "consulting-assistant";
     private const string ConsultTool = "consult_project-assistant_project_v1";
+    private const string ProposingAgentId = "proposing-assistant";
+    private const string ProposingConsultTool = "consult_proposing-assistant_project_v1";
     private const string ChangeStatus = "projects_change_status_v1";
+    private const string Search = "projects_search_v1";
     private const string Member = "member-1";
     private const string Approver = "approver-1";
     private const string ProjectId = "project-0001";
@@ -435,6 +438,160 @@ public sealed class AssistantConsultationProposalTests(AssistantDatabaseFixture 
         Assert.True(Assert.Single(reset.Data!.ConsultationRoutes!.Routes, route => route.Route == NhAssistantConsultationRoutes.SubjectAgentRights).On);
     }
 
+    public static TheoryData<AssistantTestProvider, string> ProposingRoutes()
+    {
+        var data = new TheoryData<AssistantTestProvider, string>();
+        foreach (var provider in new[] { AssistantTestProvider.SqlServer, AssistantTestProvider.PostgreSql })
+        {
+            data.Add(provider, NhAssistantConsultationRoutes.AskerDecides);
+            data.Add(provider, NhAssistantConsultationRoutes.SubjectAskerRights);
+            data.Add(provider, NhAssistantConsultationRoutes.SubjectAgentRights);
+        }
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(ProposingRoutes))]
+    public async Task A_propose_agent_consulted_with_a_route_is_offered_changes_and_each_waits_as_a_proposal_for_its_decision(AssistantTestProvider provider, string route)
+    {
+        // AC34 (b): an agent with Propose autonomy is offered the tools that change state in a
+        // consultation with a proposal route, and its call becomes a proposal on that route; nothing
+        // executes before the proposal is decided.
+        var projectId = Guid.NewGuid();
+        var target = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatus, new { input = new { projectId, status = "active" } }, "c-1")
+            .RespondWithText("I proposed to activate the project.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ProposingConsultTool, new { input = new { subjectId = ProjectId, question = "Activate it if it is ready." } }, "call-1")
+            .RespondWithText("The starter proposed it.");
+        Action<NhAssistantConsultationProposalBuilder> proposals = route switch
+        {
+            NhAssistantConsultationRoutes.AskerDecides => builder => builder.AskerDecides().Policy(AskerPolicy),
+            NhAssistantConsultationRoutes.SubjectAskerRights => builder => builder.AtSubject(NhAssistantConsultationRights.Asker),
+            _ => builder => builder.AtSubject(NhAssistantConsultationRights.Agent)
+        };
+        await using var host = await CreateHostAsync(provider, target, asker, proposals, consulted: Proposing(NhAiAutonomyLevel.Propose));
+        var conversation = await host.CreateConversationAsync(Member, AskingAgentId);
+
+        var turn = await host.SendAsync(conversation.Id, "Activate the project if it is ready.", Member);
+
+        Assert.Contains(target.Requests[0].Options?.Tools ?? [], tool => tool.Name == ChangeStatus);
+        Assert.Empty(host.Tools.StatusChanges);
+        var approval = Assert.Single(await host.Services.GetRequiredService<NhAssistantRunStore>()
+            .GetConsultationApprovalsAsync((await SingleConsultationAsync(host)).Id, CancellationToken.None));
+        Assert.Equal((NhAssistantApprovalStatuses.Pending, TestProjectToolCatalog.ChangeStatus.Id), (approval.Status, approval.ToolId));
+        Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ApprovalRequested
+            && evt.ApprovalId == approval.Id
+            && evt.ConsultationRoute == route);
+        Assert.DoesNotContain(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalExecuted);
+
+        if (route == NhAssistantConsultationRoutes.AskerDecides)
+        {
+            // The asker decides it on the card in their own chat; then it executes.
+            Assert.Equal(NhAssistantApprovalModes.Inline, approval.Mode);
+            var card = turn.Single<NhAssistantApprovalRequiredEvent>().Approval;
+            Assert.Equal(approval.Id, card.ApprovalId);
+            await host.DecideAsync(conversation.Id, card, approve: true, userId: Member);
+        }
+        else
+        {
+            Assert.Equal(NhAssistantApprovalModes.Deferred, approval.Mode);
+            Assert.Empty(turn.Events.OfType<NhAssistantApprovalRequiredEvent>());
+            if (route == NhAssistantConsultationRoutes.SubjectAskerRights)
+            {
+                // It waits for the subject's approvers; this application rebuilds nobody's principal.
+                Assert.Equal(NhAiGrantSource.Delegated, approval.GrantSource);
+                Assert.Equal(NhAssistantApprovalStatuses.Pending, (await StoredAsync(host, approval.Id)).Status);
+                return;
+            }
+
+            Assert.Equal(NhAiGrantSource.Agent, approval.GrantSource);
+            await ApproveAndExecuteAsync(host, approval, Approver);
+        }
+
+        Assert.Equal("active", Assert.Single(host.Tools.StatusChanges).Status);
+        Assert.Equal(NhAssistantApprovalStatuses.Executed, (await StoredAsync(host, approval.Id)).Status);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Explain_agents_consultations_that_only_answer_and_a_propose_agents_own_turns_offer_no_changes(AssistantTestProvider provider)
+    {
+        // An agent that only explains reads, also in a consultation with a proposal route.
+        var explaining = new NhAiScriptedChatClient().RespondWithText("It can start once the budget is approved.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ProposingConsultTool, new { input = new { subjectId = ProjectId, question = "Can it start?" } }, "call-1")
+            .RespondWithText("It can start once the budget is approved.");
+        await using (var host = await CreateHostAsync(
+                         provider,
+                         explaining,
+                         asker,
+                         proposals => proposals.AskerDecides().Policy(AskerPolicy),
+                         consulted: Proposing(NhAiAutonomyLevel.Explain)))
+        {
+            await host.SendAsync((await host.CreateConversationAsync(Member, AskingAgentId)).Id, "Can the project start?", Member);
+
+            var tools = OfferedTools(explaining);
+            Assert.Contains(tools, tool => tool.Name == Search);
+            Assert.DoesNotContain(tools, tool => tool.Name == ChangeStatus);
+        }
+
+        // A consultation that only answers offers a Propose agent no changes, and neither does a turn
+        // of its own.
+        var proposing = new NhAiScriptedChatClient()
+            .RespondWithText("It can start once the budget is approved.")
+            .RespondWithText("I can only describe the change.");
+        var readOnlyAsker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ProposingConsultTool, new { input = new { subjectId = ProjectId, question = "Can it start?" } }, "call-1")
+            .RespondWithText("It can start once the budget is approved.");
+        await using (var host = await CreateHostAsync(provider, proposing, readOnlyAsker, null, consulted: Proposing(NhAiAutonomyLevel.Propose)))
+        {
+            await host.SendAsync((await host.CreateConversationAsync(Member, AskingAgentId)).Id, "Can the project start?", Member);
+            await host.SendAsync((await host.CreateConversationAsync(Member, ProposingAgentId)).Id, "Activate the project.", Member);
+
+            Assert.Equal(2, proposing.Requests.Count);
+            Assert.All(proposing.Requests, request =>
+            {
+                Assert.Contains(request.Options?.Tools ?? [], tool => tool.Name == Search);
+                Assert.DoesNotContain(request.Options?.Tools ?? [], tool => tool.Name == ChangeStatus);
+            });
+            Assert.Empty(host.Tools.StatusChanges);
+        }
+
+        static IList<AITool> OfferedTools(NhAiScriptedChatClient client)
+        {
+            return Assert.Single(client.Requests).Options?.Tools ?? [];
+        }
+    }
+
+    [Fact]
+    public void Only_a_consultation_with_a_route_offers_changes_below_execute_autonomy()
+    {
+        var services = new ServiceCollection();
+        services.AddNewHeapAssistant(assistant => assistant
+            .AddAgent(AssistantTestData.Agent(TargetAgentId))
+            .ConfigureAgent(TargetAgentId, agent => agent.AllowConsultation("project")));
+        var state = (NhAssistantRegistrationState)services.Single(descriptor => descriptor.ServiceType == typeof(NhAssistantRegistrationState)).ImplementationInstance!;
+        var options = state.AgentRuns[TargetAgentId].Consultations.Single();
+        NhAssistantConsultationScope Consultation(bool mayPropose)
+        {
+            return new NhAssistantConsultationScope(Guid.NewGuid(), options, [AskingAgentId, TargetAgentId], 1, mayPropose, AskingAgentId, null!);
+        }
+
+        foreach (var autonomy in Enum.GetValues<NhAiAutonomyLevel>())
+        {
+            var agent = AssistantTestData.Agent(TargetAgentId, autonomy: autonomy);
+
+            // The agent's own turns, runs and rules: execute autonomy only, as before.
+            Assert.Equal(autonomy == NhAiAutonomyLevel.Execute, NhAssistantTurnRunner.OffersEffects(agent, null));
+            // A consultation without a route in effect for the call only answers.
+            Assert.False(NhAssistantTurnRunner.OffersEffects(agent, Consultation(mayPropose: false)));
+            // With a route every effect is a proposal: Propose, Simulate and Execute are offered them.
+            Assert.Equal(autonomy >= NhAiAutonomyLevel.Propose, NhAssistantTurnRunner.OffersEffects(agent, Consultation(mayPropose: true)));
+        }
+    }
+
     [Fact]
     public void Startup_refuses_the_agents_rights_where_no_one_but_a_person_answers_or_only_the_asker_approves()
     {
@@ -517,13 +674,17 @@ public sealed class AssistantConsultationProposalTests(AssistantDatabaseFixture 
         AssistantTestProvider provider,
         NhAiScriptedChatClient target,
         NhAiScriptedChatClient asker,
-        Action<NhAssistantConsultationProposalBuilder> proposals,
+        Action<NhAssistantConsultationProposalBuilder>? proposals,
         bool grant = true,
         Action<NhAssistantAgentRunBuilder>? agent = null,
         Action<NhAssistantLimits>? limits = null,
         RecordingChannel? channel = null,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        NhAssistantAgentDefinition? consulted = null)
     {
+        // The consulted agent is the host's project assistant unless the test brings its own; without
+        // proposals the consultation only answers.
+        var consultedId = consulted?.Id ?? TargetAgentId;
         return await AssistantTestHost.CreateAsync(
             database,
             provider,
@@ -551,33 +712,58 @@ public sealed class AssistantConsultationProposalTests(AssistantDatabaseFixture 
                     .PermitExecutionRegions("local")
                     .WithBudget(maxInputTokens: 8_192, maxOutputTokens: 1_024, maxCalls: 16)));
             },
-            assistantBuilder: assistant => assistant
-                .AddAgent(AssistantTestData.Agent(AskingAgentId) with
+            assistantBuilder: assistant =>
+            {
+                assistant
+                    .AddAgent(AssistantTestData.Agent(AskingAgentId) with
+                    {
+                        ProfileName = "asking-chat",
+                        ToolSelectors = ["assistant.consult.*"]
+                    })
+                    .AddSubjectType<TestSubjectResolver>()
+                    .AddAgentNotificationChannel<RecordingChannelAdapter>()
+                    .AddApprovalPolicy(AskerPolicy, policy => policy
+                        .Approvers(NhAiApprovers.Initiator, NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
+                        .Lifetime(TimeSpan.FromDays(1)))
+                    .AddApprovalPolicy(FourEyesPolicy, policy => policy
+                        .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
+                        .FourEyes())
+                    .AddApprovalPolicy(ApproverPolicy, policy => policy
+                        .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver)));
+                if (consulted is not null)
                 {
-                    ProfileName = "asking-chat",
-                    ToolSelectors = ["assistant.consult.*"]
-                })
-                .AddSubjectType<TestSubjectResolver>()
-                .AddAgentNotificationChannel<RecordingChannelAdapter>()
-                .AddApprovalPolicy(AskerPolicy, policy => policy
-                    .Approvers(NhAiApprovers.Initiator, NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
-                    .Lifetime(TimeSpan.FromDays(1)))
-                .AddApprovalPolicy(FourEyesPolicy, policy => policy
-                    .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
-                    .FourEyes())
-                .AddApprovalPolicy(ApproverPolicy, policy => policy
-                    .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver)))
-                .ConfigureAgent(TargetAgentId, run =>
+                    assistant.AddAgent(consulted);
+                }
+
+                assistant.ConfigureAgent(consultedId, run =>
                 {
                     if (grant)
                     {
                         run.Grant("projects.*");
                     }
                     agent?.Invoke(run);
-                    run.AllowConsultation("project", consult => consult
-                        .Description("Knows the intake review of a project.")
-                        .Proposals(proposals));
-                }));
+                    run.AllowConsultation("project", consult =>
+                    {
+                        consult.Description("Knows the intake review of a project.");
+                        if (proposals is null)
+                        {
+                            consult.Proposals(false);
+                        }
+                        else
+                        {
+                            consult.Proposals(proposals);
+                        }
+                    });
+                });
+            });
+    }
+
+    /// <summary>
+    /// A consulted agent next to the host's project assistant, with the autonomy the test gives it.
+    /// </summary>
+    private static NhAssistantAgentDefinition Proposing(NhAiAutonomyLevel autonomy)
+    {
+        return AssistantTestData.Agent(ProposingAgentId, autonomy: autonomy);
     }
 
     private static async Task ApproveAndExecuteAsync(AssistantTestHost host, AssistantApproval approval, string approver)

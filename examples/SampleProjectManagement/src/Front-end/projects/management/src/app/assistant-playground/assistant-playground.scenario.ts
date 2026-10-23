@@ -388,7 +388,8 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       {
         // SPM-298 and SPM-311: the project starter as the API's development seeder creates it: an agent
         // created as data that answers to the operations account, starts drafts by rule, and that the
-        // project assistant consults about projects through a consultation defined as data.
+        // project assistant consults about projects through a consultation defined as data. It only
+        // proposes: the consultation's routes offer its model the status tool as proposals.
         source: 'admin',
         id: 'project-starter',
         displayName: 'Project starter',
@@ -397,7 +398,7 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         toolSelectors: ['projects.change-status'],
         mcpServerIds: [],
         requiredPolicy: null,
-        autonomy: 'execute',
+        autonomy: 'propose',
         offeredInChat: false,
         worksOnSubjectTypes: ['project'],
         worksOnAllSubjects: false,

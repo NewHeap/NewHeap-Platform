@@ -234,7 +234,9 @@ selects nothing until an administrator saves the starter's consultation about pr
 `SaveConsultationAsync`, as `SampleAgentConfigurationService` does; the development seeder defines it
 once. The tool then appears in the administration's tool list and the assistant's next turn. A project
 approver asks whether a draft can start, the starter answers with that person's rights and proposes to
-start it, and the person decides it on the card. A reader gets the answer only. With the asker's route
+start it, and the person decides it on the card. The starter has `Propose` autonomy: a consultation with
+a proposal route offers its model the status tool all the same, and nothing changes before the
+decision. A reader gets the answer only. With the asker's route
 switched off for the starter, the proposal waits for another project approver and executes with the
 operations account the starter answers to. After the consultation is removed the tool is gone, while
 the waiting proposal can still be decided. `AssistantAgentRunSamplesTests` runs the case, with a

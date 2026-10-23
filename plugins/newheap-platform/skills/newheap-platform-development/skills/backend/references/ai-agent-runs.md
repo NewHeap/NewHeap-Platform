@@ -847,7 +847,12 @@ consultations. A consult answers in the same turn: the agent reads its working m
 earlier summaries, recent thread history and the artifacts the asker may read, with its
 tools under the asker's rights only. Anything it would change becomes a proposal in its
 thread with `consultationId`; it never executes during the consultation, because
-`RequireApprovalForEffects` on the agent scope enforces that in the tool invoker. Choose who
+`RequireApprovalForEffects` on the agent scope enforces that in the tool invoker. That is why a
+consultation with a proposal route in effect for the call offers the tools that change state to an
+agent with `Propose` or `Simulate` autonomy as well as `Execute`; `Observe` and `Explain` agents only
+read, a consultation that only answers offers them to nobody, and the agent's own turns, runs and
+rules keep offering them only with `Execute`. Give an agent `Explain` or `Observe`, or remove its
+consultation's proposal routes, when it must not propose. Choose who
 decides it with `Proposals(p => p.MinimumRole(...).AskerDecides().AtSubject(rights).Policy(id))`;
 each call takes the first route that applies and the audit names it (`ConsultationRoute`):
 

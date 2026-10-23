@@ -421,7 +421,9 @@ internal sealed class NhAssistantToolCallInterceptor(
             context.Terminate = true;
             return Refusal(NhAssistantErrorCodes.RunTokenLimit);
         }
-        if (state.Scope.Consultation is { MayPropose: false } && descriptor.Effect != NhAiToolEffect.ReadOnly)
+        if (state.Scope.Consultation is { } consultation
+            && descriptor.Effect != NhAiToolEffect.ReadOnly
+            && !NhAssistantTurnRunner.OffersEffects(state.Scope.Agent, consultation))
         {
             // Such tools are not offered; a model that names one anyway changes nothing.
             return Refusal(NhAssistantErrorCodes.ConsultReadOnly);

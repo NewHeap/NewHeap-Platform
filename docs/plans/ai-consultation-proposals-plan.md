@@ -74,11 +74,12 @@ Read from `NhAssistantConsultationService`, `NhAssistantConsultationToolHandler`
   `DelegateFromInitiator = true`, the asker as initiator **and** as accountable owner,
   `IsRequestTurn` = whether the asker's own request is the current one, and
   `RequireApprovalForEffects`. Non-read tools are offered only when `AllowProposals` is on and the
-  asker has `ProposalRole` (Participant by default); otherwise a named one is refused with
-  `assistant-consult-read-only`. A non-read call the gate allows (grant source `delegated`, the
-  asker's rights) becomes an approval in the consulted agent's thread about the subject:
-  `ConsultationId`, `InitiatorActorId` = asker, the proposal's `AccountableOwnerId` = asker, mode
-  forced to **deferred**, and the stored call (`AwaitingApproval`) that execution replays. The
+  asker has `ProposalRole` (Participant by default), and to agents with `Propose`, `Simulate` or
+  `Execute` autonomy (AC34 (b) of the [administration consultations plan](ai-admin-consultations-plan.md));
+  otherwise a named one is refused with `assistant-consult-read-only`. A non-read call the gate
+  allows (grant source `delegated`, the asker's rights) becomes an approval in the consulted agent's
+  thread about the subject: `ConsultationId`, `InitiatorActorId` = asker, the proposal's
+  `AccountableOwnerId` = asker, mode forced to **deferred**, and the stored call (`AwaitingApproval`) that execution replays. The
   consulted model gets "proposal recorded" and continues. No message enters the thread; the
   consultation record (`AssistantConsultation`) counts the proposals.
 - **Policy.** `NhAssistantApprovalPolicies.Resolve(agent, tool, trigger: null, isRun: true)`: the

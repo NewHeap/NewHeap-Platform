@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.81",
   "backEnd": {
-    "hash": "8308ad651ca512ea583a8af3877f70e2a1aa41edac85ded2f0c52f3af961ea82",
-    "declarationCount": 10026,
+    "hash": "5b4cef0277fe9f675ffcb1dc81dcc5a31d70bfba94213a7d9f2894e1677de696",
+    "declarationCount": 10027,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -12,6 +12,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
         "declaration": "public NhAiDataClassification DataClassification { get; init; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public bool EffectsAsProposals { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",

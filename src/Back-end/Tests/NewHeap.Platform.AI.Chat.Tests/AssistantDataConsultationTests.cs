@@ -35,6 +35,7 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
     private const string ConsultToolId = "assistant.consult.project-starter.project";
     private const string RequestToolId = "assistant.request.project-starter.project";
     private const string ConsultTool = "consult_project-starter_project_v1";
+    private const string ChangeStatus = "projects_change_status_v1";
     private const string Admin = "admin-1";
     private const string Member = "member-1";
     private const string ProjectId = "project-0001";
@@ -303,6 +304,73 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_administration_agent_with_propose_autonomy_proposes_through_its_data_consultation_on_each_route(AssistantTestProvider provider)
+    {
+        // AC34 (b): the starter keeps Propose autonomy. A data consultation with a route offers it the
+        // tool that changes state, and its call waits as a proposal on that route until it is decided.
+        var projectId = Guid.NewGuid();
+        var target = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatus, new { input = new { projectId, status = "active" } }, "c-1")
+            .RespondWithText("I proposed to start it; you decide it now.")
+            .RespondWithFunctionCall(ChangeStatus, new { input = new { projectId, status = "active" } }, "c-2")
+            .RespondWithText("I proposed to start it for the project's approvers.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Can the draft start?" } }, "call-1")
+            .RespondWithText("The project started.")
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Can the draft start?" } }, "call-2")
+            .RespondWithText("The project's approvers decide it.");
+        await using var host = await CreateHostAsync(provider, target, asker);
+        await CreateStarterAsync(host, withRunSettings: true, NhAiAutonomyLevel.Propose);
+
+        // A: the person who asked decides it on the card in their own chat; nothing ran before.
+        Assert.True((await SaveAsync(host, StarterId, Read() with
+        {
+            Routes = [NhAssistantConsultationRoutes.AskerDecides],
+            ProposalPolicy = "initiator-only"
+        })).Success);
+        var chat = await host.CreateConversationAsync(Member, AskingAgentId);
+        var turn = await host.SendAsync(chat.Id, "Can the draft project start?", Member);
+
+        Assert.Contains(target.Requests[0].Options?.Tools ?? [], tool => tool.Name == ChangeStatus);
+        Assert.Empty(host.Tools.StatusChanges);
+        var card = turn.Single<NhAssistantApprovalRequiredEvent>().Approval;
+        var store = host.Services.GetRequiredService<INhAssistantStore>();
+        var inline = (await store.FindApprovalAsync(card.ApprovalId, CancellationToken.None))!;
+        Assert.Equal((NhAssistantApprovalStatuses.Pending, NhAssistantApprovalModes.Inline), (inline.Status, inline.Mode));
+        await host.DecideAsync(chat.Id, card, approve: true, userId: Member);
+        Assert.Equal("active", Assert.Single(host.Tools.StatusChanges).Status);
+        Assert.Equal(NhAssistantApprovalStatuses.Executed, (await store.FindApprovalAsync(card.ApprovalId, CancellationToken.None))!.Status);
+
+        // B: with the agent's own rights, those of its technical account, it waits for the project's
+        // approvers and does not run.
+        Assert.True((await SaveAsync(host, StarterId, Read() with
+        {
+            Routes = [NhAssistantConsultationRoutes.SubjectAgentRights],
+            ExpectedVersion = 1
+        })).Success);
+        var later = await host.SendAsync((await host.CreateConversationAsync(Member, AskingAgentId)).Id, "Can the draft project start?", Member);
+
+        Assert.Contains(target.Requests[2].Options?.Tools ?? [], tool => tool.Name == ChangeStatus);
+        Assert.Empty(later.Events.OfType<NhAssistantApprovalRequiredEvent>());
+        Guid consultationId;
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            consultationId = await context.Consultations
+                .Where(consultation => consultation.ConsultationVersion == 2)
+                .Select(consultation => consultation.Id)
+                .SingleAsync();
+        }
+        var waiting = Assert.Single(await host.Services.GetRequiredService<NhAssistantRunStore>()
+            .GetConsultationApprovalsAsync(consultationId, CancellationToken.None));
+        Assert.Equal(
+            (NhAssistantApprovalStatuses.Pending, NhAssistantApprovalModes.Deferred, NhAiGrantSource.Accountable),
+            (waiting.Status, waiting.Mode, waiting.GrantSource));
+        Assert.Single(host.Tools.StatusChanges);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task MCP_clients_see_a_data_consultation_only_within_the_ceiling(AssistantTestProvider provider)
     {
         await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), new NhAiScriptedChatClient(), allowMcp: false);
@@ -438,7 +506,10 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
     /// The project starter, created in the administration as an administrator does, with run
     /// settings that let it answer to the operations account.
     /// </summary>
-    private static async Task CreateStarterAsync(AssistantTestHost host, bool withRunSettings)
+    private static async Task CreateStarterAsync(
+        AssistantTestHost host,
+        bool withRunSettings,
+        NhAiAutonomyLevel autonomy = NhAiAutonomyLevel.Execute)
     {
         await using (var scope = host.Services.CreateAsyncScope())
         {
@@ -451,7 +522,7 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
                     ["projects.*"],
                     [],
                     null,
-                    NhAiAutonomyLevel.Execute),
+                    autonomy),
                 Admin,
                 CancellationToken.None);
             Assert.True(created.Success);

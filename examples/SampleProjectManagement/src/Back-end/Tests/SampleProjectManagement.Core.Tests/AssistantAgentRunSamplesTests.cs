@@ -3252,6 +3252,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 [NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights],
                 configured.ConsultationCeiling!.Routes);
             Assert.Contains(await ToolIdsAsync(administrator), id => id == consultToolId);
+            // The starter only proposes; a consultation with a proposal route offers it the status
+            // tool all the same.
+            var agents = (await administrator.GetFromJsonAsync<JsonElement>("/api/assistant/admin/agents", Json)).EnumerateArray();
+            Assert.Equal("propose", agents.Single(agent => agent.GetProperty("id").GetString() == starter).GetProperty("autonomy").GetString());
 
             // The ceiling and the agent bound what data may say.
             using (var outside = await administrator.PutAsJsonAsync(
@@ -3287,6 +3291,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var events = await host.SendAsync(asker, chat, "Can my draft project STARTNOW start?");
             var card = events.Single(evt => evt.Name == "approval.required").Data;
             Assert.Equal(starter, card.GetProperty("consultation").GetProperty("agentId").GetString());
+            Assert.Contains(starterModel.Requests[0].Options?.Tools ?? [], tool => tool.Name == "projects_change_status_v1");
+            Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == now);
             Assert.Equal(NhAssistantTurnStatuses.Completed, (await host.DecideAsync(asker, chat, card, "approve"))
                 .Single(evt => evt.Name == "turn.completed").Data.GetProperty("status").GetString());
             Assert.Contains(host.Projects.StatusChanges, change => change.ProjectId == now && change.Status == ProjectStatus.Active);
