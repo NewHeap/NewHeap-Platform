@@ -4,6 +4,7 @@ import {
   AssistantDataClassification,
   DataSkill,
   DataSkillRequest,
+  InstructionAssetReference,
   NhAssistantAdminApiService,
   RunCatalog,
   ToolCatalogEntry,
@@ -13,6 +14,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 import { NhAssistantFileLimitsFieldsComponent } from './nh-assistant-file-limits-fields.component';
+import { InstructionsSource, NhAssistantInstructionsAssetComponent } from './nh-assistant-instructions-asset.component';
 import { RunConfigForm } from './run-config-form';
 import {
   RunConfigErrors,
@@ -53,7 +55,14 @@ export interface SkillFormSaved {
 @Component({
   selector: 'nh-assistant-skill-form',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPickerComponent, NhAssistantFileLimitsFieldsComponent],
+  imports: [
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantPickerComponent,
+    NhAssistantFileLimitsFieldsComponent,
+    NhAssistantInstructionsAssetComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-skill-form.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
@@ -80,7 +89,7 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly maxDescription = runConfigLimits.description;
   readonly maxInstructions = runConfigLimits.instructions;
   protected readonly fields = [
-    'skillId', 'description', 'instructions', 'tools', 'ruleHandler', 'profile', 'dataClassification', 'approvalPolicy',
+    'skillId', 'description', 'instructions', 'instructionsAsset', 'instructionsAsset.hash', 'tools', 'ruleHandler', 'profile', 'dataClassification', 'approvalPolicy',
     'maxTokensPerRun', 'dailyToolCalls', 'dailyTokens', 'apply', 'startsOff', 'reason',
     'maxFileBytes', 'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn'
   ];
@@ -88,6 +97,10 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly skillId = signal('');
   readonly description = signal('');
   readonly instructions = signal('');
+  /** Whether the version's instructions are written here or come from one of the application's assets. */
+  readonly instructionsSource = signal<InstructionsSource>('inline');
+  /** The application's asset the version names, once chosen and read. */
+  readonly instructionsAsset = signal<InstructionAssetReference | null>(null);
   readonly tools = signal<string[]>([]);
   readonly profile = signal('');
   /** The skill's data classification; empty uses the agent's. */
@@ -107,6 +120,13 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly reason = signal('');
 
   readonly editing = computed(() => this.skill() !== null);
+  /** Whether the application offers its text assets as instructions. */
+  readonly assetsAvailable = computed(() => this.catalog()?.instructionAssets === true);
+  /** The problem of the asset the saved version names, such as `asset-changed`. */
+  readonly assetProblem = computed(() => {
+    const skill = this.skill();
+    return skill?.instructionsAsset && isAssetProblem(skill.problem) ? skill.problem : null;
+  });
   /** The warnings of the skill as it was saved, until this form saves it again. */
   readonly warnings = computed(() => this.skill()?.warnings ?? []);
   readonly warningKeys = warningKeys;
@@ -130,6 +150,8 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
     this.skillId.set(skill?.skillId ?? '');
     this.description.set(skill?.description ?? '');
     this.instructions.set(skill?.instructions ?? '');
+    this.instructionsSource.set(skill?.instructionsAsset ? 'asset' : 'inline');
+    this.instructionsAsset.set(skill?.instructionsAsset ?? null);
     this.tools.set([...(skill?.tools ?? [])]);
     this.profile.set(skill?.profile ?? '');
     this.dataClassification.set(skill?.dataClassification ?? '');
@@ -165,8 +187,12 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
       }
     }
     requireText(errors, 'description', this.description(), this.maxDescription);
-    if (this.instructions().length > this.maxInstructions) {
+    const fromAsset = this.instructionsSource() === 'asset';
+    if (!fromAsset && this.instructions().length > this.maxInstructions) {
       errors['instructions'] = { code: 'too-long', params: { max: this.maxInstructions } };
+    }
+    if (fromAsset && this.instructionsAsset() === null) {
+      errors['instructionsAsset'] = { code: 'required' };
     }
     checkWhole(errors, 'maxTokensPerRun', this.maxTokens(), 1);
     checkBudget(errors, this.dailyToolCalls(), this.dailyTokens());
@@ -176,7 +202,8 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
 
     const request: DataSkillRequest = {
       description: this.description().trim(),
-      instructions: blank(this.instructions()),
+      instructions: fromAsset ? null : blank(this.instructions()),
+      instructionsAsset: fromAsset ? this.instructionsAsset() : null,
       tools: this.tools(),
       profile: blank(this.profile()),
       dataClassification: (blank(this.dataClassification()) as AssistantDataClassification | null),
@@ -200,6 +227,20 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   }
 
   protected override mapServerErrors(errors: RunConfigErrors): RunConfigErrors {
-    return withBudgetField(errors, this.dailyToolCalls());
+    return withAssetField(withBudgetField(errors, this.dailyToolCalls()));
   }
+}
+
+/** Whether a problem of a skill version concerns the asset it takes its instructions from. */
+function isAssetProblem(problem: string | null | undefined): problem is string {
+  return problem === 'no-asset-source' || (problem?.startsWith('asset-') ?? false);
+}
+
+/**
+ * The save's errors of a reference at the one asset field: another hash (`instructionsAsset.hash`)
+ * says the asset's text changed since it was read.
+ */
+export function withAssetField(errors: RunConfigErrors): RunConfigErrors {
+  const { ['instructionsAsset.hash']: hash, ...rest } = errors;
+  return hash ? { ...rest, instructionsAsset: { code: 'changed' } } : rest;
 }

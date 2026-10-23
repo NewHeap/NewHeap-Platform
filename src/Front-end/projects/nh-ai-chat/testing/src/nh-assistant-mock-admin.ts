@@ -20,6 +20,7 @@ import {
   mockValidationFailure as validationFailure
 } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockRunConfiguration } from './nh-assistant-mock-run-configuration';
+import { NhAssistantMockInstructionAssets } from './nh-assistant-mock-instruction-assets';
 import { mockSystemSubjectType } from './nh-assistant-mock-works-on';
 
 export type { NhAssistantMockResult } from './nh-assistant-mock-admin-shared';
@@ -50,6 +51,8 @@ export class NhAssistantMockAdmin {
   private readonly mcp: NhAssistantMockAdminMcp;
   private readonly accounts: NhAssistantMockAccounts;
   private readonly runConfiguration: NhAssistantMockRunConfiguration;
+  /** The application's text assets for instructions. */
+  readonly instructionAssets: NhAssistantMockInstructionAssets;
   private readonly contextVersions: (ApplicationContextVersion & { text: string })[] = [];
   private preferences: AssistantPreferences;
   private canAdminister: boolean;
@@ -60,13 +63,15 @@ export class NhAssistantMockAdmin {
     this.preferences = { ...defaultPreferences, ...scenario.preferences };
 
     this.contextVersions.push({ version: 1, hash: hashText(admin.context ?? ''), updatedAt: now(), updatedBy: null, text: admin.context ?? '' });
+    this.instructionAssets = new NhAssistantMockInstructionAssets(admin.instructionAssets);
 
     this.agents = new NhAssistantMockAdminAgents(scenario, now, {
       hasServer: serverId => this.mcp.hasServer(serverId),
       agentPolicyNames: () => this.runConfiguration.agentPolicyNames,
       divisionsListed: () => this.runConfiguration.divisionsListed,
       profileNames: () => this.runConfiguration.profileNames,
-      dataConsultations: agentId => this.runConfiguration.consultationsInEffect(agentId)
+      dataConsultations: agentId => this.runConfiguration.consultationsInEffect(agentId),
+      instructionAssets: () => this.instructionAssets
     });
     this.accounts = new NhAssistantMockAccounts(admin);
     this.runConfiguration = new NhAssistantMockRunConfiguration(
@@ -78,7 +83,8 @@ export class NhAssistantMockAdmin {
         setDataSkill: (agentId, skillId, description, startsOff) => this.agents.setDataSkill(agentId, skillId, description, startsOff)
       },
       now,
-      this.accounts);
+      this.accounts,
+      this.instructionAssets);
     this.mcp = new NhAssistantMockAdminMcp(scenario, now, {
       agents: () => this.agents.all(),
       chatAgentIds: () => this.agents.chatAgents().map(agent => agent.id),
@@ -198,6 +204,8 @@ export class NhAssistantMockAdmin {
         return method === 'GET' && segments.length === 2 ? { status: 200, body: this.toolCatalog() } : failure('assistant-not-found');
       case 'run-catalog':
         return segments.length === 2 ? this.runConfiguration.runCatalog(method) : failure('assistant-not-found');
+      case 'instruction-assets':
+        return this.instructionAssets.handle(method, segments.slice(2));
       case 'accounts':
         return segments.length === 2 ? this.accounts.search(method, query) : failure('assistant-not-found');
       case 'agents':

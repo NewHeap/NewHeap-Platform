@@ -1,0 +1,113 @@
+@if (available() || source() === 'asset') {
+  <fieldset class="field" data-instructions-source>
+    <legend>{{ 'nh-assistant.admin.instruction-assets.source' | translate }}</legend>
+    <div class="choices">
+      <label class="choice" [class.selected]="source() === 'inline'">
+        <input type="radio" [name]="idPrefix() + '-source'" value="inline" [checked]="source() === 'inline'" (change)="choose('inline')" />
+        <span>
+          <strong>{{ 'nh-assistant.admin.instruction-assets.source-inline' | translate }}</strong>
+          <span class="muted">{{ 'nh-assistant.admin.instruction-assets.source-inline-hint' | translate }}</span>
+        </span>
+      </label>
+      <label class="choice" [class.selected]="source() === 'asset'">
+        <input type="radio" [name]="idPrefix() + '-source'" value="asset" [checked]="source() === 'asset'" [disabled]="!available()" (change)="choose('asset')" />
+        <span>
+          <strong>{{ 'nh-assistant.admin.instruction-assets.source-asset' | translate }}</strong>
+          <span class="muted">{{ 'nh-assistant.admin.instruction-assets.source-asset-hint' | translate }}</span>
+        </span>
+      </label>
+    </div>
+  </fieldset>
+}
+
+@if (source() === 'asset') {
+  <div class="stack" data-instructions-asset>
+    @if (problemKey(); as key) {
+      <p class="field-error" data-asset-problem><nh-assistant-icon name="warning" />{{ key | translate }}</p>
+    }
+    @if (!available()) {
+      <p class="hint">{{ 'nh-assistant.admin.instruction-assets.not-offered' | translate }}</p>
+    }
+
+    @if (assets() === null) {
+      <p class="muted" aria-live="polite">{{ 'nh-assistant.admin.instruction-assets.loading' | translate }}</p>
+    } @else if (listed()) {
+      <div class="field">
+        <label [for]="idPrefix() + '-asset'">{{ 'nh-assistant.admin.instruction-assets.asset' | translate }}</label>
+        <nh-assistant-picker
+          [inputId]="idPrefix() + '-asset'"
+          [options]="options()"
+          [value]="chosen()"
+          [placeholder]="'nh-assistant.admin.instruction-assets.choose' | translate"
+          [invalid]="errorKey() !== null"
+          [describedBy]="idPrefix() + '-asset-hint'"
+          (valueChange)="pick($event)" />
+        <p class="hint" [id]="idPrefix() + '-asset-hint'">{{ 'nh-assistant.admin.instruction-assets.asset-hint' | translate }}</p>
+      </div>
+    } @else {
+      @if (listError()) {
+        <p class="field-error" role="alert">
+          <nh-assistant-icon name="warning" />{{ listErrorKeys() | nhAssistantTranslate: listError()!.code }}
+          <button class="secondary" type="button" (click)="load()">
+            <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.retry' | translate }}
+          </button>
+        </p>
+      } @else {
+        <p class="hint">{{ 'nh-assistant.admin.instruction-assets.none-listed' | translate }}</p>
+      }
+      <div class="grid">
+        <div class="field">
+          <label [for]="idPrefix() + '-asset-id'">{{ 'nh-assistant.admin.instruction-assets.asset-id' | translate }}</label>
+          <input type="text" class="mono" autocomplete="off" maxlength="128" [id]="idPrefix() + '-asset-id'" [value]="assetId()"
+            [attr.aria-invalid]="typedInvalid() || errorKey() ? true : null"
+            (input)="type('assetId', value($event))" />
+        </div>
+        <div class="field">
+          <label [for]="idPrefix() + '-asset-version'">{{ 'nh-assistant.admin.instruction-assets.version' | translate }}</label>
+          <input type="number" min="1" step="1" inputmode="numeric" [id]="idPrefix() + '-asset-version'" [value]="version()"
+            [attr.aria-invalid]="typedInvalid() || errorKey() ? true : null"
+            (input)="type('version', value($event))" />
+        </div>
+      </div>
+      <div class="actions start">
+        <button class="secondary" type="button" data-read-asset [disabled]="reading()" (click)="read()">
+          {{ (reading() ? 'nh-assistant.admin.instruction-assets.reading' : 'nh-assistant.admin.instruction-assets.read') | translate }}
+        </button>
+      </div>
+      @if (typedInvalid()) {
+        <p class="field-error"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.instruction-assets.errors.invalid' | translate }}</p>
+      }
+    }
+
+    @if (readError(); as failure) {
+      <p class="field-error" role="alert" data-read-error>
+        <nh-assistant-icon name="warning" />{{ readErrorKeys() | nhAssistantTranslate: failure.code }}
+      </p>
+    }
+    @if (errorKey(); as key) {
+      <p class="field-error" data-asset-error><nh-assistant-icon name="warning" />{{ key | translate }}</p>
+    }
+
+    @if (reference(); as current) {
+      <p class="hint" data-asset-reference>
+        {{ 'nh-assistant.admin.instruction-assets.reference' | translate: { asset: current.assetId, version: current.version } }}
+        <span class="mono" [title]="current.hash">{{ 'nh-assistant.admin.instruction-assets.hash' | translate: { hash: shownHash() } }}</span>
+      </p>
+      @if (newerVersion(); as newer) {
+        <p class="hint" data-newer-version>{{ 'nh-assistant.admin.instruction-assets.newer' | translate: { version: newer } }}</p>
+      }
+    }
+    @if (text(); as asset) {
+      <div class="field">
+        <span class="label" [id]="idPrefix() + '-asset-text-label'">{{ 'nh-assistant.admin.instruction-assets.text' | translate }}</span>
+        <pre class="asset-text" tabindex="0" data-asset-text [attr.aria-labelledby]="idPrefix() + '-asset-text-label'">{{ asset.content }}</pre>
+        <p class="hint">{{ 'nh-assistant.admin.instruction-assets.text-hint' | translate }}</p>
+        @if (asset.problem) {
+          <p class="field-error"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.instruction-assets.problems.' + asset.problem | translate }}</p>
+        }
+      </div>
+    } @else if (reading()) {
+      <p class="muted" aria-live="polite">{{ 'nh-assistant.admin.instruction-assets.reading' | translate }}</p>
+    }
+  </div>
+}

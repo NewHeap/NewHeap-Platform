@@ -395,6 +395,24 @@ export interface NhAssistantMockAdminScenario {
    * unavailable and any id that does not start with `unknown` is accepted.
    */
   accounts?: AssistantAccount[];
+  /**
+   * The application's text assets for instructions, as its `INhAiTextAssetSource` supplies them
+   * (`UseTextAssetSource`): the run catalog reports `instructionAssets`, `GET admin/instruction-assets`
+   * lists them, and skills and agents created in the administration may name one instead of inline
+   * instructions. Without it the application offers none. Change them afterwards with
+   * `NhAssistantMockBackend.setInstructionAsset` and `removeInstructionAsset`.
+   */
+  instructionAssets?: NhAssistantMockInstructionAsset[];
+}
+
+/** One version of a text asset of the mock's application. */
+export interface NhAssistantMockInstructionAsset {
+  assetId: string;
+  version: number;
+  content: string;
+  /** The asset that replaces it, when the application deprecated it. */
+  replacedByAssetId?: string;
+  deprecatedAt?: string;
 }
 
 /** A person in the simulated organization. */
