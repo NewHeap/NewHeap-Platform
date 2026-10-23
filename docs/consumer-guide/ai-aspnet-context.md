@@ -32,6 +32,15 @@ trusting a caller-supplied tenant claim. Repeated permission/scope claims are co
 for configured capability values; issuer, subject, tenant and scalar scope claims
 still reject duplicates.
 
+A projected tenant keeps people out of the assistant's work for the whole application,
+which belongs to no tenant. When every person of the host belongs to the one tenant
+that `UseAuthenticatedClaimsForSingleTenant(issuer, tenantId)` projects, and they must
+see and decide that work, also call `UseSingleTenant(tenantId)` on the assistant
+builder with the same tenant (see `nh-ai-agent-runs`). Startup then fails when an
+issuer is projected into another tenant or takes its tenant from a claim; an issuer
+without a tenant may remain. A resolver of the application's own must return that
+tenant or none, because startup cannot inspect it.
+
 For the legacy active-division flow, configure one existing
 active-division authorization policy and explicit capability-to-policy mappings.
 Set a bounded lowercase tool-invocation purpose with
@@ -88,6 +97,7 @@ an ASP.NET dependency.
 - Replacing the ASP.NET gate with an allow-all or browser-derived production gate.
 - Authorizing a headless agent call with a cached principal or with the request header of whoever triggered the run.
 - Deciding that a request is a person's own by comparing a claim such as `NameIdentifier` with an actor id; compare with the actor id the registered resolver resolves.
+- Pairing `UseSingleTenant` with a tenant-claim projection or with another fixed tenant; startup refuses it, and a host with many tenants keeps the whole application's work for callers without one.
 
 ## Verification
 
@@ -107,7 +117,10 @@ person gets the scope, capabilities and correlation id while another person in t
 same request gets none, that a request turn reuses the initiator's live principal and
 refuses a different person, and that a consultation in the asker's own request offers
 the consulted agent the tools the asker may use.
-SPM-223 is the executable reference.
+With `UseSingleTenant`, verify that startup refuses a projection of another tenant
+and a tenant claim, and that a person projected into the tenant sees the whole
+application's work.
+SPM-223 is the executable reference; SPM-302 shows the single-tenant deployment.
 
 ## Executable evidence
 
@@ -121,3 +134,8 @@ SPM-223 is the executable reference.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs)
+- SPM-302 — The project follow-up is created as data, works on projects and the whole application, runs every Monday for the whole application and places its proposals to complete finished projects at each project; every agent says what it works on
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)

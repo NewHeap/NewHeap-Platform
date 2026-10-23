@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.82",
   "backEnd": {
-    "hash": "dee8dce1e4fbbac513596738807c626269a2effd04f39a088557eabfb61b5d2c",
-    "declarationCount": 10093,
+    "hash": "1e1cbd6acacb252fde9049239e0ce08656b3a152361ede3ef2a9ab612a99876d",
+    "declarationCount": 10103,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3531,15 +3531,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
-        "declaration": "public Task<TaskResult<AssistantApproval>> DecideAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool approve, string? expectedProposalHash, string? reason, CancellationToken cancellationToken) {"
+        "declaration": "public Task<TaskResult<AssistantApproval>> DecideAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool approve, string? expectedProposalHash, string? reason, CancellationToken cancellationToken, string? tenantId = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
-        "declaration": "public async Task<TaskResult<AssistantApproval>> DecideAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool approve, string? expectedProposalHash, string? reason, NhAssistantDecisionOrigin origin, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<TaskResult<AssistantApproval>> DecideAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool approve, string? expectedProposalHash, string? reason, NhAssistantDecisionOrigin origin, CancellationToken cancellationToken, string? tenantId = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
-        "declaration": "public async Task<TaskResult<NhAssistantProposalDecisionFacts>> FactsAsync( Guid approvalId, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<TaskResult<NhAssistantProposalDecisionFacts>> FactsAsync( Guid approvalId, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken, string? tenantId = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
@@ -3547,7 +3547,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
-        "declaration": "public async Task<TaskResult<AssistantApproval>> ResolveExecutionAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool reExecute, string? reason, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<TaskResult<AssistantApproval>> ResolveExecutionAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool reExecute, string? reason, CancellationToken cancellationToken, string? tenantId = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
@@ -3696,6 +3696,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSchedules.cs",
         "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSingleTenantChecks.cs",
+        "declaration": "public static void Validate(NhAssistantRegistrationState state, NhAiAspNetRegistrationState? aspNet) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectEndpoints.cs",
@@ -12479,6 +12483,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseSingleTenant(string tenantId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddAgentGroup(string groupId, Action<NhAssistantAgentGroupBuilder> configure) {"
       },
       {
@@ -12616,6 +12624,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public string? SystemApprovePolicy { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public const int MaxTenantIdLength = 256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public string? SingleTenantId { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -16703,7 +16719,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task<IReadOnlyList<AssistantThread>> FindThreadsWithRunsAsync( NhAssistantRunFilter filter, string? tenantId, bool includeShadow, int maximum, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<IReadOnlyList<AssistantThread>> FindThreadsWithRunsAsync( NhAssistantRunFilter filter, string? tenantId, bool includeShadow, int maximum, CancellationToken cancellationToken, bool includeWholeApplication = false)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -18032,6 +18048,30 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
         "declaration": "public async Task<NhAssistantThreadAccess?> ReadAccessAsync( AssistantThread thread, string actorId, NhAiSubjectAccess access, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
+        "declaration": "public static bool TakesPart(NhAssistantRegistrationState registration, string? tenantId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
+        "declaration": "public static bool KeepsOut(NhAssistantRegistrationState registration, string? tenantId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
+        "declaration": "public static bool Reaches( NhAssistantRegistrationState registration, string? storedTenantId, string subjectType, string? tenantId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
+        "declaration": "public static bool Reaches(NhAssistantRegistrationState registration, AssistantThread thread, string? tenantId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
+        "declaration": "public static bool KeepsOut(NhAssistantRegistrationState registration, AssistantThread thread, string? tenantId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
+        "declaration": "public static bool KeepsOut(NhAssistantRegistrationState registration, NhAiSubjectRef subject, string? tenantId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
@@ -44194,7 +44234,8 @@
       "NhAssistantDataConsultationRequest",
       "NhAssistantDataConsultationDto",
       "NhAssistantCodeConsultationDto",
-      "NhAssistantConsultationCeilingDto"
+      "NhAssistantConsultationCeilingDto",
+      "UseSingleTenant"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

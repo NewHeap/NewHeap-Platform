@@ -119,3 +119,22 @@ again; anything else gets the ordinary refusal. No migration; the decision endpo
 | Breaking change | Required action |
 |---|---|
 | `NhAssistantAuditEvent` has the new properties `Channel` and `IdempotencyKey`; `ApprovalApproved` and `ApprovalRejected` of agent proposals carry `Channel` `web` from the decision endpoints, or the service's channel and key. | Let audit sinks that map every property of the event store or ignore the two new values. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a single-tenant mode for the whole application
+
+The whole application's work (`nh-system`) belongs to no tenant, so a caller bound to a tenant saw none
+of it. `NhAssistantBuilder.UseSingleTenant(tenantId)` declares that every person of the host belongs to
+that one tenant: people of that tenant then take part in it as callers without a tenant do, in the
+approval inbox, deciding (also through `INhAssistantProposalDecisionService` with
+`NhAssistantDecidingPerson.TenantId`), boards and division visits, `WatchAgentWork`, its threads and
+their conversations, the run history, the subject's work and summary, the division search and runs by
+hand. A caller of any other tenant finds that work unknown. The policies of `UseSystemSubject` and the
+agents' run and view policies still decide. The work stays stored without a tenant: no migration, and
+switching the mode off leaves the data valid. Startup fails when the AI ASP.NET integration projects
+another fixed tenant or takes an issuer's tenant from a claim; pair the mode with
+`UseAuthenticatedClaimsForSingleTenant(issuer, tenantId)` for the same tenant. A resolver of the
+application's own must return that tenant or none. Without the mode nothing changes.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |

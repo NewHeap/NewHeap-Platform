@@ -107,6 +107,13 @@ hears once per run about what waits for them: the colleague who approves every f
 approver of one project only reads about that project, by its name; a day later each is reminded once
 for the run. A clicked notification about a run opens the intake reviews page with that run's
 proposals (SPM-310), because the portal's shell subscribes to `NhAssistantPushService.openRun$`.
+The whole application belongs to no tenant, so a deployment for one customer, whose people sign in at
+the customer's identity provider and all belong to its tenant, pairs
+`UseAuthenticatedClaimsForSingleTenant(issuer, tenantId)` with `UseSingleTenant(tenantId)`
+(`SampleSingleTenantComposition`): the customer's manager then sees an agent of the whole application
+on the project management board and may run it, a colleague reads it, and both read its thread, which
+stays stored without a tenant. Startup refuses the mode next to a projection of another tenant or a
+tenant claim.
 Each run keeps its whole answer as its result (SPM-304): the follow-up's completion rules write
 "N open projects; proposed completing X, Y" with the keys of the projects they proposed, which the run
 keeps next to the small summary its next runs start from. The rules write it per culture, so an
