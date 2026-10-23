@@ -374,6 +374,43 @@ describe('Consultations defined as data in the mock API', () => {
     expect([cleared.status, cleared.body.toolSelectors, cleared.body.toolSelectorsInEffect, cleared.body.problems]).toEqual([200, null, null, []]);
   });
 
+  it('lets a new consultation start off, offers it only once it is switched on and keeps the state on a change', async () => {
+    const save = (subjectType: string, body: object) => call('PUT', `admin/agents/starter/consultations/${subjectType}`, {
+      description: 'Answers about it.',
+      ...body
+    });
+    // Only a new consultation starts off.
+    expect((await save('project', { startsOff: true, expectedVersion: 1 })).body.errors).toEqual({ startsOff: ['invalid'] });
+    const removed = await call('DELETE', 'admin/agents/starter/consultations/project?expectedVersion=1');
+    expect(removed.status).toBe(204);
+
+    const off = await save('project', { startsOff: true });
+    expect([off.status, off.body.off, off.body.inEffect, off.body.routesInEffect]).toEqual([200, true, false, []]);
+    expect(((await call('GET', 'admin/tools')).body as ToolCatalogEntry[]).map(tool => tool.id)).not.toContain('assistant.consult.starter.project');
+    const changed = await save('project', { description: 'Answers about the project.', expectedVersion: 1 });
+    expect([changed.body.version, changed.body.off]).toEqual([2, true]);
+
+    expect((await call('POST', 'admin/agents/starter/consultations/project/state', { state: 'paused' })).body.errors).toEqual({ state: ['invalid'] });
+    expect((await call('POST', 'admin/agents/starter/consultations/task/state', { state: 'on' })).body.code).toBe('assistant-consultation-not-found');
+    expect((await call('POST', 'admin/agents/closer/consultations/task/state', { state: 'on' })).body.code).toBe('assistant-consultation-in-code');
+    const on = await call('POST', 'admin/agents/starter/consultations/project/state', { state: 'on', reason: 'Reviewed' });
+    expect([on.status, on.body.version, on.body.off, on.body.inEffect]).toEqual([200, 2, false, true]);
+    expect(((await call('GET', 'admin/tools')).body as ToolCatalogEntry[]).map(tool => tool.id)).toContain('assistant.consult.starter.project');
+  });
+
+  it('starts every new consultation off when the application asks for it', async () => {
+    TestBed.resetTestingModule();
+    const script = scenario();
+    script.admin!.consultationsAsData = { ...script.admin!.consultationsAsData, startsOff: true };
+    await configure(script);
+    expect(((await call('GET', 'admin/run-catalog')).body as RunCatalog).consultationCeiling?.startsOff).toBeTrue();
+
+    const saved = await call('PUT', 'admin/agents/helper/consultations/project', { description: 'Answers about projects.' });
+    expect([saved.status, saved.body.off, saved.body.inEffect]).toEqual([200, true, false]);
+    // The scenario's consultations are new to the mock as well, so they start off too.
+    expect((await configuration('starter')).dataConsultations![0]).toEqual(jasmine.objectContaining({ off: true }));
+  });
+
   it('removes a consultation; its tool and its routes go with it', async () => {
     const removed = await call('DELETE', 'admin/agents/starter/consultations/project?expectedVersion=1');
 
@@ -553,6 +590,43 @@ describe('The Consultations section of the run configuration', () => {
     expect(text(row.querySelector('[data-consultation-no-askers]'))).toContain('No agent asks it yet.');
     // The route switches read the routes the new consultation allows.
     expect(text(section().querySelector('nh-assistant-agent-consultation-routes [data-route="asker-decides"] [data-route-types]'))).toBe('For: Projects');
+  }, formFlowTimeout);
+
+  it('lets a new consultation start off and switches it on and off from its row', async () => {
+    const admin = TestBed.inject(NhAssistantAdminApiService);
+    await firstValueFrom(admin.removeDataConsultation('starter', 'project', { expectedVersion: 1 }));
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const view = await openRunConfiguration(fixture, element, 'starter');
+    const section = () => view.querySelector('[data-consultations]') as HTMLElement;
+    const row = () => section().querySelector('[data-consultation="project"]') as HTMLElement;
+    button(section(), 'Add consultation').click();
+    await settle(fixture);
+    const form = () => section().querySelector('[data-form="consultation"]') as HTMLElement;
+    expect(text(form().querySelector('[data-starts-off]'))).toContain('Start off');
+    await pick(fixture, form(), 'input[id$="-type"]', 'Pro', 'Project');
+    type(form(), 'textarea[id$="-description"]', 'Says whether a draft project can start.');
+    (form().querySelector('[data-starts-off] input') as HTMLInputElement).click();
+    await settle(fixture);
+    button(form(), 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/starter/consultations/project').at(-1)).toEqual(jasmine.objectContaining({ startsOff: true, expectedVersion: null }));
+
+    // Off, it says so and shows what it offers once it is switched on.
+    expect(text(row().querySelector('[data-consultation-off]'))).toBe('Off');
+    expect(row().querySelector('.card-header .badge.danger')).toBeNull();
+    expect(text(row().querySelector('[data-consultation-off-explain]'))).toContain('asking agents get none of its tools until you switch it on');
+    expect(view.querySelector('[data-flow-consultation="project"] [data-flow-consultation-off]')).not.toBeNull();
+    (row().querySelector('[data-consultation-switch="on"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/starter/consultations/project/state')).toEqual([{ state: 'on', reason: null }]);
+    expect(text(view.querySelector('[data-saved]'))).toBe('The consultation is on: agents that ask get its tools.');
+    expect(row().querySelector('[data-consultation-off]')).toBeNull();
+    expect(row().querySelector('[data-consultation-switch="off"]')?.getAttribute('aria-label')).toBe('Switch off the consultation about Project');
+
+    (row().querySelector('[data-consultation-switch="off"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/starter/consultations/project/state').at(-1)).toEqual({ state: 'off', reason: null });
+    expect(text(row().querySelector('[data-consultation-off]'))).toBe('Off');
   }, formFlowTimeout);
 
   it('warns when the approval policy keeps a route from applying', async () => {

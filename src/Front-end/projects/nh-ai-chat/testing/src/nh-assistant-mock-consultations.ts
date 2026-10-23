@@ -55,6 +55,8 @@ interface StoredConsultation {
   allowRequests: boolean;
   exposeToMcp: boolean;
   dataClassification: DataConsultation['dataClassification'];
+  /** Switched off: not offered until an administrator switches it on. */
+  off: boolean;
   createdAt: string;
   createdBy: string;
   changedAt: string;
@@ -98,7 +100,9 @@ const selectorPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)
  * read checks it again, so a consultation that no longer fits, for example after the run settings
  * changed whom the agent answers to or the agent's own tools no longer cover its tool selection,
  * stays with its problems. Data consultations in effect generate their consult and request tools in
- * the tool list and count for the agent's route switches.
+ * the tool list and count for the agent's route switches. A new consultation starts off when its
+ * request or the ceiling says so (`startsOff`); one that is off is checked as every read checks it but
+ * offers nothing until `POST .../state` switches it on.
  */
 export class NhAssistantMockConsultations {
   private readonly stored = new Map<string, StoredConsultation>();
@@ -157,7 +161,8 @@ export class NhAssistantMockConsultations {
       maxToolCalls: Math.min(application.maxToolCalls, narrowed.maxToolCalls),
       maxTimeoutSeconds: Math.min(application.maxTimeoutSeconds, narrowed.maxTimeoutSeconds),
       maxAnswerChars: Math.min(application.maxAnswerChars, narrowed.maxAnswerChars),
-      maxHistoryMessages: Math.min(application.maxHistoryMessages, narrowed.maxHistoryMessages)
+      maxHistoryMessages: Math.min(application.maxHistoryMessages, narrowed.maxHistoryMessages),
+      ...(application.startsOff === true || narrowed.startsOff === true ? { startsOff: true } : {})
     };
   }
 
@@ -235,8 +240,11 @@ export class NhAssistantMockConsultations {
     return tools;
   }
 
-  /** `PUT` and `DELETE admin/agents/{id}/consultations/{subjectType}`. */
-  handle(method: string, agent: AdminAgent, subjectType: string, body: unknown, query: URLSearchParams): NhAssistantMockResult {
+  /** `PUT` and `DELETE admin/agents/{id}/consultations/{subjectType}`, and `POST .../state`. */
+  handle(method: string, agent: AdminAgent, subjectType: string, body: unknown, query: URLSearchParams, action?: string): NhAssistantMockResult {
+    if (action === 'state') {
+      return method === 'POST' ? this.setState(agent, subjectType, body) : { status: 405 };
+    }
     if (method === 'DELETE') {
       return this.remove(agent, subjectType, query);
     }
@@ -313,6 +321,10 @@ export class NhAssistantMockConsultations {
     if (classification !== null && !classifications.includes(classification)) {
       add('dataClassification', 'invalid');
     }
+    // Only a new consultation starts off; one that exists keeps whether it is on.
+    if (request.startsOff === true && request.expectedVersion != null) {
+      add('startsOff', 'invalid');
+    }
     if (Object.keys(errors).length > 0) {
       return failure('assistant-validation', errors);
     }
@@ -335,6 +347,7 @@ export class NhAssistantMockConsultations {
       allowRequests: request.allowRequests === true,
       exposeToMcp: request.exposeToMcp === true,
       dataClassification: classification as DataConsultation['dataClassification'],
+      off: existing ? existing.off : request.startsOff === true || ceiling.startsOff === true,
       createdAt: existing?.createdAt ?? now,
       createdBy: existing?.createdBy ?? 'current-user',
       changedAt: now,
@@ -356,6 +369,33 @@ export class NhAssistantMockConsultations {
 
     this.stored.set(key(agent.id, subjectType), row);
     return { status: 200, body: this.toConsultation(agent, row) };
+  }
+
+  /** `POST admin/agents/{id}/consultations/{subjectType}/state`: on or off, without a new version. */
+  private setState(agent: AdminAgent, subjectType: string, body: unknown): NhAssistantMockResult {
+    const request = body as { state?: unknown; reason?: unknown } | undefined;
+    if (request?.state !== 'on' && request?.state !== 'off') {
+      return failure('assistant-validation', { state: [request?.state === undefined ? 'required' : 'invalid'] });
+    }
+    if (typeof request.reason === 'string' && request.reason.trim().length > maxReason) {
+      return failure('assistant-validation', { reason: ['too-long'] });
+    }
+    if (this.inCode(agent.id, subjectType)) {
+      return failure('assistant-consultation-in-code');
+    }
+    const existing = this.stored.get(key(agent.id, subjectType));
+    if (!existing) {
+      return failure('assistant-consultation-not-found');
+    }
+
+    const off = request.state === 'off';
+    if (existing.off !== off) {
+      existing.off = off;
+      existing.changedAt = this.now();
+      existing.changedBy = 'current-user';
+      existing.reason = typeof request.reason === 'string' && request.reason.trim().length > 0 ? request.reason.trim() : null;
+    }
+    return { status: 200, body: this.toConsultation(agent, existing) };
   }
 
   private remove(agent: AdminAgent, subjectType: string, query: URLSearchParams): NhAssistantMockResult {
@@ -463,7 +503,10 @@ export class NhAssistantMockConsultations {
         problems.push('tools-not-allowed');
       }
     }
-    return { inEffect: true, problems, routes: kept, allowRequests, toolSelectors };
+    // Off, it is checked as every read checks it, and offers nothing until it is switched on.
+    return row.off
+      ? { inEffect: false, problems, routes: [], allowRequests: false, toolSelectors: [] }
+      : { inEffect: true, problems, routes: kept, allowRequests, toolSelectors };
   }
 
   private namesOnlyTheInitiator(policy: string): boolean {
@@ -523,7 +566,9 @@ function ceilingOf(ceiling: NhAssistantMockConsultationCeiling): ConsultationCei
     maxAnswerChars: ceiling.maxAnswerChars ?? bounds.answerChars.max,
     maxHistoryMessages: ceiling.maxHistoryMessages ?? bounds.history.max,
     maxConsultations,
-    maxInstructionsLength: maxInstructions
+    maxInstructionsLength: maxInstructions,
+    // Reported only when the application lets new consultations start off, as older servers omit it.
+    ...(ceiling.startsOff === true ? { startsOff: true } : {})
   };
 }
 

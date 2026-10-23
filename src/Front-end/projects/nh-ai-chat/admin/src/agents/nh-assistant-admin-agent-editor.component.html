@@ -69,6 +69,16 @@
             <span class="muted">{{ 'nh-assistant.admin.agent-editor.switch-on-now-hint' | translate }}</span>
           </span>
         </label>
+        @if (use() !== 'chat') {
+          <!-- An agent that works on its own may first work in shadow, once it has run settings. -->
+          <label class="check described" data-starts-in-shadow>
+            <input type="checkbox" [checked]="startsInShadow()" (change)="startsInShadow.set(checked($event))" />
+            <span>
+              <strong>{{ 'nh-assistant.admin.agent-editor.starts-in-shadow' | translate }}</strong>
+              <span class="muted">{{ 'nh-assistant.admin.agent-editor.starts-in-shadow-hint' | translate }}</span>
+            </span>
+          </label>
+        }
       }
     </fieldset>
 

@@ -443,6 +443,7 @@
       "assistant-run-settings-in-code": "Deze agent staat in de code; daar is ingesteld hoe hij werkt.",
       "assistant-run-settings-in-use": "Er horen nog vaardigheden, triggers of raadplegingen bij deze agent. Verwijder die eerst.",
       "assistant-skill-candidate-not-found": "Van deze vaardigheid wordt geen versie in schaduw beoordeeld.",
+      "assistant-trigger-candidate-not-found": "Van deze trigger wordt geen versie in schaduw beoordeeld.",
       "assistant-skill-version-gone": "De versie van de vaardigheid waarvoor deze run was, wordt niet meer beoordeeld.",
       "assistant-account-search-unavailable": "De applicatie biedt geen accountzoeker; vul de id van het account in.",
       "assistant-mcp-connection-required": "Deze server moet eerst gekoppeld worden. Koppel hem en probeer het opnieuw.",
@@ -875,7 +876,9 @@
             "none": "Geen waarde"
           }
         },
-        "catalog-unavailable": "De bouwstenen van agentruns konden niet worden gelezen, dus waar deze agent aan werkt en zijn groepen kun je nu niet wijzigen. Opslaan laat ze zoals ze zijn."
+        "catalog-unavailable": "De bouwstenen van agentruns konden niet worden gelezen, dus waar deze agent aan werkt en zijn groepen kun je nu niet wijzigen. Opslaan laat ze zoals ze zijn.",
+        "starts-in-shadow": "In schaduw beginnen",
+        "starts-in-shadow-hint": "Zodra de agent run-instellingen heeft, werken zijn runs in zijn schaduwthreads, waar niemand een melding krijgt en niets wordt uitgevoerd, tot je hem live zet in de lijst met agents."
       },
       "effect": {
         "read-only": "Alleen lezen",
@@ -1234,7 +1237,8 @@
             "skill": "Vaardigheid {{id}}:",
             "candidate": "Kandidaat van vaardigheid {{id}}:",
             "trigger": "Trigger {{id}}:",
-            "consultation": "Raadpleging over {{id}}:"
+            "consultation": "Raadpleging over {{id}}:",
+            "trigger-candidate": "Kandidaat van trigger {{id}}:"
           },
           "code": {
             "unknown-agent": "de agent kan niet meer zelfstandig werken.",
@@ -1525,6 +1529,24 @@
             "set-hint": "Telkens één run voor elk object in een verzameling, zoals de actieve projecten.",
             "every-division": "Elke divisie",
             "dropped": "Dit schema draaide voor de hele applicatie, waaraan de agent niet meer werkt. Kies een verzameling objecten."
+          },
+          "saved-candidate": "De nieuwe versie vuurt in schaduw naast de live versie, die blijft werken.",
+          "apply": "Hoe de wijziging ingaat",
+          "apply-live": "Direct toepassen",
+          "apply-live-hint": "De nieuwe versie vervangt de live versie meteen, in de modus van de trigger.",
+          "apply-shadow": "Eerst in schaduw beoordelen naast de live versie",
+          "apply-shadow-hint": "De nieuwe versie vuurt naast de live versie in de schaduwthreads van de agent, waar niets wordt uitgevoerd; vergelijk ze en promoveer of verwerp hem daarna.",
+          "versions": "Versies",
+          "candidate": {
+            "explain": "Versie {{version}} vuurt in schaduw naast de live versie: zijn runs werken in de schaduwthreads van de agent, en de live versie blijft werken.",
+            "out-of-effect": "De kandidaat vuurt niet: hij past niet meer bij de code ({{problem}}). De live versie blijft werken.",
+            "changes": "Wat de kandidaat verandert",
+            "no-changes": "De kandidaat heeft dezelfde definitie als de live versie.",
+            "change": "{{candidate}} (live: {{live}})",
+            "comparison": "Live versie en kandidaat van trigger {{trigger}}",
+            "paired": "Sinds {{date}} startten beide een run op {{count}} dezelfde gebeurtenissen, alleen de live versie op {{liveOnly}} en alleen de kandidaat op {{candidateOnly}}.",
+            "promoted": "De kandidaat is nu de live versie van de trigger.",
+            "none": "geen"
           }
         },
         "way-of-working": "Werkwijze",
@@ -1873,8 +1895,19 @@
             "tools": "Tools die hij mag gebruiken",
             "tools-hint": "De eigen tools van de agent; selecteer er een paar om ze voor deze raadpleging te beperken. Niets geselecteerd: alle tools van de agent. Wijzigingen hebben nog steeds een route nodig.",
             "tool-not-covered": "Hoort niet meer bij de eigen tools van de agent.",
-            "in-effect": "Een raadpleging werkt zodra ze is opgeslagen; ze antwoordt zodra een agent die vraagt haar tool selecteert."
-          }
+            "in-effect": "Een raadpleging werkt zodra ze is opgeslagen; ze antwoordt zodra een agent die vraagt haar tool selecteert.",
+            "starts-off": "Uit beginnen",
+            "starts-off-hint": "Hij wordt niet aangeboden tot je hem aanzet in de lijst, bijvoorbeeld na een beoordeling.",
+            "starts-off-ceiling": "Een nieuwe raadpleging begint uit: de applicatie wil elke raadpleging beoordeeld hebben voordat hij wordt aangeboden. Zet hem aan in de lijst."
+          },
+          "off-badge": "Uit",
+          "off-explain": "Uit: vragende agents krijgen geen van zijn tools tot je hem aanzet.",
+          "switch-on": "Aanzetten",
+          "switch-off": "Uitzetten",
+          "switch-on-named": "Raadpleging over {{type}} aanzetten",
+          "switch-off-named": "Raadpleging over {{type}} uitzetten",
+          "switched-on": "De raadpleging staat aan: agents die vragen krijgen zijn tools.",
+          "switched-off": "De raadpleging staat uit: agents die vragen krijgen geen van zijn tools."
         }
       },
       "runs": {
