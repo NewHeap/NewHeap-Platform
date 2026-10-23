@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, take the instructions of data skills and agents created in the administration from the application's own text assets, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
 
 ## Preferred approach
 
@@ -684,6 +684,44 @@ whether it works by rules (`CodeRunSettings`, `NhAssistantCodeRunSettingsDto`). 
 names the object type a tool declares with `[NhAiSubject]` (`SubjectType`), so a screen can say that
 a run's proposal of it waits at that object; MCP tools never declare one.
 
+Keep instructions that the application owns, such as texts it ships with its code, reviews in its own
+process or keeps in its own store, in the application and let a data skill or an agent created in the
+administration name them instead of copying them into the administration. Implement
+`INhAiTextAssetSource` (`GetAsync(id, version)` returns an `NhAiTextAsset` created with
+`NhAiTextAssetFactory`, `null` when there is none; `ListAsync` returns the manifests administrators may
+choose, empty to let them type the id and version) and register it with `UseTextAssetSource<TSource>()`;
+the run catalog then reports `instructionAssets`. A skill version (`InstructionsAsset` of
+`NhAssistantDataSkillRequest`, `PUT admin/agents/{id}/skills/{skillId}`) and an agent created in the
+administration (`InstructionsAsset` of `NhAssistantAgentRequest` and `POST`/`PUT admin/agents`) store
+an `NhAssistantInstructionAssetReference`: the asset's id, its exact version and the SHA-256 of its
+content, never the text; inline instructions next to it are refused (`instructions: not-allowed`) and
+an agent in code keeps its instructions in code (`instructionsAsset: not-allowed`). A save asks the
+source and refuses a reference without a source (`instructionsAsset: not-allowed`), a malformed one or
+an asset that is not trusted system instructions of the application, is blank or longer than inline
+instructions may be (`invalid`), a missing asset (`not-found`) and another hash
+(`instructionsAsset.hash: invalid`); a source that throws answers `503
+assistant-instructions-asset-unavailable` and nothing is saved. `GET admin/instruction-assets` lists
+the trusted system instructions the source offers, without content, and `GET
+admin/instruction-assets/{id}/versions/{version}` reads one read-only with the hash a reference stores;
+both are behind the administration policy. Every load of the run configuration asks the source again
+for every asset the data names and compares the hash; the verified text is kept per asset id and
+version between loads, and an agent's read resolves a reference it has not resolved yet. A missing
+asset, another hash, an asset that cannot be instructions, a source that is no longer registered or
+one that throws for a text never verified are the problems `asset-missing`, `asset-changed`,
+`asset-invalid`, `no-asset-source` and `asset-unavailable`: the skill version or candidate is out of
+effect, and the agent is not runnable, its run settings are out of effect with the problem of kind
+`agent` and it starts no model turn (`assistant-agent-instructions-unavailable` for a message, a
+decision that continues its turn, a run and a consultation), while its approved proposals still
+execute and the administration shows the problem (`InstructionsProblem` of
+`NhAssistantAdminAgentDto`). A source that fails keeps a text it verified before in effect and is asked
+again after half a minute. A new version of the asset never takes effect on its own: an administrator
+saves it as the skill's next version or the agent's next version, and the history keeps which version
+each one used. The audit names the asset as `InstructionsVersion` (`<asset-id>@<version>`) with
+`InstructionsHash` on `AdminAgentSkillDefinitionChanged`, `AdminAgentCreated` and
+`AdminAgentUpdated`, and `AgentRunEnded` names the skill and agent versions that pin it; no text
+reaches the audit, logs, problems or run facts. The administration's skill form and agent editor choose
+between "Written here" and "The application's text" (SPM-320).
+
 Keep an agent from starting itself again with a change it made, with a named filter on the trigger
 event that a data trigger selects. `When` on the event concerns every trigger on it and knows no
 agent; register a filter per concern instead with `Filter(name, description, (evt, ctx) => ...)`
@@ -1262,6 +1300,10 @@ entry's name and the version only.
   as a candidate.
 - Letting an administration agent answer to a technical account with more rights than its work
   needs, or to itself when it must use tools: it then has no rights at all.
+- Changing the text of a published version of a text asset: every load refuses it as `asset-changed`.
+  Publish a new version and save it as the skill's or agent's next version.
+- A text asset source that answers a missing asset by throwing: return `null`, so the problem says
+  `asset-missing` instead of an unavailable source.
 - A technical account with more rights than the agent needs: it lends them to gateway reads.
 - Letting the model read a subject's basic facts through tool calls in every run; brief it.
 - A tool whose input names an object without `[NhAiSubject]` when runs for the whole application or for
@@ -1598,7 +1640,13 @@ while triggers belong to it; assert that a read with accountable rights is shiel
 without the tool's policies, on both providers. Give an account and a delegating initiator a tool's
 policy without its capability and assert that an agent in code with a grant runs the tool as `Agent`,
 that an agent without a grant is not offered it and is refused with `ai-tool-capability-denied`, and
-that a principal with both lends its rights as `Accountable` or `Delegated`. Save a change of a live data skill for shadow and
+that a principal with both lends its rights as `Accountable` or `Delegated`. Save a data skill and an agent created in the
+administration with a reference to the application's text asset on both providers and assert that the
+skill's runs and the agent's turns read the asset's text, that a wrong hash, a missing asset and a
+reference without a source are refused at save, that a hash that changes later takes the skill out of
+effect and keeps the agent from running at the next load, that a failing source keeps a verified text,
+that inline instructions are unchanged and that people who do not administer neither list nor read the
+assets. Save a change of a live data skill for shadow and
 assert that an event starts the live version's run live and the candidate's run in the shadow thread
 with its own version, rules and inputs, that a repeated delivery starts neither again, that the
 comparison pairs the two, that promoting makes the candidate live without a second run, and that a
