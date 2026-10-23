@@ -88,6 +88,23 @@ describe('NhAssistantComposerComponent attachments', () => {
     expect(hint).toBe('CSV, X-SAMPLE, up to 2 MB each, at most 3 files per message');
   });
 
+  it('offers the extensions the application mapped to an accepted type', () => {
+    set('uploads', {
+      ...uploads,
+      acceptedMediaTypes: ['application/acad', 'text/xml', 'application/xml'],
+      mappedExtensions: [
+        { extension: '.dwg', mediaType: 'application/acad' },
+        { extension: '.dxf', mediaType: 'application/acad' },
+        // The application's mapping takes .xml from the platform's application/xml.
+        { extension: '.xml', mediaType: 'text/xml' },
+        // A mapping to a type that is not accepted is not offered.
+        { extension: '.ifc', mediaType: 'application/x-step' }
+      ]
+    });
+
+    expect(fileInput().accept).toBe('application/acad,.dwg,.dxf,text/xml,.xml,application/xml');
+  });
+
   it('opens the file picker from the button and hands the chosen files over', () => {
     set('uploads', uploads);
     const chosen: File[][] = [];

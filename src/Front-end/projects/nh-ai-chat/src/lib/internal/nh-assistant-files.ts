@@ -1,4 +1,4 @@
-import { AgentUploads } from '../models/assistant-api.models';
+import { AgentUploadExtension, AgentUploads } from '../models/assistant-api.models';
 
 /** The longest file name a file reference takes. */
 export const NH_ASSISTANT_MAX_FILE_NAME_LENGTH = 256;
@@ -54,7 +54,9 @@ const aliasesByExtension: Record<string, string[]> = {
   '.png': ['image/x-png'],
   '.docx': zipAliases,
   '.xlsx': zipAliases,
-  '.pptx': zipAliases
+  '.pptx': zipAliases,
+  // Browsers send the older name of XML; an application that accepts only it keeps receiving it.
+  '.xml': ['text/xml']
 };
 
 /** The extension of a file name in lowercase, such as `.csv`; empty without one. */
@@ -64,10 +66,18 @@ function extensionOf(name: string): string {
   return dot > 0 || (dot === 0 && base.length > 1) ? base.slice(dot).toLowerCase() : '';
 }
 
-function mediaTypeOfExtension(extension: string): string | null {
-  if (extension.length === 0) {
-    return null;
-  }
+/** The application's extensions (`AgentUploads.mappedExtensions`) whose type is accepted, lowercase. */
+function acceptedMappings(
+  acceptedMediaTypes: readonly string[],
+  mappedExtensions: readonly AgentUploadExtension[] | null | undefined
+): AgentUploadExtension[] {
+  return (mappedExtensions ?? [])
+    .map(mapping => ({ extension: mapping.extension.toLowerCase(), mediaType: mapping.mediaType.toLowerCase() }))
+    .filter(mapping => acceptedMediaTypes.includes(mapping.mediaType));
+}
+
+/** The platform's media type of an extension, or `null`. */
+function knownMediaTypeOf(extension: string): string | null {
   for (const [mediaType, known] of Object.entries(knownTypes)) {
     if (known.extensions.includes(extension)) {
       return mediaType;
@@ -78,19 +88,41 @@ function mediaTypeOfExtension(extension: string): string | null {
 }
 
 /**
+ * The accepted type an extension names: the application's mapping, otherwise the platform's table;
+ * `null` when neither names an accepted type.
+ */
+function mediaTypeOfExtension(extension: string, acceptedMediaTypes: readonly string[], mappings: readonly AgentUploadExtension[]): string | null {
+  if (extension.length === 0) {
+    return null;
+  }
+  const mapped = mappings.find(mapping => mapping.extension === extension);
+  if (mapped) {
+    return mapped.mediaType;
+  }
+
+  const known = knownMediaTypeOf(extension);
+  return known && acceptedMediaTypes.includes(known) ? known : null;
+}
+
+/**
  * The media type a chosen file uploads as, lowercase and without parameters, by the same rule as the
  * server. A browser gives no type, or a generic one, for a file its system does not know, and some
  * systems name an extension after the program that opens it, such as `application/vnd.ms-excel` for
  * a `.csv` file; the file name's extension then names the type, but only a type of
- * `acceptedMediaTypes`. A specific type stays as it is, so a type that is not accepted is refused
+ * `acceptedMediaTypes`: the type the application mapped the extension to (`mappedExtensions`),
+ * otherwise the platform's. A specific type stays as it is, so a type that is not accepted is refused
  * whatever the extension. Without a type and an accepted extension, `application/octet-stream`.
  */
-export function nhAssistantMediaTypeOf(file: Pick<File, 'name' | 'type'>, acceptedMediaTypes: readonly string[]): string {
+export function nhAssistantMediaTypeOf(
+  file: Pick<File, 'name' | 'type'>,
+  acceptedMediaTypes: readonly string[],
+  mappedExtensions?: readonly AgentUploadExtension[] | null
+): string {
   const declared = file.type.split(';')[0].trim().toLowerCase();
   const extension = extensionOf(file.name);
   if (declared.length === 0 || genericTypes.has(declared) || (aliasesByExtension[extension] ?? []).includes(declared)) {
-    const derived = mediaTypeOfExtension(extension);
-    if (derived && acceptedMediaTypes.includes(derived)) {
+    const derived = mediaTypeOfExtension(extension, acceptedMediaTypes, acceptedMappings(acceptedMediaTypes, mappedExtensions));
+    if (derived) {
       return derived;
     }
   }
@@ -125,11 +157,22 @@ export function nhAssistantFileProblem(
   return null;
 }
 
-/** The `accept` attribute of a file input for these media types: each type and its known extensions. */
-export function nhAssistantAcceptAttribute(mediaTypes: readonly string[]): string {
-  return mediaTypes
-    .flatMap(mediaType => [mediaType, ...(knownTypes[mediaType]?.extensions ?? [])])
-    .join(',');
+/**
+ * The `accept` attribute of a file input for these accepted media types: each type and the extensions
+ * that name it, those the application mapped to it (`mappedExtensions`) and those of the platform's
+ * table that the application did not map to another accepted type.
+ */
+export function nhAssistantAcceptAttribute(
+  mediaTypes: readonly string[],
+  mappedExtensions?: readonly AgentUploadExtension[] | null
+): string {
+  const mappings = acceptedMappings(mediaTypes, mappedExtensions);
+  const values = mediaTypes.flatMap(mediaType => [
+    mediaType,
+    ...mappings.filter(mapping => mapping.mediaType === mediaType).map(mapping => mapping.extension),
+    ...(knownTypes[mediaType]?.extensions ?? []).filter(extension => !mappings.some(mapping => mapping.extension === extension))
+  ]);
+  return [...new Set(values)].join(',');
 }
 
 /** A short name of a media type, such as `PDF` or `Word`; otherwise its subtype in capitals. */

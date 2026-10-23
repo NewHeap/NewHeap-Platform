@@ -201,6 +201,69 @@ describe('Chat attachments', () => {
     expect(await upload(conversationId, new Blob(['<script>']), 'Fake.pdf')).toEqual({ status: 415, code: 'assistant-file-type-not-accepted' });
   });
 
+  it('derives the types of the extensions the application mapped and text/xml for .xml, as the server does', async () => {
+    const mapped: AgentUploads = {
+      acceptedMediaTypes: ['application/acad', 'application/xml'],
+      maxFileBytes: 1024,
+      maxFiles: 5,
+      mappedExtensions: [
+        { extension: '.dwg', mediaType: 'application/acad' },
+        // Not accepted: the mapping names nothing.
+        { extension: '.ifc', mediaType: 'application/x-step' }
+      ]
+    };
+    await setup(scenario({
+      agents: [{ id: 'documents', version: 1, displayNameKey: 'agents.documents', descriptionKey: 'agents.documents', canMutate: false, uploads: mapped }]
+    }));
+
+    await store.attach([
+      new File(['AC1032'], 'Floor plan.dwg'),
+      new File(['AC1032'], 'Section.DWG', { type: 'application/octet-stream' }),
+      // Browsers send text/xml for .xml; the table names application/xml.
+      new File(['<plan/>'], 'Plan.xml', { type: 'text/xml' }),
+      new File(['ISO-10303-21;'], 'Model.ifc'),
+      new File(['AC1032'], 'Drawing.dwg', { type: 'image/vnd.dwg' })
+    ]);
+    await until(() => !store.uploading());
+
+    expect(store.attachments().map(item => [item.name, item.mediaType, item.state, item.error?.code ?? null])).toEqual([
+      ['Floor plan.dwg', 'application/acad', 'uploaded', null],
+      ['Section.DWG', 'application/acad', 'uploaded', null],
+      ['Plan.xml', 'application/xml', 'uploaded', null],
+      ['Model.ifc', 'application/octet-stream', 'failed', 'assistant-file-type-not-accepted'],
+      ['Drawing.dwg', 'image/vnd.dwg', 'failed', 'assistant-file-type-not-accepted']
+    ]);
+
+    // The mock derives with the mappings for an upload that arrives without a type.
+    const conversationId = store.activeConversation()!.id;
+    expect(await upload(conversationId, new Blob(['AC1032']), 'Direct.dwg')).toEqual({ status: 200, code: null });
+    expect(backend.uploads.map(item => [item.name, item.mediaType])).toEqual([
+      ['Floor plan.dwg', 'application/acad'],
+      ['Section.DWG', 'application/acad'],
+      ['Plan.xml', 'application/xml'],
+      ['Direct.dwg', 'application/acad']
+    ]);
+  });
+
+  it('refuses text whose content starts as a binary format and accepts UTF-16 text, as the server does', async () => {
+    const text: AgentUploads = { acceptedMediaTypes: ['text/csv', 'text/plain'], maxFileBytes: 1024, maxFiles: 5 };
+    await setup(scenario({
+      agents: [{ id: 'documents', version: 1, displayNameKey: 'agents.documents', descriptionKey: 'agents.documents', canMutate: false, uploads: text }]
+    }));
+    const conversationId = (await firstValueFrom(api.createConversation({ agentId: 'documents' }))).id;
+    // An .xls workbook renamed to .csv starts as an OLE2 compound file.
+    const workbook = new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0, 0, 0]);
+    // Excel's "Unicode text" export: UTF-16LE with a byte order mark, so every other byte is NUL.
+    const unicode = new Uint8Array([0xff, 0xfe, ...Array.from('project\tstatus').flatMap(char => [char.charCodeAt(0), 0])]);
+
+    expect(await upload(conversationId, new Blob([workbook], { type: 'application/vnd.ms-excel' }), 'Export.csv'))
+      .toEqual({ status: 415, code: 'assistant-file-type-not-accepted' });
+    expect(await upload(conversationId, new Blob(['PK\u0003\u0004word/'], { type: 'text/plain' }), 'Notes.txt'))
+      .toEqual({ status: 415, code: 'assistant-file-type-not-accepted' });
+    expect(await upload(conversationId, new Blob([unicode], { type: 'text/plain' }), 'Projects.txt')).toEqual({ status: 200, code: null });
+    expect(backend.uploads.map(item => [item.name, item.mediaType])).toEqual([['Projects.txt', 'text/plain']]);
+  });
+
   it('stops an upload that is removed and offers no attachments for an agent that takes none', async () => {
     await setup();
     await store.attach([pdf('First.pdf')]);
