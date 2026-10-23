@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
 
 ## Preferred approach
 
@@ -99,6 +99,29 @@ the conversation's `decide` stream. Messages a trigger wrote into the thread car
 `authorKind: "trigger"` (`NhAssistantMessageAuthorKinds`), so clients show them as events
 rather than as a person, and the message of a rule run carries `authorKind: "rule"`; agent
 messages never carry an `authorActorId`.
+
+Let people decide through the application's own channels, such as a reply to a message that
+asked an approver, with `INhAssistantProposalDecisionService`. It is a server API whose caller
+vouches for the authentication of the person: pass the person as `NhAssistantDecidingPerson` with
+the principal and actor id the application authenticated through its channel (for example a reply
+token it issued to that person, and claims rebuilt from its user store as their sign-in would give
+them), never an id taken from the message itself. Before the application asks someone, read
+`GetDecisionFactsAsync`: the current proposal hash, the expiry, whether four eyes apply, the
+approvals still needed and whether this person may decide, with the refusal code otherwise, and no
+proposal content; nothing changes, so the proposal guards run only when the person decides.
+`DecideAsync(person, approvalId, expectedHash, decision, channel, idempotencyKey)` is the decision of
+`POST approvals/{id}/decisions` through the same implementation: the approvers and the tool's
+approve policy, four eyes, the hash, the proposal guards and `RequireUnchangedSubject`, the expiry on
+the application's clock, the execution, waiting run, follow-up run and rejection cooldown that follow,
+and the same refusal codes. Proposals that a person decides in a conversation (their own chat turn,
+or a consultation the asker decides) are refused there as here. The channel is a dash-case code
+(`NhAssistantDecisionChannels`, at most 50 characters) that the content-free audit records as
+`Channel` on `ApprovalApproved` and `ApprovalRejected`, where the endpoints record `web`; the
+idempotency key, such as the delivery id of the reply, is recorded only as the audit's
+`IdempotencyKey`. Decisions are idempotent by state: a repeat by the same person with the same
+decision and hash returns the earlier decision with `Duplicate` and is not audited again, and
+anything else, such as another answer of the same person, gets the ordinary refusal. The endpoints
+keep answering a repeat with `409 assistant-approval-not-pending`.
 
 Register an `INhAssistantToolPresenter` (`AddToolPresenter`) for every tool an agent
 may propose. Approvers often decide days later and outside the conversation; the
@@ -1107,6 +1130,13 @@ profile and instructions that answer questions about the rules' proposals from t
 - Skipping every change an agent made, whatever the subject: its change on one subject may rightly
   start it on another. Compare both the actor and the subject with the filter context.
 - Reading the database or calling services in a trigger filter: it runs for every published event.
+- Deciding with `INhAssistantProposalDecisionService` for a person the channel did not authenticate,
+  such as an actor id or address read from the reply itself: the service believes the person it is
+  given. Bind the reply to the person with a token the application issued to them, and rebuild their
+  principal as their own sign-in would.
+- Deduplicating channel deliveries in the application before deciding, or deciding again after a
+  timeout to be sure: pass the delivery as the idempotency key and let a repeat return the earlier
+  decision.
 - Stopping an agent by editing its definition or sending `isEnabled`; pause or stop it with
   `INhAssistantAgentControl` or `POST admin/agents/{id}/state`.
 - Stopping an agent for an import or a migration that should lose no events; pause it.
@@ -1361,7 +1391,14 @@ providers. Read a proposal by
 id in every status and assert its fields and the live decision right of an approver, the initiator
 under four eyes and a reader; assert 404 without a role, for another tenant and for a hidden agent,
 that a lookup returns only visible proposals in request order and refuses more than 100 ids, and
-that reading does not join the thread, on both providers. Pause an agent and assert that
+that reading does not join the thread, on both providers. Decide through
+`INhAssistantProposalDecisionService` and assert that every refusal of the decision endpoint is the
+service's and its facts' (a wrong hash, an expired proposal, a participant, an outsider, the initiator
+under four eyes, an agent, a decided proposal, a proposal decided in a conversation and a proposal of
+the whole application for an approver without the agent's view policy), that the audit records the
+channel and the idempotency key where the endpoint records `web`, that a repeated delivery returns
+the earlier decision once without a second execution or audit event, and that another answer
+afterwards is refused as not pending, on both providers. Pause an agent and assert that
 events wait once per dedupe key, start no run and skip schedule ticks, that a run queued before
 the pause ends without claiming its inputs, and that resuming starts one run per thread; stop it
 and assert cancelled runs, withdrawn proposals, dropped waiting events, refused triggers and held

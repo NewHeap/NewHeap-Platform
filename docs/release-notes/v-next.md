@@ -99,3 +99,23 @@ model's summary of the call and the result code of an executed proposal name the
 |---|---|
 | `NhAiAuditRecord.ResultCode` of an `AuthorizationDenied` record is the refusal's code instead of `null`. | Read the reason of a refusal from `ResultCode`; keep `Outcome` for its kind. |
 | Assistant tool calls, `ToolInvoked` audit events and proposal execution results carry the refusal's own code (such as `ai-tool-agent-not-granted`, `ai-tool-capability-denied`, `ai-tool-effect-denied`, `ai-tool-approval-delegation-invalid` or an authoritative denial's code) instead of `ai-tool-authorization-denied` or `ai-tool-execution-evidence-invalid`. | Update filters, reports and translations that match `ai-tool-authorization-denied` to the codes you handle; `ai-tool-authorization-denied` remains for a gate that refuses without a code of its own, such as a person who misses the tool's policy. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a decision service for application channels
+
+`INhAssistantProposalDecisionService` decides proposals of agent threads for the application's own
+channels, such as a reply to a message that asked an approver. It is a server API whose caller vouches
+for the person: the application passes the principal and actor id it authenticated
+(`NhAssistantDecidingPerson`). `GetDecisionFactsAsync` returns the current proposal hash, the expiry,
+whether four eyes apply, the approvals still needed and whether the person may decide, with the refusal
+code otherwise, and no proposal content (`NhAssistantProposalDecisionFacts`).
+`DecideAsync(person, approvalId, expectedHash, decision, channel, idempotencyKey)` is the decision of
+`POST approvals/{id}/decisions` through the same implementation, with the same checks, effects and
+refusal codes; proposals decided in a conversation are refused as there. The channel is a dash-case code
+(`NhAssistantDecisionChannels`) and the idempotency key at most 100 printable characters without white
+space; both reach only the content-free audit. A repeat by the same person with the same decision and
+hash returns the earlier decision with `NhAssistantProposalDecisionResult.Duplicate` and is not audited
+again; anything else gets the ordinary refusal. No migration; the decision endpoints answer as before.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantAuditEvent` has the new properties `Channel` and `IdempotencyKey`; `ApprovalApproved` and `ApprovalRejected` of agent proposals carry `Channel` `web` from the decision endpoints, or the service's channel and key. | Let audit sinks that map every property of the event store or ignore the two new values. |

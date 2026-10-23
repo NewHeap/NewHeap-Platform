@@ -372,6 +372,9 @@ builder.Services.AddScoped<AccountSampleService>();
 builder.Services.AddScoped<OperationsSampleService>();
 builder.Services.AddScoped<SampleAgentMaintenanceService>();
 builder.Services.AddScoped<SampleAgentConfigurationService>();
+// SPM-268: approvers answer the intake reviewer's proposals with a messaging reply, which decides
+// as that person through the platform's proposal decision service.
+builder.Services.AddScoped<SampleApprovalReplyChannel>();
 builder.Services.AddScoped<ObservabilitySampleService>();
 builder.Services.AddSingleton<NewHeap.Platform.AspNet.Common.Utilities.IStartupConfiguration, SampleStartupConfiguration>();
 builder.Services.AddScoped<ProjectMaintenanceJob>();

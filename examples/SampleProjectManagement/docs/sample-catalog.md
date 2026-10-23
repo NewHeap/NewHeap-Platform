@@ -38,7 +38,12 @@ status change because both `ProjectAiTools.ChangeStatusAsync` (`AllowAgentGrant`
 and `SampleIntakeReviewerComposition` grant it, for trigger runs only. Its
 proposal waits under the `project-intake` approval policy until a project approver
 other than the project's creator decides it; the approved change then executes as
-its own background operation, and an edit in between closes it as stale. Project
+its own background operation, and an edit in between closes it as stale. An approver
+may also answer with a messaging reply: `SampleApprovalReplyChannel` asks
+`INhAssistantProposalDecisionService` whether the person may decide before it issues
+them a reply token, and `POST approval-replies` decides their reply as them with the
+checks of the decision endpoint; a reply delivered twice returns the earlier decision,
+and the audit names the `messaging-reply` channel and the delivery. Project
 members and their roles decide who sees the project's agent thread, through
 `ProjectSubjectAccessResolver`. A participant can also start the intake reviewer to
 request a review (`projects.request-review`, SPM-274), a call that may run only once:
