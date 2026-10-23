@@ -5199,5 +5199,31 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAccessSourceTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAccessSourceTests.cs"
     ]
+  },
+  {
+    "id": "SPM-320",
+    "title": "The planner's risk review is a skill defined as data whose instructions are the sample's own text asset, checked by its hash at every load",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAiTextAssetSource (GetAsync(id, version), ListAsync) next to NhAiTextAsset and NhAiAssetManifest; NhAssistantBuilder.UseTextAssetSource<TSource>; NhAssistantInstructionAssetReference (AssetId, Version, Hash) as InstructionsAsset of NhAssistantDataSkillRequest, NhAssistantDataSkillDto, NhAssistantDataSkillVersionDto, NhAssistantAgentRequest, NhAssistantAdminAgentInputDto and NhAssistantAdminAgentDto with InstructionsProblem; NhAssistantRunCatalogDto.InstructionAssets; GET admin/instruction-assets and GET admin/instruction-assets/{id}/versions/{version} with NhAssistantInstructionAssetListDto, NhAssistantInstructionAssetDto and NhAssistantInstructionAssetTextDto; the field errors instructionsAsset (not-allowed, invalid, not-found), instructionsAsset.hash (invalid) and instructions (not-allowed); the problems no-asset-source, asset-missing, asset-changed, asset-invalid and asset-unavailable of NhAssistantRunConfigurationProblems; the codes assistant-instructions-asset-not-found, assistant-instructions-asset-unavailable and assistant-agent-instructions-unavailable; InstructionsVersion and InstructionsHash of AdminAgentSkillDefinitionChanged, AdminAgentCreated and AdminAgentUpdated; the InstructionAssets migrations for SQL Server and PostgreSQL; nh-assistant-instructions-asset in the skill form and the agent editor of @newheap/platform-ai-chat/admin with NhAssistantAdminApiService.listInstructionAssets and getInstructionAsset, InstructionAssetReference, InstructionAssetProblem and RunCatalog.instructionAssets; instructionAssets of NhAssistantMockAdminScenario with NhAssistantMockBackend.setInstructionAsset and removeInstructionAsset",
+    "outcome": "The sample publishes the instructions of a risk review as its own text asset in two versions, fixed in code: version 1 asks which task puts a project's deadline most at risk, version 2 asks for the two riskiest tasks. SampleInstructionAssetComposition registers SampleInstructionAssets as the assistant's text asset source. The administration lists the sample's texts without their content, marks version 1 as deprecated and reads a chosen version read-only with the hash of its content. The application adds the risk review to the project planner as a skill defined as data that names version 1 of the asset: the skill stores the asset's id, its version and its hash, never the text, and starts in shadow like every new skill. A save that names another hash than the text's is refused at the field instructionsAsset.hash, so a skill never names a text nobody read. Version 2 takes effect only when the application saves it as the skill's next version; the history keeps which version of the text each skill version used. Every load of the run configuration asks the source again and compares the hash: a text that changed, disappeared or cannot be read takes the skill out of effect with a problem the administration shows, and an agent created in the administration with such a text starts no model turn. The audit names the asset and its hash, never the text, and only administrators see the texts. In the playground the mock API offers the same two texts in the skill form.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleInstructionAssetComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleInstructionAssetService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantInstructionAssetSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionAssets.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfigurationEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInstructionAssetTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-instructions-asset.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-instruction-assets.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-instruction-assets-admin.spec.ts"
+    ]
   }
 ] as const;

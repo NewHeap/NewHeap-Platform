@@ -193,6 +193,9 @@
                 @if (skill.profile) {
                   <span>{{ 'nh-assistant.admin.run-config.profile-value' | translate: { name: skill.profile } }}</span>
                 }
+                @if (skill.instructionsAsset; as asset) {
+                  <span class="mono" data-skill-asset [attr.title]="asset.hash">{{ 'nh-assistant.admin.instruction-assets.reference' | translate: { asset: asset.assetId, version: asset.version } }}</span>
+                }
                 <span>{{ (skill.tools.length === 1 ? 'nh-assistant.admin.agents.tool-count-one' : 'nh-assistant.admin.agents.tool-count') | translate: { count: skill.tools.length } }}</span>
                 <span [attr.title]="accountTitle(skill.changedBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(skill.changedBy), date: (skill.changedAt | date: 'medium') } }}</span>
               </div>

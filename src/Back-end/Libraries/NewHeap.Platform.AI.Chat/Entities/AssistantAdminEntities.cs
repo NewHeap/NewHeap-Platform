@@ -32,13 +32,29 @@ public sealed class AssistantAgent
     /// </summary>
     public string? DataClassification { get; set; }
 
+    /// <summary>
+    /// The agent's instructions as text; empty when they come from an asset of the application
+    /// (<see cref="InstructionsFromAsset"/>).
+    /// </summary>
     public string Instructions { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The id of the instructions' asset: of the code asset for an agent in code, generated for text an
+    /// administrator wrote, or the application's own asset with <see cref="InstructionsFromAsset"/>.
+    /// </summary>
     public string InstructionsAssetId { get; set; } = string.Empty;
 
     public int InstructionsAssetVersion { get; set; } = 1;
 
     public string InstructionsHash { get; set; } = string.Empty;
+
+    /// <summary>
+    /// <see langword="true"/> when an agent created in the administration takes its instructions from
+    /// the application's text asset source: <see cref="InstructionsAssetId"/>,
+    /// <see cref="InstructionsAssetVersion"/> and <see cref="InstructionsHash"/> are then the reference,
+    /// checked on every load, and <see cref="Instructions"/> stays empty.
+    /// </summary>
+    public bool InstructionsFromAsset { get; set; }
 
     public string ToolSelectorsJson { get; set; } = "[]";
 

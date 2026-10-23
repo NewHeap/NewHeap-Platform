@@ -40,6 +40,7 @@ import { mockSystemSubjectType } from './nh-assistant-mock-works-on';
 import { NhAssistantMockAuthorizationWindow } from './nh-assistant-mock-authorization';
 import {
   NhAssistantMockApprovalStep,
+  NhAssistantMockInstructionAsset,
   NhAssistantMockPerson,
   NhAssistantMockRemoteTool,
   NhAssistantMockRequest,
@@ -286,6 +287,19 @@ export class NhAssistantMockBackend {
    */
   setMcpConnectionStatus(serverId: string, status: 'reauthorization-required' | 'issuer-changed'): void {
     this.admin.setMcpConnectionStatus(serverId, status);
+  }
+
+  /**
+   * Publishes or changes one version of a text asset of the application. A skill or agent that names
+   * this version with another hash then reports `asset-changed`, as after the server's next load.
+   */
+  setInstructionAsset(asset: NhAssistantMockInstructionAsset): void {
+    this.admin.instructionAssets.setAsset(asset);
+  }
+
+  /** Removes one version of a text asset; what names it reports `asset-missing`. */
+  removeInstructionAsset(assetId: string, version: number): void {
+    this.admin.instructionAssets.removeAsset(assetId, version);
   }
 
   /** The files people uploaded, oldest first, as the application's file source stored them. */

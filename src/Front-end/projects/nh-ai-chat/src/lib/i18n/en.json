@@ -478,7 +478,10 @@
       "assistant-handoff-not-found": "The hand-off was not found.",
       "assistant-shadow-variants-not-allowed": "The application does not let administrators create shadow variants of this agent.",
       "assistant-metadata-entry-not-found": "The application does not register this field of agents.",
-      "assistant-metadata-read-only": "The application sets this field of the agent in its code; it cannot change here."
+      "assistant-metadata-read-only": "The application sets this field of the agent in its code; it cannot change here.",
+      "assistant-instructions-asset-not-found": "The application has no such text asset in this version.",
+      "assistant-instructions-asset-unavailable": "The application's text assets cannot be read right now. Nothing was saved; try again shortly.",
+      "assistant-agent-instructions-unavailable": "This agent cannot work right now: the application's text with its instructions is not available. An administrator checks the agent."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",
@@ -1268,6 +1271,11 @@
             "requests-not-allowed": "the application no longer allows requests, so it takes none.",
             "mcp-not-allowed": "the application no longer offers consultations to MCP clients, so they do not see it.",
             "tools-not-allowed": "a chosen tool is no longer among the agent's own tools, so it is left out; with none left the agent gets no tools in it.",
+            "no-asset-source": "its instructions come from the application's text assets, which the application no longer offers.",
+            "asset-missing": "the application no longer has the text asset with its instructions in this version.",
+            "asset-changed": "the text of the asset with its instructions changed since it was saved, so it is not used. Read the asset again and save it as the next version.",
+            "asset-invalid": "the application's text asset cannot be used as instructions.",
+            "asset-unavailable": "the application's text assets could not be read; they are read again shortly.",
             "outside-ceiling": "the application no longer allows it.",
             "unknown-source": "an agent that may hand off can no longer run on its own.",
             "unknown-live-agent": "the agent this shadow variant follows can no longer run on its own.",
@@ -2010,6 +2018,46 @@
         "id": "Account ID {{id}}",
         "copy-id": "Copy the account ID of {{name}}",
         "id-copied": "Account ID copied"
+      },
+      "instruction-assets": {
+        "source": "Where do the instructions come from?",
+        "source-inline": "Written here",
+        "source-inline-hint": "Type the instructions in this form.",
+        "source-asset": "The application's text",
+        "source-asset-hint": "Instructions the application ships or keeps, in an exact version. A new version is used only when you save it.",
+        "not-offered": "The application no longer offers its text assets; write the instructions here to keep this working.",
+        "loading": "Loading the application's texts…",
+        "asset": "Text",
+        "asset-hint": "The application lists the texts you can choose, each in an exact version.",
+        "choose": "Choose a text",
+        "option": "{{asset}}, version {{version}}",
+        "deprecated": "Replaced by the application",
+        "deprecated-by": "Replaced by {{asset}}",
+        "none-listed": "The application lists no texts; enter the id and version it gave you.",
+        "asset-id": "Text id",
+        "version": "Version",
+        "read": "Read the text",
+        "reading": "Reading the text…",
+        "reference": "Uses {{asset}}, version {{version}}.",
+        "hash": "Hash {{hash}}",
+        "newer": "Version {{version}} of this text is available. Choose it and save to use it; the version in use stays until then.",
+        "text": "Text of the instructions",
+        "text-hint": "Read-only: the application owns this text. Saving stores which text and version, never a copy.",
+        "agent-problem": "The agent does not work:",
+        "problems": {
+          "no-asset-source": "The application no longer offers its texts; the instructions are not available.",
+          "asset-missing": "The application no longer has this text in this version.",
+          "asset-changed": "The text changed since it was saved, so it is not used. Read it again and save to use the new text.",
+          "asset-invalid": "This text cannot be used as instructions.",
+          "asset-unavailable": "The application's texts could not be read; they are read again shortly."
+        },
+        "errors": {
+          "required": "Choose a text and read it first.",
+          "not-found": "The application has no such text in this version.",
+          "changed": "The text changed since you read it. Read it again before you save.",
+          "invalid": "Enter a text id in lowercase letters, digits and dashes, and a version of 1 or higher. The application may also not allow this text as instructions.",
+          "not-allowed": "The application does not offer its texts here."
+        }
       }
     },
     "page-context": {

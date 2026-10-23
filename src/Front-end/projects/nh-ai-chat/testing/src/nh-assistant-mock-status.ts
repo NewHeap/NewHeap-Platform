@@ -64,6 +64,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-conversation-not-found',
     'assistant-agent-not-found',
     'assistant-metadata-entry-not-found',
+    'assistant-instructions-asset-not-found',
     'assistant-approval-not-found',
     'assistant-share-link-invalid',
     'assistant-participant-not-found',
@@ -132,6 +133,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-code-agent-not-deletable',
     'assistant-agent-not-code',
     'assistant-metadata-read-only',
+    'assistant-agent-instructions-unavailable',
     'assistant-mcp-server-exists',
     'assistant-mcp-headless-not-allowed',
     'assistant-mcp-consent-required',
@@ -170,6 +172,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-proposal-check-failed',
     'assistant-trigger-rolled-back',
     'assistant-mcp-secret-unavailable',
+    'assistant-instructions-asset-unavailable',
     'assistant-file-unavailable',
     'assistant-file-upload-failed'
   ]

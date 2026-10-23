@@ -141,6 +141,13 @@
                 <nh-assistant-icon name="warning" />{{ warningKeys('agent', warning) | nhAssistantTranslate: warning }}
               </p>
             }
+            <!-- The asset its instructions come from no longer resolves: the agent starts no model turn. -->
+            @if (agent.instructionsProblem) {
+              <p class="message error" role="status" data-agent-instructions-problem>
+                <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.instruction-assets.agent-problem' | translate }}
+                {{ 'nh-assistant.admin.instruction-assets.problems.' + agent.instructionsProblem | translate }}
+              </p>
+            }
             @if (agent.runState === 'configured-off') {
               <p class="muted">{{ 'nh-assistant.admin.agents.state.configured-off-hint' | translate }}</p>
             } @else if (agent.runState !== 'active') {

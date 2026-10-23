@@ -33,6 +33,36 @@ public sealed record NhAiTextAsset(
     NhAiAssetManifest Manifest,
     string Content);
 
+/// <summary>
+/// The application's own text assets, such as instructions it ships with its code or keeps in its
+/// own store, resolved by id and version. NewHeap only reads them: a skill or an agent that names an
+/// asset stores the id, the version and the content hash, never the text, and checks the hash every
+/// time it loads the text. The application keeps a published version unchanged and publishes a
+/// changed text as a new version.
+/// </summary>
+public interface INhAiTextAssetSource
+{
+    /// <summary>
+    /// Returns the asset <paramref name="id"/> in <paramref name="version"/>, or
+    /// <see langword="null"/> when the application has no such asset or version. Create it with
+    /// <see cref="NhAiTextAssetFactory.Create"/> (or an equivalent loader), so its manifest carries the
+    /// SHA-256 of its content. An exception is an unexpected failure of the application's source,
+    /// never the answer for a missing asset.
+    /// </summary>
+    /// <param name="id">The asset's lowercase dash-case id.</param>
+    /// <param name="version">The asset's version, 1 or higher.</param>
+    /// <param name="cancellationToken">Cancels the lookup.</param>
+    ValueTask<NhAiTextAsset?> GetAsync(string id, int version, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The manifests of the assets an administrator may choose, in the order the application wants to
+    /// show them; empty when the application lists none, so an administrator names the id and version
+    /// instead. The manifests carry no content.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the listing.</param>
+    ValueTask<IReadOnlyList<NhAiAssetManifest>> ListAsync(CancellationToken cancellationToken = default);
+}
+
 public static class NhAiTextAssetFactory
 {
     public static NhAiTextAsset Create(

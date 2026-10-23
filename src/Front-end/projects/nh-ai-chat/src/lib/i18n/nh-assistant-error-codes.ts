@@ -175,6 +175,10 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   // Agent metadata registered by the application
   'assistant-metadata-entry-not-found',
   'assistant-metadata-read-only',
+  // Instructions from the application's text assets
+  'assistant-instructions-asset-not-found',
+  'assistant-instructions-asset-unavailable',
+  'assistant-agent-instructions-unavailable',
   'assistant-mcp-server-not-found',
   'assistant-mcp-server-exists',
   'assistant-mcp-tool-not-found',

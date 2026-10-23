@@ -33,11 +33,14 @@ internal sealed record NhAssistantStoredRunConfiguration(
 /// <see cref="NhAssistantDataClassificationNames"/>; <see langword="null"/> for none.</param>
 /// <param name="RequiredPolicy">The policy a person needs to use the agent; a consultation defined as
 /// data without an asker policy requires it of the asker.</param>
+/// <param name="InstructionsAsset">The asset of the application the agent takes its instructions
+/// from; <see langword="null"/> when they are text.</param>
 internal sealed record NhAssistantStoredAdminAgent(
     string ToolSelectorsJson,
     NhAssistantAgentWorksOn WorksOn,
     string? DataClassification = null,
-    string? RequiredPolicy = null)
+    string? RequiredPolicy = null,
+    NhAssistantInstructionAssetReference? InstructionsAsset = null)
 {
     /// <summary>
     /// The live agent the agent is a data shadow variant of; <see langword="null"/> for none.
@@ -95,6 +98,10 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
                     ViewPolicy = agent.ViewPolicy,
                     DataClassification = agent.DataClassification,
                     RequiredPolicy = agent.RequiredPolicy,
+                    InstructionsFromAsset = agent.InstructionsFromAsset,
+                    InstructionsAssetId = agent.InstructionsAssetId,
+                    InstructionsAssetVersion = agent.InstructionsAssetVersion,
+                    InstructionsHash = agent.InstructionsHash,
                     ShadowOfAgentId = agent.ShadowOfAgentId
                 })
                 .ToListAsync(cancellationToken))
@@ -104,7 +111,8 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
                     agent.ToolSelectorsJson,
                     NhAssistantAgentWorksOn.FromRow(agent),
                     agent.DataClassification,
-                    agent.RequiredPolicy)
+                    agent.RequiredPolicy,
+                    NhAssistantInstructionAssets.ReferenceOf(agent))
                 {
                     ShadowOfAgentId = agent.ShadowOfAgentId
                 },

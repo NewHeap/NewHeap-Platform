@@ -26,6 +26,15 @@ change creates a new version and requires accepted evaluation evidence before it
 becomes the recommended production default. Use deprecation/replacement metadata
 for an intentional transition; do not silently mutate a published version.
 
+Let the application supply its own assets by id and version through `INhAiTextAssetSource` when
+others name them instead of holding the text: `GetAsync(id, version)` returns the asset, created with
+`NhAiTextAssetFactory` so its manifest carries the hash of its content, or `null` when the application
+has no such version, and `ListAsync` the manifests it offers for choosing, without content. An
+exception means the source failed, never that an asset is missing. Whoever stores a reference keeps
+the id, the exact version and the hash, checks the hash against the content every time it loads the
+text and treats a different hash as a problem rather than a newer text; the assistant's data skills
+and agents created in the administration do so with `UseTextAssetSource` (SPM-320).
+
 The asset content is runtime input, not logging metadata. Normal telemetry,
 usage, audit and control-plane synchronization contain only stable IDs, versions
 and hashes. Provider credentials, conversation history, retrieved context and
@@ -35,6 +44,8 @@ tool arguments remain outside the asset manifest.
 
 - Inventing a proprietary prompt language or hiding identity and policy in text.
 - Changing content without changing the version/hash evidence.
+- Changing the text of a version that others reference through `INhAiTextAssetSource`; they refuse it
+  by its hash. Publish the change as a new version.
 - Logging or centrally synchronizing full instructions by default.
 - Treating instructions as capability, approval or authorization evidence.
 - Promoting a model or prompt change without its evaluation baseline.
@@ -44,7 +55,8 @@ tool arguments remain outside the asset manifest.
 Assert deterministic hashes, bounded manifest fields, required tool contracts,
 prompt version/hash propagation into agent and proposal evidence, invalidation
 after a hash change, and absence of asset content from serialized manifest,
-audit and usage records. SPM-227 is the executable reference.
+audit and usage records. SPM-227 is the executable reference; SPM-320 shows an
+application's `INhAiTextAssetSource` whose texts data skills name by id, version and hash.
 
 ## Optional source evidence
 

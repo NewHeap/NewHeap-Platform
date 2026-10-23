@@ -5454,6 +5454,9 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         services.AddSampleProjectStarterBlocks();
         // SPM-318 and SPM-319: hand-offs and shadow variants as data, as in Program.cs.
         services.AddSampleAgentLinksAsData();
+        // SPM-320: the planner's risk review takes its instructions from the sample's own text asset.
+        services.AddSampleInstructionAssets();
+        services.AddScoped<SampleInstructionAssetService>();
         // SPM-278: every principal anything asks for is counted, and people are refused while a test
         // proves that consultations never rebuild a person's principal.
         SamplePrincipalWatch.Install(services, PrincipalWatch);

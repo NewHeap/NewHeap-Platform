@@ -133,8 +133,9 @@ public static class NhAssistantElevatedReadNames
 /// deploy removed the profile, policy, rule handler, event or subject set it names. The
 /// administration shows it; startup does not fail on it.
 /// </summary>
-/// <param name="Kind"><c>agent</c> for run settings, <c>skill</c>, <c>candidate</c>, <c>trigger</c>,
-/// <c>consultation</c> or <c>hand-off</c>.</param>
+/// <param name="Kind"><c>agent</c> for run settings and for the instructions an agent created in the
+/// administration takes from an asset of the application, <c>skill</c>, <c>candidate</c>,
+/// <c>trigger</c>, <c>consultation</c> or <c>hand-off</c>.</param>
 /// <param name="Id">The agent id, the skill id, the trigger id or, for a consultation and a hand-off,
 /// its subject type. A consultation that works with less has a problem per part that no longer
 /// fits.</param>
@@ -146,7 +147,10 @@ public sealed record NhAssistantRunConfigurationProblem(string AgentId, string K
 /// </summary>
 public static class NhAssistantRunConfigurationProblems
 {
-    /// <summary>The run settings of an agent created in the administration.</summary>
+    /// <summary>
+    /// The run settings of an agent created in the administration, and the instructions it takes from
+    /// an asset of the application.
+    /// </summary>
     public const string AgentKind = "agent";
 
     public const string SkillKind = "skill";
@@ -308,6 +312,37 @@ public static class NhAssistantRunConfigurationProblems
     /// every tool of the agent.
     /// </summary>
     public const string ToolsNotAllowed = "tools-not-allowed";
+
+    /// <summary>
+    /// The skill or agent takes its instructions from an asset of the application, which no longer
+    /// registers an <see cref="INhAiTextAssetSource"/> (<c>UseTextAssetSource</c>).
+    /// </summary>
+    public const string NoAssetSource = "no-asset-source";
+
+    /// <summary>
+    /// The application's text asset source has no asset with the id and version the skill or agent
+    /// names.
+    /// </summary>
+    public const string AssetMissing = "asset-missing";
+
+    /// <summary>
+    /// The content of the asset the skill or agent names no longer has the hash it was saved with. A
+    /// changed text is never followed: an administrator saves the next version with the new hash.
+    /// </summary>
+    public const string AssetChanged = "asset-changed";
+
+    /// <summary>
+    /// The asset the skill or agent names cannot be instructions: it is not the asked id and version,
+    /// not trusted system instructions of the application, blank, longer than inline instructions may
+    /// be, or its manifest's hash is not the hash of its content.
+    /// </summary>
+    public const string AssetInvalid = "asset-invalid";
+
+    /// <summary>
+    /// The application's text asset source failed for the asset, and no text of it was verified
+    /// before; the source is asked again later.
+    /// </summary>
+    public const string AssetUnavailable = "asset-unavailable";
 }
 
 /// <summary>
@@ -546,7 +581,14 @@ internal sealed record NhAssistantRunSnapshot(
     IReadOnlyDictionary<string, NhAssistantAgentRunOptions> AgentRuns,
     IReadOnlyDictionary<string, NhAssistantTriggerDefinition> Triggers,
     Guid? Stamp,
-    IReadOnlyList<NhAssistantRunConfigurationProblem> Problems);
+    IReadOnlyList<NhAssistantRunConfigurationProblem> Problems)
+{
+    /// <summary>
+    /// The application's text asset source failed for an asset the data names while the snapshot
+    /// loaded, so a later check loads again even when the stamp did not change.
+    /// </summary>
+    public bool AssetsUnavailable { get; init; }
+}
 
 /// <summary>
 /// Hears every snapshot that went into effect, for example to keep the recurring jobs of data
@@ -650,6 +692,9 @@ internal sealed partial class NhAssistantRunConfigurationValidator(
             || string.IsNullOrWhiteSpace(definition.Description)
             || definition.Description.Length > NhAssistantSkillBuilder.MaxDescriptionLength
             || definition.Instructions?.Length > NhAssistantAgentConfigurationLimits.MaxSkillInstructionsLength
+            // A version names an asset or has text of its own, never both.
+            || (NhAssistantInstructionAssets.ReferenceOf(definition) is { } reference
+                && (definition.Instructions is not null || !reference.IsWellFormed))
             || definition.MaxTokensPerRun < 1
             || (definition.DailyToolCalls is null) != (definition.DailyTokens is null)
             || definition.DailyToolCalls < 1
@@ -1058,14 +1103,19 @@ internal sealed partial class NhAssistantRunConfigurations(
     NhAssistantRegistrationState registration,
     NhAssistantRunConfigurationStore store,
     NhAssistantRunConfigurationValidator validator,
+    NhAssistantInstructionAssets instructionAssets,
     IServiceProvider services,
     ILogger<NhAssistantRunConfigurations> logger)
 {
     private readonly TimeSpan _checkInterval =
         (services.GetService<NhAssistantTiming>() ?? NhAssistantTiming.Default).RunConfigurationCheckInterval;
 
+    private readonly TimeSpan _assetRetryInterval =
+        (services.GetService<NhAssistantTiming>() ?? NhAssistantTiming.Default).InstructionAssetRetryInterval;
+
     private readonly SemaphoreSlim _gate = new(1, 1);
     private long _checkedAt = long.MinValue;
+    private long _loadedAt = long.MinValue;
 
     /// <summary>
     /// Whether the host loads the run configuration defined as data: it has agent runs in code, runs
@@ -1077,7 +1127,8 @@ internal sealed partial class NhAssistantRunConfigurations(
 
     /// <summary>
     /// Makes sure the snapshot in effect has the latest data: reads the stamp when the last check
-    /// is more than a second ago and reloads when it changed. A host that loads no data reads
+    /// is more than a second ago and reloads when it changed, or when the application's text asset
+    /// source failed at the last load and the retry interval passed. A host that loads no data reads
     /// nothing. When the store cannot be read, the configuration in effect stays.
     /// </summary>
     public async Task EnsureCurrentAsync(CancellationToken cancellationToken)
@@ -1097,7 +1148,7 @@ internal sealed partial class NhAssistantRunConfigurations(
 
             var stamp = await store.ReadStampAsync(cancellationToken);
             Volatile.Write(ref _checkedAt, Environment.TickCount64);
-            if (registration.Snapshot is { } current && current.Stamp == stamp)
+            if (registration.Snapshot is { } current && current.Stamp == stamp && !AssetRetryDue(current))
             {
                 return;
             }
@@ -1152,10 +1203,23 @@ internal sealed partial class NhAssistantRunConfigurations(
                || Environment.TickCount64 - checkedAt >= (long)_checkInterval.TotalMilliseconds;
     }
 
+    /// <summary>
+    /// Whether the snapshot loaded while the application's text asset source failed and the retry
+    /// interval passed since, so the source is asked again without a change of the stamp.
+    /// </summary>
+    private bool AssetRetryDue(NhAssistantRunSnapshot snapshot)
+    {
+        return snapshot.AssetsUnavailable
+               && Environment.TickCount64 - Volatile.Read(ref _loadedAt) >= (long)_assetRetryInterval.TotalMilliseconds;
+    }
+
     private async Task LoadCoreAsync(CancellationToken cancellationToken)
     {
         var stored = await store.LoadAsync(cancellationToken);
-        var snapshot = Build(stored);
+        // Every load asks the application's source again for every asset the data names (IA6).
+        var unavailable = await instructionAssets.RefreshAsync(AssetKeysOf(stored), cancellationToken);
+        var snapshot = Build(stored) with { AssetsUnavailable = unavailable };
+        Volatile.Write(ref _loadedAt, Environment.TickCount64);
         registration.ApplySnapshot(snapshot);
         foreach (var problem in snapshot.Problems)
         {
@@ -1197,9 +1261,34 @@ internal sealed partial class NhAssistantRunConfigurations(
             }
         }
 
+        // An agent created in the administration that takes its instructions from an asset of the
+        // application is not runnable while the asset does not resolve to the hash it was saved with:
+        // the problem is the agent's, and its run settings are out of effect with it.
+        var agentsWithoutInstructions = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (agentId, adminAgent) in stored.AdminAgents.OrderBy(item => item.Key, StringComparer.Ordinal))
+        {
+            if (adminAgent.InstructionsAsset is not { } reference
+                || registration.CodeAgentRuns.ContainsKey(agentId)
+                || registration.TryGetAgent(agentId, out _))
+            {
+                continue;
+            }
+
+            if (InstructionsProblemOf(reference, NhAssistantAgentAdministration.MaxInstructionsLength) is { } instructionsProblem)
+            {
+                agentsWithoutInstructions.Add(agentId);
+                problems.Add(new NhAssistantRunConfigurationProblem(agentId, NhAssistantRunConfigurationProblems.AgentKind, agentId, instructionsProblem));
+            }
+        }
+
         // Agents created in the administration whose run settings are data.
         foreach (var settings in stored.AgentRuns)
         {
+            if (agentsWithoutInstructions.Contains(settings.AgentId))
+            {
+                continue;
+            }
+
             IReadOnlyList<string>? agentSelectors = null;
             var problem = registration.CodeAgentRuns.ContainsKey(settings.AgentId) || registration.TryGetAgent(settings.AgentId, out _)
                 ? NhAssistantRunConfigurationProblems.ConflictsWithCode
@@ -1233,7 +1322,7 @@ internal sealed partial class NhAssistantRunConfigurations(
                 var selectors = ReadSelectors(definition.ToolSelectorsJson);
                 var problem = selectors is null
                     ? NhAssistantRunConfigurationProblems.ToolNotCovered
-                    : validator.ValidateSkill(definition, selectors, runAgent);
+                    : validator.ValidateSkill(definition, selectors, runAgent) ?? SkillInstructionsProblemOf(definition);
                 if (problem is null && runAgent!.CodeSkillIds.Count + dataSkills.Count >= NhAssistantAgentRunOptions.MaxSkills)
                 {
                     problem = NhAssistantRunConfigurationProblems.TooManySkills;
@@ -1256,7 +1345,7 @@ internal sealed partial class NhAssistantRunConfigurations(
                     ? NhAssistantRunConfigurationProblems.UnknownSkill
                     : selectors is null
                         ? NhAssistantRunConfigurationProblems.ToolNotCovered
-                        : validator.ValidateSkill(definition, selectors, runAgent);
+                        : validator.ValidateSkill(definition, selectors, runAgent) ?? SkillInstructionsProblemOf(definition);
                 if (problem is not null)
                 {
                     problems.Add(new NhAssistantRunConfigurationProblem(definition.AgentId, NhAssistantRunConfigurationProblems.CandidateKind, definition.SkillId, problem));
@@ -1357,6 +1446,41 @@ internal sealed partial class NhAssistantRunConfigurations(
                    && reserved.IsReserved(options.RequestToolId, NhAssistantConsultationTools.ExportNameOf(true, options.AgentId, options.SubjectType)));
     }
 
+    /// <summary>
+    /// The assets the data names: of live and candidate skill versions and of agents created in the
+    /// administration, each asset id and version once.
+    /// </summary>
+    private static IReadOnlyList<(string Id, int Version)> AssetKeysOf(NhAssistantStoredRunConfiguration stored)
+    {
+        return stored.Skills
+            .Select(NhAssistantInstructionAssets.ReferenceOf)
+            .Concat(stored.AdminAgents.Values.Select(agent => agent.InstructionsAsset))
+            .OfType<NhAssistantInstructionAssetReference>()
+            .Select(reference => (reference.AssetId, reference.Version))
+            .Distinct()
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Why the asset a data skill version takes its instructions from keeps it out of effect, or
+    /// <see langword="null"/> for a version that resolves or has inline instructions.
+    /// </summary>
+    private string? SkillInstructionsProblemOf(AssistantAgentSkillDefinition definition)
+    {
+        return NhAssistantInstructionAssets.ReferenceOf(definition) is { } reference
+            ? InstructionsProblemOf(reference, NhAssistantAgentConfigurationLimits.MaxSkillInstructionsLength)
+            : null;
+    }
+
+    /// <summary>
+    /// Why <paramref name="reference"/> does not resolve to its hash after this load refreshed it.
+    /// </summary>
+    private string? InstructionsProblemOf(NhAssistantInstructionAssetReference reference, int maxLength)
+    {
+        return (instructionAssets.Find(reference, maxLength)
+                ?? NhAssistantResolvedInstructions.Of(NhAssistantRunConfigurationProblems.AssetUnavailable)).Problem;
+    }
+
     internal static IReadOnlyList<string>? ReadSelectors(string json)
     {
         try
@@ -1432,7 +1556,7 @@ internal sealed partial class NhAssistantRunConfigurations(
             ProfileName = definition.ProfileName,
             RuleHandlerName = definition.RuleHandlerName,
             RuleHandlerType = definition.RuleHandlerName is { } handler ? registration.RuleHandlers[handler].HandlerType : null,
-            Instructions = string.IsNullOrWhiteSpace(definition.Instructions) ? null : CreateInstructions(definition),
+            Instructions = InstructionsOf(definition),
             MaxTokensPerRun = definition.MaxTokensPerRun,
             DailyBudget = definition is { DailyToolCalls: { } calls, DailyTokens: { } tokens } ? new NhAssistantAgentBudget(calls, tokens) : null,
             ApprovalPolicyId = definition.ApprovalPolicyId,
@@ -1448,6 +1572,20 @@ internal sealed partial class NhAssistantRunConfigurations(
         };
         skill.SetToolSelectors(selectors);
         return skill;
+    }
+
+    /// <summary>
+    /// The instructions of a data skill version in effect: the application's verified asset for a
+    /// version that names one, otherwise its own text, or none.
+    /// </summary>
+    private NhAiTextAsset? InstructionsOf(AssistantAgentSkillDefinition definition)
+    {
+        if (NhAssistantInstructionAssets.ReferenceOf(definition) is { } reference)
+        {
+            return instructionAssets.Find(reference, NhAssistantAgentConfigurationLimits.MaxSkillInstructionsLength)?.Asset;
+        }
+
+        return string.IsNullOrWhiteSpace(definition.Instructions) ? null : CreateInstructions(definition);
     }
 
     private static NhAiTextAsset CreateInstructions(AssistantAgentSkillDefinition definition)
