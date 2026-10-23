@@ -181,7 +181,11 @@ public static class SampleAssistantComposition
                     NhAssistantConsultationTools.ConsultToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
                     NhAssistantConsultationTools.RequestToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
                     // SPM-278: the project closer, whose proposals run with its own rights.
-                    NhAssistantConsultationTools.ConsultToolId(SampleProjectCloserComposition.AgentId, ProjectSubjects.Type)
+                    NhAssistantConsultationTools.ConsultToolId(SampleProjectCloserComposition.AgentId, ProjectSubjects.Type),
+                    // SPM-311: the project starter, an agent created in the administration. The
+                    // selector selects nothing until an administrator defines its consultation as
+                    // data; then the tool appears without a deploy, and disappears when it is removed.
+                    NhAssistantConsultationTools.ConsultToolId(Services.SampleRuntimeAgentSeeder.AgentId, ProjectSubjects.Type)
                 ],
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: AccessPolicy))

@@ -3168,6 +3168,181 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task An_administrator_lets_the_project_assistant_consult_the_project_starter_without_a_deploy()
+    {
+        // SPM-311: a consultation defined as data within the ceiling of UseConsultationsAsData. The
+        // test has people of its own, so the watch sees only what their work asks for.
+        const string starter = SampleRuntimeAgentSeeder.AgentId;
+        const string consultToolId = "assistant.consult.project-starter.project";
+        const string consultTool = "consult_project-starter_project_v1";
+        const string selfAnswering = "sample-consulted-self";
+        var actor = host.OwnerId.ToString("D");
+        var askerId = await host.CreatePersonAsync();
+        var readerId = await host.CreatePersonAsync();
+        var colleagueId = await host.CreatePersonAsync();
+        var now = await host.CreateProjectAsync("STARTNOW", ownerId: host.OwnerId);
+        var later = await host.CreateProjectAsync("STARTLATER", ownerId: host.OwnerId);
+        foreach (var project in new[] { now, later })
+        {
+            await host.AddMemberAsync(project, askerId, ProjectMemberRole.Approver);
+            await host.AddMemberAsync(project, readerId, ProjectMemberRole.Reader);
+            await host.AddMemberAsync(project, colleagueId, ProjectMemberRole.Approver);
+        }
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        using var asker = host.CreateClient(askerId.ToString());
+        using var reader = host.CreateClient(readerId.ToString());
+        using var colleague = host.CreateClient(colleagueId.ToString());
+        var starterModel = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = now, status = "Active" } }, "call-start-now")
+            .RespondWithText("The draft can start. I proposed to make it active, which you decide now.")
+            .RespondWithText("The draft can start; a project participant can ask me to propose it.")
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = later, status = "Active" } }, "call-start-later")
+            .RespondWithText("The draft can start. I proposed to make it active for another project approver.");
+        var assistant = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(consultTool, new { input = new { subjectId = now.ToString("D"), question = "Can the draft project start?" } }, "call-consult")
+            .RespondWithText("The project starter proposed to start the project; decide it on the card.")
+            .RespondWithFunctionCall(consultTool, new { input = new { subjectId = now.ToString("D"), question = "Can the draft project start?" } }, "call-consult-reader")
+            .RespondWithText("The draft can start.")
+            .RespondWithFunctionCall(consultTool, new { input = new { subjectId = later.ToString("D"), question = "Can the draft project start?" } }, "call-consult-later")
+            .RespondWithText("The project starter proposed it for another project approver.")
+            .RespondWithText("I cannot ask the project starter any more.");
+        var assistantInstructions = ProjectAiAssets.ProjectAgentInstructions.Content.Split('\n')[0].Trim();
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You are being consulted"), starterModel),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, assistantInstructions), assistant)));
+        var watched = new[] { askerId.ToString(), readerId.ToString(), colleagueId.ToString() };
+        host.PrincipalWatch.Refuse(watched);
+        try
+        {
+            // The project assistant selects the starter's consult tool in code; it selects nothing
+            // until an administrator defines the consultation.
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+            }
+            Assert.DoesNotContain(await ToolIdsAsync(administrator), id => id == consultToolId);
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedConsultationAsync(scope.ServiceProvider, host.OwnerId, CancellationToken.None)).Success);
+                // A second start finds the consultation and changes nothing.
+                Assert.True((await SampleRuntimeAgentSeeder.SeedConsultationAsync(scope.ServiceProvider, host.OwnerId, CancellationToken.None)).Success);
+            }
+
+            var configured = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{starter}/configuration", Json))!;
+            var consultation = Assert.Single(configured.DataConsultations);
+            Assert.Equal((ProjectSubjects.Type, 1, true, consultToolId), (consultation.SubjectType, consultation.Version, consultation.InEffect, consultation.ConsultToolId));
+            Assert.Equal([NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights], consultation.RoutesInEffect);
+            Assert.Contains(SampleAssistantComposition.AgentId, consultation.AskingAgents);
+            Assert.Equal(
+                [NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights],
+                configured.ConsultationCeiling!.Routes);
+            Assert.Contains(await ToolIdsAsync(administrator), id => id == consultToolId);
+
+            // The ceiling and the agent bound what data may say.
+            using (var outside = await administrator.PutAsJsonAsync(
+                $"/api/assistant/admin/agents/{starter}/consultations/{ProjectSubjects.Type}",
+                SampleAgentConfigurationService.StarterConsultation() with
+                {
+                    Routes = [NhAssistantConsultationRoutes.SubjectAskerRights],
+                    ExpectedVersion = 1
+                },
+                Json))
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, outside.StatusCode);
+                var error = await outside.Content.ReadFromJsonAsync<JsonElement>(Json);
+                Assert.Equal("not-allowed", error.GetProperty("errors").GetProperty("routes")[0].GetString());
+            }
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+                Assert.True((await configuration.CreateAgentAsync(
+                    new NhAssistantAgentRequest(selfAnswering, "Self-answering agent", "Answers for itself.", "Answer.", [ProjectAiTools.ChangeStatusToolId], NhAiAutonomyLevel.Propose, OfferedInChat: false),
+                    actor,
+                    CancellationToken.None)).Success);
+                Assert.True((await configuration.SaveRunSettingsAsync(selfAnswering, new NhAssistantAgentRunSettingsRequest(NhAssistantAccountabilities.Agent), actor, CancellationToken.None)).Success);
+                // An agent that answers for itself has no rights of its own to lend.
+                var refused = await configuration.SaveConsultationAsync(selfAnswering, ProjectSubjects.Type, SampleAgentConfigurationService.StarterConsultation(), actor, CancellationToken.None);
+                Assert.False(refused.Success);
+                Assert.Contains(refused.GetResultItems(), item => item.Name == "field:routes");
+            }
+
+            // A: the asker decides the starter's proposal on the card in their own chat, with their
+            // own rights.
+            var chat = await host.CreateConversationAsync(asker);
+            var events = await host.SendAsync(asker, chat, "Can my draft project STARTNOW start?");
+            var card = events.Single(evt => evt.Name == "approval.required").Data;
+            Assert.Equal(starter, card.GetProperty("consultation").GetProperty("agentId").GetString());
+            Assert.Equal(NhAssistantTurnStatuses.Completed, (await host.DecideAsync(asker, chat, card, "approve"))
+                .Single(evt => evt.Name == "turn.completed").Data.GetProperty("status").GetString());
+            Assert.Contains(host.Projects.StatusChanges, change => change.ProjectId == now && change.Status == ProjectStatus.Active);
+            var nowThread = await WaitForThreadAsync(colleague, now, starter);
+            var executed = await WaitForProposalAsync(colleague, nowThread, NhAssistantApprovalStatuses.Executed, ProjectAiTools.ChangeStatusToolId);
+            Assert.Equal((NhAssistantConsultationRoutes.AskerDecides, askerId.ToString()), (executed.ConsultationRoute, executed.DecidedByActorId));
+
+            // A reader gets the answer without a proposal.
+            var readerEvents = await host.SendAsync(reader, await host.CreateConversationAsync(reader), "Can STARTNOW start?");
+            Assert.DoesNotContain(readerEvents, evt => evt.Name == "approval.required");
+
+            // B: an operator switches the asker's route off for all consultations of the starter; the
+            // proposal then waits for a project approver other than the asker and executes with the
+            // operations account the starter answers to.
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await scope.ServiceProvider.GetRequiredService<INhAssistantAgentControl>().SetConsultationRoutesAsync(
+                    starter,
+                    new NhAssistantConsultationRouteOverrides(false, null, null),
+                    actor,
+                    "Approvers decide starts this week")).Success);
+            }
+            var laterEvents = await host.SendAsync(asker, chat, "And can STARTLATER start?");
+            Assert.DoesNotContain(laterEvents, evt => evt.Name == "approval.required");
+            var laterThread = await WaitForThreadAsync(colleague, later, starter);
+            var waiting = await WaitForProposalAsync(colleague, laterThread, NhAssistantApprovalStatuses.Pending, ProjectAiTools.ChangeStatusToolId);
+            Assert.Equal((NhAssistantConsultationRoutes.SubjectAgentRights, "accountable"), (waiting.ConsultationRoute, waiting.GrantSource));
+            Assert.Equal(HttpStatusCode.Forbidden, (await DecideAsync(asker, waiting, "approve")).StatusCode);
+
+            // Removing the consultation takes the tool away from the next turn; the waiting proposal
+            // can still be decided.
+            Assert.True((await ConfigureAgentsAsync(service => service.RemoveStarterConsultationAsync(starter, host.OwnerId, CancellationToken.None))).Success);
+            await host.SendAsync(asker, chat, "Ask the starter about STARTLATER again.");
+            Assert.DoesNotContain(assistant.Requests[^1].Options?.Tools ?? [], tool => tool.Name == consultTool);
+            Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, waiting, "approve")).StatusCode);
+            await WaitForProposalAsync(colleague, laterThread, NhAssistantApprovalStatuses.Executed, ProjectAiTools.ChangeStatusToolId);
+            Assert.Contains(host.Projects.StatusChanges, change => change.ProjectId == later && change.Status == ProjectStatus.Active);
+
+            // Nothing asked for a person's principal outside that person's request.
+            Assert.DoesNotContain(host.PrincipalWatch.Asked, asked => watched.Contains(asked));
+        }
+        finally
+        {
+            host.PrincipalWatch.Allow(watched);
+            host.Model.Use(new SampleAssistantChatClient());
+            await using var scope = host.Services.CreateAsyncScope();
+            var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+            await configuration.RemoveConsultationAsync(starter, ProjectSubjects.Type, null, actor, cancellationToken: CancellationToken.None);
+            await configuration.RemoveTriggerAsync(starter, SampleRuntimeAgentSeeder.TriggerId, null, actor, cancellationToken: CancellationToken.None);
+            await configuration.RemoveSkillAsync(starter, SampleRuntimeAgentSeeder.KickoffSkill, null, actor, cancellationToken: CancellationToken.None);
+            await configuration.RemoveRunSettingsAsync(starter, null, actor, cancellationToken: CancellationToken.None);
+            await configuration.RemoveRunSettingsAsync(selfAnswering, null, actor, cancellationToken: CancellationToken.None);
+            foreach (var agentId in new[] { starter, selfAnswering })
+            {
+                using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{agentId}");
+                Assert.True(deleted.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.NotFound);
+            }
+        }
+    }
+
+    /// <summary>
+    /// SPM-311: the tool ids the agent editor offers, which the administration reads live.
+    /// </summary>
+    private static async Task<IReadOnlyList<string>> ToolIdsAsync(HttpClient administrator)
+    {
+        var tools = await administrator.GetFromJsonAsync<JsonElement>("/api/assistant/admin/tools", Json);
+        return tools.EnumerateArray().Select(tool => tool.GetProperty("id").GetString()!).ToArray();
+    }
+
+    [Fact]
     public async Task The_project_documents_source_matches_the_words_of_a_question_in_the_active_division_only()
     {
         // SPM-291: the project assistant retrieves with the person's whole question, so the sample's

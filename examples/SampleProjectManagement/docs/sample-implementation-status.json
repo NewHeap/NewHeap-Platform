@@ -306,7 +306,8 @@
     "SPM-306",
     "SPM-307",
     "SPM-308",
-    "SPM-310"
+    "SPM-310",
+    "SPM-311"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2835,6 +2836,24 @@
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-result.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-overview.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-proposals.ts"
+    ],
+    "SPM-311": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataConsultationTools.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDataConsultationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationContractTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChangingToolCatalogTests.cs"
     ]
   }
 }

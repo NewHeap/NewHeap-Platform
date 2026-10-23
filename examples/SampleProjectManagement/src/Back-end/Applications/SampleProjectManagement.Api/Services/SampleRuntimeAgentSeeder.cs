@@ -69,6 +69,14 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
                     string.Join(", ", result.GetResultItems().Select(item => item.Name)));
             }
 
+            var consultation = await SeedConsultationAsync(scope.ServiceProvider, administrator.Id, cancellationToken);
+            if (!consultation.Success)
+            {
+                logger.LogWarning(
+                    "The consultation of the project starter was not defined: {Codes}",
+                    string.Join(", ", consultation.GetResultItems().Select(item => item.Name)));
+            }
+
             var followUp = await SeedFollowUpAsync(scope.ServiceProvider, operations.Id, administrator.Id, cancellationToken);
             if (!followUp.Success)
             {
@@ -112,7 +120,9 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
                 "You start projects that were created as drafts. Propose to make a draft project active "
                 + "and explain in one sentence why it can start. Never start a project that is not a draft.",
                 [ProjectAiTools.ChangeStatusToolId],
-                NhAiAutonomyLevel.Propose,
+                // SPM-311: consulted with proposals, its model is offered the status tool; every
+                // change it makes still waits for a decision.
+                NhAiAutonomyLevel.Execute,
                 OfferedInChat: false,
                 // SPM-302: it works on projects; its trigger names the project type up front.
                 WorksOnSubjectTypes: [ProjectSubjects.Type]),
@@ -170,6 +180,31 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
         }
 
         return TaskResult.Succeeded();
+    }
+
+    /// <summary>
+    /// SPM-311: lets the project assistant consult the project starter about projects, as an
+    /// administrator does, unless the starter has a consultation about projects already; an
+    /// administrator's later change or removal is kept.
+    /// </summary>
+    public static async Task<TaskResult> SeedConsultationAsync(
+        IServiceProvider services,
+        Guid administratorId,
+        CancellationToken cancellationToken)
+    {
+        var configuration = services.GetRequiredService<INhAssistantAgentConfiguration>();
+        var starter = await configuration.GetAsync(AgentId, cancellationToken);
+        if (starter is null || starter.DataConsultations.Any(item => item.SubjectType == ProjectSubjects.Type))
+        {
+            return TaskResult.Succeeded();
+        }
+
+        return await configuration.SaveConsultationAsync(
+            AgentId,
+            ProjectSubjects.Type,
+            SampleAgentConfigurationService.StarterConsultation(),
+            administratorId.ToString("D"),
+            cancellationToken);
     }
 
     /// <summary>
