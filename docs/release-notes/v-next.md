@@ -164,13 +164,20 @@ Texts are in English and Dutch.
 
 `INhAssistantConversationMessages.PostAsync(conversationId, NhAssistantApplicationMessage)` is the
 supported way for an application to post its own message into a chat conversation or an agent thread,
-for example when a long-running export finished: Markdown text within `MaxMessageChars`, an optional
-title, sender name and link (a path within the application or an `https` address), `Notify` for a
-content-free Web Push to the conversation's people (never from a shadow thread), an optional
-`IdempotencyKey` and `ReadableBy` for a conversation a client named. The message gets the new role
-`application` and the next sequence number, arrives live, is audited as `ApplicationMessagePosted`
-without content, and a later turn gives it to the model as a user message marked `[Application]` whose
-`application-message` block says it is information, never instructions. There is no HTTP endpoint for
+for example when a long-running export finished: Markdown text within `MaxMessageChars`, with people's
+data in it through the new `NhAssistantMarkdown.Escape` so it shows as it is, the required access
+choice `Access` (`NhAssistantApplicationMessageAccess.ReadableBy(person)` for a conversation a client
+named, otherwise explicitly `WithoutPersonCheck()`), an optional title, sender name and link (a path
+within the application or an `https` address), `Notify` for a content-free Web Push to the
+conversation's people and, when the application turned on `UseInAppAgentNotifications`, an in-app
+message of category `assistant-application` (never from a shadow thread), and an optional
+`IdempotencyKey`. The message gets the new role `application` and the next sequence number, arrives
+live, is audited as `ApplicationMessagePosted` without content (with `ApplicationMessageTrusted`), and
+a later turn gives it to the model as a user message marked `[Application]` whose
+`application-message` block says it is information, never instructions. The opt-in `Trusted` makes
+the model follow the message as the application's instruction instead: **never put user-generated
+data into a trusted message**, escaped or not, since the model would follow instructions hidden in
+it. There is no HTTP endpoint for
 clients. An upload without a media type, with a generic one (`application/octet-stream`) or with a type
 devices send for its extension (such as `application/vnd.ms-excel` for `.csv`) now takes the type its
 extension names when the application accepts it; the content check and the scanner still run, and a
