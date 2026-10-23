@@ -110,7 +110,7 @@ internal sealed class NhAiChatExecutor(
         }
 
         var state = preparation.Data;
-        using var activity = StartActivity(request, state.Profile, false);
+        using var activity = StartActivity(request, state, false);
         var startedAt = Stopwatch.GetTimestamp();
         for (var attempt = 0; ; attempt++)
         {
@@ -124,7 +124,7 @@ internal sealed class NhAiChatExecutor(
                 var elapsed = Stopwatch.GetElapsedTime(startedAt);
                 await RecordCompletionAsync(
                     request,
-                    state.Profile,
+                    state,
                     response.Usage,
                     elapsed,
                     null,
@@ -152,7 +152,7 @@ internal sealed class NhAiChatExecutor(
                 var elapsed = Stopwatch.GetElapsedTime(startedAt);
                 await RecordCompletionAsync(
                     request,
-                    state.Profile,
+                    state,
                     null,
                     elapsed,
                     null,
@@ -177,7 +177,7 @@ internal sealed class NhAiChatExecutor(
                 activity?.SetTag("error.type", exception.GetType().FullName);
                 await RecordCompletionAsync(
                     request,
-                    state.Profile,
+                    state,
                     null,
                     elapsed,
                     null,
@@ -220,7 +220,7 @@ internal sealed class NhAiChatExecutor(
         TaskCompletionSource<TaskResult<NhAiChatStreamCompletion>> completion,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        using var activity = StartActivity(request, state.Profile, true);
+        using var activity = StartActivity(request, state, true);
         var startedAt = Stopwatch.GetTimestamp();
         TimeSpan? firstToken = null;
         UsageDetails? usage = null;
@@ -310,7 +310,7 @@ internal sealed class NhAiChatExecutor(
             {
                 await RecordCompletionAsync(
                     request,
-                    state.Profile,
+                    state,
                     usage,
                     Stopwatch.GetElapsedTime(startedAt),
                     firstToken,
@@ -414,6 +414,9 @@ internal sealed class NhAiChatExecutor(
             }
         }
         var agentId = request.AgentId ?? request.InvocationContext.AgentId;
+        // One id for this model call: its reservation, its retries, its activity and its usage record
+        // share it, while the invocation context's id stays the same for every call of the context.
+        var modelCallId = Guid.CreateVersion7();
         var reservation = await budgetManager.ReserveAsync(
             new NhAiBudgetRequest(
                 request.InvocationContext.InvocationId,
@@ -426,7 +429,8 @@ internal sealed class NhAiChatExecutor(
                 ActorId = request.InvocationContext.AccountableOwnerId ?? request.InvocationContext.ActorId,
                 AgentId = agentId,
                 RunId = request.InvocationContext.RunId,
-                Purpose = NhAiBudgetPurposes.Of(agentId)
+                Purpose = NhAiBudgetPurposes.Of(agentId),
+                ModelCallId = modelCallId
             },
             cancellationToken);
         if (!reservation.Success)
@@ -436,6 +440,7 @@ internal sealed class NhAiChatExecutor(
                 "The requested AI model budget could not be reserved.");
         }
         return TaskResult<PreparedChat>.Succeeded(new PreparedChat(
+            modelCallId,
             profile,
             resolution.Data.Client,
             resolution.Data.DecisionTrace,
@@ -444,7 +449,7 @@ internal sealed class NhAiChatExecutor(
 
     private async ValueTask RecordCompletionAsync(
         NhAiChatRequest request,
-        NhAiModelProfile profile,
+        PreparedChat state,
         UsageDetails? usage,
         TimeSpan elapsed,
         TimeSpan? timeToFirstToken,
@@ -455,6 +460,7 @@ internal sealed class NhAiChatExecutor(
         Activity? activity,
         CancellationToken cancellationToken)
     {
+        var profile = state.Profile;
         var inputTokens = ClampTokenCount(usage?.InputTokenCount);
         var outputTokens = ClampTokenCount(usage?.OutputTokenCount);
         var inputCharacters = request.Messages.Sum(message => message.Text.Length);
@@ -490,6 +496,7 @@ internal sealed class NhAiChatExecutor(
             elapsed,
             DateTimeOffset.UtcNow)
         {
+            ModelCallId = state.ModelCallId,
             RunId = request.InvocationContext.RunId,
             AgentId = request.AgentId,
             CorrelationId = request.InvocationContext.CorrelationId,
@@ -520,12 +527,14 @@ internal sealed class NhAiChatExecutor(
 
     private static Activity? StartActivity(
         NhAiChatRequest request,
-        NhAiModelProfile profile,
+        PreparedChat state,
         bool streaming)
     {
+        var profile = state.Profile;
         var activity = ActivitySource.StartActivity("ai.model.invoke", ActivityKind.Client);
         activity?.SetTag("gen_ai.operation.name", "chat");
         activity?.SetTag("newheap.ai.invocation_id", request.InvocationContext.InvocationId);
+        activity?.SetTag("newheap.ai.model_call_id", state.ModelCallId);
         activity?.SetTag("newheap.ai.run_id", SafeValue(request.InvocationContext.RunId));
         activity?.SetTag("newheap.ai.correlation_id", SafeValue(request.InvocationContext.CorrelationId));
         activity?.SetTag("newheap.ai.profile.name", profile.Name);
@@ -631,7 +640,11 @@ internal sealed class NhAiChatExecutor(
         return safe;
     }
 
+    /// <summary>
+    /// A model call that passed its checks and reservation, with the id it keeps throughout.
+    /// </summary>
     private sealed record PreparedChat(
+        Guid ModelCallId,
         NhAiModelProfile Profile,
         IChatClient Client,
         IReadOnlyList<string> DecisionTrace,

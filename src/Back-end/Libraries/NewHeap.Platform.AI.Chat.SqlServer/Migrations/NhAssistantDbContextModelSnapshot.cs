@@ -2446,6 +2446,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<string>("TriggerKind")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
                     b.Property<Guid?>("TurnId")
                         .HasColumnType("uniqueidentifier");
 

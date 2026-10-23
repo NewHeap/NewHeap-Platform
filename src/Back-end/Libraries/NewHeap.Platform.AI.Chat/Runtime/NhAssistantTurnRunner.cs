@@ -1289,7 +1289,6 @@ internal sealed partial class NhAssistantTurnRunner(
             Kind = state.Kind,
             SkillId = state.Skill?.Id,
             UsedRestrictedResults = state.UsedRestrictedResults,
-            ModelCalls = state.Scope.ModelCalls,
             LocalizedAnswer = state.LocalizedAnswer,
             MissingMcpConnections = state.McpTools?.MissingConnections is { Count: > 0 } loaded ? loaded : state.MissingMcpConnections
         };

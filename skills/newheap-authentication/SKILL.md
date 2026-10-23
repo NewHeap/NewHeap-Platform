@@ -1,6 +1,6 @@
 ---
 name: newheap-authentication
-description: Implement or review NewHeap consumer authentication and authorization, including session lifecycle, two-factor authentication, passkeys, token customization, roles, active divisions, resource permissions, claim hydration and removed-user handling.
+description: Implement or review NewHeap consumer authentication and authorization, including session lifecycle, two-factor authentication, passkeys, token customization, roles, active divisions, resource permissions, claim hydration, removed-user handling and the authorized AI invocation context.
 ---
 
 # NewHeap authentication
@@ -14,3 +14,7 @@ Preserve the complete authorization chain: seeded role or claim, token or claim 
 For large or volatile claims, keep stable application claims in the token and restore current claims through `IClaimsTransformation`. Cache per request, deduplicate claims and make a valid token for a removed user produce `401`.
 
 Verify backend enforcement independently from frontend visibility and report the claim scopes and denial paths exercised.
+
+## AI invocation context
+
+Read [ASP.NET AI context](references/ai-aspnet-context.md) when an AI feature needs the authenticated actor, tenant, active-division scope and capability grants of a request, including OIDC issuers with unmapped claims and single-tenant or tenantless hosts. The AI features that use this context belong to the backend module.

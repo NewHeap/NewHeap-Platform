@@ -14,8 +14,8 @@ namespace NewHeap.Platform.AI.Chat.Governance;
 /// <see cref="NhAssistantLimits.DailyModelCallBudgetPerActor"/>. With
 /// <see cref="NhAssistantBuilder.UseApplicationBudgetInTurns"/> a booked reservation is then also
 /// reserved with the budget manager that was registered before the assistant, naming the turn's
-/// agent, skill, run and purpose. Outside an assistant turn the request is delegated to that manager
-/// as it is.
+/// agent, skill, run and purpose. A model call of an agent run's turn counts on the run once it is
+/// reserved. Outside an assistant turn the request is delegated to that manager as it is.
 /// </summary>
 internal sealed class NhAssistantBudgetManager(
     NhAssistantDbContextFactory contextFactory,
@@ -68,9 +68,11 @@ internal sealed class NhAssistantBudgetManager(
             }
         }
 
-        if (!isToolCall)
+        if (!isToolCall && turn.RunId is { } runId)
         {
-            turn.AddModelCalls(request.RequestedCalls);
+            // Every governed model call of a run counts on the run when it is reserved, in every
+            // turn and attempt, triage included; a run by rules alone reserves none.
+            await CountRunModelCallsAsync(runId, request.RequestedCalls, cancellationToken);
         }
 
         var remainingCalls = limit == int.MaxValue ? int.MaxValue : Math.Max(0, limit - booked.Value);
@@ -78,6 +80,25 @@ internal sealed class NhAssistantBudgetManager(
             Guid.NewGuid().ToString("N"),
             new NhAiModelBudget(int.MaxValue, int.MaxValue, remainingCalls, null),
             new DateTimeOffset(day.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)));
+    }
+
+    /// <summary>
+    /// Counts model calls on the run in one atomic update, so the run keeps them when its turn fails,
+    /// is cancelled or is retried afterwards.
+    /// </summary>
+    private async Task CountRunModelCallsAsync(Guid runId, int calls, CancellationToken cancellationToken)
+    {
+        if (calls <= 0)
+        {
+            return;
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        await context.Runs
+            .Where(run => run.Id == runId)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(run => run.ModelCalls, run => run.ModelCalls + calls),
+                cancellationToken);
     }
 
     /// <summary>

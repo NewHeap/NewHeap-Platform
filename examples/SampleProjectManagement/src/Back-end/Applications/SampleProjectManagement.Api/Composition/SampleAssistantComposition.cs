@@ -87,6 +87,9 @@ public static class SampleAssistantComposition
         }
         services.TryAddKeyedSingleton<IChatClient, SampleAssistantChatClient>(ModelKey);
         services.TryAddSingleton<SampleAssistantAuditLog>();
+        // SPM-304: counts runs, runs by rules alone and shadow runs per agent and skill from the
+        // content-free AgentRunEnded events.
+        services.TryAddSingleton<SampleAgentRunFacts>();
         // SPM-312: the portfolio analysis tells the conversation that started it when it finished.
         services.TryAddScoped<SampleProjectManagement.Api.Services.ProjectAnalysisAssistantNotices>();
         services.AddHttpClient(SampleTokenExchangeCredentialProvider.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10))
@@ -203,6 +206,7 @@ public static class SampleAssistantComposition
                     .MaxItems(5)
                     .MaxCharacters(4_000)))
             .AddBusinessAuditSink<SampleAssistantAuditSink>()
+            .AddBusinessAuditSink<SampleAgentRunFactsSink>()
             // Owners share conversations through an invitation link or invite colleagues of
             // their division directly; colleagues continue with their own permissions.
             .UseParticipantDirectory<SampleAssistantParticipantDirectory>()

@@ -38,7 +38,12 @@ status change because both `ProjectAiTools.ChangeStatusAsync` (`AllowAgentGrant`
 and `SampleIntakeReviewerComposition` grant it, for trigger runs only. Its
 proposal waits under the `project-intake` approval policy until a project approver
 other than the project's creator decides it; the approved change then executes as
-its own background operation, and an edit in between closes it as stale. Project
+its own background operation, and an edit in between closes it as stale. An approver
+may also answer with a messaging reply: `SampleApprovalReplyChannel` asks
+`INhAssistantProposalDecisionService` whether the person may decide before it issues
+them a reply token, and `POST approval-replies` decides their reply as them with the
+checks of the decision endpoint; a reply delivered twice returns the earlier decision,
+and the audit names the `messaging-reply` channel and the delivery. Project
 members and their roles decide who sees the project's agent thread, through
 `ProjectSubjectAccessResolver`. A participant can also start the intake reviewer to
 request a review (`projects.request-review`, SPM-274), a call that may run only once:
@@ -115,6 +120,12 @@ administration's agent cards offer "Runs": every run of the follow-up with its t
 proposals, usage and duration, filtered by kind of object, object, the whole application, status and
 period, each opened with its whole result rendered as safe Markdown. The playground lists earlier runs
 of the follow-up through the mock.
+The sample also counts what its agents' runs did from the content-free `AgentRunEnded` events alone
+(SPM-304), as a usage report or billing would: `SampleAgentRunFacts`, fed by a business audit sink,
+counts runs, runs without a model call, shadow runs, failed runs, model calls and what started them
+(`NhAssistantTriggerKinds`) per agent and skill, without reading the assistant's tables. A project
+manager's run of the follow-up counts as one more live run of its completion skill, started by hand and
+done by its rules without a model call.
 The portal's Project management page shows the board of the "Project management" group of agents
 (SPM-304), which the sample registers in code with English and Dutch names: the project closer and the
 project planner join it in code, and the development seeder puts the follow-up, created as data, in it
