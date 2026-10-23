@@ -16,7 +16,7 @@
       @for (message of messages(); track message.id) {
         <div class="row">
           <ng-container [ngTemplateOutlet]="messageTemplate" [ngTemplateOutletContext]="{ $implicit: message }" />
-          <!-- The answer a turn still writes keeps the indicator under it when messages arrived after it. -->
+          <!-- The answer a turn still writes (writingMessageId) keeps the indicator under it, also when messages arrived after it. -->
           @if (working() && message.id === workingAfterId()) {
             <ng-container [ngTemplateOutlet]="workingTemplate" />
           }

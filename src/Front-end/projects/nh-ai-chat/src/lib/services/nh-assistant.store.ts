@@ -174,6 +174,11 @@ interface NhAssistantSession {
   error: NhAssistantError | null;
   notice: NhAssistantNotice | null;
   lastUsage: TurnUsage | null;
+  /**
+   * The answer the running turn writes, from its `turn.started`: of the turn this tab streams or of
+   * one it follows live; `null` between turns.
+   */
+  writingMessageId: string | null;
 }
 
 /**
@@ -293,6 +298,12 @@ export class NhAssistantStore {
   /** Non-blocking remark about the latest completed turn; shown only while no error is shown. */
   readonly notice = computed(() => this.activeSession()?.notice ?? null);
   readonly lastUsage = computed(() => this.activeSession()?.lastUsage ?? null);
+  /**
+   * The answer the running turn of the open conversation writes, while this tab streams the turn or
+   * follows it live; `null` otherwise. Pass it to `nh-assistant-thread` as `writingMessageId`, so
+   * the working indicator stays under that answer when a message arrives after it during the turn.
+   */
+  readonly writingMessageId = computed(() => this.activeSession()?.writingMessageId ?? null);
   /** Text of a message the server did not accept, so the composer can offer it again. */
   readonly restoredDraft = this.restoredDraftState.asReadonly();
   /** Page context that the next message would send, for the transparency chip. */
@@ -1063,7 +1074,7 @@ export class NhAssistantStore {
       if (this.sessionsState().get(conversationId)?.streaming) {
         this.streams.get(conversationId)?.unsubscribe();
         this.streams.delete(conversationId);
-        this.patchSession(conversationId, current => ({ ...current, streaming: false, deciding: false }));
+        this.patchSession(conversationId, current => ({ ...current, streaming: false, deciding: false, writingMessageId: null }));
         void this.reloadSession(conversationId);
       }
     }, cancelGracePeriodMs));
@@ -1580,13 +1591,13 @@ export class NhAssistantStore {
     handlers: { next: (event: TEvent) => void; complete: () => void }
   ): void {
     this.streams.get(conversationId)?.unsubscribe();
-    this.patchSession(conversationId, session => ({ ...session, streaming: true }));
+    this.patchSession(conversationId, session => ({ ...session, streaming: true, writingMessageId: null }));
 
     const finish = () => {
       clearTimeout(this.cancelTimers.get(conversationId));
       this.cancelTimers.delete(conversationId);
       this.streams.delete(conversationId);
-      this.patchSession(conversationId, session => ({ ...session, streaming: false }));
+      this.patchSession(conversationId, session => ({ ...session, streaming: false, writingMessageId: null }));
       handlers.complete();
     };
 
@@ -1633,7 +1644,7 @@ export class NhAssistantStore {
           notice = completionNotice(conversation, event.data.errorCode);
         }
       }
-      return { ...session, conversation, error, notice, lastUsage };
+      return { ...session, conversation, error, notice, lastUsage, writingMessageId: writingAnswerAfter(session.writingMessageId, event) };
     });
   }
 
@@ -1725,7 +1736,8 @@ export class NhAssistantStore {
     const wasRunning = session.conversation.status === 'running';
     this.patchSession(change.conversationId, current => ({
       ...current,
-      conversation: applyNhAssistantConversationChange(current.conversation, change)
+      conversation: applyNhAssistantConversationChange(current.conversation, change),
+      writingMessageId: change.status === 'running' ? current.writingMessageId : null
     }));
     if (wasRunning && change.status !== 'running') {
       // Another session ended its turn; the snapshot holds the exact answer and approvals.
@@ -1768,7 +1780,9 @@ export class NhAssistantStore {
     }
     this.patchSession(event.conversationId, current => ({
       ...current,
-      conversation: applyNhAssistantLiveEvent(current.conversation, event)
+      conversation: applyNhAssistantLiveEvent(current.conversation, event),
+      // A turn this tab follows live names its answer; while the tab streams, its stream does.
+      writingMessageId: current.streaming ? current.writingMessageId : writingAnswerAfter(current.writingMessageId, event)
     }));
   }
 
@@ -1826,8 +1840,8 @@ export class NhAssistantStore {
       const next = new Map(sessions);
       const existing = next.get(conversation.id);
       next.set(conversation.id, existing
-        ? { ...existing, conversation }
-        : { conversation, streaming: false, deciding: false, error: null, notice: null, lastUsage: null });
+        ? { ...existing, conversation, writingMessageId: conversation.status === 'running' ? existing.writingMessageId : null }
+        : { conversation, streaming: false, deciding: false, error: null, notice: null, lastUsage: null, writingMessageId: null });
       if (next.size > maxSessions) {
         const activeId = this.activeIdState();
         for (const [id, session] of next) {
@@ -1963,6 +1977,22 @@ function messageQueuedNotice(fileCount: number): NhAssistantNotice {
     code: NH_ASSISTANT_MESSAGE_QUEUED_NOTICE_CODE,
     messageKey: fileCount > 0 ? 'nh-assistant.notices.message-queued-with-files' : 'nh-assistant.notices.message-queued'
   };
+}
+
+/**
+ * The answer a turn writes after `event`: `turn.started` names it, `turn.completed` and `error` end
+ * the turn, and every other event leaves it as it is.
+ */
+function writingAnswerAfter(current: string | null, event: { type: string; data: unknown }): string | null {
+  switch (event.type) {
+    case 'turn.started':
+      return (event.data as { assistantMessageId?: string } | null)?.assistantMessageId ?? null;
+    case 'turn.completed':
+    case 'error':
+      return null;
+    default:
+      return current;
+  }
 }
 
 /**

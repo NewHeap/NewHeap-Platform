@@ -130,6 +130,7 @@
             [canDecide]="store.canDecide()"
             [decisionOwner]="activeMemberName()"
             [approvalRights]="store.approvalRights()"
+            [writingMessageId]="store.writingMessageId()"
             (approvalChoice)="decideApproval($event)"
             (retryMessage)="store.send($event)" />
         }

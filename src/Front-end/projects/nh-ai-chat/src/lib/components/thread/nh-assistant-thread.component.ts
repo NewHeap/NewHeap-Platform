@@ -46,9 +46,9 @@ const stickToBottomDistance = 120;
  * trigger wrote into an agent thread read as events, not as a person, and a message the application
  * posted reads as the application's, with its sender, title, Markdown text and link, and a label when
  * the assistant follows it as an instruction. While a turn runs without visible progress, a working
- * indicator shows the elapsed time, directly under the answer the turn writes, also when the
- * application's or another person's message arrived after it. The thread follows new content while
- * the user is at the bottom.
+ * indicator shows the elapsed time: under the answer `writingMessageId` names, also when the
+ * application's or another person's message arrived after it, and at the end without it. The thread
+ * follows new content while the user is at the bottom.
  */
 @Component({
   selector: 'nh-assistant-thread',
@@ -100,6 +100,13 @@ export class NhAssistantThreadComponent {
    * card of a rejected proposal ask what was wrong.
    */
   readonly approvalRights = input<ReadonlyMap<string, NhAssistantApprovalRight> | null>(null);
+  /**
+   * The answer the running turn writes, for example `NhAssistantStore.writingMessageId`. The working
+   * indicator stays under that answer, also when the application's or a colleague's message arrives
+   * after it during the turn. Without it, or when it names no message of `messages`, the indicator
+   * shows at the end of the thread.
+   */
+  readonly writingMessageId = input<string | null>(null);
   /** The decision about an approval card, without the approval it belongs to. */
   readonly approvalDecision = output<ApprovalDecision>();
   /** The decision about an approval card together with its approval id. */
@@ -134,8 +141,8 @@ export class NhAssistantThreadComponent {
   /**
    * True while the turn runs and nothing else shows progress: before the first part and
    * between tool calls while the model decides what to do next. Streaming text and a
-   * running tool group show their own progress; an approval waits for the user. When messages
-   * arrived after the answer the turn still writes, the answer decides, as if they were not there.
+   * running tool group show their own progress; an approval waits for the user. With
+   * `writingMessageId`, the answer it names decides, as if the messages after it were not there.
    */
   readonly working = computed(() => {
     if (!this.streaming()) {
@@ -154,30 +161,18 @@ export class NhAssistantThreadComponent {
       && lastPart.status !== 'awaiting-approval';
   });
   /**
-   * The message the working indicator follows when it is not the last one: the answer the turn
-   * still writes, after which messages arrived during the turn. `null` puts the indicator at the end.
+   * The message in whose row the working indicator shows: the answer `writingMessageId` names.
+   * `null` puts the indicator at the end of the thread.
    */
   readonly workingAfterId = computed(() => this.answerBeingWritten()?.id ?? null);
-  /**
-   * While a turn runs: its answer, when messages that arrived during the turn (the application's or
-   * other people's, which sit after the answer by their sequence number) follow it at the end of the
-   * thread; `null` when nothing arrived after an answer.
-   */
+  /** While a turn runs: the answer `writingMessageId` names, when `messages` holds it. */
   private readonly answerBeingWritten = computed<Message | null>(() => {
-    if (!this.streaming()) {
+    const writingMessageId = this.writingMessageId();
+    if (!this.streaming() || !writingMessageId) {
       return null;
     }
 
-    const messages = this.messages();
-    let index = messages.length - 1;
-    while (index >= 0 && this.arrivedDuringTurn(messages[index])) {
-      index--;
-    }
-    if (index < 0 || index === messages.length - 1) {
-      return null;
-    }
-
-    return messages[index].role === 'assistant' ? messages[index] : null;
+    return this.messages().find(message => message.id === writingMessageId) ?? null;
   });
   /** Whole seconds since the running turn started. */
   readonly elapsedSeconds = computed(() => {
@@ -246,11 +241,6 @@ export class NhAssistantThreadComponent {
       && !!message.authorActorId
       && !!this.currentActorId()
       && message.authorActorId !== this.currentActorId();
-  }
-
-  /** True for a message that can arrive while a turn runs: the application's or another person's. */
-  private arrivedDuringTurn(message: Message): boolean {
-    return this.isApplication(message) || this.isOthers(message);
   }
 
   /** Whether and why the current user may decide an approval card. */
