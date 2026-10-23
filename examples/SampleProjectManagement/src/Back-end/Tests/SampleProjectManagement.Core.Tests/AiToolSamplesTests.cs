@@ -235,6 +235,68 @@ public sealed class AiToolSamplesTests
 
         Assert.Empty(omittedOptionalResult);
         Assert.Null(readService.Query);
+
+        // A failed result keeps its message's format and arguments next to the unchanged text, so a
+        // client can show the failure in its own language.
+        var tooLong = new string('q', ProjectAiTools.MaxSearchQueryLength + 40);
+        var rejected = await tool.CallAsync(
+            new Dictionary<string, object?> { ["input"] = new ProjectAiSearchInput(tooLong, 5) },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(rejected.IsError);
+        Assert.Equal(
+            "project-search-query-too-long: A project search query has at most 200 characters; this one has 240.",
+            Assert.IsType<TextContentBlock>(Assert.Single(rejected.Content)).Text);
+        Assert.Equal(
+            "A project search query has at most {0} characters; this one has {1}.",
+            rejected.Meta![NhAiMcpResultMetadata.MessageFormatKey]!.GetValue<string>());
+        Assert.Equal("[200,240]", rejected.Meta[NhAiMcpResultMetadata.MessageArgumentsKey]!.ToJsonString());
+        // The query never reached the read service.
+        Assert.Null(readService.Query);
+
+        var failure = await Assert.ThrowsAsync<NhAiMcpToolException>(async () =>
+            await client.CallNewHeapToolAsync<ProjectAiSearchInput, IReadOnlyList<ProjectAiSearchItem>>(
+                tool.Name,
+                new ProjectAiSearchInput(tooLong, 5),
+                TestContext.Current.CancellationToken));
+        var dutch = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["A project search query has at most {0} characters; this one has {1}."] =
+                "Een zoekopdracht naar projecten heeft hooguit {0} tekens; deze heeft er {1}."
+        };
+
+        Assert.Equal(ProjectAiTools.SearchQueryTooLongCode, failure.Code);
+        Assert.Equal(
+            "Een zoekopdracht naar projecten heeft hooguit 200 tekens; deze heeft er 240.",
+            Translate(failure, dutch, System.Globalization.CultureInfo.GetCultureInfo("nl-NL")));
+    }
+
+    /// <summary>
+    /// What a client does with a failure's format and arguments: look up its own text for the format,
+    /// fill in the arguments in its own culture, and fall back to the server's text.
+    /// </summary>
+    private static string? Translate(
+        NhAiMcpToolException failure,
+        IReadOnlyDictionary<string, string> translations,
+        IFormatProvider culture)
+    {
+        if (failure.FailureMessageFormat is not { } format
+            || !translations.TryGetValue(format, out var translated))
+        {
+            return failure.FailureMessage;
+        }
+
+        var arguments = failure.FailureMessageArguments
+            .Select(argument => argument.ValueKind switch
+            {
+                JsonValueKind.Number => argument.GetDecimal(),
+                JsonValueKind.String => argument.GetString(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => (object?)false,
+                _ => null
+            })
+            .ToArray();
+        return string.Format(culture, translated, arguments);
     }
 
     [Fact]
