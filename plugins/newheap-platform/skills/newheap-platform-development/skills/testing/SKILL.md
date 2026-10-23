@@ -1,6 +1,6 @@
 ---
 name: newheap-testing
-description: Set up or review tests in NewHeap consumer applications, including reusable test-helper packages, consumer test-project boundaries and relational integration evidence.
+description: Set up or review tests in NewHeap consumer applications, including reusable test-helper packages, consumer test-project boundaries, relational integration evidence and AI evaluations.
 ---
 
 # NewHeap consumer testing

@@ -1,6 +1,6 @@
 ---
 name: newheap-runtime-configuration
-description: Configure or troubleshoot NewHeap consumer appsettings, secrets directories, environment variables, command-line overrides and design-time configuration across local, hosted and CI environments.
+description: Configure or troubleshoot NewHeap consumer appsettings, secrets directories, environment variables, command-line overrides, telemetry exporter settings and design-time configuration across local, hosted and CI environments.
 ---
 
 # NewHeap runtime configuration

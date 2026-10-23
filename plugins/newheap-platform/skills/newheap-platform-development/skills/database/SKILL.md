@@ -1,6 +1,6 @@
 ---
 name: newheap-database-development
-description: Implement, review or debug NewHeap consumer EF Core queries, provider wiring, migrations, raw SQL and relational behavior across SQL Server and PostgreSQL. Use also to investigate unexpected staging or production API and persisted-data behavior with supported read-only database diagnostics.
+description: Implement, review or debug NewHeap consumer EF Core queries, provider wiring, migrations, raw SQL, bulk upserts and relational behavior across SQL Server and PostgreSQL. Use also to investigate unexpected staging or production API and persisted-data behavior with supported read-only database diagnostics.
 ---
 
 # NewHeap database development
