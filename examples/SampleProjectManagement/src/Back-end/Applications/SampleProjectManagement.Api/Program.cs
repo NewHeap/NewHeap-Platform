@@ -334,6 +334,8 @@ builder.Services.AddSampleProjectCloser(builder.Configuration[SampleProjectClose
 builder.Services.AddSampleProjectPlanner();
 builder.Services.AddSampleProjectPlannerVariant();
 builder.Services.AddSampleProjectStarterBlocks();
+// SPM-318 and SPM-319: hand-offs and shadow variants administrators define as data, within ceilings in code.
+builder.Services.AddSampleAgentLinksAsData();
 // SPM-305: assistant turns read files of the media library: chat uploads and project documents.
 builder.Services.AddSampleAssistantFiles();
 // SPM-306: the document reader reads a project's documents when one is added; it opts in to files.
