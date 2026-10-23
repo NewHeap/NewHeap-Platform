@@ -357,43 +357,6 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.ToTable("AssistantAgentMcpServer", "nhai");
                 });
 
-            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentMetadata", b =>
-                {
-                    b.Property<string>("AgentId")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<DateTimeOffset>("ChangedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ChangedBy")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<string>("IndexValue")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<string>("ValueJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("integer");
-
-                    b.HasKey("AgentId", "Name");
-
-                    b.HasIndex("Name", "IndexValue");
-
-                    b.ToTable("AssistantAgentMetadata", "nhai");
-                });
-
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentReplay", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2805,15 +2768,6 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantMcpServer", null)
                         .WithMany()
                         .HasForeignKey("McpServerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentMetadata", b =>
-                {
-                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantAgent", null)
-                        .WithMany()
-                        .HasForeignKey("AgentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
