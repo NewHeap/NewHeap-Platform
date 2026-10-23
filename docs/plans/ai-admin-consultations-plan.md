@@ -18,7 +18,10 @@ administration. Lars decided AC1 to AC24 on 2026-10-23, as recorded below: the r
 
 P1 (library, migrations, sample SPM-311, guidance and release notes) was built on 2026-10-23 on
 `feature/admin-consultations`, on top of the AC1 fix; see [Implementation of P1](#implementation-of-p1).
-The lane's own choices are AC25 to AC34, for Lars to review. P2 (administration UI and mock) is open.
+The lane's own choices are AC25 to AC34, for Lars to review. P2 (administration UI and mock) was built
+on 2026-10-23 on `feature/admin-consultations-ui`; see [Implementation of P2](#implementation-of-p2). Its
+lane's choices are AC35 to AC45, for Lars to review. The browser walk-through of the portal and the
+playground is open.
 
 ## Implementation of P1
 
@@ -59,6 +62,37 @@ The lane's own choices are AC25 to AC34, for Lars to review. P2 (administration 
   the Angular error and field texts; the problem codes of kind `consultation`, including the lane's
   `requests-not-allowed` and `mcp-not-allowed` (AC27); `AskingAgents`, `RoutesInEffect` and `Problems` on
   each data consultation for the section and the flow view.
+
+## Implementation of P2
+
+- **Models and API.** `@newheap/platform-ai-chat` has `CodeConsultation`, `DataConsultation`,
+  `DataConsultationRequest`, `ConsultationCeiling`, `ConsultationSubjectRole` and `ConsultationExposure`;
+  `AgentRunConfiguration` carries `codeConsultations`, `dataConsultations` and `consultationCeiling`,
+  `RunCatalog` the application's `consultationCeiling`, and `RunConfigurationProblemKind` the kind
+  `consultation`. `NhAssistantAdminApiService.saveDataConsultation` and `removeDataConsultation` call the
+  P1 endpoints. The three new codes are in `NH_ASSISTANT_SERVER_ERROR_CODES` and the mock's status table,
+  with English and Dutch texts, as are the field error `not-allowed` and every problem code of kind
+  `consultation`.
+- **Section and form (AC20).** `NhAssistantAgentRunConfigurationComponent` has a Consultations section
+  after the triggers: each consultation by its subject type's name, in code read only, as data with its
+  version, who may ask and who decides in a sentence, the asking agents (AC5) with a link to their
+  editors (`openAgent`), its tool id, limits and problems, and edit and delete. The form
+  (`nh-assistant-consultation-form`, internal) follows the trigger and skill forms. The CP21 switches
+  moved into the section for every agent with consultations and read the routes again after every
+  change. Without a ceiling the section says why (AC35).
+- **Flow view.** The when step lists the consultations with what they may do and how many agents ask
+  them, an entry to add one and to edit each one defined as data; problems of kind `consultation` show
+  at that step with the form that fixes them.
+- **Mock API.** `NhAssistantMockAdminScenario.consultationsAsData`, `NhAssistantMockAdminAgent.consultableAsData`,
+  `consultationDescriptions` and `dataConsultations`; `nh-assistant-mock-consultations.ts` saves and
+  removes within the ceilings with the server's codes and field errors, checks every read again
+  (problems, routes in effect, capped parts), lists the tools in `GET admin/tools` and counts the
+  consultations for the route switches.
+- **Sample.** SPM-311 also names the administration: the management playground's mock scenario has the
+  project starter with its consultation about projects as the API's seeder defines it, and the project
+  assistant selects its tool; the portal's administration shows the same through the library.
+- **Tests.** `nh-assistant-consultations-admin.spec.ts` (mock contract, section, form, flow), the admin API
+  service, mock status, translations and consultation routes specs.
 
 ## Problem
 
@@ -555,3 +589,14 @@ Each line: the question, the options, the recommendation and the status.
 | AC32 | What does `conflicts-with-tool` compare? | (a) the tool ids and export names of every catalog registered at startup, read once, on save and on load; (b) ids only. | (a): the agent adapter and the MCP export refuse duplicate export names. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
 | AC33 | What does `ConsultableAsData()` without a configuration allow? | (a) answers only: no routes, requests or MCP, the builder's limits within the application's; (b) the application's ceiling. | (a): a code agent opts in to each route explicitly, as AC4 (a) says. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
 | AC34 | What does the sample's project starter need to propose in a consultation? | (a) `Execute` autonomy, so its model is offered the status tool; every change still waits for a decision; (b) keep `Propose` and let consultations offer mutating tools to `Propose` agents. | (a): the library offers mutating tools only to agents with `Execute`, in runs and consultations alike; changing that is outside P1. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
+| AC35 | When does the run configuration show the Consultations section, and what does it say when an agent cannot get consultations as data? | (a) for an agent with consultations in code or as data and, once the run catalog reports an application ceiling, for every agent, with the reason it cannot get one: an agent in code that is not consultable as data, an agent created here without run settings, the ceiling's maximum, or every kind of object it works on already has one; no section for an agent without consultations in an application without consultations as data; (b) only for agents whose ceiling allows data consultations; (c) always. | (a): the section explains a closed door where the application offers consultations, and adds nothing to applications that never do. | Built by the P2 lane (2026-10-23): (a), for Lars to review |
+| AC36 | Where do the CP21 route switches go? | (a) inside the Consultations section, below the list, for every agent that has consultations in effect, reading the routes again after each change of the run configuration, with texts that speak of the agent's consultations instead of its code; (b) their own section after it, for agents in code only. | (a): AC10 and AC20 make one switch apply to code and data alike, in one place. | Built by the P2 lane (2026-10-23): (a), for Lars to review |
+| AC37 | How does the form offer the routes? | (a) one check box per route with its explanation, at most one of the two routes at the subject (choosing one drops the other); choosing to propose starts with the first route the agent may use; a route the ceiling does not name, the route with the agent's account for the whole application, for an agent that answers to the subject's responsible person or for an agent created here that answers for itself, is disabled with the reason; a stored route that no longer fits stays checked and enabled, marked invalid, so it can be cleared; an agent in code that answers for itself is not blocked, because only the server knows its grants; (b) one radio group of route combinations. | (a): every route reads as a choice of its own, as the plan's form describes, and the server stays the judge of what the client cannot see. | Built by the P2 lane (2026-10-23): (a), for Lars to review |
+| AC38 | Which approval policy warnings does the form give? | (a) four eyes with the asker deciding, and a policy of the initiator only with the route with the agent's account, both for the consultation's policy or else the agent's; warnings, while the server refuses the second with `proposalPolicy: invalid`; (b) none. | (a): the plan asks for both, and they explain a refusal before it happens. | Built by the P2 lane (2026-10-23): (a), for Lars to review |
+| AC39 | How does the form treat limits, requests and MCP? | (a) under Advanced, which opens itself for an error: an empty limit starts at the code's default within the ceiling (shown as the placeholder), each checked from the builder's minimum to the lower of the builder's and the ceiling's maximum; requests and MCP as check boxes only when the ceiling allows them, otherwise a sentence why, and a stored choice the ceiling no longer allows is saved as off; (b) every field always visible. | (a): the rarely changed options stay out of the way, as in the run settings form. | Built by the P2 lane (2026-10-23): (a), for Lars to review |
+| AC40 | How does the editor of an asking agent open from a consultation? | (a) `openAgent` of the run configuration, which `nh-assistant-admin-agents` handles by opening that agent's editor and returning to the consulted agent's run configuration when it closes; (b) no link, names only. | (a): AC5 says the editor links to the askers, the second key. | Built by the P2 lane (2026-10-23): (a), for Lars to review |
+| AC41 | What can an administrator do with a consultation of an agent that may no longer get any (`not-consultable`)? | (a) remove it only: no edit in the section and no fix in the flow; (b) edit and see the refusal. | (a): any save is refused without a ceiling. | Built by the P2 lane (2026-10-23): (a), for Lars to review |
+| AC42 | What does the flow's when step show of consultations? | (a) each consultation with whether it only answers or also proposes and how many agents ask it, an edit entry for those defined as data, an entry to add one when that is possible, and problems of kind `consultation` with the subject type's name; (b) a count with one entry point. | (a): the step reads like the triggers above it and every problem has its fix. | Built by the P2 lane (2026-10-23): (a), for Lars to review |
+| AC43 | How does the mock API play consultations as data? | (a) `consultationsAsData` on the admin scenario, `consultableAsData`, `consultationDescriptions` and `dataConsultations` per agent; consultations in code from the route map and the descriptions (no requests, local and agent exposure); the same checks and codes as the server on save and on every read, with the known subject types of the scenario and `nh-system`, and an agent in code that answers for itself assumed to have grants; data tools in `GET admin/tools`; (b) a mock without the checks. | (a): hosts and specs see the refusals and problems they will see on the server. | Built by the P2 lane (2026-10-23): (a), for Lars to review |
+| AC44 | Which sample evidence does P2 add? | (a) SPM-311 extended: the management playground's scenario has the project starter with its consultation, as the API's seeder, and the registry, catalog and guidance name the administration; (b) a new case. | (a): it is the same case seen in the administration, as AC21 planned. | Built by the P2 lane (2026-10-23): (a), for Lars to review |
+| AC45 | Which existing texts change? | (a) the route switches (`code`, `not-allowed`, `not-allowed-hint`, `action.code`, `explain-change.code-on`, `code-off`), `assistant-consult-route-not-allowed`, `assistant-configuration-limit` and `assistant-run-settings-in-use` name consultations as data too, in English and Dutch, listed in the release notes for applications that override them; (b) keep them. | (a): they were true for code only and would mislead next to data consultations. | Built by the P2 lane (2026-10-23): (a), for Lars to review |
