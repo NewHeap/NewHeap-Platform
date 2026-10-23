@@ -245,7 +245,7 @@ public sealed class AssistantAgentTriggerTests(AssistantDatabaseFixture database
         var maintenance = host.Services.GetServices<IHostedService>().OfType<NhAssistantRunMaintenance>().Single();
         var reminders = host.Services.GetRequiredService<RecordingChannel>().Deliveries;
         await maintenance.RunOnceAsync(CancellationToken.None);
-        Assert.DoesNotContain(reminders, delivery => delivery.Context.Kind == NhAssistantAgentNotificationKind.ProposalExpiring);
+        Assert.DoesNotContain(reminders, delivery => delivery.Context.Kind == NhAssistantAgentNotificationKind.RunProposalsExpiring);
 
         // A day later on the application's clock the first reminder is due, and it is sent once.
         clock.Advance(TimeSpan.FromDays(1));
@@ -254,8 +254,10 @@ public sealed class AssistantAgentTriggerTests(AssistantDatabaseFixture database
 
         var reminder = Assert.Single(
             reminders,
-            delivery => delivery.Context.Kind == NhAssistantAgentNotificationKind.ProposalExpiring);
+            delivery => delivery.Context.Kind == NhAssistantAgentNotificationKind.RunProposalsExpiring);
+        // The reminder of the run's one proposal names it, as before.
         Assert.Equal(approval.Id, reminder.Context.ApprovalId);
+        Assert.Equal((approval.RunId, 1), (reminder.Context.RunId, reminder.Context.ProposalCount));
         Assert.Equal(["approver-1"], reminder.Recipients);
         var store = host.Services.GetRequiredService<INhAssistantStore>();
         var stored = await store.FindApprovalAsync(approval.Id, CancellationToken.None);

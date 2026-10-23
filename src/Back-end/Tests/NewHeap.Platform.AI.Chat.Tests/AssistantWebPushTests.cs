@@ -193,6 +193,42 @@ public sealed class AssistantWebPushTests
             payload.EnumerateObject().Select(property => property.Name));
     }
 
+    [Fact]
+    public void A_notification_about_the_proposals_of_a_run_carries_the_run_and_is_tagged_per_run()
+    {
+        // RN5: the conversation still opens by default; the run lets the application open its inbox.
+        var conversationId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+        var kind = NhAssistantPushKinds.ForAgent(NhAssistantAgentNotificationKind.RunProposalsWaiting);
+
+        var payload = JsonDocument.Parse(NhAssistantPushPayload.Create(kind, conversationId, "Assistant", "3 proposals at 2 projects wait for your decision.", runId)).RootElement;
+
+        Assert.Equal(
+            ["type", "kind", "conversationId", "runId", "title", "body", "tag"],
+            payload.EnumerateObject().Select(property => property.Name));
+        Assert.Equal(("agent-run-proposals", conversationId, runId), (payload.GetProperty("kind").GetString(), payload.GetProperty("conversationId").GetGuid(), payload.GetProperty("runId").GetGuid()));
+        Assert.Equal("nh-assistant-run:" + runId.ToString("D"), payload.GetProperty("tag").GetString());
+        Assert.Equal("agent-run-proposals-expiring", NhAssistantPushKinds.ForAgent(NhAssistantAgentNotificationKind.RunProposalsExpiring));
+        Assert.Equal("agent-run-proposals-escalated", NhAssistantPushKinds.ForAgent(NhAssistantAgentNotificationKind.RunProposalsEscalated));
+
+        // The texts are those of the in-app channel: several objects are counted, one is named.
+        var objects = new[]
+        {
+            new NhAssistantAgentNotificationObject(new NhAiSubjectRef("project", "PRJ-1"), "Roadmap", conversationId, 2),
+            new NhAssistantAgentNotificationObject(new NhAiSubjectRef("project", "PRJ-2"), "Launch", Guid.NewGuid(), 1)
+        };
+        Assert.Equal(
+            ("Assistant", "3 proposals at 2 projects still wait for your decision."),
+            NhAssistantAgentNotificationTexts.ForRunProposals(NhAssistantAgentNotificationKind.RunProposalsExpiring, "en", objects, 3, "Roadmap", (_, _) => "Projects"));
+        Assert.Equal(
+            ("Roadmap", "2 voorstellen zijn doorgezet omdat niemand tijdig besliste."),
+            NhAssistantAgentNotificationTexts.ForRunProposals(NhAssistantAgentNotificationKind.RunProposalsEscalated, "nl", objects[..1], 2, "Roadmap", null));
+        // A plural that is more than a capitalized word keeps its capitals.
+        Assert.Equal(
+            ("Assistant", "3 proposals at 2 CRM accounts wait for your decision."),
+            NhAssistantAgentNotificationTexts.ForRunProposals(NhAssistantAgentNotificationKind.RunProposalsWaiting, "en", objects, 3, null, (_, _) => "CRM accounts"));
+    }
+
     internal static byte[] Decrypt(byte[] body, ECDiffieHellman browser, byte[] browserPublic, byte[] authSecret)
     {
         var salt = body[..16];
