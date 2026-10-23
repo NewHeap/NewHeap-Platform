@@ -1799,6 +1799,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         using var manager = host.CreateClient(managerId.ToString());
         var keys = new List<string>();
         var placed = Array.Empty<NhAssistantProposalDto>();
+        // The application's own audit sink counts what the follow-up's runs did (SPM-304, run facts).
+        var facts = host.Services.GetRequiredService<SampleAgentRunFacts>();
+        var before = facts.Get(followUp, SampleRuntimeAgentSeeder.FollowUpSkill);
         try
         {
             await using (var scope = host.Services.CreateAsyncScope())
@@ -1866,6 +1869,17 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var inView = Assert.Single(view.Items, item => item.Id == receipt.RunId);
             Assert.Equal((NhAssistantTriggerIds.Manual, NhAssistantRunKinds.Rule), (inView.TriggerId, inView.Kind));
             Assert.True(inView.ProposalCount >= finished.Count);
+
+            // The sample's audit sink counted the run from its content-free AgentRunEnded event alone:
+            // one more live run of the follow-up in its completion skill, started by hand, done by its
+            // rules without a model call.
+            Assert.Equal(SampleRuntimeAgentSeeder.FollowUpSkill, result.Run.Skill);
+            var after = await WaitForRunFactsAsync(facts, followUp, SampleRuntimeAgentSeeder.FollowUpSkill, before.Runs + 1);
+            var counted = after.Runs - before.Runs;
+            Assert.Equal(
+                (counted, before.ShadowRuns, before.FailedRuns, before.ModelCalls),
+                (after.RuleOnlyRuns - before.RuleOnlyRuns, after.ShadowRuns, after.FailedRuns, after.ModelCalls));
+            Assert.True(after.RunsStartedBy(NhAssistantTriggerKinds.Manual) > before.RunsStartedBy(NhAssistantTriggerKinds.Manual));
             // An English administrator reads the result in English in the runs view and its flow view.
             var englishView = await GetInAsync<NhAssistantRunHistoryListDto>(administrator, $"/api/assistant/admin/agents/{followUp}/runs?status=completed", "en");
             Assert.StartsWith(english.Result![..20], Assert.Single(englishView.Items, item => item.Id == receipt.RunId).Result, StringComparison.Ordinal);
@@ -2113,6 +2127,24 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     /// Reads a run with its result until it ended: its status is terminal and its summary, which
     /// the run writes right after its status, is there (see <see cref="HasEnded"/>).
     /// </summary>
+    /// <summary>
+    /// The run facts of an agent and skill once the sample's audit sink counted at least
+    /// <paramref name="runs"/> ended runs; the event follows the run's end.
+    /// </summary>
+    private static async Task<SampleAgentRunCounts> WaitForRunFactsAsync(SampleAgentRunFacts facts, string agentId, string? skillId, int runs)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        var counts = facts.Get(agentId, skillId);
+        while (counts.Runs < runs && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
+            counts = facts.Get(agentId, skillId);
+        }
+
+        Assert.True(counts.Runs >= runs, $"The sample counted {counts.Runs} ended runs of {agentId} in {skillId}, not {runs}.");
+        return counts;
+    }
+
     private static async Task<NhAssistantRunResultDto> WaitForRunResultAsync(HttpClient client, Guid runId)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
