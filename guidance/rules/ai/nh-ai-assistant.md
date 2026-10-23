@@ -338,7 +338,12 @@ governed function once. An envelope mixed with other properties, or arguments th
 cannot be bound, completes the tool call with `resultCode` `ai-tool-input-invalid` and
 a message that names only the unexpected property names, so the model can retry in
 the same turn. Unexpected tool exceptions complete with `ai-tool-failed` and are
-logged as warnings with tool ID, version, turn ID and exception type only.
+logged as warnings with tool ID, version, turn ID and exception type only. A refused call
+completes with the refusal's own code, as the invoker audits it: the invocation gate's code (for
+example `ai-tool-agent-not-granted`, or `ai-tool-authorization-denied` for a person who misses the
+tool's policy), `ai-tool-capability-denied`, `ai-tool-effect-denied` or
+`ai-tool-approval-delegation-invalid`; the `ToolInvoked` audit event and the model's summary of the
+call carry the same code.
 
 When a turn reaches `MaxToolCallsPerTurn`, or the daily tool budget refuses a call, the
 assistant does not end silently: it makes one more model call with tool choice `none`,

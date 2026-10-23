@@ -69,3 +69,33 @@ opens the conversation in the panel as before.
 | Breaking change | Required action |
 |---|---|
 | While the application subscribes to `NhAssistantPushService.openRun$`, a clicked notification about the proposals of a run emits its run there instead of opening the conversation in the panel. | Subscribe in the application shell and open the inbox of the run; copy `push/nh-assistant-push-worker.js` into the assets again, since only the new worker forwards the run. |
+
+## NewHeap.Platform.AI.AspNet.Common: an agent's rights source covers the tool's capabilities
+
+The agent invocation gate lets the initiator a turn delegates from (`NhAiGrantSource.Delegated`) and the
+account an agent answers to (`NhAiGrantSource.Accountable`) lend their rights for a tool only when they
+pass the tool's policies and their capability grants (`AddCapabilityGrant`) also cover the tool's
+`RequiredCapabilities`, compared by name as the invoker compares them. One that passes the policies
+without a capability now lends nothing, and the decision continues as for a missing policy: initiator,
+account, then the agent's grant. An agent in code whose technical account misses a capability's policy
+therefore runs the tool through its grant instead of being refused, and an agent is no longer offered
+a tool that only such a source would allow. When no source fits and one failed only on a capability,
+the refusal is `ai-tool-capability-denied` instead of `ai-tool-agent-not-granted`. No source gains
+rights it did not have.
+
+| Breaking change | Required action |
+|---|---|
+| An initiator or account that passes a tool's policies but whose capability grants do not cover its `RequiredCapabilities` no longer counts as `Delegated` or `Accountable`; the agent's grant decides, and without one the call is refused with `ai-tool-capability-denied` (`NhAiToolFailureCodes.CapabilityDenied`) and the tool is not offered. | Register each capability with the policy of the right the tool needs, and give the account that policy where it should lend its rights; expect `ai-tool-capability-denied` where you handled `ai-tool-agent-not-granted`. |
+
+## NewHeap.Platform.AI.Common and NewHeap.Platform.AI.Chat: the real code of a refused tool call
+
+The invoker records the code of every refusal it audits as `NhAiOutcomeKind.AuthorizationDenied` as the
+audit record's `ResultCode`: the invocation gate's own code, `ai-tool-capability-denied`,
+`ai-tool-effect-denied` and `ai-tool-approval-delegation-invalid`. The assistant uses that code before
+the outcome kind, so a conversation's tool call (`resultCode`), the `ToolInvoked` audit event, the
+model's summary of the call and the result code of an executed proposal name the real reason.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAiAuditRecord.ResultCode` of an `AuthorizationDenied` record is the refusal's code instead of `null`. | Read the reason of a refusal from `ResultCode`; keep `Outcome` for its kind. |
+| Assistant tool calls, `ToolInvoked` audit events and proposal execution results carry the refusal's own code (such as `ai-tool-agent-not-granted`, `ai-tool-capability-denied`, `ai-tool-effect-denied`, `ai-tool-approval-delegation-invalid` or an authoritative denial's code) instead of `ai-tool-authorization-denied` or `ai-tool-execution-evidence-invalid`. | Update filters, reports and translations that match `ai-tool-authorization-denied` to the codes you handle; `ai-tool-authorization-denied` remains for a gate that refuses without a code of its own, such as a person who misses the tool's policy. |

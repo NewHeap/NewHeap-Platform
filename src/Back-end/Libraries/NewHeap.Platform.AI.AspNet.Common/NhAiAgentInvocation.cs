@@ -96,6 +96,10 @@ internal sealed class NhAiUserManagerPrincipalFactory(IServiceProvider services)
 /// <item>Otherwise a code grant of the agent registration allows it, provided the tool opts in
 /// through <see cref="NhAiToolAttribute.AllowAgentGrant"/> (<see cref="NhAiGrantSource.Agent"/>).</item>
 /// </list>
+/// The initiator and the account lend their rights only when their capability grants also cover the
+/// tool's required capabilities; one that passes the policies without them lends nothing and the next
+/// source decides. When no source allows the tool and one of them failed only on a capability, the
+/// refusal is <see cref="NhAiToolFailureCodes.CapabilityDenied"/>.
 /// A gateway read in a scope that allows gateway reads is allowed first, with the accountable
 /// person's rights (<see cref="NhAiGrantSource.DelegatedRead"/>). A tool that
 /// <see cref="INhAiPersonRightsTools"/> names runs with a person's own rights only: only the
@@ -169,13 +173,21 @@ internal sealed class NhAiAgentInvocationGate(
                 new HashSet<string>(descriptor.RequiredCapabilities, StringComparer.Ordinal));
         }
 
+        // A principal lends its rights only when it passes the tool's policies and its capabilities
+        // cover the tool's, as the invoker checks them; otherwise the next source decides, exactly as
+        // when a policy is missing. A source that failed only on a capability names that refusal.
         var resource = NhAiSubjectAuthorizationResource.From(scope.Subject, scope.Purpose);
+        var lacksCapability = false;
         var initiator = await ResolveInitiatorAsync(scope, cancellationToken);
-        if (initiator is not null
-            && await SatisfiesAllAsync(initiator, resource, descriptor.AuthorizationPolicies, cancellationToken))
+        if (initiator is not null)
         {
-            var delegatedCapabilities = await GrantCapabilitiesAsync(initiator, resource, cancellationToken);
-            return AgentToolDecision.Allowed(NhAiGrantSource.Delegated, delegatedCapabilities);
+            var delegated = await RightsOfAsync(initiator, resource, descriptor, cancellationToken);
+            if (delegated.Fit == SourceFit.Fits)
+            {
+                return AgentToolDecision.Allowed(NhAiGrantSource.Delegated, delegated.Capabilities);
+            }
+
+            lacksCapability = delegated.Fit == SourceFit.MissesCapability;
         }
 
         // A tool that acts for a person has no other source: neither the account the agent answers
@@ -183,6 +195,11 @@ internal sealed class NhAiAgentInvocationGate(
         // never uses it.
         if (personRightsOnly)
         {
+            if (lacksCapability)
+            {
+                return CapabilityDenied();
+            }
+
             return AgentToolDecision.Denied(
                 NhAiAgentFailureCodes.NotGranted,
                 "The AI tool runs only with the rights of a person who delegated the turn.");
@@ -193,11 +210,15 @@ internal sealed class NhAiAgentInvocationGate(
         if (scope.ActWithAccountableRights
             && scope.Accountability != NhAiAgentAccountability.Agent
             && !(descriptor.Effect == NhAiToolEffect.ReadOnly && scope.ElevatedReads == NhAiElevatedReads.Deny)
-            && await principalFactory.CreateAsync(scope.AccountableOwnerId, scope.Subject, cancellationToken) is { } accountable
-            && await SatisfiesAllAsync(accountable, resource, descriptor.AuthorizationPolicies, cancellationToken))
+            && await principalFactory.CreateAsync(scope.AccountableOwnerId, scope.Subject, cancellationToken) is { } accountable)
         {
-            var accountableCapabilities = await GrantCapabilitiesAsync(accountable, resource, cancellationToken);
-            return AgentToolDecision.Allowed(NhAiGrantSource.Accountable, accountableCapabilities);
+            var account = await RightsOfAsync(accountable, resource, descriptor, cancellationToken);
+            if (account.Fit == SourceFit.Fits)
+            {
+                return AgentToolDecision.Allowed(NhAiGrantSource.Accountable, account.Capabilities);
+            }
+
+            lacksCapability |= account.Fit == SourceFit.MissesCapability;
         }
 
         var grant = scope.Grants.FirstOrDefault(candidate =>
@@ -205,6 +226,11 @@ internal sealed class NhAiAgentInvocationGate(
             && !(candidate.TriggerOnly && scope.IsRequestTurn));
         if (grant is null || !descriptor.AllowAgentGrant)
         {
+            if (lacksCapability)
+            {
+                return CapabilityDenied();
+            }
+
             return AgentToolDecision.Denied(
                 NhAiAgentFailureCodes.NotGranted,
                 "The agent is not allowed to use this AI tool.");
@@ -242,6 +268,38 @@ internal sealed class NhAiAgentInvocationGate(
         }
 
         return await principalFactory.CreateAsync(scope.InitiatorActorId, scope.Subject, cancellationToken);
+    }
+
+    /// <summary>
+    /// What <paramref name="principal"/> lends for <paramref name="descriptor"/>: nothing when it misses
+    /// one of the tool's policies, nothing either when its capabilities do not cover the tool's, and
+    /// otherwise its capabilities.
+    /// </summary>
+    private async ValueTask<SourceRights> RightsOfAsync(
+        ClaimsPrincipal principal,
+        NhAiSubjectAuthorizationResource resource,
+        NhAiToolDescriptor descriptor,
+        CancellationToken cancellationToken)
+    {
+        if (!await SatisfiesAllAsync(principal, resource, descriptor.AuthorizationPolicies, cancellationToken))
+        {
+            return new SourceRights(SourceFit.MissesPolicy, EmptyCapabilities);
+        }
+
+        var capabilities = await GrantCapabilitiesAsync(principal, resource, cancellationToken);
+        if (!NhAiInvocationContextCapabilityResolver.Covers(descriptor, capabilities))
+        {
+            return new SourceRights(SourceFit.MissesCapability, EmptyCapabilities);
+        }
+
+        return new SourceRights(SourceFit.Fits, capabilities);
+    }
+
+    private static AgentToolDecision CapabilityDenied()
+    {
+        return AgentToolDecision.Denied(
+            NhAiToolFailureCodes.CapabilityDenied,
+            "The AI invocation lacks a required tool capability.");
     }
 
     private async ValueTask<bool> SatisfiesAllAsync(
@@ -334,6 +392,20 @@ internal sealed class NhAiAgentInvocationGate(
             GrantSource = grantSource
         };
     }
+
+    private static readonly IReadOnlySet<string> EmptyCapabilities = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// How a principal fits a tool as a source of rights.
+    /// </summary>
+    private enum SourceFit
+    {
+        MissesPolicy = 0,
+        MissesCapability = 1,
+        Fits = 2
+    }
+
+    private sealed record SourceRights(SourceFit Fit, IReadOnlySet<string> Capabilities);
 }
 
 /// <summary>

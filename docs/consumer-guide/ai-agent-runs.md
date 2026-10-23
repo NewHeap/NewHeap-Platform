@@ -616,7 +616,8 @@ and may sign in), its approval policy, budget, run ceiling, retries, gateway rea
 rule handler by name. Grants never become data: in headless runs such an agent acts with the rights
 of the person or technical account it answers to, within its tool selectors. A tool is allowed when
 that account, rebuilt with `INhAiPrincipalFactory` for every decision, passes the tool's policies
-against the subject; the call, proposal and audit record `NhAiGrantSource.Accountable`, reads are
+against the subject and its capability grants cover the tool's `RequiredCapabilities`; the call,
+proposal and audit record `NhAiGrantSource.Accountable`, reads are
 shielded from thread readers without the tool's policies (or refused with `ElevatedReads` `deny`),
 and an agent that answers to itself has no rights to lend. A person's turn in the thread and a
 consultation keep that person's own rights, and the consult and request tools never run with the
@@ -627,6 +628,22 @@ settings, the agent gets data skills and data triggers like an agent in code; it
 change of whom it answers to, and its run settings stay while data skills or triggers belong to it
 (`assistant-run-settings-in-use`). An agent in code cannot get run settings as data
 (`assistant-run-settings-in-code`). Hosts need `AddAssistantAgentRuns`, as for agents in code.
+
+The initiator a turn delegates from and the account an agent answers to lend their rights for a tool
+only as a whole: they pass the tool's policies and their capability grants (`AddCapabilityGrant`)
+cover the tool's `RequiredCapabilities`, compared by name as the invoker compares them. One that
+misses either lends nothing and the next source decides, in the order initiator, account, the
+agent's grant; so an agent in code with a grant for the tool still uses it, while an agent created
+in the administration, which has no grants, is neither offered the tool nor allowed it. When no
+source fits and one of them failed only on a capability, the call is refused with
+`ai-tool-capability-denied` instead of `ai-tool-agent-not-granted`; the tool call, the assistant's
+`ToolInvoked` audit and the model read that code. A capability on a tool names the right the tool
+itself needs, such as reading logs or managing projects: register it with the policy of that right,
+the way the tool's own policies name it. Who may use the assistant at all is its `AccessPolicy`, an
+agent's `RequiredPolicy` and, for MCP clients, the MCP endpoint's policy, never a capability on a
+tool. A tool that only makes sense for a person is not exposed to agents: leave
+`NhAiToolExposure.Agent` out of its `Exposure` instead of tying its capability to a right only people
+hold (SPM-296).
 
 An application that imports agents, for example from a package, creates one the way an
 administrator does with `INhAssistantAgentConfiguration.CreateAgentAsync(NhAssistantAgentRequest)`
@@ -1122,6 +1139,11 @@ profile and instructions that answer questions about the rules' proposals from t
 
 - Granting a tool to an agent without `AllowAgentGrant` on the tool, or adding
   `AllowAgentGrant` to tools that do not need it.
+- Tying a tool's capability to a policy only people pass to keep agents or technical accounts away
+  from it, or using capabilities to decide who may use the assistant; leave `Agent` out of the tool's
+  `Exposure`, and use the assistant's `AccessPolicy` and the MCP policy.
+- Filtering refused tool calls on `ai-tool-authorization-denied` alone: a refusal carries its own
+  code, such as `ai-tool-capability-denied`, `ai-tool-agent-not-granted` or `ai-tool-effect-denied`.
 - Running an agent under a person's identity so that its actions look like that
   person's actions.
 - Letting the agent decide or execute its own proposals, or approving them on a
@@ -1404,7 +1426,10 @@ settings and assert that its rules propose with its technical account's rights a
 an unknown account and names code does not register are refused, that an agent that answers to itself
 is refused the tool, that its thread follows a change of whom it answers to and that its settings stay
 while triggers belong to it; assert that a read with accountable rights is shielded from a viewer
-without the tool's policies, on both providers. Save a change of a live data skill for shadow and
+without the tool's policies, on both providers. Give an account and a delegating initiator a tool's
+policy without its capability and assert that an agent in code with a grant runs the tool as `Agent`,
+that an agent without a grant is not offered it and is refused with `ai-tool-capability-denied`, and
+that a principal with both lends its rights as `Accountable` or `Delegated`. Save a change of a live data skill for shadow and
 assert that an event starts the live version's run live and the candidate's run in the shadow thread
 with its own version, rules and inputs, that a repeated delivery starts neither again, that the
 comparison pairs the two, that promoting makes the candidate live without a second run, and that a
@@ -1631,7 +1656,7 @@ executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
-  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentAccountCapabilitySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentAccountCapabilitySamplesTests.cs)
 - SPM-297 — A changed progress note is evaluated in shadow next to the live note, compared and promoted
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)

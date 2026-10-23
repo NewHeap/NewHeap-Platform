@@ -337,18 +337,22 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         activity?.SetTag("newheap.ai.tool.effect", descriptor.Effect.ToString());
         activity?.SetTag("newheap.ai.tool.exposure", descriptor.Exposure.ToString());
 
+        // Every refusal audits the code its caller receives, so the audit and what reads it name the
+        // real reason rather than the outcome kind alone.
         var authorization = await _invocationGate.AuthorizeAsync(descriptor, cancellationToken);
         if (!authorization.Success)
         {
             activity?.SetTag("newheap.ai.tool.outcome", "denied");
+            var denied = WithFallbackCode(
+                TaskResult<T>.Failed(authorization),
+                NhAiToolFailureCodes.AuthorizationDenied);
             await WriteAuditAsync(
                 descriptor,
                 null,
                 NhAiOutcomeKind.AuthorizationDenied,
-                cancellationToken);
-            return WithFallbackCode(
-                TaskResult<T>.Failed(authorization),
-                NhAiToolFailureCodes.AuthorizationDenied);
+                cancellationToken,
+                resultCode: FirstResultCode(denied) ?? NhAiToolFailureCodes.AuthorizationDenied);
+            return denied;
         }
 
         var context = authorization.Data;
@@ -380,7 +384,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 descriptor,
                 context,
                 NhAiOutcomeKind.AuthorizationDenied,
-                cancellationToken);
+                cancellationToken,
+                resultCode: NhAiToolFailureCodes.CapabilityDenied);
             return TaskResult<T>.Failed(
                 NhAiToolFailureCodes.CapabilityDenied,
                 "The AI invocation lacks a required tool capability.");
@@ -462,7 +467,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 descriptor,
                 context,
                 NhAiOutcomeKind.AuthorizationDenied,
-                cancellationToken);
+                cancellationToken,
+                resultCode: NhAiToolFailureCodes.EffectDenied);
             return TaskResult<T>.Failed(
                 NhAiToolFailureCodes.EffectDenied,
                 "AI tool effect policy denied execution.");
@@ -477,7 +483,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                     context,
                     NhAiOutcomeKind.AuthorizationDenied,
                     cancellationToken,
-                    approvalCode: "approval-delegation-invalid");
+                    approvalCode: "approval-delegation-invalid",
+                    resultCode: NhAiToolFailureCodes.ApprovalDelegationInvalid);
                 return TaskResult<T>.Failed(
                     NhAiToolFailureCodes.ApprovalDelegationInvalid,
                     "AI tool effect policy delegated approval to a tool that does not declare consumer-authoritative approval.");

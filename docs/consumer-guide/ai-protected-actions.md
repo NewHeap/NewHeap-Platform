@@ -43,6 +43,14 @@ data is `NhAiAuthoritativeExecutionEvidence.Denied(payload, evidenceReference)`;
 the invoker copies the payload into the failed `TaskResult<T>.Data` and audits
 the failure code as the approval code.
 
+Every refusal the invoker audits as `NhAiOutcomeKind.AuthorizationDenied` records
+the code its caller receives as the audit record's `ResultCode`: the invocation
+gate's own code (`ai-tool-authorization-denied` when the gate gives none),
+`ai-tool-capability-denied`, `ai-tool-effect-denied`,
+`ai-tool-approval-delegation-invalid` or the authoritative denial's own code when it
+has one. Read the
+reason of a refusal from that code, not from the outcome kind.
+
 When the application must validate approval and reconcile replays inside the
 write itself—for example an engine that returns a receipt with a stable denial
 code, burns the grant on every mismatch, and answers a replayed idempotency key
