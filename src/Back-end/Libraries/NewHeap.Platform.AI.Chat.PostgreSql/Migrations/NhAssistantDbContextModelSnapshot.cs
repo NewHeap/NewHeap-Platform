@@ -884,6 +884,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<Guid?>("ExecutionOperationId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("ExecutionReportDueAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("ExecutionResultCode")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
@@ -1023,6 +1026,8 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.HasIndex("ProposalHash");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("Status", "ExecutionReportDueAt");
 
                     b.HasIndex("Status", "ExpiresAt");
 
