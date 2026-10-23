@@ -1163,6 +1163,51 @@ describe('NhAssistantStore', () => {
       return store;
     }
 
+    it('names the answer the streamed turn writes until the turn ends', async () => {
+      const store = await streaming();
+
+      expect(store.writingMessageId()).toBe('a1');
+      // A message that arrives meanwhile leaves the answer as it is.
+      created(stored('app-1', 'application', 3, null, 'The export finished.'));
+      expect(store.writingMessageId()).toBe('a1');
+
+      finishTurn(stream);
+      await flush();
+      expect(store.writingMessageId()).toBeNull();
+    });
+
+    it('forgets the answer of a streamed turn that fails', async () => {
+      const store = await streaming();
+
+      stream.next({ type: 'error', data: { code: 'assistant-model-unavailable', messageKey: 'nh-assistant.errors.assistant-model-unavailable' } });
+      stream.complete();
+      await flush();
+
+      expect(store.writingMessageId()).toBeNull();
+    });
+
+    it('names the answer of a turn it follows live until that turn ends', async () => {
+      live = new FakeLiveService();
+      api.getConversation.and.returnValue(of({
+        ...conversation(),
+        currentActorId: 'me',
+        messages: [stored('u1', 'user', 1, 'me', 'First'), stored('a1', 'assistant', 2, null, 'Done.')]
+      }));
+      const store = setup(undefined, undefined, [{ provide: NhAssistantLiveService, useValue: live }]);
+      await store.initialize();
+      await store.openConversation('c1');
+
+      created(stored('u2', 'user', 3, 'sam', 'Summarize it.'));
+      expect(store.writingMessageId()).toBeNull();
+      live.events.next({ conversationId: 'c1', actorId: 'sam', type: 'turn.started', data: { turnId: 't2', userMessageId: 'u2', assistantMessageId: 'a2' } });
+
+      expect(store.streaming()).toBeFalse();
+      expect(store.writingMessageId()).toBe('a2');
+
+      live.events.next({ conversationId: 'c1', actorId: 'sam', type: 'turn.completed', data: { turnId: 't2', status: 'completed', usage, errorCode: null } });
+      expect(store.writingMessageId()).toBeNull();
+    });
+
     it('shows an application\'s and a colleague\'s message after the answer it still writes, each once', async () => {
       const store = await streaming();
 

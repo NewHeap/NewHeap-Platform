@@ -134,7 +134,7 @@ describe('Application messages', () => {
     expect(text(first.querySelector('.tag.trusted'))).toBe('Instructie voor de assistent');
   });
 
-  it('keeps the working indicator under the answer being written when a message arrives after it', () => {
+  it('keeps the working indicator under the answer writingMessageId names when a message arrives after it', () => {
     const fixture = TestBed.createComponent(NhAssistantThreadComponent);
     const question: Message = { id: 'u-1', role: 'user', createdAt: '', sequence: 1, parts: [{ type: 'text', text: 'Export the projects.' }], authorActorId: 'me' };
     const answer: Message = { id: 'a-1', role: 'assistant', createdAt: '', parts: [toolCall('export', 'succeeded')] };
@@ -142,6 +142,7 @@ describe('Application messages', () => {
     const colleague: Message = { id: 'u-2', role: 'user', createdAt: '', sequence: 4, parts: [{ type: 'text', text: 'I added the budget.' }], authorActorId: 'sam' };
     fixture.componentRef.setInput('currentActorId', 'me');
     fixture.componentRef.setInput('streaming', true);
+    fixture.componentRef.setInput('writingMessageId', 'a-1');
     const element = fixture.nativeElement as HTMLElement;
 
     // Without a message that arrived, the indicator follows the answer at the end, as always.
@@ -161,13 +162,18 @@ describe('Application messages', () => {
     fixture.detectChanges();
     expect(order(element, writing)).toEqual(['u-1', 'a-1', 'app-1', 'u-2']);
 
-    // Before the turn started its answer, a message that arrived sits last and so does the indicator.
+    // Before the answer is in the thread, the indicator shows at the end.
     const waiting = [question, arrived];
     fixture.componentRef.setInput('messages', waiting);
     fixture.detectChanges();
     expect(order(element, waiting)).toEqual(['u-1', 'app-1', 'working']);
-  });
 
+    // A layout that does not pass writingMessageId keeps the indicator at the end of the thread.
+    fixture.componentRef.setInput('writingMessageId', null);
+    fixture.componentRef.setInput('messages', messages);
+    fixture.detectChanges();
+    expect(order(element, messages)).toEqual(['u-1', 'a-1', 'app-1', 'u-2', 'working']);
+  });
   it('shows an https link with its own text, and no link for any other address', () => {
     const fixture = TestBed.createComponent(NhAssistantThreadComponent);
     fixture.componentRef.setInput('messages', [
