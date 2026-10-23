@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI.Chat;
@@ -173,7 +174,24 @@ public sealed class NhAssistantUploadOptions
     /// </summary>
     public const int MaxAcceptedMediaTypes = 50;
 
+    /// <summary>
+    /// The most file name extensions an application maps to a media type with <see cref="MapExtension"/>.
+    /// </summary>
+    public const int MaxMappedExtensions = 100;
+
+    /// <summary>
+    /// The longest extension <see cref="MapExtension"/> takes, its dot included.
+    /// </summary>
+    private const int MaxExtensionLength = 32;
+
+    private static readonly Regex ExtensionPattern = new(
+        "^\\.[a-z0-9][a-z0-9_+-]*$",
+        RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(100));
+
     private IReadOnlyList<string> _mediaTypes = DefaultMediaTypes;
+
+    private IReadOnlyDictionary<string, string> _extensions = new Dictionary<string, string>(StringComparer.Ordinal);
 
     private static readonly string[] DefaultMediaTypes =
     [
@@ -224,6 +242,58 @@ public sealed class NhAssistantUploadOptions
         }
 
         _mediaTypes = normalized.ToArray();
+        return this;
+    }
+
+    /// <summary>
+    /// The file name extensions the application mapped with <see cref="MapExtension"/>: each extension
+    /// in lowercase with its dot, such as <c>.dwg</c>, and the media type it names.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> MappedExtensions => _extensions;
+
+    /// <summary>
+    /// Maps the file name extension <paramref name="extension"/>, such as <c>.dwg</c>, to
+    /// <paramref name="mediaType"/>, such as <c>application/acad</c>. An upload with that extension and
+    /// no media type, a generic one such as <c>application/octet-stream</c> or a type devices send for
+    /// that extension then takes <paramref name="mediaType"/>, exactly as for the extensions the platform
+    /// knows, but only while the application accepts it (<see cref="AcceptMediaTypes"/>); a mapping to a
+    /// type it does not accept has no effect. A specific declared type is never replaced, and the content
+    /// check and the scanner still run. A mapping takes precedence over the platform's type of the same
+    /// extension, for example <c>.xml</c> to <c>text/xml</c> for an application that accepts only that,
+    /// and a later mapping of an extension replaces an earlier one. The agents' upload rules carry the
+    /// mappings of accepted types, so the composer of <c>@newheap/platform-ai-chat</c> derives alike and
+    /// its file picker offers the extensions.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="extension"/> is not a dot followed by letters, digits, <c>_</c>, <c>+</c> or
+    /// <c>-</c> (at most 32 characters), <paramref name="mediaType"/> is not a media type, or the
+    /// application maps more than <see cref="MaxMappedExtensions"/> extensions.
+    /// </exception>
+    public NhAssistantUploadOptions MapExtension(string extension, string mediaType)
+    {
+        ArgumentNullException.ThrowIfNull(extension);
+        ArgumentNullException.ThrowIfNull(mediaType);
+
+        var normalizedExtension = extension.Trim().ToLowerInvariant();
+        if (normalizedExtension.Length > MaxExtensionLength || !ExtensionPattern.IsMatch(normalizedExtension))
+        {
+            throw new ArgumentException($"'{extension}' is not a file name extension such as '.dwg'.", nameof(extension));
+        }
+        var essence = NhAiMediaTypes.Normalize(mediaType)
+            ?? throw new ArgumentException($"'{mediaType}' is not a media type.", nameof(mediaType));
+
+        var extensions = new Dictionary<string, string>(_extensions, StringComparer.Ordinal)
+        {
+            [normalizedExtension] = essence
+        };
+        if (extensions.Count > MaxMappedExtensions)
+        {
+            throw new ArgumentException(
+                $"An application maps at most {MaxMappedExtensions} extensions for uploads.",
+                nameof(extension));
+        }
+
+        _extensions = extensions;
         return this;
     }
 

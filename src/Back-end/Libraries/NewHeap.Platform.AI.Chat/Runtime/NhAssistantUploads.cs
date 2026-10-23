@@ -5,13 +5,15 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat.Runtime;
 
 /// <summary>
-/// What people may upload to a conversation of one agent: the accepted media types, the largest file
-/// and the most files of one message.
+/// What people may upload to a conversation of one agent: the accepted media types, the largest file,
+/// the most files of one message and the extensions the application mapped to an accepted type
+/// (<see cref="NhAssistantUploadOptions.MapExtension"/>), lowercase with their dot.
 /// </summary>
 internal sealed record NhAssistantUploadRules(
     IReadOnlyList<string> AcceptedMediaTypes,
     int MaxFileBytes,
-    int MaxFiles);
+    int MaxFiles,
+    IReadOnlyDictionary<string, string> MappedExtensions);
 
 /// <summary>
 /// A file part of an upload request as the endpoint read it: the name and media type the person's
@@ -62,9 +64,17 @@ internal sealed class NhAssistantUploads(
         }
 
         var limits = turnFiles.LimitsOfAgent(agentId);
-        return limits is null
-            ? null
-            : new NhAssistantUploadRules(registration.Uploads.AcceptedMediaTypes, limits.MaxFileBytes, limits.MaxFilesPerTurn);
+        if (limits is null)
+        {
+            return null;
+        }
+
+        // Only a mapping to an accepted type names anything; the client receives the same mappings.
+        var accepted = registration.Uploads.AcceptedMediaTypes;
+        var mapped = registration.Uploads.MappedExtensions
+            .Where(mapping => accepted.Contains(mapping.Value, StringComparer.Ordinal))
+            .ToDictionary(mapping => mapping.Key, mapping => mapping.Value, StringComparer.Ordinal);
+        return new NhAssistantUploadRules(accepted, limits.MaxFileBytes, limits.MaxFilesPerTurn, mapped);
     }
 
     /// <summary>
@@ -89,7 +99,7 @@ internal sealed class NhAssistantUploads(
         }
         // A device that gives no type or a generic one has the file name's extension name it, only as
         // a type the application accepts; the content check and the scanner below still apply.
-        var mediaType = NhAssistantUploadMediaTypes.Resolve(name, input.MediaType, rules.AcceptedMediaTypes);
+        var mediaType = NhAssistantUploadMediaTypes.Resolve(name, input.MediaType, rules.AcceptedMediaTypes, rules.MappedExtensions);
         if (mediaType is null)
         {
             return Failed(NhAssistantErrorCodes.FileTypeNotAccepted, "Files of this type cannot be uploaded.");
@@ -235,8 +245,10 @@ internal sealed class NhAssistantUploads(
 
     /// <summary>
     /// Whether the content starts as files of <paramref name="mediaType"/> do, for the types the
-    /// platform names: PDF, PNG, JPEG, and Word and Excel documents, which are ZIP packages. Other
-    /// accepted types are the application's to check.
+    /// platform names: PDF, PNG, JPEG, and Word, Excel and PowerPoint documents, which are ZIP packages.
+    /// Text (<c>text/*</c>, JSON and XML, also with a <c>+json</c> or <c>+xml</c> suffix) is refused when
+    /// it starts as a binary format does (<see cref="StartsAsBinary"/>). Other accepted types are the
+    /// application's to check.
     /// </summary>
     internal static async Task<bool> MatchesSignatureAsync(Stream content, string mediaType, CancellationToken cancellationToken)
     {
@@ -257,20 +269,62 @@ internal sealed class NhAssistantUploads(
 
     internal static bool MatchesSignature(ReadOnlySpan<byte> head, string mediaType)
     {
+        if (IsText(mediaType))
+        {
+            // An .xls workbook renamed to .csv, or a package or PDF named .txt, is no text. There is no
+            // NUL-byte check: UTF-16 text, such as Excel's "Unicode text" export, has NUL bytes.
+            return !StartsAsBinary(head);
+        }
+
         return mediaType switch
         {
             // A PDF reader finds the header within the first kilobyte.
             NhAiMediaTypes.Pdf => head.IndexOf("%PDF-"u8) >= 0,
             NhAiMediaTypes.Png => head.StartsWith(PngSignature),
             NhAiMediaTypes.Jpeg => head.StartsWith(JpegSignature),
-            NhAiMediaTypes.Docx or NhAiMediaTypes.Xlsx => head.StartsWith("PK\u0003\u0004"u8),
+            NhAiMediaTypes.Docx or NhAiMediaTypes.Xlsx or NhAssistantUploadMediaTypes.Pptx => head.StartsWith(ZipSignature),
             _ => true
         };
+    }
+
+    /// <summary>
+    /// Whether <paramref name="head"/> starts with the signature of a binary format that a text upload
+    /// may be in disguise: an OLE2 compound file (Word, Excel and PowerPoint 97 to 2003), a ZIP package
+    /// (also an empty one), a PDF, or a PNG, JPEG or GIF image.
+    /// </summary>
+    internal static bool StartsAsBinary(ReadOnlySpan<byte> head)
+    {
+        return head.StartsWith(Ole2Signature)
+            || head.StartsWith(ZipSignature)
+            || head.StartsWith(EmptyZipSignature)
+            || head.StartsWith("%PDF-"u8)
+            || head.StartsWith(PngSignature)
+            || head.StartsWith(JpegSignature)
+            || head.StartsWith("GIF87a"u8)
+            || head.StartsWith("GIF89a"u8);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="mediaType"/> is text: <c>text/*</c>, <c>application/json</c>,
+    /// <c>application/xml</c> or a type with the <c>+json</c> or <c>+xml</c> suffix.
+    /// </summary>
+    private static bool IsText(string mediaType)
+    {
+        return mediaType.StartsWith("text/", StringComparison.Ordinal)
+            || mediaType is "application/json" or "application/xml"
+            || mediaType.EndsWith("+json", StringComparison.Ordinal)
+            || mediaType.EndsWith("+xml", StringComparison.Ordinal);
     }
 
     private static readonly byte[] PngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
     private static readonly byte[] JpegSignature = [0xFF, 0xD8, 0xFF];
+
+    private static readonly byte[] ZipSignature = [0x50, 0x4B, 0x03, 0x04];
+
+    private static readonly byte[] EmptyZipSignature = [0x50, 0x4B, 0x05, 0x06];
+
+    private static readonly byte[] Ole2Signature = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
 
     private static TaskResult<NhAiFileReference> Failed(string code, string message)
     {
@@ -282,12 +336,17 @@ internal sealed class NhAssistantUploads(
 /// The media type an upload is checked and stored as. Browsers send no type, or a generic one, for
 /// files their system does not know, and Windows names some extensions after the program that opens
 /// them, such as <c>application/vnd.ms-excel</c> for a <c>.csv</c> file. For such a type the file
-/// name's extension names the type, but only a type the application accepts. A specific type the
-/// application does not accept stays refused: the extension never overrides it. The chat composer of
-/// <c>@newheap/platform-ai-chat</c> applies the same table before it uploads.
+/// name's extension names the type, but only a type the application accepts: the type the application
+/// mapped the extension to (<see cref="NhAssistantUploadOptions.MapExtension"/>), otherwise the
+/// platform's. A specific type the application does not accept stays refused: the extension never
+/// overrides it. The chat composer of <c>@newheap/platform-ai-chat</c> applies the same table, with the
+/// application's mappings from the agent's upload rules, before it uploads.
 /// </summary>
 internal static class NhAssistantUploadMediaTypes
 {
+    /// <summary>A PowerPoint presentation (<c>.pptx</c>), a ZIP package.</summary>
+    internal const string Pptx = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
     /// <summary>
     /// Types that say nothing about the content, whatever the file's extension.
     /// </summary>
@@ -311,7 +370,7 @@ internal static class NhAssistantUploadMediaTypes
         [".webp"] = "image/webp",
         [".docx"] = NhAiMediaTypes.Docx,
         [".xlsx"] = NhAiMediaTypes.Xlsx,
-        [".pptx"] = "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        [".pptx"] = Pptx,
         [".doc"] = "application/msword",
         [".xls"] = "application/vnd.ms-excel",
         [".csv"] = "text/csv",
@@ -345,25 +404,33 @@ internal static class NhAssistantUploadMediaTypes
         [".png"] = ["image/x-png"],
         [".docx"] = ["application/zip", "application/x-zip-compressed"],
         [".xlsx"] = ["application/zip", "application/x-zip-compressed"],
-        [".pptx"] = ["application/zip", "application/x-zip-compressed"]
+        [".pptx"] = ["application/zip", "application/x-zip-compressed"],
+        // Browsers send the older name of XML; an application that accepts only it keeps receiving it.
+        [".xml"] = ["text/xml"]
     };
 
     /// <summary>
     /// The accepted media type of an upload named <paramref name="fileName"/> that the device gave
     /// <paramref name="declared"/>, or <see langword="null"/> when no accepted type applies. A
     /// missing or generic declared type is replaced by the extension's type when
-    /// <paramref name="accepted"/> lists it; otherwise the declared type counts as it is.
+    /// <paramref name="accepted"/> lists it; otherwise the declared type counts as it is. The
+    /// extension's type is the one of <paramref name="mappedExtensions"/> (lowercase extensions with
+    /// their dot) when it is accepted, otherwise the platform's.
     /// </summary>
-    public static string? Resolve(string fileName, string? declared, IReadOnlyList<string> accepted)
+    public static string? Resolve(
+        string fileName,
+        string? declared,
+        IReadOnlyList<string> accepted,
+        IReadOnlyDictionary<string, string>? mappedExtensions = null)
     {
         ArgumentNullException.ThrowIfNull(fileName);
         ArgumentNullException.ThrowIfNull(accepted);
 
         var normalized = NhAiMediaTypes.Normalize(declared);
-        var extension = Path.GetExtension(fileName);
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
         if (normalized is null || IsGeneric(normalized, extension))
         {
-            if (ByExtension.TryGetValue(extension, out var derived) && accepted.Contains(derived, StringComparer.Ordinal))
+            if (TypeOfExtension(extension, accepted, mappedExtensions) is { } derived)
             {
                 return derived;
             }
@@ -371,6 +438,27 @@ internal static class NhAssistantUploadMediaTypes
 
         return normalized is not null && accepted.Contains(normalized, StringComparer.Ordinal)
             ? normalized
+            : null;
+    }
+
+    /// <summary>
+    /// The accepted type <paramref name="extension"/> names: the application's mapping, otherwise the
+    /// platform's table; <see langword="null"/> when neither names an accepted type.
+    /// </summary>
+    private static string? TypeOfExtension(
+        string extension,
+        IReadOnlyList<string> accepted,
+        IReadOnlyDictionary<string, string>? mappedExtensions)
+    {
+        if (mappedExtensions is not null
+            && mappedExtensions.TryGetValue(extension, out var mapped)
+            && accepted.Contains(mapped, StringComparer.Ordinal))
+        {
+            return mapped;
+        }
+
+        return ByExtension.TryGetValue(extension, out var known) && accepted.Contains(known, StringComparer.Ordinal)
+            ? known
             : null;
     }
 
