@@ -235,6 +235,8 @@ public sealed class AssistantRegistrationTests
                     // proposed: codes of NhAssistantConsultationRoutes and
                     // NhAssistantConsultationRefusalReasons.
                     or "ConsultationRoute" or "ConsultationRefusalReason"
+                    // Where a consultation comes from: a code of NhAssistantConsultationSources.
+                    or "ConsultationSource"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }
