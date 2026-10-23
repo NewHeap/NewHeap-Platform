@@ -246,6 +246,10 @@ public sealed class AssistantRegistrationTests
                     // What started an ended run, its status and its failure code: codes of
                     // NhAssistantTriggerKinds, NhAssistantRunStatuses and the failure codes.
                     or "TriggerKind" or "RunStatus" or "RunFailureCode"
+                    // How the application said its execution of a proposal ended and its dash-case
+                    // code of at most 64 characters, checked when it reports; never the summary (S5
+                    // of the agent runs adoption plan).
+                    or "ExecutionOutcome" or "ExecutionCode"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }

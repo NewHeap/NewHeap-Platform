@@ -194,6 +194,42 @@ public sealed class AssistantWebPushTests
     }
 
     [Fact]
+    public void Every_agent_notification_kind_has_a_push_kind_and_a_text_in_english_and_dutch()
+    {
+        foreach (var kind in Enum.GetValues<NhAssistantAgentNotificationKind>())
+        {
+            Assert.StartsWith("agent-", NhAssistantPushKinds.ForAgent(kind), StringComparison.Ordinal);
+            foreach (var language in new[] { "en", "nl" })
+            {
+                var (title, body) = NewHeap.Platform.AI.Chat.Notifications.NhAssistantAgentNotificationTexts.IsRunProposals(kind)
+                    ? NewHeap.Platform.AI.Chat.Notifications.NhAssistantAgentNotificationTexts.ForRunProposals(kind, language, [], 1, "Roadmap", null)
+                    : NewHeap.Platform.AI.Chat.Notifications.NhAssistantAgentNotificationTexts.ForAgent(kind, language, "Roadmap", 1);
+                Assert.False(string.IsNullOrWhiteSpace(title));
+                Assert.False(string.IsNullOrWhiteSpace(body));
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(NhAssistantApprovalStatuses.Executed, "en", "The application carried out an approved proposal.")]
+    [InlineData(NhAssistantApprovalStatuses.ExecutionFailed, "en", "The application could not carry out an approved proposal.")]
+    [InlineData(NhAssistantApprovalStatuses.Executed, "nl", "De applicatie heeft een goedgekeurd voorstel uitgevoerd.")]
+    [InlineData(NhAssistantApprovalStatuses.ExecutionFailed, "nl", "De applicatie kon een goedgekeurd voorstel niet uitvoeren.")]
+    public void An_execution_report_says_whether_the_application_carried_out_the_proposal(string status, string language, string text)
+    {
+        Assert.Equal("agent-execution-reported", NhAssistantPushKinds.ForAgent(NhAssistantAgentNotificationKind.ExecutionReported));
+        var (_, body) = NewHeap.Platform.AI.Chat.Notifications.NhAssistantAgentNotificationTexts.ForAgent(
+            NhAssistantAgentNotificationKind.ExecutionReported,
+            language,
+            "Roadmap",
+            1,
+            code: "order-placed",
+            proposalStatus: status);
+
+        Assert.Equal(text, body);
+    }
+
+    [Fact]
     public void A_notification_about_the_proposals_of_a_run_carries_the_run_and_is_tagged_per_run()
     {
         // RN5: the conversation still opens by default; the run lets the application open its inbox.
