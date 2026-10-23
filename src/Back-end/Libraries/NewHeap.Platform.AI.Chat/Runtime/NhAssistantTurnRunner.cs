@@ -2700,7 +2700,10 @@ internal sealed partial class NhAssistantTurnRunner(
         var created = await adapter.CreateAsync(
             new NhAiAgentCreateRequest(descriptor, context, modelInstructions, registration.ExecutionRegion)
             {
-                DataClassification = ClassificationOf(state)
+                DataClassification = ClassificationOf(state),
+                // A consulted agent's scope requires approval for every effect, so what it calls
+                // becomes a proposal; the selectors above decide which effects it is offered (AC34).
+                EffectsAsProposals = state.Scope.Consultation is not null
             },
             agentServices,
             cancellationToken);
@@ -2813,7 +2816,7 @@ internal sealed partial class NhAssistantTurnRunner(
             cancellationToken);
         var selected = discovered
             .Where(descriptor => agent.ToolSelectors.Any(selector => IsSelected(selector, descriptor.Id)))
-            .Where(descriptor => descriptor.Effect == NhAiToolEffect.ReadOnly || agent.CanMutate)
+            .Where(descriptor => descriptor.Effect == NhAiToolEffect.ReadOnly || OffersEffects(agent, consultation))
             .Where(descriptor => IsOfferedInConsultation(descriptor, consultation))
             // An agent never consults itself.
             .Where(descriptor => !string.Equals(
@@ -2842,6 +2845,23 @@ internal sealed partial class NhAssistantTurnRunner(
         }
         logger.LogDebug("Assistant agent {AgentId} offers {ToolCount} tools.", agent.Id, selected.Length);
         return selected.Length == 0 ? agent.ToolSelectors : selected;
+    }
+
+    /// <summary>
+    /// Whether the agent is offered tools that change state. In its own turns, runs and rules only
+    /// with execute autonomy. In a consultation every effect becomes a proposal through the
+    /// consultation's routes, so one with a route in effect for this call offers them from propose
+    /// autonomy on; observe and explain agents only read, and a consultation that only answers
+    /// offers them to nobody (AC34).
+    /// </summary>
+    internal static bool OffersEffects(NhAssistantAgentDefinition agent, NhAssistantConsultationScope? consultation)
+    {
+        if (consultation is null)
+        {
+            return agent.CanMutate;
+        }
+
+        return consultation.MayPropose && agent.Autonomy >= NhAiAutonomyLevel.Propose;
     }
 
     /// <summary>

@@ -15,6 +15,17 @@ public sealed record NhAiAgentCreateRequest(
 {
     public NhAiDataClassification DataClassification { get; init; } =
         NhAiDataClassification.Internal;
+
+    /// <summary>
+    /// Every effect of the agent's tool calls becomes a proposal: the current
+    /// <see cref="NhAiAgentInvocationScope"/> requires approval for effects. An agent with
+    /// <see cref="NhAiAutonomyLevel.Propose"/> or <see cref="NhAiAutonomyLevel.Simulate"/>
+    /// autonomy is then offered tools that change state as well, and each of its calls asks for
+    /// approval instead of executing; <see cref="NhAiAutonomyLevel.Observe"/> and
+    /// <see cref="NhAiAutonomyLevel.Explain"/> agents still only read. Creating the agent throws
+    /// <see cref="InvalidOperationException"/> when no such scope is current.
+    /// </summary>
+    public bool EffectsAsProposals { get; init; }
 }
 
 public sealed record NhAiAgentInstance(
@@ -153,7 +164,8 @@ internal sealed class NhAiAgentFrameworkAdapter(
                 request.Descriptor.AllowedToolSelectors))
             .Where(descriptor => IsWithinAutonomy(
                 descriptor,
-                request.Descriptor.MaximumAutonomy))
+                request.Descriptor.MaximumAutonomy,
+                request.EffectsAsProposals))
             .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
             .ThenBy(descriptor => descriptor.Version)
             .ToArray();
@@ -297,6 +309,15 @@ internal sealed class NhAiAgentFrameworkAdapter(
                 "AI agents require an explicit bounded tool allow-list.",
                 nameof(request));
         }
+        if (request.EffectsAsProposals
+            && (NhAiAgentInvocationScopes.Current is not { RequireApprovalForEffects: true } scope
+                || !string.Equals(scope.AgentActorId, request.Context.ActorId, StringComparison.Ordinal)))
+        {
+            // Only the invoker's approval requirement turns an effect into a proposal; without it a
+            // propose-level agent would execute.
+            throw new InvalidOperationException(
+                "Effects as proposals require a current agent invocation scope of this agent that requires approval for effects.");
+        }
     }
 
     private static bool IsAllowed(
@@ -309,12 +330,22 @@ internal sealed class NhAiAgentFrameworkAdapter(
                 && descriptor.Id.StartsWith(selector[..^1], StringComparison.Ordinal)));
     }
 
+    /// <summary>
+    /// Reads need observe autonomy. Effects need execute autonomy, or propose autonomy when every
+    /// effect becomes a proposal.
+    /// </summary>
     private static bool IsWithinAutonomy(
         NhAiToolDescriptor descriptor,
-        NhAiAutonomyLevel autonomy)
+        NhAiAutonomyLevel autonomy,
+        bool effectsAsProposals)
     {
-        return descriptor.Effect == NhAiToolEffect.ReadOnly
-            ? autonomy >= NhAiAutonomyLevel.Observe
+        if (descriptor.Effect == NhAiToolEffect.ReadOnly)
+        {
+            return autonomy >= NhAiAutonomyLevel.Observe;
+        }
+
+        return effectsAsProposals
+            ? autonomy >= NhAiAutonomyLevel.Propose
             : autonomy >= NhAiAutonomyLevel.Execute;
     }
 

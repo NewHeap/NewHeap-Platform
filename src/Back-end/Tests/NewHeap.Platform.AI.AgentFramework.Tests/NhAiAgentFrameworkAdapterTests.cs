@@ -4,6 +4,7 @@ using Microsoft.Agents.AI.Workflows;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.AgentFramework;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Common.Models;
 using Xunit;
 
 namespace NewHeap.Platform.AI.AgentFramework.Tests;
@@ -57,6 +58,63 @@ public sealed class NhAiAgentFrameworkAdapterTests
         Assert.Equal(NhAiApprovalRequirement.Required, mutation.Approval);
         Assert.Equal(NhAiIdempotencySupport.Required, mutation.Idempotency);
         Assert.Equal("project-status", mutation.VerifierId);
+    }
+
+    [Fact]
+    public async Task Propose_autonomy_is_offered_effects_only_where_every_effect_needs_an_approval()
+    {
+        var services = CreateServices();
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var adapter = scope.ServiceProvider.GetRequiredService<INhAiAgentFrameworkAdapter>();
+
+        Task<TaskResult<NhAiAgentInstance>> CreateAsync(NhAiAutonomyLevel autonomy, bool effectsAsProposals)
+        {
+            return adapter.CreateAsync(
+                new NhAiAgentCreateRequest(
+                    Descriptor with { MaximumAutonomy = autonomy },
+                    Context,
+                    "Use only the supplied tools.")
+                {
+                    EffectsAsProposals = effectsAsProposals
+                },
+                scope.ServiceProvider);
+        }
+
+        // On its own a propose-level agent only reads.
+        var reading = await CreateAsync(NhAiAutonomyLevel.Propose, effectsAsProposals: false);
+        Assert.True(reading.Success);
+        Assert.Equal("projects.search", Assert.Single(reading.Data.Tools).Id);
+
+        // Effects as proposals need a scope of this agent in which every effect needs an approval.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateAsync(NhAiAutonomyLevel.Propose, effectsAsProposals: true));
+        using (NhAiAgentInvocationScopes.Begin(AgentScope() with { RequireApprovalForEffects = false }))
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => CreateAsync(NhAiAutonomyLevel.Propose, effectsAsProposals: true));
+        }
+        using (NhAiAgentInvocationScopes.Begin(AgentScope() with { AgentActorId = "another-agent" }))
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => CreateAsync(NhAiAutonomyLevel.Propose, effectsAsProposals: true));
+        }
+
+        using (NhAiAgentInvocationScopes.Begin(AgentScope()))
+        {
+            foreach (var autonomy in new[] { NhAiAutonomyLevel.Propose, NhAiAutonomyLevel.Simulate, NhAiAutonomyLevel.Execute })
+            {
+                var proposing = await CreateAsync(autonomy, effectsAsProposals: true);
+                Assert.True(proposing.Success);
+                Assert.Equal(
+                    ["projects.change-status", "projects.search"],
+                    proposing.Data.Tools.Select(tool => tool.Id).Order(StringComparer.Ordinal));
+            }
+
+            foreach (var autonomy in new[] { NhAiAutonomyLevel.Observe, NhAiAutonomyLevel.Explain })
+            {
+                var observing = await CreateAsync(autonomy, effectsAsProposals: true);
+                Assert.True(observing.Success);
+                Assert.Equal("projects.search", Assert.Single(observing.Data.Tools).Id);
+            }
+        }
     }
 
     [Fact]
@@ -235,6 +293,24 @@ public sealed class NhAiAgentFrameworkAdapterTests
         NhAiAutonomyLevel.Execute,
         new NhAiModelBudget(2_048, 1_024, 4, 0.10m),
         "project-agent-v1");
+
+    /// <summary>
+    /// The scope of <see cref="Descriptor"/>'s agent in which every effect needs an approval.
+    /// </summary>
+    private static NhAiAgentInvocationScope AgentScope()
+    {
+        return new NhAiAgentInvocationScope(
+            "project-agent",
+            "project-agent",
+            1,
+            new NhAiSubjectInfo(new NhAiSubjectRef("project", "project-0001"), NhAiSubjectInfo.CreateScopeKey(null, null)),
+            "owner-1",
+            "run-1",
+            "project-assistance")
+        {
+            RequireApprovalForEffects = true
+        };
+    }
 
     private static readonly NhAiInvocationContext Context = new(
         "project-agent",

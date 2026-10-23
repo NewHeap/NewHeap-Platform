@@ -14,7 +14,7 @@ namespace NewHeap.Platform.AI.Chat;
 /// <param name="ProfileName">Registered chat profile that serves the agent.</param>
 /// <param name="Instructions">System instructions; id, version and hash flow into context and audit.</param>
 /// <param name="ToolSelectors">Globs over <see cref="NhAiToolDescriptor.Id"/>: an exact id or a prefix ending in <c>.*</c>.</param>
-/// <param name="Autonomy">Maximum autonomy; only <see cref="NhAiAutonomyLevel.Execute"/> offers mutating tools.</param>
+/// <param name="Autonomy">Maximum autonomy; only <see cref="NhAiAutonomyLevel.Execute"/> offers mutating tools in the agent's own turns, while a consultation with a proposal route offers them as proposals from <see cref="NhAiAutonomyLevel.Propose"/> on.</param>
 /// <param name="RequiredPolicy">Optional authorization policy a user needs to see and use the agent.</param>
 public sealed record NhAssistantAgentDefinition(
     string Id,
@@ -33,7 +33,9 @@ public sealed record NhAssistantAgentDefinition(
         TimeSpan.FromMilliseconds(100));
 
     /// <summary>
-    /// True when the agent may be offered tools that change state.
+    /// True when the agent may be offered tools that change state in its own turns, runs and rules.
+    /// A consultation with a proposal route offers them as proposals from
+    /// <see cref="NhAiAutonomyLevel.Propose"/> on.
     /// </summary>
     public bool CanMutate => Autonomy >= NhAiAutonomyLevel.Execute;
 
